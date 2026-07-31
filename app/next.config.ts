@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
       "@x402/core/client": emptyPath,
       "@x402/evm/exact/client": emptyPath,
       "@x402/evm/upto/client": emptyPath,
+      "@x402/svm/exact/client": emptyPath,
+      "@x402/svm/upto/client": emptyPath,
+      "@x402/evm": emptyPath,
+      "@x402/svm": emptyPath,
+      "@x402/client": emptyPath,
     };
     return config;
   },
@@ -20,6 +25,12 @@ const nextConfig: NextConfig = {
       "@x402/core/client": "./src/empty.ts",
       "@x402/evm/exact/client": "./src/empty.ts",
       "@x402/evm/upto/client": "./src/empty.ts",
+      "@x402/svm/exact/client": "./src/empty.ts",
+      "@x402/svm/upto/client": "./src/empty.ts",
+      "@x402/evm": "./src/empty.ts",
+      "@x402/svm": "./src/empty.ts",
+      "@x402/client": "./src/empty.ts",
+      "@x402/*": "./src/empty.ts",
     }
   }
 };
