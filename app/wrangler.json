@@ -1,4 +1,10 @@
 {
   "name": "bidv-rwa-tokenize",
-  "compatibility_date": "2026-07-30"
+  "compatibility_date": "2026-07-30",
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "bidv-rwa-tokenize"
+    }
+  ]
 }
