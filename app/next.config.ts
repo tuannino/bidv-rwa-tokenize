@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       "@x402/svm": emptyPath,
       "@x402/client": emptyPath,
       "@vercel/og": emptyPath,
+      "next/dist/server/og/image-response": emptyPath,
+      "next/dist/compiled/@vercel/og": emptyPath,
     };
     return config;
   },
@@ -33,6 +35,8 @@ const nextConfig: NextConfig = {
       "@x402/client": "./src/empty.ts",
       "@x402/*": "./src/empty.ts",
       "@vercel/og": "./src/empty.ts",
+      "next/dist/server/og/image-response": "./src/empty.ts",
+      "next/dist/compiled/@vercel/og": "./src/empty.ts",
     }
   },
   // Exclude heavy unused WASM binaries from being copied into build functions
