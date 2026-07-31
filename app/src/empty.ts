@@ -9,5 +9,8 @@ export const ExactEvmScheme = {};
 export const UptoSvmScheme = {};
 export const ExactSvmScheme = {};
 export const cdpSolanaAccountToSvmSigner = () => ({});
+export class ImageResponse {
+  constructor() {}
+}
 
 export default {};

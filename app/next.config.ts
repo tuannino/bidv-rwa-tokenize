@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       "@x402/evm": emptyPath,
       "@x402/svm": emptyPath,
       "@x402/client": emptyPath,
+      "@vercel/og": emptyPath,
     };
     return config;
   },
@@ -31,6 +32,7 @@ const nextConfig: NextConfig = {
       "@x402/svm": "./src/empty.ts",
       "@x402/client": "./src/empty.ts",
       "@x402/*": "./src/empty.ts",
+      "@vercel/og": "./src/empty.ts",
     }
   }
 };
