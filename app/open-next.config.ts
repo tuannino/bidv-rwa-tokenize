@@ -1,6 +1,7 @@
-import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+const config = {
+  default: {
+    minify: true,
+  },
+};
 
-export default defineCloudflareConfig({
-  // @ts-ignore
-  minify: true,
-});
+export default config;
