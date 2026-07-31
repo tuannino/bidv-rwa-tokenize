@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "rm -f node_modules/next/dist/compiled/@vercel/og/*.wasm && next build && (find .open-next -name \"*.wasm\" -delete 2>/dev/null || true)",
     "start": "next start",
     "lint": "eslint"
   },
