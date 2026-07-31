@@ -34,6 +34,13 @@ const nextConfig: NextConfig = {
       "@x402/*": "./src/empty.ts",
       "@vercel/og": "./src/empty.ts",
     }
+  },
+  // Exclude heavy unused WASM binaries from being copied into build functions
+  outputFileTracingExcludes: {
+    "*": [
+      "node_modules/next/dist/compiled/@vercel/og/resvg.wasm",
+      "node_modules/next/dist/compiled/@vercel/og/yoga.wasm",
+    ],
   }
 };
 
