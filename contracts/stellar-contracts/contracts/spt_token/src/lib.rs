@@ -17,7 +17,7 @@
 //! này là lựa chọn "token tùy biến bằng Soroban" khi cần logic riêng.
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, Address, Env, String, Symbol,
+    contract, contracterror, contractimpl, contracttype, Address, Env, String, Symbol, Vec,
 };
 
 // ===========================================================================
@@ -48,6 +48,15 @@ pub struct AllowanceValue {
     pub expiration_ledger: u32,
 }
 
+/// Một điểm chốt (checkpoint) số dư: giá trị TRƯỚC lần thay đổi đầu tiên trong kỷ
+/// nguyên của snapshot `snapshot_id`. Dùng để tính số dư tại thời điểm snapshot.
+#[contracttype]
+#[derive(Clone)]
+pub struct Checkpoint {
+    pub snapshot_id: u32,
+    pub value: i128,
+}
+
 #[derive(Clone)]
 #[contracttype]
 pub enum DataKey {
@@ -59,6 +68,10 @@ pub enum DataKey {
     Balance(Address),
     Authorized(Address),
     Allowance(AllowanceKey),
+    // --- Hỗ trợ snapshot (checkpoint số dư) cho mô hình chia lợi nhuận pull ---
+    SnapshotId,                    // bộ đếm snapshot hiện tại (u32), bắt đầu 0
+    AccountCheckpoints(Address),   // Vec<Checkpoint> theo từng địa chỉ
+    SupplyCheckpoints,             // Vec<Checkpoint> cho tổng cung
 }
 
 // ===========================================================================
@@ -74,6 +87,7 @@ pub enum Error {
     InsufficientBalance = 4,
     InsufficientAllowance = 5,
     InvalidExpiration = 6,
+    InvalidSnapshot = 7,
 }
 
 #[contract]
@@ -109,6 +123,9 @@ fn read_balance(env: &Env, addr: &Address) -> i128 {
 
 fn write_balance(env: &Env, addr: &Address, amount: i128) {
     let key = DataKey::Balance(addr.clone());
+    // Chốt số dư CŨ vào checkpoint (nếu đang trong một kỳ snapshot) trước khi ghi mới.
+    let old: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+    update_account_checkpoint(env, addr, old);
     env.storage().persistent().set(&key, &amount);
     env.storage()
         .persistent()
@@ -135,7 +152,82 @@ fn read_total_supply(env: &Env) -> i128 {
 }
 
 fn write_total_supply(env: &Env, v: i128) {
+    let old = read_total_supply(env);
+    update_supply_checkpoint(env, old);
     env.storage().instance().set(&DataKey::TotalSupply, &v);
+}
+
+// --------------------- Hỗ trợ snapshot (checkpoint) ------------------------
+fn current_snapshot_id(env: &Env) -> u32 {
+    let v: Option<u32> = env.storage().instance().get(&DataKey::SnapshotId);
+    v.unwrap_or(0)
+}
+
+/// Ghi checkpoint số dư cũ của một địa chỉ cho kỳ snapshot hiện tại, mỗi kỳ tối đa
+/// một lần (lần thay đổi số dư ĐẦU TIÊN sau khi snapshot được chụp).
+fn update_account_checkpoint(env: &Env, addr: &Address, old_balance: i128) {
+    let cur = current_snapshot_id(env);
+    if cur == 0 {
+        return; // chưa có snapshot nào
+    }
+    let key = DataKey::AccountCheckpoints(addr.clone());
+    let mut cps: Vec<Checkpoint> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env));
+    let n = cps.len();
+    let need = n == 0 || cps.get(n - 1).unwrap().snapshot_id < cur;
+    if need {
+        cps.push_back(Checkpoint {
+            snapshot_id: cur,
+            value: old_balance,
+        });
+        env.storage().persistent().set(&key, &cps);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, ENTRY_THRESHOLD, ENTRY_BUMP);
+    }
+}
+
+fn update_supply_checkpoint(env: &Env, old_supply: i128) {
+    let cur = current_snapshot_id(env);
+    if cur == 0 {
+        return;
+    }
+    let key = DataKey::SupplyCheckpoints;
+    let mut cps: Vec<Checkpoint> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env));
+    let n = cps.len();
+    let need = n == 0 || cps.get(n - 1).unwrap().snapshot_id < cur;
+    if need {
+        cps.push_back(Checkpoint {
+            snapshot_id: cur,
+            value: old_supply,
+        });
+        env.storage().persistent().set(&key, &cps);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, ENTRY_THRESHOLD, ENTRY_BUMP);
+    }
+}
+
+/// Tra giá trị tại thời điểm snapshot: checkpoint đầu tiên có snapshot_id >= yêu cầu;
+/// nếu không có (số dư không đổi kể từ snapshot) thì trả giá trị hiện tại.
+fn value_at(env: &Env, cps: &Vec<Checkpoint>, snapshot_id: u32, current: i128) -> i128 {
+    let n = cps.len();
+    let mut i = 0u32;
+    while i < n {
+        let cp = cps.get(i).unwrap();
+        if cp.snapshot_id >= snapshot_id {
+            return cp.value;
+        }
+        i += 1;
+    }
+    current
 }
 
 fn read_allowance(env: &Env, from: &Address, spender: &Address) -> AllowanceValue {
@@ -389,6 +481,51 @@ impl SptToken {
     pub fn total_supply(env: Env) -> i128 {
         read_total_supply(&env)
     }
+
+    // --------------------- QUY TRÌNH: SNAPSHOT ----------------------------
+    /// Chụp một snapshot: tăng bộ đếm và trả về snapshot_id mới (bắt đầu từ 1).
+    /// Số dư của mọi địa chỉ tại thời điểm này về sau tra được bằng balance_at.
+    /// Chỉ admin (thường do hợp đồng phân phối gọi khi mở kỳ chia). 
+    pub fn snapshot(env: Env) -> u32 {
+        read_admin(&env).require_auth();
+        extend_instance(&env);
+        let id = current_snapshot_id(&env) + 1;
+        env.storage().instance().set(&DataKey::SnapshotId, &id);
+        env.events().publish((Symbol::new(&env, "snapshot"),), id);
+        id
+    }
+
+    pub fn current_snapshot(env: Env) -> u32 {
+        current_snapshot_id(&env)
+    }
+
+    /// Số dư của `id` tại thời điểm snapshot `snapshot_id`.
+    pub fn balance_at(env: Env, id: Address, snapshot_id: u32) -> Result<i128, Error> {
+        let cur = current_snapshot_id(&env);
+        if snapshot_id == 0 || snapshot_id > cur {
+            return Err(Error::InvalidSnapshot);
+        }
+        let cps: Vec<Checkpoint> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AccountCheckpoints(id.clone()))
+            .unwrap_or(Vec::new(&env));
+        Ok(value_at(&env, &cps, snapshot_id, read_balance(&env, &id)))
+    }
+
+    /// Tổng cung tại thời điểm snapshot `snapshot_id`.
+    pub fn total_supply_at(env: Env, snapshot_id: u32) -> Result<i128, Error> {
+        let cur = current_snapshot_id(&env);
+        if snapshot_id == 0 || snapshot_id > cur {
+            return Err(Error::InvalidSnapshot);
+        }
+        let cps: Vec<Checkpoint> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::SupplyCheckpoints)
+            .unwrap_or(Vec::new(&env));
+        Ok(value_at(&env, &cps, snapshot_id, read_total_supply(&env)))
+    }
     pub fn decimals(env: Env) -> u32 {
         let v: Option<u32> = env.storage().instance().get(&DataKey::Decimals);
         v.unwrap()
@@ -481,5 +618,38 @@ mod test {
         c.mint(&a, &1_000);
         // b chưa được KYC -> chuyển sang b phải lỗi.
         assert!(c.try_transfer(&a, &b, &100).is_err());
+    }
+
+    #[test]
+    fn test_snapshot_freezes_balance_for_reads() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let a = Address::generate(&env);
+        let b = Address::generate(&env);
+        let id = env.register(SptToken, ());
+        let c = SptTokenClient::new(&env, &id);
+        c.initialize(
+            &admin,
+            &7u32,
+            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "SPT"),
+        );
+        c.set_authorized(&a, &true);
+        c.set_authorized(&b, &true);
+        c.mint(&a, &700);
+        c.mint(&b, &300);
+
+        // Chụp snapshot 1 với trạng thái a=700, b=300, tổng=1000.
+        let snap = c.snapshot();
+        assert_eq!(snap, 1);
+
+        // Sau snapshot, a chuyển hết cho b. Số dư hiện tại đổi nhưng balance_at giữ nguyên.
+        c.transfer(&a, &b, &700);
+        assert_eq!(c.balance(&a), 0);
+        assert_eq!(c.balance(&b), 1000);
+        assert_eq!(c.balance_at(&a, &snap), 700);
+        assert_eq!(c.balance_at(&b, &snap), 300);
+        assert_eq!(c.total_supply_at(&snap), 1000);
     }
 }

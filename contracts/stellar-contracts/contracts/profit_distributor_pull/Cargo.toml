@@ -1,0 +1,19 @@
+[package]
+name = "profit-distributor-pull"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+spt-token = { path = "../spt_token" }
+revenue-oracle = { path = "../revenue_oracle" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+spt-token = { path = "../spt_token" }
+revenue-oracle = { path = "../revenue_oracle" }
