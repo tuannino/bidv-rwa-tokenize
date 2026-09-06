@@ -23,3 +23,9 @@ Lỗi/thói quen sai lặp lại → được nâng thành rule trong `lessons.m
 
 ## ⚠️ Next.js 16
 Đọc `node_modules/next/dist/docs/` + `app/AGENTS.md` trước khi sửa `app/`. Đây là nguồn lỗi hay gặp.
+
+## Chia commit nhỏ theo mục tiêu (BẮT BUỘC)
+- KHÔNG dồn cả phase vào một commit lớn. Chia theo **đơn vị mục tiêu** (một task/một nhóm thay đổi mạch lạc) = một commit.
+- Message rõ theo Conventional Commits (`feat:`, `fix:`, `chore:`, `refactor:`, `test:`), câu mô tả nêu **mục tiêu**, không chỉ liệt kê file.
+- Mỗi commit nên ở trạng thái build/test được (ít nhất không làm hỏng nhánh) để **rollback từng phần** khi một đoạn sai, làm tiếp trên cùng nhánh.
+- Lợi ích: dễ review theo diff nhỏ, dễ lần lỗi (`git bisect`), dễ revert đúng chỗ.
