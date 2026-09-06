@@ -4,6 +4,8 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { ChainSelector } from "./chain-selector";
+import { RoleSwitcher } from "./role-switcher";
 
 interface HeaderProps {
   breadcrumbs?: { label: string; href?: string }[];
@@ -40,6 +42,13 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
 
       {/* Right side */}
       <div className="flex items-center gap-3">
+        {/* Chọn chain: hardhat-local | mock | evm | stellar (KHÔNG Polygon) */}
+        <ChainSelector />
+
+        {/* Đổi vai trò — chỉ để demo RBAC trong PoC */}
+        <RoleSwitcher />
+
+        <div className="h-6 w-px bg-border" aria-hidden="true" />
         {/* Dark/Light toggle */}
         {mounted && (
           <button

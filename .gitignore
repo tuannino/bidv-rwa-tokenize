@@ -1,34 +1,44 @@
 # Dependencies
-app/node_modules/
 node_modules/
-
 # Next.js build output
 app/.next/
+app/.open-next/
 app/out/
-
+# Test output
+app/test-results/
+app/playwright-report/
+app/blob-report/
 # Env files — KHÔNG commit key thật
-app/.env*
-.env*
-
-# Hardhat build artifacts (Phase 2)
-hardhat/artifacts/
-hardhat/cache/
-hardhat/node_modules/
-
+.env
+.env.*
+!.env.example
+# Hardhat build artifacts
+packages/contracts-evm/artifacts/
+packages/contracts-evm/cache/
+packages/contracts-evm/typechain-types/
+packages/contracts-evm/trex/artifacts/
+packages/contracts-evm/trex/cache/
+# Prisma client sinh ra (22MB, chỉ cần khi tới Phase 4 — xem app/prisma/schema.prisma)
+app/src/generated/
 # macOS
 .DS_Store
-
 # TypeScript
 *.tsbuildinfo
 app/next-env.d.ts
-
 # Vercel
 .vercel
-
 # Debug logs
 npm-debug.log*
 yarn-debug.log*
-
-#other
+# other
 BIDV_RWA_Analysis.docx
 .claude
+
+# ─────────────────────────────────────────────────────────────────────
+# CỐ TÌNH COMMIT (dù là file sinh ra):
+#   packages/shared/src/addresses.json    — địa chỉ hardhat-local là tất định; free-tier
+#                                           không đọc được filesystem lúc runtime.
+#   packages/shared/generated/*.abi.json  — test app/test/abi-contract-sync.test.ts đối chiếu
+#                                           ABI tối giản với ABI thật; thiếu file này test đỏ.
+#   app/prisma/init.sql                   — DDL sinh từ schema.prisma, postgres.store đọc lúc chạy.
+# ─────────────────────────────────────────────────────────────────────

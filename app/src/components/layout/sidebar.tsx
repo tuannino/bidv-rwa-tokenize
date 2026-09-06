@@ -7,18 +7,24 @@ import {
   ListChecks,
   ArrowLeftRight,
   UserCheck,
+  Coins,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BidvLogo } from "@/components/bidv-logo";
+import { useSelectedChain } from "@/lib/chains/use-selected-chain";
+import { usePublicConfig } from "@/lib/config/config-context";
 
 const NAV_ITEMS = [
   { href: "/", label: "Tổng quan", icon: LayoutDashboard, shortcut: "E" },
 ];
 
 const MODULE_ITEMS = [
+  { href: "/mint",           label: "Phát hành token",  icon: Coins,          shortcut: "M" },
   { href: "/assets",         label: "Niêm yết tài sản", icon: ListChecks,     shortcut: "E" },
   { href: "/reconciliation", label: "Đối soát batch",   icon: ArrowLeftRight, shortcut: "B" },
   { href: "/kyc",            label: "Quản lý KYC",      icon: UserCheck,      shortcut: "A" },
+  { href: "/audit",          label: "Sổ kiểm toán",     icon: ScrollText,     shortcut: "K" },
 ];
 
 export function Sidebar() {
@@ -95,7 +101,15 @@ function NavLink({
   );
 }
 
+/**
+ * Trạng thái mạng — đọc từ chain ĐANG CHỌN, không hard-code.
+ * (Trước đây ghi cứng "Polygon Amoy"; Polygon đã bị loại khỏi dự án.)
+ */
 function NetworkStatus() {
+  const config = usePublicConfig();
+  const { chain } = useSelectedChain();
+  const info = config.chains.find((option) => option.key === chain);
+
   return (
     <div className="px-4 py-3 border-t border-border">
       <div className="flex items-center gap-2 text-xs">
@@ -103,10 +117,10 @@ function NetworkStatus() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
         </span>
-        <span className="text-sidebar-foreground/80">Testnet · Polygon Amoy</span>
+        <span className="text-sidebar-foreground/80">{info?.label ?? chain}</span>
       </div>
       <div className="text-[11px] text-muted-foreground font-mono mt-0.5 pl-4">
-        Block #—
+        {chain} · vai trò {config.role}
       </div>
     </div>
   );
