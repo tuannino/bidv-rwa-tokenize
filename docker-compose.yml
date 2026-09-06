@@ -1,0 +1,41 @@
+# Dựng toàn bộ PoC bằng 1 lệnh: docker compose up
+# Mục tiêu: mint chạy được ngay với chain hardhat-local + tích hợp mock.
+services:
+  chain:
+    build: ./packages/contracts-evm
+    # Chạy hardhat node + tự deploy ProjectToken/VNDToken, ghi địa chỉ ra volume shared
+    command: sh -c "npx hardhat node --hostname 0.0.0.0 & sleep 5 && npx hardhat run scripts/deploy.js --network localhost && wait"
+    ports:
+      - "8545:8545"
+    volumes:
+      - shared:/app/shared        # xuất addresses.json + ABI cho web
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bidv
+      POSTGRES_PASSWORD: bidv
+      POSTGRES_DB: bidv_rwa
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    build: ./app
+    depends_on: [chain, db]
+    environment:
+      NEXT_PUBLIC_DEFAULT_CHAIN: hardhat-local
+      NEXT_PUBLIC_RPC_HARDHAT: http://chain:8545
+      DATABASE_URL: postgresql://bidv:bidv@db:5432/bidv_rwa
+      USE_MOCK_KYC: "true"
+      USE_MOCK_ORACLE: "true"
+      USE_MOCK_COREBANK: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - shared:/app/shared:ro     # đọc addresses.json + ABI
+
+volumes:
+  shared:
+  pgdata:
