@@ -10,7 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { explorerTxUrl } from "@bidv/shared";
 import { MOCK_ASSETS, MOCK_STATS, type Asset, type AssetType, type AssetStatus } from "@/lib/mock-data";
+import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABELS: Record<AssetType, string> = {
@@ -200,17 +202,44 @@ function AssetRow({ asset }: { asset: Asset }) {
         <div className="text-muted-foreground font-mono">{asset.adminAddress}</div>
       </div>
       <div>
-        <a
-          href={`https://amoy.polygonscan.com/tx/${asset.txHash}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 font-mono text-xs text-blue-400 hover:text-blue-300 transition-colors"
-        >
-          {asset.txHash}
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        <TxLink txHash={asset.txHash} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Link tới explorer của **chain đang chọn**.
+ *
+ * Trước đây trỏ cứng vào explorer của một chain đã bị loại khỏi dự án (SPEC §1),
+ * nên sai với mọi chain hiện tại. Chain cục bộ/mock không có explorer nào biết tới,
+ * nên hiện hash dạng chữ kèm giải thích thay vì một link chắc chắn 404.
+ */
+function TxLink({ txHash }: { txHash: string }) {
+  const { chain } = useSelectedChain();
+  const url = explorerTxUrl(chain, txHash);
+
+  if (!url) {
+    return (
+      <span
+        className="font-mono text-xs text-muted-foreground"
+        title={`Chain "${chain}" không có block explorer công khai`}
+      >
+        {txHash}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1 font-mono text-xs text-primary transition-colors hover:underline"
+    >
+      {txHash}
+      <ExternalLink className="h-3 w-3" />
+    </a>
   );
 }
 

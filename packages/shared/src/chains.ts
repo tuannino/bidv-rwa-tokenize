@@ -17,6 +17,12 @@ export interface ChainInfo {
   /** RPC mặc định khi không có env override. */
   defaultRpcUrl?: string;
   nativeCurrency?: { name: string; symbol: string; decimals: number };
+  /**
+   * Gốc block explorer, KHÔNG có dấu `/` cuối. `undefined` = chain này không có explorer
+   * (hardhat-local, mock) -> UI phải ẩn link chứ không trỏ sang explorer của chain khác.
+   */
+  explorerBaseUrl?: string;
+  explorerName?: string;
   /** false = mới là stub/chưa hiện thực xong, UI nên disable. */
   implemented: boolean;
   /** true = chạy được KHÔNG cần chain thật (phù hợp free-tier). */
@@ -34,6 +40,7 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
     chainId: 31337,
     defaultRpcUrl: 'http://127.0.0.1:8545',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    // Chain cục bộ: không có explorer công khai nào biết tới nó.
     implemented: true,
     requiresNode: true,
     hint: 'Chain nội bộ cho demo đầy đủ (docker compose up).',
@@ -45,6 +52,8 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
     chainId: 11155111,
     defaultRpcUrl: 'https://rpc.sepolia.org',
     nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+    explorerBaseUrl: 'https://sepolia.etherscan.io',
+    explorerName: 'Etherscan',
     implemented: true,
     requiresNode: false,
     hint: 'Cần RPC + địa chỉ contract qua biến môi trường (Phase 6).',
@@ -72,4 +81,15 @@ export const CHAIN_ORDER: ChainKey[] = ['hardhat-local', 'mock', 'evm', 'stellar
 
 export function getChainInfo(key: ChainKey): ChainInfo {
   return CHAINS[key];
+}
+
+/**
+ * URL xem giao dịch trên explorer của chain, hoặc `null` nếu chain không có explorer.
+ *
+ * Trả `null` thay vì một URL đoán bừa: trỏ tx của hardhat-local sang explorer công khai
+ * sẽ ra trang "not found", tệ hơn là không có link.
+ */
+export function explorerTxUrl(key: ChainKey, txHash: string): string | null {
+  const base = CHAINS[key].explorerBaseUrl;
+  return base ? `${base}/tx/${txHash}` : null;
 }
