@@ -1,5 +1,5 @@
 [package]
-name = "spt-token"
+name = "wpt-token"
 version = "0.1.0"
 edition = "2021"
 publish = false

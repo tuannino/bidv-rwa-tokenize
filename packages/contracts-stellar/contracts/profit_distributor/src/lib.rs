@@ -2,16 +2,16 @@
 //! Profit Distributor — Hợp đồng TÍNH và CHIA lợi nhuận định kỳ.
 //! ---------------------------------------------------------------------------
 //! Mô hình: mỗi kỳ (tháng/quý), doanh thu ròng của dự án (đã quy ra token VND)
-//! được chia cho các nhà đầu tư theo TỶ LỆ nắm giữ token SPT.
+//! được chia cho các nhà đầu tư theo TỶ LỆ nắm giữ token WPT.
 //!
 //! Công thức (làm tròn xuống):
 //!     share_i = total_revenue * balance_i / registered_supply
-//! trong đó registered_supply là tổng SPT của các nhà đầu tư đã đăng ký.
+//! trong đó registered_supply là tổng WPT của các nhà đầu tư đã đăng ký.
 //!
 //! Luồng vận hành:
 //!   1. Admin nạp sẵn VND vào kho của chính hợp đồng này (transfer VND -> địa chỉ HĐ).
 //!   2. Admin gọi distribute(period_id, total_revenue).
-//!   3. HĐ đọc số dư SPT của từng holder, tính phần chia, đẩy VND cho từng người.
+//!   3. HĐ đọc số dư WPT của từng holder, tính phần chia, đẩy VND cho từng người.
 //!
 //! Mô hình "push" (HĐ chủ động trả) phù hợp số nhà đầu tư vừa phải (tổ chức).
 //! Với hàng nghìn holder, nên chuyển sang mô hình "pull" (từng người claim) để
@@ -20,7 +20,7 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, Address, Env, Symbol, Vec,
 };
-use spt_token::SptTokenClient;
+use wpt_token::WptTokenClient;
 
 const DAY: u32 = 17_280;
 const INSTANCE_BUMP: u32 = 30 * DAY;
@@ -32,7 +32,7 @@ const PERIOD_THRESHOLD: u32 = PERIOD_BUMP - DAY;
 #[contracttype]
 pub enum DKey {
     Admin,
-    Spt,
+    Wpt,
     Vnd,
     Holders,
     Period(u32),
@@ -68,8 +68,8 @@ fn admin(env: &Env) -> Address {
     let a: Option<Address> = env.storage().instance().get(&DKey::Admin);
     a.unwrap()
 }
-fn spt_addr(env: &Env) -> Address {
-    let a: Option<Address> = env.storage().instance().get(&DKey::Spt);
+fn wpt_addr(env: &Env) -> Address {
+    let a: Option<Address> = env.storage().instance().get(&DKey::Wpt);
     a.unwrap()
 }
 fn vnd_addr(env: &Env) -> Address {
@@ -99,14 +99,14 @@ impl ProfitDistributor {
     pub fn initialize(
         env: Env,
         admin_addr: Address,
-        spt_token: Address,
+        wpt_token: Address,
         vnd_token: Address,
     ) -> Result<(), Error> {
         if env.storage().instance().has(&DKey::Admin) {
             return Err(Error::AlreadyInitialized);
         }
         env.storage().instance().set(&DKey::Admin, &admin_addr);
-        env.storage().instance().set(&DKey::Spt, &spt_token);
+        env.storage().instance().set(&DKey::Wpt, &wpt_token);
         env.storage().instance().set(&DKey::Vnd, &vnd_token);
         env.storage()
             .instance()
@@ -157,12 +157,12 @@ impl ProfitDistributor {
         read_holders(&env)
     }
 
-    /// Tổng SPT của các nhà đầu tư đã đăng ký — mẫu số để chia tỷ lệ.
+    /// Tổng WPT của các nhà đầu tư đã đăng ký — mẫu số để chia tỷ lệ.
     pub fn registered_supply(env: Env) -> i128 {
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
         let mut total: i128 = 0;
         for a in read_holders(&env).iter() {
-            total += spt.balance(&a);
+            total += wpt.balance(&a);
         }
         total
     }
@@ -171,15 +171,15 @@ impl ProfitDistributor {
     /// Xem trước phần lợi nhuận (VND) một nhà đầu tư nhận với doanh thu kỳ cho trước.
     /// Là hàm chỉ đọc, tách riêng để kiểm thử công thức độc lập với việc chuyển tiền.
     pub fn preview_share(env: Env, total_revenue: i128, investor: Address) -> i128 {
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
         let mut total: i128 = 0;
         for a in read_holders(&env).iter() {
-            total += spt.balance(&a);
+            total += wpt.balance(&a);
         }
         if total <= 0 {
             return 0;
         }
-        let bal = spt.balance(&investor);
+        let bal = wpt.balance(&investor);
         mul_div(total_revenue, bal, total).unwrap_or(0)
     }
 
@@ -204,14 +204,14 @@ impl ProfitDistributor {
             return Err(Error::NoHolders);
         }
 
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
-        let vnd = SptTokenClient::new(&env, &vnd_addr(&env));
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
+        let vnd = WptTokenClient::new(&env, &vnd_addr(&env));
         let this = env.current_contract_address();
 
         // Mẫu số.
         let mut total: i128 = 0;
         for a in hs.iter() {
-            total += spt.balance(&a);
+            total += wpt.balance(&a);
         }
         if total <= 0 {
             return Err(Error::ZeroSupply);
@@ -220,7 +220,7 @@ impl ProfitDistributor {
         // Chia theo tỷ lệ. Phần dư do làm tròn nằm lại trong kho HĐ.
         let mut paid: i128 = 0;
         for a in hs.iter() {
-            let bal = spt.balance(&a);
+            let bal = wpt.balance(&a);
             if bal <= 0 {
                 continue;
             }
@@ -263,7 +263,7 @@ mod test {
     use super::*;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::String;
-    use spt_token::{SptToken, SptTokenClient};
+    use wpt_token::{WptToken, WptTokenClient};
 
     #[test]
     fn test_distribute_pro_rata() {
@@ -271,17 +271,17 @@ mod test {
         env.mock_all_auths();
         let admin = Address::generate(&env);
 
-        // Deploy hai token: SPT (quyền hưởng) và VND (chi trả).
-        let spt_id = env.register(SptToken, ());
-        let spt = SptTokenClient::new(&env, &spt_id);
-        spt.initialize(
+        // Deploy hai token: WPT (quyền hưởng) và VND (chi trả).
+        let wpt_id = env.register(WptToken, ());
+        let wpt = WptTokenClient::new(&env, &wpt_id);
+        wpt.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "SPT"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "WPT"),
+            &String::from_str(&env, "WPT"),
         );
-        let vnd_id = env.register(SptToken, ());
-        let vnd = SptTokenClient::new(&env, &vnd_id);
+        let vnd_id = env.register(WptToken, ());
+        let vnd = WptTokenClient::new(&env, &vnd_id);
         vnd.initialize(
             &admin,
             &7u32,
@@ -292,20 +292,20 @@ mod test {
         // Deploy distributor.
         let dist_id = env.register(ProfitDistributor, ());
         let dist = ProfitDistributorClient::new(&env, &dist_id);
-        dist.initialize(&admin, &spt_id, &vnd_id);
+        dist.initialize(&admin, &wpt_id, &vnd_id);
 
         let a = Address::generate(&env);
         let b = Address::generate(&env);
 
         // KYC/authorize cho nhà đầu tư và cho chính địa chỉ HĐ (để giữ VND).
         for who in [&a, &b, &dist_id] {
-            spt.set_authorized(who, &true);
+            wpt.set_authorized(who, &true);
             vnd.set_authorized(who, &true);
         }
 
-        // Phát hành SPT: a=700, b=300.
-        spt.mint(&a, &700);
-        spt.mint(&b, &300);
+        // Phát hành WPT: a=700, b=300.
+        wpt.mint(&a, &700);
+        wpt.mint(&b, &300);
 
         // Đăng ký holder.
         dist.register_holder(&a);

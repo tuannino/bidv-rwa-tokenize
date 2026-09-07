@@ -12,13 +12,13 @@ import { expect, test } from '@playwright/test';
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 test.describe('Phát hành token điện gió', () => {
-  test('KYC + whitelist rồi mint 100 SPT thì số dư thành 100', async ({ page }) => {
+  test('KYC + whitelist rồi mint 100 WPT thì số dư thành 100', async ({ page }) => {
     await page.goto('/mint');
 
     await expect(page.getByRole('heading', { name: /Phát hành token dự án điện gió/i })).toBeVisible();
 
     await page.getByLabel('Ví nhà đầu tư').fill(INVESTOR);
-    await page.getByLabel('Số lượng SPT').fill('100');
+    await page.getByLabel('Số lượng WPT').fill('100');
 
     // Bước 1: KYC mock auto-approve -> whitelist on-chain.
     await page.getByRole('button', { name: /KYC \+ Whitelist/i }).click();
@@ -28,12 +28,12 @@ test.describe('Phát hành token điện gió', () => {
     // Số dư TRƯỚC khi phát hành. Kiểm theo mức TĂNG chứ không chốt cứng "= 100":
     // chain `mock` reset theo tiến trình, nhưng hardhat-local giữ state giữa các lần chạy,
     // nên chốt cứng sẽ đỏ oan ở lần chạy thứ hai.
-    const balancePanel = page.getByText('Số dư SPT').locator('..');
+    const balancePanel = page.getByText('Số dư WPT').locator('..');
     const before = BigInt((await balancePanel.innerText()).replace(/\D/g, '') || '0');
 
     // Bước 2: phát hành.
     await page.getByRole('button', { name: /Phát hành/i }).click();
-    await expect(page.getByRole('status')).toContainText(/Đã phát hành 100 SPT/i);
+    await expect(page.getByRole('status')).toContainText(/Đã phát hành 100 WPT/i);
 
     // Nghiệm thu: số dư đọc lại từ ledger tăng đúng 100.
     await expect(balancePanel).toContainText(String(before + 100n));
@@ -49,7 +49,7 @@ test.describe('Phát hành token điện gió', () => {
 
     // Ví khác, chưa qua bước KYC.
     await page.getByLabel('Ví nhà đầu tư').fill('0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
-    await page.getByLabel('Số lượng SPT').fill('10');
+    await page.getByLabel('Số lượng WPT').fill('10');
 
     await page.getByRole('button', { name: /Phát hành/i }).click();
     await expect(page.getByRole('status')).toContainText(/chưa được whitelist/i);

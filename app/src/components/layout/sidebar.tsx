@@ -21,7 +21,7 @@ const NAV_ITEMS = [
 
 // Nhãn theo nghiệp vụ điện gió; icon chủ đề gió/turbine (xem frontend.md).
 const MODULE_ITEMS = [
-  { href: "/mint",           label: "Phát hành SPT",     icon: Coins,      shortcut: "M" },
+  { href: "/mint",           label: "Phát hành WPT",     icon: Coins,      shortcut: "M" },
   { href: "/assets",         label: "Dự án điện gió",    icon: Wind,       shortcut: "D" },
   { href: "/reconciliation", label: "Đối soát doanh thu", icon: Scale,      shortcut: "B" },
   { href: "/kyc",            label: "Nhà đầu tư & KYC",  icon: UserCheck,  shortcut: "A" },

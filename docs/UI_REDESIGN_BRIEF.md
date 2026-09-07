@@ -1,5 +1,9 @@
 # UI REDESIGN BRIEF — Đồng bộ "điện gió" + làm đẹp/tinh tế
 
+> ⚠️ **Ghi chú lịch sử:** brief này viết khi ký hiệu token còn là **SPT**. Sau đó token được
+> đổi tên thành **WPT** (Wind Power Token) — xem commit `replace SPT token to WPT token`.
+> Giữ nguyên văn bản gốc của Supervisor; đọc "SPT" thành "WPT".
+
 Mục tiêu: (1) đồng bộ toàn giao diện về **điện gió** (đang còn vàng/BĐS/carbon), (2) làm đẹp & nhất quán, sửa các chỗ màu lạc tông. **Chỉ UI** — KHÔNG đụng logic mint/audit và 3 LUẬT kiến trúc.
 
 ## A. Phát hiện (có dẫn chứng — Supervisor tự đọc code)

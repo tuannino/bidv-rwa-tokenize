@@ -139,7 +139,7 @@ export function MintPage() {
       return result.ok
         ? {
             tone: 'success',
-            message: `Đã phát hành ${result.data.amount} SPT · số dư mới ${result.data.balanceAfter} · tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
+            message: `Đã phát hành ${result.data.amount} WPT · số dư mới ${result.data.balanceAfter} · tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
           }
         : { tone: 'error', message: result.error };
     });
@@ -149,7 +149,7 @@ export function MintPage() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Phát hành token dự án điện gió</h1>
         <p className="text-sm text-muted-foreground">
-          KYC (mock auto-approve) → whitelist on-chain → phát hành SPT. Chain đang dùng:{' '}
+          KYC (mock auto-approve) → whitelist on-chain → phát hành WPT. Chain đang dùng:{' '}
           <span className="font-mono text-foreground">{chain}</span>
           {config.mocks.kyc && ' · KYC ở chế độ mock'}
         </p>
@@ -181,7 +181,7 @@ export function MintPage() {
 
             <div className="space-y-1.5">
               <label htmlFor="mint-amount" className="text-sm font-medium">
-                Số lượng SPT
+                Số lượng WPT
               </label>
               <input
                 id="mint-amount"
@@ -190,7 +190,7 @@ export function MintPage() {
                 inputMode="numeric"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
-              <p className="text-xs text-muted-foreground">SPT có 0 chữ số thập phân — nhập số nguyên.</p>
+              <p className="text-xs text-muted-foreground">WPT có 0 chữ số thập phân — nhập số nguyên.</p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -243,7 +243,7 @@ export function MintPage() {
           <CardContent className="space-y-3 text-sm">
             {status ? (
               <>
-                <Row label="Số dư SPT">
+                <Row label="Số dư WPT">
                   <span className="font-mono text-lg font-semibold">{status.balance}</span>
                 </Row>
                 <Row label="Whitelist">

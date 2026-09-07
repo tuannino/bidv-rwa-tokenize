@@ -14,7 +14,7 @@ export const walletSchema = z
 export const chainSchema = z.enum(CHAIN_KEYS);
 
 /**
- * Số lượng token. SPT có decimals = 0 nên đây là SỐ NGUYÊN, nhận dạng chuỗi:
+ * Số lượng token. WPT có decimals = 0 nên đây là SỐ NGUYÊN, nhận dạng chuỗi:
  * `number` của JS mất chính xác từ 2^53, còn uint256 thì lớn hơn nhiều.
  */
 export const amountSchema = z

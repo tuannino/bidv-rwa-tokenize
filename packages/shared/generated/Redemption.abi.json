@@ -119,7 +119,7 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "sptAmount",
+        "name": "wptAmount",
         "type": "uint256"
       },
       {
@@ -369,7 +369,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "sptAmount",
+        "name": "wptAmount",
         "type": "uint256"
       }
     ],
@@ -401,7 +401,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "sptAmount",
+        "name": "wptAmount",
         "type": "uint256"
       }
     ],

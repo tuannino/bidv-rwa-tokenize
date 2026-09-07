@@ -18,6 +18,10 @@ packages/contracts-evm/cache/
 packages/contracts-evm/typechain-types/
 packages/contracts-evm/trex/artifacts/
 packages/contracts-evm/trex/cache/
+# Rust/Soroban build artifacts (sinh ra khi chạy `cargo test` / `stellar contract build`)
+packages/contracts-stellar/target/
+packages/contracts-stellar/Cargo.lock
+packages/contracts-stellar/contracts/*/test_snapshots/
 # Prisma client sinh ra (22MB, chỉ cần khi tới Phase 4 — xem app/prisma/schema.prisma)
 app/src/generated/
 # macOS

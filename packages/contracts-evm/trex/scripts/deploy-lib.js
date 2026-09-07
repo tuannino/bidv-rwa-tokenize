@@ -19,8 +19,8 @@ const ZERO = ethers.ZeroAddress;
  */
 async function deployFullSuite(signers, opts = {}) {
   const { deployer, tokenIssuer, claimIssuer } = signers;
-  const name = opts.name || "Solar Project Token";
-  const symbol = opts.symbol || "SPT";
+  const name = opts.name || "Wind Power Token";
+  const symbol = opts.symbol || "WPT";
   const decimals = opts.decimals ?? 0;
 
   // 1) Implementation contracts (chỉ deploy 1 lần, dùng lại cho mọi proxy)

@@ -51,15 +51,15 @@ export function DashboardPage() {
           className="inline-flex shrink-0 items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Phát hành SPT
+          Phát hành WPT
         </Link>
       </div>
 
       {/* KPI chính */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="SPT đã phát hành"
-          value={nf(MOCK_WIND_STATS.sptIssued)}
+          label="WPT đã phát hành"
+          value={nf(MOCK_WIND_STATS.wptIssued)}
           sub={`${MOCK_WIND_STATS.projects} dự án · ${totalTurbines} tổ máy`}
           icon={<Coins className="h-4 w-4" />}
           highlight
@@ -158,10 +158,10 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Phân bổ SPT theo dự án */}
+        {/* Phân bổ WPT theo dự án */}
         <div className="rounded-lg border border-border bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">Phân bổ SPT theo dự án</h2>
+            <h2 className="text-sm font-medium text-foreground">Phân bổ WPT theo dự án</h2>
             <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">Tổng cung</span>
           </div>
           <div className="space-y-4">
@@ -170,8 +170,8 @@ export function DashboardPage() {
                 key={project.id}
                 label={project.name}
                 location={project.location}
-                value={project.sptIssued}
-                total={MOCK_WIND_STATS.sptIssued}
+                value={project.wptIssued}
+                total={MOCK_WIND_STATS.wptIssued}
                 colorVar={PROJECT_CHART_VARS[index % PROJECT_CHART_VARS.length]}
               />
             ))}
@@ -260,7 +260,7 @@ function ProjectBar({
           <span className="truncate text-foreground/90">{label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-          <span className="font-mono">{nf(value)} SPT</span>
+          <span className="font-mono">{nf(value)} WPT</span>
           <span className="font-mono text-foreground/70">{nf(pct, 1)}%</span>
         </div>
       </div>

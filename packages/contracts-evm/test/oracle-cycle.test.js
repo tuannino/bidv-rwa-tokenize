@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("Oracle sản lượng điện + chia lợi nhuận theo công thức", function () {
   let bank, reporter2, invA, invB;
-  let spt, vnd, oracle, distributor;
+  let wpt, vnd, oracle, distributor;
 
   const DEC = 0n;
   const PERIOD = 202601n; // 2026-Q1
@@ -11,24 +11,24 @@ describe("Oracle sản lượng điện + chia lợi nhuận theo công thức",
   beforeEach(async function () {
     [bank, reporter2, invA, invB] = await ethers.getSigners();
 
-    spt = await ethers.deployContract("ProjectToken", ["Solar Project Token", "SPT", DEC, bank.address]);
+    wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address]);
     vnd = await ethers.deployContract("VNDToken", [bank.address]);
     oracle = await ethers.deployContract("EnergyOracle", [bank.address]);
 
     distributor = await ethers.deployContract("ProfitDistributorOracle", [
-      await spt.getAddress(),
+      await wpt.getAddress(),
       await vnd.getAddress(),
       await oracle.getAddress(),
       bank.address,
     ]);
 
-    // distributor cần quyền chốt snapshot trên SPT
-    await spt.grantRole(await spt.SNAPSHOT_ROLE(), await distributor.getAddress());
+    // distributor cần quyền chốt snapshot trên WPT
+    await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await distributor.getAddress());
 
-    // KYC + phát hành SPT: A 6000, B 4000
-    await spt.batchSetWhitelisted([invA.address, invB.address], true);
-    await spt.mint(invA.address, 6000n);
-    await spt.mint(invB.address, 4000n);
+    // KYC + phát hành WPT: A 6000, B 4000
+    await wpt.batchSetWhitelisted([invA.address, invB.address], true);
+    await wpt.mint(invA.address, 6000n);
+    await wpt.mint(invB.address, 4000n);
   });
 
   it("Công thức lợi nhuận: gross = kWh×giá, net = gross−opex, chia = net×share", async function () {

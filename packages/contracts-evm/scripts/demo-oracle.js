@@ -10,22 +10,22 @@ async function main() {
   const [bank, oem, auditor, invA, invB] = await ethers.getSigners();
 
   // Triển khai
-  const spt = await ethers.deployContract("ProjectToken", ["Solar Project Token", "SPT", 0, bank.address]);
+  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
   const vndToken = await ethers.deployContract("VNDToken", [bank.address]);
   const oracle = await ethers.deployContract("EnergyOracle", [bank.address]);
   const dist = await ethers.deployContract("ProfitDistributorOracle", [
-    await spt.getAddress(),
+    await wpt.getAddress(),
     await vndToken.getAddress(),
     await oracle.getAddress(),
     bank.address,
   ]);
-  await spt.grantRole(await spt.SNAPSHOT_ROLE(), await dist.getAddress());
+  await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await dist.getAddress());
 
   // KYC + phát hành: A 6000 (60%), B 4000 (40%)
-  await spt.batchSetWhitelisted([invA.address, invB.address], true);
-  await spt.mint(invA.address, 6000n);
-  await spt.mint(invB.address, 4000n);
-  console.log("Phát hành SPT: A=6000 (60%), B=4000 (40%), tổng cung =", (await spt.totalSupply()).toString());
+  await wpt.batchSetWhitelisted([invA.address, invB.address], true);
+  await wpt.mint(invA.address, 6000n);
+  await wpt.mint(invB.address, 4000n);
+  console.log("Phát hành WPT: A=6000 (60%), B=4000 (40%), tổng cung =", (await wpt.totalSupply()).toString());
 
   // Yêu cầu 2 xác nhận (O&M + kiểm toán độc lập)
   await oracle.setRequiredConfirmations(2);

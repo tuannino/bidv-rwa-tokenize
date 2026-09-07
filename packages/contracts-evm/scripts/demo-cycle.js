@@ -7,22 +7,22 @@ const f = (x) => x.toLocaleString("vi-VN");
 async function main() {
   const [bank, invA, invB] = await ethers.getSigners();
 
-  const spt = await ethers.deployContract("ProjectToken", ["Solar Project Token", "SPT", 0, bank.address]);
+  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
   const vnd = await ethers.deployContract("VNDToken", [bank.address]);
   const distributor = await ethers.deployContract("ProfitDistributor", [
-    await spt.getAddress(), await vnd.getAddress(), bank.address,
+    await wpt.getAddress(), await vnd.getAddress(), bank.address,
   ]);
   const redemption = await ethers.deployContract("Redemption", [
-    await spt.getAddress(), await vnd.getAddress(), 1_000_000n, bank.address,
+    await wpt.getAddress(), await vnd.getAddress(), 1_000_000n, bank.address,
   ]);
-  await spt.grantRole(await spt.SNAPSHOT_ROLE(), await distributor.getAddress());
+  await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await distributor.getAddress());
 
   console.log("1) KYC hai nhà đầu tư");
-  await spt.batchSetWhitelisted([invA.address, invB.address], true);
+  await wpt.batchSetWhitelisted([invA.address, invB.address], true);
 
-  console.log("2) Ngân hàng phát hành SPT: A=6000, B=4000");
-  await spt.mint(invA.address, 6000n);
-  await spt.mint(invB.address, 4000n);
+  console.log("2) Ngân hàng phát hành WPT: A=6000, B=4000");
+  await wpt.mint(invA.address, 6000n);
+  await wpt.mint(invB.address, 4000n);
 
   console.log("3) Chốt kỳ Q1 và nạp 300.000.000 VND lợi nhuận");
   await vnd.mint(bank.address, 300_000_000n);
@@ -38,14 +38,14 @@ async function main() {
   console.log("   -> VND của A:", f(await vnd.balanceOf(invA.address)));
   console.log("   -> VND của B:", f(await vnd.balanceOf(invB.address)));
 
-  console.log("5) Hoàn vốn: A đổi 1000 SPT lấy VND (rate 1.000.000)");
+  console.log("5) Hoàn vốn: A đổi 1000 WPT lấy VND (rate 1.000.000)");
   await vnd.mint(bank.address, 2_000_000_000n);
   await vnd.approve(await redemption.getAddress(), 2_000_000_000n);
   await redemption.fund(2_000_000_000n);
-  await spt.connect(invA).approve(await redemption.getAddress(), 1000n);
+  await wpt.connect(invA).approve(await redemption.getAddress(), 1000n);
   await redemption.connect(invA).redeem(1000n);
-  console.log("   -> SPT của A còn:", f(await spt.balanceOf(invA.address)));
-  console.log("   -> tổng cung SPT:", f(await spt.totalSupply()));
+  console.log("   -> WPT của A còn:", f(await wpt.balanceOf(invA.address)));
+  console.log("   -> tổng cung WPT:", f(await wpt.totalSupply()));
   console.log("   -> VND của A:", f(await vnd.balanceOf(invA.address)));
 
   console.log("\nHoàn tất chu kỳ demo.");

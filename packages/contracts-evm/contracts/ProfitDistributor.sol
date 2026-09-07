@@ -9,18 +9,18 @@ import {ProjectToken} from "./tokens/ProjectToken.sol";
 
 /**
  * @title ProfitDistributor
- * @notice Tính và chia lợi nhuận định kỳ cho người nắm giữ SPT, chi trả bằng VND.
+ * @notice Tính và chia lợi nhuận định kỳ cho người nắm giữ WPT, chi trả bằng VND.
  *
  *  Cơ chế (mô hình "pull theo snapshot" — chuẩn, an toàn gas, kiểm toán được):
  *   1. Ngân hàng gọi createDistribution(amount, "2026-Q1"):
- *      - chốt snapshot số dư SPT tại thời điểm đó (bức tranh sở hữu bất biến),
+ *      - chốt snapshot số dư WPT tại thời điểm đó (bức tranh sở hữu bất biến),
  *      - kéo `amount` VND từ ngân hàng vào hợp đồng làm quỹ chia của kỳ.
  *   2. Mỗi nhà đầu tư tự gọi claim(id) để nhận phần của mình:
  *         phần_nhận = amount * balanceOfAt(nhà_đầu_tư, snapshot) / totalSupplyAt(snapshot)
  *      (hoặc đại lý gọi distributeTo(id, [ví...]) để chia hộ hàng loạt).
  *   3. Sau thời hạn nhận, ngân hàng gọi sweepDust(id) để thu phần chưa nhận + phần lẻ do làm tròn.
  *
- *  Vì chia theo snapshot nên mua/bán SPT SAU thời điểm chốt không làm sai lệch phần được chia.
+ *  Vì chia theo snapshot nên mua/bán WPT SAU thời điểm chốt không làm sai lệch phần được chia.
  */
 contract ProfitDistributor is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -35,7 +35,7 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     struct Distribution {
         uint256 snapshotId; // id snapshot đã chốt
         uint256 amount; // tổng lợi nhuận kỳ (VND)
-        uint256 supplyAtSnapshot; // tổng cung SPT tại thời điểm chốt
+        uint256 supplyAtSnapshot; // tổng cung WPT tại thời điểm chốt
         uint256 claimed; // đã chia ra
         uint64 createdAt; // thời điểm tạo kỳ
         string period; // nhãn kỳ, ví dụ "2026-Q1"
@@ -90,7 +90,7 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
 
         uint256 snapId = projectToken.snapshot();
         uint256 supply = projectToken.totalSupplyAt(snapId);
-        require(supply > 0, "khong co SPT dang luu hanh");
+        require(supply > 0, "khong co WPT dang luu hanh");
 
         // kéo VND vào quỹ kỳ này
         payoutToken.safeTransferFrom(msg.sender, address(this), amount);

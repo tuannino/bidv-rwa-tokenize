@@ -10,8 +10,8 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-spt-token = { path = "../spt_token" }
+wpt-token = { path = "../wpt_token" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-spt-token = { path = "../spt_token" }
+wpt-token = { path = "../wpt_token" }

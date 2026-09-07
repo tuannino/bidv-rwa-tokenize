@@ -4,11 +4,11 @@
 //! Khác với bản "push" (hợp đồng chủ động trả cho từng holder, giới hạn bởi số
 //! holder mỗi giao dịch), bản này dùng mô hình PULL:
 //!   1. open_period(period_id): admin mở kỳ. Hợp đồng đọc doanh thu đã finalize từ
-//!      oracle, gọi spt.snapshot() để CHỐT số dư mọi người tại thời điểm này, và
+//!      oracle, gọi wpt.snapshot() để CHỐT số dư mọi người tại thời điểm này, và
 //!      lưu tổng cung tại snapshot làm mẫu số. Không cần danh sách holder.
 //!   2. claim(period_id, investor): từng nhà đầu tư tự nhận phần của mình, tính
 //!      theo số dư ĐÃ CHỐT (balance_at) nên không thể gian lận bằng cách mua thêm
-//!      SPT sau khi mở kỳ. Mỗi người claim đúng một lần.
+//!      WPT sau khi mở kỳ. Mỗi người claim đúng một lần.
 //!
 //! Nhờ chốt số dư ở tầng token, mô hình này mở rộng tới số lượng nhà đầu tư lớn:
 //! chi phí mỗi giao dịch cố định, không phụ thuộc tổng số holder.
@@ -17,7 +17,7 @@ use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, Address, Env, Symbol,
 };
 use revenue_oracle::RevenueOracleClient;
-use spt_token::SptTokenClient;
+use wpt_token::WptTokenClient;
 
 const DAY: u32 = 17_280;
 const INSTANCE_BUMP: u32 = 30 * DAY;
@@ -45,7 +45,7 @@ pub struct PeriodInfo {
 #[contracttype]
 pub enum DKey {
     Admin,
-    Spt,
+    Wpt,
     Vnd,
     Oracle,
     Period(u32),
@@ -73,8 +73,8 @@ fn admin(env: &Env) -> Address {
     let a: Option<Address> = env.storage().instance().get(&DKey::Admin);
     a.unwrap()
 }
-fn spt_addr(env: &Env) -> Address {
-    let a: Option<Address> = env.storage().instance().get(&DKey::Spt);
+fn wpt_addr(env: &Env) -> Address {
+    let a: Option<Address> = env.storage().instance().get(&DKey::Wpt);
     a.unwrap()
 }
 fn vnd_addr(env: &Env) -> Address {
@@ -100,7 +100,7 @@ impl ProfitDistributorPull {
     pub fn initialize(
         env: Env,
         admin_addr: Address,
-        spt_token: Address,
+        wpt_token: Address,
         vnd_token: Address,
         oracle: Address,
     ) -> Result<(), Error> {
@@ -108,7 +108,7 @@ impl ProfitDistributorPull {
             return Err(Error::AlreadyInitialized);
         }
         env.storage().instance().set(&DKey::Admin, &admin_addr);
-        env.storage().instance().set(&DKey::Spt, &spt_token);
+        env.storage().instance().set(&DKey::Wpt, &wpt_token);
         env.storage().instance().set(&DKey::Vnd, &vnd_token);
         env.storage().instance().set(&DKey::Oracle, &oracle);
         bump(&env);
@@ -130,9 +130,9 @@ impl ProfitDistributorPull {
         }
         let revenue = oracle.get(&period_id).ok_or(Error::RevenueNotFinalized)?;
 
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
-        let snapshot_id = spt.snapshot();
-        let supply = spt.total_supply_at(&snapshot_id);
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
+        let snapshot_id = wpt.snapshot();
+        let supply = wpt.total_supply_at(&snapshot_id);
         if supply <= 0 {
             return Err(Error::ZeroSupply);
         }
@@ -163,8 +163,8 @@ impl ProfitDistributorPull {
             Some(i) => i,
             None => return 0,
         };
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
-        let bal = spt.balance_at(&investor, &info.snapshot_id);
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
+        let bal = wpt.balance_at(&investor, &info.snapshot_id);
         mul_div(info.total_revenue, bal, info.total_supply).unwrap_or(0)
     }
 
@@ -188,8 +188,8 @@ impl ProfitDistributorPull {
             return Err(Error::AlreadyClaimed);
         }
 
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
-        let bal = spt.balance_at(&investor, &info.snapshot_id);
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
+        let bal = wpt.balance_at(&investor, &info.snapshot_id);
         let share = mul_div(info.total_revenue, bal, info.total_supply)?;
 
         // Đánh dấu đã claim trước khi chuyển tiền (chống claim lại).
@@ -200,7 +200,7 @@ impl ProfitDistributorPull {
 
         if share > 0 {
             let this = env.current_contract_address();
-            let vnd = SptTokenClient::new(&env, &vnd_addr(&env));
+            let vnd = WptTokenClient::new(&env, &vnd_addr(&env));
             if vnd.balance(&this) < share {
                 return Err(Error::InsufficientTreasury);
             }
@@ -235,7 +235,7 @@ mod test {
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::String;
     use revenue_oracle::{RevenueOracle, RevenueOracleClient};
-    use spt_token::{SptToken, SptTokenClient};
+    use wpt_token::{WptToken, WptTokenClient};
 
     #[test]
     fn test_pull_claim_uses_snapshot_balance() {
@@ -243,12 +243,12 @@ mod test {
         env.mock_all_auths();
         let admin = Address::generate(&env);
 
-        // Token SPT và VND (dùng chung mã token).
-        let spt_id = env.register(SptToken, ());
-        let spt = SptTokenClient::new(&env, &spt_id);
-        spt.initialize(&admin, &7u32, &String::from_str(&env, "SPT"), &String::from_str(&env, "SPT"));
-        let vnd_id = env.register(SptToken, ());
-        let vnd = SptTokenClient::new(&env, &vnd_id);
+        // Token WPT và VND (dùng chung mã token).
+        let wpt_id = env.register(WptToken, ());
+        let wpt = WptTokenClient::new(&env, &wpt_id);
+        wpt.initialize(&admin, &7u32, &String::from_str(&env, "WPT"), &String::from_str(&env, "WPT"));
+        let vnd_id = env.register(WptToken, ());
+        let vnd = WptTokenClient::new(&env, &vnd_id);
         vnd.initialize(&admin, &7u32, &String::from_str(&env, "VND"), &String::from_str(&env, "VND"));
 
         // Oracle.
@@ -259,18 +259,18 @@ mod test {
         // Distributor pull.
         let dist_id = env.register(ProfitDistributorPull, ());
         let dist = ProfitDistributorPullClient::new(&env, &dist_id);
-        dist.initialize(&admin, &spt_id, &vnd_id, &orc_id);
+        dist.initialize(&admin, &wpt_id, &vnd_id, &orc_id);
 
         let a = Address::generate(&env);
         let b = Address::generate(&env);
         for who in [&a, &b, &dist_id] {
-            spt.set_authorized(who, &true);
+            wpt.set_authorized(who, &true);
             vnd.set_authorized(who, &true);
         }
 
-        // Phát hành SPT: a=700, b=300.
-        spt.mint(&a, &700);
-        spt.mint(&b, &300);
+        // Phát hành WPT: a=700, b=300.
+        wpt.mint(&a, &700);
+        wpt.mint(&b, &300);
 
         // Nạp VND vào kho distributor.
         vnd.mint(&dist_id, &1_000_000);
@@ -283,8 +283,8 @@ mod test {
         dist.open_period(&1u32);
 
         // Sau khi mở kỳ, a bán bớt cho b — KHÔNG ảnh hưởng phần chia (dùng số dư đã chốt).
-        spt.transfer(&a, &b, &700);
-        assert_eq!(spt.balance(&a), 0);
+        wpt.transfer(&a, &b, &700);
+        assert_eq!(wpt.balance(&a), 0);
 
         assert_eq!(dist.preview_claim(&1u32, &a), 700_000);
         let got_a = dist.claim(&1u32, &a);

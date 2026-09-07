@@ -226,7 +226,7 @@ export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
       action: 'token:mint',
       target: wallet,
       outcome: receipt.status === 'CONFIRMED' ? 'SUCCESS' : 'FAILURE',
-      detail: `mint ${amount} SPT; tx ${receipt.txHash} ${receipt.status}`,
+      detail: `mint ${amount} WPT; tx ${receipt.txHash} ${receipt.status}`,
       chain,
     });
 

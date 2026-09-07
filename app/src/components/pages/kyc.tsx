@@ -42,7 +42,7 @@ export function KycPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Nhà đầu tư &amp; KYC</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Duyệt KYC, whitelist ví để được nắm giữ SPT, đóng băng/mở băng khi cần.
+            Duyệt KYC, whitelist ví để được nắm giữ WPT, đóng băng/mở băng khi cần.
           </p>
         </div>
         <button
@@ -56,7 +56,7 @@ export function KycPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Tổng nhà đầu tư" value="0" sub="Đã đăng ký trên hệ thống" />
-        <KpiCard label="Đã whitelist" value="0" sub="Đủ điều kiện nhận SPT" />
+        <KpiCard label="Đã whitelist" value="0" sub="Đủ điều kiện nhận WPT" />
         <KpiCard label="Chờ duyệt KYC" value="0" sub="Cần xử lý trong 24h" warn />
         <KpiCard label="Đang đóng băng" value="0" sub="Tạm dừng chuyển nhượng on-chain" danger />
       </div>
@@ -113,7 +113,7 @@ export function KycPage() {
           <span>Cấp KYC</span>
           <span>Khẩu vị RR</span>
           <span>Địa chỉ ví</span>
-          <span className="text-right">SPT nắm giữ</span>
+          <span className="text-right">WPT nắm giữ</span>
           <span>Trạng thái</span>
           <span>Đăng ký</span>
         </div>

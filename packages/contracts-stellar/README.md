@@ -4,7 +4,7 @@ Workspace gồm 3 hợp đồng cho bài toán token hóa dự án điện mặt
 
 | Hợp đồng | Vai trò | Quy trình bao gồm |
 |---|---|---|
-| `spt_token` | Token quyền hưởng SPT (SEP-41 + quản trị + snapshot) | mint, burn, transfer, clawback, freeze/whitelist, snapshot, balance_at |
+| `wpt_token` | Token quyền hưởng WPT (SEP-41 + quản trị + snapshot) | mint, burn, transfer, clawback, freeze/whitelist, snapshot, balance_at |
 | `profit_distributor` | Chia lợi nhuận định kỳ (push) | preview_share (tính), distribute (chia) |
 | `redemption` | Mua lại / hoàn vốn | redeem, set_rate, pause |
 | `revenue_oracle` | Đưa doanh thu kỳ lên chuỗi | report, finalize, get, set_reporter |

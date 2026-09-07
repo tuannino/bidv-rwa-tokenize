@@ -1,17 +1,17 @@
 #![no_std]
 //! Redemption — Hợp đồng MUA LẠI / HOÀN VỐN (redeem).
 //! ---------------------------------------------------------------------------
-//! Nhà đầu tư trả lại token SPT để nhận lại vốn bằng token VND theo tỷ giá.
-//!   - Đốt (burn) SPT của nhà đầu tư -> giảm tổng cung, "rút" khỏi dự án.
+//! Nhà đầu tư trả lại token WPT để nhận lại vốn bằng token VND theo tỷ giá.
+//!   - Đốt (burn) WPT của nhà đầu tư -> giảm tổng cung, "rút" khỏi dự án.
 //!   - Chuyển VND từ kho của hợp đồng cho nhà đầu tư.
 //!
-//! Tỷ giá `rate` lưu dạng số nguyên có thang: VND-stroop trả cho 1 SPT-stroop,
-//! nhân với SCALE. Ví dụ muốn 1 SPT-unit đổi 10.000 VND-unit thì rate = 10_000*SCALE
+//! Tỷ giá `rate` lưu dạng số nguyên có thang: VND-stroop trả cho 1 WPT-stroop,
+//! nhân với SCALE. Ví dụ muốn 1 WPT-unit đổi 10.000 VND-unit thì rate = 10_000*SCALE
 //! (vì cùng 7 chữ số thập phân, hệ số stroop triệt tiêu).
-//!     vnd_out = spt_amount * rate / SCALE
+//!     vnd_out = wpt_amount * rate / SCALE
 
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, Env, Symbol};
-use spt_token::SptTokenClient;
+use wpt_token::WptTokenClient;
 
 const DAY: u32 = 17_280;
 const INSTANCE_BUMP: u32 = 30 * DAY;
@@ -24,7 +24,7 @@ pub const SCALE: i128 = 10_000_000;
 #[contracttype]
 pub enum RKey {
     Admin,
-    Spt,
+    Wpt,
     Vnd,
     Rate,
     Paused,
@@ -48,8 +48,8 @@ fn admin(env: &Env) -> Address {
     let a: Option<Address> = env.storage().instance().get(&RKey::Admin);
     a.unwrap()
 }
-fn spt_addr(env: &Env) -> Address {
-    let a: Option<Address> = env.storage().instance().get(&RKey::Spt);
+fn wpt_addr(env: &Env) -> Address {
+    let a: Option<Address> = env.storage().instance().get(&RKey::Wpt);
     a.unwrap()
 }
 fn vnd_addr(env: &Env) -> Address {
@@ -75,7 +75,7 @@ impl Redemption {
     pub fn initialize(
         env: Env,
         admin_addr: Address,
-        spt_token: Address,
+        wpt_token: Address,
         vnd_token: Address,
         rate: i128,
     ) -> Result<(), Error> {
@@ -86,7 +86,7 @@ impl Redemption {
             return Err(Error::NegativeAmount);
         }
         env.storage().instance().set(&RKey::Admin, &admin_addr);
-        env.storage().instance().set(&RKey::Spt, &spt_token);
+        env.storage().instance().set(&RKey::Wpt, &wpt_token);
         env.storage().instance().set(&RKey::Vnd, &vnd_token);
         env.storage().instance().set(&RKey::Rate, &rate);
         env.storage().instance().set(&RKey::Paused, &false);
@@ -119,18 +119,18 @@ impl Redemption {
         read_rate(&env)
     }
 
-    /// Xem trước số VND nhận được khi hoàn lại `spt_amount`.
-    pub fn preview(env: Env, spt_amount: i128) -> Result<i128, Error> {
-        let prod = spt_amount.checked_mul(read_rate(&env)).ok_or(Error::Overflow)?;
+    /// Xem trước số VND nhận được khi hoàn lại `wpt_amount`.
+    pub fn preview(env: Env, wpt_amount: i128) -> Result<i128, Error> {
+        let prod = wpt_amount.checked_mul(read_rate(&env)).ok_or(Error::Overflow)?;
         Ok(prod / SCALE)
     }
 
     // -------------------------- QUY TRÌNH: REDEEM -------------------------
-    /// Nhà đầu tư hoàn SPT để nhận lại vốn bằng VND.
-    /// investor phải là bên KÝ giao dịch (source) để ủy quyền cho việc đốt SPT.
-    pub fn redeem(env: Env, investor: Address, spt_amount: i128) -> Result<i128, Error> {
+    /// Nhà đầu tư hoàn WPT để nhận lại vốn bằng VND.
+    /// investor phải là bên KÝ giao dịch (source) để ủy quyền cho việc đốt WPT.
+    pub fn redeem(env: Env, investor: Address, wpt_amount: i128) -> Result<i128, Error> {
         investor.require_auth();
-        if spt_amount < 0 {
+        if wpt_amount < 0 {
             return Err(Error::NegativeAmount);
         }
         if is_paused(&env) {
@@ -138,18 +138,18 @@ impl Redemption {
         }
         bump(&env);
 
-        let prod = spt_amount.checked_mul(read_rate(&env)).ok_or(Error::Overflow)?;
+        let prod = wpt_amount.checked_mul(read_rate(&env)).ok_or(Error::Overflow)?;
         let vnd_out = prod / SCALE;
 
         let this = env.current_contract_address();
-        let vnd = SptTokenClient::new(&env, &vnd_addr(&env));
+        let vnd = WptTokenClient::new(&env, &vnd_addr(&env));
         if vnd.balance(&this) < vnd_out {
             return Err(Error::InsufficientTreasury);
         }
 
-        // Đốt SPT của nhà đầu tư (đã ủy quyền qua require_auth ở trên).
-        let spt = SptTokenClient::new(&env, &spt_addr(&env));
-        spt.burn(&investor, &spt_amount);
+        // Đốt WPT của nhà đầu tư (đã ủy quyền qua require_auth ở trên).
+        let wpt = WptTokenClient::new(&env, &wpt_addr(&env));
+        wpt.burn(&investor, &wpt_amount);
 
         // Trả VND từ kho HĐ.
         if vnd_out > 0 {
@@ -158,7 +158,7 @@ impl Redemption {
 
         env.events().publish(
             (Symbol::new(&env, "redeem"), investor),
-            (spt_amount, vnd_out),
+            (wpt_amount, vnd_out),
         );
         Ok(vnd_out)
     }
@@ -169,7 +169,7 @@ mod test {
     use super::*;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::String;
-    use spt_token::{SptToken, SptTokenClient};
+    use wpt_token::{WptToken, WptTokenClient};
 
     #[test]
     fn test_redeem() {
@@ -178,16 +178,16 @@ mod test {
         let admin = Address::generate(&env);
         let inv = Address::generate(&env);
 
-        let spt_id = env.register(SptToken, ());
-        let spt = SptTokenClient::new(&env, &spt_id);
-        spt.initialize(
+        let wpt_id = env.register(WptToken, ());
+        let wpt = WptTokenClient::new(&env, &wpt_id);
+        wpt.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "SPT"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "WPT"),
+            &String::from_str(&env, "WPT"),
         );
-        let vnd_id = env.register(SptToken, ());
-        let vnd = SptTokenClient::new(&env, &vnd_id);
+        let vnd_id = env.register(WptToken, ());
+        let vnd = WptTokenClient::new(&env, &vnd_id);
         vnd.initialize(
             &admin,
             &7u32,
@@ -195,22 +195,22 @@ mod test {
             &String::from_str(&env, "VND"),
         );
 
-        // 1 SPT-unit đổi 10.000 VND-unit.
+        // 1 WPT-unit đổi 10.000 VND-unit.
         let red_id = env.register(Redemption, ());
         let red = RedemptionClient::new(&env, &red_id);
-        red.initialize(&admin, &spt_id, &vnd_id, &(10_000i128 * SCALE));
+        red.initialize(&admin, &wpt_id, &vnd_id, &(10_000i128 * SCALE));
 
         for who in [&inv, &red_id] {
-            spt.set_authorized(who, &true);
+            wpt.set_authorized(who, &true);
             vnd.set_authorized(who, &true);
         }
-        spt.mint(&inv, &100); // 100 SPT
+        wpt.mint(&inv, &100); // 100 WPT
         vnd.mint(&red_id, &2_000_000); // kho VND
 
         let out = red.redeem(&inv, &100);
         assert_eq!(out, 1_000_000); // 100 * 10.000
-        assert_eq!(spt.balance(&inv), 0);
+        assert_eq!(wpt.balance(&inv), 0);
         assert_eq!(vnd.balance(&inv), 1_000_000);
-        assert_eq!(spt.total_supply(), 0); // SPT đã đốt hết
+        assert_eq!(wpt.total_supply(), 0); // WPT đã đốt hết
     }
 }

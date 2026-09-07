@@ -66,7 +66,7 @@ export function AssetsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dự án điện gió đã token hoá</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mỗi dự án phát hành SPT (quyền hưởng lợi tức). Sản lượng lấy từ EnergyOracle, lợi tức
+            Mỗi dự án phát hành WPT (quyền hưởng lợi tức). Sản lượng lấy từ EnergyOracle, lợi tức
             chia qua ProfitDistributor.
           </p>
         </div>
@@ -122,8 +122,8 @@ export function AssetsPage() {
         />
         <StatCard
           icon={<Gauge className="h-4 w-4" />}
-          label="SPT đã phát hành"
-          value={nf(MOCK_WIND_STATS.sptIssued)}
+          label="WPT đã phát hành"
+          value={nf(MOCK_WIND_STATS.wptIssued)}
           sub={`${nf(MOCK_WIND_STATS.whitelistedInvestors)} nhà đầu tư đã whitelist`}
           accent
         />
@@ -172,7 +172,7 @@ export function AssetsPage() {
           <span>Mã &amp; Tên dự án</span>
           <span>Vùng</span>
           <span className="text-right">Công suất</span>
-          <span className="text-right">SPT phát hành</span>
+          <span className="text-right">WPT phát hành</span>
           <span className="text-right">Sản lượng luỹ kế</span>
           <span>Trạng thái</span>
           <span>Vận hành từ</span>
@@ -237,7 +237,7 @@ function ProjectRow({ project }: { project: WindProject }) {
       </div>
 
       <div className="text-right font-mono text-foreground">
-        {nf(project.sptIssued)} <span className="text-xs text-muted-foreground">SPT</span>
+        {nf(project.wptIssued)} <span className="text-xs text-muted-foreground">WPT</span>
       </div>
 
       <div className="text-right font-mono text-foreground">

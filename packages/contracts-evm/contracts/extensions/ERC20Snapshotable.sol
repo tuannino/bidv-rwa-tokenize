@@ -10,7 +10,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  *
  *         Đây là "xương sống" của việc chia lợi nhuận công bằng: khi chốt một kỳ chia,
  *         ta gọi `_snapshot()` để đóng băng bức tranh sở hữu tại đúng thời điểm đó.
- *         Nhà đầu tư mua/bán SPT sau thời điểm chốt sẽ không ảnh hưởng phần được chia.
+ *         Nhà đầu tư mua/bán WPT sau thời điểm chốt sẽ không ảnh hưởng phần được chia.
  *
  *         Cơ chế được chuyển thể (port) từ OpenZeppelin ERC20Snapshot (v4) sang hook
  *         `_update` của OpenZeppelin v5. Thuật toán tra cứu, semantics ghi "giá trị

@@ -1,5 +1,9 @@
 # Báo cáo bàn giao — Phase 0 (Nền) + Phase 1 (Demo MINT)
 
+> ⚠️ **Ghi chú lịch sử:** báo cáo này viết khi ký hiệu token còn là **SPT**. Sau đó token
+> được đổi tên thành **WPT** (Wind Power Token) — xem commit `replace SPT token to WPT token`.
+> Nội dung dưới đây giữ nguyên làm bản ghi tại thời điểm nộp; đọc "SPT" thành "WPT".
+
 | | |
 |---|---|
 | Branch | `phase-0-1/mint-flow` |

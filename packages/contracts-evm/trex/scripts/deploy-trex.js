@@ -22,7 +22,7 @@ async function main() {
 
   const suite = await deployFullSuite(
     { deployer, tokenIssuer, claimIssuer },
-    { name: "Solar Project Token", symbol: "SPT", decimals: 0 }
+    { name: "Wind Power Token", symbol: "WPT", decimals: 0 }
   );
 
   console.log("\n=== ĐỊA CHỈ TRIỂN KHAI (ERC-3643 / T-REX) ===");

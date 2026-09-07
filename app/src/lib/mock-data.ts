@@ -5,7 +5,7 @@
  * loại tài sản của console cũ — đã thay toàn bộ.
  *
  * ⚠️ Đây là số minh hoạ cho phần CHƯA nối on-chain. Những gì đã nối thật
- * (số dư SPT, whitelist, lịch sử giao dịch ở trang /mint và /audit) KHÔNG lấy từ đây
+ * (số dư WPT, whitelist, lịch sử giao dịch ở trang /mint và /audit) KHÔNG lấy từ đây
  * mà đọc qua `ILedgerPort`. Đừng dùng file này để thay dữ liệu thật.
  */
 
@@ -37,8 +37,8 @@ export interface WindProject {
   /** Công suất đặt (MW). */
   capacityMw: number;
   turbines: number;
-  /** SPT đã phát hành cho dự án. */
-  sptIssued: number;
+  /** WPT đã phát hành cho dự án. */
+  wptIssued: number;
   /** Sản lượng luỹ kế (MWh) — nguồn: EnergyOracle. */
   generationMwh: number;
   /** Hệ số công suất luỹ kế (%). */
@@ -60,7 +60,7 @@ export const MOCK_PROJECTS: WindProject[] = [
     region: 'NEARSHORE',
     capacityMw: 99.2,
     turbines: 62,
-    sptIssued: 185_000,
+    wptIssued: 185_000,
     generationMwh: 214_600,
     capacityFactorPct: 38.4,
     ppaPricePerKwh: 1_927,
@@ -77,7 +77,7 @@ export const MOCK_PROJECTS: WindProject[] = [
     region: 'ONSHORE_HIGHLAND',
     capacityMw: 30.0,
     turbines: 12,
-    sptIssued: 100_000,
+    wptIssued: 100_000,
     generationMwh: 128_450,
     capacityFactorPct: 33.1,
     ppaPricePerKwh: 1_813,
@@ -94,7 +94,7 @@ export const MOCK_PROJECTS: WindProject[] = [
     region: 'ONSHORE_COASTAL',
     capacityMw: 19.0,
     turbines: 8,
-    sptIssued: 50_000,
+    wptIssued: 50_000,
     generationMwh: 69_630,
     capacityFactorPct: 35.7,
     ppaPricePerKwh: 1_813,
@@ -128,8 +128,8 @@ export const MOCK_GENERATION_SERIES: GenerationPoint[] = [
 export const MOCK_WIND_STATS = {
   projects: MOCK_PROJECTS.length,
   totalCapacityMw: 148.2,
-  /** SPT đã phát hành (tổng cung). */
-  sptIssued: 335_000,
+  /** WPT đã phát hành (tổng cung). */
+  wptIssued: 335_000,
   /** Nhà đầu tư đã whitelist. */
   whitelistedInvestors: 128,
   /** Sản lượng luỹ kế toàn danh mục (MWh). */

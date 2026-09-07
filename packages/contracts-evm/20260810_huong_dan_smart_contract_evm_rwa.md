@@ -1,6 +1,6 @@
 # Hướng dẫn viết và triển khai smart contract RWA năng lượng tái tạo trên EVM
 
-Tài liệu kỹ thuật cho đội phát triển. Đi kèm bộ mã nguồn Solidity trong thư mục `rwa-evm/` gồm bốn hợp đồng: `ProjectToken` (SPT), `VNDToken` (tVND), `ProfitDistributor`, `Redemption`.
+Tài liệu kỹ thuật cho đội phát triển. Đi kèm bộ mã nguồn Solidity trong thư mục `rwa-evm/` gồm bốn hợp đồng: `ProjectToken` (WPT), `VNDToken` (tVND), `ProfitDistributor`, `Redemption`.
 
 **Bài toán.** Token hóa quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA), có mô hình **chia lợi nhuận định kỳ** cho nhà đầu tư, vai trò phát hành là **ngân hàng**. Tài liệu hướng dẫn viết từng dạng hợp đồng cho các quy trình mint, burn, transfer có kiểm soát, clawback, đóng băng, snapshot, tính lợi nhuận, chia lợi nhuận, mua lại (redeem); và hướng dẫn cài đặt, biên dịch, kiểm thử, triển khai lên cả hai nhánh mạng (public testnet và Hyperledger Besu permissioned) rồi chạy một chu kỳ đầu-cuối.
 
@@ -32,23 +32,23 @@ Bộ mã này được biên dịch và kiểm thử với:
 Bốn hợp đồng, chia hai nhóm:
 
 **Nhóm token.**
-- `ProjectToken` (ký hiệu SPT): token đại diện **quyền hưởng lợi nhuận** của dự án. Đây là token *có kiểm soát* — chỉ ví đã KYC mới nắm giữ được, ngân hàng đóng băng/thu hồi được. Chứa các quy trình: mint, burn, clawback, freeze, whitelist, snapshot.
+- `ProjectToken` (ký hiệu WPT): token đại diện **quyền hưởng lợi nhuận** của dự án. Đây là token *có kiểm soát* — chỉ ví đã KYC mới nắm giữ được, ngân hàng đóng băng/thu hồi được. Chứa các quy trình: mint, burn, clawback, freeze, whitelist, snapshot.
 - `VNDToken` (ký hiệu tVND): token **thanh toán** đại diện tiền gửi VND, dùng để chi trả lợi nhuận và hoàn vốn.
 
 **Nhóm nghiệp vụ.**
 - `ProfitDistributor`: **tính và chia lợi nhuận** định kỳ theo snapshot.
-- `Redemption`: **mua lại/hoàn vốn** — đốt SPT đổi lấy VND theo tỷ giá.
+- `Redemption`: **mua lại/hoàn vốn** — đốt WPT đổi lấy VND theo tỷ giá.
 
 Dòng chảy một chu kỳ:
 
 ```
 Ngân hàng ──KYC──▶ nhà đầu tư
-Ngân hàng ──mint SPT──▶ nhà đầu tư            (phát hành quyền hưởng)
+Ngân hàng ──mint WPT──▶ nhà đầu tư            (phát hành quyền hưởng)
 Dự án phát điện → có lợi nhuận kỳ
 Ngân hàng ──createDistribution(VND)──▶ ProfitDistributor   (chốt snapshot + nạp VND)
 Nhà đầu tư ──claim()──▶ nhận VND theo tỷ lệ nắm giữ tại thời điểm chốt
 ... lặp lại theo từng kỳ ...
-Kết thúc: nhà đầu tư ──redeem(SPT)──▶ Redemption ──trả VND──▶ nhà đầu tư   (đốt SPT, hoàn vốn)
+Kết thúc: nhà đầu tư ──redeem(WPT)──▶ Redemption ──trả VND──▶ nhà đầu tư   (đốt WPT, hoàn vốn)
 ```
 
 **Phân quyền (dùng AccessControl của OpenZeppelin).** Mỗi hợp đồng có các vai trò riêng, mặc định gán hết cho ngân hàng lúc triển khai; sản xuất nên tách cho nhiều ví/khóa khác nhau (multisig):
@@ -63,7 +63,7 @@ Kết thúc: nhà đầu tư ──redeem(SPT)──▶ Redemption ──trả V
 | `DISTRIBUTOR_ROLE` | ProfitDistributor | tạo kỳ chia, chia hộ, quét dư |
 | `MANAGER_ROLE` | Redemption | đặt tỷ giá, pause, nạp/rút thanh khoản |
 
-**Quy ước số thập phân.** Cả SPT và tVND để **0 số thập phân** để số học minh bạch theo góc ngân hàng (1 SPT = 1 phần quyền hưởng; 1 tVND = 1 VND). Đổi được qua tham số constructor. Ở sản xuất có thể chọn 18 cho SPT và 6 cho tVND nếu muốn theo thông lệ; khi đó nhớ nhân/chia hệ số tương ứng trong tỷ giá và số tiền.
+**Quy ước số thập phân.** Cả WPT và tVND để **0 số thập phân** để số học minh bạch theo góc ngân hàng (1 WPT = 1 phần quyền hưởng; 1 tVND = 1 VND). Đổi được qua tham số constructor. Ở sản xuất có thể chọn 18 cho WPT và 6 cho tVND nếu muốn theo thông lệ; khi đó nhớ nhân/chia hệ số tương ứng trong tỷ giá và số tiền.
 
 ---
 
@@ -73,7 +73,7 @@ Phần này đi qua đúng các "dạng smart contract cho từng loại quy tr�
 
 ### 2.1. Nền tảng snapshot — `extensions/ERC20Snapshotable.sol`
 
-Đây là cơ chế cốt lõi để **chia lợi nhuận công bằng**. Vấn đề: nếu chia theo số dư *hiện tại*, một người có thể mua thật nhiều SPT ngay trước lúc chia rồi bán ngay sau đó để "ăn" phần lợi nhuận không thuộc về mình. Snapshot giải quyết bằng cách **đóng băng bức tranh sở hữu tại đúng thời điểm chốt kỳ**.
+Đây là cơ chế cốt lõi để **chia lợi nhuận công bằng**. Vấn đề: nếu chia theo số dư *hiện tại*, một người có thể mua thật nhiều WPT ngay trước lúc chia rồi bán ngay sau đó để "ăn" phần lợi nhuận không thuộc về mình. Snapshot giải quyết bằng cách **đóng băng bức tranh sở hữu tại đúng thời điểm chốt kỳ**.
 
 Cách hoạt động: mỗi khi số dư biến động (mint/burn/transfer), hook `_update` ghi lại *giá trị trước biến động* dưới id snapshot hiện hành (chỉ ghi một lần cho mỗi id, tiết kiệm gas). Hàm `balanceOfAt(account, id)` và `totalSupplyAt(id)` tra cứu nhị phân để trả về số dư đúng tại thời điểm đó.
 
@@ -156,7 +156,7 @@ function _update(address from, address to, uint256 value) internal override(ERC2
 
 ### 2.3. Token thanh toán — `tokens/VNDToken.sol`
 
-ERC-20 tối giản với `mint`/`burn` theo vai trò, đại diện tiền gửi VND on-chain do ngân hàng phát hành/thu hồi. Ở sản xuất, đây cũng nên là tiền gửi token hóa *có kiểm soát* (whitelist/tuân thủ như SPT); bản demo để đơn giản nhằm tập trung vào luồng chia lợi nhuận.
+ERC-20 tối giản với `mint`/`burn` theo vai trò, đại diện tiền gửi VND on-chain do ngân hàng phát hành/thu hồi. Ở sản xuất, đây cũng nên là tiền gửi token hóa *có kiểm soát* (whitelist/tuân thủ như WPT); bản demo để đơn giản nhằm tập trung vào luồng chia lợi nhuận.
 
 ### 2.4. Tính & chia lợi nhuận — `ProfitDistributor.sol`
 
@@ -169,7 +169,7 @@ function createDistribution(uint256 amount, string calldata period)
 {
     uint256 snapId = projectToken.snapshot();
     uint256 supply = projectToken.totalSupplyAt(snapId);
-    require(supply > 0, "khong co SPT dang luu hanh");
+    require(supply > 0, "khong co WPT dang luu hanh");
     payoutToken.safeTransferFrom(msg.sender, address(this), amount);   // nạp VND
     id = distributions.length;
     distributions.push(Distribution({ snapshotId: snapId, amount: amount,
@@ -193,23 +193,23 @@ Cờ `hasClaimed[id][account]` chống nhận hai lần; hàm dùng `nonReentran
 
 **Quét phần dư (`sweepDust`).** Sau `claimWindow` (mặc định 180 ngày), phần chưa ai nhận cộng phần lẻ do làm tròn được trả về ngân hàng. Nhờ vậy không có VND kẹt vĩnh viễn trong hợp đồng.
 
-**Tính công bằng đã được test.** Trong `test/full-cycle.test.js`, sau khi tạo kỳ Q1 (chốt 6000/4000), nhà đầu tư A chuyển bớt SPT cho B; phần của kỳ Q1 vẫn giữ nguyên 180tr/120tr — đúng như kỳ vọng của cơ chế snapshot.
+**Tính công bằng đã được test.** Trong `test/full-cycle.test.js`, sau khi tạo kỳ Q1 (chốt 6000/4000), nhà đầu tư A chuyển bớt WPT cho B; phần của kỳ Q1 vẫn giữ nguyên 180tr/120tr — đúng như kỳ vọng của cơ chế snapshot.
 
 ### 2.5. Mua lại / hoàn vốn — `Redemption.sol`
 
-Cuối vòng đời (hoặc khi nhà đầu tư muốn thoát), họ đổi SPT lấy VND:
+Cuối vòng đời (hoặc khi nhà đầu tư muốn thoát), họ đổi WPT lấy VND:
 ```solidity
-function redeem(uint256 sptAmount) external nonReentrant returns (uint256 vndAmount) {
+function redeem(uint256 wptAmount) external nonReentrant returns (uint256 vndAmount) {
     require(!paused, "dang tam dung");
     require(projectToken.isWhitelisted(msg.sender), "chua KYC");
-    vndAmount = quote(sptAmount);                                   // = sptAmount × rate
+    vndAmount = quote(wptAmount);                                   // = wptAmount × rate
     require(payoutToken.balanceOf(address(this)) >= vndAmount, "thieu thanh khoan VND");
-    projectToken.burnFrom(msg.sender, sptAmount);                   // đốt SPT (cần allowance)
+    projectToken.burnFrom(msg.sender, wptAmount);                   // đốt WPT (cần allowance)
     payoutToken.safeTransfer(msg.sender, vndAmount);               // trả VND
-    emit Redeemed(msg.sender, sptAmount, vndAmount);
+    emit Redeemed(msg.sender, wptAmount, vndAmount);
 }
 ```
-Ngân hàng nạp thanh khoản bằng `fund`, đặt tỷ giá bằng `setRate`, và có thể `setPaused(true)` để khóa khi cần. Vì `redeem` dùng `burnFrom`, nhà đầu tư phải `approve` SPT cho hợp đồng trước — đây chính là bước "đồng ý" của họ.
+Ngân hàng nạp thanh khoản bằng `fund`, đặt tỷ giá bằng `setRate`, và có thể `setPaused(true)` để khóa khi cần. Vì `redeem` dùng `burnFrom`, nhà đầu tư phải `approve` WPT cho hợp đồng trước — đây chính là bước "đồng ý" của họ.
 
 ---
 
@@ -277,7 +277,7 @@ Script sẽ in ra bốn địa chỉ hợp đồng và tự cấp `SNAPSHOT_ROLE
 ### 4.3. (Tùy chọn) Verify mã nguồn trên Etherscan
 Điền `ETHERSCAN_API_KEY` vào `.env` rồi:
 ```bash
-npx hardhat verify --network sepolia <ĐỊA_CHỈ_SPT> "Solar Project Token" "SPT" 0 <ĐỊA_CHỈ_NGÂN_HÀNG>
+npx hardhat verify --network sepolia <ĐỊA_CHỈ_WPT> "Wind Power Token" "WPT" 0 <ĐỊA_CHỈ_NGÂN_HÀNG>
 ```
 (làm tương tự cho các hợp đồng khác với đúng tham số constructor).
 
@@ -319,7 +319,7 @@ Vì `evmVersion` đặt là `paris` nên bytecode tương thích Besu; `gasPrice
 
 ## 6. Chạy một chu kỳ đầu-cuối trên testnet
 
-Sau khi có bốn địa chỉ, mở Hardhat console trỏ vào mạng đã deploy để thao tác từng bước. Thay `<SPT>`, `<VND>`, `<DIST>`, `<RED>`, `<INV_A>` bằng địa chỉ thật.
+Sau khi có bốn địa chỉ, mở Hardhat console trỏ vào mạng đã deploy để thao tác từng bước. Thay `<WPT>`, `<VND>`, `<DIST>`, `<RED>`, `<INV_A>` bằng địa chỉ thật.
 
 ```bash
 npx hardhat console --network sepolia    # hoặc --network besu
@@ -327,16 +327,16 @@ npx hardhat console --network sepolia    # hoặc --network besu
 Rồi trong console:
 ```js
 const [bank] = await ethers.getSigners();
-const spt  = await ethers.getContractAt("ProjectToken", "<SPT>");
+const wpt  = await ethers.getContractAt("ProjectToken", "<WPT>");
 const vnd  = await ethers.getContractAt("VNDToken", "<VND>");
 const dist = await ethers.getContractAt("ProfitDistributor", "<DIST>");
 const red  = await ethers.getContractAt("Redemption", "<RED>");
 
 // 1) KYC nhà đầu tư
-await (await spt.setWhitelisted("<INV_A>", true)).wait();
+await (await wpt.setWhitelisted("<INV_A>", true)).wait();
 
-// 2) Phát hành SPT
-await (await spt.mint("<INV_A>", 6000n)).wait();
+// 2) Phát hành WPT
+await (await wpt.mint("<INV_A>", 6000n)).wait();
 
 // 3) Chốt kỳ Q1 và nạp 300.000.000 VND lợi nhuận
 await (await vnd.mint(bank.address, 300000000n)).wait();
@@ -350,18 +350,18 @@ await (await dist.createDistribution(300000000n, "2026-Q1")).wait();
 await (await dist.distributeTo(0, ["<INV_A>"])).wait();
 (await vnd.balanceOf("<INV_A>")).toString();
 
-// 6) Hoàn vốn: nạp thanh khoản, A approve SPT rồi redeem
+// 6) Hoàn vốn: nạp thanh khoản, A approve WPT rồi redeem
 await (await vnd.mint(bank.address, 2000000000n)).wait();
 await (await vnd.approve("<RED>", 2000000000n)).wait();
 await (await red.fund(2000000000n)).wait();
-// (bước approve SPT phải do chính ví A ký; nếu test một mình, mint SPT cho ví bank đã KYC để tự diễn)
+// (bước approve WPT phải do chính ví A ký; nếu test một mình, mint WPT cho ví bank đã KYC để tự diễn)
 ```
 
 Toàn bộ chuỗi thao tác này đã được đóng gói và kiểm chứng trong `scripts/demo-cycle.js` (chạy trên mạng in-process). Trên testnet, chỉ khác là mỗi lệnh cần `.wait()` để chờ khối xác nhận, và các bước cần chữ ký của nhà đầu tư (approve, claim) phải do ví nhà đầu tư ký.
 
 ---
 
-## 7. Nâng cấp 1 — Nâng SPT lên ERC-3643 thật (thư viện T-REX)
+## 7. Nâng cấp 1 — Nâng WPT lên ERC-3643 thật (thư viện T-REX)
 
 Token `ProjectToken` ở mục 2.2 là bản **rút gọn dễ đọc** theo tinh thần ERC-3643. Khi lên sản xuất, ngân hàng nên dùng bộ **T-REX** chính chủ của Tokeny (`@tokenysolutions/t-rex` + `@onchain-id/solidity`) — bộ này đã được kiểm toán và là hiện thực tham chiếu của chuẩn EIP-3643.
 
@@ -480,7 +480,7 @@ Pilot có thể để `requiredConfirmations = 1`; sản xuất nên ≥ 2. Qu�
 
 ### 8.3. Tạo đợt chia từ oracle
 
-`ProfitDistributorOracle` kế thừa `ProfitDistributor` và thêm `createDistributionFromOracle(periodId)`: đọc số lợi nhuận đã chốt từ oracle, chốt snapshot SPT và nạp quỹ VND như thường lệ. Chống chia trùng một kỳ.
+`ProfitDistributorOracle` kế thừa `ProfitDistributor` và thêm `createDistributionFromOracle(periodId)`: đọc số lợi nhuận đã chốt từ oracle, chốt snapshot WPT và nạp quỹ VND như thường lệ. Chống chia trùng một kỳ.
 
 ```javascript
 const payout = await oracle.distributableProfitVnd(202601); // 1.440.000.000 VND
@@ -541,7 +541,7 @@ rwa-evm/
 │   ├── extensions/
 │   │   └── ERC20Snapshotable.sol       # nền tảng snapshot (chia lợi nhuận công bằng)
 │   ├── tokens/
-│   │   ├── ProjectToken.sol            # SPT pilot: mint/burn/clawback/freeze/whitelist/snapshot
+│   │   ├── ProjectToken.sol            # WPT pilot: mint/burn/clawback/freeze/whitelist/snapshot
 │   │   └── VNDToken.sol                # tVND: token thanh toán
 │   ├── oracle/
 │   │   └── EnergyOracle.sol            # [MỚI] oracle sản lượng điện → công thức lợi nhuận

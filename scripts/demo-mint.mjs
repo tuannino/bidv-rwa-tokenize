@@ -72,13 +72,13 @@ async function main() {
   const before = BigInt((await readBalance()).balance);
   good(`balance trước = ${before}`);
 
-  step(3, `Phát hành ${AMOUNT} SPT`);
+  step(3, `Phát hành ${AMOUNT} WPT`);
   const mint = await call('POST', '/api/mint', { chain: CHAIN, wallet: WALLET, amount: AMOUNT });
   good(`tx ${mint.txHash} (${mint.status})`);
 
   step(4, 'Đọc lại số dư từ ledger');
   const after = BigInt((await readBalance()).balance);
-  log(`\n    ${C.bold}BALANCE = ${after} SPT${C.reset}`);
+  log(`\n    ${C.bold}BALANCE = ${after} WPT${C.reset}`);
 
   step(5, 'Kiểm tra nghiệm thu');
   let failed = false;

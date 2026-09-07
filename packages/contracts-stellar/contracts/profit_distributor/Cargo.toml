@@ -11,8 +11,8 @@ doctest = false
 [dependencies]
 soroban-sdk = { workspace = true }
 # Dùng lại client sinh tự động của hợp đồng token để gọi chéo hợp đồng.
-spt-token = { path = "../spt_token" }
+wpt-token = { path = "../wpt_token" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-spt-token = { path = "../spt_token", features = [] }
+wpt-token = { path = "../wpt_token", features = [] }

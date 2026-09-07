@@ -1,5 +1,5 @@
 #![no_std]
-//! SPT — Solar Project Token
+//! WPT — Wind Power Token
 //! ---------------------------------------------------------------------------
 //! Token quyền hưởng lợi nhuận cho dự án điện mặt trời (RWA) trên Stellar/Soroban.
 //!
@@ -91,7 +91,7 @@ pub enum Error {
 }
 
 #[contract]
-pub struct SptToken;
+pub struct WptToken;
 
 // ===========================================================================
 // Hàm nội bộ (helper) — đọc/ghi lưu trữ + gia hạn TTL
@@ -328,7 +328,7 @@ fn do_burn(env: &Env, from: &Address, amount: i128) -> Result<(), Error> {
 // Giao diện công khai
 // ===========================================================================
 #[contractimpl]
-impl SptToken {
+impl WptToken {
     /// Khởi tạo: đặt admin và metadata. Chỉ gọi được một lần.
     pub fn initialize(
         env: Env,
@@ -551,13 +551,13 @@ mod test {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let inv = Address::generate(&env);
-        let id = env.register(SptToken, ());
-        let c = SptTokenClient::new(&env, &id);
+        let id = env.register(WptToken, ());
+        let c = WptTokenClient::new(&env, &id);
         c.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "Solar Project Token"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "Wind Power Token"),
+            &String::from_str(&env, "WPT"),
         );
 
         // Chưa KYC (authorized=false) -> mint phải lỗi.
@@ -577,13 +577,13 @@ mod test {
         let admin = Address::generate(&env);
         let a = Address::generate(&env);
         let b = Address::generate(&env);
-        let id = env.register(SptToken, ());
-        let c = SptTokenClient::new(&env, &id);
+        let id = env.register(WptToken, ());
+        let c = WptTokenClient::new(&env, &id);
         c.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "SPT"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "WPT"),
+            &String::from_str(&env, "WPT"),
         );
         c.set_authorized(&a, &true);
         c.set_authorized(&b, &true);
@@ -606,13 +606,13 @@ mod test {
         let admin = Address::generate(&env);
         let a = Address::generate(&env);
         let b = Address::generate(&env);
-        let id = env.register(SptToken, ());
-        let c = SptTokenClient::new(&env, &id);
+        let id = env.register(WptToken, ());
+        let c = WptTokenClient::new(&env, &id);
         c.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "SPT"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "WPT"),
+            &String::from_str(&env, "WPT"),
         );
         c.set_authorized(&a, &true);
         c.mint(&a, &1_000);
@@ -627,13 +627,13 @@ mod test {
         let admin = Address::generate(&env);
         let a = Address::generate(&env);
         let b = Address::generate(&env);
-        let id = env.register(SptToken, ());
-        let c = SptTokenClient::new(&env, &id);
+        let id = env.register(WptToken, ());
+        let c = WptTokenClient::new(&env, &id);
         c.initialize(
             &admin,
             &7u32,
-            &String::from_str(&env, "SPT"),
-            &String::from_str(&env, "SPT"),
+            &String::from_str(&env, "WPT"),
+            &String::from_str(&env, "WPT"),
         );
         c.set_authorized(&a, &true);
         c.set_authorized(&b, &true);

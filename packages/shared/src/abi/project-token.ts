@@ -1,5 +1,5 @@
 /**
- * ABI **TỐI GIẢN** của ProjectToken (SPT) — chỉ những hàm/event mà `ILedgerPort` cần.
+ * ABI **TỐI GIẢN** của ProjectToken (WPT) — chỉ những hàm/event mà `ILedgerPort` cần.
  *
  * Vì sao không import artifact Hardhat: artifact chứa bytecode + AST (hàng trăm KB/contract),
  * bundle vào worker edge là phình vô ích (xem docs/DEPLOYMENT.md).

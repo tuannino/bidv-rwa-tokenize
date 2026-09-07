@@ -7,7 +7,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC20Snapshotable} from "../extensions/ERC20Snapshotable.sol";
 
 /**
- * @title ProjectToken (SPT — Solar Project Token)
+ * @title ProjectToken (WPT — Wind Power Token)
  * @notice Token đại diện quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA).
  *         Đây là token CÓ KIỂM SOÁT: chỉ ví đã KYC (whitelist) mới được nắm giữ,
  *         ngân hàng (agent) có thể đóng băng và thu hồi (clawback) khi cần.
@@ -90,7 +90,7 @@ contract ProjectToken is ERC20Burnable, ERC20Snapshotable, AccessControl {
     // =========================================================================
     //  PHÁT HÀNH (MINT) & ĐỐT (BURN)
     // =========================================================================
-    /// @notice Ngân hàng phát hành SPT cho nhà đầu tư đã KYC.
+    /// @notice Ngân hàng phát hành WPT cho nhà đầu tư đã KYC.
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
@@ -117,7 +117,7 @@ contract ProjectToken is ERC20Burnable, ERC20Snapshotable, AccessControl {
     //  CLAWBACK (chuyển cưỡng bức)
     // =========================================================================
     /**
-     * @notice Chuyển cưỡng bức SPT từ `from` sang `to` (thu hồi tài sản), bỏ qua kiểm tra
+     * @notice Chuyển cưỡng bức WPT từ `from` sang `to` (thu hồi tài sản), bỏ qua kiểm tra
      *         đóng băng của `from`. Bên nhận vẫn phải là ví đã KYC.
      *         Dùng cho lệnh tòa/cơ quan quản lý, mất khóa, hoặc thu hồi khi vi phạm.
      */

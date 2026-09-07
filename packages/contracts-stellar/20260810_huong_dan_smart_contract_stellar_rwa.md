@@ -1,6 +1,6 @@
 # Hướng dẫn viết và triển khai smart contract RWA năng lượng tái tạo trên Stellar
 
-Tài liệu kỹ thuật cho dev. Đi kèm bộ mã nguồn Soroban trong thư mục `rwa-contracts/` (ba hợp đồng: `spt_token`, `profit_distributor`, `redemption`).
+Tài liệu kỹ thuật cho dev. Đi kèm bộ mã nguồn Soroban trong thư mục `rwa-contracts/` (ba hợp đồng: `wpt_token`, `profit_distributor`, `redemption`).
 
 Bài toán: token hóa quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA), có mô hình **chia lợi nhuận định kỳ** cho nhà đầu tư, vai trò phát hành là **ngân hàng**. Tài liệu này hướng dẫn viết từng dạng hợp đồng cho các quy trình mint, burn, transfer, clawback, đóng băng, tính lợi nhuận, chia lợi nhuận, mua lại (redeem); và hướng dẫn cài đặt, build, triển khai lên testnet chạy một chu kỳ đầu-cuối.
 
@@ -10,14 +10,14 @@ Bài toán: token hóa quyền hưởng lợi nhuận của một dự án đi�
 
 Hai loại tài sản trong hệ thống:
 
-- **SPT (Solar Project Token)** — token quyền hưởng, đại diện tỷ lệ sở hữu dòng tiền dự án. Có kiểm soát người nắm giữ (chỉ nhà đầu tư đã KYC).
+- **WPT (Wind Power Token)** — token quyền hưởng, đại diện tỷ lệ sở hữu dòng tiền dự án. Có kiểm soát người nắm giữ (chỉ nhà đầu tư đã KYC).
 - **VND token** — phương tiện chi trả (tiền gửi token hóa hoặc stablecoin VND). Dùng để trả lợi nhuận và hoàn vốn.
 
 Ba hợp đồng:
 
 | Hợp đồng | Chịu trách nhiệm | Quy trình |
 |---|---|---|
-| `spt_token` | Token SPT: SEP-41 + phần quản trị + snapshot | `mint`, `burn`, `transfer`, `clawback`, `set_authorized` (whitelist/đóng băng), `set_admin`, `snapshot`, `balance_at` |
+| `wpt_token` | Token WPT: SEP-41 + phần quản trị + snapshot | `mint`, `burn`, `transfer`, `clawback`, `set_authorized` (whitelist/đóng băng), `set_admin`, `snapshot`, `balance_at` |
 | `profit_distributor` | Chia lợi nhuận định kỳ (mô hình push) | `preview_share` (tính), `distribute` (chia), `register_holder` |
 | `redemption` | Mua lại / hoàn vốn | `redeem`, `set_rate`, `set_paused` |
 | `revenue_oracle` | Đưa doanh thu kỳ lên chuỗi (tách nguồn) | `report`, `finalize`, `get`, `set_reporter` |
@@ -32,18 +32,18 @@ Luồng một chu kỳ:
             │                                          │
             ▼                                          ▼
    Oracle / admin ── total_revenue ──►  profit_distributor.distribute(N, revenue)
-                                                       │  đọc số dư SPT từng holder
+                                                       │  đọc số dư WPT từng holder
                                                        │  share_i = revenue * bal_i / supply
                                                        ▼
                                         chuyển VND cho từng nhà đầu tư theo tỷ lệ
 
-   Khi nhà đầu tư muốn thoát:  redemption.redeem(spt_amount)
-        → đốt SPT của họ (giảm cung) → trả lại vốn bằng VND theo tỷ giá
+   Khi nhà đầu tư muốn thoát:  redemption.redeem(wpt_amount)
+        → đốt WPT của họ (giảm cung) → trả lại vốn bằng VND theo tỷ giá
 ```
 
-Nguyên tắc kiểm soát của ngân hàng được cài trong `spt_token`:
+Nguyên tắc kiểm soát của ngân hàng được cài trong `wpt_token`:
 
-- **Danh sách trắng KYC**: chỉ địa chỉ có `authorized = true` mới nắm giữ/nhận SPT. Đây là cổng tuân thủ.
+- **Danh sách trắng KYC**: chỉ địa chỉ có `authorized = true` mới nắm giữ/nhận WPT. Đây là cổng tuân thủ.
 - **Đóng băng**: `set_authorized(addr, false)` khóa một địa chỉ.
 - **Thu hồi cưỡng chế (clawback)**: admin lấy lại token kể cả khi chủ sở hữu không đồng ý (lệnh cơ quan quản lý, vi phạm tuân thủ).
 
@@ -56,14 +56,14 @@ Trên Stellar có **hai con đường** để có được token có kiểm soá
 **Cách A — Classic asset + cờ giao thức + SAC (không cần viết hợp đồng token).**
 Phát hành một "classic asset", bật ba cờ trên tài khoản phát hành: `AUTH_REQUIRED` (buộc ủy quyền/whitelist), `AUTH_REVOCABLE` (cho đóng băng), `CLAWBACK_ENABLED` (cho thu hồi). Mint/freeze/clawback là **thao tác gốc của giao thức**, không phải hàm hợp đồng. Khi cần dùng trong Soroban thì "bọc" bằng **Stellar Asset Contract (SAC)** — bản dựng sẵn triển khai đúng giao diện SEP-41 và có thêm `mint`, `clawback`, `set_authorized`, `set_admin`. SAC rẻ và nhanh hơn token tự viết đáng kể.
 
-**Cách B — Token Soroban tự viết (chính là `spt_token` trong bộ này).**
+**Cách B — Token Soroban tự viết (chính là `wpt_token` trong bộ này).**
 Tự cài toàn bộ logic bằng Rust. Linh hoạt nhất: có thể thêm quy tắc riêng (ví dụ giới hạn nắm giữ, khóa theo thời gian, tổng cung để tính chia lợi nhuận), tự đặt tên hàm, tự phát sự kiện theo ý.
 
 **Khuyến nghị:**
-- Nếu chỉ cần token có kiểm soát tiêu chuẩn (whitelist, freeze, clawback) → dùng **Cách A** cho token VND và cả SPT ở production. Ít mã, ít rủi ro, phí thấp.
-- Nếu SPT cần logic đặc thù (ví dụ hợp đồng phân phối cần đọc `total_supply`, hoặc cần luật nắm giữ riêng) → **Cách B**.
+- Nếu chỉ cần token có kiểm soát tiêu chuẩn (whitelist, freeze, clawback) → dùng **Cách A** cho token VND và cả WPT ở production. Ít mã, ít rủi ro, phí thấp.
+- Nếu WPT cần logic đặc thù (ví dụ hợp đồng phân phối cần đọc `total_supply`, hoặc cần luật nắm giữ riêng) → **Cách B**.
 
-Bộ mã này dùng **Cách B** cho SPT để minh họa đầy đủ việc "viết từng smart contract cho từng quy trình" theo đúng yêu cầu, và để hợp đồng phân phối gọi được `total_supply`. Phần triển khai bên dưới dùng chính `spt_token` cho cả SPT lẫn VND (cho gọn khi thử nghiệm); ở production nên cân nhắc chuyển VND sang Cách A.
+Bộ mã này dùng **Cách B** cho WPT để minh họa đầy đủ việc "viết từng smart contract cho từng quy trình" theo đúng yêu cầu, và để hợp đồng phân phối gọi được `total_supply`. Phần triển khai bên dưới dùng chính `wpt_token` cho cả WPT lẫn VND (cho gọn khi thử nghiệm); ở production nên cân nhắc chuyển VND sang Cách A.
 
 > Ánh xạ với báo cáo/playbook trước: đây là "nhánh public Stellar (B2.C)". Kiểm soát nắm giữ và thu hồi trên Stellar đơn giản hơn EVM vì có sẵn ở giao thức (Cách A); nhưng logic chia lợi nhuận theo công thức vẫn cần một hợp đồng Soroban (Rust).
 
@@ -131,8 +131,8 @@ rwa-contracts/
 ├── README.md
 ├── cach_a_classic_sac.sh            # Cách A: classic asset + SAC (đối chiếu chi phí)
 └── contracts/
-    ├── spt_token/
-    │   └── src/lib.rs               # SPT: mint/burn/transfer/clawback/freeze + snapshot
+    ├── wpt_token/
+    │   └── src/lib.rs               # WPT: mint/burn/transfer/clawback/freeze + snapshot
     ├── profit_distributor/
     │   └── src/lib.rs               # chia lợi nhuận (push)
     ├── redemption/
@@ -144,14 +144,14 @@ rwa-contracts/
 ```
 
 Điểm cần biết:
-- `crate-type = ["cdylib", "rlib"]`: `cdylib` để build ra WASM; `rlib` để hợp đồng khác **dùng lại client sinh tự động** (`SptTokenClient`) khi gọi chéo.
-- `profit_distributor` và `redemption` khai báo `spt-token = { path = "../spt_token" }` để gọi hàm `balance`, `transfer`, `burn` của token qua `SptTokenClient` — không cần tự viết lại giao diện.
+- `crate-type = ["cdylib", "rlib"]`: `cdylib` để build ra WASM; `rlib` để hợp đồng khác **dùng lại client sinh tự động** (`WptTokenClient`) khi gọi chéo.
+- `profit_distributor` và `redemption` khai báo `wpt-token = { path = "../wpt_token" }` để gọi hàm `balance`, `transfer`, `burn` của token qua `WptTokenClient` — không cần tự viết lại giao diện.
 
 ---
 
 ## 5. Giải thích từng hợp đồng và từng quy trình
 
-### 5.1. Hợp đồng token SPT (`spt_token`)
+### 5.1. Hợp đồng token WPT (`wpt_token`)
 
 Tuân thủ **SEP-41** (giao diện token chuẩn của Soroban: `allowance/approve/balance/transfer/transfer_from/burn/burn_from/decimals/name/symbol`) và mở rộng phần quản trị.
 
@@ -188,7 +188,7 @@ Kiểm tra **cả hai** bên đã whitelist (cổng tuân thủ ở mọi lần 
 pub fn burn(env, from, amount)                 // from tự đốt
 pub fn burn_from(env, spender, from, amount)   // đốt qua allowance
 ```
-Giảm số dư và `total_supply`. Hợp đồng `redemption` dùng `burn` để "rút" SPT khi nhà đầu tư hoàn vốn.
+Giảm số dư và `total_supply`. Hợp đồng `redemption` dùng `burn` để "rút" WPT khi nhà đầu tư hoàn vốn.
 
 **Quy trình: thu hồi cưỡng chế (clawback).**
 ```rust
@@ -200,15 +200,15 @@ Admin lấy lại token từ một địa chỉ **không cần địa chỉ đó
 
 ### 5.2. Hợp đồng tính & chia lợi nhuận (`profit_distributor`)
 
-**Mô hình chia.** Mỗi kỳ, doanh thu ròng (đã quy ra VND token) chia theo tỷ lệ nắm giữ SPT:
+**Mô hình chia.** Mỗi kỳ, doanh thu ròng (đã quy ra VND token) chia theo tỷ lệ nắm giữ WPT:
 
 ```
 share_i = total_revenue * balance_i / registered_supply     (làm tròn xuống)
 ```
 
-`registered_supply` là tổng SPT của các nhà đầu tư **đã đăng ký**. Phần dư do làm tròn nằm lại trong kho hợp đồng, cộng dồn sang kỳ sau (hoặc rút thủ công).
+`registered_supply` là tổng WPT của các nhà đầu tư **đã đăng ký**. Phần dư do làm tròn nằm lại trong kho hợp đồng, cộng dồn sang kỳ sau (hoặc rút thủ công).
 
-**Vì sao cần "đăng ký holder"?** Soroban **không** cho phép duyệt toàn bộ số dư của một token (không có vòng lặp qua mọi tài khoản). Nên hợp đồng giữ một danh sách địa chỉ nhà đầu tư (`register_holder` / `remove_holder`, đồng bộ với danh sách KYC). Khi chia, hợp đồng đọc số dư SPT hiện tại của từng địa chỉ trong danh sách.
+**Vì sao cần "đăng ký holder"?** Soroban **không** cho phép duyệt toàn bộ số dư của một token (không có vòng lặp qua mọi tài khoản). Nên hợp đồng giữ một danh sách địa chỉ nhà đầu tư (`register_holder` / `remove_holder`, đồng bộ với danh sách KYC). Khi chia, hợp đồng đọc số dư WPT hiện tại của từng địa chỉ trong danh sách.
 
 **Quy trình: tính lợi nhuận (chỉ đọc).**
 ```rust
@@ -231,14 +231,14 @@ Các bước bên trong: kiểm tra kỳ chưa chia (chống chia trùng) → t�
 
 **Quy trình: redeem.**
 ```rust
-pub fn redeem(env, investor: Address, spt_amount: i128) -> i128   // investor ký (là source)
+pub fn redeem(env, investor: Address, wpt_amount: i128) -> i128   // investor ký (là source)
 ```
-Nhà đầu tư trả lại `spt_amount` SPT để nhận vốn bằng VND:
-- Tính `vnd_out = spt_amount * rate / SCALE` (SCALE = 1e7 để tỷ giá biểu diễn được phần lẻ).
-- **Đốt** SPT của nhà đầu tư (giảm tổng cung — cổ phần rút khỏi dự án).
+Nhà đầu tư trả lại `wpt_amount` WPT để nhận vốn bằng VND:
+- Tính `vnd_out = wpt_amount * rate / SCALE` (SCALE = 1e7 để tỷ giá biểu diễn được phần lẻ).
+- **Đốt** WPT của nhà đầu tư (giảm tổng cung — cổ phần rút khỏi dự án).
 - Chuyển VND từ kho hợp đồng cho nhà đầu tư.
 
-Ủy quyền: `investor` phải là **bên ký giao dịch** (source account) để ủy quyền cho việc đốt SPT của chính họ. Việc trả VND từ kho hợp đồng là lời gọi con của hợp đồng nên tự ủy quyền.
+Ủy quyền: `investor` phải là **bên ký giao dịch** (source account) để ủy quyền cho việc đốt WPT của chính họ. Việc trả VND từ kho hợp đồng là lời gọi con của hợp đồng nên tự ủy quyền.
 
 **Quản trị.** `set_rate` cập nhật tỷ giá mua lại; `set_paused` tạm dừng khi cần (ví dụ thiếu thanh khoản VND). `preview` xem trước số VND nhận được.
 
@@ -257,16 +257,16 @@ Tác dụng: quyền "đặt doanh thu" (reporter) tách khỏi quyền "khóa s
 
 Bản `profit_distributor` (mục 5.2) dùng mô hình **push**: hợp đồng duyệt danh sách holder và trả cho từng người trong một giao dịch. Đơn giản nhưng chi phí tăng theo số holder và sẽ vượt giới hạn tài nguyên khi có hàng nghìn nhà đầu tư. Bản pull giải quyết bằng hai ý tưởng ghép lại:
 
-Thứ nhất, **token hỗ trợ snapshot** (đã bổ sung vào `spt_token`). Cơ chế checkpoint kiểu "lazy" của OpenZeppelin: token giữ một bộ đếm snapshot; hàm `snapshot()` (admin) tăng bộ đếm và trả về `snapshot_id`. Mỗi khi số dư một địa chỉ sắp đổi lần đầu trong một kỳ snapshot, token ghi lại giá trị CŨ kèm `snapshot_id`. Nhờ vậy `balance_at(addr, snapshot_id)` và `total_supply_at(snapshot_id)` tra được số dư đúng tại thời điểm snapshot, dù về sau số dư có đổi. Chi phí: mỗi địa chỉ tích lũy một checkpoint cho mỗi kỳ snapshot có phát sinh giao dịch; với chia theo quý (4 lần/năm) và số holder tổ chức, khối lượng nhỏ, cần lưu ý gia hạn TTL.
+Thứ nhất, **token hỗ trợ snapshot** (đã bổ sung vào `wpt_token`). Cơ chế checkpoint kiểu "lazy" của OpenZeppelin: token giữ một bộ đếm snapshot; hàm `snapshot()` (admin) tăng bộ đếm và trả về `snapshot_id`. Mỗi khi số dư một địa chỉ sắp đổi lần đầu trong một kỳ snapshot, token ghi lại giá trị CŨ kèm `snapshot_id`. Nhờ vậy `balance_at(addr, snapshot_id)` và `total_supply_at(snapshot_id)` tra được số dư đúng tại thời điểm snapshot, dù về sau số dư có đổi. Chi phí: mỗi địa chỉ tích lũy một checkpoint cho mỗi kỳ snapshot có phát sinh giao dịch; với chia theo quý (4 lần/năm) và số holder tổ chức, khối lượng nhỏ, cần lưu ý gia hạn TTL.
 
 Thứ hai, hợp đồng **pull**:
-- `open_period(period_id)` do admin gọi: đọc doanh thu đã `finalize` từ oracle, gọi `spt.snapshot()` để chốt số dư mọi người, lưu `snapshot_id`, `total_revenue`, và `total_supply` tại snapshot. Không cần danh sách holder.
-- `claim(period_id, investor)` để từng nhà đầu tư tự nhận: phần chia tính theo `balance_at(investor, snapshot_id)` chia cho `total_supply` tại snapshot, nên **không thể gian lận** bằng cách mua thêm SPT sau khi mở kỳ. Mỗi người `claim` đúng một lần (đánh dấu trước khi chuyển tiền).
+- `open_period(period_id)` do admin gọi: đọc doanh thu đã `finalize` từ oracle, gọi `wpt.snapshot()` để chốt số dư mọi người, lưu `snapshot_id`, `total_revenue`, và `total_supply` tại snapshot. Không cần danh sách holder.
+- `claim(period_id, investor)` để từng nhà đầu tư tự nhận: phần chia tính theo `balance_at(investor, snapshot_id)` chia cho `total_supply` tại snapshot, nên **không thể gian lận** bằng cách mua thêm WPT sau khi mở kỳ. Mỗi người `claim` đúng một lần (đánh dấu trước khi chuyển tiền).
 - `preview_claim` xem trước phần của một người.
 
 Chi phí mỗi giao dịch `claim` là cố định, không phụ thuộc tổng số holder, nên mô hình mở rộng tốt.
 
-Lưu ý về ủy quyền: `open_period` phải do **admin của token** ký, vì bên trong gọi `spt.snapshot()` (chỉ admin). Trong hệ này, dùng chung một khóa admin cho token và distributor, hoặc để admin token đồng ký. Việc trả VND lấy từ kho của chính hợp đồng pull (nạp trước), tự ủy quyền như bản push.
+Lưu ý về ủy quyền: `open_period` phải do **admin của token** ký, vì bên trong gọi `wpt.snapshot()` (chỉ admin). Trong hệ này, dùng chung một khóa admin cho token và distributor, hoặc để admin token đồng ký. Việc trả VND lấy từ kho của chính hợp đồng pull (nạp trước), tự ủy quyền như bản push.
 
 **Chọn bản nào?** Ít nhà đầu tư tổ chức, muốn đơn giản, muốn trả tự động một lần: dùng `profit_distributor` (push). Nhiều nhà đầu tư, cần chống gian lận theo số dư và mở rộng: dùng `profit_distributor_pull` + oracle.
 
@@ -282,14 +282,14 @@ cargo test
 
 # Build ra WASM cho cả ba hợp đồng
 stellar contract build
-# → target/wasm32v1-none/release/spt_token.wasm
+# → target/wasm32v1-none/release/wpt_token.wasm
 #   target/wasm32v1-none/release/profit_distributor.wasm
 #   target/wasm32v1-none/release/redemption.wasm
 ```
 
 Tối ưu kích thước WASM (khuyến nghị trước khi deploy):
 ```bash
-stellar contract optimize --wasm target/wasm32v1-none/release/spt_token.wasm
+stellar contract optimize --wasm target/wasm32v1-none/release/wpt_token.wasm
 stellar contract optimize --wasm target/wasm32v1-none/release/profit_distributor.wasm
 stellar contract optimize --wasm target/wasm32v1-none/release/redemption.wasm
 ```
@@ -298,7 +298,7 @@ stellar contract optimize --wasm target/wasm32v1-none/release/redemption.wasm
 
 ## 7. Triển khai lên testnet — chạy một chu kỳ đầu-cuối
 
-Ta sẽ deploy **bốn thực thể hợp đồng**: token SPT, token VND (dùng lại `spt_token.wasm`), distributor, redemption. Rồi chạy: whitelist → mint SPT → đăng ký holder → nạp VND → chia lợi nhuận → redeem → clawback.
+Ta sẽ deploy **bốn thực thể hợp đồng**: token WPT, token VND (dùng lại `wpt_token.wasm`), distributor, redemption. Rồi chạy: whitelist → mint WPT → đăng ký holder → nạp VND → chia lợi nhuận → redeem → clawback.
 
 Đặt sẵn biến địa chỉ ví để dễ đọc:
 ```bash
@@ -310,19 +310,19 @@ INVB=$(stellar keys address investorB)
 ### 7.1. Deploy và khởi tạo hai token
 
 ```bash
-# --- Token SPT ---
-SPT=$(stellar contract deploy \
-  --wasm target/wasm32v1-none/release/spt_token.wasm \
-  --source-account admin --network testnet --alias spt)
-echo "SPT=$SPT"
+# --- Token WPT ---
+WPT=$(stellar contract deploy \
+  --wasm target/wasm32v1-none/release/wpt_token.wasm \
+  --source-account admin --network testnet --alias wpt)
+echo "WPT=$WPT"
 
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   initialize --admin "$ADMIN" --decimals 7 \
-  --name "Solar Project Token" --symbol "SPT"
+  --name "Wind Power Token" --symbol "WPT"
 
 # --- Token VND (dùng lại cùng WASM) ---
 VND=$(stellar contract deploy \
-  --wasm target/wasm32v1-none/release/spt_token.wasm \
+  --wasm target/wasm32v1-none/release/wpt_token.wasm \
   --source-account admin --network testnet --alias vnd)
 echo "VND=$VND"
 
@@ -340,25 +340,25 @@ DIST=$(stellar contract deploy \
 echo "DIST=$DIST"
 
 stellar contract invoke --id "$DIST" --source-account admin --network testnet -- \
-  initialize --admin_addr "$ADMIN" --spt_token "$SPT" --vnd_token "$VND"
+  initialize --admin_addr "$ADMIN" --wpt_token "$WPT" --vnd_token "$VND"
 
 REDEEM=$(stellar contract deploy \
   --wasm target/wasm32v1-none/release/redemption.wasm \
   --source-account admin --network testnet --alias redeem)
 echo "REDEEM=$REDEEM"
 
-# rate: 1 SPT-unit đổi 10.000 VND-unit → rate = 10000 * 1e7 = 100000000000
+# rate: 1 WPT-unit đổi 10.000 VND-unit → rate = 10000 * 1e7 = 100000000000
 stellar contract invoke --id "$REDEEM" --source-account admin --network testnet -- \
-  initialize --admin_addr "$ADMIN" --spt_token "$SPT" --vnd_token "$VND" \
+  initialize --admin_addr "$ADMIN" --wpt_token "$WPT" --vnd_token "$VND" \
   --rate 100000000000
 ```
 
 ### 7.3. KYC / whitelist (bắt buộc trước khi giữ token)
 
-Whitelist trên **cả** SPT và VND cho: hai nhà đầu tư, địa chỉ distributor (giữ VND để chia), địa chỉ redemption (giữ VND để trả).
+Whitelist trên **cả** WPT và VND cho: hai nhà đầu tư, địa chỉ distributor (giữ VND để chia), địa chỉ redemption (giữ VND để trả).
 
 ```bash
-for ID in "$SPT" "$VND"; do
+for ID in "$WPT" "$VND"; do
   for A in "$INVA" "$INVB" "$DIST" "$REDEEM"; do
     stellar contract invoke --id "$ID" --source-account admin --network testnet -- \
       set_authorized --id "$A" --authorize true
@@ -366,13 +366,13 @@ for ID in "$SPT" "$VND"; do
 done
 ```
 
-### 7.4. Phát hành SPT và đăng ký holder
+### 7.4. Phát hành WPT và đăng ký holder
 
 ```bash
 # Phát hành: A = 700, B = 300 (đơn vị unit; nhân 1e7 nếu muốn theo stroop)
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   mint --to "$INVA" --amount 700
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   mint --to "$INVB" --amount 300
 
 # Đăng ký holder vào distributor
@@ -416,23 +416,23 @@ stellar contract invoke --id "$VND" --source-account admin --network testnet -- 
 ### 7.7. Nhà đầu tư mua lại (redeem)
 
 ```bash
-# investorA hoàn 100 SPT (investorA là source để ủy quyền đốt SPT của mình)
+# investorA hoàn 100 WPT (investorA là source để ủy quyền đốt WPT của mình)
 stellar contract invoke --id "$REDEEM" --source-account investorA --network testnet -- \
-  redeem --investor "$INVA" --spt_amount 100
+  redeem --investor "$INVA" --wpt_amount 100
 # → trả về 1000000 (100 * 10.000)
 
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   balance --id "$INVA"     # → 600  (đã đốt 100)
 ```
 
 ### 7.8. Thu hồi cưỡng chế (clawback)
 
 ```bash
-# Ngân hàng thu hồi 50 SPT từ investorB (không cần B đồng ý)
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+# Ngân hàng thu hồi 50 WPT từ investorB (không cần B đồng ý)
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   clawback --from "$INVB" --amount 50
 
-stellar contract invoke --id "$SPT" --source-account admin --network testnet -- \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet -- \
   balance --id "$INVB"     # → 250
 ```
 
@@ -483,7 +483,7 @@ Xong một chu kỳ đầy đủ trên testnet.
 
 | Cấu phần | Cách làm trên EVM | Cách làm trong bộ này (Stellar) |
 |---|---|---|
-| Token có kiểm soát người nắm giữ | ERC-3643 (T-REX) | `spt_token` (Cách B) hoặc classic asset + cờ giao thức (Cách A) |
+| Token có kiểm soát người nắm giữ | ERC-3643 (T-REX) | `wpt_token` (Cách B) hoặc classic asset + cờ giao thức (Cách A) |
 | Định danh, whitelist, tuân thủ | ONCHAINID + Compliance | `set_authorized` + (production) SEP-8 approval server, SEP-12 |
 | Đóng băng, thu hồi | Hàm trong ERC-3643 | `set_authorized(false)`, `clawback` (có sẵn ở giao thức với Cách A) |
 | Kho lợi tức & phân phối | ERC-4626 + hợp đồng phân phối | `profit_distributor` (Soroban/Rust) |
@@ -494,7 +494,7 @@ Xong một chu kỳ đầy đủ trên testnet.
 
 ## 12. Triển khai mô hình pull + oracle trên testnet
 
-Tiếp nối biến ở mục 7 (`ADMIN`, `INVA`, `INVB`, `SPT`, `VND`). Ở đây `ADMIN` đồng thời là admin của token và reporter của oracle (để test gọn).
+Tiếp nối biến ở mục 7 (`ADMIN`, `INVA`, `INVB`, `WPT`, `VND`). Ở đây `ADMIN` đồng thời là admin của token và reporter của oracle (để test gọn).
 
 ```bash
 # 12.1. Deploy oracle doanh thu và distributor pull
@@ -510,7 +510,7 @@ DPULL=$(stellar contract deploy \
   --source-account admin --network testnet --alias dpull)
 
 stellar contract invoke --id "$DPULL" --source-account admin --network testnet -- \
-  initialize --admin_addr "$ADMIN" --spt_token "$SPT" --vnd_token "$VND" --oracle "$ORACLE"
+  initialize --admin_addr "$ADMIN" --wpt_token "$WPT" --vnd_token "$VND" --oracle "$ORACLE"
 
 # 12.2. Whitelist địa chỉ distributor pull trên VND và nạp kho VND
 stellar contract invoke --id "$VND" --source-account admin --network testnet -- \
@@ -535,7 +535,7 @@ stellar contract invoke --id "$DPULL" --source-account investorB --network testn
   claim --period_id 2 --investor "$INVB"
 ```
 
-Điểm khác biệt so với bản push: không nạp danh sách holder, không có vòng lặp trả tiền; mỗi `claim` là một giao dịch độc lập chi phí cố định. Nếu sau khi `open_period` mà nhà đầu tư giao dịch SPT, phần chia vẫn tính theo số dư đã chốt tại snapshot.
+Điểm khác biệt so với bản push: không nạp danh sách holder, không có vòng lặp trả tiền; mỗi `claim` là một giao dịch độc lập chi phí cố định. Nếu sau khi `open_period` mà nhà đầu tư giao dịch WPT, phần chia vẫn tính theo số dư đã chốt tại snapshot.
 
 ---
 
@@ -570,7 +570,7 @@ Không nên đoán số tuyệt đối; hãy đo trên testnet. Mỗi lần `ste
 
 ```bash
 # Xem phí ước lượng mà không gửi (mô phỏng), ví dụ với một lệnh invoke:
-stellar contract invoke --id "$SPT" --source-account admin --network testnet \
+stellar contract invoke --id "$WPT" --source-account admin --network testnet \
   --sim -- mint --to "$INVA" --amount 100
 
 # Với giao dịch classic, có thể dựng rồi xem trước:

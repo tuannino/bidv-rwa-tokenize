@@ -4,7 +4,7 @@
 Cán bộ ngân hàng phát hành (mint) token điện gió cho nhà đầu tư đã được cấp phép, chạy end-to-end trên codebase hiện có, trên chain chọn được (mặc định hardhat-local), với tích hợp KYC ở chế độ mock.
 
 ## User story
-Là **BANK_ADMIN**, tôi muốn phát hành một lượng token SPT cho một nhà đầu tư đã whitelist, để nhà đầu tư sở hữu phần quyền hưởng tương ứng, và thao tác được ghi nhận.
+Là **BANK_ADMIN**, tôi muốn phát hành một lượng token WPT cho một nhà đầu tư đã whitelist, để nhà đầu tư sở hữu phần quyền hưởng tương ứng, và thao tác được ghi nhận.
 
 ## Acceptance criteria (EARS)
 1. WHEN BANK_ADMIN mint cho investor đã whitelist AND amount > 0, THE system SHALL gọi `ILedgerPort.mint`, chờ receipt `CONFIRMED`, lưu giao dịch, và cập nhật balance hiển thị.

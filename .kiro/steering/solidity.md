@@ -9,4 +9,4 @@ fileMatchPattern: "packages/contracts-evm/**/*.sol"
 - Giữ mô hình role sẵn có: `MINTER_ROLE`, `AGENT_ROLE`, `SNAPSHOT_ROLE`, `PAUSER_ROLE`.
 - Khi sửa/thêm: luôn thêm test tương ứng; chạy `npx hardhat test` phải xanh trước khi mở PR.
 - Sau khi deploy, xuất ABI + địa chỉ sang `packages/shared` (một nguồn sự thật cho frontend).
-- Số thập phân SPT/tVND = 0 theo thiết kế (số học minh bạch) — đừng đổi trừ khi có yêu cầu.
+- Số thập phân WPT/tVND = 0 theo thiết kế (số học minh bạch) — đừng đổi trừ khi có yêu cầu.

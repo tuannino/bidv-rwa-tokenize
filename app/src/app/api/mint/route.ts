@@ -1,7 +1,7 @@
 import { mintTokens } from '@/lib/bank/mint.service';
 import { httpStatusFor } from '@/lib/bank/result';
 
-/** POST /api/mint — phát hành SPT cho nhà đầu tư đã whitelist. */
+/** POST /api/mint — phát hành WPT cho nhà đầu tư đã whitelist. */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const result = await mintTokens(body);

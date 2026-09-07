@@ -61,41 +61,41 @@ async function main() {
   console.log(`Mạng: ${network.name} (chainId=${chainId}) -> chainKey="${chainKey}"`);
   console.log(`Người triển khai (ngân hàng): ${admin}`);
 
-  // 1) Token — chủ đề ĐIỆN GIÓ, ký hiệu giữ SPT theo docs/SPEC.md §2, decimals = 0.
-  const spt = await ethers.deployContract("ProjectToken", [
-    "Wind Power Project Token",
-    "SPT",
+  // 1) Token — chủ đề ĐIỆN GIÓ. Ký hiệu WPT = Wind Power Token (docs/SPEC.md §1), decimals = 0.
+  const wpt = await ethers.deployContract("ProjectToken", [
+    "Wind Power Token",
+    "WPT",
     0,
     admin,
   ]);
-  await spt.waitForDeployment();
+  await wpt.waitForDeployment();
 
   const vnd = await ethers.deployContract("VNDToken", [admin]);
   await vnd.waitForDeployment();
 
   // 2) Nghiệp vụ (chưa dùng ở P1, deploy sẵn cho P2/P3)
   const distributor = await ethers.deployContract("ProfitDistributor", [
-    await spt.getAddress(),
+    await wpt.getAddress(),
     await vnd.getAddress(),
     admin,
   ]);
   await distributor.waitForDeployment();
 
-  const rate = 1_000_000n; // 1 SPT = 1.000.000 tVND
+  const rate = 1_000_000n; // 1 WPT = 1.000.000 tVND
   const redemption = await ethers.deployContract("Redemption", [
-    await spt.getAddress(),
+    await wpt.getAddress(),
     await vnd.getAddress(),
     rate,
     admin,
   ]);
   await redemption.waitForDeployment();
 
-  // 3) Distributor cần chốt snapshot trên SPT
-  const SNAPSHOT_ROLE = await spt.SNAPSHOT_ROLE();
-  await (await spt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress())).wait();
+  // 3) Distributor cần chốt snapshot trên WPT
+  const SNAPSHOT_ROLE = await wpt.SNAPSHOT_ROLE();
+  await (await wpt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress())).wait();
 
   const contracts = {
-    ProjectToken: await spt.getAddress(),
+    ProjectToken: await wpt.getAddress(),
     VNDToken: await vnd.getAddress(),
     ProfitDistributor: await distributor.getAddress(),
     Redemption: await redemption.getAddress(),

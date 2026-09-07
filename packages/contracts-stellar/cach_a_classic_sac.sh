@@ -4,12 +4,12 @@
 # (KHÔNG viết hợp đồng token nào; mint/freeze/clawback là thao tác gốc của Stellar,
 #  chỉ "bọc" bằng Stellar Asset Contract để dùng được trong Soroban.)
 #
-# Dùng để đối chiếu với Cách B (token Soroban tự viết trong contracts/spt_token).
+# Dùng để đối chiếu với Cách B (token Soroban tự viết trong contracts/wpt_token).
 # Chạy trên testnet. Yêu cầu: stellar-cli đã cài, đã `stellar network use testnet`.
 # =============================================================================
 set -euo pipefail
 NET=testnet
-CODE=SPT   # mã tài sản 1..12 ký tự
+CODE=WPT   # mã tài sản 1..12 ký tự
 
 echo "== 1. Tạo và nạp ví: issuer (nhà phát hành) và investorA =="
 stellar keys generate issuer    --network $NET --fund || true

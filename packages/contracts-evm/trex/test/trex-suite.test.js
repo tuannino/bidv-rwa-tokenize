@@ -9,7 +9,7 @@ describe("ERC-3643 (T-REX) — bộ thật của Tokeny", function () {
 
   before(async () => {
     [deployer, tokenIssuer, claimIssuer, alice, bob, mallory] = await ethers.getSigners();
-    suite = await deployFullSuite({ deployer, tokenIssuer, claimIssuer }, { name: "Solar Project Token", symbol: "SPT", decimals: 0 });
+    suite = await deployFullSuite({ deployer, tokenIssuer, claimIssuer }, { name: "Wind Power Token", symbol: "WPT", decimals: 0 });
     token = suite.token;
     ir = suite.identityRegistry;
     // Token deploy ở trạng thái paused => agent mở khoá để giao dịch được
@@ -17,8 +17,8 @@ describe("ERC-3643 (T-REX) — bộ thật của Tokeny", function () {
   });
 
   it("deploy đủ 6 thành phần và token là ERC-20 hợp lệ", async () => {
-    expect(await token.name()).to.equal("Solar Project Token");
-    expect(await token.symbol()).to.equal("SPT");
+    expect(await token.name()).to.equal("Wind Power Token");
+    expect(await token.symbol()).to.equal("WPT");
     expect(await token.decimals()).to.equal(0);
     expect(suite.addresses.identityRegistry).to.properAddress;
     expect(suite.addresses.compliance).to.properAddress;

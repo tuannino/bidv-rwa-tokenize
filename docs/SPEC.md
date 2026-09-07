@@ -10,7 +10,7 @@
 > Tài liệu này thay thế mọi spec giấy trước đó và **bám đúng repo hiện tại**. Kiro PHẢI tuân thủ. Sai khác so với spec → ghi `DEVIATION:` + lý do, chờ Supervisor duyệt.
 
 ## 1. Quyết định đã chốt (locked)
-1. **Chủ đề tài sản = RWA ĐIỆN GIÓ**, đồng bộ toàn repo theo bộ contract đã có (`ProjectToken`/SPT, `VNDToken`/tVND, `ProfitDistributor`, `EnergyOracle`, `Redemption`). Bỏ khung vàng/BĐS/carbon ở frontend cũ.
+1. **Chủ đề tài sản = RWA ĐIỆN GIÓ**, đồng bộ toàn repo theo bộ contract đã có (`ProjectToken`/WPT, `VNDToken`/tVND, `ProfitDistributor`, `EnergyOracle`, `Redemption`). Bỏ khung vàng/BĐS/carbon ở frontend cũ.
 2. **Chọn chain trên giao diện** (dropdown), thứ tự ưu tiên: **`hardhat-local` (mặc định) → `evm` (testnet EVM, vd Sepolia) → `stellar` (sau)**. **BỎ Polygon** hoàn toàn.
 3. **Mọi tích hợp có toggle mock|real** (KYC, Oracle, Core Bank, thậm chí cả ledger có `mock`), mặc định bật mock để **không phải setup kỹ thuật nhiều ở lần đầu** → mục tiêu mint sớm.
 4. **Token cho demo = `ProjectToken`** (bản rút gọn, đã pass test). Kit **T-REX** để dành cho bản production sau.

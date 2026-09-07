@@ -9,14 +9,14 @@ import {ProjectToken} from "./tokens/ProjectToken.sol";
 
 /**
  * @title Redemption
- * @notice Mua lại / hoàn vốn: nhà đầu tư đưa SPT vào, hợp đồng đốt SPT và trả VND theo tỷ giá.
+ * @notice Mua lại / hoàn vốn: nhà đầu tư đưa WPT vào, hợp đồng đốt WPT và trả VND theo tỷ giá.
  *
  *  Luồng:
  *   - Ngân hàng nạp thanh khoản VND vào hợp đồng bằng fund().
- *   - Nhà đầu tư approve SPT cho hợp đồng, rồi gọi redeem(sptAmount).
- *   - Hợp đồng đốt SPT (burnFrom, cần allowance) và chuyển VND = sptAmount * rate cho nhà đầu tư.
+ *   - Nhà đầu tư approve WPT cho hợp đồng, rồi gọi redeem(wptAmount).
+ *   - Hợp đồng đốt WPT (burnFrom, cần allowance) và chuyển VND = wptAmount * rate cho nhà đầu tư.
  *
- *  rate = số VND cho mỗi 1 SPT (theo đơn vị nhỏ nhất của mỗi token).
+ *  rate = số VND cho mỗi 1 WPT (theo đơn vị nhỏ nhất của mỗi token).
  */
 contract Redemption is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -26,10 +26,10 @@ contract Redemption is AccessControl, ReentrancyGuard {
     ProjectToken public immutable projectToken;
     IERC20 public immutable payoutToken; // VND
 
-    uint256 public rate; // VND / 1 SPT
+    uint256 public rate; // VND / 1 WPT
     bool public paused;
 
-    event Redeemed(address indexed account, uint256 sptAmount, uint256 vndAmount);
+    event Redeemed(address indexed account, uint256 wptAmount, uint256 vndAmount);
     event RateUpdated(uint256 newRate);
     event PausedUpdated(bool status);
     event Funded(address indexed from, uint256 amount);
@@ -69,27 +69,27 @@ contract Redemption is AccessControl, ReentrancyGuard {
     }
 
     // --- Báo giá ---
-    function quote(uint256 sptAmount) public view returns (uint256) {
-        return sptAmount * rate;
+    function quote(uint256 wptAmount) public view returns (uint256) {
+        return wptAmount * rate;
     }
 
     // --- Hoàn vốn ---
     /**
-     * @notice Nhà đầu tư đổi SPT lấy VND. Cần approve SPT cho hợp đồng này trước.
+     * @notice Nhà đầu tư đổi WPT lấy VND. Cần approve WPT cho hợp đồng này trước.
      */
-    function redeem(uint256 sptAmount) external nonReentrant returns (uint256 vndAmount) {
+    function redeem(uint256 wptAmount) external nonReentrant returns (uint256 vndAmount) {
         require(!paused, "dang tam dung");
-        require(sptAmount > 0, "sptAmount = 0");
+        require(wptAmount > 0, "wptAmount = 0");
         require(projectToken.isWhitelisted(msg.sender), "chua KYC");
 
-        vndAmount = quote(sptAmount);
+        vndAmount = quote(wptAmount);
         require(payoutToken.balanceOf(address(this)) >= vndAmount, "thieu thanh khoan VND");
 
-        // đốt SPT của nhà đầu tư (tiêu allowance mà nhà đầu tư đã cấp)
-        projectToken.burnFrom(msg.sender, sptAmount);
+        // đốt WPT của nhà đầu tư (tiêu allowance mà nhà đầu tư đã cấp)
+        projectToken.burnFrom(msg.sender, wptAmount);
         // trả VND
         payoutToken.safeTransfer(msg.sender, vndAmount);
 
-        emit Redeemed(msg.sender, sptAmount, vndAmount);
+        emit Redeemed(msg.sender, wptAmount, vndAmount);
     }
 }

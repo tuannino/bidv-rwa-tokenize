@@ -28,8 +28,8 @@ interface MockState {
 }
 
 const TOKEN: Omit<TokenInfo, 'totalSupply'> = {
-  name: 'Wind Power Project Token (mock)',
-  symbol: 'SPT',
+  name: 'Wind Power Token (mock)',
+  symbol: 'WPT',
   decimals: 0, // khớp contract thật
 };
 

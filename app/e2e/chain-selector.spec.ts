@@ -29,13 +29,13 @@ test('đổi chain rồi mint vẫn chạy, và số dư tính theo từng chain
   await page.goto('/mint');
 
   const selector = page.locator('#chain-selector');
-  const balancePanel = page.getByText('Số dư SPT').locator('..');
+  const balancePanel = page.getByText('Số dư WPT').locator('..');
 
   // Chain mặc định của cấu hình e2e là `mock`.
   await expect(selector).toHaveValue('mock');
 
   await page.getByLabel('Ví nhà đầu tư').fill(INVESTOR);
-  await page.getByLabel('Số lượng SPT').fill('40');
+  await page.getByLabel('Số lượng WPT').fill('40');
   await page.getByRole('button', { name: /KYC \+ Whitelist/i }).click();
   await expect(page.getByRole('status')).toContainText(/whitelist=true/i);
 
