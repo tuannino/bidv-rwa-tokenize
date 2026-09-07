@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, RefreshCw, ScaleIcon, Wind } from "lucide-react";
+import { Clock, Gauge, Link2, RefreshCw, Scale, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -17,11 +17,11 @@ import { cn } from "@/lib/utils";
  * cố định. Nay lọc theo dự án điện gió và dùng theme token.
  */
 
-/** Nguồn số liệu tham gia đối soát. */
+/** Nguồn số liệu tham gia đối soát — mỗi nguồn một icon riêng để phân biệt nhanh. */
 const SOURCES = [
-  { key: "SCADA", label: "SCADA nhà máy", desc: "Đồng hồ đo tại tổ máy" },
-  { key: "EVN", label: "Hoá đơn EVN", desc: "Sản lượng được mua theo PPA" },
-  { key: "ONCHAIN", label: "On-chain", desc: "EnergyOracle đã chốt kỳ" },
+  { key: "SCADA", label: "SCADA nhà máy", desc: "Đồng hồ đo tại tổ máy", icon: Gauge },
+  { key: "EVN", label: "Hoá đơn EVN", desc: "Sản lượng được mua theo PPA", icon: ReceiptText },
+  { key: "ONCHAIN", label: "On-chain", desc: "EnergyOracle đã chốt kỳ", icon: Link2 },
 ] as const;
 
 type ProjectFilter = "ALL" | string;
@@ -56,7 +56,12 @@ export function ReconciliationPage() {
       {/* Ba nguồn số liệu */}
       <div className="grid gap-4 md:grid-cols-3">
         {SOURCES.map((source) => (
-          <SourceCard key={source.key} label={source.label} desc={source.desc} />
+          <SourceCard
+            key={source.key}
+            label={source.label}
+            desc={source.desc}
+            icon={<source.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+          />
         ))}
       </div>
 
@@ -121,7 +126,7 @@ export function ReconciliationPage() {
 
         {/* Trạng thái rỗng */}
         <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
-          <ScaleIcon className="h-9 w-9 text-muted-foreground/60" aria-hidden="true" />
+          <Scale className="h-9 w-9 text-muted-foreground/60" aria-hidden="true" />
           <p className="text-sm text-muted-foreground">Chưa có kỳ nào để đối soát.</p>
           <p className="max-w-md text-xs text-muted-foreground">
             Bảng này cần dữ liệu từ SCADA và hoá đơn EVN. Hai nguồn đó nối ở Phase 3, cùng lúc với
@@ -137,17 +142,25 @@ export function ReconciliationPage() {
   );
 }
 
-function SourceCard({ label, desc }: { label: string; desc: string }) {
+function SourceCard({
+  label,
+  desc,
+  icon,
+}: {
+  label: string;
+  desc: string;
+  icon: React.ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted">
-        <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        {icon}
       </span>
       <div className="min-w-0">
         <div className="text-sm font-medium text-foreground">{label}</div>
         <div className="text-xs text-muted-foreground">{desc}</div>
         <div className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+          <Clock className="h-3 w-3" aria-hidden="true" />
           Chờ nối ở Phase 3
         </div>
       </div>
