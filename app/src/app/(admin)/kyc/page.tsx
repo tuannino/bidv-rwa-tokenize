@@ -3,7 +3,7 @@ import { KycPage } from "@/components/pages/kyc";
 
 export default function Kyc() {
   return (
-    <AppLayout breadcrumbs={[{ label: "Module A" }, { label: "Quản lý KYC" }]}>
+    <AppLayout breadcrumbs={[{ label: "Ngân hàng" }, { label: "Nhà đầu tư & KYC" }]}>
       <KycPage />
     </AppLayout>
   );

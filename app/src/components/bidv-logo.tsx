@@ -1,7 +1,9 @@
 /**
- * BIDV Logo SVG Component
- * Tái tạo logo BIDV với màu xanh lá (#1a6b3c) và vàng (#b8860b)
- * Dùng cả sidebar (full) và header (compact)
+ * Logo BIDV. Dùng cả sidebar (full) và header (compact).
+ *
+ * Hex ở đây là **màu nhận diện thương hiệu**, cố tình không đi qua theme token:
+ * logo phải giữ đúng màu BIDV ở cả light và dark, không đổi theo theme.
+ * Mọi chỗ khác trong UI thì bắt buộc dùng token (xem .kiro/steering/frontend.md).
  */
 
 interface BidvLogoProps {
@@ -48,7 +50,7 @@ export function BidvLogo({ variant = "full", className = "" }: BidvLogoProps) {
           </span>
         </div>
         <div className="text-[9px] tracking-[0.18em] uppercase text-muted-foreground font-medium">
-          Admin Console
+          Điện gió
         </div>
       </div>
     </div>

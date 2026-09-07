@@ -3,7 +3,7 @@ import { ReconciliationPage } from "@/components/pages/reconciliation";
 
 export default function Reconciliation() {
   return (
-    <AppLayout breadcrumbs={[{ label: "Module B" }, { label: "Đối soát batch" }]}>
+    <AppLayout breadcrumbs={[{ label: "Ngân hàng" }, { label: "Đối soát doanh thu điện" }]}>
       <ReconciliationPage />
     </AppLayout>
   );

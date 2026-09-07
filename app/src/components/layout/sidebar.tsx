@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  ListChecks,
-  ArrowLeftRight,
+  Wind,
+  Scale,
   UserCheck,
   Coins,
   ScrollText,
@@ -19,12 +19,13 @@ const NAV_ITEMS = [
   { href: "/", label: "Tổng quan", icon: LayoutDashboard, shortcut: "E" },
 ];
 
+// Nhãn theo nghiệp vụ điện gió; icon chủ đề gió/turbine (xem frontend.md).
 const MODULE_ITEMS = [
-  { href: "/mint",           label: "Phát hành token",  icon: Coins,          shortcut: "M" },
-  { href: "/assets",         label: "Niêm yết tài sản", icon: ListChecks,     shortcut: "E" },
-  { href: "/reconciliation", label: "Đối soát batch",   icon: ArrowLeftRight, shortcut: "B" },
-  { href: "/kyc",            label: "Quản lý KYC",      icon: UserCheck,      shortcut: "A" },
-  { href: "/audit",          label: "Sổ kiểm toán",     icon: ScrollText,     shortcut: "K" },
+  { href: "/mint",           label: "Phát hành SPT",     icon: Coins,      shortcut: "M" },
+  { href: "/assets",         label: "Dự án điện gió",    icon: Wind,       shortcut: "D" },
+  { href: "/reconciliation", label: "Đối soát doanh thu", icon: Scale,      shortcut: "B" },
+  { href: "/kyc",            label: "Nhà đầu tư & KYC",  icon: UserCheck,  shortcut: "A" },
+  { href: "/audit",          label: "Sổ kiểm toán",      icon: ScrollText, shortcut: "K" },
 ];
 
 export function Sidebar() {

@@ -3,7 +3,7 @@ import { MintPage } from '@/components/pages/mint';
 
 export default function Mint() {
   return (
-    <AppLayout breadcrumbs={[{ label: 'Ngân hàng' }, { label: 'Phát hành token' }]}>
+    <AppLayout breadcrumbs={[{ label: 'Ngân hàng' }, { label: 'Phát hành SPT' }]}>
       <MintPage />
     </AppLayout>
   );
