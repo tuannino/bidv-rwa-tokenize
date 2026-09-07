@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * Trang này chưa nối dữ liệu thật (Phase 4: KYC provider + Prisma). Luồng KYC đang
  * chạy được là bản mock ở trang /mint — KYC auto-approve rồi whitelist on-chain.
  *
- * Vòng này chỉ dọn màu: bỏ `zinc-700` / `text-white` ghi cứng (hỏng ở light theme)
+ * Vòng này chỉ dọn màu: bỏ các class màu xám/trắng cố định (hỏng ở light theme)
  * sang theme token, và làm trạng thái rỗng nói rõ lý do.
  */
 

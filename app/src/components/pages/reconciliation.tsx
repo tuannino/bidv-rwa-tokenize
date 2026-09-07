@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
  * được mua thật (cơ sở để thu tiền), on-chain là số đã chốt qua EnergyOracle. Lệch giữa
  * ba nguồn nghĩa là kỳ chia lợi tức chưa đáng tin.
  *
- * Trước đây trang này lọc theo loại tài sản vàng/BĐS/carbon và dùng `zinc-700` ghi cứng.
- * Nay lọc theo dự án điện gió và dùng theme token.
+ * Trước đây trang này lọc theo các loại tài sản của console cũ và dùng class màu xám
+ * cố định. Nay lọc theo dự án điện gió và dùng theme token.
  */
 
 /** Nguồn số liệu tham gia đối soát. */

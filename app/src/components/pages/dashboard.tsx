@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
  * Tổng quan danh mục **điện gió**.
  *
  * Màu của biểu đồ đi qua theme token (`var(--chart-*)`, `var(--border)`, `var(--card)`...)
- * nên đọc được ở cả light và dark. Trước đây grid `#27272a` và tooltip `#18181b` bị ghi cứng
- * theo dark, làm biểu đồ gần như vô hình trên nền sáng.
+ * nên đọc được ở cả light và dark. Trước đây grid và nền tooltip bị ghi cứng bằng hex
+ * tối theo dark theme, làm biểu đồ gần như vô hình trên nền sáng.
  * (Recharts nhận `var()` trong presentation attribute — cùng cách shadcn/ui làm.)
  */
 

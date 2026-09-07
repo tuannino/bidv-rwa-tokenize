@@ -1,8 +1,8 @@
 /**
  * Dữ liệu mẫu cho các trang tổng quan (dashboard / assets / reconciliation).
  *
- * Chủ đề DUY NHẤT: **điện gió** (docs/SPEC.md §1). Trước đây file này là dữ liệu của
- * console cũ (vàng / bất động sản / tín chỉ carbon) — đã thay toàn bộ.
+ * Chủ đề DUY NHẤT: **điện gió** (docs/SPEC.md §1). Trước đây file này là dữ liệu ba
+ * loại tài sản của console cũ — đã thay toàn bộ.
  *
  * ⚠️ Đây là số minh hoạ cho phần CHƯA nối on-chain. Những gì đã nối thật
  * (số dư SPT, whitelist, lịch sử giao dịch ở trang /mint và /audit) KHÔNG lấy từ đây
