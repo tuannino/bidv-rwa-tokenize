@@ -4,7 +4,8 @@ import { RainbowKitProvider, darkTheme, lightTheme } from "@rainbow-me/rainbowki
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useIsMounted } from "@/lib/hooks/use-is-mounted";
 import { wagmiConfig } from "@/lib/wagmi";
 
 import "@rainbow-me/rainbowkit/styles.css";
@@ -17,14 +18,12 @@ const LIGHT_WALLET_THEME = lightTheme({ accentColor: BIDV_GREEN, accentColorFore
 
 /**
  * RainbowWithTheme — phải tách ra khỏi Providers để dùng useTheme()
- * Dùng `mounted` để tránh hydration mismatch: server luôn render darkTheme,
+ * Dùng `useIsMounted()` để tránh hydration mismatch: server luôn render darkTheme,
  * client cập nhật đúng theme sau khi hydrate xong.
  */
 function RainbowWithTheme({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
+  const mounted = useIsMounted();
 
   // Trước khi mount: dùng dark để khớp với server render (defaultTheme="dark")
   const walletTheme = mounted && resolvedTheme === "light"
