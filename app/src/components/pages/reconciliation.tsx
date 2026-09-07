@@ -1,93 +1,222 @@
 "use client";
 
-import { RefreshCw, InboxIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { Clock, Gauge, Link2, RefreshCw, Scale, ReceiptText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 
-type AssetFilter = "ALL" | "GOLD" | "REAL_ESTATE" | "CARBON";
+/**
+ * Đối soát **doanh thu điện**: sản lượng SCADA ↔ hoá đơn EVN ↔ số liệu on-chain.
+ *
+ * Ba nguồn phải khớp trước khi chia lợi tức: SCADA là số đo tại nhà máy, EVN là số
+ * được mua thật (cơ sở để thu tiền), on-chain là số đã chốt qua EnergyOracle. Lệch giữa
+ * ba nguồn nghĩa là kỳ chia lợi tức chưa đáng tin.
+ *
+ * Trước đây trang này lọc theo các loại tài sản của console cũ và dùng class màu xám
+ * cố định. Nay lọc theo dự án điện gió và dùng theme token.
+ */
 
-const FILTER_LABELS: Record<AssetFilter, string> = {
-  ALL: "Tất cả",
-  GOLD: "Vàng",
-  REAL_ESTATE: "BĐS",
-  CARBON: "Carbon",
-};
+/** Nguồn số liệu tham gia đối soát — mỗi nguồn một icon riêng để phân biệt nhanh. */
+const SOURCES = [
+  { key: "SCADA", label: "SCADA nhà máy", desc: "Đồng hồ đo tại tổ máy", icon: Gauge },
+  { key: "EVN", label: "Hoá đơn EVN", desc: "Sản lượng được mua theo PPA", icon: ReceiptText },
+  { key: "ONCHAIN", label: "On-chain", desc: "EnergyOracle đã chốt kỳ", icon: Link2 },
+] as const;
+
+type ProjectFilter = "ALL" | string;
+
+const GRID = "grid-cols-[1.2fr_1.8fr_1.2fr_1.2fr_1.2fr_1fr_1.4fr]";
+
+const nf = (value: number, digits = 0) =>
+  value.toLocaleString("vi-VN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 export function ReconciliationPage() {
-  const [filter, setFilter] = useState<AssetFilter>("ALL");
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>("ALL");
+
+  // Chưa nối nguồn SCADA/EVN nên chưa có kỳ nào để đối soát (Phase 3).
+  const periods: never[] = [];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Đối soát batch</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Module B · So sánh giao dịch on-chain với hệ thống Core Banking BIDV theo ngày & theo loại tài sản
+          <h1 className="text-2xl font-semibold text-foreground">Đối soát doanh thu điện</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            So khớp sản lượng SCADA ↔ hoá đơn EVN ↔ số liệu on-chain theo từng kỳ, trước khi chia
+            lợi tức cho nhà đầu tư.
           </p>
         </div>
-        <Button variant="outline" className="border-zinc-700 text-foreground/90 gap-2 hover:bg-muted">
+        <Button variant="outline" className="shrink-0 gap-2">
           <RefreshCw className="h-4 w-4" />
           Làm mới dữ liệu
         </Button>
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="Tổng giao dịch" value="0" sub="0 batch · 2026-01-01 → 2026-12-31" />
-        <KpiCard label="Tổng giá trị VND" value="0 đ" sub="2026-01-01 → 2026-12-31" />
-        <KpiCard label="Đang xử lý" value="0" sub="Chưa hoàn tất đối soát" warn />
+      {/* Ba nguồn số liệu */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {SOURCES.map((source) => (
+          <SourceCard
+            key={source.key}
+            label={source.label}
+            desc={source.desc}
+            icon={<source.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+          />
+        ))}
       </div>
 
-      {/* Table */}
+      {/* KPI */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard
+          label="Kỳ đã đối soát khớp"
+          value={String(MOCK_WIND_STATS.distributionPeriods)}
+          sub="Đủ điều kiện chia lợi tức"
+        />
+        <KpiCard
+          label="Sản lượng đã đối soát"
+          value={`${nf(MOCK_WIND_STATS.cumulativeGenerationMwh)} MWh`}
+          sub="Luỹ kế toàn danh mục"
+        />
+        <KpiCard
+          label="Kỳ lệch chờ xử lý"
+          value={String(MOCK_WIND_STATS.pendingReconciliations)}
+          sub={
+            MOCK_WIND_STATS.pendingReconciliations === 0
+              ? "Không có kỳ nào lệch"
+              : "Cần rà soát trước khi chia"
+          }
+          warn={MOCK_WIND_STATS.pendingReconciliations > 0}
+        />
+      </div>
+
       <div className="rounded-lg border border-border bg-card">
-        {/* Filter */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border text-sm">
-          <span className="text-muted-foreground">Loại tài sản:</span>
-          {(Object.keys(FILTER_LABELS) as AssetFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "px-3 py-1 rounded-md text-xs transition-colors",
-                filter === f ? "bg-zinc-700 text-white" : "text-muted-foreground hover:text-foreground/90"
-              )}
-            >
-              {FILTER_LABELS[f]}
-            </button>
+        {/* Lọc theo dự án */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Dự án:</span>
+          <FilterBtn
+            active={projectFilter === "ALL"}
+            onClick={() => setProjectFilter("ALL")}
+            label="Tất cả"
+          />
+          {MOCK_PROJECTS.map((project) => (
+            <FilterBtn
+              key={project.id}
+              active={projectFilter === project.id}
+              onClick={() => setProjectFilter(project.id)}
+              label={project.name}
+            />
           ))}
-          <span className="ml-auto text-xs text-muted-foreground">0 batch</span>
+          <span className="ml-auto text-xs text-muted-foreground">{periods.length} kỳ</span>
         </div>
 
-        {/* Table head */}
-        <div className="grid grid-cols-7 gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border">
-          <span>Ngày batch</span>
-          <span>Loại tài sản</span>
-          <span>Số GD</span>
-          <span>Mint</span>
-          <span>Burn</span>
-          <span>Transfer</span>
-          <span>Tổng VND</span>
+        <div
+          className={cn(
+            "grid gap-4 border-b border-border px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground",
+            GRID,
+          )}
+        >
+          <span>Kỳ</span>
+          <span>Dự án</span>
+          <span className="text-right">SCADA (MWh)</span>
+          <span className="text-right">EVN (MWh)</span>
+          <span className="text-right">On-chain (MWh)</span>
+          <span className="text-right">Lệch</span>
+          <span>Kết quả</span>
         </div>
 
-        {/* Empty */}
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <InboxIcon className="h-10 w-10 text-zinc-700" />
-          <p className="text-sm text-muted-foreground">No data</p>
-          <p className="text-xs text-zinc-700">Dữ liệu đối soát sẽ xuất hiện khi có giao dịch on-chain</p>
+        {/* Trạng thái rỗng */}
+        <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+          <Scale className="h-9 w-9 text-muted-foreground/60" aria-hidden="true" />
+          <p className="text-sm text-muted-foreground">Chưa có kỳ nào để đối soát.</p>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Bảng này cần dữ liệu từ SCADA và hoá đơn EVN. Hai nguồn đó nối ở Phase 3, cùng lúc với
+            EnergyOracle và chia lợi tức.
+          </p>
+        </div>
+
+        <div className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+          Hiển thị 0–0 / 0 kỳ đối soát
         </div>
       </div>
     </div>
   );
 }
 
-function KpiCard({ label, value, sub, warn }: { label: string; value: string; sub: string; warn?: boolean }) {
+function SourceCard({
+  label,
+  desc,
+  icon,
+}: {
+  label: string;
+  desc: string;
+  icon: React.ReactNode;
+}) {
   return (
-    <div className={cn("rounded-lg border bg-card p-4", warn ? "border-yellow-900/50" : "border-border")}>
-      <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
-      <div className={cn("text-3xl font-bold", warn ? "text-yellow-500" : "text-white")}>{value}</div>
-      <div className="text-xs text-muted-foreground mt-1">{sub}</div>
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-muted">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-foreground">{label}</div>
+        <div className="text-xs text-muted-foreground">{desc}</div>
+        <div className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" aria-hidden="true" />
+          Chờ nối ở Phase 3
+        </div>
+      </div>
     </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  warn?: boolean;
+}) {
+  return (
+    <div className={cn("rounded-lg border bg-card p-4", warn ? "border-accent/50" : "border-border")}>
+      <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div
+        className={cn(
+          "font-mono text-2xl font-bold tracking-tight",
+          warn ? "text-accent" : "text-foreground",
+        )}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+function FilterBtn({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-md px-3 py-1 text-xs transition-colors",
+        active
+          ? "bg-secondary font-medium text-secondary-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }
