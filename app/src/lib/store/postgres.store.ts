@@ -45,28 +45,67 @@ function holder(): PoolHolder {
   return g[GLOBAL_KEY];
 }
 
+/** Các cột thời gian phải là `timestamptz` — xem ghi chú trong prisma/schema.prisma. */
+const TIMESTAMP_COLUMNS: ReadonlyArray<[table: string, column: string]> = [
+  ['Txn', 'createdAt'],
+  ['AuditLog', 'createdAt'],
+  ['Investor', 'createdAt'],
+  ['Investor', 'updatedAt'],
+  ['Investor', 'kycDecidedAt'],
+];
+
 /**
- * Áp `prisma/init.sql` nếu bảng chưa có. Idempotent nhờ kiểm `to_regclass` trước,
- * và bọc trong transaction để hai instance khởi động cùng lúc không tạo bảng nửa vời.
+ * Sửa các DB đã tạo bằng lược đồ cũ (`timestamp` không timezone) sang `timestamptz`.
+ *
+ * Vì sao cần: `init.sql` chỉ chạy khi bảng CHƯA có, nên DB dựng trước lúc sửa lược đồ sẽ
+ * giữ nguyên kiểu cũ và tiếp tục hiển thị sai giờ (lệch bằng offset UTC).
+ *
+ * Giá trị cũ được ghi bằng `CURRENT_TIMESTAMP` của Postgres đang ở UTC, nên
+ * `AT TIME ZONE 'UTC'` diễn giải đúng chúng thành mốc thời gian thật — không làm lệch dữ liệu.
+ *
+ * Cố ý giới hạn ở đúng một việc này, KHÔNG dựng framework migration: chạy xong là no-op,
+ * và Phase 4 (khi dùng Prisma Migrate thật) thì xoá hàm này.
+ */
+async function migrateTimestampColumns(client: import('pg').PoolClient): Promise<void> {
+  for (const [table, column] of TIMESTAMP_COLUMNS) {
+    const { rows } = await client.query<{ data_type: string }>(
+      `SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
+      [table, column],
+    );
+    if (rows[0]?.data_type !== 'timestamp without time zone') continue;
+
+    // Tên bảng/cột lấy từ hằng số trong file này, không phải input người dùng.
+    await client.query(
+      `ALTER TABLE "${table}" ALTER COLUMN "${column}" TYPE timestamptz(3)
+         USING "${column}" AT TIME ZONE 'UTC'`,
+    );
+  }
+}
+
+/**
+ * Áp `prisma/init.sql` nếu bảng chưa có, rồi bảo đảm kiểu cột thời gian đúng.
+ * Bọc trong transaction + chốt tư vấn để hai instance khởi động cùng lúc không
+ * tạo bảng nửa vời hay ALTER chồng nhau.
  */
 async function ensureSchema(pool: Pool): Promise<void> {
-  const existing = await pool.query<{ table: string | null }>(
-    `SELECT to_regclass('public."Txn"')::text AS table`,
-  );
-  if (existing.rows[0]?.table) return;
-
   const sqlPath = path.join(process.cwd(), 'prisma', 'init.sql');
-  const ddl = await readFile(sqlPath, 'utf8');
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Chốt tư vấn: chỉ một instance chạy DDL, các instance khác chờ rồi thấy bảng đã có.
     await client.query('SELECT pg_advisory_xact_lock(918273645)');
-    const recheck = await client.query<{ table: string | null }>(
+
+    const { rows } = await client.query<{ table: string | null }>(
       `SELECT to_regclass('public."Txn"')::text AS table`,
     );
-    if (!recheck.rows[0]?.table) await client.query(ddl);
+    if (!rows[0]?.table) {
+      await client.query(await readFile(sqlPath, 'utf8'));
+    } else {
+      // Bảng có sẵn -> có thể được tạo bằng lược đồ cũ, cần nâng kiểu cột thời gian.
+      await migrateTimestampColumns(client);
+    }
+
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
