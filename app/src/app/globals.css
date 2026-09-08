@@ -82,17 +82,12 @@
   --input:                 oklch(0.88 0.02 145);
   --ring:                  oklch(0.42 0.12 145);
 
-  /* Bảng màu chart (điện gió): xanh BIDV · vàng đồng · sky-blue · amber-đỏ · teal.
-     KHÔNG dùng tím: hue tím lạc tông trên nền xanh-vàng và khó nhìn.
-     chart-5 đã đổi sang teal hue 195 — gợi "gió/năng lượng".
-     Mọi màu dưới đây đã kiểm >= 3:1 so với --card ở CẢ light và dark (WCAG 1.4.11). */
-  --chart-1:               oklch(0.42 0.12 145);   /* BIDV green */
-  /* Gold của chart tối hơn --accent: ở L 0.72 nó chỉ đạt 2.5:1 trên nền card trắng,
-     dưới ngưỡng 3:1 (WCAG 1.4.11) cho đường/vùng biểu đồ. Giữ nguyên hue vàng 82. */
-  --chart-2:               oklch(0.60 0.13 82);    /* BIDV gold (đã hạ L cho tương phản) */
-  --chart-3:               oklch(0.55 0.15 250);   /* sky-blue */
-  --chart-4:               oklch(0.62 0.18 30);    /* amber-đỏ */
-  --chart-5:               oklch(0.60 0.10 195);   /* teal */
+  /* Chart colors: green, gold, blue, red, purple */
+  --chart-1:               oklch(0.42 0.12 145);
+  --chart-2:               oklch(0.72 0.13 82);
+  --chart-3:               oklch(0.55 0.15 250);
+  --chart-4:               oklch(0.62 0.18 30);
+  --chart-5:               oklch(0.55 0.15 300);
 
   --radius: 0.625rem;
 
@@ -141,12 +136,11 @@
   --input:                 oklch(1 0 0 / 12%);
   --ring:                  oklch(0.58 0.14 145);
 
-  /* Cùng hue với light theme, chỉ nâng độ sáng để tương phản trên nền tối. */
-  --chart-1:               oklch(0.58 0.14 145);   /* BIDV green */
-  --chart-2:               oklch(0.75 0.14 82);    /* BIDV gold */
-  --chart-3:               oklch(0.65 0.15 250);   /* sky-blue */
-  --chart-4:               oklch(0.68 0.18 30);    /* amber-đỏ */
-  --chart-5:               oklch(0.72 0.10 195);   /* teal */
+  --chart-1:               oklch(0.58 0.14 145);
+  --chart-2:               oklch(0.75 0.14 82);
+  --chart-3:               oklch(0.60 0.16 250);
+  --chart-4:               oklch(0.65 0.19 30);
+  --chart-5:               oklch(0.60 0.16 300);
 
   /* Sidebar dark */
   --sidebar:                      oklch(0.10 0.015 145);
