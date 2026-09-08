@@ -4,27 +4,27 @@ import { RainbowKitProvider, darkTheme, lightTheme } from "@rainbow-me/rainbowki
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider, useTheme } from "next-themes";
-import { useState } from "react";
-import { BRAND } from "@/lib/brand";
-import { useIsMounted } from "@/lib/hooks/use-is-mounted";
+import { useState, useEffect } from "react";
 import { wagmiConfig } from "@/lib/wagmi";
 
 import "@rainbow-me/rainbowkit/styles.css";
 
-// Accent của modal ví: dùng màu thương hiệu từ lib/brand.ts.
-// RainbowKit nhận chuỗi màu cụ thể, không nhận `var(--primary)` — đây là ngoại lệ
-// đã ghi rõ trong lib/brand.ts, không phải chỗ được hardcode màu tuỳ ý.
-const DARK_WALLET_THEME  = darkTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
-const LIGHT_WALLET_THEME = lightTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
+// BIDV brand colors
+const BIDV_GREEN = "#1a6b3c";
+
+const DARK_WALLET_THEME  = darkTheme({ accentColor: BIDV_GREEN, accentColorForeground: "white", borderRadius: "medium" });
+const LIGHT_WALLET_THEME = lightTheme({ accentColor: BIDV_GREEN, accentColorForeground: "white", borderRadius: "medium" });
 
 /**
  * RainbowWithTheme — phải tách ra khỏi Providers để dùng useTheme()
- * Dùng `useIsMounted()` để tránh hydration mismatch: server luôn render darkTheme,
+ * Dùng `mounted` để tránh hydration mismatch: server luôn render darkTheme,
  * client cập nhật đúng theme sau khi hydrate xong.
  */
 function RainbowWithTheme({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme();
-  const mounted = useIsMounted();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Trước khi mount: dùng dark để khớp với server render (defaultTheme="dark")
   const walletTheme = mounted && resolvedTheme === "light"

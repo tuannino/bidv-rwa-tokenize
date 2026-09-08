@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    // ES2020: cần cho BigInt literal (10n). Số dư token là uint256, không dùng number được.
-    "target": "ES2020",
+    "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -20,9 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@bidv/shared": ["../packages/shared/src/index.ts"],
-      "@bidv/shared/*": ["../packages/shared/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [

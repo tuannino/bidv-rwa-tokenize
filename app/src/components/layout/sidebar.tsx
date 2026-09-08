@@ -4,28 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Wind,
-  Scale,
+  ListChecks,
+  ArrowLeftRight,
   UserCheck,
-  Coins,
-  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BidvLogo } from "@/components/bidv-logo";
-import { useSelectedChain } from "@/lib/chains/use-selected-chain";
-import { usePublicConfig } from "@/lib/config/config-context";
 
 const NAV_ITEMS = [
   { href: "/", label: "Tổng quan", icon: LayoutDashboard, shortcut: "E" },
 ];
 
-// Nhãn theo nghiệp vụ điện gió; icon chủ đề gió/turbine (xem frontend.md).
 const MODULE_ITEMS = [
-  { href: "/mint",           label: "Phát hành WPT",     icon: Coins,      shortcut: "M" },
-  { href: "/assets",         label: "Dự án điện gió",    icon: Wind,       shortcut: "D" },
-  { href: "/reconciliation", label: "Đối soát doanh thu", icon: Scale,      shortcut: "B" },
-  { href: "/kyc",            label: "Nhà đầu tư & KYC",  icon: UserCheck,  shortcut: "A" },
-  { href: "/audit",          label: "Sổ kiểm toán",      icon: ScrollText, shortcut: "K" },
+  { href: "/assets",         label: "Niêm yết tài sản", icon: ListChecks,     shortcut: "E" },
+  { href: "/reconciliation", label: "Đối soát batch",   icon: ArrowLeftRight, shortcut: "B" },
+  { href: "/kyc",            label: "Quản lý KYC",      icon: UserCheck,      shortcut: "A" },
 ];
 
 export function Sidebar() {
@@ -102,15 +95,7 @@ function NavLink({
   );
 }
 
-/**
- * Trạng thái mạng — đọc từ chain ĐANG CHỌN, không hard-code.
- * (Trước đây ghi cứng "Polygon Amoy"; Polygon đã bị loại khỏi dự án.)
- */
 function NetworkStatus() {
-  const config = usePublicConfig();
-  const { chain } = useSelectedChain();
-  const info = config.chains.find((option) => option.key === chain);
-
   return (
     <div className="px-4 py-3 border-t border-border">
       <div className="flex items-center gap-2 text-xs">
@@ -118,10 +103,10 @@ function NetworkStatus() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
         </span>
-        <span className="text-sidebar-foreground/80">{info?.label ?? chain}</span>
+        <span className="text-sidebar-foreground/80">Testnet · Polygon Amoy</span>
       </div>
       <div className="text-[11px] text-muted-foreground font-mono mt-0.5 pl-4">
-        {chain} · vai trò {config.role}
+        Block #—
       </div>
     </div>
   );
