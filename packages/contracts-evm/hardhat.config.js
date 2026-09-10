@@ -35,9 +35,12 @@ module.exports = {
   },
   networks: {
     hardhat: {},
-    // Testnet công khai (ví dụ Sepolia). Đặt RPC + khóa trong .env
+    // Testnet công khai Sepolia. Đặt RPC + khóa trong .env (xem .env.example).
+    // Mặc định là endpoint công khai không cần API key; `https://rpc.sepolia.org` cũ đã
+    // CHẾT (trả HTTP 404) nên không dùng làm fallback nữa.
+    // Deploy/verify nên đặt SEPOLIA_RPC_URL trỏ RPC có API key cho ổn định.
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
+      url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       accounts,
       chainId: 11155111,
     },
