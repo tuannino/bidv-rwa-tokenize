@@ -37,6 +37,16 @@ const step = (n, title) => log(`\n${C.bold}[${n}] ${title}${C.reset}`);
 const good = (message) => log(`    ${C.green}OK${C.reset}  ${message}`);
 const bad = (message) => log(`    ${C.red}FAIL${C.reset} ${message}`);
 
+/**
+ * Explorer theo chain — chỉ chain công khai mới có. Lấy từ cùng nguồn sự thật mà app dùng
+ * (`packages/shared/src/chains.ts`), chỉ nhắc lại phần cần cho script CLI này.
+ */
+const EXPLORER = { evm: 'https://sepolia.etherscan.io' };
+const txLink = (hash) => (EXPLORER[CHAIN] ? `${EXPLORER[CHAIN]}/tx/${hash}` : null);
+
+/** Chain công khai chậm hơn: cho phép chờ lâu hơn trước khi kết luận. */
+const IS_PUBLIC_CHAIN = CHAIN === 'evm';
+
 async function call(method, path, body) {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -62,10 +72,17 @@ async function main() {
   log(`${C.bold}DEMO MINT — BIDV RWA điện gió${C.reset}`);
   log(`${C.dim}server=${BASE_URL}  chain=${CHAIN}  investor=${WALLET}  amount=${AMOUNT}${C.reset}`);
 
+  if (IS_PUBLIC_CHAIN) {
+    log(
+      `${C.dim}chain công khai: mỗi tx phải chờ lên block (~12s/block), tổng có thể mất vài chục giây.${C.reset}`,
+    );
+  }
+
   step(1, 'KYC (mock auto-approve) + whitelist on-chain');
   const onboard = await call('POST', '/api/investors', { chain: CHAIN, wallet: WALLET });
   good(`KYC ${onboard.kycReference} (${onboard.kycProvider})`);
   good(`whitelisted=${onboard.whitelisted} · tx ${onboard.txHash} (${onboard.status})`);
+  if (txLink(onboard.txHash)) good(`explorer: ${txLink(onboard.txHash)}`);
   if (!onboard.whitelisted) throw new Error('Whitelist không có hiệu lực on-chain.');
 
   step(2, 'Đọc số dư TRƯỚC khi phát hành');
@@ -75,6 +92,7 @@ async function main() {
   step(3, `Phát hành ${AMOUNT} WPT`);
   const mint = await call('POST', '/api/mint', { chain: CHAIN, wallet: WALLET, amount: AMOUNT });
   good(`tx ${mint.txHash} (${mint.status})`);
+  if (txLink(mint.txHash)) good(`explorer: ${txLink(mint.txHash)}`);
 
   step(4, 'Đọc lại số dư từ ledger');
   const after = BigInt((await readBalance()).balance);
@@ -83,7 +101,12 @@ async function main() {
   step(5, 'Kiểm tra nghiệm thu');
   let failed = false;
 
-  if (mint.status !== 'CONFIRMED') {
+  if (mint.status === 'PENDING') {
+    // Timeout KHÔNG phải thất bại: tx vẫn có thể vào block sau (p4 AC#9).
+    bad(`tx còn PENDING sau khi hết thời gian chờ — chưa kết luận được`);
+    if (txLink(mint.txHash)) log(`         Tra trạng thái thật: ${txLink(mint.txHash)}`);
+    failed = true;
+  } else if (mint.status !== 'CONFIRMED') {
     bad(`trạng thái tx là ${mint.status}, chưa CONFIRMED`);
     failed = true;
   } else {
@@ -110,13 +133,25 @@ async function main() {
     process.exit(1);
   }
   log(`\n${C.green}${C.bold}PASS${C.reset} — luồng mint chạy end-to-end trên chain "${CHAIN}".`);
+  if (txLink(mint.txHash)) {
+    log(`${C.dim}Bằng chứng độc lập (nộp kèm checkpoint): ${txLink(mint.txHash)}${C.reset}`);
+  }
 }
 
 main().catch((error) => {
   bad(error.message);
-  log(
-    `\n${C.dim}Gợi ý: web đã chạy chưa? (npm run dev trong app/, hoặc docker compose up)\n` +
-      `Với chain hardhat-local: hardhat node phải đang chạy và contract đã deploy.${C.reset}`,
-  );
+  const hints = ['web đã chạy chưa? (npm run dev trong app/, hoặc docker compose up)'];
+
+  if (CHAIN === 'hardhat-local') {
+    hints.push('hardhat node phải đang chạy và contract đã deploy');
+  }
+  if (IS_PUBLIC_CHAIN) {
+    hints.push(
+      'chain evm (Sepolia) cần: NEXT_PUBLIC_ADDR_EVM_* đã điền, SERVER_SIGNER_PRIVATE_KEY là ví ngân hàng CÓ ETH test',
+      'kiểm nhanh: cd packages/contracts-evm && npx hardhat run scripts/preflight-sepolia.js --network sepolia',
+    );
+  }
+
+  log(`\n${C.dim}Gợi ý:\n${hints.map((h) => `  - ${h}`).join('\n')}${C.reset}`);
   process.exit(1);
 });
