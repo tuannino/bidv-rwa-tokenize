@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ChainKey, TxStatus } from '@bidv/shared';
-import { DEFAULT_RECEIPT_TIMEOUT_MS, LedgerError, getLedger } from '@/lib/ledger';
+import { LedgerError, getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import { InvalidAddressError } from '@/lib/ledger';
 import { KycProviderError, getKycProvider } from '@/lib/providers/kyc';
 import { ForbiddenError, assertCan, type Action, type Role } from '@/lib/rbac';
@@ -218,8 +218,9 @@ export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
       actorAddress: await signer.getAddress(),
     });
 
-    // AC#4: chờ tới CONFIRMED/FAILED hoặc timeout 30s.
-    const receipt = await ledger.waitReceipt(pending.txHash, DEFAULT_RECEIPT_TIMEOUT_MS);
+    // AC#4 / p4 AC#9: chờ tới CONFIRMED/FAILED hoặc timeout THEO CHAIN
+    // (hardhat-local 30s; Sepolia 90s vì block ~12s).
+    const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
     await store.updateTxnStatus(saved.id, receipt.status, receipt.reason);
     await store.appendAudit({
       actorRole: role,

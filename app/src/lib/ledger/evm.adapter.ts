@@ -15,9 +15,9 @@ import { rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
 import type { ISigner } from '@/lib/signer';
 import { normalizeEvmAddress } from './address';
 import {
-  DEFAULT_RECEIPT_TIMEOUT_MS,
   LedgerError,
   assertPositiveAmount,
+  receiptTimeoutFor,
   type ILedgerPort,
   type TokenInfo,
   type TxResult,
@@ -175,7 +175,8 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return { name, symbol, decimals: Number(decimals), totalSupply };
     },
 
-    async waitReceipt(txHash, timeoutMs = DEFAULT_RECEIPT_TIMEOUT_MS) {
+    // Mặc định theo chain: hardhat-local 30s, evm (Sepolia) 90s.
+    async waitReceipt(txHash, timeoutMs = receiptTimeoutFor(chain)) {
       try {
         const receipt = await reader().waitForTransactionReceipt({
           hash: txHash as Hex,

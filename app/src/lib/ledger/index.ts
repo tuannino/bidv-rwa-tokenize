@@ -11,6 +11,8 @@ import type { ILedgerPort } from './ledger.port';
 
 export {
   DEFAULT_RECEIPT_TIMEOUT_MS,
+  EVM_RECEIPT_TIMEOUT_MS,
+  receiptTimeoutFor,
   LedgerError,
   LedgerNotImplementedError,
   type ILedgerPort,
