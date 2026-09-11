@@ -40,14 +40,22 @@ describe('nạp địa chỉ contract cho chain evm qua biến môi trường', 
 
   it('env THẮNG addresses.json cho chain evm', () => {
     const key = DOCUMENTED_KEYS.ProjectToken;
-    // Chưa deploy evm nên addresses.json không có -> chưa đặt env thì phải undefined.
-    expect(findContractAddress('evm', 'ProjectToken')).toBeUndefined();
+    const OVERRIDE = '0x1111111111111111111111111111111111111111';
 
-    process.env[key] = '0x1111111111111111111111111111111111111111';
+    // KHÔNG giả định addresses.json rỗng: sau khi deploy Sepolia thì nó CÓ khối "evm".
+    // Điều cần khoá lại là thứ tự ưu tiên, không phải trạng thái hiện tại của file.
+    const fromFile = findContractAddress('evm', 'ProjectToken');
+
+    process.env[key] = OVERRIDE;
     TOUCHED.push(key);
-    expect(findContractAddress('evm', 'ProjectToken')).toBe(
-      '0x1111111111111111111111111111111111111111',
-    );
+    expect(findContractAddress('evm', 'ProjectToken')).toBe(OVERRIDE);
+    if (fromFile) expect(fromFile).not.toBe(OVERRIDE);
+  });
+
+  it('không đặt env thì lấy địa chỉ từ addresses.json (nếu đã deploy)', () => {
+    const address = findContractAddress('evm', 'ProjectToken');
+    // Trước khi deploy Sepolia thì undefined; sau khi deploy phải là địa chỉ hợp lệ.
+    if (address !== undefined) expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
 
   it('không rò địa chỉ evm sang hardhat-local và ngược lại', () => {

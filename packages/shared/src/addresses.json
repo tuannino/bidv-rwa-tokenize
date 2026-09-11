@@ -11,6 +11,17 @@
         "ProfitDistributor": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
         "Redemption": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
       }
+    },
+    "evm": {
+      "chainId": 11155111,
+      "deployer": "0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076",
+      "deployedAt": "2026-09-10T16:17:15.350Z",
+      "contracts": {
+        "ProjectToken": "0x3Fe22dcfFCFB4459a417113ED6deb5C3A23B14be",
+        "VNDToken": "0xF9ceD0D827020D4A8778E0B4DBEdF46bb14f9fCd",
+        "ProfitDistributor": "0x675f0e3dBc7a0c6dB11442F3a236b6427442CdB5",
+        "Redemption": "0x39eC24eC638dc9e394ED7bb7A6ff72c3DfBd1d68"
+      }
     }
   }
 }
