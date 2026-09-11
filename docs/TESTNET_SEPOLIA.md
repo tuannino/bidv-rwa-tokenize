@@ -75,8 +75,13 @@ NEXT_PUBLIC_ADDR_EVM_PROJECT_TOKEN=0x...
 NEXT_PUBLIC_ADDR_EVM_VND_TOKEN=0x...
 NEXT_PUBLIC_ADDR_EVM_PROFIT_DISTRIBUTOR=0x...
 NEXT_PUBLIC_ADDR_EVM_REDEMPTION=0x...
-SERVER_SIGNER_PRIVATE_KEY=0x...      # ví ngân hàng ở bước 1, PHẢI có ETH test
+# Khóa ký RIÊNG cho chain evm. Dùng biến riêng theo chain (không phải biến dùng chung),
+# vì role on-chain gắn với từng chain: ví admin của hardhat-local khác ví ngân hàng Sepolia.
+# Đặt biến dùng chung sẽ làm hỏng chain còn lại.
+SERVER_SIGNER_PRIVATE_KEY_EVM=0x...   # ví ngân hàng ở bước 1, PHẢI có ETH test
 ```
+
+Khóa nhận cả dạng có và không có tiền tố `0x` (MetaMask xuất ra dạng không có).
 
 **Cách B — commit file**: `addresses.json` đã được deploy script ghi sẵn, chỉ cần commit.
 Vẫn phải đặt `SERVER_SIGNER_PRIVATE_KEY`.
@@ -90,6 +95,9 @@ Tham số phải trùng **đúng thứ tự** lúc deploy:
 
 ```bash
 cd packages/contracts-evm
+# Nếu trước đó từng compile bằng USE_LOCAL_SOLC=1, phải compile lại bằng binary chính thức,
+# nếu không Etherscan báo "Invalid Or Not supported solc version":
+#   npx hardhat clean && npx hardhat compile
 npx hardhat verify --network sepolia <ProjectToken> "Wind Power Token" "WPT" 0 <VÍ_NGÂN_HÀNG>
 npx hardhat verify --network sepolia <VNDToken> <VÍ_NGÂN_HÀNG>
 npx hardhat verify --network sepolia <ProfitDistributor> <ProjectToken> <VNDToken> <VÍ_NGÂN_HÀNG>
@@ -121,7 +129,10 @@ Trên Sepolia mỗi bước chờ block ~12s; timeout receipt của chain `evm` 
 | Tx mãi PENDING | RPC công khai bị rate-limit → đặt `SEPOLIA_RPC_URL` có API key |
 | `Contract từ chối: phat hanh cho vi chua KYC` | Chưa whitelist ví nhà đầu tư (bước `1 · KYC + Whitelist`) |
 | Verify báo sai bytecode | Tham số constructor không trùng lúc deploy |
-| Mint chạy nhưng ví lạ | `SERVER_SIGNER_PRIVATE_KEY` không phải ví deployer → thiếu `MINTER_ROLE` |
+| Mint chạy nhưng ví lạ | Khóa ký không phải ví deployer → thiếu `MINTER_ROLE` |
+| `AccessControlUnauthorizedAccount` (0xe2517d3f) | Ví ký không có role trên chain ĐANG chọn → dùng `SERVER_SIGNER_PRIVATE_KEY_<CHAIN>` riêng |
+| `eth_sendTransaction does not exist` | Đã sửa ở `8f84d82`. Nếu tái xuất hiện: adapter đang truyền địa chỉ thay vì object Account vào `simulateContract` |
+| Verify báo `Invalid Or Not supported solc version` | Compile bằng solc WASM → `npx hardhat clean && npx hardhat compile` (không đặt `USE_LOCAL_SOLC`) |
 
 ## Sau khi P4 xong
 

@@ -6,19 +6,36 @@
 |---|---|
 | Branch | `p4/mint-testnet` |
 | Spec | `.kiro/specs/p4-mint-testnet/{requirements,design,tasks}.md` + `#steering-testnet` |
-| Trạng thái | ⚠️ **BỊ CHẶN** ở Phase 0 — chờ Owner cấp ví Sepolia + credential |
-| Contract | **KHÔNG sửa một dòng Solidity nào** (13/13 test vẫn xanh) |
+| Trạng thái | ✅ **PASS** — mint chạy thật trên Sepolia, tra được trên Etherscan |
+| Contract | **KHÔNG sửa một dòng Solidity nào** |
 
-## 0. Tóm tắt trong một đoạn
+## 0. Bằng chứng nghiệm thu
 
-Phase 0 của P4 (deploy lên Sepolia) cần một ví có ETH test và ba credential mà **chỉ Owner
-cấp được**: `PRIVATE_KEY`, `SEPOLIA_RPC_URL`, `ETHERSCAN_API_KEY`. Tôi không tự tạo khóa hộ
-Owner và không qua được faucet (captcha/đăng nhập). Nên tôi đã làm **toàn bộ phần không cần
-bí mật**, và biến phần bị chặn thành một lệnh tự kiểm (`preflight-sepolia.js`) cộng runbook
-7 bước (`docs/TESTNET_SEPOLIA.md`). Khi Owner làm xong bước 1–2, phần còn lại là chạy lệnh.
+Bộ contract trên Sepolia (deployer = ví ngân hàng `0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076`),
+**cả 4 đã Verified**:
 
-Trong quá trình chuẩn bị đã phát hiện và sửa **một lỗi chặn thật**: RPC Sepolia mặc định
-trong repo đã chết, khiến mọi thao tác Sepolia fail trước khi kịp thử gì (mục 2).
+| Contract | Địa chỉ | Etherscan |
+|---|---|---|
+| ProjectToken (WPT) | `0x3Fe22dcfFCFB4459a417113ED6deb5C3A23B14be` | [#code](https://sepolia.etherscan.io/address/0x3Fe22dcfFCFB4459a417113ED6deb5C3A23B14be#code) |
+| VNDToken | `0xF9ceD0D827020D4A8778E0B4DBEdF46bb14f9fCd` | [#code](https://sepolia.etherscan.io/address/0xF9ceD0D827020D4A8778E0B4DBEdF46bb14f9fCd#code) |
+| ProfitDistributor | `0x675f0e3dBc7a0c6dB11442F3a236b6427442CdB5` | [#code](https://sepolia.etherscan.io/address/0x675f0e3dBc7a0c6dB11442F3a236b6427442CdB5#code) |
+| Redemption | `0x39eC24eC638dc9e394ED7bb7A6ff72c3DfBd1d68` | [#code](https://sepolia.etherscan.io/address/0x39eC24eC638dc9e394ED7bb7A6ff72c3DfBd1d68#code) |
+
+Giao dịch của luồng mint (nhà đầu tư `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`):
+
+| Bước | Tx | Block | Kết quả |
+|---|---|---|---|
+| whitelist | [`0x905113…89a1`](https://sepolia.etherscan.io/tx/0x905113645414b5e749fca2d34ebe48e3427cb55c706970d3fc2bcb03058389a1) | 11680568 | SUCCESS, gas 48 110 |
+| mint 100 WPT | [`0x625c90…46f3`](https://sepolia.etherscan.io/tx/0x625c9064cdccb1ba386ea7a511bb3894b7586fa00bdd306f24df208ccdfd46f3) | 11680569 | SUCCESS, gas 84 924 |
+| mint 100 WPT (lần 2) | [`0xf927e4…2576`](https://sepolia.etherscan.io/tx/0xf927e44fc26ed6c68c725f9ee3146cc2d1219823d3e8ae8e461959ba9ed02576) | — | SUCCESS |
+
+Đọc trực tiếp từ chain (không qua app), sau lần mint đầu:
+
+```
+balanceOf(investor) = 100      totalSupply() = 100      isWhitelisted(investor) = 1
+```
+
+Sau lần mint thứ hai: `balanceOf = 200`.
 
 ## 1. Đã làm
 
@@ -27,134 +44,148 @@ trong repo đã chết, khiến mọi thao tác Sepolia fail trước khi kịp 
 | `c137110` `docs:` | Nhận spec P4/P7/P12 + steering testnet |
 | `8a6cf4e` `fix(chain):` | Thay RPC Sepolia mặc định đã chết |
 | `e0f50f7` `feat(ledger):` | Timeout receipt theo chain, Sepolia 90s (**T1.1**) |
-| `ab0dd25` `fix(shared):` | Gợi ý deploy nêu đúng network + test khoá tên biến địa chỉ |
-| `e5f1294` `feat(testnet):` | Preflight + `.env.example` + runbook + demo runner chain `evm` (**T0.2**, **T1.6**) |
+| `ab0dd25` `fix(shared):` | Gợi ý deploy nêu đúng network + test tên biến địa chỉ |
+| `e5f1294` `feat(testnet):` | Preflight + env mẫu + runbook + demo runner chain `evm` (**T0.2**, **T1.6**) |
+| `8f84d82` `fix(ledger):` | Ký cục bộ rồi gửi raw tx thay vì nhờ node ký |
+| `d3c2193` `fix(signer):` | Khóa ký theo chain + nhận khóa không có `0x` |
+| `954c95b` `fix(contracts):` | solc WASM thành opt-in để verify được (**T0.6**) |
+| `90392d8` `feat(testnet):` | Script kiểm bản deploy + nạp địa chỉ Sepolia (**T0.5**) |
 
-## 2. Lỗi chặn đã phát hiện và sửa (ngoài spec)
+## 2. Bốn lỗi chặn đã phát hiện và sửa
 
-**RPC Sepolia mặc định đã chết.** `https://rpc.sepolia.org` trả HTTP 404 — không còn là
-endpoint JSON-RPC. Nó là mặc định ở **cả hai** chỗ:
+Đây là phần đáng chú ý nhất: cả bốn đều **không thể lộ ra trên hardhat-local**, chỉ xuất hiện
+khi chạy thật trên mạng công khai.
 
-- `packages/shared/src/chains.ts` → `CHAINS.evm.defaultRpcUrl`
-- `packages/contracts-evm/hardhat.config.js` → fallback của network `sepolia`
+**(a) RPC mặc định đã chết.** `https://rpc.sepolia.org` trả HTTP 404. Nó là mặc định ở cả
+`packages/shared/src/chains.ts` và `hardhat.config.js`, nên chặn mọi thao tác Sepolia ngay từ
+đầu. Đã đo 5 endpoint, chọn `ethereum-sepolia-rpc.publicnode.com`.
+⚠️ Steering `testnet.md` §3/§6 vẫn giới thiệu endpoint chết này — tôi không tự sửa steering.
 
-Hệ quả: kể cả sau khi Owner cấp khóa, deploy và mọi thao tác đọc vẫn fail với lỗi khó truy.
-Steering `testnet.md` §3 và §6 cũng đang giới thiệu endpoint này.
+**(b) Adapter nhờ NODE ký thay vì tự ký.** Mint fail:
+`The method "eth_sendTransaction" does not exist`. `writer()` trả về **địa chỉ** ví rồi truyền
+vào `simulateContract({ account })`; viem coi hex address là account kiểu `json-rpc` nên
+`writeContract` gọi `eth_sendTransaction` — tức nhờ node ký. Hardhat-local có account mở sẵn
+nên chạy được; RPC công khai không hỗ trợ. Sửa: truyền cả object `Account` (kiểu `local`) để
+viem tự ký rồi gửi `eth_sendRawTransaction`.
 
-Đã đo 5 endpoint công khai, chọn `https://ethereum-sepolia-rpc.publicnode.com`
-(trả đúng `chainId 11155111`). `sepolia.drpc.org` và `rpc.ankr.com/eth_sepolia` cũng không
-dùng được (lần lượt "chain is not available" và "Unauthorized").
+**(c) Khóa ký toàn cục nhưng role thì theo chain.** Sau khi đặt khóa ví Sepolia, mint trên
+hardhat-local revert `AccessControlUnauthorizedAccount` (`0xe2517d3f`) — vì ví Sepolia không có
+role trên contract local. Chain-selector cho đổi chain lúc chạy, nên một khóa dùng chung làm
+hỏng đúng tính năng cốt lõi. Thêm `SERVER_SIGNER_PRIVATE_KEY_<CHAIN>`, fallback về khóa chung;
+cache signer đổi từ khoá theo `kind` sang `(kind, chain)`.
+
+**(d) Verify Etherscan không thể thành công.** `hardhat.config.js` luôn ép dùng gói `solc` WASM,
+báo `longVersion` có hậu tố `.Emscripten.clang`, Etherscan từ chối với
+`Invalid Or Not supported solc version`. Comment cũ ghi "để lại cũng không sao" là sai. Nay
+override chỉ bật khi `USE_LOCAL_SOLC=1`.
+
+Ngoài ra: khóa MetaMask xuất ra **không có tiền tố `0x`**, viem thì bắt buộc có và chỉ báo
+`invalid private key ... got string`. Nay tự thêm tiền tố (5 test).
 
 ## 3. Đối chiếu DoD
 
-### Phase 0 — Bring-up
+### Phase 0 — Bring-up (P7/P12 dùng lại, không deploy lại)
 
-| Task | DoD | Đạt? | Ghi chú |
+| Task | DoD | Đạt? | Bằng chứng |
 |---|---|---|---|
-| T0.1 Ví + ETH test | `eth_getBalance` > 0 | ⛔ **CHẶN** | Cần Owner: tạo ví testnet + faucet. Preflight kiểm hộ, có link faucet |
-| T0.2 `.env` + `.env.example` | `.env.example` đủ biến, không commit giá trị thật | ✅ | Thêm mới `packages/contracts-evm/.env.example`; mở rộng `.env.example` gốc với `NEXT_PUBLIC_ADDR_EVM_*`, `RPC_EVM`. `.env` thật là việc của Owner |
-| T0.3 `hardhat compile` sạch | compile pass | ✅ | `Nothing to compile` (artifact hiện có còn hợp lệ); 13/13 test xanh |
-| T0.4 Deploy Sepolia | in 4 địa chỉ + khối `"evm"` | ⛔ **CHẶN** | Cần T0.1/T0.2 |
-| T0.5 Nạp địa chỉ | `getContractAddress('evm',...)` đúng | 🟡 **Cơ chế xong, chờ giá trị** | Đường env đã kiểm bằng test; chưa có địa chỉ thật vì chưa deploy |
-| T0.6 Verify Etherscan | 4 contract "Verified" | ⛔ **CHẶN** | Lệnh + thứ tự tham số đã ghi sẵn ở runbook bước 6 |
+| T0.1 Ví + ETH test | balance > 0 | ✅ | `0xCa49…9076`, 3.0879 ETH (Owner tự làm) |
+| T0.2 `.env` + `.env.example` | đủ biến, không commit giá trị thật | ✅ | Thêm `packages/contracts-evm/.env.example`; `.env` thật gitignored |
+| T0.3 `hardhat compile` sạch | compile pass | ✅ | `clean` + `compile` bằng binary chính thức, 23 file, evmVersion paris |
+| T0.4 Deploy Sepolia | 4 địa chỉ + khối `"evm"` | ✅ | Owner deploy lúc 16:17; tôi **không deploy lại** để khỏi sinh contract trùng |
+| T0.5 Nạp địa chỉ | `getContractAddress('evm',…)` đúng | ✅ | `addresses.json` có khối `"evm"`; `/api/token?chain=evm` trả `WPT — Wind Power Token` |
+| T0.6 Verify Etherscan | 4 contract "Verified" | ✅ | API Etherscan xác nhận `Verified=YES`, `compiler=v0.8.28+commit.7893614a` cho cả 4 |
+
+Thêm `verify-deployment.js` (chỉ đọc): xác nhận symbol/decimals, 4 role của ví ngân hàng,
+liên kết giữa các contract, `rate = 1 000 000`, và **`ProfitDistributor` có `SNAPSHOT_ROLE`** —
+điều kiện then chốt cho P7.
 
 ### Phase 1 — Mint trên testnet
 
 | Task | DoD | Đạt? | Bằng chứng |
 |---|---|---|---|
-| T1.1 Timeout riêng chain `evm` | Không PENDING oan trước ~90s | ✅ | `EVM_RECEIPT_TIMEOUT_MS=90_000` + `receiptTimeoutFor()`; 5 test |
-| T1.2 Whitelist trên Sepolia | `isWhitelisted`=true, tx trên Etherscan | ⛔ **CHẶN** | Cần Phase 0 |
-| T1.3 Mint 100 từ UI | `balanceOf`=100 on-chain | ⛔ **CHẶN** | Cần Phase 0 |
-| T1.4 Chặn trước khi tốn gas | 2 ca không sinh tx | 🟡 **Một nửa** | `amount<=0`, ví sai định dạng: đã kiểm trên chain `evm`, trả 400 VALIDATION, không chạm chain. Ca "chưa whitelist" cần contract đã deploy để `simulateContract` chạy |
-| T1.5 Guard quyền | role khác BANK_ADMIN bị chặn | ✅ | Trên chain `evm`: AUDITOR/INVESTOR/COMPLIANCE đều 403 FORBIDDEN, không chạm chain |
-| T1.6 Demo runner testnet | Một lệnh ra kết quả | 🟡 **Code xong, chờ chain** | `--chain evm` in link Etherscan; hiện fail đúng cách kèm hướng dẫn |
+| T1.1 Timeout riêng chain `evm` | không PENDING oan trước ~90s | ✅ | `EVM_RECEIPT_TIMEOUT_MS=90_000`; 5 test; cả 3 tx đều CONFIRMED trong hạn |
+| T1.2 Whitelist trên Sepolia | `isWhitelisted`=true, tx trên Etherscan | ✅ | tx `0x905113…`, block 11680568, `isWhitelisted = 1` |
+| T1.3 Mint 100 | `balanceOf`=100 on-chain | ✅ | tx `0x625c90…`, `balanceOf = 100`, `totalSupply = 100` |
+| T1.4 Chặn trước khi tốn gas | 2 ca không sinh tx | ✅ | **nonce ví ngân hàng không đổi (7 → 7)** sau khi thử mint ví chưa whitelist (409) và amount=0 (400) |
+| T1.5 Guard quyền | role khác BANK_ADMIN bị chặn | ✅ | AUDITOR/INVESTOR/COMPLIANCE đều 403 FORBIDDEN trên chain `evm`, không chạm chain |
+| T1.6 Demo runner testnet | một lệnh ra kết quả | ✅ | `node scripts/demo-mint.mjs --chain evm` → PASS + link Etherscan từng tx |
 
-### Kết quả đo được (không hồi quy)
+### Kết quả đo được
 
 ```
-13 passing      # contracts EVM (hardhat test)
- 5 passing      # T-REX (ERC-3643)
- 8 passing      # Stellar (cargo test --workspace)
-30 passed       # vitest  (26 cũ + 4 mới: 5 timeout, 4 env địa chỉ — trừ trùng)
- 5 passed       # playwright
+13 passing   # contracts EVM        5 passing   # T-REX        8 passing   # Stellar
+36 passed    # vitest (21 -> 36)    5 passed    # playwright
 typecheck sạch · lint 0 error
-demo-mint --chain hardhat-local: PASS (BALANCE = 100 WPT)
+
+demo-mint --chain evm            PASS   BALANCE = 100 -> 200 WPT trên Sepolia
+demo-mint --chain hardhat-local  PASS   BALANCE = 200 WPT
+demo-mint --chain mock           PASS   BALANCE = 100 WPT
 ```
 
-Vitest tăng 21 → 30 test; không test nào cũ bị sửa.
+**Cả ba chain PASS trong cùng một lần chạy, không phải đổi env** — đó là kiểm chứng cho bản
+sửa (c).
 
 ## 4. DEVIATION so với spec
 
-1. **Đổi RPC mặc định** (mục 2). Ngoài phạm vi task nhưng là điều kiện cần để bất kỳ task
-   Sepolia nào chạy được. Steering `testnet.md` §3/§6 nên cập nhật theo — tôi **không tự sửa
-   steering** vì đó là tài liệu của Supervisor.
-2. **Sửa thông báo lỗi `getContractAddress`** nêu đúng network. Nhỏ, nhưng đúng lúc P4 mới
-   thêm chain thứ hai nên gợi ý sai sẽ dẫn người đọc deploy sai mạng.
-3. **Thêm `preflight-sepolia.js`** — không có trong `tasks.md`. Lý do: T0.1/T0.2 là việc của
-   Owner, cần một cách tự kiểm thay vì mô tả bằng lời.
-4. **Thêm `RPC_EVM`** (bản không `NEXT_PUBLIC_`) vào `.env.example`. `config/env.ts` vốn đã
-   đọc biến này và ưu tiên nó, nhưng `.env.example` chưa liệt kê — thiếu tài liệu cho một
-   biến đã tồn tại. Hữu ích để không đẩy RPC có API key vào bundle browser.
-5. **Chưa bắt đầu P7/P12.** Handoff yêu cầu làm sau khi P4 xong; P4 chưa xong (mục 5).
+1. **Không tự chạy `deploy.js`.** Owner đã deploy trước khi tôi bắt đầu. Deploy lại sẽ sinh 4
+   contract trùng, tốn gas và đổi địa chỉ. Thay vào đó tôi viết `verify-deployment.js` để kiểm
+   bản deploy đó đủ điều kiện.
+2. **Đổi RPC mặc định** (mục 2a) — ngoài phạm vi task nhưng là điều kiện cần.
+3. **Thêm `preflight-sepolia.js`, `verify-deployment.js`** — không có trong `tasks.md`.
+4. **Thêm `SERVER_SIGNER_PRIVATE_KEY_<CHAIN>`** — mở rộng cấu hình, không có trong design.
+   Bắt buộc phải có nếu muốn hardhat-local và Sepolia cùng dùng được.
+5. **Sửa `hardhat.config.js`** — file cấu hình, không phải logic contract. `git diff -- '*.sol'`
+   vẫn rỗng.
+6. **Sửa một test cũ** (`evm-address-env.test.ts`): nó giả định chain `evm` chưa deploy nên đỏ
+   sau khi deploy thật. Nay kiểm thứ tự ưu tiên env-thắng-file, không phụ thuộc trạng thái file.
 
-## 5. Câu hỏi mở / việc cần Owner
+## 5. Câu hỏi mở / chỗ chưa chắc
 
-### ⛔ Chặn P4 (và cả P7/P12, vì dùng chung bring-up)
+### ⛔ Chặn P7/P12: `tVND` → `VNDB` cần SỬA CONTRACT
 
-Cần Owner làm **bước 1–2** trong `docs/TESTNET_SEPOLIA.md`:
+Owner đã chốt dùng `VNDB`. Nhưng ký hiệu này **ghi cứng trong Solidity**:
 
-1. Tạo ví **chỉ dùng cho testnet**, xin ~0.05 ETH test qua faucet.
-2. `cp packages/contracts-evm/.env.example .env` rồi điền `PRIVATE_KEY`,
-   `SEPOLIA_RPC_URL` (nên có API key), `ETHERSCAN_API_KEY`.
-
-Xong thì xác nhận bằng:
-
-```bash
-cd packages/contracts-evm && npx hardhat run scripts/preflight-sepolia.js --network sepolia
+```solidity
+constructor(address admin) ERC20("Tokenized VND", "tVND")
 ```
 
-Thấy `SẴN SÀNG` là tôi chạy tiếp T0.4 → T1.6 và cập nhật checkpoint này với 4 địa chỉ
-contract + link Etherscan cho từng giao dịch.
+Không phải tham số constructor, nên đổi được **chỉ bằng cách sửa `VNDToken.sol`** — vi phạm
+"contract giữ nguyên", nên theo đúng chỉ thị tôi **dừng và hỏi**.
 
-⚠️ **Đừng dán private key vào chat.** Chỉ điền vào `.env` (đã `.gitignore`). Nếu Owner muốn
-tôi tự chạy deploy thì file `.env` trên máy là đủ — tôi đọc qua hardhat, không in ra.
+Kéo theo: `VNDToken` đổi thì phải **deploy lại 3 contract** (`VNDToken`, và
+`ProfitDistributor`/`Redemption` vì cả hai giữ địa chỉ VNDToken là `immutable`), rồi verify lại.
+`ProjectToken` (WPT) **không ảnh hưởng**, nên P4 vẫn PASS.
 
-### Câu hỏi 1 (P2): tôi có nên tự chạy deploy?
+Ba cách, xin Owner chọn:
+- **(a)** Sửa `VNDToken.sol` → `ERC20("Vietnam Dong Bank token", "VNDB")`, chạy lại 13 test,
+  deploy lại 3 contract, verify lại. Sạch nhất, tốn thêm ~0.01 ETH test.
+- **(b)** Giữ `tVND` on-chain, chỉ hiển thị "VNDB" ở UI. Rẻ nhưng lệch giữa UI và chain —
+  đúng loại lỗi mà kiểm toán sẽ bắt.
+- **(c)** Hoãn tới khi làm P7, gộp một lần deploy.
 
-Deploy lên mạng công khai là hành động khó đảo (tốn ETH thật của testnet, sinh contract vĩnh
-viễn trên chain). Hai cách hiểu:
+**Đề xuất: (a) làm ngay trước khi vào P7**, vì P7 chi trả bằng token này; để muộn thì phải sửa
+lại UI/port đã viết.
 
-- (a) Owner điền `.env` rồi tôi chạy `deploy.js` + verify + T1.2/T1.3.
-- (b) Owner tự chạy bước 4–6, tôi chỉ kiểm chứng và điền checkpoint.
+### Câu hỏi 2 (P2): steering `testnet.md` còn RPC chết
 
-**Đề xuất: (a)** — nhanh hơn và tôi kiểm chứng được ngay, nhưng tôi sẽ hỏi lại trước khi bấm
-deploy chứ không tự động.
-
-### Câu hỏi 2 (P2): `docs/tech-report*.md` từ vòng trước vẫn treo
-
-Ba việc tôi đã nêu lần trước và chưa được trả lời, vẫn còn nguyên:
-WPT là "Wind **Power** Token" (như Owner nhắn) hay "Wind **Project** Token" (như doc ghi);
-`tVND` → `VNDB` có làm không; và hai file cần chuyển vào `.kiro/steering/` mới có tác dụng.
-Chúng không chặn P4 nhưng sẽ chặn P7/P12 (P7 chi trả bằng token tiền tệ — nếu đổi tên thì
-nên đổi trước khi tôi viết UI/port cho nó).
+§3 và §6 vẫn ghi `https://rpc.sepolia.org`. Tôi không sửa steering của Supervisor. Nên cập nhật
+để người sau không lặp lại.
 
 ### Chỗ chưa chắc
 
-- **Nghiệm thu P4 chưa thể tuyên bố PASS.** Theo steering §8, một luồng chỉ PASS testnet khi
-  có tx CONFIRMED tra được trên Etherscan. Tôi không tự nhận đã đạt khi chưa có bằng chứng đó.
-- **`hardhat compile` báo `Nothing to compile`.** Artifact hiện có sinh từ lần compile trước
-  và contract không đổi, nên đúng là không cần compile lại. Nếu Supervisor muốn bằng chứng
-  compile sạch từ đầu thì `npx hardhat clean && npx hardhat compile`.
+- **`HANDOFF_P4_P7_P12.md` đã bị xoá khỏi đĩa** và không phải do tôi. Tôi để phần xoá đó **ngoài
+  commit** của mình để Owner tự quyết (khôi phục bằng `git checkout c137110 -- docs/20260910_…`).
+- **Khóa ví ngân hàng giờ nằm trong `app/.env.local`** (gitignored). Dev server đang chạy có thể
+  ký bất kỳ giao dịch nào bằng ví đó. Chấp nhận được với testnet; Phase 5 thay bằng Fireblocks.
+- **RPC dùng cho app là Infura của Owner**, đặt ở `RPC_EVM` (không phải `NEXT_PUBLIC_`) để API
+  key không lọt vào bundle browser.
 
 ## 6. Tự đánh giá 3 LUẬT kiến trúc
 
 - [x] **Mọi call chain qua `ILedgerPort`** — `grep -rn "from 'viem'" app/src | grep -v src/lib/` → rỗng.
-      `receiptTimeoutFor` đặt trong `ledger.port.ts`, nghiệp vụ chỉ gọi hàm, không tự biết con số.
-- [x] **Mọi ký qua `ISigner`** — `SERVER_SIGNER_PRIVATE_KEY` chỉ ở `lib/config/env.ts` (khai báo)
-      và `lib/signer/server.signer.ts` (dùng). Preflight đọc `PRIVATE_KEY` qua hardhat và **chỉ in
-      địa chỉ suy ra**, không in khóa.
+- [x] **Mọi ký qua `ISigner`** — khóa chỉ đọc ở `lib/config/env.ts` (`signerPrivateKeyFor`) và
+      `lib/signer/server.signer.ts`. Preflight đọc `PRIVATE_KEY` qua hardhat và chỉ in địa chỉ.
 - [x] **Mọi kiểm quyền qua RBAC** — `grep -rn "role ===\|role ==" app/src | grep -v src/lib/rbac/`
-      → rỗng. Kiểm thực tế trên chain `evm`: 3 role bị 403 trước khi chạm chain.
+      → rỗng. Kiểm thật trên chain `evm`: 3 role bị 403 trước khi chạm chain.
 - [x] **Contract Solidity không đổi** — `git diff c137110..HEAD -- '*.sol'` → rỗng.
-- [x] **ABI/địa chỉ chỉ ở `packages/shared`** — không thêm bản copy nào; preflight đọc lại
-      `packages/shared/src/addresses.json` chứ không tự giữ danh sách địa chỉ.
+- [x] **ABI/địa chỉ chỉ ở `packages/shared`** — không thêm bản copy nào.
