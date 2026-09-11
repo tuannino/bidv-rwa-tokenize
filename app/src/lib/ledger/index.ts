@@ -32,7 +32,7 @@ export { resetMockLedger } from './mock.adapter';
  * Signer truyền vào được (mặc định = signer ngân hàng) để test có thể tiêm signer giả
  * và để Phase 5 đổi sang Fireblocks mà không chạm file này.
  */
-export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner()): ILedgerPort {
+export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner(chain)): ILedgerPort {
   switch (chainFamily(chain)) {
     case 'mock':
       return createMockLedger(chain);

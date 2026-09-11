@@ -129,7 +129,7 @@ export async function onboardInvestor(input: unknown): Promise<Result<OnboardRes
     }
 
     const ledger = getLedger(chain);
-    const signer = getBankSigner();
+    const signer = getBankSigner(chain);
 
     const pending = await ledger.whitelist(wallet);
     const receipt = await ledger.waitReceipt(pending.txHash);
@@ -182,7 +182,7 @@ export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
     const role = await authorize('token:mint', wallet, chain);
 
     const ledger = getLedger(chain);
-    const signer = getBankSigner();
+    const signer = getBankSigner(chain);
     const store = getStore();
 
     // AC#2: chưa whitelist thì TỪ CHỐI TRƯỚC KHI gửi tx (không đốt gas vào tx chắc chắn revert).
@@ -307,7 +307,7 @@ export async function tokenOverview(chain: ChainKey): Promise<Result<TokenOvervi
     const info = await getLedger(chain).tokenInfo();
     let bankAddress: string | null = null;
     try {
-      bankAddress = await getBankSigner().getAddress();
+      bankAddress = await getBankSigner(chain).getAddress();
     } catch {
       // Thiếu signer không được làm sập trang chỉ-đọc.
     }

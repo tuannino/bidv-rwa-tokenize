@@ -30,12 +30,25 @@ const optionalUrl = z
   .optional()
   .transform((value) => (value && value.trim() !== '' ? value.trim() : undefined));
 
+/**
+ * Khóa riêng, chuẩn hoá về dạng có tiền tố `0x`.
+ *
+ * MetaMask (và hardhat) xuất/chấp nhận khóa KHÔNG có `0x`, nên người làm theo runbook rất dễ
+ * dán vào dạng 64 hex trơn. viem thì bắt buộc có `0x` và báo lỗi rất khó hiểu
+ * ("invalid private key, expected hex or 32 bytes, got string"). Tự thêm tiền tố ở đây,
+ * thay vì để lỗi đó nổ ra giữa lúc gửi giao dịch.
+ */
 const privateKeySchema = z
   .string()
   .optional()
-  .transform((value) => (value && value.trim() !== '' ? value.trim() : undefined))
+  .transform((value) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return undefined;
+    return /^[0-9a-fA-F]{64}$/.test(trimmed) ? `0x${trimmed}` : trimmed;
+  })
   .refine((value) => value === undefined || /^0x[0-9a-fA-F]{64}$/.test(value), {
-    message: 'SERVER_SIGNER_PRIVATE_KEY phải là hex 32 byte có tiền tố 0x',
+    message:
+      'SERVER_SIGNER_PRIVATE_KEY phải là hex 32 byte (64 ký tự), có hoặc không có tiền tố 0x',
   });
 
 const envSchema = z.object({
@@ -45,7 +58,16 @@ const envSchema = z.object({
   rpcEvm: optionalUrl,
 
   // --- Signer (PoC) ---
+  /** Khóa dùng chung, áp cho mọi chain không có khóa riêng. */
   serverSignerPrivateKey: privateKeySchema,
+  /**
+   * Khóa riêng theo chain. Cần vì ROLE on-chain gắn với TỪNG chain: ví admin của
+   * hardhat-local (Hardhat account #0) khác ví ngân hàng đã deploy lên Sepolia.
+   * Chỉ có một khóa dùng chung thì đổi chain trên UI sẽ hỏng — ví ký không có role,
+   * contract revert `AccessControlUnauthorizedAccount`.
+   */
+  serverSignerPrivateKeyHardhatLocal: privateKeySchema,
+  serverSignerPrivateKeyEvm: privateKeySchema,
 
   // --- DB ---
   databaseUrl: optionalUrl,
@@ -75,6 +97,8 @@ function load(): ServerEnv {
     rpcHardhat: process.env.RPC_HARDHAT ?? process.env.NEXT_PUBLIC_RPC_HARDHAT,
     rpcEvm: process.env.RPC_EVM ?? process.env.NEXT_PUBLIC_RPC_EVM,
     serverSignerPrivateKey: process.env.SERVER_SIGNER_PRIVATE_KEY,
+    serverSignerPrivateKeyHardhatLocal: process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL,
+    serverSignerPrivateKeyEvm: process.env.SERVER_SIGNER_PRIVATE_KEY_EVM,
     databaseUrl: process.env.DATABASE_URL,
     useMockKyc: process.env.USE_MOCK_KYC,
     useMockOracle: process.env.USE_MOCK_ORACLE,
@@ -103,4 +127,23 @@ export function serverEnv(): ServerEnv {
 /** Chỉ dùng trong test để nạp lại env sau khi đổi process.env. */
 export function resetServerEnvCache(): void {
   cached = undefined;
+}
+
+/**
+ * Khóa ký cho một chain: ưu tiên khóa RIÊNG của chain, không có thì lấy khóa dùng chung.
+ *
+ * Đây là nơi DUY NHẤT quyết định "chain nào dùng khóa nào" (LUẬT 2: khóa chỉ đọc ở
+ * config/env.ts và signer/server.signer.ts).
+ */
+export function signerPrivateKeyFor(chain: ChainKey): string | undefined {
+  const env = serverEnv();
+  switch (chain) {
+    case 'hardhat-local':
+      return env.serverSignerPrivateKeyHardhatLocal ?? env.serverSignerPrivateKey;
+    case 'evm':
+      return env.serverSignerPrivateKeyEvm ?? env.serverSignerPrivateKey;
+    case 'stellar':
+    case 'mock':
+      return env.serverSignerPrivateKey;
+  }
 }
