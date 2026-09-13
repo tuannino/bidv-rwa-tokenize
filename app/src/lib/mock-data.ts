@@ -1,89 +1,143 @@
-export type AssetType = "GOLD" | "REAL_ESTATE" | "CARBON";
-export type AssetStatus = "TRADING" | "PROCESSING" | "PAUSED";
+/**
+ * Dữ liệu mẫu cho các trang tổng quan (dashboard / assets / reconciliation).
+ *
+ * Chủ đề DUY NHẤT: **điện gió** (docs/SPEC.md §1). Trước đây file này là dữ liệu ba
+ * loại tài sản của console cũ — đã thay toàn bộ.
+ *
+ * ⚠️ Đây là số minh hoạ cho phần CHƯA nối on-chain. Những gì đã nối thật
+ * (số dư WPT, whitelist, lịch sử giao dịch ở trang /mint và /audit) KHÔNG lấy từ đây
+ * mà đọc qua `ILedgerPort`. Đừng dùng file này để thay dữ liệu thật.
+ */
 
-export interface Asset {
+/** Trạng thái vận hành nhà máy. */
+export type ProjectStatus = 'OPERATING' | 'COMMISSIONING' | 'MAINTENANCE';
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  OPERATING: 'Đang phát điện',
+  COMMISSIONING: 'Chạy thử nghiệm thu',
+  MAINTENANCE: 'Bảo trì',
+};
+
+/** Vùng dự án — dùng để lọc danh sách. */
+export type ProjectRegion = 'ONSHORE_HIGHLAND' | 'ONSHORE_COASTAL' | 'NEARSHORE';
+
+export const REGION_LABELS: Record<ProjectRegion, string> = {
+  ONSHORE_HIGHLAND: 'Trên bờ · Cao nguyên',
+  ONSHORE_COASTAL: 'Trên bờ · Ven biển',
+  NEARSHORE: 'Gần bờ',
+};
+
+export interface WindProject {
   id: string;
+  /** Mã dự án nội bộ BIDV. */
   code: string;
   name: string;
-  type: AssetType;
-  tokenSymbol: string;
-  totalSupply: number;
-  backingAmount: string;
-  backingUnit: string;
-  currentPrice: string;
-  priceUnit: string;
-  status: AssetStatus;
-  listedAt: string;
-  adminAddress: string;
+  location: string;
+  region: ProjectRegion;
+  /** Công suất đặt (MW). */
+  capacityMw: number;
+  turbines: number;
+  /** WPT đã phát hành cho dự án. */
+  wptIssued: number;
+  /** Sản lượng luỹ kế (MWh) — nguồn: EnergyOracle. */
+  generationMwh: number;
+  /** Hệ số công suất luỹ kế (%). */
+  capacityFactorPct: number;
+  /** Giá bán điện (đồng/kWh) theo PPA với EVN. */
+  ppaPricePerKwh: number;
+  status: ProjectStatus;
+  commissionedAt: string;
+  operatorAddress: string;
   txHash: string;
 }
 
-export const MOCK_ASSETS: Asset[] = [
+export const MOCK_PROJECTS: WindProject[] = [
   {
-    id: "BCT-CP073",
-    code: "BCT-CP073",
-    name: "CC-2026-073",
-    type: "CARBON",
-    tokenSymbol: "BCT",
-    totalSupply: 50000,
-    backingAmount: "2.500ha · 50.000 tCO₂e",
-    backingUnit: "tCO₂e",
-    currentPrice: "120.000",
-    priceUnit: "tCO₂e/ha",
-    status: "TRADING",
-    listedAt: "29/05/2026",
-    adminAddress: "admin.bidv.eth",
-    txHash: "0xed3e4ec1...7d66",
+    id: 'WIND-BLI-01',
+    code: 'WIND-BLI-01',
+    name: 'Điện gió Bạc Liêu 1',
+    location: 'Bạc Liêu',
+    region: 'NEARSHORE',
+    capacityMw: 99.2,
+    turbines: 62,
+    wptIssued: 185_000,
+    generationMwh: 214_600,
+    capacityFactorPct: 38.4,
+    ppaPricePerKwh: 1_927,
+    status: 'OPERATING',
+    commissionedAt: '18/03/2025',
+    operatorAddress: 'operator.bidv.eth',
+    txHash: '0xed3e4ec1...7d66',
   },
   {
-    id: "BGT-GOLD-512",
-    code: "BGT-GOLD-512",
-    name: "GOLD-20260529-512",
-    type: "GOLD",
-    tokenSymbol: "BGT",
-    totalSupply: 100000,
-    backingAmount: "3.750g · 1.000 chi",
-    backingUnit: "chi",
-    currentPrice: "950.000",
-    priceUnit: "đ/chi",
-    status: "TRADING",
-    listedAt: "29/05/2026",
-    adminAddress: "admin.bidv.eth",
-    txHash: "0xfca87b5e...33af",
+    id: 'WIND-QTR-03',
+    code: 'WIND-QTR-03',
+    name: 'Điện gió Hướng Linh 3',
+    location: 'Quảng Trị',
+    region: 'ONSHORE_HIGHLAND',
+    capacityMw: 30.0,
+    turbines: 12,
+    wptIssued: 100_000,
+    generationMwh: 128_450,
+    capacityFactorPct: 33.1,
+    ppaPricePerKwh: 1_813,
+    status: 'OPERATING',
+    commissionedAt: '02/11/2025',
+    operatorAddress: 'operator.bidv.eth',
+    txHash: '0xfca87b5e...33af',
   },
   {
-    id: "BRT-VOP3-991",
-    code: "BRT-VOP3-991",
-    name: "RE-20260529-991",
-    type: "REAL_ESTATE",
-    tokenSymbol: "BRT",
-    totalSupply: 185000,
-    backingAmount: "98.500m² · 185 tỷ VND",
-    backingUnit: "m²",
-    currentPrice: "1.050.000",
-    priceUnit: "tỷ VND",
-    status: "TRADING",
-    listedAt: "29/05/2026",
-    adminAddress: "admin.bidv.eth",
-    txHash: "0xc3bef42f...1b1b",
+    id: 'WIND-NTH-07',
+    code: 'WIND-NTH-07',
+    name: 'Điện gió Ninh Thuận 7',
+    location: 'Ninh Thuận',
+    region: 'ONSHORE_COASTAL',
+    capacityMw: 19.0,
+    turbines: 8,
+    wptIssued: 50_000,
+    generationMwh: 69_630,
+    capacityFactorPct: 35.7,
+    ppaPricePerKwh: 1_813,
+    status: 'MAINTENANCE',
+    commissionedAt: '25/06/2026',
+    operatorAddress: 'operator.bidv.eth',
+    txHash: '0xc3bef42f...1b1b',
   },
 ];
 
-export const MOCK_CHART_DATA = [
-  { date: "01/06", gold: 88, realEstate: 178, carbon: 5 },
-  { date: "02/06", gold: 90, realEstate: 180, carbon: 5 },
-  { date: "03/06", gold: 91, realEstate: 183, carbon: 6 },
-  { date: "04/06", gold: 92, realEstate: 185, carbon: 6 },
-  { date: "05/06", gold: 94, realEstate: 190, carbon: 6 },
-  { date: "06/06", gold: 95, realEstate: 194, carbon: 6 },
+/**
+ * Sản lượng và lợi tức theo kỳ (tháng).
+ * `generationMwh` từ EnergyOracle; `profitVndBn` là lợi tức đã chia (tỷ VND) qua ProfitDistributor.
+ */
+export interface GenerationPoint {
+  period: string;
+  generationMwh: number;
+  profitVndBn: number;
+}
+
+export const MOCK_GENERATION_SERIES: GenerationPoint[] = [
+  { period: '02/2026', generationMwh: 24_180, profitVndBn: 11.2 },
+  { period: '03/2026', generationMwh: 27_640, profitVndBn: 13.1 },
+  { period: '04/2026', generationMwh: 31_900, profitVndBn: 15.4 },
+  { period: '05/2026', generationMwh: 29_450, profitVndBn: 14.0 },
+  { period: '06/2026', generationMwh: 34_720, profitVndBn: 16.8 },
+  { period: '07/2026', generationMwh: 33_180, profitVndBn: 15.9 },
 ];
 
-export const MOCK_STATS = {
-  totalAssets: 3,
-  totalValueVnd: "295,3 tỷ",
-  todayTransactions: 0,
-  pendingBatches: 0,
-  gold: { count: 1, label: "1 lô", detail: "3.750g · 1.000 chi" },
-  realEstate: { count: 1, label: "1 dự án", detail: "Tổng giá trị: 185 tỷ VND" },
-  carbon: { count: 1, label: "1 đợt", detail: "50.000 tCO₂e · Vintage 2025" },
-};
+/** Số liệu tổng quan toàn danh mục điện gió. */
+export const MOCK_WIND_STATS = {
+  projects: MOCK_PROJECTS.length,
+  totalCapacityMw: 148.2,
+  /** WPT đã phát hành (tổng cung). */
+  wptIssued: 335_000,
+  /** Nhà đầu tư đã whitelist. */
+  whitelistedInvestors: 128,
+  /** Sản lượng luỹ kế toàn danh mục (MWh). */
+  cumulativeGenerationMwh: 412_680,
+  /** Lợi tức đã chia (tỷ VND). */
+  profitDistributedVndBn: 86.4,
+  /** Số kỳ đã chia lợi tức. */
+  distributionPeriods: 6,
+  /** Kỳ đối soát doanh thu điện chưa khớp. */
+  pendingReconciliations: 0,
+} as const;

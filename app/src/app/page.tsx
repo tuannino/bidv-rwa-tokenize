@@ -3,7 +3,7 @@ import { DashboardPage } from "@/components/pages/dashboard";
 
 export default function Home() {
   return (
-    <AppLayout breadcrumbs={[{ label: "Tổng quan" }]}>
+    <AppLayout breadcrumbs={[{ label: "Tổng quan điện gió" }]}>
       <DashboardPage />
     </AppLayout>
   );
