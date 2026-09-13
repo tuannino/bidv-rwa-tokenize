@@ -158,11 +158,10 @@ describe("SPEC P4 - Phát hành WPT", function () {
       expect(await project.decimals()).to.equal(0n);
     });
 
-    // Test theo dõi nợ P1 "đồng bộ đổi tên token".
-    // Bật bằng: EXPECT_TOKEN_SYMBOLS=1 npx hardhat test
-    // Để tắt mặc định nhằm không phá CI trong lúc việc đổi tên chưa hoàn tất.
-    const symbolCheck = process.env.EXPECT_TOKEN_SYMBOLS === "1" ? it : it.skip;
-    symbolCheck("P4-15 (nợ P1): ký hiệu token là WPT và VNDB", async function () {
+    // Nợ P1 "đồng bộ đổi tên token" đã trả xong, nên cổng này chạy MẶC ĐỊNH.
+    // Chỉ đặt EXPECT_TOKEN_SYMBOLS=0 nếu cố tình muốn bỏ qua (không nên).
+    const symbolCheck = process.env.EXPECT_TOKEN_SYMBOLS === "0" ? it.skip : it;
+    symbolCheck("P4-15: ký hiệu token là WPT và VNDB", async function () {
       const { project, payout } = await loadFixture(deploySpecFixture);
       expect(await project.symbol()).to.equal("WPT");
       expect(await payout.symbol()).to.equal("VNDB");
