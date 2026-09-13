@@ -6,8 +6,9 @@
 |---|---|
 | Branch | `p4/mint-testnet` |
 | Spec | `.kiro/specs/p4-mint-testnet/{requirements,design,tasks}.md` + `#steering-testnet` |
-| Trạng thái | ✅ **PASS** — mint chạy thật trên Sepolia, tra được trên Etherscan |
-| Contract | **KHÔNG sửa một dòng Solidity nào** |
+| Trạng thái | ✅ **PASS** — mint chạy thật trên Sepolia, tra được trên Etherscan. 12/12 task đạt DoD |
+| Contract | **KHÔNG sửa một dòng Solidity nào** trong phạm vi P4 |
+| Nghiệm thu bổ sung | Bộ test spec của Supervisor xác nhận lại P4 bằng **15 test EVM + 12 test Soroban**, tất cả xanh — xem `docs/CHECKPOINT_TEST_PACK.md` |
 
 ## 0. Bằng chứng nghiệm thu
 
@@ -125,6 +126,20 @@ demo-mint --chain mock           PASS   BALANCE = 100 WPT
 **Cả ba chain PASS trong cùng một lần chạy, không phải đổi env** — đó là kiểm chứng cho bản
 sửa (c).
 
+### Nghiệm thu lại bằng bộ test của Supervisor (13/09/2026)
+
+Bộ test `docs/20260910_test_pack_spec_p4_p7_p12` đã được cài vào repo trên nhánh
+`test/spec-pack-p4-p7-p12` (nền là chính `p4/mint-testnet`). Kết quả với riêng phần P4:
+
+| Lớp | Kiểm gì | Kết quả |
+|---|---|---|
+| 1 — EVM | 15 test `P4-*`: whitelist, mint, đóng băng, tạm dừng, clawback, forcedTransfer, decimals, ký hiệu | 15/15 xanh |
+| 1 — Soroban | 12 test `p4_*`: authorize, mint, transfer, clawback, snapshot, metadata | 12/12 xanh |
+| 3 — luật kiến trúc | 3 luật + một nguồn sự thật + chain được phép + ký hiệu token | PASS 20, FAIL 0 |
+
+Tổng: `npx hardhat test` **67 passing / 0 failing**, `cargo test` **48 passed / 0 failed**.
+Chi tiết và các sai lệch phát hiện được: `docs/CHECKPOINT_TEST_PACK.md`.
+
 ## 4. DEVIATION so với spec
 
 1. **Không tự chạy `deploy.js`.** Owner đã deploy trước khi tôi bắt đầu. Deploy lại sẽ sinh 4
@@ -141,7 +156,21 @@ sửa (c).
 
 ## 5. Câu hỏi mở / chỗ chưa chắc
 
-### ⛔ Chặn P7/P12: `tVND` → `VNDB` cần SỬA CONTRACT
+### ✅ ĐÃ CHỐT (13/09/2026): `tVND` → `VNDB` — chọn phương án (a)
+
+Supervisor trả lời qua Task 4b của `docs/20260910_test_pack_spec_p4_p7_p12/20260910_giao_viec_kiro_bo_test.md`:
+đổi symbol, gồm cả trong `VNDToken.sol`. Đã thực hiện trên nhánh `test/spec-pack-p4-p7-p12`
+(commit `5949f26`) → `ERC20("Vietnam Dong Bank token", "VNDB")`. 67 test EVM xanh, gồm P4-15
+kiểm `symbol()` là `WPT`/`VNDB`.
+
+**Còn nợ:** bản đã deploy trên Sepolia vẫn mang `tVND` (symbol nằm trong constructor, không sửa
+được sau deploy). Phải deploy lại `VNDToken` + `ProfitDistributor` + `Redemption` rồi verify lại
+**trước khi vào P7**. Đã ghi thành nợ P1 trong `tech-report.md` 1.6.C.
+`ProjectToken`/WPT không ảnh hưởng → **nghiệm thu P4 dưới đây vẫn đứng nguyên**.
+
+Nội dung câu hỏi gốc giữ lại bên dưới để làm biên bản.
+
+### (biên bản) Chặn P7/P12: `tVND` → `VNDB` cần SỬA CONTRACT
 
 Owner đã chốt dùng `VNDB`. Nhưng ký hiệu này **ghi cứng trong Solidity**:
 
@@ -173,8 +202,10 @@ lại UI/port đã viết.
 
 ### Chỗ chưa chắc
 
-- **`HANDOFF_P4_P7_P12.md` đã bị xoá khỏi đĩa** và không phải do tôi. Tôi để phần xoá đó **ngoài
-  commit** của mình để Owner tự quyết (khôi phục bằng `git checkout c137110 -- docs/20260910_…`).
+- ~~**`HANDOFF_P4_P7_P12.md` đã bị xoá khỏi đĩa** và không phải do tôi.~~
+  **Đã xử lý 13/09/2026:** khôi phục bằng `git restore` để cây làm việc sạch trước khi tạo nhánh
+  bộ test. File hiện có đủ trong `docs/20260910_kiro_spec_p4_p7_p12_testnet/`. Nếu Owner cố tình
+  muốn xoá thì xoá bằng một commit riêng có ghi lý do, đừng để ở dạng thay đổi chưa commit.
 - **Khóa ví ngân hàng giờ nằm trong `app/.env.local`** (gitignored). Dev server đang chạy có thể
   ký bất kỳ giao dịch nào bằng ví đó. Chấp nhận được với testnet; Phase 5 thay bằng Fireblocks.
 - **RPC dùng cho app là Infura của Owner**, đặt ở `RPC_EVM` (không phải `NEXT_PUBLIC_`) để API
