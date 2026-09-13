@@ -110,7 +110,7 @@ describe("SPEC P12 - Tất toán WPT sang VNDB", function () {
 
       await expect(
         redemption.connect(investorA).redeem(0)
-      ).to.be.revertedWith("sptAmount = 0");
+      ).to.be.revertedWith("wptAmount = 0");
     });
 
     it("P12-11: ví chưa KYC không tất toán được", async function () {

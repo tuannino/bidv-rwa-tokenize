@@ -65,7 +65,7 @@ describe("SPEC P7 - Chia lợi tức", function () {
 
       await expect(
         distributor.connect(admin).createDistribution(1_000_000, "Q1-2026")
-      ).to.be.revertedWith("khong co SPT dang luu hanh");
+      ).to.be.revertedWith("khong co WPT dang luu hanh");
     });
 
     it("P7-5: ví không có DISTRIBUTOR_ROLE không tạo được kỳ", async function () {
