@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.1 |
-| Cập nhật lần cuối | 2026-09-08 |
-| Nhánh / commit | `iteration-2/ui-cleanup` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió |
-| Phase kế tiếp | P2 Redeem → P3 Distribution |
+| Phiên bản tài liệu | 1.2 |
+| Cập nhật lần cuối | 2026-09-13 |
+| Nhánh / commit | `test/spec-pack-p4-p7-p12` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12 |
+| Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
@@ -21,7 +21,7 @@ inclusion: always
 | Ký hiệu | Tên đầy đủ | Contract | Vai trò |
 |---|---|---|---|
 | **WPT** | Wind Project Token | `tokens/ProjectToken.sol` | Token đại diện phần vốn dự án điện gió, cấp cho nhà đầu tư đã định danh |
-| **VNDB** | Tokenized VND | `tokens/VNDToken.sol` | Token tiền tệ dùng chi trả lợi tức và hoàn vốn |
+| **VNDB** | Vietnam Dong Bank token | `tokens/VNDToken.sol` | Token tiền tệ dùng chi trả lợi tức và hoàn vốn |
 
 ⚠️ **Ký hiệu cũ đã bỏ:** `SPT` (nay là **WPT**), `tVND` (nay là **VNDB**). Không dùng lại ký hiệu cũ ở bất kỳ đâu: mã nguồn, giao diện, tài liệu, tên biến, chuỗi hiển thị, test.
 
@@ -113,8 +113,11 @@ bidv-rwa-tokenize/
 │   │   │   ├── Redemption.sol               # Hoàn vốn WPT → VNDB
 │   │   │   ├── oracle/EnergyOracle.sol      # Sản lượng điện → doanh thu
 │   │   │   └── extensions/ERC20Snapshotable.sol
-│   │   ├── scripts/           # deploy.js, demo-cycle.js, demo-oracle.js
+│   │   ├── scripts/           # deploy.js, demo-cycle.js, demo-oracle.js,
+│   │   │                      #   preflight-sepolia.js, verify-deployment.js,
+│   │   │                      #   dod-verify-sepolia.js (nghiệm thu DoD lớp 2)
 │   │   ├── test/              # full-cycle, oracle-cycle (13 test)
+│   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (54 test)
 │   │   └── trex/              # ERC-3643 thật — TOOLCHAIN RIÊNG, KHÔNG trộn
 │   ├── contracts-stellar/     # Soroban (Rust) — phase 7
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
@@ -149,6 +152,8 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | Bundle hardhat/ethers/artifact vào web | Dùng viem + ABI tối giản; đồ nặng để ở `packages` |
 | Luồng demo phụ thuộc hardhat node thường trú | Mặc định phải là `mock`, để free-tier chạy được |
 | Giả định API Next.js theo bản cũ | Next.js 16 có breaking change. Đọc `node_modules/next/dist/docs/` và `app/AGENTS.md` **trước khi** sửa `app/` |
+| Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` mất sạch `packages/` và `app/src/lib/`. Phải `git revert` chính commit revert, hoặc cherry-pick lại |
+| Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | Dùng `git rebase --onto <đích> <nền> <nhánh>` để replay **chỉ** commit của mình. `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền |
 
 ### B. Quyết định thiết kế có chủ ý (đừng "sửa" nhầm)
 
@@ -165,9 +170,8 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 
 | Mức | Vấn đề | Hướng xử lý |
 |---|---|---|
-| **P1** | **Đổi tên token chưa đồng bộ toàn repo.** Mã nguồn còn ký hiệu cũ `SPT`/`tVND` ở chuỗi giao diện (`Số lượng SPT`, `Số dư SPT`), symbol contract `VNDToken` (`tVND`), và **selector trong e2e** | Đổi đồng loạt sang **WPT**/**VNDB**. Sửa cả `e2e/mint.spec.ts` vì đổi nhãn sẽ làm gãy selector. Kiểm bằng: `grep -rniE "\bSPT\b\|tVND" app/src app/e2e packages/` phải rỗng |
-| **P1** | `app/package-lock.json` bị `app/.gitignore` chặn, trong khi Dockerfile dùng `npm ci` (bắt buộc có lock) → clone sạch chạy `docker compose up` sẽ fail | Bỏ dòng `package-lock.json` khỏi `app/.gitignore`, commit lock file |
 | **P1** | Chưa có xác thực thật. Vai trò lấy từ cookie do client đặt được | Phase 4: SIWE + phiên thật. **Trước đó tuyệt đối không deploy public khi chưa bật bảo vệ mật khẩu** |
+| **P1** | **Bộ contract trên Sepolia còn symbol `tVND` cũ.** Mã nguồn đã đổi sang `VNDB` nhưng bản đã deploy thì không đổi được — symbol nằm trong constructor | Deploy lại `VNDToken`, `ProfitDistributor`, `Redemption` (hai cái sau giữ địa chỉ VNDToken dạng `immutable`) rồi verify lại. `ProjectToken`/WPT không ảnh hưởng nên P4 vẫn đứng |
 | **P2** | Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next` | Bật `output: "standalone"` cho đường build riêng + nối đường dẫn; **không** bật mặc định vì hỏng `next start` |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
@@ -238,7 +242,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 
 | Công nghệ | Mục đích | Bản dùng | Mới nhất | License |
 |---|---|---|---|---|
-| Vitest | Unit test (21 test) | 3.2.4 | 5.0.0 | MIT |
+| Vitest | Unit test (36 test) | 3.2.4 | 5.0.0 | MIT |
 | Playwright | E2E (5 test) | 1.63.0 | 1.63.0 | Apache-2.0 |
 | ESLint | Kiểm tra mã nguồn | 9.x | 10.10.0 | MIT |
 | Docker / Compose | 3 service: chain, db, web | — | 29.7.1 | Apache-2.0 |
