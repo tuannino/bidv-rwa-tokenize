@@ -5,7 +5,7 @@ Workspace token hóa dự án điện mặt trời có chia lợi nhuận địn
 | Hợp đồng | Vai trò | Quy trình bao gồm |
 |---|---|---|
 | `ProjectToken` (WPT) | Token quyền hưởng có kiểm soát | mint, burn, clawback (forced transfer), freeze, whitelist/KYC, snapshot |
-| `VNDToken` (tVND) | Token thanh toán VND | mint, burn |
+| `VNDToken` (VNDB) | Token thanh toán VND | mint, burn |
 | `ProfitDistributor` | Tính & chia lợi nhuận định kỳ | createDistribution (chốt kỳ), previewClaim (tính), claim/claimMany/distributeTo (chia), sweepDust |
 | `EnergyOracle` | Oracle sản lượng điện → công thức lợi nhuận | submitReading (đa reporter xác nhận), distributableProfitVnd |
 | `ProfitDistributorOracle` | Chia lợi nhuận lấy số từ oracle | createDistributionFromOracle, previewDistributableFromOracle |
@@ -35,4 +35,4 @@ Hướng dẫn cài đặt và triển khai chi tiết (giải thích từng h�
 ## Lưu ý phiên bản
 - Solidity 0.8.28, OpenZeppelin Contracts v5, Hardhat v2.
 - `hardhat.config.js` có một đoạn override để dùng `solc` cục bộ (do môi trường dựng bộ này chặn máy chủ tải solc). Trên máy có internet bình thường, đoạn này vô hại và Hardhat vẫn hoạt động chuẩn.
-- WPT và tVND để 0 số thập phân cho số học minh bạch; đổi qua constructor nếu cần.
+- WPT và VNDB để 0 số thập phân cho số học minh bạch; đổi qua constructor nếu cần.

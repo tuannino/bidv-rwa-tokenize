@@ -37,8 +37,8 @@ Nền tảng token OKLCH sẵn có **khá tốt** (xanh BIDV hue 145 + vàng hue
 
 | Trang | Bỏ (cũ) | Thay bằng (điện gió) |
 |---|---|---|
-| **Assets** | Vàng/BĐS/Carbon · BGT/BRT/BCT | Danh sách **dự án điện gió**: SPT (Wind Power Project Token), công suất (MW), sản lượng (MWh), trạng thái vận hành |
-| **Dashboard** | biểu đồ 3 tài sản | **Tổng quan điện gió**: token đã phát hành (SPT), số NĐT whitelisted, **sản lượng luỹ kế** (EnergyOracle), **lợi tức đã chia** (VND/tVND), số kỳ chia; biểu đồ sản lượng & lợi tức theo thời gian |
+| **Assets** | Vàng/BĐS/Carbon · BGT/BRT/BCT | Danh sách **dự án điện gió**: WPT (Wind Power Project Token), công suất (MW), sản lượng (MWh), trạng thái vận hành |
+| **Dashboard** | biểu đồ 3 tài sản | **Tổng quan điện gió**: token đã phát hành (WPT), số NĐT whitelisted, **sản lượng luỹ kế** (EnergyOracle), **lợi tức đã chia** (VND/VNDB), số kỳ chia; biểu đồ sản lượng & lợi tức theo thời gian |
 | **Reconciliation** | filter tài sản | **Đối soát doanh thu điện**: sản lượng SCADA ↔ EVN ↔ on-chain theo kỳ |
 | **Sidebar/Header** | nhãn cũ, "Polygon Amoy" | nhãn điện gió; đã bỏ Polygon (kiểm lại) |
 | **mock-data.ts** | gold/realEstate/carbon | series sản lượng (MWh) + lợi tức (VND) + `MOCK_STATS` điện gió |

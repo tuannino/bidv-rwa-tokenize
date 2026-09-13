@@ -218,7 +218,7 @@ fn p4_11_token_metadata() {
     assert_eq!(
         c.symbol(),
         soroban_sdk::String::from_str(&env, "WPT"),
-        "ký hiệu phải là WPT (ký hiệu cũ SPT đã bỏ)"
+        "ký hiệu phải là WPT (ký hiệu cũ trước khi đổi tên đã bỏ)"
     );
 }
 

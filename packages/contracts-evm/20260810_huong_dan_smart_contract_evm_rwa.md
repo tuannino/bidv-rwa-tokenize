@@ -1,6 +1,6 @@
 # Hướng dẫn viết và triển khai smart contract RWA năng lượng tái tạo trên EVM
 
-Tài liệu kỹ thuật cho đội phát triển. Đi kèm bộ mã nguồn Solidity trong thư mục `rwa-evm/` gồm bốn hợp đồng: `ProjectToken` (WPT), `VNDToken` (tVND), `ProfitDistributor`, `Redemption`.
+Tài liệu kỹ thuật cho đội phát triển. Đi kèm bộ mã nguồn Solidity trong thư mục `rwa-evm/` gồm bốn hợp đồng: `ProjectToken` (WPT), `VNDToken` (VNDB), `ProfitDistributor`, `Redemption`.
 
 **Bài toán.** Token hóa quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA), có mô hình **chia lợi nhuận định kỳ** cho nhà đầu tư, vai trò phát hành là **ngân hàng**. Tài liệu hướng dẫn viết từng dạng hợp đồng cho các quy trình mint, burn, transfer có kiểm soát, clawback, đóng băng, snapshot, tính lợi nhuận, chia lợi nhuận, mua lại (redeem); và hướng dẫn cài đặt, biên dịch, kiểm thử, triển khai lên cả hai nhánh mạng (public testnet và Hyperledger Besu permissioned) rồi chạy một chu kỳ đầu-cuối.
 
@@ -33,7 +33,7 @@ Bốn hợp đồng, chia hai nhóm:
 
 **Nhóm token.**
 - `ProjectToken` (ký hiệu WPT): token đại diện **quyền hưởng lợi nhuận** của dự án. Đây là token *có kiểm soát* — chỉ ví đã KYC mới nắm giữ được, ngân hàng đóng băng/thu hồi được. Chứa các quy trình: mint, burn, clawback, freeze, whitelist, snapshot.
-- `VNDToken` (ký hiệu tVND): token **thanh toán** đại diện tiền gửi VND, dùng để chi trả lợi nhuận và hoàn vốn.
+- `VNDToken` (ký hiệu VNDB): token **thanh toán** đại diện tiền gửi VND, dùng để chi trả lợi nhuận và hoàn vốn.
 
 **Nhóm nghiệp vụ.**
 - `ProfitDistributor`: **tính và chia lợi nhuận** định kỳ theo snapshot.
@@ -63,7 +63,7 @@ Kết thúc: nhà đầu tư ──redeem(WPT)──▶ Redemption ──trả V
 | `DISTRIBUTOR_ROLE` | ProfitDistributor | tạo kỳ chia, chia hộ, quét dư |
 | `MANAGER_ROLE` | Redemption | đặt tỷ giá, pause, nạp/rút thanh khoản |
 
-**Quy ước số thập phân.** Cả WPT và tVND để **0 số thập phân** để số học minh bạch theo góc ngân hàng (1 WPT = 1 phần quyền hưởng; 1 tVND = 1 VND). Đổi được qua tham số constructor. Ở sản xuất có thể chọn 18 cho WPT và 6 cho tVND nếu muốn theo thông lệ; khi đó nhớ nhân/chia hệ số tương ứng trong tỷ giá và số tiền.
+**Quy ước số thập phân.** Cả WPT và VNDB để **0 số thập phân** để số học minh bạch theo góc ngân hàng (1 WPT = 1 phần quyền hưởng; 1 VNDB = 1 VND). Đổi được qua tham số constructor. Ở sản xuất có thể chọn 18 cho WPT và 6 cho VNDB nếu muốn theo thông lệ; khi đó nhớ nhân/chia hệ số tương ứng trong tỷ giá và số tiền.
 
 ---
 
@@ -523,7 +523,7 @@ A (60%) nhận: 864.000.000 VND ; B (40%) nhận: 576.000.000 VND
 - [x] Oracle cho công thức lợi nhuận theo sản lượng điện đã hiện thực (mục 8: `EnergyOracle` + `ProfitDistributorOracle`, cơ chế đa reporter xác nhận). Sản xuất: đặt `requiredConfirmations ≥ 2`, tách vai reporter (O&M / kiểm toán độc lập), hoặc thay bằng Chainlink cho mạng public.
 - [ ] Quy trình KYC/AML ngoài chuỗi gắn với whitelist on-chain; nhật ký thao tác agent.
 - [ ] Chính sách khóa/khôi phục khóa cho nhà đầu tư; quy trình clawback có phê duyệt.
-- [ ] Đối chiếu ràng buộc pháp lý Việt Nam: phát hành dựa trên tài sản thực; trong cơ chế thí điểm chỉ mở cho nhà đầu tư đủ điều kiện; **thanh toán bằng Đồng Việt Nam** (đã phản ánh qua tVND); định danh và danh sách trắng bắt buộc.
+- [ ] Đối chiếu ràng buộc pháp lý Việt Nam: phát hành dựa trên tài sản thực; trong cơ chế thí điểm chỉ mở cho nhà đầu tư đủ điều kiện; **thanh toán bằng Đồng Việt Nam** (đã phản ánh qua VNDB); định danh và danh sách trắng bắt buộc.
 - [ ] Kế hoạch nâng cấp: hợp đồng hiện không proxy-upgradeable (đơn giản, ít rủi ro). Nếu cần nâng cấp, cân nhắc mẫu UUPS/Transparent proxy của OpenZeppelin và quy trình quản trị đi kèm.
 
 **Vận hành.**
@@ -542,7 +542,7 @@ rwa-evm/
 │   │   └── ERC20Snapshotable.sol       # nền tảng snapshot (chia lợi nhuận công bằng)
 │   ├── tokens/
 │   │   ├── ProjectToken.sol            # WPT pilot: mint/burn/clawback/freeze/whitelist/snapshot
-│   │   └── VNDToken.sol                # tVND: token thanh toán
+│   │   └── VNDToken.sol                # VNDB: token thanh toán
 │   ├── oracle/
 │   │   └── EnergyOracle.sol            # [MỚI] oracle sản lượng điện → công thức lợi nhuận
 │   ├── ProfitDistributor.sol           # tính & chia lợi nhuận định kỳ (nhập tay)

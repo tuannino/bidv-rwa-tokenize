@@ -9,8 +9,8 @@
  */
 const { ethers } = require("hardhat");
 
-// Ký hiệu token kỳ vọng sau khi đồng bộ đổi tên (SPT -> WPT, tVND -> VNDB).
-// Đặt qua biến môi trường để không phá CI trong lúc việc đổi tên chưa xong:
+// Ký hiệu token chuẩn của dự án. Việc đồng bộ đổi tên đã hoàn tất, nên có thể
+// bật cổng kiểm ký hiệu bất cứ lúc nào:
 //   EXPECT_TOKEN_SYMBOLS=1 npx hardhat test
 const EXPECTED_PROJECT_SYMBOL = "WPT";
 const EXPECTED_PAYOUT_SYMBOL = "VNDB";
