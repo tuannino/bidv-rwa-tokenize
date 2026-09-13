@@ -19,7 +19,7 @@
 
 use super::*;
 use soroban_sdk::testutils::Address as _;
-use spt_token::{SptToken, SptTokenClient};
+use wpt_token::{WptToken, WptTokenClient};
 
 /// 1 WPT đổi 10.000 VNDB (đơn vị nhỏ nhất).
 const RATE_PER_WPT: i128 = 10_000;
@@ -27,8 +27,8 @@ const RATE_PER_WPT: i128 = 10_000;
 struct Ctx<'a> {
     admin: Address,
     inv: Address,
-    wpt: SptTokenClient<'a>,
-    vnd: SptTokenClient<'a>,
+    wpt: WptTokenClient<'a>,
+    vnd: WptTokenClient<'a>,
     red: RedemptionClient<'a>,
     red_id: Address,
 }
@@ -38,8 +38,8 @@ fn setup(env: &Env, wpt_amount: i128, treasury: i128) -> Ctx<'static> {
     let admin = Address::generate(env);
     let inv = Address::generate(env);
 
-    let wpt_id = env.register(SptToken, ());
-    let wpt = SptTokenClient::new(env, &wpt_id);
+    let wpt_id = env.register(WptToken, ());
+    let wpt = WptTokenClient::new(env, &wpt_id);
     wpt.initialize(
         &admin,
         &7u32,
@@ -47,8 +47,8 @@ fn setup(env: &Env, wpt_amount: i128, treasury: i128) -> Ctx<'static> {
         &soroban_sdk::String::from_str(env, "WPT"),
     );
 
-    let vnd_id = env.register(SptToken, ());
-    let vnd = SptTokenClient::new(env, &vnd_id);
+    let vnd_id = env.register(WptToken, ());
+    let vnd = WptTokenClient::new(env, &vnd_id);
     vnd.initialize(
         &admin,
         &7u32,

@@ -18,10 +18,10 @@ use super::*;
 use soroban_sdk::testutils::Address as _;
 
 /// Dựng token đã initialize, trả về client và địa chỉ admin.
-fn setup(env: &Env) -> (SptTokenClient<'static>, Address) {
+fn setup(env: &Env) -> (WptTokenClient<'static>, Address) {
     let admin = Address::generate(env);
-    let id = env.register(SptToken, ());
-    let c = SptTokenClient::new(env, &id);
+    let id = env.register(WptToken, ());
+    let c = WptTokenClient::new(env, &id);
     c.initialize(
         &admin,
         &7u32,

@@ -19,15 +19,15 @@
 use super::*;
 use revenue_oracle::{RevenueOracle, RevenueOracleClient};
 use soroban_sdk::testutils::Address as _;
-use spt_token::{SptToken, SptTokenClient};
+use wpt_token::{WptToken, WptTokenClient};
 
 /// Toàn bộ môi trường cho một kỳ chia.
 struct Ctx<'a> {
     admin: Address,
     a: Address,
     b: Address,
-    wpt: SptTokenClient<'a>,
-    vnd: SptTokenClient<'a>,
+    wpt: WptTokenClient<'a>,
+    vnd: WptTokenClient<'a>,
     orc: RevenueOracleClient<'a>,
     dist: ProfitDistributorPullClient<'a>,
 }
@@ -36,8 +36,8 @@ struct Ctx<'a> {
 fn setup(env: &Env, treasury: i128) -> Ctx<'static> {
     let admin = Address::generate(env);
 
-    let wpt_id = env.register(SptToken, ());
-    let wpt = SptTokenClient::new(env, &wpt_id);
+    let wpt_id = env.register(WptToken, ());
+    let wpt = WptTokenClient::new(env, &wpt_id);
     wpt.initialize(
         &admin,
         &7u32,
@@ -45,8 +45,8 @@ fn setup(env: &Env, treasury: i128) -> Ctx<'static> {
         &soroban_sdk::String::from_str(env, "WPT"),
     );
 
-    let vnd_id = env.register(SptToken, ());
-    let vnd = SptTokenClient::new(env, &vnd_id);
+    let vnd_id = env.register(WptToken, ());
+    let vnd = WptTokenClient::new(env, &vnd_id);
     vnd.initialize(
         &admin,
         &7u32,
@@ -176,16 +176,16 @@ fn p7_7_open_period_with_zero_supply_rejected() {
     let admin = Address::generate(&env);
 
     // Dựng riêng: KHÔNG mint WPT cho ai.
-    let wpt_id = env.register(SptToken, ());
-    let wpt = SptTokenClient::new(&env, &wpt_id);
+    let wpt_id = env.register(WptToken, ());
+    let wpt = WptTokenClient::new(&env, &wpt_id);
     wpt.initialize(
         &admin,
         &7u32,
         &soroban_sdk::String::from_str(&env, "WPT"),
         &soroban_sdk::String::from_str(&env, "WPT"),
     );
-    let vnd_id = env.register(SptToken, ());
-    let vnd = SptTokenClient::new(&env, &vnd_id);
+    let vnd_id = env.register(WptToken, ());
+    let vnd = WptTokenClient::new(&env, &vnd_id);
     vnd.initialize(
         &admin,
         &7u32,
