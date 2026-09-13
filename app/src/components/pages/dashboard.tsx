@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useIsMounted } from "@/lib/hooks/use-is-mounted";
 import { MOCK_GENERATION_SERIES, MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -35,15 +36,27 @@ export function DashboardPage() {
   const totalTurbines = MOCK_PROJECTS.reduce((sum, project) => sum + project.turbines, 0);
   const operating = MOCK_PROJECTS.filter((project) => project.status === "OPERATING").length;
 
+  /**
+   * Mốc "Cập nhật" CHỈ tính ở client, sau khi hydrate.
+   *
+   * Trước đây gọi `new Date()` thẳng trong thân component: trang `/` được prerender
+   * tĩnh nên giá trị bị đóng băng vào HTML lúc BUILD (đo được: HTML chứa "20:19 7/9/2026"
+   * trong khi giờ thật đã là 23:46 8/9/2026). Ngoài ra giờ ở server (container UTC) khác
+   * giờ ở browser -> lệch nội dung khi hydrate.
+   */
+  const mounted = useIsMounted();
+  const updatedAt = mounted
+    ? `${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ${new Date().toLocaleDateString("vi-VN")}`
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Tổng quan điện gió</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Token hoá quyền hưởng lợi tức dự án điện gió · PoC · Cập nhật{" "}
-            {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}{" "}
-            {new Date().toLocaleDateString("vi-VN")}
+            Token hoá quyền hưởng lợi tức dự án điện gió · PoC
+            {updatedAt && <> · Cập nhật {updatedAt}</>}
           </p>
         </div>
         <Link

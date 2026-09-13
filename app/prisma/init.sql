@@ -20,7 +20,7 @@ CREATE TABLE "Txn" (
     "reason" TEXT,
     "actorRole" TEXT NOT NULL,
     "actorAddress" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Txn_pkey" PRIMARY KEY ("id")
 );
@@ -34,7 +34,7 @@ CREATE TABLE "AuditLog" (
     "outcome" "AuditOutcome" NOT NULL,
     "detail" TEXT,
     "chain" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
@@ -47,9 +47,9 @@ CREATE TABLE "Investor" (
     "kycStatus" TEXT NOT NULL DEFAULT 'PENDING',
     "kycReference" TEXT,
     "kycProvider" TEXT,
-    "kycDecidedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "kycDecidedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "Investor_pkey" PRIMARY KEY ("id")
 );

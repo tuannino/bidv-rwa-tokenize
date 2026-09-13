@@ -5,6 +5,13 @@
 // chỉ việc chuyển bảng RBAC in-code sang DB, KHÔNG phải đổi chữ ký `can(role, action)`.
 //
 // Áp lược đồ:  npm run db:push      (cần DATABASE_URL trỏ tới Postgres đang chạy)
+//
+// ⚠️ MỌI cột thời gian PHẢI có `@db.Timestamptz(3)`.
+// Mặc định của Prisma là `timestamp(3)` KHÔNG mang timezone. Khi đó driver `pg` đọc giá trị
+// ra và hiểu nó là giờ ĐỊA PHƯƠNG của tiến trình Node, trong khi Postgres (container) ghi
+// bằng UTC -> mốc thời gian bị lệch đúng bằng offset (vd +07 thì lệch 7 giờ), và trang
+// /mint, /audit hiển thị sai giờ. `timestamptz` lưu kèm offset nên đọc ra luôn đúng mốc,
+// bất kể tiến trình Node và Postgres ở timezone nào.
 
 generator client {
   provider = "prisma-client-js"
@@ -46,7 +53,7 @@ model Txn {
   /// Vai trò đã thực hiện — phục vụ đối soát trách nhiệm.
   actorRole    String
   actorAddress String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([chain, createdAt])
   @@index([toWallet])
@@ -63,7 +70,7 @@ model AuditLog {
   outcome   AuditOutcome
   detail    String?
   chain     String?
-  createdAt DateTime     @default(now())
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
 
   @@index([createdAt])
   @@index([actorRole, action])
@@ -77,9 +84,9 @@ model Investor {
   kycStatus    String    @default("PENDING")
   kycReference String?
   kycProvider  String?
-  kycDecidedAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  kycDecidedAt DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 }
 
 /// RBAC trong DB (Phase 4). Hiện tại bảng role->permission nằm ở
