@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { ChainKey, TxStatus } from '@bidv/shared';
-import { DEFAULT_RECEIPT_TIMEOUT_MS, LedgerError, getLedger } from '@/lib/ledger';
+import { LedgerError, getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import { InvalidAddressError } from '@/lib/ledger';
 import { KycProviderError, getKycProvider } from '@/lib/providers/kyc';
 import { ForbiddenError, assertCan, type Action, type Role } from '@/lib/rbac';
@@ -129,7 +129,7 @@ export async function onboardInvestor(input: unknown): Promise<Result<OnboardRes
     }
 
     const ledger = getLedger(chain);
-    const signer = getBankSigner();
+    const signer = getBankSigner(chain);
 
     const pending = await ledger.whitelist(wallet);
     const receipt = await ledger.waitReceipt(pending.txHash);
@@ -182,7 +182,7 @@ export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
     const role = await authorize('token:mint', wallet, chain);
 
     const ledger = getLedger(chain);
-    const signer = getBankSigner();
+    const signer = getBankSigner(chain);
     const store = getStore();
 
     // AC#2: chưa whitelist thì TỪ CHỐI TRƯỚC KHI gửi tx (không đốt gas vào tx chắc chắn revert).
@@ -218,8 +218,9 @@ export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
       actorAddress: await signer.getAddress(),
     });
 
-    // AC#4: chờ tới CONFIRMED/FAILED hoặc timeout 30s.
-    const receipt = await ledger.waitReceipt(pending.txHash, DEFAULT_RECEIPT_TIMEOUT_MS);
+    // AC#4 / p4 AC#9: chờ tới CONFIRMED/FAILED hoặc timeout THEO CHAIN
+    // (hardhat-local 30s; Sepolia 90s vì block ~12s).
+    const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
     await store.updateTxnStatus(saved.id, receipt.status, receipt.reason);
     await store.appendAudit({
       actorRole: role,
@@ -306,7 +307,7 @@ export async function tokenOverview(chain: ChainKey): Promise<Result<TokenOvervi
     const info = await getLedger(chain).tokenInfo();
     let bankAddress: string | null = null;
     try {
-      bankAddress = await getBankSigner().getAddress();
+      bankAddress = await getBankSigner(chain).getAddress();
     } catch {
       // Thiếu signer không được làm sập trang chỉ-đọc.
     }

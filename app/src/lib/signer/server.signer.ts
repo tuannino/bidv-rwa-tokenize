@@ -2,7 +2,8 @@ import 'server-only';
 
 import { privateKeyToAccount } from 'viem/accounts';
 import type { Account, Hex } from 'viem';
-import { serverEnv } from '@/lib/config/env';
+import type { ChainKey } from '@bidv/shared';
+import { signerPrivateKeyFor } from '@/lib/config/env';
 import { SignerUnavailableError, type ISigner } from './signer.port';
 
 /**
@@ -11,17 +12,19 @@ import { SignerUnavailableError, type ISigner } from './signer.port';
  *
  * PoC dùng khóa dev trong `.env`. Phase 5 thay bằng Fireblocks — chỉ đổi factory.
  */
-export function createServerSigner(): ISigner {
+export function createServerSigner(chain: ChainKey = 'hardhat-local'): ISigner {
   let account: Account | undefined;
 
   const resolve = (): Account => {
     if (account) return account;
-    const key = serverEnv().serverSignerPrivateKey;
+    // Khóa theo chain: role on-chain gắn với từng chain nên ví ký phải đúng chain.
+    const key = signerPrivateKeyFor(chain);
     if (!key) {
       throw new SignerUnavailableError(
         'server',
-        'Thiếu SERVER_SIGNER_PRIVATE_KEY. Cách sửa: copy .env.example -> .env ' +
-          '(khóa test Hardhat account #0 đã có sẵn trong đó).',
+        `Thiếu khóa ký cho chain "${chain}". Cách sửa: đặt SERVER_SIGNER_PRIVATE_KEY ` +
+          `(dùng chung) hoặc SERVER_SIGNER_PRIVATE_KEY_${chain.replace(/-/g, '_').toUpperCase()} ` +
+          `(riêng cho chain này) trong app/.env.local.`,
       );
     }
     account = privateKeyToAccount(key as Hex);

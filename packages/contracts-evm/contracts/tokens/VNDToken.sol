@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
- * @title VNDToken (tVND — Tokenized VND)
+ * @title VNDToken (VNDB — Vietnam Dong Bank token)
  * @notice Token thanh toán đại diện tiền gửi VND, do ngân hàng phát hành/thu hồi.
  *         Dùng làm phương tiện chi trả lợi nhuận (ProfitDistributor) và hoàn vốn (Redemption).
  *
@@ -19,7 +19,7 @@ contract VNDToken is ERC20, AccessControl {
 
     uint8 private immutable _customDecimals;
 
-    constructor(address admin) ERC20("Tokenized VND", "tVND") {
+    constructor(address admin) ERC20("Vietnam Dong Bank token", "VNDB") {
         require(admin != address(0), "admin = 0");
         _customDecimals = 0;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);

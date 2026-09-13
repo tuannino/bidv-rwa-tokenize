@@ -214,3 +214,6 @@ mod test {
         assert_eq!(wpt.total_supply(), 0); // WPT đã đốt hết
     }
 }
+
+#[cfg(test)]
+mod spec_tests;

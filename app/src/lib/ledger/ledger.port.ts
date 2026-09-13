@@ -40,8 +40,30 @@ export interface ILedgerPort {
   waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult>;
 }
 
-/** Mặc định 30s theo requirements AC#4. */
+/** Mặc định 30s theo requirements AC#4 (đủ cho hardhat-local: block gần như tức thì). */
 export const DEFAULT_RECEIPT_TIMEOUT_MS = 30_000;
+
+/**
+ * Testnet công khai chậm hơn hẳn: block time Sepolia ~12s, và tx còn phải chờ được chọn
+ * vào block. 30s có thể trôi qua khi tx vẫn hoàn toàn bình thường, làm UI báo PENDING oan.
+ * 90s ≈ 7 block, đủ biên an toàn (spec p4 §T1.1).
+ */
+export const EVM_RECEIPT_TIMEOUT_MS = 90_000;
+
+/**
+ * Timeout chờ receipt theo chain. Một chỗ duy nhất quyết định, để thêm chain mới
+ * không phải đi sửa rải rác trong nghiệp vụ.
+ */
+export function receiptTimeoutFor(chain: ChainKey): number {
+  switch (chain) {
+    case 'evm':
+      return EVM_RECEIPT_TIMEOUT_MS;
+    case 'hardhat-local':
+    case 'stellar':
+    case 'mock':
+      return DEFAULT_RECEIPT_TIMEOUT_MS;
+  }
+}
 
 /**
  * Lỗi từ tầng ledger. `LedgerError` mang message ĐÃ ĐỌC ĐƯỢC cho người dùng cuối

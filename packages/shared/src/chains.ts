@@ -50,13 +50,21 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
     label: 'EVM Testnet (Sepolia)',
     family: 'evm',
     chainId: 11155111,
-    defaultRpcUrl: 'https://rpc.sepolia.org',
+    /**
+     * RPC công khai KHÔNG cần API key, để đọc chain được ngay mà chưa phải cấu hình gì.
+     *
+     * Giá trị cũ `https://rpc.sepolia.org` đã CHẾT (trả HTTP 404, không phải JSON-RPC) —
+     * đo được lúc làm P4. Endpoint hiện tại đã kiểm: trả đúng chainId 11155111.
+     * Ghi giao dịch thật nên đặt `NEXT_PUBLIC_RPC_EVM`/`RPC_EVM` trỏ RPC có API key,
+     * vì endpoint công khai bị rate-limit.
+     */
+    defaultRpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
     explorerBaseUrl: 'https://sepolia.etherscan.io',
     explorerName: 'Etherscan',
     implemented: true,
     requiresNode: false,
-    hint: 'Cần RPC + địa chỉ contract qua biến môi trường (Phase 6).',
+    hint: 'Testnet công khai. Cần địa chỉ contract qua NEXT_PUBLIC_ADDR_EVM_* sau khi deploy.',
   },
   stellar: {
     key: 'stellar',

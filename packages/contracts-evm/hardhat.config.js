@@ -3,23 +3,29 @@ require("dotenv").config();
 const { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD } = require("hardhat/builtin-tasks/task-names");
 const { subtask } = require("hardhat/config");
 
-// Môi trường sandbox chặn binaries.soliditylang.org => dùng gói `solc` cục bộ (WASM).
-// Khi Sếp chạy ở máy có internet bình thường thì KHÔNG cần đoạn override này,
-// Hardhat sẽ tự tải solc. Để lại cũng không sao vì nó chỉ can thiệp đúng version 0.8.28.
-subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args, hre, runSuper) => {
-  try {
-    if (args.solcVersion === "0.8.28") {
-      const compilerPath = require.resolve("solc/soljson.js");
-      return {
-        compilerPath,
-        isSolcJs: true,
-        version: args.solcVersion,
-        longVersion: require("solc").version(),
-      };
-    }
-  } catch (_) {}
-  return runSuper();
-});
+// Dùng gói `solc` cục bộ (WASM) thay vì tải binary chính thức — CHỈ khi bật tường minh:
+//   USE_LOCAL_SOLC=1 npx hardhat compile
+// Dành cho môi trường bị chặn binaries.soliditylang.org.
+//
+// ⚠️ KHÔNG bật mặc định. solcjs báo longVersion có hậu tố `.Emscripten.clang`
+// ("0.8.28+commit.7893614a.Emscripten.clang"), và Etherscan từ chối metadata đó với lỗi
+// "Invalid Or Not supported solc version" -> KHÔNG verify được contract (T0.6 của spec p4).
+// Trước đây override này luôn bật, nên verify chắc chắn fail.
+if (process.env.USE_LOCAL_SOLC === "1") {
+  subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args, hre, runSuper) => {
+    try {
+      if (args.solcVersion === "0.8.28") {
+        return {
+          compilerPath: require.resolve("solc/soljson.js"),
+          isSolcJs: true,
+          version: args.solcVersion,
+          longVersion: require("solc").version(),
+        };
+      }
+    } catch (_) {}
+    return runSuper();
+  });
+}
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 const accounts = PRIVATE_KEY ? [PRIVATE_KEY] : [];
@@ -35,9 +41,12 @@ module.exports = {
   },
   networks: {
     hardhat: {},
-    // Testnet công khai (ví dụ Sepolia). Đặt RPC + khóa trong .env
+    // Testnet công khai Sepolia. Đặt RPC + khóa trong .env (xem .env.example).
+    // Mặc định là endpoint công khai không cần API key; `https://rpc.sepolia.org` cũ đã
+    // CHẾT (trả HTTP 404) nên không dùng làm fallback nữa.
+    // Deploy/verify nên đặt SEPOLIA_RPC_URL trỏ RPC có API key cho ổn định.
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
+      url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       accounts,
       chainId: 11155111,
     },

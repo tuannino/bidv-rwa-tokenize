@@ -27,7 +27,7 @@ async function main() {
 
   console.log("\n=== ĐỊA CHỈ ===");
   console.log("ProjectToken (WPT)      :", await wpt.getAddress());
-  console.log("VNDToken (tVND)         :", await vnd.getAddress());
+  console.log("VNDToken (VNDB)         :", await vnd.getAddress());
   console.log("EnergyOracle            :", await oracle.getAddress());
   console.log("ProfitDistributorOracle :", await dist.getAddress());
   console.log("Redemption              :", await redemption.getAddress());

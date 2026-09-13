@@ -1,5 +1,5 @@
 /**
- * ABI **TỐI GIẢN** của VNDToken (tVND) — token thanh toán do ngân hàng phát hành/thu hồi.
+ * ABI **TỐI GIẢN** của VNDToken (VNDB) — token thanh toán do ngân hàng phát hành/thu hồi.
  * Chưa dùng trong mint flow (P1); có sẵn cho chia lợi tức (P3) và hoàn vốn (P2).
  */
 export const vndTokenAbi = [

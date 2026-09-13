@@ -299,3 +299,6 @@ mod test {
         assert!(dist.try_claim(&1u32, &a).is_err());
     }
 }
+
+#[cfg(test)]
+mod spec_tests;

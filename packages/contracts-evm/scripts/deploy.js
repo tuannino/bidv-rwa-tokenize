@@ -81,7 +81,7 @@ async function main() {
   ]);
   await distributor.waitForDeployment();
 
-  const rate = 1_000_000n; // 1 WPT = 1.000.000 tVND
+  const rate = 1_000_000n; // 1 WPT = 1.000.000 VNDB
   const redemption = await ethers.deployContract("Redemption", [
     await wpt.getAddress(),
     await vnd.getAddress(),

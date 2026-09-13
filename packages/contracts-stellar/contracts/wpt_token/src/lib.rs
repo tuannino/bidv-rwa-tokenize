@@ -653,3 +653,6 @@ mod test {
         assert_eq!(c.total_supply_at(&snap), 1000);
     }
 }
+
+#[cfg(test)]
+mod spec_tests;

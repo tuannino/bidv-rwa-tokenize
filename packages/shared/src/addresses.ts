@@ -49,14 +49,26 @@ export function findContractAddress(
  * Như `findContractAddress` nhưng ném lỗi có hướng dẫn sửa.
  * Dùng ở adapter, nơi thiếu địa chỉ là lỗi cấu hình cần báo rõ.
  */
+/** Network hardhat tương ứng mỗi chain — để gợi ý đúng lệnh deploy. */
+const HARDHAT_NETWORK: Partial<Record<ChainKey, string>> = {
+  'hardhat-local': 'localhost',
+  evm: 'sepolia',
+};
+
 export function getContractAddress(chain: ChainKey, contract: ContractName): string {
   const address = findContractAddress(chain, contract);
   if (!address) {
+    // Gợi ý phải nêu ĐÚNG network của chain đang dùng: trước đây luôn ghi `--network localhost`,
+    // nên khi chain là `evm` thì hướng dẫn lại dẫn người đọc deploy sai mạng.
+    const network = HARDHAT_NETWORK[chain];
+    const deployHint = network
+      ? `(a) deploy rồi nạp lại địa chỉ ` +
+        `(cd packages/contracts-evm && npx hardhat run scripts/deploy.js --network ${network})`
+      : `(a) deploy contract cho chain này`;
+
     throw new Error(
       `Chưa có địa chỉ ${contract} cho chain "${chain}". ` +
-        `Cách sửa: (a) deploy rồi sinh lại addresses.json ` +
-        `(cd packages/contracts-evm && npx hardhat run scripts/deploy.js --network localhost), ` +
-        `hoặc (b) đặt biến môi trường ${envKey(chain, contract)}.`,
+        `Cách sửa: ${deployHint}, hoặc (b) đặt biến môi trường ${envKey(chain, contract)}.`,
     );
   }
   return address;

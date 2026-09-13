@@ -6,6 +6,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  type Account,
   type Hex,
   type PublicClient,
   type WalletClient,
@@ -15,9 +16,9 @@ import { rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
 import type { ISigner } from '@/lib/signer';
 import { normalizeEvmAddress } from './address';
 import {
-  DEFAULT_RECEIPT_TIMEOUT_MS,
   LedgerError,
   assertPositiveAmount,
+  receiptTimeoutFor,
   type ILedgerPort,
   type TokenInfo,
   type TxResult,
@@ -45,10 +46,21 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
 
   const tokenAddress = (): Hex => getContractAddress(chain, 'ProjectToken') as Hex;
 
-  const writer = async (): Promise<{ client: WalletClient; account: Hex }> => {
+  /**
+   * Trả về CẢ object `Account`, không chỉ địa chỉ.
+   *
+   * Quan trọng: `simulateContract({ account })` đưa `account` vào `request`, rồi
+   * `writeContract(request)` dùng chính nó để quyết định cách gửi.
+   *   - truyền địa chỉ (hex)  -> viem coi là account kiểu `json-rpc` -> gọi `eth_sendTransaction`,
+   *     tức là NHỜ NODE KÝ. Hardhat-local có account mở sẵn nên chạy được, còn RPC công khai
+   *     (Sepolia) KHÔNG hỗ trợ method này -> lỗi 'eth_sendTransaction does not exist'.
+   *   - truyền object account kiểu `local` -> viem tự ký rồi gửi `eth_sendRawTransaction`.
+   * Đây là lỗi chỉ lộ ra trên testnet, nên đừng "đơn giản hoá" về địa chỉ.
+   */
+  const writer = async (): Promise<{ client: WalletClient; account: Account }> => {
     const account = await signer.getAccount();
     walletClient ??= createWalletClient({ account, chain: viemChain, transport: http(rpcUrl) });
-    return { client: walletClient, account: account.address };
+    return { client: walletClient, account };
   };
 
   /** Bóc revert reason của contract ra message đọc được, giữ lỗi gốc ở `cause`. */
@@ -175,7 +187,8 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return { name, symbol, decimals: Number(decimals), totalSupply };
     },
 
-    async waitReceipt(txHash, timeoutMs = DEFAULT_RECEIPT_TIMEOUT_MS) {
+    // Mặc định theo chain: hardhat-local 30s, evm (Sepolia) 90s.
+    async waitReceipt(txHash, timeoutMs = receiptTimeoutFor(chain)) {
       try {
         const receipt = await reader().waitForTransactionReceipt({
           hash: txHash as Hex,
