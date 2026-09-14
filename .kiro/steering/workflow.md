@@ -6,6 +6,7 @@ inclusion: always
 Con người (Owner) là cầu nối chuyển tiếp giữa hai bên. Repo public → Supervisor đọc/chạy trực tiếp được.
 
 ## Vòng lặp mỗi phase/feature
+0. **Mở nhánh mới TỪ `dev`** theo `branching.md` (nền duy nhất được phép là `dev`; cấm lấy nền từ nhánh phụ, cấm commit trực tiếp lên `dev`). `dev` hỏng thì DỪNG và hỏi Owner, đừng tự chọn nền khác.
 1. Kiro làm theo `.kiro/specs/<feature>/tasks.md`, mở **1 PR/phase**, điền `docs/CHECKPOINT_TEMPLATE.md`.
 2. Supervisor review (chạy test/thử build), trả feedback theo `docs/REVIEW_TEMPLATE.md`: mỗi mục có **Vấn đề → Vì sao → Cách đúng + ví dụ → Tham chiếu → điều kiện "đã xong"**, gán ưu tiên **P0 (chặn) / P1 / P2**.
 3. Kiro sửa, push commit mới, cập nhật checkpoint. Lặp tới khi PASS hết DoD.
