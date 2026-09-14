@@ -9,9 +9,9 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.2 |
+| Phiên bản tài liệu | 1.3 |
 | Cập nhật lần cuối | 2026-09-13 |
-| Nhánh / commit | `test/spec-pack-p4-p7-p12` |
+| Nhánh / commit | `docs/branching-rules-alignment` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12 |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
@@ -152,8 +152,10 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | Bundle hardhat/ethers/artifact vào web | Dùng viem + ABI tối giản; đồ nặng để ở `packages` |
 | Luồng demo phụ thuộc hardhat node thường trú | Mặc định phải là `mock`, để free-tier chạy được |
 | Giả định API Next.js theo bản cũ | Next.js 16 có breaking change. Đọc `node_modules/next/dist/docs/` và `app/AGENTS.md` **trước khi** sửa `app/` |
-| Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` mất sạch `packages/` và `app/src/lib/`. Phải `git revert` chính commit revert, hoặc cherry-pick lại |
-| Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | Dùng `git rebase --onto <đích> <nền> <nhánh>` để replay **chỉ** commit của mình. `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền |
+| Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` từng mất sạch `packages/` và `app/src/lib/`. Cách đúng duy nhất: `git revert <sha-của-commit-revert>`. Không merge lại, không cherry-pick — `branching.md` §6 |
+| Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
+| Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền; kỹ thuật đúng là `git rebase --onto <đích> <nền> <nhánh>`. Nhưng **chỉ dùng sau khi Owner đồng ý** đổi nền |
+| Commit trực tiếp lên `dev` | Cấm, kể cả sửa một dòng tài liệu. Mở nhánh `docs/<tên>` từ `dev` rồi để Owner merge — `branching.md` §10. Ngoại lệ do Owner chỉ định thì phải nói rõ và ghi lại (§12) |
 
 ### B. Quyết định thiết kế có chủ ý (đừng "sửa" nhầm)
 
