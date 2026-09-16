@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import { ROLES } from '@/lib/rbac';
 import { setDemoRole } from '@/app/actions/session';
@@ -14,11 +15,26 @@ const LABELS: Record<string, string> = {
 };
 
 /**
+ * Trang mặc định của kênh ứng với từng vai.
+ *
+ * Đổi vai xong mà đứng nguyên tại chỗ thì rất dễ rơi vào màn "không có quyền" của kênh
+ * cũ, người dùng tưởng hỏng. Nên điều hướng thẳng về trang thuộc kênh của vai mới.
+ * Vai nào không có ở đây thì giữ nguyên trang hiện tại.
+ */
+const CHANNEL_HOME: Partial<Record<string, string>> = {
+  INVESTOR: '/portfolio',
+  BANK_ADMIN: '/',
+  COMPLIANCE: '/kyc',
+  AUDITOR: '/audit',
+};
+
+/**
  * Bộ đổi vai trò — CHỈ để demo RBAC (thử mint bằng AUDITOR sẽ bị chặn).
  * Phase 4 thay bằng SIWE thì bỏ component này.
  */
 export function RoleSwitcher() {
   const config = usePublicConfig();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -38,7 +54,11 @@ export function RoleSwitcher() {
         disabled={pending}
         onChange={(event) => {
           const role = event.target.value;
-          startTransition(() => setDemoRole(role));
+          startTransition(async () => {
+            await setDemoRole(role);
+            const home = CHANNEL_HOME[role];
+            if (home) router.push(home);
+          });
         }}
         className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
