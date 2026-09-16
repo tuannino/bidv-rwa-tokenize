@@ -23,8 +23,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const appDir = path.resolve(import.meta.dirname, "..");
+// Dùng fileURLToPath thay vì `import.meta.dirname` (chỉ có từ Node 20.11+);
+// repo chưa pin Node nên giữ dạng chạy được trên mọi bản Node có ESM.
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const appDir = path.resolve(scriptDir, "..");
 const repoRoot = path.join(appDir, "..");
 const standaloneDir = path.join(appDir, ".next", "standalone");
 
