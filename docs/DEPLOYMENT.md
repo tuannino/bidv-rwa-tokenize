@@ -120,6 +120,13 @@ Mốc tham chiếu lần đo gần nhất: **14600 KiB không nén / 3941 KiB gz
    theo điều kiện `workerd` -> thiếu file. Sửa bằng `outputFileTracingIncludes` cho cả
    package (đã có trong `next.config.ts`).
 
+6. **`npm error EUSAGE ... npm ci can only install packages when your package.json and
+   package-lock.json are in sync`** (kèm `Missing: @emnapi/... from lock file`) — lockfile
+   sinh ra bởi `npm install` chồng lên `node_modules` cũ có thể KHÔNG đầy đủ, dù ở máy vẫn
+   chạy. Workers Builds dùng `npm clean-install` nên phát hiện ngay.
+   Sửa: `npm install --package-lock-only` rồi **bắt buộc kiểm bằng chính `npm ci`** ở máy
+   trước khi push. Đổi dependency mà chưa chạy `npm ci` cục bộ là chưa xong.
+
 ### Cách tái hiện lỗi runtime ở máy (đừng debug bằng cách deploy lại)
 ```bash
 cd app
