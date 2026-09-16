@@ -121,11 +121,26 @@ Mốc tham chiếu lần đo gần nhất: **14600 KiB không nén / 3941 KiB gz
    package (đã có trong `next.config.ts`).
 
 6. **`npm error EUSAGE ... npm ci can only install packages when your package.json and
-   package-lock.json are in sync`** (kèm `Missing: @emnapi/... from lock file`) — lockfile
-   sinh ra bởi `npm install` chồng lên `node_modules` cũ có thể KHÔNG đầy đủ, dù ở máy vẫn
-   chạy. Workers Builds dùng `npm clean-install` nên phát hiện ngay.
-   Sửa: `npm install --package-lock-only` rồi **bắt buộc kiểm bằng chính `npm ci`** ở máy
-   trước khi push. Đổi dependency mà chưa chạy `npm ci` cục bộ là chưa xong.
+   package-lock.json are in sync`** (kèm `Missing: @emnapi/...`, `Missing: zod@3.25.76`).
+
+   Nguyên nhân là **lệch phiên bản npm**, không phải lockfile hỏng. Workers Builds hiện
+   dùng `nodejs@24.18.0` + **`npm@10.9.2`** (đọc dòng "Detected the following tools from
+   environment" ở đầu log). npm 11 sinh lock lược bớt một số entry optional/nested mà
+   npm 10 vẫn đòi, nên lock do npm 11 tạo pass `npm ci` ở máy nhưng fail trên Cloudflare.
+
+   **Quy tắc: sinh và kiểm lockfile bằng đúng bản npm của Workers Builds.**
+   ```bash
+   cd app
+   npx npm@10.9.2 install --package-lock-only   # sinh lock
+   npx npm@10.9.2 ci                            # kiểm như Cloudflare  (BẮT BUỘC)
+   npm ci                                       # kiểm luôn npm ở máy, đừng làm hỏng dev
+   ```
+   Lock sinh bằng npm 10 thì npm 11 vẫn đọc được; ngược lại thì không. Đổi dependency mà
+   chưa chạy `npx npm@10.9.2 ci` là chưa xong.
+
+   Kiểm lại bản npm của Cloudflare mỗi lần log đầu build đổi — con số 10.9.2 sẽ cũ đi.
+   Repo hiện **chưa pin Node/npm** (không có `.nvmrc`, không có `engines`) nên phía
+   Cloudflare tự chọn; đây là món nợ nên xử lý riêng.
 
 ### Cách tái hiện lỗi runtime ở máy (đừng debug bằng cách deploy lại)
 ```bash
