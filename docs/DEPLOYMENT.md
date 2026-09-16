@@ -57,11 +57,19 @@ KHÔNG được áp dụng trên Workers Builds (log fail không có dòng `[fla
   `wrangler.json` (`.open-next/worker.js` + `.open-next/assets`).
 
 ### Biến môi trường
-Deploy demo **không cần biến nào**: mọi `USE_MOCK_*` mặc định `true`, và
-`NEXT_PUBLIC_DEFAULT_CHAIN` thiếu thì `publicConfig()` tự lùi về `mock`
-(xem `app/src/lib/config/flags.ts`).
 
-Khi cần đặt, phân biệt hai chỗ — đặt sai chỗ là không có tác dụng:
+**BẮT BUỘC cho demo public: `NEXT_PUBLIC_DEFAULT_CHAIN=mock` (đặt ở Build variables).**
+
+Thiếu biến này thì default là `hardhat-local`. `publicConfig()` vẫn coi chain đó
+"chọn được" vì `CHAINS['hardhat-local']` có `defaultRpcUrl`, nên KHÔNG tự lùi về `mock`.
+Kết quả: trang render 200 bình thường nhưng mọi lời gọi ledger trả 502
+`{"ok":false,"code":"LEDGER","error":"HTTP request failed."}` — free-tier không chạy
+hardhat node. Đã kiểm bằng workerd: `/api/token?chain=mock` trả 200,
+`?chain=hardhat-local` trả 502.
+
+Các `USE_MOCK_*` còn lại mặc định `true` nên không cần đặt.
+
+Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không có tác dụng:
 
 | Loại | Đặt ở | Vì sao |
 |---|---|---|
@@ -95,6 +103,32 @@ Mốc tham chiếu lần đo gần nhất: **14600 KiB không nén / 3941 KiB gz
    `node_modules/next/dist/compiled/@vercel/og/*.wasm` trong khi bundle server vẫn
    import tuyệt đối tới chúng. Dùng `outputFileTracingExcludes` (đã có trong
    `next.config.ts`), không xoá file.
+4. **Error 1101 "Worker threw exception" — build/deploy xanh nhưng mở web là chết.**
+   Triệu chứng thật (tái hiện bằng `wrangler dev` + curl):
+   `Error: Unexpected loadManifest(/.next/server/prefetch-hints.json) call!`.
+   `@opennextjs/cloudflare` nội tuyến manifest vào bundle vì workerd không có
+   `readFileSync`, nhưng glob của bản 1.14.0 chỉ bắt
+   `{*-manifest,required-server-files}.json` nên bỏ sót `prefetch-hints.json` mà Next 16
+   mới sinh ra. Sửa bằng cách nâng lên **1.20.1** (glob đã thêm `prefetch-hints` + trả `{}`
+   cho các manifest tuỳ chọn).
+   Ràng buộc phiên bản: 1.20.2 cần `next >=16.2.11`, 1.20.3+ cần `next >=16.3.3`. Repo đang
+   ở Next 16.2.7 nên **1.20.1 là bản mới nhất dùng được**. Muốn lên OpenNext cao hơn thì
+   phải nâng Next trước.
+5. **`Could not resolve "pg-cloudflare"` lúc bundle worker** — `pg-cloudflare` khai
+   `exports` có điều kiện `workerd` trỏ `./esm/index.mjs`, nhưng trace mặc định chỉ lần theo
+   `require('pg-cloudflare')` trong `pg/lib/stream.js` nên chỉ copy `dist/`. OpenNext bundle
+   theo điều kiện `workerd` -> thiếu file. Sửa bằng `outputFileTracingIncludes` cho cả
+   package (đã có trong `next.config.ts`).
+
+### Cách tái hiện lỗi runtime ở máy (đừng debug bằng cách deploy lại)
+```bash
+cd app
+npm run cf:build
+npx wrangler dev --port 8788        # chạy đúng workerd như trên Cloudflare
+curl --noproxy '*' http://127.0.0.1:8788/
+```
+Lỗi 1101 trên Cloudflare chỉ hiện "Worker threw exception" không kèm stack; `wrangler dev`
+in ra stack đầy đủ. Nhớ `--noproxy '*'` nếu máy có biến proxy.
 
 ## Quy tắc thiết kế để chạy được cả 2
 1. Luồng demo public KHÔNG phụ thuộc cứng hardhat node thường trú (free-tier không chạy node).
