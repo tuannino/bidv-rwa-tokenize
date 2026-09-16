@@ -84,6 +84,13 @@ const nextConfig: NextConfig = {
       "next/dist/compiled/@vercel/og": "./src/empty.ts",
     }
   },
+  // `pg-cloudflare` khai `exports` có điều kiện `workerd` trỏ tới `./esm/index.mjs`.
+  // Trace mặc định chỉ lần theo `require('pg-cloudflare')` trong pg/lib/stream.js nên chỉ
+  // copy `dist/`, thiếu `esm/`. OpenNext bundle worker theo điều kiện `workerd` -> esbuild
+  // báo `Could not resolve "pg-cloudflare"`. Ép copy cả package để có `esm/`.
+  outputFileTracingIncludes: {
+    "*": ["node_modules/pg-cloudflare/**"],
+  },
   // Không copy WASM nặng của @vercel/og (app không dùng OG image) vào output đã trace.
   //
   // ⚠️ ĐỪNG xoá thẳng các file này khỏi node_modules như script build cũ từng làm
