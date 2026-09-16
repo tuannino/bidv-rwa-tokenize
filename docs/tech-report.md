@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.3 |
-| Cập nhật lần cuối | 2026-09-13 |
-| Nhánh / commit | `docs/branching-rules-alignment` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12 |
+| Phiên bản tài liệu | 1.4 |
+| Cập nhật lần cuối | 2026-09-14 |
+| Nhánh / commit | `feat/investor-channel` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, FE-01 (kênh nhà đầu tư) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -35,11 +35,19 @@ Hệ thống mô phỏng nghiệp vụ ngân hàng token hóa tài sản thực 
 
 Ba kênh người dùng tách theo vai trò nhưng **dùng chung một backend**:
 
-| Kênh | Route group | Vai trò | Quyền |
-|---|---|---|---|
-| Ngân hàng | `(admin)` | BANK_ADMIN, COMPLIANCE | Mint, KYC, whitelist, freeze, clawback |
-| Nhà đầu tư | `(client)` | INVESTOR | Xem số dư, nhận lợi tức, hoàn vốn |
-| Kiểm toán | `(audit)` | AUDITOR | **Chỉ đọc** sổ kiểm toán |
+| Kênh | Route group | Vai trò dự kiến | Quyền vào kênh (`requireAny`) | Trang |
+|---|---|---|---|---|
+| Ngân hàng | `(admin)` | BANK_ADMIN, COMPLIANCE | `token:mint`, `investor:whitelist` | `/`, `/mint`, `/assets`, `/reconciliation`, `/kyc` |
+| Nhà đầu tư | `(client)` | INVESTOR | `balance:read` | `/portfolio`, `/purchase`, `/earnings`, `/settlement` |
+| Kiểm toán | `(audit)` | AUDITOR | `audit:read` | `/audit` |
+
+Guard đặt ở `layout.tsx` của từng route group (`ChannelGuard`), nên trang thêm sau này tự
+động được bảo vệ. Đây là guard **hiển thị**; chốt chặn thật nằm ở service (`assertCan`).
+
+⚠️ **Cổng vào kênh `(client)` hiện chưa tách được vai.** `balance:read` thuộc nhóm
+`READ_ONLY` trong `permissions.ts` mà **cả bốn vai đều có**, nên vai ngân hàng và kiểm toán
+cũng vào được kênh nhà đầu tư. Đã ghi nợ ở 1.6.C. Chiều ngược lại thì chặn đúng: INVESTOR
+không vào được `(admin)`.
 
 ## 1.2. Nguyên tắc kiến trúc — 3 LUẬT bất di bất dịch
 
@@ -89,12 +97,14 @@ bidv-rwa-tokenize/
 ├── app/                       # Next.js 16 full-stack
 │   ├── src/app/
 │   │   ├── (admin)/           # Kênh ngân hàng: mint, kyc, assets, reconciliation
+│   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, purchase, earnings, settlement
 │   │   ├── (audit)/           # Kênh kiểm toán: chỉ đọc
 │   │   ├── actions/           # Server Actions (bank.ts, session.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns
 │   │   ├── layout.tsx, page.tsx, globals.css
 │   ├── src/components/
-│   │   ├── layout/            # sidebar, header, chain-selector, channel-guard
+│   │   ├── layout/            # sidebar, nav-config, header, chain-selector,
+│   │   │                      #   channel-guard, role-switcher
 │   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
@@ -152,6 +162,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | Bundle hardhat/ethers/artifact vào web | Dùng viem + ABI tối giản; đồ nặng để ở `packages` |
 | Luồng demo phụ thuộc hardhat node thường trú | Mặc định phải là `mock`, để free-tier chạy được |
 | Giả định API Next.js theo bản cũ | Next.js 16 có breaking change. Đọc `node_modules/next/dist/docs/` và `app/AGENTS.md` **trước khi** sửa `app/` |
+| Truyền component/hàm làm prop từ Server Component sang Client Component | Không tuần tự hóa được: `Functions cannot be passed directly to Client Components`. Cấu hình đi qua biên phải là dữ liệu thuần — truyền **tên** rồi tra bảng ở phía client. Xem `nav-config.ts` (`icon` là chuỗi) và bảng `NAV_ICONS` trong `sidebar.tsx` |
 | Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` từng mất sạch `packages/` và `app/src/lib/`. Cách đúng duy nhất: `git revert <sha-của-commit-revert>`. Không merge lại, không cherry-pick — `branching.md` §6 |
 | Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
 | Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền; kỹ thuật đúng là `git rebase --onto <đích> <nền> <nhánh>`. Nhưng **chỉ dùng sau khi Owner đồng ý** đổi nền |
@@ -173,6 +184,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | Mức | Vấn đề | Hướng xử lý |
 |---|---|---|
 | **P1** | Chưa có xác thực thật. Vai trò lấy từ cookie do client đặt được | Phase 4: SIWE + phiên thật. **Trước đó tuyệt đối không deploy public khi chưa bật bảo vệ mật khẩu** |
+| **P1** | **Cổng vào kênh `(client)` không tách được vai.** `balance:read` nằm trong `READ_ONLY` mà cả 4 vai đều có, nên `requireAny={['balance:read']}` không chặn ai. Yêu cầu FE-01 R4.2 đòi chặn vai ngân hàng nhưng R2.4 lại cấm sửa `permissions.ts` — hai điều kiện loại trừ nhau | Cần Owner chốt: thêm quyền `portfolio:read` riêng cho INVESTOR, hoặc bỏ yêu cầu R4.2. Test theo dõi: `app/e2e/investor-channel.spec.ts` ca `test.fixme` — bỏ `fixme` khi đã chốt. Xem `docs/CHECKPOINT_FE01.md` |
 | **P1** | **Bộ contract trên Sepolia còn symbol `tVND` cũ.** Mã nguồn đã đổi sang `VNDB` nhưng bản đã deploy thì không đổi được — symbol nằm trong constructor | Deploy lại `VNDToken`, `ProfitDistributor`, `Redemption` (hai cái sau giữ địa chỉ VNDToken dạng `immutable`) rồi verify lại. `ProjectToken`/WPT không ảnh hưởng nên P4 vẫn đứng |
 | **P2** | Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next` | Bật `output: "standalone"` cho đường build riêng + nối đường dẫn; **không** bật mặc định vì hỏng `next start` |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
