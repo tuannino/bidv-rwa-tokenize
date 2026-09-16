@@ -19,7 +19,10 @@ export type NavIconName =
   | "Scale"
   | "UserCheck"
   | "Coins"
-  | "ScrollText";
+  | "ScrollText"
+  | "ShoppingCart"
+  | "TrendingUp"
+  | "Wallet";
 
 export type NavItem = {
   href: string;
@@ -57,5 +60,25 @@ export const BANK_NAV: NavSection = {
     { href: "/reconciliation", label: "Đối soát doanh thu", icon: "Scale",      shortcut: "B" },
     { href: "/kyc",            label: "Nhà đầu tư & KYC",  icon: "UserCheck",  shortcut: "A" },
     { href: "/audit",          label: "Sổ kiểm toán",      icon: "ScrollText", shortcut: "K" },
+  ],
+};
+
+/**
+ * Kênh nhà đầu tư. Ba mục cuối chưa có nghiệp vụ nên để `disabled`:
+ * `/purchase` chờ FE-05, `/earnings` chờ FE-09, `/settlement` chờ FE-11.
+ *
+ * Đường dẫn đã chọn để KHÔNG trùng với `(admin)` (`/`, `/mint`, `/assets`,
+ * `/reconciliation`, `/kyc`) và `(audit)` (`/audit`) — route group không tạo phân
+ * đoạn đường dẫn nên trùng tên là trùng route.
+ */
+export const INVESTOR_NAV: NavSection = {
+  main: [
+    { href: "/portfolio", label: "Tổng quan", icon: "LayoutDashboard", shortcut: "E" },
+  ],
+  moduleLabel: "Nghiệp vụ nhà đầu tư",
+  modules: [
+    { href: "/purchase",   label: "Mua WPT",    icon: "ShoppingCart", shortcut: "U", disabled: true },
+    { href: "/earnings",   label: "Lợi nhuận",  icon: "TrendingUp",   shortcut: "L", disabled: true },
+    { href: "/settlement", label: "Tất toán",   icon: "Wallet",       shortcut: "T", disabled: true },
   ],
 };

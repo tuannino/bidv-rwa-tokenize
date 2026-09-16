@@ -9,6 +9,9 @@ import {
   UserCheck,
   Coins,
   ScrollText,
+  ShoppingCart,
+  TrendingUp,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +34,9 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   UserCheck,
   Coins,
   ScrollText,
+  ShoppingCart,
+  TrendingUp,
+  Wallet,
 };
 
 export function Sidebar({ nav }: { nav: NavSection }) {
