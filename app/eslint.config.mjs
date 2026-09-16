@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Output của `opennextjs-cloudflare build` (~50MB JS đã bundle).
+    // Không ignore thì `eslint .` OOM khi quét handler.mjs.
+    ".open-next/**",
   ]),
 ]);
 
