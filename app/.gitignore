@@ -20,6 +20,9 @@
 # @opennextjs/cloudflare build output
 /.open-next/
 
+# wrangler (state/tạm của `wrangler dev`)
+/.wrangler/
+
 # production
 /build
 
