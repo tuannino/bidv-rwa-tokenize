@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:standalone": "next build && node scripts/flatten-standalone.mjs",
+    "build:standalone": "NEXT_PRIVATE_STANDALONE=true next build && node scripts/flatten-standalone.mjs",
+    "cf:build": "npm run build:standalone && opennextjs-cloudflare build --skipNextBuild",
     "start": "next start",
     "lint": "eslint",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/init.sql",

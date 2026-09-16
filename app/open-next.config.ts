@@ -15,12 +15,18 @@ const openNextConfig = {
 
   /**
    * Mặc định OpenNext chạy `npm run build` (xem @opennextjs/aws/build/buildNextApp.js).
-   * Ta đổi sang `build:standalone` để chèn bước san phẳng `.next/standalone`.
+   * Đổi sang `build:standalone` để chèn bước san phẳng `.next/standalone` — cần vì repo đặt
+   * `outputFileTracingRoot` = gốc repo (bắt buộc, `@bidv/shared` nằm ngoài `app/`) nên Next
+   * sinh `.next/standalone/app/.next/...` còn OpenNext đọc `.next/standalone/.next/...`.
+   * Chi tiết trong scripts/flatten-standalone.mjs.
    *
-   * Lý do: repo đặt `outputFileTracingRoot` = gốc repo (bắt buộc, vì `@bidv/shared` nằm
-   * ngoài `app/`), nên Next sinh `.next/standalone/app/.next/...` còn OpenNext đọc
-   * `.next/standalone/.next/...` -> ENOENT pages-manifest.json. Chi tiết đầy đủ trong
-   * scripts/flatten-standalone.mjs.
+   * ⚠️ ĐÂY LÀ ĐƯỜNG DỰ PHÒNG, KHÔNG PHẢI ĐƯỜNG CHÍNH.
+   * Build Cloudflare hãy dùng `npm run cf:build`. Hook `buildCommand` này chạy đúng ở máy
+   * cục bộ nhưng build trên Workers Builds vẫn báo đúng lỗi ENOENT cũ (log không có dòng
+   * "[flatten-standalone]"), tức nó KHÔNG được áp dụng ở môi trường đó và chưa rõ vì sao.
+   * `cf:build` tự xếp thứ tự next build -> san phẳng -> opennext --skipNextBuild, nên không
+   * phụ thuộc việc hook này có được đọc hay không. Giữ lại đây để `npx @opennextjs/cloudflare build`
+   * gọi trực tiếp vẫn chạy được.
    */
   buildCommand: "npm run build:standalone",
 };

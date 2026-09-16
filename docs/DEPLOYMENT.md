@@ -34,8 +34,14 @@ Tên Worker trên dashboard **phải bằng đúng** `name` trong `app/wrangler.
 | Mục | Giá trị |
 |---|---|
 | Root directory | `app` |
-| Build command | `npx @opennextjs/cloudflare build` |
+| Build command | `npm run cf:build` |
 | Deploy command | `npx wrangler deploy` |
+
+**Build command PHẢI là `npm run cf:build`, không phải `npx @opennextjs/cloudflare build`.**
+`cf:build` tự xếp thứ tự: `next build` (standalone) → san phẳng → `opennextjs-cloudflare build
+--skipNextBuild`. Gọi `npx @opennextjs/cloudflare build` trực tiếp thì bước san phẳng phụ thuộc
+hook `buildCommand` trong `open-next.config.ts`, mà hook đó chạy đúng ở máy cục bộ nhưng
+KHÔNG được áp dụng trên Workers Builds (log fail không có dòng `[flatten-standalone]`).
 
 - **Root directory = `app`**, không phải gốc repo: đây là nơi có `wrangler.json` và
   `package.json`. Cloudflare vẫn clone TOÀN BỘ repo rồi mới `cd` vào đây, nên
@@ -75,15 +81,16 @@ npx wrangler deploy --dry-run         # xem "Total Upload" so với hạn 64 MiB
 Mốc tham chiếu lần đo gần nhất: **14600 KiB không nén / 3941 KiB gzip**.
 
 ### Bẫy đã gặp (đừng lặp lại)
-1. **`Could not find compiled Open Next config`** — build command đang là
-   `npm run build` (chỉ chạy `next build`). Phải là
-   `npx @opennextjs/cloudflare build`. Lưu ý ngược lại: OpenNext **tự gọi**
-   `npm run build` làm bước con, nên không được xoá script `build`.
+1. **`Could not find compiled Open Next config`** — build command chỉ chạy `next build`
+   thuần. Lưu ý ngược lại: OpenNext **tự gọi** `npm run build` làm bước con, nên không
+   được xoá script `build`.
 2. **`ENOENT .next/standalone/.next/server/pages-manifest.json`** — do
-   `outputFileTracingRoot` = gốc repo làm standalone lồng thêm cấp `app/`. Đã xử lý
-   bằng `app/scripts/flatten-standalone.mjs`, gắn qua `buildCommand` trong
-   `open-next.config.ts`. Đừng "sửa" bằng cách hạ root về `app/`: Turbopack sẽ không
-   resolve được `@bidv/shared`.
+   `outputFileTracingRoot` = gốc repo làm standalone lồng thêm cấp `app/`. Xử lý bằng
+   `app/scripts/flatten-standalone.mjs`. Đừng "sửa" bằng cách hạ root về `app/`:
+   Turbopack sẽ không resolve được `@bidv/shared`.
+   **Nếu gặp lại lỗi này trên Workers Builds:** kiểm build command có đúng
+   `npm run cf:build` chưa. Dựa vào hook `buildCommand` là không đủ — đã fail thật ở
+   môi trường đó.
 3. **`ENOENT resvg.wasm` lúc deploy** — do script build từng xoá
    `node_modules/next/dist/compiled/@vercel/og/*.wasm` trong khi bundle server vẫn
    import tuyệt đối tới chúng. Dùng `outputFileTracingExcludes` (đã có trong
