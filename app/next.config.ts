@@ -39,10 +39,12 @@ const nextConfig: NextConfig = {
   // (npm link ra ngoài app/) khi root là thư mục CHA của cả hai
   // — xem node_modules/next/dist/docs/.../turbopack.md, mục `root`.
   //
-  // ⚠️ BLOCKER FREE-TIER (chưa xử lý, xem docs/CHECKPOINT_P0_P1.md):
+  // ĐÃ XỬ LÝ (trước đây ghi là "BLOCKER FREE-TIER"):
   // root = gốc repo làm output thành `.next/standalone/app/.next/...`, còn
-  // @opennextjs/cloudflare đọc cứng `.next/standalone/.next/...` -> build Cloudflare fail ENOENT.
-  // KHÔNG ảnh hưởng DoD P0/P1 (dev, next build, next start, docker compose đều chạy).
+  // @opennextjs/cloudflare đọc `.next/standalone/.next/...` -> build Cloudflare fail ENOENT.
+  // KHÔNG hạ root về `app/` được: Turbopack mất khả năng resolve `@bidv/shared`
+  // (đã thử, fail "Module not found"). Cách xử lý: san phẳng standalone sau `next build`
+  // — xem scripts/flatten-standalone.mjs + `buildCommand` trong open-next.config.ts.
   outputFileTracingRoot: repoRoot,
   webpack: (config) => {
     const emptyPath = path.resolve(process.cwd(), "src/empty.ts");
@@ -82,7 +84,12 @@ const nextConfig: NextConfig = {
       "next/dist/compiled/@vercel/og": "./src/empty.ts",
     }
   },
-  // Exclude heavy unused WASM binaries from being copied into build functions
+  // Không copy WASM nặng của @vercel/og (app không dùng OG image) vào output đã trace.
+  //
+  // ⚠️ ĐỪNG xoá thẳng các file này khỏi node_modules như script build cũ từng làm
+  // (`rm -f node_modules/next/dist/compiled/@vercel/og/*.wasm`). Bundle server của OpenNext
+  // vẫn còn `import ... from "<abs>/resvg.wasm"`, nên xoá file làm `wrangler deploy` fail
+  // ENOENT ở plugin wrangler-module-collector. Khai báo exclude ở đây là đủ và an toàn.
   outputFileTracingExcludes: {
     "*": [
       "node_modules/next/dist/compiled/@vercel/og/resvg.wasm",

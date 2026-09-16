@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -f node_modules/next/dist/compiled/@vercel/og/*.wasm && next build && (find .open-next -name \"*.wasm\" -delete 2>/dev/null || true)",
+    "build": "next build",
+    "build:standalone": "next build && node scripts/flatten-standalone.mjs",
     "start": "next start",
     "lint": "eslint",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/init.sql",
