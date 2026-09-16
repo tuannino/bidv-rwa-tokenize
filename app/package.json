@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -f node_modules/next/dist/compiled/@vercel/og/*.wasm && next build && (find .open-next -name \"*.wasm\" -delete 2>/dev/null || true)",
+    "build": "next build",
+    "build:standalone": "NEXT_PRIVATE_STANDALONE=true next build && node scripts/flatten-standalone.mjs",
+    "cf:build": "npm run build:standalone && opennextjs-cloudflare build --skipNextBuild",
     "start": "next start",
     "lint": "eslint",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/init.sql",
@@ -46,7 +48,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "1.14.0",
+    "@opennextjs/cloudflare": "1.20.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
