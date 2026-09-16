@@ -26,6 +26,12 @@ export type NavItem = {
   label: string;
   icon: NavIconName;
   shortcut: string;
+  /**
+   * Mục đã có trong lộ trình nhưng chưa có trang: hiển thị mờ kèm chú thích "sắp có"
+   * thay vì ẩn đi, để người dùng thấy lộ trình. Khi trang xong thì bỏ cờ này, không
+   * phải sửa cấu trúc menu.
+   */
+  disabled?: boolean;
 };
 
 export type NavSection = {

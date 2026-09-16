@@ -94,6 +94,21 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     </>
   );
 
+  // Mục chưa có trang: KHÔNG bọc Link để không điều hướng được, nhưng vẫn nằm trong
+  // luồng đọc của trình đọc màn hình nhờ aria-disabled (khác với việc ẩn hẳn).
+  if (item.disabled) {
+    return (
+      <div
+        aria-disabled="true"
+        title="Sắp có"
+        className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-2 text-sm text-sidebar-foreground/40"
+      >
+        {body}
+        <span className="sr-only">sắp có</span>
+      </div>
+    );
+  }
+
   return (
     <Link
       href={item.href}
