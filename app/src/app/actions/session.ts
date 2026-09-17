@@ -1,10 +1,11 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { refresh } from 'next/cache';
 import { ROLE_COOKIE } from '@/lib/rbac/session';
 import { isRole, type Role } from '@/lib/rbac';
-import { CHANNEL_COOKIE, isChannel } from '@/lib/session/channel';
+import { CHANNEL_COOKIE, CHANNEL_HOME, isChannel } from '@/lib/session/channel';
 
 /**
  * Cookie phiên (PoC): vai trò đang giả lập + kênh đang xem.
@@ -40,6 +41,15 @@ export async function setDemoRole(role: string): Promise<void> {
  * cũng không để ở kênh admin mà vai là INVESTOR (mọi trang admin đều bị chặn).
  *
  * Giá trị lạ thì bỏ qua im lặng, giống `setDemoRole`.
+ *
+ * Điều hướng làm Ở ĐÂY bằng `redirect()`, KHÔNG để client `router.push` sau khi await.
+ *
+ * Lý do cụ thể: đổi từ kênh nhà đầu tư sang admin làm vai mất `portfolio:read`, nên trang
+ * `/portfolio` đang mở bị `ChannelGuard` từ chối. Màn từ chối KHÔNG bọc `AppLayout`, tức
+ * `Header` (và bộ chọn kênh đang giữ transition) bị unmount — `router.push` trong transition
+ * đó không bao giờ chạy, người dùng đứng lại ở màn từ chối. Đã gặp thật khi chạy e2e.
+ * `redirect()` ở server thì cookie và điều hướng cùng một lượt, không phụ thuộc component
+ * còn sống hay không.
  */
 export async function setChannel(channel: string): Promise<void> {
   if (!isChannel(channel)) return;
@@ -58,5 +68,7 @@ export async function setChannel(channel: string): Promise<void> {
     }
   }
 
-  refresh();
+  // `redirect` ném một control-flow exception do framework xử lý; code sau nó không chạy,
+  // nên không cần `refresh()` — trang đích vốn đã kết xuất mới.
+  redirect(CHANNEL_HOME[channel]);
 }

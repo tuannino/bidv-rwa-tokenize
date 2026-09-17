@@ -1,11 +1,10 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { setChannel } from '@/app/actions/session';
 import { usePublicConfig } from '@/lib/config/config-context';
-import { CHANNEL_HOME, CHANNELS, type Channel } from '@/lib/session/channel';
+import { CHANNELS, type Channel } from '@/lib/session/channel';
 
 /**
  * Bộ chọn KÊNH — hai lựa chọn, hiện ở cả hai kênh để luôn quay lại được.
@@ -24,7 +23,6 @@ const LABELS: Record<Channel, string> = {
 
 export function ChannelSwitcher() {
   const config = usePublicConfig();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -44,12 +42,10 @@ export function ChannelSwitcher() {
         disabled={pending}
         onChange={(event) => {
           const next = event.target.value as Channel;
-          startTransition(async () => {
-            await setChannel(next);
-            // Đổi kênh xong phải rời trang hiện tại: trang của kênh cũ nay đã bị guard
-            // chặn, đứng lại là thấy màn từ chối ngay sau khi vừa đổi kênh.
-            router.push(CHANNEL_HOME[next]);
-          });
+          // Điều hướng do `setChannel` làm bằng `redirect()` ở server — xem ghi chú trong
+          // `app/actions/session.ts`. Không `router.push` ở đây: component này bị unmount
+          // khi guard của kênh cũ từ chối, và push trong transition đã unmount sẽ mất.
+          startTransition(() => setChannel(next));
         }}
         className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
