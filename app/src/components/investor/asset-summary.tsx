@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { Coins, Loader2, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -87,7 +88,11 @@ export function AssetSummary() {
             <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
             <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Kết nối ví ở góc trên phải để xem số lượng WPT đang giữ và giá trị quy đổi.
+              Kết nối ví ở góc trên phải, hoặc mở{' '}
+              <Link href="/wallet" className="text-primary underline-offset-4 hover:underline">
+                Ví của tôi
+              </Link>{' '}
+              để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.
             </p>
           </div>
         ) : loading ? (
