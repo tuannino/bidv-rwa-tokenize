@@ -7,6 +7,9 @@ CREATE TYPE "TxStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED');
 -- CreateEnum
 CREATE TYPE "AuditOutcome" AS ENUM ('ALLOWED', 'DENIED', 'SUCCESS', 'FAILURE');
 
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('PLACED', 'CHECKING', 'EXECUTING', 'COMPLETED', 'REJECTED', 'FAILED', 'EXPIRED');
+
 -- CreateTable
 CREATE TABLE "Txn" (
     "id" TEXT NOT NULL,
@@ -37,6 +40,23 @@ CREATE TABLE "AuditLog" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PurchaseOrder" (
+    "id" TEXT NOT NULL,
+    "chain" TEXT NOT NULL,
+    "investorWallet" TEXT NOT NULL,
+    "wptAmount" DECIMAL(78,0) NOT NULL,
+    "vndAmount" DECIMAL(78,0) NOT NULL,
+    "status" "OrderStatus" NOT NULL DEFAULT 'PLACED',
+    "txHash" TEXT,
+    "reason" TEXT,
+    "actorRole" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "PurchaseOrder_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -93,6 +113,15 @@ CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_actorRole_action_idx" ON "AuditLog"("actorRole", "action");
+
+-- CreateIndex
+CREATE INDEX "PurchaseOrder_investorWallet_createdAt_idx" ON "PurchaseOrder"("investorWallet", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "PurchaseOrder_status_createdAt_idx" ON "PurchaseOrder"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "PurchaseOrder_txHash_idx" ON "PurchaseOrder"("txHash");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Investor_wallet_key" ON "Investor"("wallet");
