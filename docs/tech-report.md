@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.5 |
+| Phiên bản tài liệu | 1.6 |
 | Cập nhật lần cuối | 2026-09-17 |
-| Nhánh / commit | `feat/wallet-connect` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví) |
+| Nhánh / commit | `feat/purchase-orders` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -302,7 +302,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng (135 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
-### `ILedgerPort` — 7 nhóm, 27 method
+### `ILedgerPort` — 7 nhóm, 28 method
 
 Từ BE-01, `ILedgerPort` được **tách thành 7 interface con theo nghiệp vụ** trong cùng
 `ledger.port.ts`, rồi hợp lại bằng kế thừa kiểu. Tên `ILedgerPort` giữ nguyên và vẫn là
@@ -323,22 +323,29 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 9 | | `forcedTransfer` | ✅ | ✅ | ⏳ | Phase 7 |
 | 10 | | `mintInitialSupply` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
 | 11 | | `isInitialSupplyMinted` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
-| 12 | `ILedgerPurchase` | `quotePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 13 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 14 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
-| 15 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 16 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
-| 17 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 18 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 19 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
-| 20 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
-| 21 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
-| 22 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
-| 23 | | `setNavRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
-| 24 | | `navRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
-| 25 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 26 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
-| 27 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 12 | | `spvWallet` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
+| 13 | `ILedgerPurchase` | `quotePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 14 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 15 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
+| 16 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 17 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
+| 18 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 19 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 20 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
+| 21 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
+| 22 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
+| 23 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
+| 24 | | `setNavRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
+| 25 | | `navRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
+| 26 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 27 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
+| 28 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+
+`spvWallet` thêm ở **BE-02**. Lý do: QĐ-2 của luồng mua buộc kiểm "ví thanh toán SPV còn đủ
+WPT" **trước khi** gửi giao dịch, mà phép kiểm đó là `balanceOf(<ví SPV>)` — cần một địa chỉ.
+`executePurchase` biết ví đó nhưng không nói ra, nên tầng nghiệp vụ không có đường lấy được:
+hoặc thêm method này, hoặc bỏ hẳn một trong bốn phép kiểm. Khác hẳn `holdersAt` đã bị từ
+chối ở dưới — chuỗi **trả lời được** địa chỉ ví SPV, còn danh sách người nắm giữ thì không.
 
 Kiểu đi kèm: `TransferCheck` (`{ allowed: true } | { allowed: false; reason: string }`) và
 `SnapshotResult` (`{ tx, snapshotId }`).
@@ -357,7 +364,7 @@ giới hạn khoảng block.
   Thứ tự đọc là `reason` → `data.errorName` → `signature`, **không** được đảo: với `require(cond, "chuoi")` viem đặt `data.errorName = 'Error'` và để chuỗi thật ở `reason`, nên ưu tiên `errorName` sẽ biến mọi lỗi tuân thủ thành đúng một câu "Contract từ chối: Error".
 - `LedgerError` mang thông báo cho người dùng cuối, không phải log kỹ thuật.
 - `takeSnapshot` là method ghi **duy nhất tự chờ receipt**: mã snapshot chỉ có trong event `Snapshot`, nên trả `PENDING` là vô nghĩa. Không tự tăng số đếm, cũng không gọi `getCurrentSnapshotId()` sau khi gửi — tx snapshot của người khác có thể chen vào giữa hai lời gọi.
-- `mock.adapter` phải **nghiêm ngặt ngang contract thật**. Bảng ràng buộc bắt buộc ở `docs/be-01-ledger-port/design.md` mục 3; 48 test ở `test/mock-ledger.test.ts` phủ từng dòng.
+- `mock.adapter` phải **nghiêm ngặt ngang contract thật**. Bảng ràng buộc bắt buộc ở `docs/be-01-ledger-port/design.md` mục 3; 49 test ở `test/mock-ledger.test.ts` phủ từng dòng.
 - `seedMockLedger()` chỉ dành cho test/demo: VNDB, mức ủy quyền và quỹ lợi nhuận do hệ thống khác sinh ra, `ILedgerPort` chỉ đọc. **Không** gọi từ nghiệp vụ.
 
 **Cách mở rộng:**
@@ -421,10 +428,45 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 | `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ** | `authorize()`, `toResult()` |
 | `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
+| `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) | `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
+| `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic | `ORDER_STATUSES`, `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES` |
 | `issuance.ts` | Điều khoản phát hành | `WPT_ISSUE_PRICE_VND`, `wptToVnd()` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `amountSchema`, `walletSchema` |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `executeOrderSchema`, `orderQuerySchema`, `amountSchema`, `walletSchema` |
+
+### Mô hình trạng thái lệnh mua (`purchase.state.ts`)
+
+```
+PLACED ──► CHECKING ──► EXECUTING ──► COMPLETED
+   │           │            │
+   │           │            └──► FAILED
+   │           └──► REJECTED
+   └──► EXPIRED
+```
+
+| Trạng thái | Nghĩa | Đã tốn phí chưa |
+|---|---|---|
+| `PLACED` | Đã đặt, chưa kiểm gì | chưa |
+| `CHECKING` | Đang kiểm số dư / ủy quyền / tồn WPT | chưa |
+| `EXECUTING` | Đã chiếm quyền gửi giao dịch | có thể rồi |
+| `COMPLETED` | Giao dịch xác nhận thành công | có |
+| `REJECTED` | Không đạt điều kiện, **chưa gửi giao dịch** | chưa |
+| `FAILED` | Đã chiếm `EXECUTING` rồi thất bại | có thể rồi |
+| `EXPIRED` | Quá hạn chưa khớp | chưa |
+
+**KHÔNG có trạng thái "đã trả tiền nhưng chưa nhận token", và đây là điểm an toàn cốt lõi
+của luồng mua.** Chuyển VNDB và chuyển WPT nằm trong **cùng một** giao dịch on-chain, nên chỉ
+có hai kết cục: cả hai xảy ra, hoặc không gì xảy ra. Một trạng thái kiểu `PAID_PENDING_TOKEN`
+sẽ mô tả tình huống **không tồn tại**, và mọi mã đối soát viết cho nó là mã xử lý chuyện
+tưởng tượng. `findPaidPendingDeliveryStatuses()` là chốt máy kiểm — thêm trạng thái như vậy
+thì `test/purchase-state.test.ts` đỏ ngay.
+
+`REJECTED` khác `FAILED` là **có chủ ý**: `REJECTED` nghĩa là chắc chắn chưa tốn phí, đặt lại
+được ngay; `FAILED` nghĩa là có thể đã tốn phí, phải xem lý do trên chuỗi. Vì vậy sau khi đã
+chiếm `EXECUTING` thì **mọi** thất bại là `FAILED` — kể cả lỗi xảy ra trước khi có mã giao
+dịch, vì lúc đó không còn chứng minh được là chưa có gì lên chuỗi (lệnh gửi có thể đã thành
+công mà phản hồi bị mất).
 
 **Lưu ý khi phát triển:**
 - `authorize()` ghi audit cho **cả hai kết cục** ALLOWED và DENIED. Giữ nguyên: kênh kiểm toán cần thấy cả những lần bị chặn.
@@ -433,6 +475,10 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 - Giá phát hành là **tham số cấu hình** (`issuance.ts`), không phải dữ liệu mẫu và không phải giá thị trường. Nhờ vậy `số dư thật × giá phát hành` không trộn số thật với số bịa.
 - Luôn **lưu giao dịch PENDING trước khi chờ receipt**. Nếu tiến trình chết giữa chừng, giao dịch vẫn còn dấu vết để đối soát.
 - Luôn **đọc lại trạng thái từ chain** sau khi ghi, không tin receipt.
+- Ghi audit và ghi `Txn` phải dùng **vai đang thực hiện thao tác**, không phải vai đã tạo bản ghi trước đó. Nhà đầu tư đặt lệnh, ngân hàng khớp lệnh — lấy `order.actorRole` cho bản ghi `order:execute` sẽ ghi vào sổ rằng nhà đầu tư tự khớp lệnh của mình, đúng cái điều mà việc tách `order:place`/`order:execute` được dựng để ngăn.
+- Chống thao tác trùng bằng **cập nhật có điều kiện ở cơ sở dữ liệu**, không bằng "đọc trạng thái rồi mới ghi". Hai lời gọi đồng thời sẽ cùng đọc thấy `CHECKING`, cùng kết luận được phép, rồi cùng gửi giao dịch — nhà đầu tư bị trừ tiền hai lần. `IOrderStore.transitionOrder` đưa điều kiện vào chính câu `UPDATE` và trả `null` khi không dòng nào khớp; người gọi **phải** dừng khi nhận `null`.
+- Trong `schemas.ts`, đặt `.transform()` **trước** `.refine()` khi refine phải chuyển đổi kiểu. Zod 4 vẫn chạy các refine còn lại sau khi một check trước đó đã trượt, nên `.regex(...).refine(v => BigInt(v) > 0n)` sẽ ném `SyntaxError` **thô** với đầu vào `"1.5"`. Mà `safeParse` được gọi **ngoài** khối `try` của mọi service, nên lỗi đó không thành `Result` mã `VALIDATION` — nó nổ thẳng ra server action và production Next che thành "An error occurred". `.transform()` tạo pipe, và pipe không chạy khi vế trước đã trượt.
+- Phân biệt phạm vi đọc theo **quyền**, không theo tên vai: `listOrders` hỏi `can(role, 'order:read:all')` để quyết định có được bỏ trống bộ lọc ví hay không. Vai không có quyền đó thì thiếu ví là **lỗi validate**, không phải "trả về toàn bộ sổ lệnh".
 
 **Cách mở rộng:** mỗi nghiệp vụ mới là **một file service riêng** (`redeem.service.ts`, `distribution.service.ts`), cùng khuôn mẫu: validate → authorize → gọi port → lưu trạng thái → audit → trả `Result`.
 
@@ -440,9 +486,9 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 
 | File | Vai trò |
 |---|---|
-| `store/store.port.ts` | `ITxnStore` — lưu giao dịch + audit log |
+| `store/store.port.ts` | `ITxnStore` (giao dịch + audit) và `IOrderStore` (lệnh mua); `IBankStore` là hợp của hai, và là thứ `getStore()` trả về |
 | `store/memory.store.ts` | Bản RAM cho free-tier; state đặt trên `globalThis` để không mất khi Next reload module |
-| `store/postgres.store.ts` | Bản Postgres, dùng `pg` thuần, query tham số hóa |
+| `store/postgres.store.ts` | Bản Postgres, dùng `pg` thuần, query tham số hóa. `ensurePurchaseOrderTable()` tạo bảng lệnh mua cho volume dựng **trước** BE-02 — `init.sql` chỉ chạy khi bảng `Txn` chưa có, nên DB cũ sẽ không bao giờ nhận bảng mới |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |
 
 **Cách mở rộng:** thêm provider mới (oracle, core banking) theo đúng khuôn: `*.port.ts` + `mock.provider.ts` + `real.provider.stub.ts` + `index.ts` chọn theo cờ.
@@ -604,7 +650,99 @@ components/pages/mint.tsx
 
 ---
 
-## 4.2. Luồng REDEEM — hoàn vốn (P2, chưa xây)
+## 4.2. Luồng MUA WPT (đã hoàn thành — BE-02)
+
+**Nghiệp vụ:** nhà đầu tư đặt lệnh mua; hệ thống kiểm số dư VNDB, ủy quyền và tồn WPT; nếu
+đạt thì chuyển VNDB (nhà đầu tư → ví thanh toán SPV) và chuyển WPT (ví SPV → nhà đầu tư)
+trong **cùng một** giao dịch.
+
+**Ai ký:** ví **ngân hàng/SPV** qua `getBankSigner(chain)`, không phải ví nhà đầu tư — khác
+hẳn luồng REDEEM ở 4.3. Nhà đầu tư chỉ tham gia bằng một lần `approve` VNDB **trước đó**, từ
+ví của họ, ngoài phạm vi BE-02.
+
+**Hai lối vào, một điểm hội tụ:** UI dùng Server Action, demo và e2e dùng `POST /api/purchase`
+(phân nhánh đặt/khớp bằng sự có mặt của `orderId`). Cả hai gọi cùng service nên guard không
+thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transport.
+
+```
+(FE-05/FE-06, chưa xây)
+   └─ placeOrderAction() / executeOrderAction() ──→ app/actions/purchase.ts
+                                                     (hoặc app/api/purchase/route.ts)
+         └──────────────────────────────────────────→ lib/bank/purchase.service.ts
+```
+
+### Giai đoạn 1 — đặt lệnh: `placeOrder()`
+
+| Bước | File / hàm | Việc |
+|---|---|---|
+| 1 | `bank/schemas.ts` → `placeOrderSchema.safeParse` | Validate ví; `wptAmount` chuỗi → `bigint`, > 0 |
+| 2 | `bank/authorize.ts` → `rbac/can.ts` → `permissions.ts` | `authorize('order:place')` — quyền của **INVESTOR** |
+| 3 | `store/index.ts` | Ghi audit ALLOWED / DENIED |
+| 4 | `ledger/index.ts :: getLedger(chain)` | Chọn adapter |
+| 5 | `ledger :: quotePurchase(wptAmount)` | **Chốt** số VNDB phải trả tại thời điểm đặt |
+| 6 | `store :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
+| 7 | `store :: appendAudit()` | Bản ghi SUCCESS |
+| 8 | `bank/result.ts` | Trả `Result<OrderView>`, mọi con số dạng **chuỗi** |
+
+Bước 5 là QĐ-3 của BE-02: số VNDB **không** được tính lại khi khớp. Tính lại là âm thầm thu
+một số khác với số đã báo trên màn hình lúc bấm — sai về nghiệp vụ, không phải chuyện làm tròn.
+
+### Giai đoạn 2 — khớp lệnh: `executeOrder()`
+
+| Bước | File / hàm | Việc |
+|---|---|---|
+| 1 | `store :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
+| 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **BANK_ADMIN**, tách khỏi `order:place` |
+| 3 | `store :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
+| 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới |
+| 5 | `store :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
+| 6 | `ledger :: executePurchase(investor, wptAmount)` | VNDB và WPT trong **cùng một** giao dịch |
+| 7 | `store :: attachOrderTxHash()` + `saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
+| 8 | `ledger :: waitReceipt(txHash, receiptTimeoutFor(chain))` | 30s hardhat-local/mock, 90s Sepolia |
+| 9 | `store :: transitionOrder(→ COMPLETED \| FAILED)` + `appendAudit()` | Vai ghi sổ là vai **đang khớp** |
+| 10 | `ledger :: balanceOf(investor)` | **Đọc lại số dư WPT từ chuỗi**, không tin biên nhận |
+| 11 | `bank/result.ts` | Trả `Result<OrderExecutionView>` |
+
+**Bốn phép kiểm ở bước 4** (QĐ-2), dừng ở lần trượt đầu tiên, tất cả đều là hàm **đọc** nên
+không tốn phí:
+
+| # | Lời gọi | Trượt thì trả mã |
+|---|---|---|
+| 0 | `quotePurchase()` so với `vndAmount` đã chốt | `PRICE_CHANGED` |
+| 1 | `paymentBalanceOf(investor)` | `INSUFFICIENT_PAYMENT_BALANCE` |
+| 2 | `paymentAllowanceOf(investor)` | `INSUFFICIENT_ALLOWANCE` |
+| 3 | `spvWallet()` → `balanceOf(spv)` | `INSUFFICIENT_SUPPLY` |
+| 4 | `canTransfer(spv, investor, wptAmount)` | `LEDGER` |
+
+Thứ tự là thứ tự người dùng sửa được: có tiền chưa → đã cho phép trừ chưa → còn hàng không →
+chuyển được không. Trả lời "chưa cấp ủy quyền" cho người chưa có tiền là chỉ sai việc phải làm.
+Phép kiểm giá chạy **trước** cả bốn vì cả bốn đều so với `vndAmount` đã chốt.
+
+**Vị trí bước 5 là điểm dễ sửa sai nhất của cả luồng.** Nó phải ở **sau** bốn phép kiểm và
+**trước** lời gọi gửi giao dịch:
+
+- Sau bốn phép kiểm, vì mọi lệnh trượt điều kiện mà đã chiếm `EXECUTING` thì không còn đường
+  về `REJECTED` — lệnh sẽ bị đánh dấu là đã tốn phí trong khi chưa gửi gì.
+- Trước khi gửi, vì đó là **toàn bộ** cơ chế chống gửi hai lần. Không có bước này thì hai lời
+  gọi đồng thời cùng thấy điều kiện đạt và cùng gửi, nhà đầu tư bị trừ tiền hai lần.
+
+### Giai đoạn 3 — truy vấn và dọn lệnh treo
+
+| Hàm | Quyền | Ghi chú |
+|---|---|---|
+| `listOrders()` | `order:read`; bỏ trống bộ lọc ví cần thêm `order:read:all` | Vai không có `order:read:all` mà thiếu ví → **lỗi validate**, không phải trả toàn bộ sổ lệnh |
+| `expireStaleOrders()` | `order:expire` (BANK_ADMIN) | Chỉ nhắm `PLACED`. **Không** dựng lịch ở đây — việc gọi định kỳ thuộc BE-07, và cố ý **không** mở điểm vào HTTP |
+
+### Nợ đã biết của luồng này
+
+Trên chain `evm`/`hardhat-local`, luồng mua **chưa chạy được**: `quotePurchase`,
+`paymentAllowanceOf`, `executePurchase` và `spvWallet` đều ném `LedgerNotImplementedError` vì
+hợp đồng khớp lệnh (SC-03) và hợp đồng phát hành một lần (SC-02) chưa có. Nghiệp vụ đã xong và
+chạy đủ trên chain `mock`; nối chuỗi thật là việc của SC-02/SC-03, **không** phải sửa service.
+
+---
+
+## 4.3. Luồng REDEEM — hoàn vốn (P2, chưa xây)
 
 **Nghiệp vụ:** nhà đầu tư trả lại **WPT**, nhận về **VNDB** theo tỷ giá. WPT bị **đốt**, tổng cung giảm.
 
@@ -642,7 +780,7 @@ components/pages/redeem.tsx  (kênh (client))
 
 ---
 
-## 4.3. Luồng DISTRIBUTION — chia lợi tức (P3, chưa xây)
+## 4.4. Luồng DISTRIBUTION — chia lợi tức (P3, chưa xây)
 
 **Nghiệp vụ:** cuối kỳ, sản lượng điện được chốt → tính lợi nhuận phân phối → chụp snapshot số dư WPT → nhà đầu tư nhận VNDB theo tỷ lệ nắm giữ **tại thời điểm chốt**.
 
@@ -695,13 +833,14 @@ Tiền chưa nhận sau `claimWindow` có thể thu hồi bằng `sweepDust(id, 
 
 ---
 
-## 4.4. Chu kỳ nghiệp vụ đầy đủ
+## 4.5. Chu kỳ nghiệp vụ đầy đủ
 
 Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đã chạy được ở tầng contract:
 
 ```
 1. KYC + whitelist nhà đầu tư A, B
 2. Ngân hàng mint WPT: A = 6.000, B = 4.000            → luồng MINT (P1 ✅)
+2'. (hoặc) A, B đặt lệnh mua rồi ngân hàng khớp lệnh   → luồng MUA WPT (BE-02 ✅ trên mock)
 3. Chốt kỳ Q1, nạp 300.000.000 VNDB lợi nhuận
    createDistribution → snapshot tự động                → luồng DISTRIBUTION (P3)
 4. A tự claim; ngân hàng distributeTo cho B
@@ -712,7 +851,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 
 ---
 
-## 4.5. Lộ trình phase
+## 4.6. Lộ trình phase
 
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
@@ -722,6 +861,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | FE-01 v2 kênh nhà đầu tư + trang tổng quan | ✅ Xong |
 | — | BE-01 mở rộng `ILedgerPort` cho ba luồng (`mock` đủ 16/16, `evm` còn 10 method chờ contract) | ✅ Xong |
 | — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
+| — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, chờ SC-02/SC-03 cho `evm`) | ✅ Xong |
 | P2 | **REDEEM** (`Redemption.sol`) | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** (`ProfitDistributor` + `EnergyOracle`) | ⏳ |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |

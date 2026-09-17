@@ -376,6 +376,18 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return pendingContract('isInitialSupplyMinted', 'hợp đồng phát hành một lần (SC-02)');
     },
 
+    /**
+     * NỢ SC-02: địa chỉ ví thanh toán SPV do hợp đồng phát hành một lần giữ.
+     *
+     * KHÔNG lấy tạm địa chỉ ví ngân hàng đang ký làm ví SPV. Hai ví có thể trùng nhau
+     * trong một lần dựng demo, nhưng chúng là hai vai khác nhau — ví ngân hàng ký giao
+     * dịch, ví SPV giữ token chưa bán. Nối tạm thì phép kiểm "SPV còn đủ WPT" sẽ đo số
+     * dư của ví SAI, và nó vẫn "chạy" nên không ai phát hiện tới lúc chạy thật.
+     */
+    async spvWallet() {
+      return pendingContract('spvWallet', 'hợp đồng phát hành một lần (SC-02)');
+    },
+
     // =========================================================================
     //  KHỚP LỆNH MUA
     // =========================================================================

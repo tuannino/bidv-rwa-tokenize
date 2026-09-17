@@ -6,7 +6,17 @@ import { Pool } from 'pg';
 import type { ChainKey, TxStatus } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import { serverEnv } from '@/lib/config/env';
-import type { AuditRecord, ITxnStore, NewAudit, NewTxn, TxnRecord } from './store.port';
+import type { OrderStatus } from '@/lib/bank/purchase.state';
+import type {
+  AuditRecord,
+  IBankStore,
+  NewAudit,
+  NewOrder,
+  NewTxn,
+  OrderRecord,
+  OrderTransition,
+  TxnRecord,
+} from './store.port';
 
 /**
  * Lưu Txn + audit vào Postgres (chế độ `docker compose up`, `USE_MOCK_DB=false`).
@@ -84,6 +94,60 @@ async function migrateTimestampColumns(client: import('pg').PoolClient): Promise
 }
 
 /**
+ * Tạo bảng lệnh mua trên DB ĐÃ TỒN TẠI TỪ TRƯỚC (BE-02).
+ *
+ * Vì sao cần một hàm riêng thay vì để `init.sql` lo: `init.sql` chỉ chạy khi bảng `Txn`
+ * chưa có, nên mọi volume Postgres dựng trước BE-02 sẽ KHÔNG bao giờ nhận bảng mới —
+ * và lỗi lộ ra là `relation "PurchaseOrder" does not exist` giữa lúc đặt lệnh, tức là
+ * đúng lúc tệ nhất. Xoá volume để "sửa" là mất sổ giao dịch cũ.
+ *
+ * DDL dưới đây LẶP LẠI `init.sql`, và đó là món nợ có ý thức — đúng cùng lý do
+ * `migrateTimestampColumns` lặp lại kiểu cột. Cả hai hàm phải BIẾN MẤT khi BE-09 dựng
+ * migration thật (Prisma Migrate); tới lúc đó `init.sql` là nguồn duy nhất.
+ *
+ * Mọi câu lệnh đều idempotent nên chạy lại là no-op, không phải kiểm trước rồi mới chạy.
+ */
+async function ensurePurchaseOrderTable(client: import('pg').PoolClient): Promise<void> {
+  // Enum không có `CREATE TYPE IF NOT EXISTS`, phải bọc DO block.
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OrderStatus') THEN
+        CREATE TYPE "OrderStatus" AS ENUM
+          ('PLACED','CHECKING','EXECUTING','COMPLETED','REJECTED','FAILED','EXPIRED');
+      END IF;
+    END $$;
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS "PurchaseOrder" (
+      "id" TEXT NOT NULL,
+      "chain" TEXT NOT NULL,
+      "investorWallet" TEXT NOT NULL,
+      "wptAmount" DECIMAL(78,0) NOT NULL,
+      "vndAmount" DECIMAL(78,0) NOT NULL,
+      "status" "OrderStatus" NOT NULL DEFAULT 'PLACED',
+      "txHash" TEXT,
+      "reason" TEXT,
+      "actorRole" TEXT NOT NULL,
+      "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "PurchaseOrder_pkey" PRIMARY KEY ("id")
+    )
+  `);
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS "PurchaseOrder_investorWallet_createdAt_idx"
+       ON "PurchaseOrder"("investorWallet", "createdAt")`,
+  );
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS "PurchaseOrder_status_createdAt_idx"
+       ON "PurchaseOrder"("status", "createdAt")`,
+  );
+  await client.query(
+    `CREATE INDEX IF NOT EXISTS "PurchaseOrder_txHash_idx" ON "PurchaseOrder"("txHash")`,
+  );
+}
+
+/**
  * Áp `prisma/init.sql` nếu bảng chưa có, rồi bảo đảm kiểu cột thời gian đúng.
  * Bọc trong transaction + chốt tư vấn để hai instance khởi động cùng lúc không
  * tạo bảng nửa vời hay ALTER chồng nhau.
@@ -104,6 +168,8 @@ async function ensureSchema(pool: Pool): Promise<void> {
     } else {
       // Bảng có sẵn -> có thể được tạo bằng lược đồ cũ, cần nâng kiểu cột thời gian.
       await migrateTimestampColumns(client);
+      // ... và có thể được tạo trước BE-02, thiếu hẳn bảng lệnh mua.
+      await ensurePurchaseOrderTable(client);
     }
 
     await client.query('COMMIT');
@@ -167,7 +233,36 @@ const toAudit = (row: AuditRow): AuditRecord => ({
   createdAt: row.createdAt.toISOString(),
 });
 
-export function createPostgresStore(): ITxnStore {
+interface OrderRow {
+  id: string;
+  chain: string;
+  investorWallet: string;
+  /** `pg` trả DECIMAL về dạng CHUỖI — đúng thứ ta cần, uint256 vượt tầm `number`. */
+  wptAmount: string;
+  vndAmount: string;
+  status: OrderStatus;
+  txHash: string | null;
+  reason: string | null;
+  actorRole: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const toOrder = (row: OrderRow): OrderRecord => ({
+  id: row.id,
+  chain: row.chain as ChainKey,
+  investorWallet: row.investorWallet,
+  wptAmount: row.wptAmount,
+  vndAmount: row.vndAmount,
+  status: row.status,
+  txHash: row.txHash,
+  reason: row.reason,
+  actorRole: row.actorRole as Role,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+});
+
+export function createPostgresStore(): IBankStore {
   const query = async <T extends object>(sql: string, params: unknown[]): Promise<T[]> => {
     const { pool, schemaReady } = holder();
     await schemaReady;
@@ -236,6 +331,113 @@ export function createPostgresStore(): ITxnStore {
         [options.limit ?? 50],
       );
       return rows.map(toAudit);
+    },
+
+    // =========================================================================
+    //  LỆNH MUA WPT
+    // =========================================================================
+
+    /**
+     * `updatedAt` phải đặt tường minh trong MỌI câu lệnh ghi.
+     *
+     * `@updatedAt` của Prisma là hành vi của Prisma **Client**, không phải ràng buộc
+     * trong lược đồ — file này dùng `pg` thẳng nên không có ai tự điền. Cột lại
+     * `NOT NULL`, nên bỏ qua là lỗi ngay lúc INSERT (bản `init.sql` sinh ra cũng không
+     * có DEFAULT cho cột này).
+     */
+    async createOrder(order: NewOrder): Promise<OrderRecord> {
+      const rows = await query<OrderRow>(
+        `INSERT INTO "PurchaseOrder"
+           ("id","chain","investorWallet","wptAmount","vndAmount","status","actorRole","updatedAt")
+         VALUES (gen_random_uuid()::text,$1,$2,$3,$4,'PLACED'::"OrderStatus",$5,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [order.chain, order.investorWallet, order.wptAmount, order.vndAmount, order.actorRole],
+      );
+      return toOrder(rows[0]);
+    },
+
+    async findOrder(id) {
+      const rows = await query<OrderRow>(`SELECT * FROM "PurchaseOrder" WHERE "id" = $1`, [id]);
+      return rows[0] ? toOrder(rows[0]) : null;
+    },
+
+    /**
+     * KHOÁ LẠC QUAN (QĐ-1) — điều kiện trạng thái nằm TRONG câu lệnh cập nhật.
+     *
+     * Không dòng nào khớp `WHERE` thì `RETURNING` không trả gì và ta trả `null`. Đó là
+     * toàn bộ cơ chế chống gửi giao dịch hai lần: hai tiến trình cùng chạy câu lệnh này
+     * thì Postgres tuần tự hoá chúng, tiến trình thứ hai thấy trạng thái đã đổi và
+     * không khớp `WHERE` nữa.
+     *
+     * `CASE WHEN $n::boolean` để phân biệt "không truyền" (giữ giá trị cũ) với "truyền
+     * null" (xoá giá trị cũ). Dùng `COALESCE($n, "txHash")` như chỗ khác trong file này
+     * sẽ gộp hai ý đó làm một, và khi ấy không cách nào xoá được một mã giao dịch cũ.
+     */
+    async transitionOrder(transition: OrderTransition): Promise<OrderRecord | null> {
+      const { id, from, to, txHash, reason } = transition;
+      const rows = await query<OrderRow>(
+        `UPDATE "PurchaseOrder"
+            SET "status"    = $3::"OrderStatus",
+                "txHash"    = CASE WHEN $4::boolean THEN $5 ELSE "txHash" END,
+                "reason"    = CASE WHEN $6::boolean THEN $7 ELSE "reason" END,
+                "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = $1
+            AND "status" = ANY($2::"OrderStatus"[])
+        RETURNING *`,
+        [
+          id,
+          from,
+          to,
+          txHash !== undefined,
+          txHash ?? null,
+          reason !== undefined,
+          reason ?? null,
+        ],
+      );
+      return rows[0] ? toOrder(rows[0]) : null;
+    },
+
+    async attachOrderTxHash({ id, txHash }) {
+      const rows = await query<OrderRow>(
+        `UPDATE "PurchaseOrder"
+            SET "txHash" = $2, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = $1 AND "status" = 'EXECUTING'::"OrderStatus"
+        RETURNING *`,
+        [id, txHash],
+      );
+      return rows[0] ? toOrder(rows[0]) : null;
+    },
+
+    async listOrders(options = {}) {
+      const { chain, investorWallet, status, limit = 50 } = options;
+      const rows = await query<OrderRow>(
+        `SELECT * FROM "PurchaseOrder"
+          WHERE ($1::text IS NULL OR "chain" = $1)
+            AND ($2::text IS NULL OR lower("investorWallet") = lower($2))
+            AND ($3::text IS NULL OR "status" = $3::"OrderStatus")
+          ORDER BY "createdAt" DESC
+          LIMIT $4`,
+        [chain ?? null, investorWallet ?? null, status ?? null, limit],
+      );
+      return rows.map(toOrder);
+    },
+
+    /**
+     * Chỉ nhắm `PLACED`. Từ `CHECKING` trở đi đã có tiến trình đang xử lý, cho hết hạn
+     * chen ngang sẽ tạo đúng loại tranh chấp mà `transitionOrder` được dựng để chặn.
+     */
+    async expireOrders({ createdBefore }) {
+      const rows = await query<{ id: string }>(
+        `UPDATE "PurchaseOrder"
+            SET "status"    = 'EXPIRED'::"OrderStatus",
+                "reason"    = 'Quá hạn chưa khớp lệnh.',
+                "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "status" = 'PLACED'::"OrderStatus"
+            AND "createdAt" < $1::timestamptz
+        RETURNING "id"`,
+        [createdBefore],
+      );
+      return rows.length;
     },
   };
 }

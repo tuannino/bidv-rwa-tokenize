@@ -22,6 +22,9 @@ describe('RBAC — can(role, action)', () => {
       'token:transfer',
       'investor:whitelist',
       'kyc:approve',
+      'order:place',
+      'order:execute',
+      'order:expire',
     ] as const;
 
     for (const action of writeActions) {
@@ -50,6 +53,38 @@ describe('RBAC — can(role, action)', () => {
     expect(permissionsOf('AUDITOR')).not.toContain('portfolio:read');
     expect(permissionsOf('BANK_ADMIN')).not.toContain('portfolio:read');
     expect(permissionsOf('COMPLIANCE')).not.toContain('portfolio:read');
+  });
+
+  it('lệnh mua: nhà đầu tư ĐẶT, ngân hàng KHỚP — hai quyền tách rời', () => {
+    // Gộp hai quyền làm một thì ai đặt được lệnh cũng tự khớp được lệnh của mình,
+    // tức tự rút WPT khỏi ví thanh toán SPV theo ý mình.
+    expect(can('INVESTOR', 'order:place')).toBe(true);
+    expect(can('INVESTOR', 'order:execute')).toBe(false);
+
+    expect(can('BANK_ADMIN', 'order:execute')).toBe(true);
+    expect(can('BANK_ADMIN', 'order:place')).toBe(false);
+
+    // Tuân thủ xét KYC nhưng không chạm tiền: không đặt, không khớp.
+    expect(can('COMPLIANCE', 'order:place')).toBe(false);
+    expect(can('COMPLIANCE', 'order:execute')).toBe(false);
+  });
+
+  it('order:read:all là thứ phân biệt R5.1 với R5.2, không phải if role', () => {
+    // Cả bốn vai đọc được sổ lệnh, nhưng chỉ ba vai ngân hàng được bỏ trống bộ lọc ví.
+    for (const role of ROLES) {
+      expect(can(role, 'order:read'), `${role} phải đọc được lệnh`).toBe(true);
+    }
+    expect(can('INVESTOR', 'order:read:all')).toBe(false);
+    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR'] as const) {
+      expect(can(role, 'order:read:all'), `${role} xem được toàn hệ`).toBe(true);
+    }
+  });
+
+  it('order:expire chỉ BANK_ADMIN — dọn lệnh treo là thao tác ghi', () => {
+    expect(can('BANK_ADMIN', 'order:expire')).toBe(true);
+    for (const role of ['COMPLIANCE', 'INVESTOR', 'AUDITOR'] as const) {
+      expect(can(role, 'order:expire'), `${role} không được dọn lệnh`).toBe(false);
+    }
   });
 
   it('role lạ bị quy về quyền thấp nhất, KHÔNG mặc định cho qua', () => {

@@ -175,6 +175,21 @@ describe('R1 — phát hành một lần vào ví thanh toán SPV', () => {
     await expect(ledger.mintInitialSupply(SPV, 1_000n)).rejects.toThrow(/chưa KYC/);
     expect(await ledger.isInitialSupplyMinted()).toBe(false);
   });
+
+  // spvWallet() thêm ở BE-02: không có nó thì tầng nghiệp vụ không lấy được địa chỉ để
+  // kiểm "ví SPV còn đủ WPT" trước khi gửi giao dịch (BE-02 QĐ-2, phép kiểm thứ 3).
+  it('spvWallet trả null khi chưa phát hành, trả đúng ví sau khi phát hành', async () => {
+    const ledger = createMockLedger();
+    // `null` là câu trả lời có nghĩa ("chưa phát hành"), không phải lỗi.
+    expect(await ledger.spvWallet()).toBeNull();
+
+    await ledger.whitelist(SPV);
+    await ledger.mintInitialSupply(SPV, 1_000n);
+
+    expect(await ledger.spvWallet()).toBe(SPV);
+    // Địa chỉ trả về phải dùng được ngay làm tham số đọc số dư — đó là mục đích duy nhất.
+    expect(await ledger.balanceOf((await ledger.spvWallet()) as string)).toBe(1_000n);
+  });
 });
 
 describe('R2 — khớp lệnh mua', () => {

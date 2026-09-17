@@ -82,6 +82,24 @@ export interface ILedgerIssuance {
   mintInitialSupply(to: string, amount: bigint): Promise<TxResult>;
   /** Đã phát hành nguồn cung ban đầu chưa. Gọi lần hai phải bị từ chối (R1.3). */
   isInitialSupplyMinted(): Promise<boolean>;
+
+  /**
+   * Địa chỉ ví thanh toán SPV — ví đang giữ WPT chưa bán. `null` khi chưa phát hành
+   * nguồn cung ban đầu.
+   *
+   * THÊM Ở BE-02, và đây là lý do: QĐ-2 buộc kiểm "ví SPV còn đủ WPT hay không" TRƯỚC
+   * khi gửi giao dịch, mà phép kiểm đó là `balanceOf(<ví SPV>)` — cần một địa chỉ.
+   * `executePurchase` biết ví đó nhưng không nói ra, nên tầng nghiệp vụ không có đường
+   * nào lấy được: hoặc thêm method này, hoặc bỏ hẳn một trong bốn phép kiểm.
+   *
+   * Đây là hàm ĐỌC và chuỗi trả lời được thật (hợp đồng phát hành một lần giữ địa chỉ
+   * này), nên khác hẳn với `holdersAt` — thứ đã bị từ chối vì ERC-20 KHÔNG lưu danh
+   * sách người nắm giữ nên không lời gọi nào đọc ra được.
+   *
+   * KHÔNG dùng nó để chuyển tiền tới ví SPV từ tầng nghiệp vụ: việc chuyển nằm trong
+   * `executePurchase`, nguyên khối cùng chiều chuyển WPT.
+   */
+  spvWallet(): Promise<string | null>;
 }
 
 // =============================================================================
