@@ -127,6 +127,80 @@ model PurchaseOrder {
   @@index([status, createdAt])
 }
 
+// =============================================================================
+//  BE-09 — CHIA LỢI NHUẬN
+// =============================================================================
+
+/// Một kỳ chia lợi nhuận đã chốt quyền.
+///
+/// `periodKey` DUY NHẤT (R2.2) là chốt chặn "mở cùng một kỳ hai lần". Không dựa vào
+/// kiểm tra trong mã trước khi ghi: hai tiến trình chạy song song có thể cùng vượt qua
+/// kiểm tra rồi cùng ghi, chỉ ràng buộc ở cơ sở dữ liệu mới nguyên tử.
+///
+/// `snapshotId` là mã ảnh chụp số dư trên chuỗi, lấy từ event `Snapshot` trong biên nhận
+/// (`ILedgerSnapshot.takeSnapshot`). KHÔNG tự tăng số đếm và KHÔNG gọi
+/// `getCurrentSnapshotId()` sau khi gửi giao dịch: tx snapshot của người khác chen vào
+/// giữa hai lời gọi là lấy về mã của họ, rồi chia lợi nhuận theo ảnh chụp sai.
+///
+/// `totalSupplyAt` lưu lại thay vì đọc lại từ chuỗi mỗi lần tính: đây là mẫu số của mọi
+/// phép chia trong kỳ, giữ nó cạnh `snapshotId` để hồ sơ đã chốt không đổi theo chuỗi.
+model DistributionPeriod {
+  id            String               @id @default(uuid())
+  /// Mã kỳ do nghiệp vụ đặt, ví dụ "2026-Q1". DUY NHẤT toàn hệ.
+  periodKey     String               @unique
+  /// Mã ảnh chụp trên chuỗi. Int vì mã snapshot là số đếm nhỏ, không phải uint256.
+  snapshotId    Int
+  /// Tổng VNDB của kỳ.
+  totalAmount   Decimal              @db.Decimal(78, 0)
+  /// Tổng cung WPT tại ảnh chụp — mẫu số khi tính phần từng ví.
+  totalSupplyAt Decimal              @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: DISTRIBUTION_PERIOD_STATUSES ở lib/store/distribution.store.port.ts
+  status        String               @default("OPEN")
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain         String
+  /// Thời điểm chốt quyền.
+  openedAt      DateTime             @default(now()) @db.Timestamptz(3)
+  completedAt   DateTime?            @db.Timestamptz(3)
+  payouts       DistributionPayout[]
+
+  @@index([status, openedAt])
+  @@index([chain, openedAt])
+}
+
+/// Phần lợi nhuận của MỘT ví trong MỘT kỳ.
+///
+/// Duy nhất `(periodId, investorWallet)` (R2.4) là chốt chặn chia trùng cho một nhà đầu
+/// tư trong cùng kỳ. Đây là ràng buộc quan trọng nhất của bảng này: chia trùng là mất
+/// tiền thật, và không có cách nào phát hiện muộn ngoài đối soát tay.
+///
+/// `amount` lưu lại thay vì tính lại từ `balanceAt / totalSupplyAt`: số đã chuyển cho
+/// người ta thì không được đổi theo bất cứ thứ gì sửa sau đó.
+model DistributionPayout {
+  id             String             @id @default(uuid())
+  periodId       String
+  period         DistributionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  investorWallet String
+  /// Số dư WPT của ví TẠI ảnh chụp của kỳ.
+  balanceAt      Decimal            @db.Decimal(78, 0)
+  /// Số VNDB được chia, chốt tại thời điểm lập hồ sơ.
+  amount         Decimal            @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: DISTRIBUTION_PAYOUT_STATUSES ở lib/store/distribution.store.port.ts
+  status         String             @default("PENDING")
+  txHash         String?
+  /// Số thứ tự lô đã gửi. Chia lô là việc của nghiệp vụ (BE-06); ở đây chỉ ghi lại để
+  /// chạy lại đúng lô lỗi thay vì chạy lại cả kỳ.
+  batchNo        Int?
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  /// R2.4 — một nhà đầu tư chỉ có MỘT hồ sơ trong một kỳ.
+  @@unique([periodId, investorWallet])
+  /// Task 2.3 — nhà đầu tư tra lịch sử lợi nhuận của chính mình.
+  @@index([investorWallet, createdAt])
+  /// Lấy các hồ sơ còn phải chi của một kỳ, và chạy lại lô lỗi.
+  @@index([periodId, status])
+}
+
 /// Nhà đầu tư + trạng thái KYC (Phase 4 nối provider thật).
 model Investor {
   id           String    @id @default(uuid())
