@@ -73,6 +73,9 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async isInitialSupplyMinted(): Promise<boolean> {
       return todoNeeds('isInitialSupplyMinted', 'contract phát hành một lần bản Soroban (SC-02)');
     },
+    async spvWallet(): Promise<string | null> {
+      return todoNeeds('spvWallet', 'contract phát hành một lần bản Soroban (SC-02)');
+    },
 
     // --- Khớp lệnh mua ---
     async quotePurchase(): Promise<bigint> {

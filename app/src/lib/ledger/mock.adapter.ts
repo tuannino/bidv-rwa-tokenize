@@ -397,6 +397,12 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
       return state().initialSupplyMinted;
     },
 
+    async spvWallet() {
+      // `?? null` chứ không trả `undefined`: `null` là "chưa phát hành", một câu trả
+      // lời có nghĩa; `undefined` trông như lỗi lập trình và JSON hoá thì mất luôn field.
+      return state().spvWallet ?? null;
+    },
+
     // =========================================================================
     //  KHỚP LỆNH MUA
     // =========================================================================
