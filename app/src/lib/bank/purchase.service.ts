@@ -4,8 +4,8 @@ import type { ChainKey, TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
 import { getBankSigner } from '@/lib/signer';
 import { can, type Role } from '@/lib/rbac';
-import { getStore } from '@/lib/store';
-import type { IBankStore, OrderRecord } from '@/lib/store';
+import { getOrderStore, getStore } from '@/lib/store';
+import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
 import { authorize, toResult } from './authorize';
 import { err, ok, type ErrorCode, type Result } from './result';
 import {
@@ -31,6 +31,12 @@ import { EXECUTABLE_ORDER_STATUSES, type OrderStatus } from './purchase.state';
  * mới cũng không thể lỡ mất guard.
  *
  * LUẬT #1 chain qua `getLedger()` · LUẬT #3 quyền qua `authorize()` -> `assertCan()`.
+ *
+ * HAI CỔNG LƯU TRỮ, không phải một (BE-09 QĐ-1): `getStore()` cho sổ giao dịch và sổ kiểm
+ * toán (`ITxnStore`), `getOrderStore()` cho bảng lệnh mua (`IOrderStore`). Trước đây hai
+ * nhóm này nằm chung một interface hợp nhất; tách ra để mỗi nghiệp vụ chỉ cầm đúng cổng nó
+ * cần, và thêm nghiệp vụ mới không phải sửa chữ ký của cổng đang dùng. Nghiệp vụ ở file
+ * này KHÔNG đổi — chỉ đổi đường lấy cổng.
  */
 
 export interface OrderView {
@@ -98,14 +104,13 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     const role = await authorize('order:place', investorWallet, chain);
 
     const ledger = getLedger(chain);
-    const store = getStore();
 
     // Báo giá đi qua ILedgerPort, không tự nhân giá ở tầng này: giá bán một WPT là tham
     // số của hợp đồng khớp lệnh, tính lại ở đây là tạo nguồn sự thật thứ hai và nó sẽ
     // lệch ngay lần đầu ai đó đổi giá trên chuỗi.
     const vndAmount = await ledger.quotePurchase(wptAmount);
 
-    const order = await store.createOrder({
+    const order = await getOrderStore().createOrder({
       chain,
       investorWallet,
       wptAmount: wptAmount.toString(),
@@ -113,7 +118,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       actorRole: role,
     });
 
-    await store.appendAudit({
+    await getStore().appendAudit({
       actorRole: role,
       action: 'order:place',
       target: investorWallet,
@@ -231,7 +236,7 @@ async function runPurchaseChecks(
  * được nữa.
  */
 async function auditExecution(
-  store: IBankStore,
+  store: ITxnStore,
   order: OrderRecord,
   actorRole: Role,
   outcome: 'SUCCESS' | 'FAILURE',
@@ -273,11 +278,12 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
   }
   const { chain, orderId } = parsed.data;
 
-  const store = getStore();
+  const txnStore = getStore();
+  const orderStore = getOrderStore();
 
   try {
     // --- 1. Đọc lệnh, phải ở PLACED hoặc CHECKING --------------------------------
-    const order = await store.findOrder(orderId);
+    const order = await orderStore.findOrder(orderId);
     if (!order) {
       return err('ORDER_STATE', `Không có lệnh nào với mã ${orderId}.`);
     }
@@ -309,7 +315,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     const checking =
       order.status === 'CHECKING'
         ? order
-        : await store.transitionOrder({ id: orderId, from: ['PLACED'], to: 'CHECKING' });
+        : await orderStore.transitionOrder({ id: orderId, from: ['PLACED'], to: 'CHECKING' });
     if (!checking) {
       return err(
         'ORDER_STATE',
@@ -321,14 +327,14 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     const check = await runPurchaseChecks(ledger, checking);
     if (!check.passed) {
       // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
-      await store.transitionOrder({
+      await orderStore.transitionOrder({
         id: orderId,
         from: ['CHECKING'],
         to: 'REJECTED',
         reason: check.reason,
       });
       await auditExecution(
-        store,
+        txnStore,
         checking,
         executorRole,
         'FAILURE',
@@ -338,7 +344,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     }
 
     // --- 5. Cập nhật CÓ ĐIỀU KIỆN sang EXECUTING ---------------------------------
-    const executing = await store.transitionOrder({
+    const executing = await orderStore.transitionOrder({
       id: orderId,
       from: ['CHECKING'],
       to: 'EXECUTING',
@@ -353,7 +359,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     }
 
     // --- 6..9. Gửi giao dịch, lưu mã, chờ biên nhận -------------------------------
-    return await sendAndSettle(store, ledger, executing, executorRole);
+    return await sendAndSettle(txnStore, orderStore, ledger, executing, executorRole);
   } catch (error) {
     return toResult(error);
   }
@@ -363,9 +369,14 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
  * Bước 6..11: gửi giao dịch và chốt kết quả. Tách ra vì từ đây trở đi ranh giới xử lý lỗi
  * khác hẳn phần trên — mọi thất bại là `FAILED`, và điều đó phải nhìn thấy được trong cấu
  * trúc mã, không chỉ trong bình luận.
+ *
+ * Nhận CẢ HAI cổng vì bước này chạm cả hai bảng: `orderStore` đổi trạng thái lệnh và gắn mã
+ * giao dịch, `txnStore` ghi sổ giao dịch và sổ kiểm toán. Truyền vào thay vì gọi factory
+ * bên trong để hàm vẫn test được trực tiếp mà không phải đổi cờ môi trường.
  */
 async function sendAndSettle(
-  store: IBankStore,
+  txnStore: ITxnStore,
+  orderStore: IOrderStore,
   ledger: ILedgerPort,
   order: OrderRecord,
   executorRole: Role,
@@ -379,16 +390,22 @@ async function sendAndSettle(
     pending = await ledger.executePurchase(investorWallet, wptAmount);
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi giao dịch.';
-    await store.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
-    await auditExecution(store, order, executorRole, 'FAILURE', `gửi giao dịch thất bại — ${reason}`);
+    await orderStore.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
+    await auditExecution(
+      txnStore,
+      order,
+      executorRole,
+      'FAILURE',
+      `gửi giao dịch thất bại — ${reason}`,
+    );
     return toResult(error);
   }
 
   // --- 7. Lưu mã giao dịch NGAY KHI CÓ, trước khi chờ biên nhận -----------------
   // Tiến trình chết ở bước chờ thì lệnh vẫn còn mã giao dịch để đối soát (R3.2). Ghi sau
   // khi có biên nhận thì một giao dịch đã lên chuỗi có thể không còn dấu vết nào ở đây.
-  await store.attachOrderTxHash({ id, txHash: pending.txHash });
-  const savedTxn = await store.saveTxn({
+  await orderStore.attachOrderTxHash({ id, txHash: pending.txHash });
+  const savedTxn = await txnStore.saveTxn({
     chain,
     operation: 'purchase',
     txHash: pending.txHash,
@@ -406,14 +423,14 @@ async function sendAndSettle(
 
   // --- 8. Chờ biên nhận, timeout THEO CHAIN ------------------------------------
   const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
-  await store.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
+  await txnStore.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
 
   // --- 9. COMPLETED hoặc FAILED + ghi sổ kiểm toán -----------------------------
   if (receipt.status !== 'CONFIRMED') {
     const reason = receipt.reason ?? `Giao dịch khớp lệnh kết thúc ở trạng thái ${receipt.status}.`;
-    await store.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
+    await orderStore.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
     await auditExecution(
-      store,
+      txnStore,
       order,
       executorRole,
       'FAILURE',
@@ -422,14 +439,14 @@ async function sendAndSettle(
     return err('LEDGER', reason);
   }
 
-  const completed = await store.transitionOrder({
+  const completed = await orderStore.transitionOrder({
     id,
     from: ['EXECUTING'],
     to: 'COMPLETED',
     txHash: receipt.txHash,
   });
   await auditExecution(
-    store,
+    txnStore,
     order,
     executorRole,
     'SUCCESS',
@@ -442,7 +459,7 @@ async function sendAndSettle(
   // --- 11. Trả Result ---------------------------------------------------------
   // `completed` có thể là `null` nếu một tiến trình khác vừa đổi trạng thái; lấy bản ghi
   // hiện tại làm nguồn thay vì dựng số liệu từ biến cũ.
-  const finalOrder = completed ?? (await store.findOrder(id)) ?? order;
+  const finalOrder = completed ?? (await orderStore.findOrder(id)) ?? order;
   return ok({
     ...toView(finalOrder),
     txHash: receipt.txHash,
@@ -506,7 +523,7 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
       );
     }
 
-    const rows = await getStore().listOrders({ chain, investorWallet, status, limit });
+    const rows = await getOrderStore().listOrders({ chain, investorWallet, status, limit });
     return ok(rows.map(toView));
   } catch (error) {
     return toResult(error);
@@ -534,13 +551,12 @@ export async function expireStaleOrders(input: unknown): Promise<Result<{ expire
     const role = await authorize('order:expire', null, null);
 
     const createdBefore = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
-    const store = getStore();
-    const expired = await store.expireOrders({ createdBefore });
+    const expired = await getOrderStore().expireOrders({ createdBefore });
 
     // Chỉ ghi sổ khi CÓ lệnh bị đổi. BE-07 gọi hàm này theo lịch, ghi cả những lần không
     // đổi gì sẽ nhấn chìm sổ kiểm toán bằng bản ghi rỗng và làm nó vô dụng để đối chiếu.
     if (expired > 0) {
-      await store.appendAudit({
+      await getStore().appendAudit({
         actorRole: role,
         action: 'order:expire',
         target: null,

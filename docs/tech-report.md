@@ -429,7 +429,7 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 | `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) | `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
-| `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic | `ORDER_STATUSES`, `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES` |
+| `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic. `ORDER_STATUSES` **re-export** từ `store/order.store.port.ts`, không khai lại | `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES`, `findPaidPendingDeliveryStatuses()` |
 | `issuance.ts` | Điều khoản phát hành | `WPT_ISSUE_PRICE_VND`, `wptToVnd()` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
@@ -469,6 +469,9 @@ dịch, vì lúc đó không còn chứng minh được là chưa có gì lên c
 công mà phản hồi bị mất).
 
 **Lưu ý khi phát triển:**
+- **`purchase.service.ts` cầm HAI cổng lưu trữ, không phải một.** `getStore()` (`ITxnStore`) cho sổ giao dịch và sổ kiểm toán; `getOrderStore()` (`IOrderStore`) cho bảng lệnh mua. Đừng dựng lại một interface hợp nhất kiểu `IBankStore`: một cổng gộp buộc mọi nghiệp vụ phải cầm cả những hàm nó không dùng, và mỗi lần thêm bảng lại phải sửa cả hai bản hiện thực dù việc mới chẳng liên quan.
+- **`ORDER_STATUSES` có đúng MỘT nguồn: `store/order.store.port.ts`.** `purchase.state.ts` chỉ re-export. Khai lại ở tầng nghiệp vụ là mời gọi cột `status` trong cơ sở dữ liệu lệch khỏi mô hình trạng thái ngay lần thêm trạng thái đầu tiên.
+- **`purchase.state.ts` import TRỰC TIẾP `@/lib/store/order.store.port`, không qua barrel `@/lib/store`.** Barrel có `import 'server-only'`, mà `purchase.state.ts` bị `schemas.ts` kéo theo sang phía form/client — đi qua barrel là vỡ build, và lỗi hiện ra ở một file không liên quan.
 - `authorize()` ghi audit cho **cả hai kết cục** ALLOWED và DENIED. Giữ nguyên: kênh kiểm toán cần thấy cả những lần bị chặn.
 - `authorize()`/`toResult()` nằm ở `authorize.ts`, **không** sao chép vào service mới: hai đường ghi audit song song sẽ lệch nhau ở lần sửa đầu tiên, và sổ kiểm toán thiếu bản ghi thì không dùng được để đối chiếu trách nhiệm.
 - Hàm đọc dữ liệu theo ví phải để `wallet` **bắt buộc** trong schema. `ITxnStore.listTxns` không truyền `wallet` sẽ trả giao dịch của **mọi** ví; để optional là mở đường cho một lời gọi thiếu tham số làm rò dữ liệu ví khác ra giao diện nhà đầu tư.
@@ -677,11 +680,11 @@ thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transp
 |---|---|---|
 | 1 | `bank/schemas.ts` → `placeOrderSchema.safeParse` | Validate ví; `wptAmount` chuỗi → `bigint`, > 0 |
 | 2 | `bank/authorize.ts` → `rbac/can.ts` → `permissions.ts` | `authorize('order:place')` — quyền của **INVESTOR** |
-| 3 | `store/index.ts` | Ghi audit ALLOWED / DENIED |
+| 3 | `getStore() :: appendAudit()` | Ghi audit ALLOWED / DENIED |
 | 4 | `ledger/index.ts :: getLedger(chain)` | Chọn adapter |
 | 5 | `ledger :: quotePurchase(wptAmount)` | **Chốt** số VNDB phải trả tại thời điểm đặt |
-| 6 | `store :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
-| 7 | `store :: appendAudit()` | Bản ghi SUCCESS |
+| 6 | `getOrderStore() :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
+| 7 | `getStore() :: appendAudit()` | Bản ghi SUCCESS |
 | 8 | `bank/result.ts` | Trả `Result<OrderView>`, mọi con số dạng **chuỗi** |
 
 Bước 5 là QĐ-3 của BE-02: số VNDB **không** được tính lại khi khớp. Tính lại là âm thầm thu
@@ -691,15 +694,15 @@ một số khác với số đã báo trên màn hình lúc bấm — sai về n
 
 | Bước | File / hàm | Việc |
 |---|---|---|
-| 1 | `store :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
+| 1 | `getOrderStore() :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
 | 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **BANK_ADMIN**, tách khỏi `order:place` |
-| 3 | `store :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
+| 3 | `orderStore :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
 | 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới |
-| 5 | `store :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
+| 5 | `orderStore :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
 | 6 | `ledger :: executePurchase(investor, wptAmount)` | VNDB và WPT trong **cùng một** giao dịch |
-| 7 | `store :: attachOrderTxHash()` + `saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
+| 7 | `orderStore :: attachOrderTxHash()` + `txnStore :: saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
 | 8 | `ledger :: waitReceipt(txHash, receiptTimeoutFor(chain))` | 30s hardhat-local/mock, 90s Sepolia |
-| 9 | `store :: transitionOrder(→ COMPLETED \| FAILED)` + `appendAudit()` | Vai ghi sổ là vai **đang khớp** |
+| 9 | `orderStore :: transitionOrder(→ COMPLETED \| FAILED)` + `txnStore :: appendAudit()` | Vai ghi sổ là vai **đang khớp** |
 | 10 | `ledger :: balanceOf(investor)` | **Đọc lại số dư WPT từ chuỗi**, không tin biên nhận |
 | 11 | `bank/result.ts` | Trả `Result<OrderExecutionView>` |
 
