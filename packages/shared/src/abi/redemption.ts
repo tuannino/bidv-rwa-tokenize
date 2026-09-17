@@ -97,4 +97,19 @@ export const redemptionAbi = [
     name: 'RateUpdated',
     inputs: [{ name: 'newRate', type: 'uint256', indexed: false }],
   },
+
+  // --- Custom error — thiếu thì viem chỉ trả về 4 byte selector ---
+  {
+    type: 'error',
+    name: 'AccessControlUnauthorizedAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'neededRole', type: 'bytes32' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'SafeERC20FailedOperation',
+    inputs: [{ name: 'token', type: 'address' }],
+  },
 ] as const;

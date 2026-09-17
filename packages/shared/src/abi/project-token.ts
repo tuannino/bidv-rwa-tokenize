@@ -244,4 +244,45 @@ export const projectTokenAbi = [
     name: 'Snapshot',
     inputs: [{ name: 'id', type: 'uint256', indexed: false }],
   },
+
+  // --- Custom error (OpenZeppelin v5) ---
+  /**
+   * BẮT BUỘC có trong ABI tối giản, không phải cho đẹp.
+   *
+   * OZ v5 revert bằng custom error thay vì chuỗi. ABI thiếu mục `error` thì viem
+   * KHÔNG giải mã được và chỉ trả về 4 byte selector, ra message kiểu
+   * `reverted with the following signature: 0xe2517d3f` — vô nghĩa với cả người
+   * dùng lẫn người sửa lỗi. Có mục này thì viem cho ra `errorName` để dịch được.
+   */
+  {
+    type: 'error',
+    name: 'AccessControlUnauthorizedAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'neededRole', type: 'bytes32' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientBalance',
+    inputs: [
+      { name: 'sender', type: 'address' },
+      { name: 'balance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientAllowance',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'allowance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InvalidReceiver',
+    inputs: [{ name: 'receiver', type: 'address' }],
+  },
 ] as const;

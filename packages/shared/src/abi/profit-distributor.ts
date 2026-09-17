@@ -124,4 +124,20 @@ export const profitDistributorAbi = [
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
+
+  // --- Custom error — thiếu thì viem chỉ trả về 4 byte selector ---
+  {
+    type: 'error',
+    name: 'AccessControlUnauthorizedAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'neededRole', type: 'bytes32' },
+    ],
+  },
+  /** SafeERC20 gói lại mọi thất bại của transfer/transferFrom VNDB. */
+  {
+    type: 'error',
+    name: 'SafeERC20FailedOperation',
+    inputs: [{ name: 'token', type: 'address' }],
+  },
 ] as const;
