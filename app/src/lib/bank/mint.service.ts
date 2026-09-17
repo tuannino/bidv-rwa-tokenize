@@ -1,13 +1,11 @@
 import 'server-only';
 
 import type { ChainKey, TxStatus } from '@bidv/shared';
-import { LedgerError, getLedger, receiptTimeoutFor } from '@/lib/ledger';
-import { InvalidAddressError } from '@/lib/ledger';
-import { KycProviderError, getKycProvider } from '@/lib/providers/kyc';
-import { ForbiddenError, assertCan, type Action, type Role } from '@/lib/rbac';
-import { currentRole } from '@/lib/rbac/session';
-import { SignerUnavailableError, getBankSigner } from '@/lib/signer';
+import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
+import { getKycProvider } from '@/lib/providers/kyc';
+import { getBankSigner } from '@/lib/signer';
 import { getStore } from '@/lib/store';
+import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
 import {
   balanceQuerySchema,
@@ -69,46 +67,10 @@ export interface TokenOverview {
   bankAddress: string | null;
 }
 
-/** Quy lỗi ném ra thành `Result` có mã — một chỗ, dùng cho mọi nghiệp vụ. */
-function toResult<T>(error: unknown): Result<T> {
-  if (error instanceof ForbiddenError) return err('FORBIDDEN', error.message);
-  if (error instanceof InvalidAddressError) return err('VALIDATION', error.message);
-  if (error instanceof SignerUnavailableError) return err('SIGNER', error.message);
-  if (error instanceof KycProviderError) return err('PROVIDER', error.message);
-  if (error instanceof LedgerError) return err('LEDGER', error.message);
-  return err('UNKNOWN', error instanceof Error ? error.message : 'Lỗi không xác định.');
-}
-
 /**
- * Guard chung: kiểm quyền RỒI ghi audit cho CẢ hai kết cục.
- * Ghi cả lần bị chặn là có chủ ý — kênh `(audit)` cần thấy ai đã thử làm gì.
+ * `authorize()` và `toResult()` đã chuyển sang `./authorize.ts` để `portfolio.service.ts`
+ * dùng chung — một đường ghi audit duy nhất cho mọi nghiệp vụ.
  */
-async function authorize(action: Action, target: string | null, chain: ChainKey | null): Promise<Role> {
-  const role = await currentRole();
-  const store = getStore();
-  try {
-    assertCan(role, action);
-  } catch (error) {
-    await store.appendAudit({
-      actorRole: role,
-      action,
-      target,
-      outcome: 'DENIED',
-      detail: error instanceof Error ? error.message : null,
-      chain,
-    });
-    throw error;
-  }
-  await store.appendAudit({
-    actorRole: role,
-    action,
-    target,
-    outcome: 'ALLOWED',
-    detail: null,
-    chain,
-  });
-  return role;
-}
 
 /** B1 của luồng: KYC (mock auto-approve) -> whitelist on-chain. */
 export async function onboardInvestor(input: unknown): Promise<Result<OnboardResult>> {
