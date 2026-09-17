@@ -31,7 +31,10 @@ export interface UseWalletStatusResult {
   switchToExpected: () => Promise<void>;
   /** Đang chờ ví trả lời yêu cầu chuyển chain. */
   switching: boolean;
-  /** Lý do lần chuyển chain vừa rồi không thành, kể cả khi người dùng tự từ chối. */
+  /**
+   * Lý do lần chuyển chain vừa rồi không thành, kể cả khi người dùng tự từ chối.
+   * Tự hết hiệu lực khi đổi ví, đổi mạng, hoặc ngắt kết nối — xem `situationKey` bên dưới.
+   */
   switchError: string | null;
   disconnect: () => void;
 }
@@ -70,7 +73,20 @@ export function useWalletStatus(): UseWalletStatusResult {
     getInjectedProviderServerSnapshot,
   );
 
-  const [switchError, setSwitchError] = useState<string | null>(null);
+  /**
+   * Lỗi của lần chuyển chain gần nhất, MANG THEO tình huống đã sinh ra nó.
+   *
+   * Vì sao không để `useState<string | null>` trơn: thông báo sẽ sống dai hơn tình huống của
+   * nó. Người dùng từ chối chuyển mạng, thấy câu "Bạn đã từ chối…", rồi tự đổi mạng trong ví
+   * hoặc đổi sang ví khác — tình huống đã khác nhưng câu cảnh báo vẫn còn, và giờ nó sai.
+   *
+   * Có khoá thì "còn hiệu lực" là thứ SUY RA, không phải state phải tự tay dọn. Cách này
+   * tránh luôn việc `setState` trong effect, mẫu mà React Compiler chặn
+   * (`react-hooks/set-state-in-effect`) — cùng khuôn với `components/investor/asset-summary.tsx`.
+   */
+  const situationKey = `${appChain}|${address ?? ''}|${walletChainId ?? ''}`;
+  const [switchFailure, setSwitchFailure] = useState<{ key: string; message: string } | null>(null);
+  const switchError = switchFailure?.key === situationKey ? switchFailure.message : null;
 
   const status = useMemo(
     () =>
@@ -113,13 +129,14 @@ export function useWalletStatus(): UseWalletStatusResult {
     const targetLabel = info?.label ?? `chain ID ${targetChainId}`;
 
     if (!configured || !info) {
-      setSwitchError(
-        `Mạng ${targetLabel} chưa có trong cấu hình ví của ứng dụng, chưa chuyển được.`,
-      );
+      setSwitchFailure({
+        key: situationKey,
+        message: `Mạng ${targetLabel} chưa có trong cấu hình ví của ứng dụng, chưa chuyển được.`,
+      });
       return;
     }
 
-    setSwitchError(null);
+    setSwitchFailure(null);
     try {
       await switchChainAsync({
         chainId: configured.id,
@@ -136,9 +153,9 @@ export function useWalletStatus(): UseWalletStatusResult {
        * dựng vòng lặp hộp thoại mà người dùng không có cách nào thoát ngoài đóng tab.
        * Trạng thái cảnh báo vẫn giữ nguyên vì `status` suy ra từ chain thật của ví.
        */
-      setSwitchError(describeSwitchError(error, targetLabel));
+      setSwitchFailure({ key: situationKey, message: describeSwitchError(error, targetLabel) });
     }
-  }, [config.chains, status, switchChainAsync]);
+  }, [config.chains, situationKey, status, switchChainAsync]);
 
   return {
     status,
