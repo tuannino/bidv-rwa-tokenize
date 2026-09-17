@@ -4,7 +4,9 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useIsMounted } from "@/lib/hooks/use-is-mounted";
+import { usePublicConfig } from "@/lib/config/config-context";
 import { ChainSelector } from "./chain-selector";
+import { ChannelSwitcher } from "./channel-switcher";
 import { RoleSwitcher } from "./role-switcher";
 
 interface HeaderProps {
@@ -12,6 +14,7 @@ interface HeaderProps {
 }
 
 export function Header({ breadcrumbs = [] }: HeaderProps) {
+  const config = usePublicConfig();
   const { resolvedTheme, setTheme } = useTheme();
   // `resolvedTheme` chỉ có ở client -> chờ hydrate xong mới render nút, tránh mismatch.
   const mounted = useIsMounted();
@@ -43,8 +46,14 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
         {/* Chọn chain: hardhat-local | mock | evm | stellar (KHÔNG Polygon) */}
         <ChainSelector />
 
-        {/* Đổi vai trò — chỉ để demo RBAC trong PoC */}
-        <RoleSwitcher />
+        {/* Chọn kênh — hiện ở CẢ HAI kênh để luôn quay lại được (R1.5) */}
+        <ChannelSwitcher />
+
+        {/*
+          Đổi vai chỉ có nghĩa trong Admin console: ở kênh nhà đầu tư vai luôn là INVESTOR,
+          bày ra ô chọn vai chỉ mời người dùng tự đưa mình vào màn từ chối.
+        */}
+        {config.channel === 'admin' && <RoleSwitcher />}
 
         <div className="h-6 w-px bg-border" aria-hidden="true" />
         {/* Dark/Light toggle */}

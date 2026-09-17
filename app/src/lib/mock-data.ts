@@ -49,6 +49,19 @@ export interface WindProject {
   commissionedAt: string;
   operatorAddress: string;
   txHash: string;
+  /**
+   * Ký hiệu token của dự án — dùng làm tham số đường dẫn `/tokens/[symbol]`.
+   * Chọn ký hiệu thay vì `id` vì người dùng đọc được và đường dẫn ngắn.
+   */
+  tokenSymbol: string;
+  /**
+   * `true` = dự án ĐÃ triển khai token trên chuỗi, nên số dư và tổng cung của nó phải đọc
+   * qua `ILedgerPort`, KHÔNG lấy các con số trong file này.
+   * `false` = chưa triển khai; mọi số liệu là dữ liệu mẫu và PHẢI gắn nhãn trên giao diện.
+   *
+   * Hệ thống hiện chỉ triển khai MỘT token, nên đúng một dự án có `onChain: true`.
+   */
+  onChain: boolean;
 }
 
 export const MOCK_PROJECTS: WindProject[] = [
@@ -68,6 +81,9 @@ export const MOCK_PROJECTS: WindProject[] = [
     commissionedAt: '18/03/2025',
     operatorAddress: 'operator.bidv.eth',
     txHash: '0xed3e4ec1...7d66',
+    // Dự án duy nhất đã có token trên chuỗi: số dư/tổng cung đọc qua ILedgerPort.
+    tokenSymbol: 'WPT',
+    onChain: true,
   },
   {
     id: 'WIND-QTR-03',
@@ -85,6 +101,8 @@ export const MOCK_PROJECTS: WindProject[] = [
     commissionedAt: '02/11/2025',
     operatorAddress: 'operator.bidv.eth',
     txHash: '0xfca87b5e...33af',
+    tokenSymbol: 'WPT-QTR3',
+    onChain: false,
   },
   {
     id: 'WIND-NTH-07',
@@ -102,6 +120,8 @@ export const MOCK_PROJECTS: WindProject[] = [
     commissionedAt: '25/06/2026',
     operatorAddress: 'operator.bidv.eth',
     txHash: '0xc3bef42f...1b1b',
+    tokenSymbol: 'WPT-NTH7',
+    onChain: false,
   },
 ];
 
@@ -123,6 +143,13 @@ export const MOCK_GENERATION_SERIES: GenerationPoint[] = [
   { period: '06/2026', generationMwh: 34_720, profitVndBn: 16.8 },
   { period: '07/2026', generationMwh: 33_180, profitVndBn: 15.9 },
 ];
+
+/** Tra dự án theo ký hiệu token — dùng cho đường dẫn `/tokens/[symbol]`. */
+export function findProjectBySymbol(symbol: string): WindProject | undefined {
+  return MOCK_PROJECTS.find(
+    (project) => project.tokenSymbol.toLowerCase() === symbol.toLowerCase(),
+  );
+}
 
 /** Số liệu tổng quan toàn danh mục điện gió. */
 export const MOCK_WIND_STATS = {

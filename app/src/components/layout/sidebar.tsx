@@ -3,61 +3,75 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Coins,
+  LayoutDashboard,
+  Scale,
+  ScrollText,
+  ShoppingCart,
+  TrendingUp,
+  UserCheck,
+  Wallet,
+  Wind,
+  type LucideIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { BidvLogo } from "@/components/bidv-logo";
+import { useSelectedChain } from "@/lib/chains/use-selected-chain";
+import { usePublicConfig } from "@/lib/config/config-context";
+import { BANK_NAV, type NavIconName, type NavItem, type NavSection } from "./nav-config";
+
+/**
+ * Menu theo KÊNH. Danh sách mục nằm ở `nav-config.ts` (dữ liệu thuần), không ở đây.
+ *
+ * Bảng tra tên → component đặt ở phía client là CÓ CHỦ Ý: component không tuần tự hoá được
+ * nên không thể đi qua biên server → client. Xem ghi chú đầu `nav-config.ts`.
+ */
+const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   LayoutDashboard,
   Wind,
   Scale,
   UserCheck,
   Coins,
   ScrollText,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { BidvLogo } from "@/components/bidv-logo";
-import { useSelectedChain } from "@/lib/chains/use-selected-chain";
-import { usePublicConfig } from "@/lib/config/config-context";
+  ShoppingCart,
+  TrendingUp,
+  Wallet,
+};
 
-const NAV_ITEMS = [
-  { href: "/", label: "Tổng quan", icon: LayoutDashboard, shortcut: "E" },
-];
-
-// Nhãn theo nghiệp vụ điện gió; icon chủ đề gió/turbine (xem frontend.md).
-const MODULE_ITEMS = [
-  { href: "/mint",           label: "Phát hành WPT",     icon: Coins,      shortcut: "M" },
-  { href: "/assets",         label: "Dự án điện gió",    icon: Wind,       shortcut: "D" },
-  { href: "/reconciliation", label: "Đối soát doanh thu", icon: Scale,      shortcut: "B" },
-  { href: "/kyc",            label: "Nhà đầu tư & KYC",  icon: UserCheck,  shortcut: "A" },
-  { href: "/audit",          label: "Sổ kiểm toán",      icon: ScrollText, shortcut: "K" },
-];
-
-export function Sidebar() {
+export function Sidebar({ nav = BANK_NAV }: { nav?: NavSection }) {
   const pathname = usePathname();
+
+  const isActive = (item: NavItem) =>
+    item.href === "/"
+      ? pathname === "/"
+      : pathname === item.href || pathname.startsWith(item.href + "/");
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Logo */}
       <div className="flex items-center px-4 py-4 border-b border-border">
-        <Link href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+        <Link
+          href={nav.main[0]?.href ?? "/"}
+          className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
+        >
           <BidvLogo variant="full" />
         </Link>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {NAV_ITEMS.map((item) => (
-          <NavLink key={item.href} item={item} active={pathname === item.href} />
+        {nav.main.map((item) => (
+          <NavLink key={item.href} item={item} active={isActive(item)} />
         ))}
 
         <div className="pt-4 pb-1.5 px-2">
           <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-            Module nghiệp vụ
+            {nav.moduleLabel}
           </span>
         </div>
 
-        {MODULE_ITEMS.map((item) => (
-          <NavLink
-            key={item.href}
-            item={item}
-            active={pathname === item.href || pathname.startsWith(item.href + "/")}
-          />
+        {nav.modules.map((item) => (
+          <NavLink key={item.href} item={item} active={isActive(item)} />
         ))}
       </nav>
 
@@ -67,25 +81,13 @@ export function Sidebar() {
   );
 }
 
-function NavLink({
-  item,
-  active,
-}: {
-  item: (typeof MODULE_ITEMS)[0];
-  active: boolean;
-}) {
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
-        active
-          ? "bg-primary/10 text-primary font-medium"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-      )}
-    >
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = NAV_ICONS[item.icon];
+
+  const body = (
+    <>
       <div className="flex items-center gap-2.5">
-        <item.icon className={cn("h-4 w-4", active && "text-primary")} />
+        <Icon className={cn("h-4 w-4", active && "text-primary")} />
         {item.label}
       </div>
       <span
@@ -93,11 +95,42 @@ function NavLink({
           "text-[10px] font-mono px-1.5 py-0.5 rounded border",
           active
             ? "border-primary/40 bg-primary/10 text-primary"
-            : "border-border bg-muted text-muted-foreground"
+            : "border-border bg-muted text-muted-foreground",
         )}
       >
         {item.shortcut}
       </span>
+    </>
+  );
+
+  /**
+   * Mục chưa khả dụng: KHÔNG bọc `Link` để không điều hướng được (nếu bọc rồi chỉ chặn
+   * bằng CSS thì bàn phím và trình đọc màn hình vẫn đi tới được). `aria-disabled` để trình
+   * đọc màn hình thông báo đúng trạng thái.
+   */
+  if (item.disabled) {
+    return (
+      <div
+        aria-disabled="true"
+        title="Sắp có — chưa mở trong phiên bản này"
+        className="flex cursor-not-allowed items-center justify-between rounded-md px-3 py-2 text-sm text-sidebar-foreground/40"
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
+        active
+          ? "bg-primary/10 text-primary font-medium"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+      )}
+    >
+      {body}
     </Link>
   );
 }

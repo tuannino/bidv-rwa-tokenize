@@ -1,6 +1,10 @@
 import 'server-only';
 
 import { CHAIN_ORDER, CHAINS, type ChainKey } from '@bidv/shared';
+import type { Role } from '@/lib/rbac';
+import { currentRole } from '@/lib/rbac/session';
+import type { Channel } from '@/lib/session/channel';
+import { currentChannel } from '@/lib/session/current-channel';
 import { serverEnv } from './env';
 
 /**
@@ -26,8 +30,19 @@ export interface PublicConfig {
     corebank: boolean;
     db: boolean;
   };
-  /** Vai trò đang giả lập (PoC). Phase 4: lấy từ session SIWE. */
-  role: string;
+  /**
+   * Vai trò ĐANG CÓ HIỆU LỰC, đọc từ cookie qua `currentRole()` — cùng một nguồn với
+   * `ChannelGuard` và `lib/bank/`.
+   *
+   * Trước đây trường này lấy `env.demoRole`, tức giá trị mặc định lúc khởi động, nên sau
+   * khi đổi vai thì giao diện vẫn hiển thị vai cũ và `can(config.role, ...)` gate sai nút.
+   * Đó là lỗi hiển thị, không phải lỗ hổng: chốt chặn thật vẫn ở `assertCan()` trong service.
+   *
+   * Phase 4: lấy từ session SIWE, chữ ký giữ nguyên.
+   */
+  role: Role;
+  /** Kênh đang xem — quyết định hiện/ẩn bộ chọn vai và menu nào. KHÔNG dùng để phân quyền. */
+  channel: Channel;
 }
 
 function reasonUnavailable(key: ChainKey): string | undefined {
@@ -45,8 +60,13 @@ function reasonUnavailable(key: ChainKey): string | undefined {
   return undefined;
 }
 
-export function publicConfig(): PublicConfig {
+/**
+ * `async` vì phải đọc cookie (vai + kênh) — `cookies()` của Next 16 trả Promise.
+ * Chỉ có một chỗ gọi (`src/app/layout.tsx`, vốn đã là async Server Component).
+ */
+export async function publicConfig(): Promise<PublicConfig> {
   const env = serverEnv();
+  const [role, channel] = await Promise.all([currentRole(), currentChannel()]);
 
   const chains: ChainOption[] = CHAIN_ORDER.map((key) => {
     const info = CHAINS[key];
@@ -73,6 +93,7 @@ export function publicConfig(): PublicConfig {
       corebank: env.useMockCorebank,
       db: env.useMockDb,
     },
-    role: env.demoRole,
+    role,
+    channel,
   };
 }

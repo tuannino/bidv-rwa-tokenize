@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.3 |
-| Cập nhật lần cuối | 2026-09-13 |
-| Nhánh / commit | `docs/branching-rules-alignment` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12 |
+| Phiên bản tài liệu | 1.4 |
+| Cập nhật lần cuối | 2026-09-16 |
+| Nhánh / commit | `feat/investor-channel-v2` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -35,11 +35,20 @@ Hệ thống mô phỏng nghiệp vụ ngân hàng token hóa tài sản thực 
 
 Ba kênh người dùng tách theo vai trò nhưng **dùng chung một backend**:
 
-| Kênh | Route group | Vai trò | Quyền |
-|---|---|---|---|
-| Ngân hàng | `(admin)` | BANK_ADMIN, COMPLIANCE | Mint, KYC, whitelist, freeze, clawback |
-| Nhà đầu tư | `(client)` | INVESTOR | Xem số dư, nhận lợi tức, hoàn vốn |
-| Kiểm toán | `(audit)` | AUDITOR | **Chỉ đọc** sổ kiểm toán |
+| Kênh | Route group | Vai trò | Quyền vào kênh (`requireAny`) | Nội dung |
+|---|---|---|---|---|
+| Ngân hàng | `(admin)` | BANK_ADMIN, COMPLIANCE | `token:mint`, `investor:whitelist` | Mint, KYC, whitelist, freeze, clawback |
+| Nhà đầu tư | `(client)` | INVESTOR | `portfolio:read` | Xem vị thế WPT, trạng thái phát hành, lịch sử giao dịch, chi tiết dự án |
+| Kiểm toán | `(audit)` | AUDITOR | `audit:read` | **Chỉ đọc** sổ kiểm toán |
+
+**Kênh là lựa chọn tường minh, không suy ra từ quyền.** Người dùng chọn kênh ở thanh trên
+(cookie `bidv_channel`), và kênh quyết định vai: kênh nhà đầu tư ép vai `INVESTOR` và ẩn bộ chọn
+vai; kênh Admin console cho chọn giữa ba vai ngân hàng. Cookie kênh **chỉ** dùng để hiển thị —
+phân quyền vẫn đi qua vai + `can(role, action)`.
+
+⚠️ Quyền vào kênh nhà đầu tư phải là một action **chỉ INVESTOR có**. FE-01 v1 dùng `balance:read`
+và guard không chặn được ai, vì quyền đó nằm trong nhóm `READ_ONLY` được spread vào cả ba vai
+ngân hàng. Xem 1.6.B.
 
 ## 1.2. Nguyên tắc kiến trúc — 3 LUẬT bất di bất dịch
 
@@ -90,12 +99,16 @@ bidv-rwa-tokenize/
 │   ├── src/app/
 │   │   ├── (admin)/           # Kênh ngân hàng: mint, kyc, assets, reconciliation
 │   │   ├── (audit)/           # Kênh kiểm toán: chỉ đọc
-│   │   ├── actions/           # Server Actions (bank.ts, session.ts)
+│   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, tokens/[symbol]
+│   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns
 │   │   ├── layout.tsx, page.tsx, globals.css
 │   ├── src/components/
-│   │   ├── layout/            # sidebar, header, chain-selector, channel-guard
-│   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation
+│   │   ├── layout/            # sidebar, header, chain-selector, channel-guard,
+│   │   │                      #   nav-config, channel-switcher, role-switcher
+│   │   ├── investor/          # 4 hộp trang tổng quan + nhãn dữ liệu mẫu
+│   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation,
+│   │   │                      #   investor-portfolio, investor-token-detail
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   ├── e2e/                   # Playwright
@@ -167,6 +180,13 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 - **`import 'server-only'` trong `config/env.ts`.** Đây là hàng rào cứng: nếu Client Component lỡ import, build sẽ fail ngay thay vì rò khóa ra bundle trình duyệt.
 - **`brand.ts` là ngoại lệ hex màu duy nhất.** Logo và modal ví cần màu cố định không đổi theo theme. Ngoài file này, mọi màu phải dùng biến CSS.
 - **`chain-store` không persist, mặc định `null`.** Để lần render đầu khớp server, tránh lỗi hydration mismatch.
+- **Kênh là lựa chọn tường minh, vai suy ra từ kênh.** Không xác định kênh bằng quyền: một quyền đọc thuộc nhiều vai nên không nói được người dùng đang ở kênh nào. `setChannel` đặt **cả hai** cookie (`bidv_channel` + `bidv_role`) trong một lần — hai cookie lệch nhau là người dùng gặp màn từ chối mà không hiểu vì sao.
+- **Quyền vào kênh nhà đầu tư phải là action riêng của INVESTOR.** FE-01 v1 dùng `balance:read`, nằm trong `READ_ONLY` nên cả bốn vai đều có và guard không chặn được ai. Đừng "dọn dẹp" `portfolio:read` vào `READ_ONLY`.
+- **`nav-config.ts` là dữ liệu thuần, `icon` là TÊN dạng chuỗi.** `AppLayout` dùng trong page (Server Component) còn `Sidebar` là `'use client'`, nên `NavSection` đi qua biên server → client. Để `icon` là component gây `Functions cannot be passed directly to Client Components` — đã xảy ra thật ở FE-01 v1. Thêm `'use client'` vào `nav-config.ts` **không** giải quyết: prop vẫn phải tuần tự hóa, và nó biến `AppLayout` thành Client Component.
+- **`AppLayout` đặt trong từng page, không ở `layout.tsx` của route group.** `layout.tsx` chỉ giữ `ChannelGuard`. Đặt cả hai chỗ sẽ lồng layout hai lần.
+- **Điều hướng khi đổi kênh làm bằng `redirect()` trong server action, không bằng `router.push` ở client.** Đổi kênh làm vai mất quyền của trang đang mở, `ChannelGuard` kết xuất màn từ chối mà màn đó không bọc `AppLayout` → `Header` bị unmount và `push` trong transition đã unmount sẽ mất.
+- **`publicConfig()` là async và đọc cookie.** Trước đây trả `role` từ `env.demoRole` nên giao diện hiển thị sai vai sau khi đổi vai (kể cả gate nút trong `mint.tsx`). Hệ quả có chủ ý: root layout thành động, `/` không còn prerender tĩnh.
+- **Nhãn dữ liệu mẫu là một component dùng chung** (`components/investor/mock-badge.tsx`). Nhãn lúc "mock" lúc "demo" lúc không có thì người xem là ngân hàng không biết con số nào tin được.
 
 ### C. Nợ kỹ thuật đã biết (cần xử lý, đã ghi nhận)
 
@@ -174,7 +194,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 |---|---|---|
 | **P1** | Chưa có xác thực thật. Vai trò lấy từ cookie do client đặt được | Phase 4: SIWE + phiên thật. **Trước đó tuyệt đối không deploy public khi chưa bật bảo vệ mật khẩu** |
 | **P1** | **Bộ contract trên Sepolia còn symbol `tVND` cũ.** Mã nguồn đã đổi sang `VNDB` nhưng bản đã deploy thì không đổi được — symbol nằm trong constructor | Deploy lại `VNDToken`, `ProfitDistributor`, `Redemption` (hai cái sau giữ địa chỉ VNDToken dạng `immutable`) rồi verify lại. `ProjectToken`/WPT không ảnh hưởng nên P4 vẫn đứng |
-| **P2** | Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next` | Bật `output: "standalone"` cho đường build riêng + nối đường dẫn; **không** bật mặc định vì hỏng `next start` |
+| ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
 | **P2** | Chưa có CI. Mọi kiểm tra chạy tay | Thêm GitHub Actions chạy `typecheck + lint + test` mỗi lần push |
@@ -302,18 +322,31 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | File | Vai trò |
 |---|---|
 | `permissions.ts` | Bảng dữ liệu thuần: 4 role × 11 action |
-| `can.ts` | `can(role, action)` + `assertCan()` — **điểm kiểm quyền duy nhất** |
-| `session.ts` | Đọc vai trò hiện tại từ cookie |
+| `can.ts` | `can(role, action)` + `assertCan()` + `permissionsOf()` — **điểm kiểm quyền duy nhất** |
+| `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role` |
 
-**Ma trận quyền (rút gọn):**
+**Ma trận quyền (đủ 11 action, tên đúng như trong `ACTIONS`):**
 
 | Action | BANK_ADMIN | COMPLIANCE | INVESTOR | AUDITOR |
 |---|:--:|:--:|:--:|:--:|
 | `token:mint` | ✅ | ❌ | ❌ | ❌ |
-| `investor:kyc`, `token:whitelist`, `token:freeze` | ✅ | ✅ | ❌ | ❌ |
+| `token:burn` | ✅ | ❌ | ❌ | ❌ |
+| `token:clawback` | ✅ | ❌ | ❌ | ❌ |
+| `token:freeze` | ✅ | ✅ | ❌ | ❌ |
+| `investor:whitelist` | ✅ | ✅ | ❌ | ❌ |
+| `kyc:approve` | ✅ | ✅ | ❌ | ❌ |
+| `token:transfer` | ❌ | ❌ | ✅ | ❌ |
+| `portfolio:read` | ❌ | ❌ | ✅ | ❌ |
+| `balance:read` | ✅ | ✅ | ✅ | ✅ |
+| `txn:read` | ✅ | ✅ | ✅ | ✅ |
 | `audit:read` | ✅ | ✅ | ❌ | ✅ |
 
 **Lưu ý:** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; role lạ **quy về AUDITOR** (quyền thấp nhất), không cho qua. Đây là nguyên tắc đóng, giữ nguyên khi mở rộng.
+
+⚠️ **`READ_ONLY` là bẫy.** Hằng private `READ_ONLY = ['balance:read','txn:read','audit:read']` được
+spread vào BANK_ADMIN, COMPLIANCE và AUDITOR. Quyền nào đặt vào đó thì **ba vai ngân hàng tự động
+có**, nên không dùng làm cổng vào kênh nhà đầu tư được. `portfolio:read` cố tình khai riêng cho
+INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 
 **Cách mở rộng:** thêm action mới → khai báo trong `permissions.ts` → dùng `assertCan()` ở service. Không viết logic quyền ở nơi khác.
 
@@ -323,13 +356,19 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 
 | File | Vai trò | Hàm chính |
 |---|---|---|
-| `mint.service.ts` | Nghiệp vụ phát hành (324 dòng) | `onboardInvestor()`, `mintTokens()`, `authorize()` |
-| `audit.service.ts` | Đọc sổ kiểm toán | Truy vấn audit log |
-| `result.ts` | Kiểu `Result<T>` + `toResult()` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `amountSchema` |
+| `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ** | `authorize()`, `toResult()` |
+| `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
+| `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
+| `issuance.ts` | Điều khoản phát hành | `WPT_ISSUE_PRICE_VND`, `wptToVnd()` |
+| `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
+| `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `amountSchema`, `walletSchema` |
 
 **Lưu ý khi phát triển:**
 - `authorize()` ghi audit cho **cả hai kết cục** ALLOWED và DENIED. Giữ nguyên: kênh kiểm toán cần thấy cả những lần bị chặn.
+- `authorize()`/`toResult()` nằm ở `authorize.ts`, **không** sao chép vào service mới: hai đường ghi audit song song sẽ lệch nhau ở lần sửa đầu tiên, và sổ kiểm toán thiếu bản ghi thì không dùng được để đối chiếu trách nhiệm.
+- Hàm đọc dữ liệu theo ví phải để `wallet` **bắt buộc** trong schema. `ITxnStore.listTxns` không truyền `wallet` sẽ trả giao dịch của **mọi** ví; để optional là mở đường cho một lời gọi thiếu tham số làm rò dữ liệu ví khác ra giao diện nhà đầu tư.
+- Giá phát hành là **tham số cấu hình** (`issuance.ts`), không phải dữ liệu mẫu và không phải giá thị trường. Nhờ vậy `số dư thật × giá phát hành` không trộn số thật với số bịa.
 - Luôn **lưu giao dịch PENDING trước khi chờ receipt**. Nếu tiến trình chết giữa chừng, giao dịch vẫn còn dấu vết để đối soát.
 - Luôn **đọc lại trạng thái từ chain** sau khi ghi, không tin receipt.
 
