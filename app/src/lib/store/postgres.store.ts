@@ -397,6 +397,17 @@ export function createPostgresStore(): IBankStore {
       return rows[0] ? toOrder(rows[0]) : null;
     },
 
+    async attachOrderTxHash({ id, txHash }) {
+      const rows = await query<OrderRow>(
+        `UPDATE "PurchaseOrder"
+            SET "txHash" = $2, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = $1 AND "status" = 'EXECUTING'::"OrderStatus"
+        RETURNING *`,
+        [id, txHash],
+      );
+      return rows[0] ? toOrder(rows[0]) : null;
+    },
+
     async listOrders(options = {}) {
       const { chain, investorWallet, status, limit = 50 } = options;
       const rows = await query<OrderRow>(

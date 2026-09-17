@@ -128,6 +128,14 @@ export function createMemoryStore(): IBankStore {
       return { ...found };
     },
 
+    async attachOrderTxHash({ id, txHash }) {
+      const found = state().orders.find((order) => order.id === id);
+      if (!found || found.status !== 'EXECUTING') return null;
+      found.txHash = txHash;
+      found.updatedAt = new Date().toISOString();
+      return { ...found };
+    },
+
     async listOrders(options = {}) {
       const { chain, investorWallet, status, limit = 50 } = options;
       return state()

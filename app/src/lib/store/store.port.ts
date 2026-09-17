@@ -123,6 +123,19 @@ export interface IOrderStore {
    */
   transitionOrder(transition: OrderTransition): Promise<OrderRecord | null>;
 
+  /**
+   * Gắn mã giao dịch vào lệnh ĐANG ở `EXECUTING`, KHÔNG đổi trạng thái (R3.2 bước 7).
+   *
+   * Vì sao không dùng `transitionOrder` với `from: ['EXECUTING'], to: 'EXECUTING'`: đó là
+   * một chuyển tiếp `EXECUTING -> EXECUTING`, thứ KHÔNG có trong bảng chuyển tiếp và bị
+   * `canTransitionOrder` từ chối. Nhờ method riêng, `transitionOrder` giữ đúng một nghĩa
+   * là "đổi trạng thái", và bảng chuyển tiếp vẫn là mô tả đầy đủ của mô hình.
+   *
+   * Chỉ nhắm `EXECUTING`: lệnh chưa chiếm quyền gửi thì không thể có mã giao dịch, lệnh đã
+   * đóng thì không được sửa nữa.
+   */
+  attachOrderTxHash(input: { id: string; txHash: string }): Promise<OrderRecord | null>;
+
   listOrders(options?: {
     chain?: ChainKey;
     investorWallet?: string;

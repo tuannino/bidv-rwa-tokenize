@@ -1,13 +1,15 @@
 import 'server-only';
 
-import type { ChainKey } from '@bidv/shared';
-import { getLedger } from '@/lib/ledger';
+import type { ChainKey, TxStatus } from '@bidv/shared';
+import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
+import { getBankSigner } from '@/lib/signer';
+import type { Role } from '@/lib/rbac';
 import { getStore } from '@/lib/store';
-import type { OrderRecord } from '@/lib/store';
+import type { IBankStore, OrderRecord } from '@/lib/store';
 import { authorize, toResult } from './authorize';
-import { err, ok, type Result } from './result';
-import { placeOrderSchema } from './schemas';
-import type { OrderStatus } from './purchase.state';
+import { err, ok, type ErrorCode, type Result } from './result';
+import { executeOrderSchema, placeOrderSchema } from './schemas';
+import { EXECUTABLE_ORDER_STATUSES, type OrderStatus } from './purchase.state';
 
 /**
  * Nghiệp vụ LỆNH MUA WPT.
@@ -42,6 +44,14 @@ export interface OrderView {
   reason: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OrderExecutionView extends OrderView {
+  txHash: string;
+  status: OrderStatus;
+  txStatus: TxStatus;
+  /** Số dư WPT của nhà đầu tư, ĐỌC LẠI TỪ CHUỖI sau khi khớp — không tin biên nhận (R3.4). */
+  balanceAfter: string;
 }
 
 /** Ánh xạ bản ghi lưu trữ sang khung nhìn — một chỗ duy nhất, dùng cho mọi hàm trả lệnh. */
@@ -110,5 +120,343 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     return ok(toView(order));
   } catch (error) {
     return toResult(error);
+  }
+}
+
+/**
+ * Kết quả của bốn phép kiểm đọc. Mang theo MÃ LỖI để `executeOrder` không phải suy ra
+ * mã từ chuỗi lý do — bóc chuỗi là cách chắc chắn để lần đổi câu chữ đầu tiên làm sai mã.
+ */
+type PurchaseCheck = { passed: true } | { passed: false; code: ErrorCode; reason: string };
+
+const PASS: PurchaseCheck = { passed: true };
+const failCheck = (code: ErrorCode, reason: string): PurchaseCheck => ({
+  passed: false,
+  code,
+  reason,
+});
+
+/**
+ * BỐN PHÉP KIỂM TRƯỚC KHI GỬI GIAO DỊCH (QĐ-2), dừng ở lần trượt đầu tiên.
+ *
+ * Cả bốn đều là hàm ĐỌC, không tốn phí. Hợp đồng cũng kiểm lại, nhưng kiểm ở đây có hai
+ * giá trị mà hợp đồng không cho được: thông báo nêu đúng điều kiện nào thiếu và thiếu bao
+ * nhiêu, và không đốt phí vào một giao dịch chắc chắn bị revert.
+ *
+ * Thứ tự là thứ tự người dùng sửa được: có tiền chưa -> đã cho phép trừ chưa -> còn hàng
+ * không -> chuyển được không. Trả lời "chưa cấp ủy quyền" cho người chưa có tiền là chỉ
+ * sai việc phải làm.
+ *
+ * Phép kiểm giá (QĐ-3) chạy TRƯỚC bốn phép này vì cả bốn đều so với `vndAmount` đã chốt;
+ * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu.
+ */
+async function runPurchaseChecks(
+  ledger: ILedgerPort,
+  order: OrderRecord,
+): Promise<PurchaseCheck> {
+  const wptAmount = BigInt(order.wptAmount);
+  const vndAmount = BigInt(order.vndAmount);
+
+  // --- QĐ-3: giá đổi giữa lúc đặt và lúc khớp -------------------------------------
+  // So khớp CHÍNH XÁC, không có biên dung sai. Giá bán WPT là tham số do ngân hàng ấn
+  // định (xem `issuance.ts`), không phải giá thị trường dao động, nên mọi thay đổi đều
+  // là quyết định có chủ ý — dung sai chỉ để lọc nhiễu, mà ở đây không có nhiễu.
+  const quotedNow = await ledger.quotePurchase(wptAmount);
+  if (quotedNow !== vndAmount) {
+    return failCheck(
+      'PRICE_CHANGED',
+      `Giá bán đã đổi từ lúc đặt lệnh: lệnh chốt ${vndAmount} VNDB, giá hiện tại là ` +
+        `${quotedNow} VNDB cho ${wptAmount} WPT. Đặt lại lệnh để xác nhận giá mới.`,
+    );
+  }
+
+  // --- 1. Số dư VNDB của nhà đầu tư ------------------------------------------------
+  const paymentBalance = await ledger.paymentBalanceOf(order.investorWallet);
+  if (paymentBalance < vndAmount) {
+    return failCheck(
+      'INSUFFICIENT_PAYMENT_BALANCE',
+      `Số dư VNDB không đủ: cần ${vndAmount}, ví ${order.investorWallet} chỉ có ${paymentBalance}.`,
+    );
+  }
+
+  // --- 2. Mức ủy quyền VNDB --------------------------------------------------------
+  const allowance = await ledger.paymentAllowanceOf(order.investorWallet);
+  if (allowance < vndAmount) {
+    return failCheck(
+      'INSUFFICIENT_ALLOWANCE',
+      `Ủy quyền VNDB không đủ: cần ${vndAmount}, đã cấp ${allowance}. ` +
+        `Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.`,
+    );
+  }
+
+  // --- 3. Tồn WPT trong ví thanh toán SPV ------------------------------------------
+  const spv = await ledger.spvWallet();
+  if (!spv) {
+    return failCheck(
+      'INSUFFICIENT_SUPPLY',
+      'Chưa phát hành nguồn cung ban đầu — không có WPT nào để bán.',
+    );
+  }
+  const spvBalance = await ledger.balanceOf(spv);
+  if (spvBalance < wptAmount) {
+    return failCheck(
+      'INSUFFICIENT_SUPPLY',
+      `Ví thanh toán SPV không đủ WPT: cần ${wptAmount}, chỉ còn ${spvBalance}.`,
+    );
+  }
+
+  // --- 4. Khả năng chuyển nhượng ---------------------------------------------------
+  // Chiều SPV -> nhà đầu tư, đúng chiều mà `executePurchase` sẽ chuyển. Kiểm chiều
+  // ngược lại sẽ cho ra một câu trả lời đúng về một giao dịch không tồn tại.
+  const transferable = await ledger.canTransfer(spv, order.investorWallet, wptAmount);
+  if (!transferable.allowed) {
+    return failCheck('LEDGER', transferable.reason);
+  }
+
+  return PASS;
+}
+
+/**
+ * Ghi bản ghi kiểm toán cho một lần khớp lệnh — gom lại để không lặp sáu lần.
+ *
+ * `actorRole` là vai ĐANG KHỚP LỆNH, không phải vai đã đặt lệnh. Hai vai khác nhau
+ * (nhà đầu tư đặt, ngân hàng khớp), nên lấy `order.actorRole` sẽ ghi sổ rằng nhà đầu tư
+ * tự khớp lệnh của mình — đúng cái điều mà việc tách `order:place`/`order:execute` được
+ * dựng để ngăn. Sổ kiểm toán ghi sai người chịu trách nhiệm thì không dùng để đối chiếu
+ * được nữa.
+ */
+async function auditExecution(
+  store: IBankStore,
+  order: OrderRecord,
+  actorRole: Role,
+  outcome: 'SUCCESS' | 'FAILURE',
+  detail: string,
+): Promise<void> {
+  await store.appendAudit({
+    actorRole,
+    action: 'order:execute',
+    target: order.investorWallet,
+    outcome,
+    detail: `lệnh ${order.id}: ${detail}`,
+    chain: order.chain,
+  });
+}
+
+/**
+ * B2 — KHỚP LỆNH. Theo đúng 11 bước ở `design.md` mục 6.
+ *
+ * Điểm cần hiểu trước khi sửa hàm này: bước 5 (chiếm `EXECUTING`) đặt SAU bốn phép kiểm
+ * và TRƯỚC lời gọi gửi giao dịch, và cả hai vị trí đều có lý do.
+ *
+ *   - Sau bốn phép kiểm: chỉ chiếm quyền thực thi khi đã biết điều kiện đạt. Chiếm sớm
+ *     thì mọi lệnh trượt điều kiện đều mắc ở `EXECUTING`, mà từ `EXECUTING` không còn
+ *     đường về `REJECTED` — lệnh sẽ bị đánh dấu là đã tốn phí trong khi chưa gửi gì.
+ *   - Trước khi gửi: đây là toàn bộ cơ chế chống gửi hai lần. `transitionOrder` đưa điều
+ *     kiện trạng thái vào chính câu lệnh cập nhật, nên hai lời gọi đồng thời thì chỉ một
+ *     lời gọi đổi được `CHECKING` -> `EXECUTING`, lời gọi kia nhận `null` và dừng.
+ *
+ * Và một ranh giới nữa: từ lúc chiếm `EXECUTING` trở đi, MỌI thất bại đều là `FAILED`,
+ * không phải `REJECTED`. Kể cả khi lỗi xảy ra ở `executePurchase` trước khi có mã giao
+ * dịch — vì lúc đó không còn chứng minh được là chưa có giao dịch nào lên chuỗi (lệnh gửi
+ * có thể đã thành công mà phản hồi bị mất). `REJECTED` nghĩa là CHẮC CHẮN chưa tốn phí;
+ * dùng nó ở đây sẽ nói với nhà đầu tư một điều ta không biết.
+ */
+export async function executeOrder(input: unknown): Promise<Result<OrderExecutionView>> {
+  const parsed = executeOrderSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, orderId } = parsed.data;
+
+  const store = getStore();
+
+  try {
+    // --- 1. Đọc lệnh, phải ở PLACED hoặc CHECKING --------------------------------
+    const order = await store.findOrder(orderId);
+    if (!order) {
+      return err('ORDER_STATE', `Không có lệnh nào với mã ${orderId}.`);
+    }
+    if (order.chain !== chain) {
+      // Khớp lệnh trên chain khác chain đã đặt là đọc số dư của một sổ khác hoàn toàn.
+      return err(
+        'ORDER_STATE',
+        `Lệnh ${orderId} thuộc chain "${order.chain}", không khớp được trên chain "${chain}".`,
+      );
+    }
+    if (!EXECUTABLE_ORDER_STATUSES.includes(order.status)) {
+      return err(
+        'ORDER_STATE',
+        `Lệnh ${orderId} đang ở trạng thái ${order.status}, không khớp được. ` +
+          `Chỉ lệnh ở ${EXECUTABLE_ORDER_STATUSES.join(' hoặc ')} mới khớp được.`,
+      );
+    }
+
+    // --- 2. Kiểm quyền + ghi sổ kiểm toán ----------------------------------------
+    // `authorize` ghi audit cho cả lần bị chặn rồi mới ném (R1.4 / ca kiểm thử 7.9).
+    const executorRole = await authorize('order:execute', order.investorWallet, chain);
+
+    const ledger = getLedger(chain);
+
+    // --- 3. Chuyển sang CHECKING -------------------------------------------------
+    // Đã ở `CHECKING` thì giữ nguyên: `CHECKING` -> `CHECKING` không có trong bảng
+    // chuyển tiếp, và một lệnh treo ở `CHECKING` (tiến trình trước chết trước khi chiếm
+    // `EXECUTING`) thì CHƯA gửi giao dịch nào nên chạy lại là an toàn.
+    const checking =
+      order.status === 'CHECKING'
+        ? order
+        : await store.transitionOrder({ id: orderId, from: ['PLACED'], to: 'CHECKING' });
+    if (!checking) {
+      return err(
+        'ORDER_STATE',
+        `Lệnh ${orderId} vừa được một tiến trình khác nhận xử lý. Không khớp lần hai.`,
+      );
+    }
+
+    // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
+    const check = await runPurchaseChecks(ledger, checking);
+    if (!check.passed) {
+      // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
+      await store.transitionOrder({
+        id: orderId,
+        from: ['CHECKING'],
+        to: 'REJECTED',
+        reason: check.reason,
+      });
+      await auditExecution(
+        store,
+        checking,
+        executorRole,
+        'FAILURE',
+        `bị từ chối trước khi gửi tx — ${check.reason}`,
+      );
+      return err(check.code, check.reason);
+    }
+
+    // --- 5. Cập nhật CÓ ĐIỀU KIỆN sang EXECUTING ---------------------------------
+    const executing = await store.transitionOrder({
+      id: orderId,
+      from: ['CHECKING'],
+      to: 'EXECUTING',
+    });
+    if (!executing) {
+      // Không dòng nào bị ảnh hưởng = tiến trình khác đã chiếm. Đây là điểm chặn gửi
+      // giao dịch hai lần; dừng lại, KHÔNG gửi gì.
+      return err(
+        'ORDER_STATE',
+        `Lệnh ${orderId} đã được một tiến trình khác gửi đi. Không gửi giao dịch lần hai.`,
+      );
+    }
+
+    // --- 6..9. Gửi giao dịch, lưu mã, chờ biên nhận -------------------------------
+    return await sendAndSettle(store, ledger, executing, executorRole);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Bước 6..11: gửi giao dịch và chốt kết quả. Tách ra vì từ đây trở đi ranh giới xử lý lỗi
+ * khác hẳn phần trên — mọi thất bại là `FAILED`, và điều đó phải nhìn thấy được trong cấu
+ * trúc mã, không chỉ trong bình luận.
+ */
+async function sendAndSettle(
+  store: IBankStore,
+  ledger: ILedgerPort,
+  order: OrderRecord,
+  executorRole: Role,
+): Promise<Result<OrderExecutionView>> {
+  const { id, chain, investorWallet } = order;
+  const wptAmount = BigInt(order.wptAmount);
+
+  let pending: TxResult;
+  try {
+    // --- 6. Khớp lệnh: VNDB và WPT trong CÙNG một giao dịch ----------------------
+    pending = await ledger.executePurchase(investorWallet, wptAmount);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi giao dịch.';
+    await store.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
+    await auditExecution(store, order, executorRole, 'FAILURE', `gửi giao dịch thất bại — ${reason}`);
+    return toResult(error);
+  }
+
+  // --- 7. Lưu mã giao dịch NGAY KHI CÓ, trước khi chờ biên nhận -----------------
+  // Tiến trình chết ở bước chờ thì lệnh vẫn còn mã giao dịch để đối soát (R3.2). Ghi sau
+  // khi có biên nhận thì một giao dịch đã lên chuỗi có thể không còn dấu vết nào ở đây.
+  await store.attachOrderTxHash({ id, txHash: pending.txHash });
+  const savedTxn = await store.saveTxn({
+    chain,
+    operation: 'purchase',
+    txHash: pending.txHash,
+    status: pending.status,
+    // Chiều chuyển WPT: từ ví thanh toán SPV sang nhà đầu tư. `null` vì địa chỉ ví SPV
+    // là chuyện của tầng chain; sổ giao dịch ở đây ghi bên nhận, giống luồng mint.
+    fromWallet: null,
+    toWallet: investorWallet,
+    amount: order.wptAmount,
+    reason: null,
+    // Vai GỬI giao dịch, không phải vai đã đặt lệnh — cùng lý do như `auditExecution`.
+    actorRole: executorRole,
+    actorAddress: await bankAddressOrNull(chain),
+  });
+
+  // --- 8. Chờ biên nhận, timeout THEO CHAIN ------------------------------------
+  const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
+  await store.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
+
+  // --- 9. COMPLETED hoặc FAILED + ghi sổ kiểm toán -----------------------------
+  if (receipt.status !== 'CONFIRMED') {
+    const reason = receipt.reason ?? `Giao dịch khớp lệnh kết thúc ở trạng thái ${receipt.status}.`;
+    await store.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
+    await auditExecution(
+      store,
+      order,
+      executorRole,
+      'FAILURE',
+      `tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+    );
+    return err('LEDGER', reason);
+  }
+
+  const completed = await store.transitionOrder({
+    id,
+    from: ['EXECUTING'],
+    to: 'COMPLETED',
+    txHash: receipt.txHash,
+  });
+  await auditExecution(
+    store,
+    order,
+    executorRole,
+    'SUCCESS',
+    `khớp ${order.wptAmount} WPT / ${order.vndAmount} VNDB; tx ${receipt.txHash} ${receipt.status}`,
+  );
+
+  // --- 10. Đọc lại số dư WPT TỪ CHUỖI -----------------------------------------
+  const balanceAfter = await ledger.balanceOf(investorWallet);
+
+  // --- 11. Trả Result ---------------------------------------------------------
+  // `completed` có thể là `null` nếu một tiến trình khác vừa đổi trạng thái; lấy bản ghi
+  // hiện tại làm nguồn thay vì dựng số liệu từ biến cũ.
+  const finalOrder = completed ?? (await store.findOrder(id)) ?? order;
+  return ok({
+    ...toView(finalOrder),
+    txHash: receipt.txHash,
+    status: finalOrder.status,
+    txStatus: receipt.status,
+    balanceAfter: balanceAfter.toString(),
+  });
+}
+
+/**
+ * Địa chỉ ví ngân hàng đang ký, hoặc `null` khi chưa cấu hình custody.
+ *
+ * Thiếu signer KHÔNG được làm sập một lần khớp lệnh đã thành công: giao dịch đã lên chuỗi
+ * rồi, ném lỗi ở đây chỉ làm mất kết quả mà không cứu được gì. Cột này chỉ phục vụ đối soát.
+ */
+async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
+  try {
+    return await getBankSigner(chain).getAddress();
+  } catch {
+    return null;
   }
 }
