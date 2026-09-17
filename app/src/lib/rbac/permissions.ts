@@ -21,10 +21,52 @@ export const ACTIONS = [
   'kyc:approve',
   // nhà đầu tư
   'token:transfer',
+
+  /**
+   * Lệnh mua WPT. Hai hành động TÁCH RIÊNG vì hai phía khác nhau:
+   * nhà đầu tư `place`, ngân hàng `execute` (chuyển VNDB và WPT trong một giao dịch).
+   * Ngân hàng KHÔNG được đặt lệnh thay nhà đầu tư, nên `order:place` không cấp cho BANK_ADMIN.
+   */
+  'order:place',
+  'order:execute',
+
+  /**
+   * Chia lợi nhuận: `snapshot` chốt quyền (chụp danh sách nắm giữ), `execute` chi trả.
+   * Tách hai bước vì chốt quyền và chi trả là hai lần quyết định, và mã snapshot
+   * phải lấy từ event `Snapshot` trong receipt của bước đầu.
+   */
+  'distribution:snapshot',
+  'distribution:execute',
+
+  /**
+   * Tất toán (đóng quỹ). Dùng tiền tố `settlement:` chứ KHÔNG phải `token:redeem`,
+   * vì luồng chốt là ngân hàng điều phối và đốt token, không phải nhà đầu tư tự đổi.
+   * Hành động đốt tái dùng `token:burn` đã có.
+   *
+   * `settlement:confirm` là của NHÀ ĐẦU TƯ (xác nhận thu hồi và hoàn vốn), không phải ngân hàng.
+   */
+  'settlement:initiate',
+  'settlement:set-nav',
+  'settlement:confirm',
+
+  /** Quản trị hai ví SPV và ví chia lợi nhuận. */
+  'treasury:manage',
+
+  /**
+   * CHỈ MÔI TRƯỜNG THỬ: cán bộ ngân hàng phát hành VNDB vào ví chỉ định.
+   *
+   * ⚠️ Quyền này MỘT MÌNH KHÔNG đủ để cho phép. Còn phải bật cờ `ENABLE_DEMO_PAYMENT_MINT`
+   * (mặc định tắt) — xem `rbac/demo-payment.ts`. Lý do hai lớp: bảng quyền là mã nguồn,
+   * gán nhầm vai `BANK_ADMIN` trên môi trường thật là mở đường tự phát hành tiền.
+   */
+  'demo:mint-payment',
+
   // đọc
   'balance:read',
   'txn:read',
   'audit:read',
+  /** Báo cáo đối soát — dữ liệu TOÀN HỆ, nên nhà đầu tư không có. */
+  'reconcile:read',
   /**
    * Quyền VÀO kênh nhà đầu tư `(client)` — xem vị thế của chính mình.
    *
@@ -49,8 +91,11 @@ export const FALLBACK_ROLE: Role = 'AUDITOR';
  * ⚠️ KHÔNG thêm `portfolio:read` vào đây. Mọi quyền trong nhóm này tự động có ở
  * BANK_ADMIN, COMPLIANCE và AUDITOR, nên quyền nào dùng làm cổng vào kênh nhà đầu tư
  * mà nằm ở đây thì mất tác dụng chặn.
+ *
+ * `reconcile:read` đặt ở đây CÓ CHỦ Ý: cả ba vai phía ngân hàng đều được xem báo cáo
+ * đối soát, và INVESTOR không spread nhóm này nên tự động không có.
  */
-const READ_ONLY: Action[] = ['balance:read', 'txn:read', 'audit:read'];
+const READ_ONLY: Action[] = ['balance:read', 'txn:read', 'audit:read', 'reconcile:read'];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
   BANK_ADMIN: [
