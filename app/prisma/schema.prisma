@@ -36,22 +36,6 @@ enum AuditOutcome {
   FAILURE
 }
 
-/// Trạng thái lệnh mua WPT. Nguồn sự thật của bảng này là
-/// app/src/lib/bank/purchase.state.ts (ORDER_STATUSES + ORDER_TRANSITIONS).
-///
-/// ⚠️ KHÔNG thêm trạng thái mô tả "đã trả tiền nhưng chưa nhận token": chuyển VNDB và
-/// chuyển WPT nằm trong CÙNG một giao dịch nên tình huống đó không tồn tại. Test
-/// app/test/purchase-state.test.ts chốt điều này bằng máy.
-enum OrderStatus {
-  PLACED
-  CHECKING
-  EXECUTING
-  COMPLETED
-  REJECTED
-  FAILED
-  EXPIRED
-}
-
 /// Giao dịch đã gửi lên ledger (mọi chain, kể cả mock).
 model Txn {
   id           String   @id @default(uuid())
@@ -92,36 +76,55 @@ model AuditLog {
   @@index([actorRole, action])
 }
 
-/// Lệnh mua WPT của nhà đầu tư (BE-02; bảng thuộc phạm vi BE-09, khai trước ở đây).
+// =============================================================================
+//  BE-09 — LỆNH MUA WPT
+// =============================================================================
+
+/// Lệnh mua WPT của nhà đầu tư.
 ///
-/// `vndAmount` được CHỐT lúc đặt lệnh và không tính lại khi khớp: nhà đầu tư trả đúng
-/// giá đã thấy. Vì vậy nó là một CỘT, không phải giá trị suy ra từ `wptAmount`.
+/// ⚠️ TRẠNG THÁI lưu dạng `String`, KHÔNG dùng enum của Prisma (design BE-09 QĐ-4).
+/// Danh sách giá trị hợp lệ là `ORDER_STATUSES` ở `app/src/lib/store/order.store.port.ts`,
+/// lấy đúng theo mô hình đã chốt ở BE-02:
+///     PLACED → CHECKING → EXECUTING → COMPLETED
+///                │            └────→ FAILED
+///                └────→ REJECTED
+///     PLACED → EXPIRED
+/// Cổng lưu trữ CHẶN giá trị ngoài danh sách ở CẢ hai bản (bộ nhớ + Postgres), vì cột
+/// `String` thì cơ sở dữ liệu không tự chặn được — xem `assertOrderStatus`.
 ///
-/// KHÔNG có cột số dư WPT: số dư luôn đọc từ chuỗi. Ghi vào đây là tạo nguồn sự thật
-/// thứ hai, và nó sẽ lệch ngay lần đầu có giao dịch không đi qua hệ thống này.
+/// ⚠️ KHÔNG thêm trạng thái mô tả "đã trả tiền nhưng chưa nhận token": chuyển VNDB và
+/// chuyển WPT nằm trong CÙNG một giao dịch on-chain nên tình huống đó không tồn tại, và
+/// mã viết ra để xử lý nó là mã xử lý tình huống tưởng tượng.
+///
+/// `vndAmount` được CHỐT lúc đặt lệnh, KHÔNG tính lại khi khớp: nhà đầu tư trả đúng giá
+/// đã thấy lúc bấm. Vì vậy nó là một CỘT, không phải giá trị suy ra từ `wptAmount`.
+///
+/// KHÔNG có cột số dư WPT: số dư luôn đọc từ chuỗi. Ghi vào đây là tạo nguồn sự thật thứ
+/// hai, và nó lệch ngay lần đầu có giao dịch không đi qua hệ thống này.
 model PurchaseOrder {
-  id             String      @id @default(uuid())
+  id             String   @id @default(uuid())
   /// ChainKey: hardhat-local | evm | stellar | mock
   chain          String
   investorWallet String
   /// Decimal thay vì BigInt: uint256 vượt tầm int8 của Postgres.
-  wptAmount      Decimal     @db.Decimal(78, 0)
-  vndAmount      Decimal     @db.Decimal(78, 0)
-  status         OrderStatus @default(PLACED)
-  /// Có ngay khi gửi giao dịch, TRƯỚC khi chờ biên nhận — để tiến trình chết giữa
-  /// chừng vẫn còn dấu vết đối soát.
-  txHash         String?
+  wptAmount      Decimal  @db.Decimal(78, 0)
+  /// Số VNDB phải trả, chốt tại thời điểm đặt lệnh.
+  vndAmount      Decimal  @db.Decimal(78, 0)
+  status         String   @default("PLACED")
+  /// R1.4 — DUY NHẤT là ràng buộc chống một giao dịch bị gắn cho hai lệnh khác nhau.
+  /// Postgres coi mỗi NULL là khác nhau, nên lệnh chưa gửi giao dịch không đụng ràng buộc.
+  txHash         String?  @unique
+  /// Lý do từ chối / thất bại / hết hạn, hiển thị được cho người dùng.
   reason         String?
   /// Vai đã đặt lệnh — phục vụ đối soát trách nhiệm.
   actorRole      String
-  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
-  /// Nhà đầu tư xem lệnh của mình: lọc theo ví, sắp theo thời gian.
+  /// R1.3 — nhà đầu tư xem lệnh của mình: lọc theo ví, sắp theo thời gian.
   @@index([investorWallet, createdAt])
-  /// Ngân hàng lọc theo trạng thái; cũng là chỉ mục cho `expireOrders`.
+  /// R1.3 — ngân hàng lọc theo trạng thái; cũng là chỉ mục cho việc dọn lệnh quá hạn.
   @@index([status, createdAt])
-  @@index([txHash])
 }
 
 /// Nhà đầu tư + trạng thái KYC (Phase 4 nối provider thật).
