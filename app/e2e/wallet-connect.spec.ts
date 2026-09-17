@@ -108,6 +108,52 @@ test.describe('Trang Ví của tôi', () => {
   });
 
   /**
+   * Có ví nhưng chưa kết nối.
+   *
+   * Dựng được bằng cách chèn một `window.ethereum` TỐI GIẢN: phép dò ví chỉ cần biết đối
+   * tượng đó có tồn tại, không cần nó hoạt động. Cố ý KHÔNG dựng ví giả biết ký — mock dễ
+   * tính hơn ví thật là cách sinh ra loại lỗi "xanh ở test, đỏ khi người dùng bấm".
+   *
+   * `eth_accounts` trả rỗng để wagmi kết luận chưa kết nối mà không phải ném lỗi.
+   */
+  test('có ví nhưng chưa kết nối: mời kết nối, không đòi cài ví', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await enterInvestorChannel(context, baseURL!);
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'ethereum', {
+        value: {
+          isMetaMask: true,
+          request: async ({ method }: { method: string }) => {
+            if (method === 'eth_accounts') return [];
+            if (method === 'eth_chainId') return '0x7a69';
+            throw Object.assign(new Error('không hỗ trợ trong e2e'), { code: 4200 });
+          },
+          on: () => {},
+          removeListener: () => {},
+        },
+        configurable: true,
+      });
+    });
+
+    await page.goto('/wallet');
+    await waitForHydration(page);
+    await page.locator('#chain-selector').selectOption('hardhat-local');
+
+    await expect(page.getByRole('heading', { name: /Chưa kết nối ví/ })).toBeVisible();
+    /*
+     * Bó vào `main`: nhãn "Kết nối ví" cố ý trùng với nút của RainbowKit trên thanh phía trên
+     * (hai lối vào cùng một việc), nên tìm toàn trang sẽ ra hai phần tử và Playwright báo
+     * ambiguous. Ở đây đang kiểm nút TRONG trang.
+     */
+    await expect(page.locator('main').getByRole('button', { name: /Kết nối ví/ })).toBeVisible();
+    // Có ví rồi thì KHÔNG được mời cài ví nữa.
+    await expect(page.getByRole('heading', { name: /Chưa có ví trong trình duyệt/ })).toHaveCount(0);
+  });
+
+  /**
    * Mạng Stellar không thuộc họ EVM. `stellar` đang bị disable trong bộ chọn (adapter stub)
    * nên không chọn được từ giao diện — đó là lý do ca này kiểm bằng cách khẳng định option
    * bị disable, thay vì bịa ra một đường đi không tồn tại.

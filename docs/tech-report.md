@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.4 |
-| Cập nhật lần cuối | 2026-09-16 |
-| Nhánh / commit | `feat/investor-channel-v2` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan) |
+| Phiên bản tài liệu | 1.5 |
+| Cập nhật lần cuối | 2026-09-17 |
+| Nhánh / commit | `feat/wallet-connect` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -99,7 +99,7 @@ bidv-rwa-tokenize/
 │   ├── src/app/
 │   │   ├── (admin)/           # Kênh ngân hàng: mint, kyc, assets, reconciliation
 │   │   ├── (audit)/           # Kênh kiểm toán: chỉ đọc
-│   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, tokens/[symbol]
+│   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, tokens/[symbol], wallet
 │   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns
 │   │   ├── layout.tsx, page.tsx, globals.css
@@ -107,8 +107,11 @@ bidv-rwa-tokenize/
 │   │   ├── layout/            # sidebar, header, chain-selector, channel-guard,
 │   │   │                      #   nav-config, channel-switcher, role-switcher
 │   │   ├── investor/          # 4 hộp trang tổng quan + nhãn dữ liệu mẫu
+│   │   ├── wallet/            # no-wallet-guide, wrong-chain-banner,
+│   │   │                      #   wallet-status-card (dùng lại ở FE-05/09/11)
 │   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation,
-│   │   │                      #   investor-portfolio, investor-token-detail
+│   │   │                      #   investor-portfolio, investor-token-detail,
+│   │   │                      #   wallet-connect
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   ├── e2e/                   # Playwright
@@ -194,6 +197,11 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 - **Điều hướng khi đổi kênh làm bằng `redirect()` trong server action, không bằng `router.push` ở client.** Đổi kênh làm vai mất quyền của trang đang mở, `ChannelGuard` kết xuất màn từ chối mà màn đó không bọc `AppLayout` → `Header` bị unmount và `push` trong transition đã unmount sẽ mất.
 - **`publicConfig()` là async và đọc cookie.** Trước đây trả `role` từ `env.demoRole` nên giao diện hiển thị sai vai sau khi đổi vai (kể cả gate nút trong `mint.tsx`). Hệ quả có chủ ý: root layout thành động, `/` không còn prerender tĩnh.
 - **Nhãn dữ liệu mẫu là một component dùng chung** (`components/investor/mock-badge.tsx`). Nhãn lúc "mock" lúc "demo" lúc không có thì người xem là ngân hàng không biết con số nào tin được.
+- **Trạng thái ví quyết định ở MỘT hàm thuần, `mock` xét trước mọi phép kiểm ví.** `resolveWalletStatus()` trong `lib/wallet/wallet-status.ts` không phụ thuộc React lẫn wagmi nên test được ở vitest môi trường `node`. Thứ tự ưu tiên là phần dễ làm sai nhất — bảng đầy đủ ở 3.9. Đừng thêm điều kiện `if` về ví vào component: đó là lúc bắt đầu có nguồn sự thật thứ hai.
+- **`useAccount().chainId` mới là chain của ví, `useChainId()` thì không.** `useChainId()` lùi về chain đầu tiên trong cấu hình khi chưa kết nối, nên dùng nó để so sánh sẽ kết luận "đã khớp chain" trong lúc chưa có ví nào.
+- **Dò ví bằng external store, không đọc `window.ethereum` một lần lúc mount.** Ví theo EIP-6963 công bố không đồng bộ: ngay sau khi tải trang có thể chưa thấy gì, một nhịp sau mới có. Thêm chốt an toàn: đã `isConnected` thì không kết luận "chưa cài ví" dù phép dò không thấy.
+- **State lỗi mang theo khoá tình huống, không phải `string | null` trơn.** Không có khoá thì thông báo sống dai hơn tình huống sinh ra nó — người dùng tự đổi mạng trong ví rồi mà câu "Bạn đã từ chối chuyển mạng" vẫn còn. Có khoá thì "còn hiệu lực" là thứ suy ra, và tránh luôn `setState` trong effect mà React Compiler chặn.
+- **`explorerTxUrl`/`explorerAddressUrl` trả `null` cho chain không có explorer.** UI phải ẩn liên kết. Trỏ tx của `hardhat-local` sang explorer công khai sẽ ra trang "not found" — tệ hơn là không có liên kết.
 
 ### C. Nợ kỹ thuật đã biết (cần xử lý, đã ghi nhận)
 
@@ -448,13 +456,16 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
 | `chains/registry.ts` | Map ChainKey → cấu hình viem, tự `defineChain` | Không import `viem/chains` để tránh phình bundle |
 | `chains/chain-store.ts` | Zustand giữ chain đang chọn | Không persist, mặc định `null` chống hydration mismatch |
+| `chains/use-selected-chain.ts` | Chain đang dùng = lựa chọn người dùng, chưa chọn thì lấy mặc định server | Lựa chọn không còn dùng được thì **lặng lẽ** lùi về mặc định — chỗ gọi phải tự kiểm `selectable` trước khi bày nút đổi chain |
+
+Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 
 ## 3.7. `packages/shared/` — một nguồn sự thật
 
 | File | Nội dung |
 |---|---|
 | `src/types.ts` | `ChainKey`, `ChainFamily`, `TxStatus`, `ContractName`… **Không import gì nặng** (bị kéo vào bundle edge) |
-| `src/chains.ts` | Danh sách chain: `hardhat-local` (mặc định), `evm`, `stellar`, `mock` |
+| `src/chains.ts` | Danh sách chain: `hardhat-local` (mặc định), `evm`, `stellar`, `mock`. Kèm `explorerTxUrl()` và `explorerAddressUrl()` — **trả `null`** khi chain không có explorer (`hardhat-local`, `mock`) để UI ẩn liên kết chứ không trỏ sang explorer chain khác |
 | `src/abi/` | ABI tối giản cho web: `project-token.ts`, `vnd-token.ts`, `profit-distributor.ts`, `redemption.ts` |
 | `generated/` | ABI đầy đủ sinh từ Hardhat — chỉ để test đối chiếu, không ship lên web |
 | `src/addresses.ts` | Tra địa chỉ contract: **env thắng file**, hỗ trợ free-tier không đọc được filesystem |
@@ -482,6 +493,81 @@ sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "fu
 | `extensions/ERC20Snapshotable.sol` | Chụp số dư tại thời điểm | `balanceOfAt`, `totalSupplyAt` |
 
 **Lưu ý:** thư mục `trex/` dùng **toolchain riêng** (Solidity 0.8.17 + OZ 4). Tuyệt đối không trộn với contracts chính (0.8.28 + OZ 5).
+
+## 3.9. `app/src/lib/wallet/` và `lib/hooks/` — trạng thái ví ở client (FE-02)
+
+> Đánh số 3.9 chứ không chèn vào giữa vì `tech-report-maintenance.md` đang tham chiếu
+> "Phần 3.6" và "Phần 3.8"; đánh số lại sẽ làm hai tham chiếu đó trỏ sai.
+
+Đây là **cổng vào của mọi thao tác ký ở kênh nhà đầu tư**. Ví trình duyệt CHỈ dùng cho thao
+tác của nhà đầu tư; thao tác đặc quyền của ngân hàng vẫn ký bằng khóa phía máy chủ qua
+`ISigner` (Luật #2).
+
+| File | Vai trò | Lưu ý |
+|---|---|---|
+| `wallet/wallet-status.ts` | Logic THUẦN: `resolveWalletStatus()`, `canSignWith()`, `blockedSigningReason()`, `chainIdToSwitchTo()`, `chainKeyOfChainId()`, `chainIdLabel()` | Không React, không wagmi — nhờ vậy test được ở vitest môi trường `node`. Danh sách chain được phép (`WALLET_CHAIN_KEYS`, `ALLOWED_CHAIN_IDS`) **suy ra từ `CHAINS`**, không ghi cứng chainId |
+| `wallet/injected-provider.ts` | Dò ví bằng external store cho `useSyncExternalStore` | Nghe cả `window.ethereum` và sự kiện `eip6963:announceProvider`. Ví EIP-6963 công bố **không đồng bộ** nên đọc một lần lúc mount sẽ kết luận sai là "chưa cài ví" |
+| `wallet/switch-error.ts` | `isUserRejection()`, `describeSwitchError()` | Bóc lỗi theo tầng `cause`. Đọc `error.message` tầng ngoài sẽ ra văn bản kỹ thuật tiếng Anh cho mọi trường hợp |
+| `wallet/format.ts` | `shortenAddress()`, `formatNativeAmount()` | Tự viết vì component **không được nhập viem**, và `useBalance().data.formatted` của wagmi đã `@deprecated`. Cắt phần thập phân, **không làm tròn lên** |
+| `hooks/use-wallet-status.ts` | `useWalletStatus()` — thu thập đầu vào thật rồi gọi hàm thuần | MỘT chỗ trả lời "ví sẵn sàng ký chưa" cho FE-04/05/09/11 |
+| `hooks/use-native-balance.ts` | Số dư đồng bản địa | `eth_getBalance`, **không phải lời gọi hợp đồng** nên không thuộc `ILedgerPort`. Số dư WPT/VNDB vẫn phải đi qua `ILedgerPort` |
+| `hooks/use-is-mounted.ts` | `false` ở server, `true` sau hydrate | Đã có từ trước. Dùng `useSyncExternalStore`, **đừng viết lại** bằng `useEffect` + `setState` |
+
+### Tám trạng thái và THỨ TỰ ƯU TIÊN (làm sai thứ tự sẽ hiện cảnh báo vô nghĩa)
+
+| # | Trạng thái | Khi nào | Hiển thị |
+|---|---|---|---|
+| 1 | `loading` | chưa hydrate | khung chờ |
+| 2 | `mock` | chain đang chọn là `mock` | "đang ở chế độ mô phỏng", **dừng, không kiểm gì nữa** |
+| 3 | `unsupported-chain` | chain đang chọn không thuộc họ EVM (`stellar`) | "chưa hỗ trợ ví cho mạng này" |
+| 4 | `loading` | ví đang tự kết nối lại | khung chờ |
+| 5 | `no-provider` | không có ví được tiêm **và** chưa kết nối | `NoWalletGuide` |
+| 6 | `disconnected` | có ví, chưa kết nối | mời kết nối |
+| 7 | `wrong-chain` | chainId ngoài danh sách được phép | `WrongChainBanner` |
+| 8 | `chain-mismatch` | chain được phép nhưng khác chain đang xem | `WrongChainBanner` + lối đổi chain của trang |
+| 9 | `ready` | khớp hết | `WalletStatusCard` |
+
+**Vì sao `mock` phải đứng đầu:** chế độ mô phỏng không cần ví, nên mọi cảnh báo ví ở đó đều
+là nhiễu. Đây cũng là chế độ mặc định của bản triển khai miễn phí, tức là thứ đa số người xem
+demo gặp đầu tiên. Cùng lý lẽ, `unsupported-chain` đứng trước `no-provider`: mời người đang
+xem Stellar đi cài MetaMask là lời mời vô nghĩa.
+
+**`canSign` chỉ đúng ở `ready` và `mock`.** Đây là thứ FE-05/09/11 dùng để bật/tắt nút ký;
+mỗi màn tự ghép `useAccount` + `useChainId` + `useSwitchChain` là bắt đầu có nguồn sự thật
+thứ hai và hai bên sẽ lệch nhau.
+
+### Lưu ý khi phát triển
+
+- **Không sửa `lib/wagmi.ts`.** File đó đã xử lý phần khó nhất: thiếu `NEXT_PUBLIC_WC_PROJECT_ID`
+  thì dựng config wagmi trực tiếp với connector `injected` thay vì để RainbowKit ném lỗi ngay
+  lúc nạp module và làm trắng toàn bộ ứng dụng.
+- **Dùng `useAccount().chainId`, KHÔNG dùng `useChainId()`** để biết chain của ví. `useChainId()`
+  lùi về chain đầu tiên trong cấu hình khi chưa kết nối, nên lấy nó làm "chain của ví" sẽ kết
+  luận sai là đã khớp chain trong lúc chưa có ví nào.
+- **Không tự động chuyển chain.** Chỉ chuyển khi người dùng bấm. Tự động chuyển làm ví bật hộp
+  thoại mà người dùng không hiểu vì sao, và nếu họ từ chối thì rơi vào vòng lặp yêu cầu.
+- **Thông số `wallet_addEthereumChain` lấy từ `packages/shared` + config wagmi**, không ghi cứng:
+  `rpcUrls` lấy từ chain trong config wagmi (vì `lib/wagmi.ts` đã áp override
+  `NEXT_PUBLIC_RPC_*`), `blockExplorerUrls` lấy từ `CHAINS` (vì `lib/wagmi.ts` không khai báo
+  explorer).
+- **Trạng thái lỗi phải mang theo khoá tình huống** (`chain đang xem | địa chỉ | chainId ví`).
+  Không có khoá thì câu "Bạn đã từ chối chuyển mạng" sống dai hơn tình huống của nó: người dùng
+  tự đổi mạng trong ví rồi mà cảnh báo vẫn còn, và giờ nó sai. Cùng khuôn với
+  `components/investor/asset-summary.tsx`; cách này cũng tránh `setState` trong effect mà React
+  Compiler chặn.
+- **`getByRole('alert')` trong Playwright phải bó phạm vi vào `main`.** Toàn trang thì nó bắt
+  luôn vùng thông báo rỗng mà Next.js Dev Tools chèn vào cuối `body`, làm phép kiểm "không có
+  cảnh báo nào" đỏ vì lý do chẳng liên quan tới ví.
+
+### Cách mở rộng
+
+| Muốn thêm | Đụng vào đâu |
+|---|---|
+| Chain EVM mới | Thêm vào `CHAINS` (`packages/shared`) + `lib/wagmi.ts`. `WALLET_CHAIN_KEYS` tự cập nhật, **không sửa `wallet-status.ts`** |
+| Cảnh báo sai mạng ở màn khác | Dùng lại `WrongChainBanner`, lấy `status`/`switchToExpected` từ `useWalletStatus()` |
+| Gate nút ký ở màn mới | Đọc `canSign` + `blockedReason`, không tự kiểm chain |
+| Ví do ngân hàng giữ hộ (IN-03/IN-04) | Thêm `ISigner` mới, đổi factory. Màn này không phải sửa |
+| Đăng nhập bằng chữ ký ví | AU-01. **Chưa được** dùng địa chỉ ví để cấp quyền: kết nối ví không chứng minh sở hữu vì chưa có chữ ký |
 
 ---
 
@@ -633,6 +719,9 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | P0 | Nền: cây thư mục, compose, deploy contract, `ILedgerPort` | ✅ Xong |
 | P1 | **MINT** end-to-end | ✅ Xong |
 | — | Dọn giao diện sang chủ đề điện gió | ✅ Xong |
+| — | FE-01 v2 kênh nhà đầu tư + trang tổng quan | ✅ Xong |
+| — | BE-01 mở rộng `ILedgerPort` cho ba luồng (`mock` đủ 16/16, `evm` còn 10 method chờ contract) | ✅ Xong |
+| — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
 | P2 | **REDEEM** (`Redemption.sol`) | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** (`ProfitDistributor` + `EnergyOracle`) | ⏳ |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
