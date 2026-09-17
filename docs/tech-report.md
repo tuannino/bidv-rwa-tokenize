@@ -169,6 +169,11 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
 | Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền; kỹ thuật đúng là `git rebase --onto <đích> <nền> <nhánh>`. Nhưng **chỉ dùng sau khi Owner đồng ý** đổi nền |
 | Commit trực tiếp lên `dev` | Cấm, kể cả sửa một dòng tài liệu. Mở nhánh `docs/<tên>` từ `dev` rồi để Owner merge — `branching.md` §10. Ngoại lệ do Owner chỉ định thì phải nói rõ và ghi lại (§12) |
+| Thêm method liệt kê người nắm giữ vào `ILedgerPort` | ERC-20 chỉ lưu **bảng số dư theo địa chỉ**, không lưu danh sách địa chỉ — không lời gọi nào đọc ra danh sách từ chuỗi. Danh sách ví lấy từ cơ sở dữ liệu, về sau từ Indexer. Đừng quét sự kiện trong adapter (xem 3.1) |
+| Nối method vào contract có ngữ nghĩa "gần gần" khi contract đúng chưa có | Tệ hơn chưa nối: cho ra hệ thống chạy được nhưng làm ngược, và không ai phát hiện tới lúc chạy thật. Ném `LedgerNotImplementedError` với gợi ý nêu đúng thứ đang thiếu, rồi ghi câu hỏi mở |
+| Đọc `data.errorName` trước `reason` khi bóc revert của viem | Mất sạch lý do: `require(cond, "chuoi")` cho `errorName = 'Error'`, chuỗi thật ở `reason`. Thứ tự đúng `reason` → `data.errorName` → `signature` (xem 3.1) |
+| ABI tối giản chỉ có `function` và `event` | Thiếu mục `error` thì viem không giải mã custom error OZ v5, chỉ ra 4 byte selector (xem 3.7) |
+| Lấy mã snapshot bằng cách tự tăng số đếm hoặc gọi `getCurrentSnapshotId()` sau khi gửi tx | Tx snapshot của người khác chen vào giữa hai lời gọi là ta lấy về mã của họ — sai âm thầm, rồi chia lợi nhuận theo ảnh chụp sai. Nguồn duy nhất: event `Snapshot` trong receipt |
 
 ### B. Quyết định thiết kế có chủ ý (đừng "sửa" nhầm)
 
@@ -176,7 +181,9 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 - **Trả `Result<T>` thay vì `throw`.** Next.js che thông báo lỗi ở production, và kết quả phải tuần tự hóa được qua biên server → client (không `bigint`, không `Error`).
 - **Số lượng token truyền dưới dạng chuỗi.** `number` của JS mất chính xác từ 2^53; `bigint` không qua được biên serialize.
 - **Stub luôn ném lỗi, không bao giờ trả giá trị giả.** `fireblocks.signer.stub.ts` không được âm thầm quay về khóa server — đó là lỗ hổng bảo mật.
-- **Mock nghiêm ngặt ngang bản thật.** `mock.adapter.ts` vẫn chặn khi chưa KYC / bị băng / đang tạm dừng. Nếu mock dễ tính hơn contract thật thì sẽ sinh loại lỗi "chạy mock được, lên chain thật hỏng".
+- **Mock nghiêm ngặt ngang bản thật.** `mock.adapter.ts` vẫn chặn khi chưa KYC / bị băng / đang tạm dừng, và từ BE-01 giữ thêm: phát hành lần hai bị từ chối, khớp lệnh kiểm số dư/ủy quyền/tồn WPT của ví SPV, tất toán chặn chuyển nhượng nhưng cho đốt, quỹ lợi nhuận thiếu tiền thì từ chối trước khi chuyển cho ai. Nếu mock dễ tính hơn contract thật thì sẽ sinh loại lỗi "chạy mock được, lên chain thật hỏng". Hai chỗ dễ sai nhất: giá bán mặc định để 0 làm khớp lệnh thành "mua không mất tiền"; kiểm tra rải rác giữa các bước thay đổi trạng thái làm thất bại để lại trạng thái nửa vời — **mọi kiểm tra phải chạy trước mọi thay đổi trạng thái**.
+- **Test ca từ chối phải kiểm luôn "trạng thái không đổi".** Chỉ kiểm "có ném lỗi" thì bỏ sót đúng thứ nguy hiểm nhất: lỗi vẫn ném mà số dư đã bị trừ.
+- **Kiểu của hàm `never` ghi trên BIẾN, không trên hàm mũi nhọn.** `const reject: (a: string, b: string) => never = ...` thì TypeScript mới thu hẹp kiểu sau lời gọi; viết `const reject = (...): never =>` thì sau `if (!x) reject(...)` biến `x` vẫn còn `| undefined`.
 - **`import 'server-only'` trong `config/env.ts`.** Đây là hàng rào cứng: nếu Client Component lỡ import, build sẽ fail ngay thay vì rò khóa ra bundle trình duyệt.
 - **`brand.ts` là ngoại lệ hex màu duy nhất.** Logo và modal ví cần màu cố định không đổi theo theme. Ngoài file này, mọi màu phải dùng biến CSS.
 - **`chain-store` không persist, mặc định `null`.** Để lần render đầu khớp server, tránh lỗi hydration mismatch.
@@ -197,6 +204,7 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 | ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
+| **P1** | **10 trong 16 method mới của `ILedgerPort` chưa nối được ở `evm.adapter`** — chờ contract phát hành một lần (SC-02), contract khớp lệnh (SC-03), mapping `snapshotId`→`distributionId` (BE-06), và xác nhận cờ tất toán/NAV nối vào contract nào. Bảng đầy đủ ở 3.1 | Hiện phát triển trên chain `mock` (đã hiện thực đủ 16/16, có 48 test). Khi contract xong thì bổ sung `evm.adapter` trong commit riêng — `docs/CHECKPOINT_BE01.md` |
 | **P2** | Chưa có CI. Mọi kiểm tra chạy tay | Thêm GitHub Actions chạy `typecheck + lint + test` mỗi lần push |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
 | **P2** | 1 cảnh báo lint ở `src/empty.ts` | Sửa cùng lúc với việc gỡ blocker `next.config.ts` |
@@ -279,31 +287,77 @@ Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, cá
 
 | File | Vai trò |
 |---|---|
-| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo |
+| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (250 dòng) |
 | `index.ts` | Factory `getLedger(chain, signer)` — map chain → adapter |
-| `evm.adapter.ts` | Hiện thực EVM bằng viem (199 dòng) |
-| `mock.adapter.ts` | Ledger trong RAM, không cần chain |
-| `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng |
+| `evm.adapter.ts` | Hiện thực EVM bằng viem (570 dòng) |
+| `mock.adapter.ts` | Ledger trong RAM, không cần chain (592 dòng) |
+| `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng (135 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
-**Các hàm của `ILedgerPort`:**
+### `ILedgerPort` — 7 nhóm, 27 method
 
-| Nhóm | Hàm | Ý nghĩa |
-|---|---|---|
-| Tuân thủ | `whitelist`, `isWhitelisted`, `freeze`, `isFrozen` | Kiểm soát ai được nắm giữ WPT |
-| Phát hành | `mint`, `burn`, `transfer`, `forcedTransfer` | Tạo, hủy, chuyển, thu hồi cưỡng chế |
-| Đọc | `balanceOf`, `tokenInfo`, `waitReceipt` | Truy vấn trạng thái |
+Từ BE-01, `ILedgerPort` được **tách thành 7 interface con theo nghiệp vụ** trong cùng
+`ledger.port.ts`, rồi hợp lại bằng kế thừa kiểu. Tên `ILedgerPort` giữ nguyên và vẫn là
+thứ duy nhất tầng nghiệp vụ nhìn thấy, nên không lời gọi nào phải sửa khi tách.
+
+Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (chờ thứ ghi ở cột cuối).
+
+| # | Interface | Method | mock | evm | stellar | Chờ gì |
+|---|---|---|---|---|---|---|
+| 1 | `ILedgerCompliance` | `whitelist` | ✅ | ✅ | ⏳ | Phase 7 |
+| 2 | | `isWhitelisted` | ✅ | ✅ | ⏳ | Phase 7 |
+| 3 | | `freeze` | ✅ | ✅ | ⏳ | Phase 7 |
+| 4 | | `isFrozen` | ✅ | ✅ | ⏳ | Phase 7 |
+| 5 | | `canTransfer` | ✅ | ✅ | ⏳ | Phase 7 |
+| 6 | `ILedgerIssuance` | `mint` | ✅ | ✅ | ⏳ | Phase 7 |
+| 7 | | `burn` | ✅ | ✅ | ⏳ | Phase 7 |
+| 8 | | `transfer` | ✅ | ✅ | ⏳ | Phase 7 |
+| 9 | | `forcedTransfer` | ✅ | ✅ | ⏳ | Phase 7 |
+| 10 | | `mintInitialSupply` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
+| 11 | | `isInitialSupplyMinted` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
+| 12 | `ILedgerPurchase` | `quotePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 13 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 14 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
+| 15 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 16 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
+| 17 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 18 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 19 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
+| 20 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
+| 21 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
+| 22 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
+| 23 | | `setNavRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
+| 24 | | `navRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
+| 25 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 26 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
+| 27 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+
+Kiểu đi kèm: `TransferCheck` (`{ allowed: true } | { allowed: false; reason: string }`) và
+`SnapshotResult` (`{ tx, snapshotId }`).
+
+**KHÔNG có method liệt kê người nắm giữ, và đó là quyết định có chủ đích.** ERC-20 chỉ lưu
+bảng số dư theo địa chỉ, không lưu danh sách địa chỉ, nên không lời gọi nào đọc ra danh
+sách từ chuỗi. Danh sách ví cần chia lợi nhuận / cần tất toán lấy từ cơ sở dữ liệu (lệnh
+mua đã hoàn tất, vị thế nhà đầu tư), về sau từ Indexer, rồi truyền vào `distributeBatch`.
+Đừng thêm `holdersAt` rồi hiện thực bằng cách quét sự kiện trong adapter — quét sự kiện là
+việc của Indexer; làm trong adapter thì chậm, không phân trang được, và sai ngay khi RPC
+giới hạn khoảng block.
 
 **Lưu ý khi phát triển:**
 - `evm.adapter` luôn `simulateContract` **trước** khi `writeContract`. Giữ nguyên thói quen này: vi phạm tuân thủ báo lỗi ngay, không đốt gas vào giao dịch chắc chắn revert.
-- Hàm `fail()` bóc revert reason của contract thành câu tiếng Việt đọc được. Thêm lỗi mới thì bổ sung vào đây.
+- Hàm `fail()` + bảng `REVERT_MESSAGES` bóc revert reason của contract thành câu tiếng Việt đọc được. Thêm lỗi mới thì bổ sung vào bảng đó.
+  Thứ tự đọc là `reason` → `data.errorName` → `signature`, **không** được đảo: với `require(cond, "chuoi")` viem đặt `data.errorName = 'Error'` và để chuỗi thật ở `reason`, nên ưu tiên `errorName` sẽ biến mọi lỗi tuân thủ thành đúng một câu "Contract từ chối: Error".
 - `LedgerError` mang thông báo cho người dùng cuối, không phải log kỹ thuật.
+- `takeSnapshot` là method ghi **duy nhất tự chờ receipt**: mã snapshot chỉ có trong event `Snapshot`, nên trả `PENDING` là vô nghĩa. Không tự tăng số đếm, cũng không gọi `getCurrentSnapshotId()` sau khi gửi — tx snapshot của người khác có thể chen vào giữa hai lời gọi.
+- `mock.adapter` phải **nghiêm ngặt ngang contract thật**. Bảng ràng buộc bắt buộc ở `docs/be-01-ledger-port/design.md` mục 3; 48 test ở `test/mock-ledger.test.ts` phủ từng dòng.
+- `seedMockLedger()` chỉ dành cho test/demo: VNDB, mức ủy quyền và quỹ lợi nhuận do hệ thống khác sinh ra, `ILedgerPort` chỉ đọc. **Không** gọi từ nghiệp vụ.
 
 **Cách mở rộng:**
-1. Thêm method mới → khai báo ở `ledger.port.ts` trước.
-2. Hiện thực ở **cả ba** adapter (stellar có thể ném "chưa hỗ trợ").
+1. Thêm method mới → khai báo ở `ledger.port.ts` trước, trong đúng interface con theo nghiệp vụ.
+2. Hiện thực ở **cả ba** adapter (stellar có thể ném "chưa hỗ trợ", kèm gợi ý nêu rõ thứ đang thiếu).
 3. Bổ sung test ở `test/mock-ledger.test.ts`.
 4. **Không bao giờ** thêm method chỉ cho một adapter rồi ép kiểu ở nơi gọi.
+5. Chưa có contract thì **ném lỗi**, đừng nối tạm vào một contract có ngữ nghĩa gần gần: `Redemption.paused` chẳng hạn ngược hướng với "bật giai đoạn tất toán", nối vào sẽ ra hệ thống chạy được nhưng làm ngược.
 
 ## 3.2. `app/src/lib/signer/` — cổng ký (Luật #2)
 
@@ -401,11 +455,19 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 |---|---|
 | `src/types.ts` | `ChainKey`, `ChainFamily`, `TxStatus`, `ContractName`… **Không import gì nặng** (bị kéo vào bundle edge) |
 | `src/chains.ts` | Danh sách chain: `hardhat-local` (mặc định), `evm`, `stellar`, `mock` |
-| `src/abi/` | ABI tối giản cho web |
-| `generated/` | ABI đầy đủ sinh từ Hardhat |
+| `src/abi/` | ABI tối giản cho web: `project-token.ts`, `vnd-token.ts`, `profit-distributor.ts`, `redemption.ts` |
+| `generated/` | ABI đầy đủ sinh từ Hardhat — chỉ để test đối chiếu, không ship lên web |
 | `src/addresses.ts` | Tra địa chỉ contract: **env thắng file**, hỗ trợ free-tier không đọc được filesystem |
 
 ⚠️ **Tuyệt đối không copy ABI hay địa chỉ contract ra ngoài package này.**
+
+**ABI tối giản phải có cả mục `error`, không chỉ `function` và `event`.** OZ v5 revert bằng
+custom error; ABI thiếu mục `error` thì viem không giải mã được và chỉ trả về 4 byte
+selector, ra message kiểu `reverted with the following signature: 0xe2517d3f` — vô nghĩa
+với cả người dùng lẫn người sửa lỗi.
+
+`app/test/abi-contract-sync.test.ts` đối chiếu **cả 4** ABI tối giản với `generated/`, nên
+sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "function not found" lúc chạy.
 
 ## 3.8. `packages/contracts-evm/contracts/`
 
