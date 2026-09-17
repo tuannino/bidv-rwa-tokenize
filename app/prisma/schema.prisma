@@ -274,6 +274,40 @@ model SettlementCase {
   @@index([roundId, status])
 }
 
+// =============================================================================
+//  BE-09 — TIẾN TRÌNH HẸN GIỜ
+// =============================================================================
+
+/// Mốc chạy của tiến trình hẹn giờ (BE-07).
+///
+/// Duy nhất `(jobName, periodKey)` (R4.2) là chốt chặn chạy trùng, và nó phải nằm ở cơ
+/// sở dữ liệu chứ không phải ở mã: hai instance web cùng nhận một lịch — chuyện thường
+/// gặp khi chạy nhiều bản sao hoặc khi lịch trước chưa xong đã tới lịch sau — sẽ cùng
+/// đọc thấy "chưa chạy" rồi cùng chạy. Ghi dòng mốc TRƯỚC khi làm việc, thất bại ở
+/// ràng buộc này chính là cách một bản biết bản kia đã nhận việc.
+///
+/// `periodKey` là chuỗi tự do do từng công việc quy ước (kỳ chia "2026-Q1", ngày
+/// "2026-09-18", đợt tất toán...), không phải khóa ngoài: một công việc có thể chạy theo
+/// kỳ không tương ứng bảng nào.
+model KeeperRun {
+  id         String    @id @default(uuid())
+  /// Tên công việc, ví dụ "expire-orders".
+  jobName    String
+  /// Kỳ mà lần chạy này phụ trách.
+  periodKey  String
+  startedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  /// Giá trị hợp lệ: KEEPER_RUN_STATUSES ở lib/store/keeper.store.port.ts
+  status     String    @default("RUNNING")
+  /// Thông báo lỗi khi thất bại.
+  error      String?
+
+  /// R4.2 — một công việc chạy đúng một lần cho một kỳ.
+  @@unique([jobName, periodKey])
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+}
+
 /// Nhà đầu tư + trạng thái KYC (Phase 4 nối provider thật).
 model Investor {
   id           String    @id @default(uuid())
