@@ -101,3 +101,14 @@ export function explorerTxUrl(key: ChainKey, txHash: string): string | null {
   const base = CHAINS[key].explorerBaseUrl;
   return base ? `${base}/tx/${txHash}` : null;
 }
+
+/**
+ * URL xem một ví/contract trên explorer của chain, hoặc `null` nếu chain không có explorer.
+ *
+ * Cùng lý lẽ với `explorerTxUrl`: `hardhat-local` và `mock` không có explorer nào biết tới,
+ * nên UI phải ẩn liên kết chứ đừng trỏ sang explorer của chain khác rồi ra trang "not found".
+ */
+export function explorerAddressUrl(key: ChainKey, address: string): string | null {
+  const base = CHAINS[key].explorerBaseUrl;
+  return base ? `${base}/address/${address}` : null;
+}
