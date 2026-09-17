@@ -473,7 +473,7 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
  * HTTP trực tiếp mà không đi qua màn hình nào, nên bộ lọc đặt ở component là bộ lọc không
  * tồn tại.
  *
- * Cách phân biệt R5.1 với R5.2 mà KHÔNG dùng `if (role === 'INVESTOR')`:
+ * Cách phân biệt R5.1 với R5.2 mà KHÔNG so sánh tên vai trực tiếp (LUẬT #3):
  *   - Vai có `order:read:all` (ba vai ngân hàng): được bỏ trống bộ lọc ví -> xem toàn hệ.
  *   - Vai không có (nhà đầu tư): `investorWallet` là BẮT BUỘC, và kết quả chỉ chứa lệnh
  *     của đúng ví đó.
