@@ -67,6 +67,37 @@ export const projectTokenAbi = [
     outputs: [{ name: '', type: 'string' }],
   },
 
+  // --- Đọc: chốt quyền theo thời điểm (ERC20Snapshotable) ---
+  {
+    type: 'function',
+    name: 'balanceOfAt',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'snapshotId', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'totalSupplyAt',
+    stateMutability: 'view',
+    inputs: [{ name: 'snapshotId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  /**
+   * Mã snapshot gần nhất, 0 nếu chưa chốt lần nào. Dùng để báo lỗi có ích khi
+   * nghiệp vụ truyền mã sai ("mã hợp lệ hiện có: 1..N") thay vì để contract
+   * revert bằng "Snapshot: id chua ton tai".
+   */
+  {
+    type: 'function',
+    name: 'getCurrentSnapshotId',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+
   // --- Đọc: phân quyền on-chain (để chẩn đoán "signer thiếu role") ---
   {
     type: 'function',
@@ -147,6 +178,20 @@ export const projectTokenAbi = [
     ],
     outputs: [],
   },
+
+  // --- Ghi: chốt quyền (SNAPSHOT_ROLE) ---
+  /**
+   * Trả về mã snapshot, NHƯNG đây là hàm ghi nên giá trị trả về không đọc được từ
+   * `eth_sendTransaction`. Mã thật phải lấy từ event `Snapshot` trong receipt —
+   * đừng tự tăng số đếm ở tầng ứng dụng, sẽ lệch ngay khi có ai khác gọi snapshot.
+   */
+  {
+    type: 'function',
+    name: 'snapshot',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     type: 'function',
     name: 'transfer',
@@ -192,5 +237,11 @@ export const projectTokenAbi = [
       { name: 'to', type: 'address', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
     ],
+  },
+  /** Nguồn sự thật DUY NHẤT của mã snapshot. `id` không indexed (theo contract). */
+  {
+    type: 'event',
+    name: 'Snapshot',
+    inputs: [{ name: 'id', type: 'uint256', indexed: false }],
   },
 ] as const;

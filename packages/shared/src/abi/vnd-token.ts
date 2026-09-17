@@ -1,6 +1,6 @@
 /**
  * ABI **TỐI GIẢN** của VNDToken (VNDB) — token thanh toán do ngân hàng phát hành/thu hồi.
- * Chưa dùng trong mint flow (P1); có sẵn cho chia lợi tức (P3) và hoàn vốn (P2).
+ * Dùng cho khớp lệnh mua (đọc số dư + mức ủy quyền), chia lợi tức và hoàn vốn.
  */
 export const vndTokenAbi = [
   {
@@ -8,6 +8,20 @@ export const vndTokenAbi = [
     name: 'balanceOf',
     stateMutability: 'view',
     inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  /**
+   * Mức ủy quyền VNDB mà `owner` đã cấp cho `spender` (hợp đồng khớp lệnh).
+   * Khớp lệnh thiếu ủy quyền sẽ revert, nên phải đọc được trước khi gửi giao dịch.
+   */
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
