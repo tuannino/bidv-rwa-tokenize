@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { projectTokenAbi, vndTokenAbi } from '@bidv/shared';
+import {
+  profitDistributorAbi,
+  projectTokenAbi,
+  redemptionAbi,
+  vndTokenAbi,
+} from '@bidv/shared';
 
 /**
  * Chốt an toàn cho quyết định "ABI tối giản viết tay".
@@ -50,6 +55,8 @@ function loadGenerated(contract: string): AbiEntry[] {
 describe.each([
   ['ProjectToken', projectTokenAbi as unknown as AbiEntry[]],
   ['VNDToken', vndTokenAbi as unknown as AbiEntry[]],
+  ['ProfitDistributor', profitDistributorAbi as unknown as AbiEntry[]],
+  ['Redemption', redemptionAbi as unknown as AbiEntry[]],
 ])('ABI tối giản %s khớp contract thật', (contract, minimalAbi) => {
   const generated = loadGenerated(contract);
   const generatedSignatures = new Set(generated.map(signature));

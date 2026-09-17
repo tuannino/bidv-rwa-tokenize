@@ -67,6 +67,37 @@ export const projectTokenAbi = [
     outputs: [{ name: '', type: 'string' }],
   },
 
+  // --- Đọc: chốt quyền theo thời điểm (ERC20Snapshotable) ---
+  {
+    type: 'function',
+    name: 'balanceOfAt',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'snapshotId', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'totalSupplyAt',
+    stateMutability: 'view',
+    inputs: [{ name: 'snapshotId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  /**
+   * Mã snapshot gần nhất, 0 nếu chưa chốt lần nào. Dùng để báo lỗi có ích khi
+   * nghiệp vụ truyền mã sai ("mã hợp lệ hiện có: 1..N") thay vì để contract
+   * revert bằng "Snapshot: id chua ton tai".
+   */
+  {
+    type: 'function',
+    name: 'getCurrentSnapshotId',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+
   // --- Đọc: phân quyền on-chain (để chẩn đoán "signer thiếu role") ---
   {
     type: 'function',
@@ -147,6 +178,20 @@ export const projectTokenAbi = [
     ],
     outputs: [],
   },
+
+  // --- Ghi: chốt quyền (SNAPSHOT_ROLE) ---
+  /**
+   * Trả về mã snapshot, NHƯNG đây là hàm ghi nên giá trị trả về không đọc được từ
+   * `eth_sendTransaction`. Mã thật phải lấy từ event `Snapshot` trong receipt —
+   * đừng tự tăng số đếm ở tầng ứng dụng, sẽ lệch ngay khi có ai khác gọi snapshot.
+   */
+  {
+    type: 'function',
+    name: 'snapshot',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     type: 'function',
     name: 'transfer',
@@ -192,5 +237,52 @@ export const projectTokenAbi = [
       { name: 'to', type: 'address', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
     ],
+  },
+  /** Nguồn sự thật DUY NHẤT của mã snapshot. `id` không indexed (theo contract). */
+  {
+    type: 'event',
+    name: 'Snapshot',
+    inputs: [{ name: 'id', type: 'uint256', indexed: false }],
+  },
+
+  // --- Custom error (OpenZeppelin v5) ---
+  /**
+   * BẮT BUỘC có trong ABI tối giản, không phải cho đẹp.
+   *
+   * OZ v5 revert bằng custom error thay vì chuỗi. ABI thiếu mục `error` thì viem
+   * KHÔNG giải mã được và chỉ trả về 4 byte selector, ra message kiểu
+   * `reverted with the following signature: 0xe2517d3f` — vô nghĩa với cả người
+   * dùng lẫn người sửa lỗi. Có mục này thì viem cho ra `errorName` để dịch được.
+   */
+  {
+    type: 'error',
+    name: 'AccessControlUnauthorizedAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'neededRole', type: 'bytes32' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientBalance',
+    inputs: [
+      { name: 'sender', type: 'address' },
+      { name: 'balance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientAllowance',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'allowance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InvalidReceiver',
+    inputs: [{ name: 'receiver', type: 'address' }],
   },
 ] as const;

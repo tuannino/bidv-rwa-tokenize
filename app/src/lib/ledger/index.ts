@@ -16,7 +16,17 @@ export {
   LedgerError,
   LedgerNotImplementedError,
   type ILedgerPort,
+  // 7 interface con — export để tầng nghiệp vụ/test khai kiểu hẹp khi chỉ cần một nhóm.
+  type ILedgerCompliance,
+  type ILedgerIssuance,
+  type ILedgerPurchase,
+  type ILedgerSnapshot,
+  type ILedgerDistribution,
+  type ILedgerSettlement,
+  type ILedgerRead,
+  type SnapshotResult,
   type TokenInfo,
+  type TransferCheck,
   type TxResult,
   type TxStatus,
 } from './ledger.port';

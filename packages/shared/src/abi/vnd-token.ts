@@ -1,6 +1,6 @@
 /**
  * ABI **TỐI GIẢN** của VNDToken (VNDB) — token thanh toán do ngân hàng phát hành/thu hồi.
- * Chưa dùng trong mint flow (P1); có sẵn cho chia lợi tức (P3) và hoàn vốn (P2).
+ * Dùng cho khớp lệnh mua (đọc số dư + mức ủy quyền), chia lợi tức và hoàn vốn.
  */
 export const vndTokenAbi = [
   {
@@ -8,6 +8,20 @@ export const vndTokenAbi = [
     name: 'balanceOf',
     stateMutability: 'view',
     inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  /**
+   * Mức ủy quyền VNDB mà `owner` đã cấp cho `spender` (hợp đồng khớp lệnh).
+   * Khớp lệnh thiếu ủy quyền sẽ revert, nên phải đọc được trước khi gửi giao dịch.
+   */
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
@@ -68,6 +82,34 @@ export const vndTokenAbi = [
       { name: 'from', type: 'address', indexed: true },
       { name: 'to', type: 'address', indexed: true },
       { name: 'value', type: 'uint256', indexed: false },
+    ],
+  },
+
+  // --- Custom error (OpenZeppelin v5) — thiếu thì viem chỉ trả về 4 byte selector ---
+  {
+    type: 'error',
+    name: 'AccessControlUnauthorizedAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'neededRole', type: 'bytes32' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientBalance',
+    inputs: [
+      { name: 'sender', type: 'address' },
+      { name: 'balance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC20InsufficientAllowance',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'allowance', type: 'uint256' },
+      { name: 'needed', type: 'uint256' },
     ],
   },
 ] as const;
