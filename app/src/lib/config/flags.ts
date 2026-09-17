@@ -3,7 +3,8 @@ import 'server-only';
 import { CHAIN_ORDER, CHAINS, type ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
-import { currentChannel, type Channel } from '@/lib/session/channel';
+import type { Channel } from '@/lib/session/channel';
+import { currentChannel } from '@/lib/session/current-channel';
 import { serverEnv } from './env';
 
 /**
