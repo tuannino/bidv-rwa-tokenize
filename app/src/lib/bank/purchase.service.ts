@@ -3,12 +3,17 @@ import 'server-only';
 import type { ChainKey, TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
 import { getBankSigner } from '@/lib/signer';
-import type { Role } from '@/lib/rbac';
+import { can, type Role } from '@/lib/rbac';
 import { getStore } from '@/lib/store';
 import type { IBankStore, OrderRecord } from '@/lib/store';
 import { authorize, toResult } from './authorize';
 import { err, ok, type ErrorCode, type Result } from './result';
-import { executeOrderSchema, placeOrderSchema } from './schemas';
+import {
+  executeOrderSchema,
+  expireOrdersSchema,
+  orderQuerySchema,
+  placeOrderSchema,
+} from './schemas';
 import { EXECUTABLE_ORDER_STATUSES, type OrderStatus } from './purchase.state';
 
 /**
@@ -458,5 +463,95 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
     return await getBankSigner(chain).getAddress();
   } catch {
     return null;
+  }
+}
+
+/**
+ * TRUY VẤN LỆNH.
+ *
+ * Lọc theo ví nằm ở TẦNG NÀY, không ở giao diện. Server action gọi được bằng một yêu cầu
+ * HTTP trực tiếp mà không đi qua màn hình nào, nên bộ lọc đặt ở component là bộ lọc không
+ * tồn tại.
+ *
+ * Cách phân biệt R5.1 với R5.2 mà KHÔNG dùng `if (role === 'INVESTOR')`:
+ *   - Vai có `order:read:all` (ba vai ngân hàng): được bỏ trống bộ lọc ví -> xem toàn hệ.
+ *   - Vai không có (nhà đầu tư): `investorWallet` là BẮT BUỘC, và kết quả chỉ chứa lệnh
+ *     của đúng ví đó.
+ *
+ * ⚠️ GIỚI HẠN ĐÃ BIẾT — giống `portfolio.service.ts`: chưa có SIWE (AU-01) nên server KHÔNG
+ * biết ví nào thuộc phiên đăng nhập; ví chỉ tồn tại ở client qua wagmi. Vì vậy hàm này bảo
+ * đảm được "danh sách trả về không lẫn lệnh của ví khác", nhưng KHÔNG chặn được một nhà
+ * đầu tư chủ động truyền ví của người khác vào. Ràng buộc ví ↔ phiên là việc của AU-01;
+ * đã ghi thành câu hỏi mở trong checkpoint.
+ */
+export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
+  const parsed = orderQuerySchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, investorWallet, status, limit } = parsed.data;
+
+  try {
+    const role = await authorize('order:read', investorWallet ?? null, chain ?? null);
+
+    // Bảng RBAC quyết định, không phải tên vai. Thêm vai mới chỉ cần sửa bảng quyền.
+    const seesEveryOrder = can(role, 'order:read:all');
+    if (!seesEveryOrder && !investorWallet) {
+      // KHÔNG lặng lẽ trả danh sách rỗng, và tuyệt đối không trả danh sách của mọi ví:
+      // thiếu tham số phải thành lỗi validate, chứ không thành lỗi rò dữ liệu.
+      return err(
+        'VALIDATION',
+        'Thiếu địa chỉ ví. Vai này chỉ xem được lệnh của một ví cụ thể.',
+        { investorWallet: ['Bắt buộc với vai không có quyền xem toàn bộ lệnh.'] },
+      );
+    }
+
+    const rows = await getStore().listOrders({ chain, investorWallet, status, limit });
+    return ok(rows.map(toView));
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * LỆNH QUÁ HẠN -> `EXPIRED` (R4.4).
+ *
+ * Chỉ CUNG CẤP hàm, KHÔNG dựng lịch. Việc gọi định kỳ thuộc BE-07: dựng lịch ở đây thì
+ * mỗi instance serverless sẽ chạy một bản sao, và trên free-tier thì không có tiến trình
+ * nào sống đủ lâu để lịch chạy — hai lỗi ngược nhau, cùng sinh ra từ một chỗ sai.
+ *
+ * Chỉ nhắm `PLACED`. Từ `CHECKING` trở đi đã có tiến trình đang xử lý; cho hết hạn chen
+ * ngang sẽ tạo đúng loại tranh chấp mà khoá lạc quan được dựng để chặn.
+ */
+export async function expireStaleOrders(input: unknown): Promise<Result<{ expired: number }>> {
+  const parsed = expireOrdersSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { olderThanMinutes } = parsed.data;
+
+  try {
+    const role = await authorize('order:expire', null, null);
+
+    const createdBefore = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
+    const store = getStore();
+    const expired = await store.expireOrders({ createdBefore });
+
+    // Chỉ ghi sổ khi CÓ lệnh bị đổi. BE-07 gọi hàm này theo lịch, ghi cả những lần không
+    // đổi gì sẽ nhấn chìm sổ kiểm toán bằng bản ghi rỗng và làm nó vô dụng để đối chiếu.
+    if (expired > 0) {
+      await store.appendAudit({
+        actorRole: role,
+        action: 'order:expire',
+        target: null,
+        outcome: 'SUCCESS',
+        detail: `${expired} lệnh treo quá ${olderThanMinutes} phút đã chuyển sang EXPIRED`,
+        chain: null,
+      });
+    }
+
+    return ok({ expired });
+  } catch (error) {
+    return toResult(error);
   }
 }
