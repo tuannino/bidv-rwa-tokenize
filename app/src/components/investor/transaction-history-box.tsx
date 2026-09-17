@@ -66,7 +66,7 @@ export function TransactionHistoryBox() {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
           <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Giao dịch gần đây
         </CardTitle>

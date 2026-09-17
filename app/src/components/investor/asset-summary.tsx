@@ -76,7 +76,7 @@ export function AssetSummary() {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">Tài sản đã đầu tư</CardTitle>
+        <CardTitle role="heading" aria-level={2} className="text-base">Tài sản đã đầu tư</CardTitle>
         <OnChainBadge />
       </CardHeader>
 

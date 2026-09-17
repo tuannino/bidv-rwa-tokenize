@@ -92,7 +92,7 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
         {/* 1 — Thông tin dự án */}
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
               <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Thông tin dự án
             </CardTitle>
@@ -117,7 +117,7 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
         {/* 2 — Tình hình vận hành */}
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
               <Zap className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Tình hình vận hành
             </CardTitle>
@@ -156,7 +156,7 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
         {/* 3 — Thông tin token */}
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
               <Gauge className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Thông tin token
             </CardTitle>
@@ -199,7 +199,7 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
         {/* 4 — Vị thế của nhà đầu tư */}
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
               <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Vị thế của bạn
             </CardTitle>

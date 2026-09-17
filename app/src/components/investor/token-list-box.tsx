@@ -27,7 +27,7 @@ export function TokenListBox() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
           <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           Token dự án điện gió
         </CardTitle>

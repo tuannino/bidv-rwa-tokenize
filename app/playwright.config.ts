@@ -17,6 +17,20 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const HOST = process.env.E2E_HOST ?? 'localhost';
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://${HOST}:${PORT}`;
 
+/**
+ * Máy có `http_proxy`/`https_proxy` (mạng công ty) thì phép kiểm "server đã sẵn sàng" của
+ * Playwright đi qua proxy và không bao giờ tới được localhost -> báo
+ * "Timed out waiting 120000ms from config.webServer" dù `next dev` đã lên trong ~0.2s.
+ *
+ * Đặt ở đây thay vì để người chạy tự nhớ `no_proxy=...`: triệu chứng trỏ sai hoàn toàn về
+ * phía server, rất mất thời gian truy.
+ */
+const NO_PROXY_HOSTS = ['localhost', '127.0.0.1', HOST].join(',');
+process.env.NO_PROXY = process.env.NO_PROXY
+  ? `${process.env.NO_PROXY},${NO_PROXY_HOSTS}`
+  : NO_PROXY_HOSTS;
+process.env.no_proxy = process.env.NO_PROXY;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
