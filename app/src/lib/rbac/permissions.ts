@@ -98,6 +98,13 @@ export const FALLBACK_ROLE: Role = 'AUDITOR';
 const READ_ONLY: Action[] = ['balance:read', 'txn:read', 'audit:read', 'reconcile:read'];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
+  /**
+   * Ngân hàng điều phối ba luồng: khớp lệnh, chia lợi nhuận, tất toán.
+   *
+   * ⚠️ CỐ TÌNH KHÔNG có `order:place` và `settlement:confirm`. Hai hành động đó là
+   * quyết định của nhà đầu tư; ngân hàng đặt lệnh hoặc xác nhận hoàn vốn thay nhà đầu tư
+   * thì mất dấu ai đã đồng ý, và sổ kiểm toán không còn dùng để đối chiếu trách nhiệm.
+   */
   BANK_ADMIN: [
     'token:mint',
     'token:burn',
@@ -105,12 +112,36 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'token:clawback',
     'investor:whitelist',
     'kyc:approve',
+    'order:execute',
+    'distribution:snapshot',
+    'distribution:execute',
+    'settlement:initiate',
+    'settlement:set-nav',
+    'treasury:manage',
+    // Cần THÊM cờ ENABLE_DEMO_PAYMENT_MINT mới thực sự chạy — xem `demo-payment.ts`.
+    'demo:mint-payment',
     ...READ_ONLY,
   ],
-  // Tuân thủ: xét KYC/whitelist/freeze nhưng KHÔNG phát hành token.
+  /**
+   * Tuân thủ: xét KYC/whitelist/freeze nhưng KHÔNG phát hành token.
+   *
+   * Không cấp `order:execute`, `distribution:execute`, `settlement:set-nav`:
+   * tuân thủ GIÁM SÁT dòng tiền, không tự thực hiện. Cùng một người vừa giám sát vừa
+   * chuyển tiền thì lớp kiểm soát thứ hai không còn.
+   */
   COMPLIANCE: ['investor:whitelist', 'kyc:approve', 'token:freeze', ...READ_ONLY],
-  // `portfolio:read` CHỈ ở đây — đó là thứ chặn ba vai ngân hàng khỏi kênh `(client)`.
-  INVESTOR: ['token:transfer', 'portfolio:read', 'balance:read', 'txn:read'],
-  // Kiểm toán/Regulator: CHỈ ĐỌC (route-group `(audit)`).
+  /**
+   * `portfolio:read` CHỈ ở đây — đó là thứ chặn ba vai ngân hàng khỏi kênh `(client)`.
+   * `order:place` và `settlement:confirm` cũng chỉ ở đây, vì là quyết định của nhà đầu tư.
+   */
+  INVESTOR: [
+    'token:transfer',
+    'order:place',
+    'settlement:confirm',
+    'portfolio:read',
+    'balance:read',
+    'txn:read',
+  ],
+  // Kiểm toán/Regulator: CHỈ ĐỌC (route-group `(audit)`). Không một hành động ghi nào.
   AUDITOR: [...READ_ONLY],
 };
