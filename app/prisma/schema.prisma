@@ -201,6 +201,79 @@ model DistributionPayout {
   @@index([periodId, status])
 }
 
+// =============================================================================
+//  BE-09 — TẤT TOÁN
+// =============================================================================
+
+/// Một đợt tất toán (đóng quỹ) đã khởi tạo.
+///
+/// `navRate` lưu ở đây là giá NAV ÁP CHO ĐỢT NÀY, không phải giá đang đặt trên chuỗi.
+/// Chuỗi chỉ giữ một giá trị hiện hành (`ILedgerSettlement.navRate`); sửa nó không được
+/// làm đổi hồ sơ của đợt đã chốt.
+model SettlementRound {
+  id          String            @id @default(uuid())
+  /// Mã ảnh chụp số dư dùng để lập danh sách người nắm giữ của đợt.
+  snapshotId  Int
+  /// Số VNDB trả cho mỗi 1 WPT, chốt cho đợt này.
+  navRate     Decimal           @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: SETTLEMENT_ROUND_STATUSES ở lib/store/settlement.store.port.ts
+  status      String            @default("INITIATED")
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain       String
+  initiatedAt DateTime          @default(now()) @db.Timestamptz(3)
+  completedAt DateTime?         @db.Timestamptz(3)
+  cases       SettlementCase[]
+
+  @@index([status, initiatedAt])
+  @@index([chain, initiatedAt])
+}
+
+/// Hồ sơ tất toán của MỘT người nắm giữ trong MỘT đợt.
+///
+/// BỐN trạng thái theo R3.2, mỗi trạng thái một cột thời điểm (R3.3):
+///     NOTIFIED  → notifiedAt   (thông báo, ngoài chuỗi — không có giao dịch)
+///     CONFIRMED → confirmedAt  (nhà đầu tư đồng ý, `settlement:confirm` — không có giao dịch)
+///     PAID      → paidAt   + paidTxHash
+///     BURNED    → burnedAt + burnTxHash
+///
+/// ⚠️ ĐỪNG rút gọn còn hai trạng thái: màn hình FE-10 cần theo dõi đủ bốn, và gộp
+/// "đã chi trả" với "đã đốt" là mất đúng cái mốc phân biệt tiền đã ra khỏi ngân hàng
+/// với token đã bị thu hồi — hai việc không cùng một giao dịch.
+///
+/// Chỉ hai cột mã giao dịch, không phải bốn: R3.3 nói "mã giao dịch tương ứng NẾU CÓ",
+/// và hai bước đầu không sinh giao dịch nào. Thêm hai cột luôn rỗng chỉ để cho cân đối
+/// là mời người đọc sau đi tìm giao dịch không tồn tại.
+///
+/// `payoutAmount` chốt tại thời điểm lập hồ sơ, KHÔNG tính lại từ `navRate` (task 3.4):
+/// nếu giá NAV bị sửa thì hồ sơ đã chốt không đổi theo.
+model SettlementCase {
+  id           String          @id @default(uuid())
+  roundId      String
+  round        SettlementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  holderWallet String
+  /// Số WPT phải thu hồi.
+  wptAmount    Decimal         @db.Decimal(78, 0)
+  /// Số VNDB phải trả, chốt tại thời điểm lập hồ sơ.
+  payoutAmount Decimal         @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: SETTLEMENT_CASE_STATUSES ở lib/store/settlement.store.port.ts
+  status       String          @default("NOTIFIED")
+  notifiedAt   DateTime?       @db.Timestamptz(3)
+  confirmedAt  DateTime?       @db.Timestamptz(3)
+  paidAt       DateTime?       @db.Timestamptz(3)
+  paidTxHash   String?
+  burnedAt     DateTime?       @db.Timestamptz(3)
+  burnTxHash   String?
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
+
+  /// R3.4 — chốt chặn chi trả hoặc đốt trùng cho một ví trong cùng đợt.
+  @@unique([roundId, holderWallet])
+  /// Nhà đầu tư xem hồ sơ tất toán của chính mình.
+  @@index([holderWallet, createdAt])
+  /// Lấy các hồ sơ còn phải xử lý của một đợt.
+  @@index([roundId, status])
+}
+
 /// Nhà đầu tư + trạng thái KYC (Phase 4 nối provider thật).
 model Investor {
   id           String    @id @default(uuid())
