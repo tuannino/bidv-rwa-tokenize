@@ -17,13 +17,26 @@ export const chainSchema = z.enum(CHAIN_KEYS);
 /**
  * Số lượng token. WPT có decimals = 0 nên đây là SỐ NGUYÊN, nhận dạng chuỗi:
  * `number` của JS mất chính xác từ 2^53, còn uint256 thì lớn hơn nhiều.
+ *
+ * ⚠️ THỨ TỰ `.transform()` TRƯỚC `.refine()` LÀ BẮT BUỘC, không phải sở thích.
+ *
+ * Zod 4 vẫn chạy các `.refine()` còn lại SAU khi một check trước đó đã trượt (trừ khi
+ * khai `abort`). Bản cũ đặt `.refine((v) => BigInt(v) > 0n)` ngay sau `.regex()`, nên với
+ * `"1.5"` hay `"abc"` thì regex trượt rồi refine vẫn gọi `BigInt()` và ném `SyntaxError`
+ * THÔ ra khỏi `safeParse`. Mà `safeParse` được gọi NGOÀI khối `try` của mọi service, nên
+ * lỗi đó không thành `Result` mã `VALIDATION` — nó nổ thẳng ra server action, và ở
+ * production Next che message thành "An error occurred". Người dùng nhập "1.5" sẽ thấy một
+ * lỗi hệ thống vô nghĩa thay vì "số lượng phải là số nguyên".
+ *
+ * `.transform()` thì khác `.refine()`: nó tạo một pipe, và pipe KHÔNG chạy khi vế trước đã
+ * trượt. Nên chuyển đổi sang `bigint` trước rồi so sánh trên `bigint` là an toàn.
  */
 export const amountSchema = z
   .string()
   .trim()
   .regex(/^\d+$/, 'Số lượng phải là số nguyên không dấu.')
-  .refine((value) => BigInt(value) > 0n, 'Số lượng phải lớn hơn 0.')
-  .transform((value) => BigInt(value));
+  .transform((value) => BigInt(value))
+  .refine((value) => value > 0n, 'Số lượng phải lớn hơn 0.');
 
 export const onboardInvestorSchema = z.object({
   chain: chainSchema,
