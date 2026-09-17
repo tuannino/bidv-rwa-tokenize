@@ -80,7 +80,14 @@ export const BANK_NAV: NavSection = {
  * là trùng route.
  */
 export const INVESTOR_NAV: NavSection = {
-  main: [{ href: '/portfolio', label: 'Tổng quan', icon: 'LayoutDashboard', shortcut: 'E' }],
+  main: [
+    { href: '/portfolio', label: 'Tổng quan', icon: 'LayoutDashboard', shortcut: 'E' },
+    /**
+     * Ví nằm ở nhóm trên, không phải "module nghiệp vụ": nó là cửa vào của mọi thao tác ký
+     * chứ không phải một nghiệp vụ riêng. Phím tắt `V` chưa ai dùng (đã dùng: E M D B A K U L T).
+     */
+    { href: '/wallet', label: 'Ví của tôi', icon: 'Wallet', shortcut: 'V' },
+  ],
   moduleLabel: 'Nghiệp vụ nhà đầu tư',
   modules: [
     { href: '/purchase', label: 'Mua WPT', icon: 'ShoppingCart', shortcut: 'U', disabled: true },
