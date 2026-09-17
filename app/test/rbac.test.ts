@@ -30,6 +30,28 @@ describe('RBAC — can(role, action)', () => {
     expect(can('AUDITOR', 'audit:read')).toBe(true);
   });
 
+  it('cổng kênh nhà đầu tư: CHỈ INVESTOR có portfolio:read', () => {
+    // Đây là điểm FE-01 v1 làm sai: v1 dùng `balance:read` làm cổng kênh, mà quyền đó
+    // nằm trong READ_ONLY nên cả bốn vai đều có -> guard không chặn được ai.
+    expect(can('INVESTOR', 'portfolio:read')).toBe(true);
+
+    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR'] as const) {
+      expect(can(role, 'portfolio:read'), `${role} KHÔNG được vào kênh nhà đầu tư`).toBe(false);
+    }
+  });
+
+  it('portfolio:read KHÔNG bị lẫn vào nhóm chỉ-đọc dùng chung', () => {
+    // Chốt bằng test để lần sau ai thêm nó vào READ_ONLY là đỏ ngay, không phải phát hiện
+    // bằng cách bấm thử trên giao diện.
+    const readOnlyShared = ['balance:read', 'txn:read', 'audit:read'] as const;
+    for (const action of readOnlyShared) {
+      expect(can('AUDITOR', action), `AUDITOR vẫn phải có ${action}`).toBe(true);
+    }
+    expect(permissionsOf('AUDITOR')).not.toContain('portfolio:read');
+    expect(permissionsOf('BANK_ADMIN')).not.toContain('portfolio:read');
+    expect(permissionsOf('COMPLIANCE')).not.toContain('portfolio:read');
+  });
+
   it('role lạ bị quy về quyền thấp nhất, KHÔNG mặc định cho qua', () => {
     // Đây là điểm dễ sai nhất: fail-open ở kiểm quyền là lỗ hổng thật.
     for (const value of ['admin', 'ADMIN', '', null, undefined, 42, {}]) {
