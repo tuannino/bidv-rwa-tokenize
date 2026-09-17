@@ -18,7 +18,8 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Cấu hình tính ở server rồi truyền xuống: client không tự đọc env.
-  const config = publicConfig();
+  // `await` vì publicConfig() đọc cookie vai + kênh (xem lib/config/flags.ts).
+  const config = await publicConfig();
 
   return (
     <html lang="vi" className={geistMono.variable} suppressHydrationWarning>
