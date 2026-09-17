@@ -71,12 +71,21 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
           </button>
         )}
 
-        {/* Wallet connect */}
+        {/*
+          Nhãn trung tính, KHÔNG nói "Admin".
+
+          Thanh trên dùng chung cho cả ba kênh, mà ví trình duyệt chỉ phục vụ thao tác của
+          NHÀ ĐẦU TƯ: thao tác đặc quyền của ngân hàng ký bằng khóa phía máy chủ qua `ISigner`
+          (FE-02 R7.2). Nhãn cũ "Kết nối ví Admin" mời cán bộ ngân hàng kết nối ví để làm việc
+          của ngân hàng — đúng ngược với thiết kế.
+
+          Chi tiết trạng thái ví và xử lý sai mạng ở `/wallet`.
+        */}
         <ConnectButton
           accountStatus="avatar"
           chainStatus="icon"
           showBalance={false}
-          label="Kết nối ví Admin"
+          label="Kết nối ví"
         />
       </div>
     </header>
