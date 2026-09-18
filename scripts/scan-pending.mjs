@@ -36,6 +36,8 @@
 //                      thiếu dấu |, mô tả rỗng, số bước thập phân, sai chữ hoa)
 //    UNKNOWN_TASK      mã task không có trong .kiro/task-status.json
 //    STALE_TASK        marker lạc hậu: mã task đã nằm trong danh sách done
+//    VAGUE_NOTE        mô tả có mà chung chung: quá ngắn, hoặc gần như chỉ gồm một
+//                      cụm vô nghĩa kiểu "chờ làm" / "tbd"
 //    FORBIDDEN_KEYWORD biến thể bị cấm theo steering mục 5
 //    BAD_FLOW_NAME     tên luồng ngoài năm tên đã chốt
 //    BAD_FLOW_STEP     số bước trùng, không bắt đầu từ 1, hoặc nhảy cách
@@ -87,6 +89,21 @@ import { fileURLToPath } from 'node:url';
 // --- Vị trí gốc repo: tệp này nằm ở <gốc>/scripts/ ---------------------------
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const TASK_STATUS_FILE = '.kiro/task-status.json';
+
+// --- Kiểu của báo cáo --------------------------------------------------------
+// Khai bằng JSDoc để bên nhập vào (app/test/pending-markers.test.ts chạy dưới
+// TypeScript, scripts/gen-flow-diagram.mjs) đọc được kiểu thật thay vì `Object`.
+// Đổi cấu trúc --json thì phải đổi ở đây, không khai lại kiểu ở phía người dùng.
+/**
+ * @typedef {{kind:'pending'|'blocked', task:string, file:string, line:number,
+ *            note:string, symbol:string|null}} Marker
+ * @typedef {{flow:string, step:number, file:string, line:number,
+ *            note:string, symbol:string|null}} FlowStep
+ * @typedef {{code:string, file:string, line:number, message:string}} MarkerError
+ * @typedef {{pending:number, blocked:number, flows:number, errors:number}} ScanSummary
+ * @typedef {{markers:Marker[], flows:FlowStep[], byTask:Record<string,number>,
+ *            errors:MarkerError[], summary:ScanSummary}} ScanReport
+ */
 
 // --- Phạm vi quét ------------------------------------------------------------
 // Marker sống trong MÃ NGUỒN. docs/ và .kiro/ bị loại có chủ đích: hai thư mục
@@ -173,6 +190,83 @@ export const FLOW_NAMES = Object.freeze([
   'settle',
   'onboard',
 ]);
+
+// -----------------------------------------------------------------------------
+//  MÔ TẢ CHUNG CHUNG (VAGUE_NOTE)
+// -----------------------------------------------------------------------------
+//  Mô tả sau dấu `|` là LÝ DO marker tồn tại. Người nhận task đọc nó để biết mình
+//  KHÔNG phải viết lại cái gì (`@pending`) hoặc còn thiếu đúng cái gì (`@blocked`).
+//  Steering mục 1 nói thẳng: ghi "chờ làm giao diện" thì không giúp được gì, còn ghi
+//  "đã sẵn validate + kiểm quyền + ghi sổ" thì họ biết ngay chỉ phải gọi.
+//
+//  Phép kiểm nằm Ở ĐÂY, không nằm trong test, vì hai lẽ: `--check` trong
+//  scripts/run-local-all.sh phải chặn được luôn, và quy ước chỉ được khai một nơi.
+//
+//  Hai điều kiện, đủ một là đỏ:
+//    (a) mô tả ngắn hơn MIN_NOTE_CHARS ký tự  → không chứa nổi thông tin cụ thể
+//    (b) bỏ cụm vô nghĩa + từ đệm + mã task đi thì phần còn lại ngắn hơn
+//        MIN_INFORMATIVE_CHARS ký tự → "gần như chỉ có cụm đó"
+//
+//  Điều kiện (b) tồn tại để KHÔNG bắt oan câu dài có chứa cụm vô nghĩa ở giữa:
+//  "expireStaleOrders đã sẵn validate + kiểm quyền, BE-07 sẽ làm phần gọi theo lịch"
+//  vẫn nói đủ thông tin dù có chữ "sẽ làm".
+//
+//  Với `@flow` chỉ áp điều kiện (b), KHÔNG áp (a). Mô tả `@flow` là nhãn trên một ô
+//  của sơ đồ, đứng cạnh tên tệp và tên hàm nên ngắn là đúng — chính design.md QĐ-5
+//  dùng nhãn "nhập số lượng" (13 ký tự). Ngưỡng nào bác ví dụ của chính quy ước thì
+//  ngưỡng đó sai.
+
+/** Mô tả `@pending`/`@blocked` ngắn hơn mức này thì không nói được gì cụ thể */
+export const MIN_NOTE_CHARS = 15;
+
+/** Phần còn lại sau khi bỏ cụm vô nghĩa; ngắn hơn mức này = "gần như chỉ có cụm đó" */
+export const MIN_INFORMATIVE_CHARS = 8;
+
+/** Cụm trả lời một câu hỏi mà người đọc marker đã biết câu trả lời — so không phân biệt hoa thường */
+export const VAGUE_PHRASES = Object.freeze([
+  'chờ làm', 'sẽ làm', 'chưa làm', 'cần làm', 'làm sau', 'xem sau',
+  'chờ task', 'chờ fe', 'chờ be', 'sau này', 'tbd', 'wip', 'n/a',
+]);
+
+/** Từ đệm: bỏ đi không mất thông tin, nên không tính là nội dung của mô tả */
+const FILLER_WORDS = Object.freeze([
+  'cần', 'còn', 'vẫn', 'chỉ', 'nữa', 'thêm', 'nhé', 'đi', 'nốt', 'phần',
+  'này', 'cho', 'xong', 'rồi', 'thì', 'là', 'và', 'các', 'một', 'nó',
+]);
+
+/**
+ * Mô tả có chung chung không. Trả về lý do (tiếng Việt, dùng làm thông báo lỗi)
+ * hoặc null nếu mô tả đủ nội dung.
+ * @param {string} note mô tả đã trim, KHÔNG rỗng (rỗng là BAD_SYNTAX, kiểm trước đó)
+ * @param {{checkLength?: boolean}} [options] `checkLength: false` cho `@flow`
+ * @returns {string|null}
+ */
+export function vagueNoteReason(note, options = {}) {
+  const { checkLength = true } = options;
+  const trimmed = note.trim();
+
+  if (checkLength && trimmed.length < MIN_NOTE_CHARS) {
+    return `mô tả chỉ ${trimmed.length} ký tự, dưới mức tối thiểu ${MIN_NOTE_CHARS}`;
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
+  const found = VAGUE_PHRASES.filter((phrase) => normalized.includes(phrase));
+  if (found.length === 0) return null;
+
+  // Bỏ cụm vô nghĩa, mã task (mã đã nằm ở đầu marker, nhắc lại không thêm tin) và từ đệm
+  let rest = normalized;
+  for (const phrase of found) rest = rest.split(phrase).join(' ');
+  rest = rest.replace(new RegExp(TASK_CODE_SOURCE, 'gi'), ' ');
+  rest = rest
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word !== '' && !FILLER_WORDS.includes(word))
+    .join('');
+
+  if (rest.length < MIN_INFORMATIVE_CHARS) {
+    return `mô tả gần như chỉ gồm cụm vô nghĩa "${found.join('", "')}"`;
+  }
+  return null;
+}
 
 // Nhãn tiếng Việt cho hai loại marker
 const KIND_LABEL = { pending: 'điểm cắm', blocked: 'điểm chặn' };
@@ -409,7 +503,8 @@ export function validateFlowSteps(flows) {
 // --- Quét ------------------------------------------------------------------
 /**
  * Quét toàn bộ phạm vi, trả về báo cáo đầy đủ.
- * @returns {{markers:Array, flows:Array, byTask:Object, errors:Array, summary:Object}}
+ * @param {string} [repoRoot] gốc repo cần quét; mặc định là gốc repo thật
+ * @returns {ScanReport}
  */
 export function scan(repoRoot = REPO_ROOT) {
   const { done, valid, errors: statusErrors } = readTaskStatus(repoRoot);
@@ -476,6 +571,19 @@ export function scan(repoRoot = REPO_ROOT) {
           });
           continue;
         }
+        const vague = vagueNoteReason(note);
+        if (vague !== null) {
+          errors.push({
+            code: 'VAGUE_NOTE',
+            file,
+            line: lineNo,
+            message: `@${kind} ${task}: ${vague}. Mô tả phải nói rõ `
+              + (kind === 'pending' ? 'ĐÃ SẴN gì' : 'THIẾU gì')
+              + `, vì người nhận ${task} đọc đúng câu này để biết `
+              + (kind === 'pending' ? 'mình không phải viết lại cái gì' : 'phải xong cái gì trước'),
+          });
+          continue;
+        }
         markers.push({ kind, task, file, line: lineNo, note, symbol: inferSymbol(lines, i) });
         continue;
       }
@@ -499,6 +607,19 @@ export function scan(repoRoot = REPO_ROOT) {
             file,
             line: lineNo,
             message: `tên luồng "${flowName}" không thuộc năm tên đã chốt: ${FLOW_NAMES.join(', ')}`,
+          });
+          continue;
+        }
+        // Nhãn sơ đồ được phép ngắn, nhưng không được là cụm vô nghĩa — xem khối
+        // "MÔ TẢ CHUNG CHUNG" để biết vì sao chỉ áp một trong hai điều kiện.
+        const vagueFlow = vagueNoteReason(note, { checkLength: false });
+        if (vagueFlow !== null) {
+          errors.push({
+            code: 'VAGUE_NOTE',
+            file,
+            line: lineNo,
+            message: `@flow ${flowName}:${rawStep}: ${vagueFlow}. Mô tả là nhãn của ô này `
+              + 'trên sơ đồ luồng, phải nói việc bước này làm',
           });
           continue;
         }
