@@ -18,7 +18,12 @@ import { CHAINS } from '@bidv/shared';
 const hardhatInfo = CHAINS['hardhat-local'];
 const evmInfo = CHAINS.evm;
 
-export const hardhatLocal = defineChain({
+/**
+ * Hai định nghĩa chain dưới đây KHÔNG `export`: chúng chỉ đi vào mảng `chains` và bảng
+ * `transports` ngay trong tệp này. Mặt tiền của tệp là `wagmiConfig`; sự thật về chain
+ * nằm ở `@bidv/shared` (`CHAINS`), nên export thêm ở đây là mở một nguồn thứ hai.
+ */
+const hardhatLocal = defineChain({
   id: hardhatInfo.chainId!,
   name: hardhatInfo.label,
   nativeCurrency: hardhatInfo.nativeCurrency!,
@@ -28,7 +33,7 @@ export const hardhatLocal = defineChain({
   testnet: true,
 });
 
-export const evmTestnet = defineChain({
+const evmTestnet = defineChain({
   id: evmInfo.chainId!,
   name: evmInfo.label,
   nativeCurrency: evmInfo.nativeCurrency!,
