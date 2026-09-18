@@ -533,12 +533,14 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
 /**
  * LỆNH QUÁ HẠN -> `EXPIRED` (R4.4).
  *
- * Chỉ CUNG CẤP hàm, KHÔNG dựng lịch. Việc gọi định kỳ thuộc BE-07: dựng lịch ở đây thì
+ * Chỉ CUNG CẤP hàm, KHÔNG dựng lịch: dựng lịch ở đây thì
  * mỗi instance serverless sẽ chạy một bản sao, và trên free-tier thì không có tiến trình
  * nào sống đủ lâu để lịch chạy — hai lỗi ngược nhau, cùng sinh ra từ một chỗ sai.
  *
  * Chỉ nhắm `PLACED`. Từ `CHECKING` trở đi đã có tiến trình đang xử lý; cho hết hạn chen
  * ngang sẽ tạo đúng loại tranh chấp mà khoá lạc quan được dựng để chặn.
+ *
+ * @pending BE-07 | đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch
  */
 export async function expireStaleOrders(input: unknown): Promise<Result<{ expired: number }>> {
   const parsed = expireOrdersSchema.safeParse(input);
