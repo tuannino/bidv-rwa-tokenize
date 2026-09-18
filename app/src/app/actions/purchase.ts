@@ -1,11 +1,6 @@
 'use server';
 
-import {
-  executeOrder,
-  expireStaleOrders,
-  listOrders,
-  placeOrder,
-} from '@/lib/bank/purchase.service';
+import { executeOrder, listOrders, placeOrder } from '@/lib/bank/purchase.service';
 
 /**
  * Server actions cho luồng mua WPT — vỏ mỏng quanh `purchase.service`.
@@ -20,6 +15,12 @@ import {
  *
  * `input: unknown` là cố ý: validate bằng Zod ở trong service, một schema dùng chung cho
  * form và server. Khai kiểu hẹp ở đây sẽ tạo cảm giác đã kiểm dữ liệu trong khi chưa.
+ *
+ * ⚠️ Service có BỐN hàm, tệp này chỉ có BA action — thiếu `expireStaleOrders`, và đó là chủ
+ * đích chứ không phải bỏ sót. Dọn lệnh treo chỉ có MỘT đường vào: tiến trình theo lịch của
+ * BE-07 gọi thẳng service. Server action cũng là một điểm vào HTTP, nên mở nó ở đây sẽ phá
+ * đúng chủ đích đã ghi ở `app/src/app/api/purchase/route.ts` — mời gọi việc gọi tay giữa
+ * lúc có lệnh đang xử lý.
  */
 
 /**
@@ -41,18 +42,4 @@ export async function executeOrderAction(input: unknown) {
  */
 export async function listOrdersAction(input: unknown) {
   return listOrders(input);
-}
-
-/**
- * KHÔNG có marker điểm cắm ở đây, và đó là câu hỏi mở chứ không phải bỏ sót.
- *
- * `expireStaleOrders` trong service đã mang `@pending BE-07` (tiến trình gọi theo lịch).
- * Nhưng BE-07 chạy ở phía máy chủ nên nó gọi THẲNG service, không cần đi qua server action
- * này. Còn `app/api/purchase/route.ts` thì nói rõ là CỐ Ý không mở điểm vào HTTP cho việc
- * dọn lệnh treo — mà server action cũng là một điểm vào HTTP. Hai điều đó không khớp nhau,
- * nên chưa rõ ai sẽ gọi hàm này: BE-07, một nút ở màn quản trị, hay không ai cả.
- * Xem mục "Câu hỏi mở" trong `docs/CHECKPOINT_MC01.md`.
- */
-export async function expireStaleOrdersAction(input: unknown) {
-  return expireStaleOrders(input);
 }
