@@ -5,7 +5,7 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–6/10 xong.** Bước 7–10 chưa làm |
+| Tiến độ | **Bước 1–7/10 xong.** Bước 8–10 chưa làm |
 | Phạm vi | Không đổi hành vi hệ thống, **trừ một ngoại lệ Owner đã chốt** (D-7 ở mục 9). Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -282,6 +282,43 @@ biến ở mục 5; kết quả chạy đầy đủ ở 3.8.
 phải lỗi của Bước 6 và **không** được sửa (cấm chạm test đang xanh), nhưng nó là một món nợ thật:
 xem SL-8 ở mục 10.
 
+### Bước 7 — Dọn phụ thuộc và làm rõ `src/empty.ts` ✅
+
+Ba commit, chia theo **mục tiêu**:
+
+| Commit | Nội dung |
+|---|---|
+| `6fb8ac8` | `chore(mc): gỡ 5 gói @radix-ui không còn ai dùng` — `package.json` + `package-lock.json` trong **cùng một** commit |
+| `3318d0e` | `chore(mc): thu gọn src/empty.ts và gỡ nhóm alias @vercel/og` — 12 export → 1; cảnh báo lint cuối cùng của repo biến mất |
+| *(commit này)* | `docs(mc): kết luận @x402 và nợ kỹ thuật src/empty.ts` |
+
+Tệp sửa — **4** tệp:
+
+| Tệp | Sửa gì |
+|---|---|
+| `app/package.json` + `app/package-lock.json` | gỡ 5 gói `@radix-ui/*` bằng `npm uninstall` (không sửa tay) |
+| `app/src/empty.ts` | 12 export → **1** (`toClientEvmSigner`); bỏ `export default {}` nên hết cảnh báo lint |
+| `app/next.config.ts` | gỡ 3 alias `@vercel/og`; thu gọn hình dạng nhóm `@x402/*`; thêm khối chú thích ghi bằng chứng + **điều kiện xóa** |
+| `docs/tech-report.md` | Phần 2.2 (bỏ Radix, ghi rõ hai gói biểu mẫu chưa dùng), Phần 2.4, bảng nợ kỹ thuật 1.6.C |
+
+**Kết luận dứt khoát của Bước 7** (chi tiết + bằng chứng nguyên văn ở mục 7):
+
+| Đối tượng | Quyết định | Bằng chứng |
+|---|---|---|
+| 5 gói `@radix-ui/*` | **GỠ** | 0 chỗ nhập trong mã; 0 gói khác phụ thuộc; `node_modules/@radix-ui` 32 → 0 |
+| `react-hook-form`, `@hookform/resolvers` | **GIỮ** cho FE-05 | Owner đã chốt. Không gắn được marker — xem D-8 |
+| `react-dom` | **GIỮ** | Phụ thuộc bắt buộc của React, không gỡ dù grep không thấy |
+| Nhóm alias `@x402/*` + `src/empty.ts` | **GIỮ**, đã thu gọn tối đa | Bỏ ra thì `next build` FAIL 8 lỗi `Module not found` |
+| Nhóm alias `@vercel/og` (3 dòng) | **GỠ** | Bỏ ra thì cả 3 đường build xanh và `.open-next` **không đổi** gì |
+| Cảnh báo lint `src/empty.ts:16` | **ĐÃ XỬ LÝ**, không dùng `eslint-disable` | `npx eslint .` cho 0 lỗi / 0 cảnh báo |
+
+**Điều đáng chú ý nhất của Bước 7:** cả hai giả thuyết ban đầu đều phải sửa sau khi đo.
+Tài liệu giao việc nghi `@x402/*` "rất có thể vẫn cần" — đúng, và mạnh hơn dự đoán: **8 lỗi**
+build. Nhưng nhóm `@vercel/og` đứng cùng chỗ thì **chưa từng khớp lần nào** — gộp hai nhóm
+lại mà kết luận chung sẽ giữ lại 3 dòng vô ích. Và alias tiền tố `"@x402"` cho webpack **không
+chạy** vì alias của webpack là phép *thay thế* tiền tố, không phải bắt-tất — chỉ phát hiện được
+bằng cách chạy thật `next build --webpack`.
+
 ---
 
 ## 2. Đối chiếu DoD
@@ -315,7 +352,14 @@ xem SL-8 ở mục 10.
 | 6.3 | `mock.adapter.ts` nhập giá thay vì khai lại `DEFAULT_WPT_PRICE_VND` | ✅ | `BigInt(WPT_ISSUE_PRICE_VND)`. Hành vi giữ nguyên: `quotePurchase` vẫn trả đúng số cũ, 49 ca `mock-ledger.test.ts` và 32 ca `purchase-service.test.ts` xanh nguyên |
 | 6.4 | `app/test/issue-price-single-source.test.ts`: đọc giá từ nguồn duy nhất, gọi `quotePurchase` trên mock, xác nhận bằng nhau | ✅ | **15 ca**, CỐ Ý không hardcode 100.000. 6 lượng khác nhau (tới 123.456.789 để chắc phép tính chạy trên `bigint`), 4 ca "giá hiển thị = giá khớp lệnh", **3 ca cấu trúc** bắt được cả trường hợp khai lại với đúng con số hôm nay (đột biến 2b ở mục 5) |
 | 6.5 | **Đột biến:** đổi giá ở nguồn duy nhất → vẫn xanh; tách lại thành hai hằng số → đỏ | ✅ | Đột biến 1: test nguồn giá **15/15 xanh** (và 10 test cũ đỏ vì hardcode giá — SL-8). Đột biến 2: **12/15 đỏ**. Thêm đột biến 2b: khai lại với đúng con số hôm nay → **2/15 đỏ**, đúng hai ca cấu trúc. Hoàn nguyên: `git diff -- app packages scripts` **rỗng** cả hai lần |
-| 7.x | Dọn phụ thuộc, làm rõ `src/empty.ts` | ⬜ | _(chờ Bước 7)_ |
+| 7.1 | Xác minh 5 gói `@radix-ui/*` không còn ai dùng rồi gỡ | ✅ | Ba phép xác minh, không chỉ grep: (a) `git grep @radix-ui -- app/src app/test app/e2e` → rỗng; (b) quét **mọi** `package.json` trong `node_modules` tìm gói khai `@radix-ui` ở `dependencies`/`peerDependencies` → **0 gói**, nên không có đường vào gián tiếp; (c) sau khi gỡ, `node_modules/@radix-ui` từ **32 → 0** thư mục. Gỡ bằng `npm uninstall`, lock file commit **cùng** `package.json` (`verify-arch-rules.sh` kiểm điều đó vì Dockerfile dùng `npm ci`). Output ở 3.9 |
+| 7.2 | `react-hook-form` + `@hookform/resolvers`: giữ và gắn marker `@pending FE-05` | ⚠️ | **GIỮ** theo quyết định Owner. **Marker: không gắn được** — `package.json` ngoài phạm vi quét và JSON không có chú thích. Không tạo tệp mã giả, không mở rộng phạm vi quét. Đã ghi vào `tech-report.md` Phần 2.4 + D-8 mục 9 |
+| 7.3 | **KHÔNG gỡ `react-dom`** | ✅ | Còn nguyên trong `dependencies` (`19.2.4`), không chạm |
+| 7.4 | Sau **mỗi** lần gỡ chạy `npm run build` **và** toàn bộ test | ✅ | **4 lần build** trong Bước 7 chưa kể thực nghiệm: nền (trước khi gỡ) → sau khi gỡ radix → sau khi sửa `empty.ts`/`next.config.ts` → lần chốt. Không gộp một lần cuối. `npm test` 300/300 sau mỗi mốc. Không lần nào `exit 137` (OOM) |
+| 7.5 | Xác minh `@x402/*` có cần thiết không | ✅ | Ba phép đo tự làm lại, không tin số cho trước: `@x402` **không** có trong `package.json`; `node_modules/@x402` **không tồn tại**; `npm ls @coinbase/cdp-sdk` cho đúng chuỗi `wagmi 2.19.5 → @wagmi/connectors 6.2.0 → @base-org/account 2.4.0 → @coinbase/cdp-sdk 1.55.0`; và đọc `package.json` của cdp-sdk thấy `@x402/*` là `peerDependencies` **optional** (npm không cài) |
+| 7.6 | Nếu không cần thì gỡ alias + thu gọn `empty.ts`; kiểm nhánh `fix/cloudflare-opennext-build` trước | ✅ | **Vẫn cần** → không gỡ nhóm `@x402`. Đã kiểm nhánh: `git show origin/fix/cloudflare-opennext-build:app/next.config.ts` cho thấy nhánh đó mang **đúng** khối alias này và **vẫn còn** `app/src/empty.ts`, nên xóa tệp sẽ làm nhánh đó vỡ. Nhánh đã merge (`git branch --contains 3fc7c27` liệt kê `dev`). Nhóm `@vercel/og` thì **gỡ được**, có đo — mục 7 |
+| 7.7 | Còn cần thì gắn marker và ghi nợ kỹ thuật kèm **điều kiện xóa** | ✅ | Điều kiện xóa cụ thể, đo được bằng một lệnh: `cd app && npm ls @coinbase/cdp-sdk` **trả về rỗng**. Ghi ở `tech-report.md` 1.6.C (mức P2, đề nghị — §8 của `tech-report-maintenance.md` nói mức do Supervisor chốt) và trong chính khối chú thích của `next.config.ts`. Marker `@pending`/`@blocked`: **không gắn** vì không có task nào của dự án làm việc này — nó chờ **bên thứ ba** (wagmi bỏ `@base-org/account`), mà mã task phải thuộc `.kiro/task-status.json`. Xem D-8 |
+| 7.8 | Xử lý cảnh báo lint còn lại | ✅ | Cảnh báo duy nhất của repo (`src/empty.ts:16`, `import/no-anonymous-default-export`) đã **hết**. Cách xử lý mạnh hơn yêu cầu: không đặt tên biến rồi export, mà **xóa hẳn** `export default` sau khi đo được build không cần nó. Không dùng `eslint-disable`. `npx eslint .` → 0 lỗi, 0 cảnh báo. Đã **build lại** sau khi sửa (đúng cảnh báo trong tài liệu giao việc: `empty.ts` là tệp giữ chỗ cho bundler) |
 | 8.x | Script lớp 3 không dương tính giả | ⬜ | _(chờ Bước 8)_ |
 | 9.x | Nền cho sơ đồ luồng | ⬜ | _(chờ Bước 9)_ |
 | 10.x | Tài liệu | ⬜ | _(chờ Bước 10)_ |
@@ -1006,6 +1050,194 @@ của `bank.ts`, không đếm `purchase.ts`, nên việc xóa một action ở 
 Tức **không có phép kiểm tự động nào chốt số server action của `purchase.ts`** — chú thích ở đầu
 tệp là thứ duy nhất giữ chủ đích "3 action cho 4 hàm service". Ghi ra để Supervisor biết đó là
 chốt bằng văn bản, không phải chốt bằng máy.
+
+### 3.9 Kết quả chạy đầy đủ sau Bước 7
+
+Output **nguyên văn**, chạy trên commit chốt của Bước 7.
+
+```
+$ cd app && npm run build
+
+> app@0.1.0 build
+> next build
+
+▲ Next.js 16.2.7 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · staticGenerationMaxConcurrency: 2
+  · staticGenerationMinPagesPerWorker: 50
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.9s
+  Running TypeScript ...
+  Finished TypeScript in 5.7s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/17) ...
+  Generating static pages using 9 workers (4/17) 
+  Generating static pages using 9 workers (8/17) 
+  Generating static pages using 9 workers (12/17) 
+✓ Generating static pages using 9 workers (17/17) in 279ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/balance
+├ ƒ /api/investors
+├ ƒ /api/mint
+├ ƒ /api/purchase
+├ ƒ /api/token
+├ ƒ /api/txns
+├ ƒ /assets
+├ ƒ /audit
+├ ƒ /kyc
+├ ƒ /mint
+├ ƒ /portfolio
+├ ƒ /reconciliation
+├ ƒ /tokens/[symbol]
+└ ƒ /wallet
+
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+**17/17 route.** Gỡ 5 gói + 11 export + 12 dòng alias không làm mất route nào.
+
+```
+$ cd app && npm run build:standalone
+
+✓ Generating static pages using 9 workers (17/17) in 273ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /                        ├ ƒ /api/token          ├ ƒ /kyc
+├ ƒ /_not-found              ├ ƒ /api/txns           ├ ƒ /mint
+├ ƒ /api/balance             ├ ƒ /assets             ├ ƒ /portfolio
+├ ƒ /api/investors           ├ ƒ /audit              ├ ƒ /reconciliation
+├ ƒ /api/mint                                        ├ ƒ /tokens/[symbol]
+├ ƒ /api/purchase                                    └ ƒ /wallet
+ƒ  (Dynamic)  server-rendered on demand
+
+[flatten-standalone] app root thật: app
+[flatten-standalone] đã san phẳng app/ -> .next/standalone/ (xác nhận có .next/server/pages-manifest.json)
+```
+
+Đường Cloudflare đi qua `build:standalone`, nên phải chạy riêng — không suy ra từ `npm run build`.
+
+```
+$ cd app && npm run cf:build
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 1.428s
+⚙️ Bundling the OpenNext server...
+▲ [WARNING] Comparison with -0 using the "===" operator will also match 0 [equals-negative-zero]
+Worker saved in `.open-next/worker.js` 🚀
+OpenNext build complete.
+$ echo "exit=$?"
+exit=0
+
+$ du -sk .open-next
+49864       .open-next        # baseline trước Bước 7: 52608 → nhỏ đi 2,7 MB (gỡ radix khỏi trace)
+```
+
+Cảnh báo `equals-negative-zero` là của một thư viện bên thứ ba, có sẵn từ trước, không thuộc
+phạm vi Bước 7. `wrangler deploy` **không chạy** (cần tài khoản + mạng Cloudflare) — ghi rõ ở 7.e.
+
+```
+$ cd app && npx eslint .
+(không output)
+$ echo $?
+0
+```
+
+**0 lỗi, 0 cảnh báo.** Đây là lần đầu repo sạch tuyệt đối về lint: cảnh báo duy nhất
+(`src/empty.ts:16`) đã hết ở Bước 7 — xem 7.g.
+
+```
+$ cd app && npm test
+
+ RUN  v3.2.4 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+
+ ✓ test/purchase-state.test.ts (19 tests) 5ms
+ ✓ test/pending-markers.test.ts (13 tests) 15ms
+ ✓ test/rbac.test.ts (38 tests) 13ms
+ ✓ test/env-private-key.test.ts (5 tests) 43ms
+ ✓ test/wallet-status.test.ts (30 tests) 24ms
+ ✓ test/issue-price-single-source.test.ts (15 tests) 21ms
+ ✓ test/mock-ledger.test.ts (49 tests) 34ms
+ ✓ test/store-constraints.test.ts (69 tests) 30ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 7ms
+ ✓ test/evm-address-env.test.ts (5 tests) 7ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 2ms
+ ✓ test/purchase-service.test.ts (32 tests) 20ms
+ ✓ test/portfolio-service.test.ts (12 tests) 8ms
+
+ Test Files  13 passed (13)
+      Tests  300 passed (300)
+```
+
+**300/300, không sửa một test nào.** Bước 7 không thêm test: nó gỡ phụ thuộc và thu gọn một tệp
+giữ chỗ cho bundler — thứ mà `vitest` không chạy qua. Phép kiểm đúng cho nó là `npm run build`,
+`build:standalone` và `cf:build`, đã chạy đủ ba.
+
+```
+$ cd app && npm run typecheck
+> tsc --noEmit
+(không output = không lỗi)
+```
+
+```
+$ cd app && npm ls @coinbase/cdp-sdk
+app@0.1.0 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+└─┬ wagmi@2.19.5
+  └─┬ @wagmi/connectors@6.2.0
+    └─┬ @base-org/account@2.4.0
+      └── @coinbase/cdp-sdk@1.55.0
+
+$ cd app && npm ls @radix-ui/react-dialog
+app@0.1.0 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+└── (empty)
+```
+
+Hai lệnh này là **phép kiểm điều kiện xóa** của mục 7.j: `cdp-sdk` còn trong cây nên alias
+`@x402/*` còn phải giữ; radix đã rỗng nên gỡ xong thật.
+
+```
+$ bash scripts/run-local-all.sh
+
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+
+ĐIỂM CẮM ĐANG CHỜ
+BE-05  (1 điểm cắm)
+BE-06  (1 điểm cắm, 1 điểm chặn)
+BE-07  (2 điểm cắm)
+FE-05  (2 điểm cắm)
+FE-06  (2 điểm cắm)
+SC-02  (3 điểm chặn)
+SC-03  (3 điểm chặn)
+SC-04  (4 điểm chặn)
+Tổng: 8 điểm cắm · 11 điểm chặn · 0 bước luồng
+
+  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.
+```
+
+**7 PASS / 0 FAIL.** Bảng điểm cắm **y nguyên Bước 6**: 8 điểm cắm / 11 điểm chặn. Đúng như phải
+thế — Bước 7 không chạm tệp nào có marker. Và đó cũng là bằng chứng gián tiếp cho D-8: hai gói
+biểu mẫu giữ cho FE-05 **không** xuất hiện trong bảng này, vì `package.json` ngoài phạm vi quét.
 
 ---
 
@@ -1883,7 +2115,304 @@ là "nguồn giá hỏng" chứ không bị đọc nhầm thành "lệch giá".
 
 ## 7. Kết luận về `@x402/*` và `src/empty.ts`
 
-_(chờ Bước 7)_
+### 7.a Kết luận
+
+**`@x402/*`: GIỮ alias. `src/empty.ts`: GIỮ tệp, thu gọn từ 12 export xuống 1.**
+**`@vercel/og`: GỠ cả 3 alias.** Hai nhóm này đứng cạnh nhau trong `next.config.ts` nhưng kết
+luận **ngược nhau** — đó là lý do tài liệu giao việc bắt kiểm riêng từng nhóm, và bắt đúng.
+
+### 7.b Vì sao `@x402/*` cần dù không gói nào khai nó
+
+Nghịch lý ở R7.2 giải được: `@x402/*` là `peerDependencies` **TÙY CHỌN** của
+`@coinbase/cdp-sdk`. npm không cài peer tùy chọn, nên `node_modules/@x402` không tồn tại — nhưng
+mã của cdp-sdk **vẫn `import`** chúng, và cdp-sdk **có** trong đồ thị module của app.
+
+```
+$ cd app && grep -n "x402" package.json
+(không output)
+
+$ cd app && ls -d node_modules/@x402
+ls: node_modules/@x402: No such file or directory
+
+$ cd app && npm ls @coinbase/cdp-sdk
+app@0.1.0 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+└─┬ wagmi@2.19.5
+  └─┬ @wagmi/connectors@6.2.0
+    └─┬ @base-org/account@2.4.0
+      └── @coinbase/cdp-sdk@1.55.0
+
+$ cd app && node -e '<đọc package.json của cdp-sdk>'
+peerDependencies: @x402/core@"^2.21.0", @x402/evm@"^2.21.0", @x402/extensions@"^2.21.0", @x402/svm@"^2.21.0"
+peerDependenciesMeta: @x402/core@{"optional":true}, @x402/evm@{"optional":true}, @x402/extensions@{"optional":true}, @x402/svm@{"optional":true}
+```
+
+### 7.c Bằng chứng thực nghiệm — THỰC NGHIỆM A: bỏ nhóm `@x402`, giữ `@vercel/og`
+
+Không suy luận. Bỏ 9 dòng alias `@x402` khỏi **cả hai** khối (`webpack` và `turbopack`), giữ
+nguyên nhóm `@vercel/og`, rồi build. Output nguyên văn (rút phần lặp):
+
+```
+$ cd app && npm run build
+
+▲ Next.js 16.2.7 (Turbopack)
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 8 errors:
+./app/node_modules/@coinbase/cdp-sdk/_esm/actions/x402/signX402Payment.js:202:57
+Module not found: Can't resolve '@x402/core/client'
+  200 | ...ByChainId);
+  201 | ...}, { UptoEvmScheme }] = await Prom...
+> 202 | ... => import("@x402/core/client")),
+      |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  203 | ...", () => import("@x402/evm/exact/c...
+  204 | ..., () => import("@x402/evm/upto/cli...
+
+Import trace:
+  Client Component SSR:
+    ./app/node_modules/@coinbase/cdp-sdk/_esm/actions/x402/signX402Payment.js [Client Component SSR]
+    ./app/node_modules/@coinbase/cdp-sdk/_esm/accounts/solana/toSolanaAccount.js [Client Component SSR]
+    ./app/node_modules/@coinbase/cdp-sdk/_esm/client/solana/solana.js [Client Component SSR]
+    ./app/node_modules/@coinbase/cdp-sdk/_esm/client/cdp.js [Client Component SSR]
+    ./app/node_modules/@base-org/account/dist/interface/payment/getOrCreateSubscriptionOwnerWallet.js [Client Component SSR]
+    ./app/node_modules/@base-org/account/dist/index.node.js [Client Component SSR]
+    ./app/node_modules/@wagmi/connectors/dist/esm/baseAccount.js [Client Component SSR]
+    ./app/node_modules/@rainbow-me/rainbowkit/dist/index.js [Client Component SSR]
+    ./app/src/components/providers.tsx [Client Component SSR]
+    ./app/src/components/providers.tsx [Server Component]
+    ./app/src/app/layout.tsx [Server Component]
+```
+
+Đếm theo specifier — **đúng 5 cái, 8 lỗi**:
+
+```
+$ grep -oE "Can't resolve '[^']+'" /tmp/mc7-buildA.log | sort | uniq -c | sort -rn
+   3 Can't resolve '@x402/core/client'
+   2 Can't resolve '@x402/evm/exact/client'
+   1 Can't resolve '@x402/svm/exact/client'
+   1 Can't resolve '@x402/evm/upto/client'
+   1 Can't resolve '@x402/evm'
+```
+
+`Import trace` là phần có giá trị nhất: nó chỉ ra đường vào bắt đầu từ **mã của chính app**
+(`app/src/components/providers.tsx`, nơi dựng `RainbowKitProvider`), nên không thể "tránh" bằng
+cách sửa cấu hình — chỉ tránh được bằng cách bỏ RainbowKit hoặc bỏ connector Base Account.
+
+### 7.d THỰC NGHIỆM B: một dòng wildcard có đủ cho Turbopack không?
+
+Khối `turbopack` cũ liệt kê 9 specifier **và** một dòng `"@x402/*"`. Bỏ 9 dòng liệt kê, để lại
+đúng dòng wildcard:
+
+```
+$ cd app && npm run build      # turbopack.resolveAlias chỉ còn "@x402/*"
+EXIT=0
+(0 lỗi Module not found, 17/17 route)
+```
+
+→ Wildcard phủ đủ cả 5 specifier. **9 dòng liệt kê là dư**, đã xóa.
+
+### 7.e THỰC NGHIỆM C: nhóm `@vercel/og` — ba đường build đều không cần
+
+Bỏ 3 alias (`@vercel/og`, `next/dist/server/og/image-response`,
+`next/dist/compiled/@vercel/og`) khỏi cả hai khối, giữ nguyên nhóm `@x402`:
+
+| Đường build | Kết quả |
+|---|---|
+| `npm run build` | `EXIT=0`, 17/17 route |
+| `npm run build:standalone` | `EXIT=0`, san phẳng standalone xong |
+| `npm run cf:build` | `EXIT=0`, `Worker saved in .open-next/worker.js 🚀` |
+
+Và quan trọng hơn kết quả xanh — **output Cloudflare không đổi một byte đáng kể nào**:
+
+```
+$ du -sk .open-next            # BỎ alias @vercel/og
+noog_KB=52608
+$ du -sk .open-next            # baseline, CÓ alias @vercel/og
+baseline_KB=52608
+
+$ grep -rho "resvg\.wasm\|yoga\.wasm" .open-next | sort | uniq -c     # cả hai lần đều là:
+   5 resvg.wasm
+   5 yoga.wasm
+```
+
+Cùng kích thước, cùng số tham chiếu wasm → **alias `@vercel/og` chưa từng khớp lần nào**. Lý do:
+không tệp nào của app nhập `@vercel/og`, `ImageResponse` hay dùng `opengraph-image`.
+
+```
+$ git grep -n "ImageResponse\|@vercel/og\|opengraph-image" -- app/src app/test app/e2e
+app/src/empty.ts:12:export class ImageResponse {
+```
+
+Chỗ duy nhất nhắc `ImageResponse` là **chính tệp giữ chỗ**, tức nó tự phục vụ mình.
+
+`cf:build` **chạy được thật**, không phải bỏ qua: baseline và bản đã sửa đều `EXIT=0`. Chỉ
+`wrangler deploy` là không chạy (cần tài khoản + mạng Cloudflare) nên phần *triển khai* vẫn chưa
+kiểm được — nhưng phần *dựng bundle*, đúng chỗ alias có tác dụng, thì đã kiểm.
+
+⚠️ Hai dòng `resvg.wasm`/`yoga.wasm` ở `outputFileTracingExcludes` là **cơ chế khác**, vẫn cần,
+**không** gỡ theo. Tham chiếu wasm đến từ runtime biên dịch sẵn của Next, không đến từ alias —
+đúng như khối chú thích cũ trong `next.config.ts` đã cảnh báo. Giữ nguyên khối đó.
+
+### 7.f Thu gọn `src/empty.ts`: 12 export → 1
+
+Đo bằng cách bỏ hết rồi đọc lỗi, không bỏ từng cái (nhanh hơn và cho ngay câu trả lời đủ).
+
+**THỰC NGHIỆM D** — `empty.ts` chỉ còn `const emptyModule = {}; export default emptyModule;`:
+
+```
+$ cd app && npm run build
+EXIT=1
+Error: Turbopack build failed with 1 errors:
+   1 Export toClientEvmSigner doesn't exist
+   1 export toClientEvmSigner was not found
+    at ./app/node_modules/ (coinbase/cdp-sdk/_esm/x402/account-signers.js:5:1)
+```
+
+**Đúng một** export bị đòi. Vì sao chỉ một: `toClientEvmSigner` là tên duy nhất vào bằng
+`import` **TĨNH** trong đồ thị (`import { toClientEvmSigner } from "@x402/evm"`), còn 4 specifier
+kia vào bằng `import()` **ĐỘNG** nên build không kiểm tên export của chúng.
+
+**THỰC NGHIỆM E** — chỉ `export const toClientEvmSigner`, **không** có default export:
+
+```
+$ cd app && npm run build
+EXIT=0
+(17/17 route)
+```
+
+→ Kết quả: `empty.ts` từ **12 export còn 1**. 11 cái bỏ được:
+`toClientSvmSigner`, `registerExactEvmScheme`, `registerExactSvmScheme`, `UptoEvmScheme`,
+`ExactEvmScheme`, `UptoSvmScheme`, `ExactSvmScheme`, `cdpSolanaAccountToSvmSigner`,
+`class ImageResponse`, và `export default {}`.
+
+Về hành vi lúc **chạy**: 11 export bỏ đi đều là vỏ rỗng (`() => ({})` hoặc `{}`). Nếu luồng thanh
+toán x402 của connector Base Account có chạy vào thì trước đây nó **cũng đã không hoạt động** —
+vỏ rỗng không phải hiện thực. App này không dùng luồng đó (không màn nào gọi
+`signX402Payment`), nên không mất hành vi đang hoạt động nào.
+
+### 7.g Cảnh báo lint: xử lý bằng cách xóa, không bằng `eslint-disable`
+
+Cảnh báo `src/empty.ts:16 import/no-anonymous-default-export` sinh ra từ `export default {}`.
+Thực nghiệm E cho thấy **build không cần default export**, nên cách đúng nhất là xóa nó — gọn hơn
+cả phương án "đặt tên biến rồi export" mà tài liệu giao việc gợi ý, và không phải dùng
+`eslint-disable`. Đã **build lại** sau khi sửa (3 đường build, đều xanh), vì đổi hình dạng export
+của tệp giữ chỗ có thể phá resolution.
+
+Đây là cảnh báo lint **duy nhất** của cả repo, nên nay lint sạch tuyệt đối:
+
+```
+$ cd app && npx eslint .
+(không output)
+$ echo $?
+0
+$ cd app && npx eslint . -f json | <đếm>
+errorCount=0, warningCount=0
+```
+
+### 7.h Hình dạng cuối của alias — và một bẫy chỉ đo mới thấy
+
+| Khối | Trước | Sau |
+|---|---|---|
+| `turbopack.resolveAlias` | 9 dòng `@x402/...` + 1 wildcard + 3 dòng `@vercel/og` = **13** | **1** dòng: `"@x402/*"` |
+| `webpack` `resolve.alias` | 9 dòng `@x402/...` + 3 dòng `@vercel/og` = **12** | **5** dòng, đúng 5 specifier build đòi |
+
+Vì sao hai khối **không** cùng hình dạng: thử rút khối webpack về một khóa tiền tố `"@x402"` thì
+build đỏ y như khi không có alias:
+
+```
+$ cd app && npx next build --webpack        # webpack alias chỉ có khóa "@x402"
+EXIT=1
+   1 Can't resolve '@x402/core/client'
+   1 Can't resolve '@x402/evm'
+   1 Can't resolve '@x402/evm/exact/client'
+   1 Can't resolve '@x402/evm/upto/client'
+   1 Can't resolve '@x402/svm/exact/client'
+> Build failed because of webpack errors
+```
+
+Nguyên nhân: alias của webpack là phép **THAY THẾ tiền tố**, không phải bắt-tất. Yêu cầu
+`@x402/core/client` gặp khóa `"@x402"` biến thành `<đường-dẫn-empty.ts>/core/client` — một đường
+dẫn không tồn tại. Turbopack thì hiểu `"@x402/*"` là mẫu thật nên một dòng là đủ. Liệt kê đủ 5
+khóa chính xác cho webpack thì xanh:
+
+```
+$ cd app && npx next build --webpack        # 5 khóa chính xác
+EXIT=0
+(17/17 route)
+```
+
+*(Đường `--webpack` còn 2 cảnh báo `Can't resolve '@react-native-async-storage/async-storage'` —
+phụ thuộc tùy chọn của WalletConnect, là **cảnh báo** nên build vẫn `exit 0`. Có sẵn từ trước,
+không xuất hiện trên đường Turbopack, không thuộc phạm vi Bước 7.)*
+
+### 7.i Khối `webpack` hiện KHÔNG chạy ở bất kỳ đường build nào của repo
+
+Phát hiện phụ, đáng ghi vì nó dễ làm người sau tưởng đã sửa alias mà không hiểu vì sao build
+không đổi. Next 16 mặc định dùng Turbopack, và chỉ **chặn** build khi có `webpack` mà **không** có
+`turbopack`:
+
+```
+$ sed -n '155,160p' app/node_modules/next/dist/lib/turbopack-warning.js
+    if (process.env.TURBOPACK === 'auto' && hasWebpackConfig && !hasTurboConfig) {
+        ... process.exit(1);
+```
+
+`next.config.ts` có **cả hai** khối nên build đi đường Turbopack êm, và khối `webpack` bị bỏ qua.
+Không chỗ nào trong repo build bằng `--webpack` (`git grep -- "--webpack"` → rỗng; Dockerfile
+dùng `npm run build`; đường Cloudflare dùng `build:standalone`). Giữ khối `webpack` làm **đường
+thoát** khi cần quay về bundler cũ, và đã kiểm nó chạy được — thay vì để một khối không ai biết
+còn dùng được hay không.
+
+### 7.j Điều kiện xóa — cụ thể, đo được bằng một lệnh
+
+Ghi ở cả `docs/tech-report.md` 1.6.C và khối chú thích của `next.config.ts`:
+
+> Xóa được `src/empty.ts` + cả hai khối alias khi `cd app && npm ls @coinbase/cdp-sdk` **trả về
+> rỗng** — tức `wagmi`/`@wagmi/connectors` không còn kéo `@base-org/account`. Lúc đó chạy lại
+> `npm run build` và `npm run cf:build` để xác minh.
+
+Trạng thái hôm nay (chưa thỏa, nên còn phải giữ):
+
+```
+$ cd app && npm ls @coinbase/cdp-sdk
+app@0.1.0 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+└─┬ wagmi@2.19.5
+  └─┬ @wagmi/connectors@6.2.0
+    └─┬ @base-org/account@2.4.0
+      └── @coinbase/cdp-sdk@1.55.0
+```
+
+Đối chiếu: sau khi gỡ radix thì lệnh tương ứng cho **rỗng**, đó là hình dạng output của một
+phụ thuộc đã thật sự biến mất:
+
+```
+$ cd app && npm ls @radix-ui/react-dialog
+app@0.1.0 /Users/anbinh/workSpace/bidv-rwa-tokenize/app
+└── (empty)
+```
+
+### 7.k Nhánh `fix/cloudflare-opennext-build` — đã kiểm trước khi sửa
+
+`design.md` mục 8 và tasks 7.6 bắt kiểm nhánh này trước khi gỡ. Kết quả: nhánh đó mang **đúng**
+khối alias đang xét và **vẫn còn** `app/src/empty.ts`, nên **xóa tệp** sẽ làm nó vỡ. Nhánh đã
+merge vào `dev` nên phần thay đổi hôm nay đi tiếp bình thường; chỉ cần không xóa tệp.
+
+```
+$ git log --oneline origin/fix/cloudflare-opennext-build -3
+3fc7c27 docs: ghi quy tắc sinh lockfile bằng đúng bản npm của Workers Builds
+4be97a2 fix(app): sinh lại package-lock bằng npm 10.9.2 cho khớp Workers Builds
+2b0fcb4 docs: ghi bẫy npm ci lệch lockfile và cách kiểm trước khi push
+
+$ git ls-tree -r --name-only origin/fix/cloudflare-opennext-build | grep -E "empty.ts|next.config"
+app/next.config.ts
+app/open-next.config.ts
+app/src/empty.ts
+
+$ git branch -a --contains 3fc7c27 | head -2
+  dev
+  feat/data-schema
+```
 
 ---
 
@@ -1981,6 +2510,76 @@ không chặn được việc đó — `verify-arch-rules.sh` chỉ đếm serve
 
 **Không có phép kiểm nào đỏ vì deviation này:** `npm run typecheck`, `npx eslint .`, 285 test,
 `npm run build` 17/17 route, `scan-pending.mjs --check` `exit=0` — tất cả xanh ngay ở commit đó.
+
+### D-8 (Bước 7) — KHÔNG gắn được marker `@pending FE-05` cho một phụ thuộc
+
+Task 7.2 nói: `react-hook-form` và `@hookform/resolvers` thì "giữ và gắn marker `@pending FE-05`".
+Owner đã chốt **GIỮ**. Phần **gắn marker** thì không làm được, và đây là giới hạn của chính cơ
+chế chứ không phải chỗ Kiro bỏ sót.
+
+**Hai lý do độc lập, mỗi lý do đủ để chặn:**
+
+1. `package.json` **ngoài phạm vi quét** của `scripts/scan-pending.mjs`. Phạm vi khai ở
+   `SCAN_ROOTS` và `CODE_EXTENSIONS`, đã đọc lại để không tin theo lời:
+
+   ```
+   $ sed -n '110,140p' scripts/scan-pending.mjs
+   const SCAN_ROOTS = [
+     'app/src', 'app/test', 'app/e2e',
+     'packages/*/src', 'packages/*/contracts', 'scripts',
+   ];
+   const CODE_EXTENSIONS = new Set([
+     '.ts', '.tsx', '.mts', '.cts',
+     '.js', '.jsx', '.mjs', '.cjs',
+     '.sol', '.rs', '.sh',
+   ]);
+   ```
+
+   `app/package.json` trượt **cả hai** điều kiện: không nằm trong `SCAN_ROOTS`, và `.json` không
+   có trong `CODE_EXTENSIONS`.
+
+2. **JSON không có chú thích.** Marker là bình luận (steering `make-control.md` mục 6 bắt đặt
+   ngay trên khai báo). Không có cú pháp bình luận thì không có chỗ đặt marker, kể cả nếu mở rộng
+   phạm vi quét.
+
+**Hai cách "làm cho xong" đã bị loại, cố ý:**
+
+| Cách | Vì sao KHÔNG làm |
+|---|---|
+| Tạo một tệp mã giả trong `app/src` chỉ để chứa marker | Làm hỏng chính cơ chế. Marker phải đặt **tại chỗ code** (steering mục 6) để lúc xóa marker thì thấy ngay code liên quan mà kiểm. Một tệp chỉ có marker mà không có code thì không kiểm được gì, và nó còn thêm một export không ai dùng — đúng loại rác mà Bước 5 vừa dọn |
+| Mở rộng phạm vi quét sang `package.json` | Đổi một cơ chế dùng chung để phục vụ **một** ca. Và vẫn không giải quyết được: JSON không có chỗ viết marker |
+
+**Cách đã làm thay thế:** ghi vào `docs/tech-report.md` Phần 2.4 — bảng công nghệ là nơi
+`tech-report-maintenance.md` mục 2 đã chỉ định cho thay đổi phụ thuộc ("Thêm/gỡ/nâng thư viện →
+Phần 2"). Hai dòng bảng có chữ **CHƯA DÙNG, giữ cho FE-05**, kèm một đoạn nói rõ lý do giữ, ai
+quyết, giới hạn của cơ chế marker, và điều kiện gỡ (FE-05 bị bỏ hoặc đổi cách làm form).
+
+**Giới hạn cần Supervisor biết:** cơ chế marker phủ **mã nguồn**, không phủ **manifest**. Nên một
+phụ thuộc giữ-cho-tương-lai sẽ **không** xuất hiện trong bảng điểm cắm và **không** bị test
+`pending-markers.test.ts` bắt khi lạc hậu. Nếu FE-05 xong mà không dùng hai gói này thì không có
+phép kiểm tự động nào báo — chỉ có người đọc `tech-report.md`.
+
+**Đề xuất (KHÔNG tự làm, chờ Supervisor quyết):** nếu thấy cần phủ cả manifest thì cách ít phá vỡ
+nhất là thêm một phép kiểm **riêng** vào `pending-markers.test.ts`: đọc một danh sách khai trong
+`.kiro/task-status.json` dạng `pendingDeps: [{ "pkg": "react-hook-form", "task": "FE-05" }]`, rồi
+báo đỏ khi task đã `done` mà gói vẫn không có chỗ nào `import`. Như vậy giữ nguyên `scan-pending.mjs`
+(một cơ chế, một phạm vi) và vẫn có cái chặn khi lạc hậu. Ước lượng nhỏ, nhưng nó là **thêm cơ chế
+mới** nên không thuộc MC-01 nếu Supervisor không yêu cầu.
+
+### D-9 (Bước 7) — Ba chỗ Kiro tự quyết
+
+Ghi ra để Supervisor bác nếu thấy sai:
+
+| Quyết định | Vì sao |
+|---|---|
+| Gỡ luôn nhóm alias `@vercel/og` (3 dòng × 2 khối) | Tài liệu giao việc bắt "kiểm riêng từng nhóm", và kết quả đo là **không cần** (7.e). R7.3 nói "nếu không cần thì PHẢI gỡ", nên gỡ là thi hành spec, không phải mở rộng phạm vi |
+| Hai khối alias **không** cùng hình dạng: Turbopack 1 dòng wildcard, webpack 5 khóa chính xác | Không phải tùy hứng — rút webpack về khóa tiền tố thì build ĐỎ, có output ở 7.h. Đã ghi lý do vào chú thích ngay tại khối webpack để người sau không "dọn cho đều" rồi làm vỡ đường `--webpack` |
+| Giữ khối `webpack` dù nó không chạy ở đường build nào của repo | Nó là đường thoát khi cần quay về bundler cũ, và đã kiểm chạy được (7.h, 7.i). Xóa thì mất đường thoát mà không đổi được gì — `next build` vốn đã bỏ qua nó |
+
+**Một việc CỐ Ý hoãn sang Bước 10:** metadata đầu `docs/tech-report.md` (phiên bản tài liệu,
+commit, ngày) **chưa** cập nhật ở Bước 7, vì `tasks.md` xếp việc đó vào task **10.4**. Bước 7 chỉ
+sửa đúng ba mục mà bảng ánh xạ `tech-report-maintenance.md` mục 2 bắt buộc: Phần 2.2, Phần 2.4 và
+bảng nợ kỹ thuật 1.6.C. Ghi ra đây để Bước 10 không quên, và để Supervisor không tính là bỏ sót.
 
 ---
 

@@ -218,7 +218,8 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 | **P1** | **10 trong 16 method mới của `ILedgerPort` chưa nối được ở `evm.adapter`** — chờ contract phát hành một lần (SC-02), contract khớp lệnh (SC-03), mapping `snapshotId`→`distributionId` (BE-06), và xác nhận cờ tất toán/NAV nối vào contract nào. Bảng đầy đủ ở 3.1 | Hiện phát triển trên chain `mock` (đã hiện thực đủ 16/16, có 48 test). Khi contract xong thì bổ sung `evm.adapter` trong commit riêng — `docs/CHECKPOINT_BE01.md` |
 | **P2** | Chưa có CI. Mọi kiểm tra chạy tay | Thêm GitHub Actions chạy `typecheck + lint + test` mỗi lần push |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
-| **P2** | 1 cảnh báo lint ở `src/empty.ts` | Sửa cùng lúc với việc gỡ blocker `next.config.ts` |
+| ~~P2~~ | ~~1 cảnh báo lint ở `src/empty.ts`~~ | **ĐÃ XỬ LÝ ở MC-01 Bước 7.** Cảnh báo là `import/no-anonymous-default-export` do `export default {}`. Đo lại thì default export đó **không cần cho build**, nên xóa luôn thay vì đặt tên biến hay dùng `eslint-disable`. Nay `npx eslint .` cho **0 error, 0 warning**. Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8 |
+| **P2** *(đề nghị, Supervisor chốt mức)* | **`app/src/empty.ts` + alias `@x402/*` trong `next.config.ts` là vá cho phụ thuộc của bên thứ ba.** `@x402/*` là `peerDependencies` **tùy chọn** của `@coinbase/cdp-sdk` nên npm không cài, nhưng mã cdp-sdk vẫn `import` chúng và cdp-sdk có trong đồ thị module của app theo chuỗi `providers.tsx → @rainbow-me/rainbowkit → @wagmi/connectors/baseAccount → @base-org/account → @coinbase/cdp-sdk`. Bỏ alias ra thì `next build` FAIL 8 lỗi *Module not found* ở 5 specifier | Đã thu gọn tối đa ở MC-01 Bước 7: `empty.ts` còn **1 export** (`toClientEvmSigner`, import tĩnh duy nhất mà build đòi), alias Turbopack còn **1 dòng wildcard**. **ĐIỀU KIỆN XÓA:** khi `cd app && npm ls @coinbase/cdp-sdk` trả về rỗng — tức wagmi/connectors không còn kéo `@base-org/account`. Lúc đó gỡ cả hai khối alias, xóa `app/src/empty.ts`, chạy lại `npm run build` + `npm run cf:build` để xác minh |
 
 ### D. Cách làm việc
 
@@ -247,11 +248,12 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 |---|---|---|---|---|
 | Tailwind CSS | Styling utility-first, theme qua biến CSS | 4.x | 4.3.3 | MIT |
 | shadcn/ui | Bộ component copy vào repo | 4.10.0 | 4.21.0 | MIT |
-| Radix UI | Primitive chuẩn a11y (dialog, select, tooltip…) | 1.1.16 | 1.1.23 | MIT |
-| Base UI | Component headless | 1.5.0 | 1.8.0 | MIT |
+| Base UI | Component headless — `components/ui` dựng trên bộ này | 1.5.0 | 1.8.0 | MIT |
 | lucide-react | Bộ icon | 1.17.0 | 1.42.0 | ISC |
 | Recharts | Biểu đồ sản lượng, lợi tức | 3.8.1 | 3.10.1 | MIT |
 | next-themes | Chuyển sáng/tối | 0.4.6 | 0.4.6 | MIT |
+
+**Đã gỡ ở MC-01 Bước 7 — Radix UI (5 gói).** `@radix-ui/react-dialog`, `react-dropdown-menu`, `react-select`, `react-slot`, `react-tooltip`. `components/ui` đã chuyển hẳn sang Base UI nên không tệp nào trong `app/src`, `app/test`, `app/e2e` còn nhập `@radix-ui`; cũng không gói nào khác trong cây phụ thuộc khai `@radix-ui` làm `dependencies` hay `peerDependencies`. Gỡ 5 gói trực tiếp làm `node_modules/@radix-ui` rỗng hoàn toàn (32 → 0 thư mục) và `.open-next` nhỏ đi 2,7 MB.
 
 ## 2.3. Blockchain
 
@@ -277,7 +279,10 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 | Zod | Validate dữ liệu, schema dùng chung FE/BE | 4.4.3 | 4.5.4 | MIT |
 | Zustand | State client (chain đang chọn) | 5.0.14 | 5.0.15 | MIT |
 | TanStack Query | Cache dữ liệu bất đồng bộ | 5.101.0 | 5.102.8 | MIT |
-| React Hook Form | Biểu mẫu | 7.77.0 | 7.87.0 | MIT |
+| React Hook Form | Biểu mẫu — **CHƯA DÙNG, giữ cho FE-05** | 7.77.0 | 7.87.0 | MIT |
+| @hookform/resolvers | Nối React Hook Form với schema Zod — **CHƯA DÙNG, giữ cho FE-05** | 5.4.0 | 5.4.0 | MIT |
+
+**Hai gói biểu mẫu chưa có tệp nào nhập.** Owner đã chốt GIỮ vì FE-05 (màn đặt lệnh mua WPT) sẽ dùng, kèm Zod để một schema dùng chung cho server action và form. Đây là chỗ duy nhất ghi việc đó: cơ chế marker `@pending` **không phủ được** `package.json` — `scripts/scan-pending.mjs` chỉ quét tệp mã trong `app/src`, `app/test`, `app/e2e`, `packages/*/src`, `packages/*/contracts`, `scripts` với đuôi `.ts/.tsx/.js/.mjs/.sol/.rs/.sh`, và JSON thì không có chú thích. Nếu FE-05 bị bỏ hoặc đổi cách làm form thì gỡ cả hai gói.
 
 ## 2.5. Kiểm thử và hạ tầng
 
