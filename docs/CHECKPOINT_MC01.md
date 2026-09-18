@@ -5,7 +5,7 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–7/10 xong.** Bước 8–10 chưa làm |
+| Tiến độ | **Bước 1–8/10 xong.** Bước 9–10 chưa làm |
 | Phạm vi | Không đổi hành vi hệ thống, **trừ một ngoại lệ Owner đã chốt** (D-7 ở mục 9). Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -319,6 +319,62 @@ lại mà kết luận chung sẽ giữ lại 3 dòng vô ích. Và alias tiền
 chạy** vì alias của webpack là phép *thay thế* tiền tố, không phải bắt-tất — chỉ phát hiện được
 bằng cách chạy thật `next build --webpack`.
 
+### Bước 8 — Sửa dương tính giả của script lớp 3 ✅
+
+**Việc chính của bước này không phải sửa script, mà là phát hiện tiền đề của R8 đã lạc hậu.**
+
+R8.1 nói `verify-arch-rules.sh` "đang quét ký hiệu cũ `SPT`/`tVND` trong cả `docs/`, nên báo
+FAIL". Đo lại thì **không đúng**: phạm vi trong script là `app/src/ app/e2e/ app/test/ packages/`,
+**không có `docs/`**, và nó cho **0 chỗ** — tức mục này đã PASS từ trước khi Bước 8 bắt đầu. Chỗ
+thật sự sai nằm ở **bốn lệnh grep trong tài liệu**, nơi bảo người đọc chạy lệnh có `docs/` và kỳ
+vọng "phải rỗng". Số đo đầy đủ ở mục 10, **SL-9**.
+
+Ba commit, chia theo **mục tiêu**:
+
+| Commit | Nội dung |
+|---|---|
+| `4567a5f` | `fix(mc): script lớp 3 không còn dương tính giả với tài liệu lịch sử` — thêm chú thích giải thích **ba** giới hạn của phép quét; không đổi chính phép quét vì nó vốn đã đúng |
+| `676e3e6` | `docs(mc): lệnh kiểm ký hiệu token khớp phạm vi script` — bốn chỗ trong hai tệp tài liệu |
+| `785bf79` | `fix(mc): run-local-all in đúng dòng mới ở kết luận` — trả nợ SL-5 |
+| *(commit này)* | `docs(mc): kết quả Bước 8 vào checkpoint` |
+
+Tệp sửa — **3** tệp, **không** tệp nào là mã thực thi:
+
+| Tệp | Sửa gì |
+|---|---|
+| `scripts/verify-arch-rules.sh` | thêm 22 dòng chú thích ở mục "KÝ HIỆU TOKEN": vì sao loại `docs/`, vì sao không dùng `-i`, vì sao loại `node_modules`/`target/`, kèm số đo và **giới hạn đã biết**. Phép quét giữ nguyên |
+| `docs/tech-report-maintenance.md` | mục 0, mục 5, mục 6 (bảng chống trôi lệch) — ba chỗ |
+| `docs/tech-report.md` | phụ lục "lệnh kiểm chứng nhanh" — chỗ thứ tư |
+| `scripts/run-local-all.sh` | SL-5: bỏ `\n` khỏi tham số của `c_red`/`c_grn`, in dòng trống bằng `printf` riêng |
+
+**Vì sao chỉ thêm chú thích mà không sửa phép quét.** Phép quét đã đúng; thứ thiếu là **lý do**.
+Ba giới hạn của nó (không `docs/`, không `-i`, loại đầu ra biên dịch) trông giống ba chỗ bị làm
+sơ sài, nên người sau rất dễ "sửa" bằng cách nới rộng lại — và lúc đó 60 chỗ nhắc lịch sử có chủ
+đích biến thành 60 lỗi. Chú thích ghi đúng con số đã đo để việc nới rộng trở thành một quyết định
+có bằng chứng phản đối, không còn là một sửa lỗi hiển nhiên.
+
+**Có nên có một phép kiểm riêng cho `docs/` không? KHÔNG, và không phải vì khó.** Ba lý do, lý do
+thứ hai là đo được:
+
+1. **Tự tham chiếu.** Bất kỳ tài liệu nào *định nghĩa* phép kiểm đều chứa chuỗi cần tìm. Ngay
+   `tech-report-maintenance.md` mục 0 và chính spec MC-01 đều có. Một phép kiểm `docs/` không thể
+   phát biểu mà không tự loại trừ chính tệp định nghĩa nó — mà một luật có ngoại lệ cho chính nó
+   thì không còn là luật.
+2. **Heuristic "có từ khoá lịch sử ở gần" không có tín hiệu.** Đã thử phép xấp xỉ hợp lý nhất: coi
+   một chỗ là "nhắc lịch sử" nếu cùng dòng có `cũ` / `đã bỏ` / `~~` / `lịch sử` / `trước đây` /
+   `đổi sang` / `→`. Kết quả trên 60 chỗ thật: **30 chỗ có dấu hiệu, 30 chỗ không**. Đọc cả 30 chỗ
+   "không có dấu hiệu" thì **cả 30 đều hợp lệ** — thông điệp commit được trích (`replace SPT token
+   to WPT token`), mã cũ dán trong khối diff (`ERC20("Tokenized VND", "tVND")`), chính câu lệnh
+   grep được trích lại, và văn bản của task 8.3. Tức heuristic sai **30/30** ở đúng nửa mà nó phải
+   phân biệt được.
+3. **Checkpoint là ảnh chụp một thời điểm.** Một phép kiểm gây áp lực sửa checkpoint cũ là phép
+   kiểm làm sai lệch hồ sơ. `tech-report-maintenance.md` §7 cũng cấm tự ý xóa nội dung Supervisor
+   viết.
+
+Nên quy tắc "tài liệu mô tả **hiện trạng** phải dùng WPT/VNDB" giữ ở dạng **luật cho người đọc**
+trong `tech-report-maintenance.md` mục 0, không dựng thành phép kiểm máy. Viết một phép kiểm mong
+manh còn tệ hơn không viết: nó trả lời sai một câu hỏi mà người đọc tin là đã được trả lời.
+
 ---
 
 ## 2. Đối chiếu DoD
@@ -360,7 +416,10 @@ bằng cách chạy thật `next build --webpack`.
 | 7.6 | Nếu không cần thì gỡ alias + thu gọn `empty.ts`; kiểm nhánh `fix/cloudflare-opennext-build` trước | ✅ | **Vẫn cần** → không gỡ nhóm `@x402`. Đã kiểm nhánh: `git show origin/fix/cloudflare-opennext-build:app/next.config.ts` cho thấy nhánh đó mang **đúng** khối alias này và **vẫn còn** `app/src/empty.ts`, nên xóa tệp sẽ làm nhánh đó vỡ. Nhánh đã merge (`git branch --contains 3fc7c27` liệt kê `dev`). Nhóm `@vercel/og` thì **gỡ được**, có đo — mục 7 |
 | 7.7 | Còn cần thì gắn marker và ghi nợ kỹ thuật kèm **điều kiện xóa** | ✅ | Điều kiện xóa cụ thể, đo được bằng một lệnh: `cd app && npm ls @coinbase/cdp-sdk` **trả về rỗng**. Ghi ở `tech-report.md` 1.6.C (mức P2, đề nghị — §8 của `tech-report-maintenance.md` nói mức do Supervisor chốt) và trong chính khối chú thích của `next.config.ts`. Marker `@pending`/`@blocked`: **không gắn** vì không có task nào của dự án làm việc này — nó chờ **bên thứ ba** (wagmi bỏ `@base-org/account`), mà mã task phải thuộc `.kiro/task-status.json`. Xem D-8 |
 | 7.8 | Xử lý cảnh báo lint còn lại | ✅ | Cảnh báo duy nhất của repo (`src/empty.ts:16`, `import/no-anonymous-default-export`) đã **hết**. Cách xử lý mạnh hơn yêu cầu: không đặt tên biến rồi export, mà **xóa hẳn** `export default` sau khi đo được build không cần nó. Không dùng `eslint-disable`. `npx eslint .` → 0 lỗi, 0 cảnh báo. Đã **build lại** sau khi sửa (đúng cảnh báo trong tài liệu giao việc: `empty.ts` là tệp giữ chỗ cho bundler) |
-| 8.x | Script lớp 3 không dương tính giả | ⬜ | _(chờ Bước 8)_ |
+| 8.1 | Giới hạn phép quét ký hiệu cũ vào mã nguồn và kiểm thử, loại trừ `docs/` | ✅ | **Tiền đề của R8.1 đã lạc hậu**: phạm vi trong script vốn đã không có `docs/` và cho **0 chỗ**, tức mục này đã PASS từ trước. Chỗ sai thật là **bốn lệnh grep trong tài liệu** — đo được **237 dòng khớp / ~38 MB output / 0 vi phạm**. Đã sửa cả bốn + ghi chú thích vào script. Chi tiết và số đo: mục 10 SL-9 |
+| 8.2 | Chạy `verify-arch-rules.sh`, xác nhận **0 FAIL** | ✅ | **20 PASS / 0 FAIL / 6 WARN**, mã thoát 2. R8.3 chỉ đòi 0 FAIL nên 6 WARN không phải vi phạm — nhưng đã liệt kê **từng** cảnh báo kèm kết luận "có chủ đích" hay "là nợ" ở bảng 3.10.b. Không cảnh báo nào được làm im bằng cách nới điều kiện script |
+| 8.3 | **Đột biến:** thêm tạm `SPT` vào một tệp `app/src` → phải đỏ, rồi hoàn nguyên | ✅ | **FAIL, `exit=1`**, chỉ đúng `app/src/lib/mock-data.ts:172`. Đã kiểm thêm rằng đột biến không làm `scan-pending.mjs --check` đỏ vì lý do khác. Hoàn nguyên: `git status --short -- app packages scripts` **rỗng**. Output nguyên văn ở mục 5 |
+| +SL-5 | `run-local-all.sh` in `\n` nguyên văn ở dòng kết luận (nợ ghi từ Bước 3) | ✅ | Đã sửa cả **hai** nhánh (`c_red` và `c_grn`). Chứng minh bằng `cat -et`: dòng trống là dòng trống thật, và `grep -c '\n'` trên toàn output cho **0** |
 | 9.x | Nền cho sơ đồ luồng | ⬜ | _(chờ Bước 9)_ |
 | 10.x | Tài liệu | ⬜ | _(chờ Bước 10)_ |
 
@@ -1239,6 +1298,153 @@ Tổng: 8 điểm cắm · 11 điểm chặn · 0 bước luồng
 thế — Bước 7 không chạm tệp nào có marker. Và đó cũng là bằng chứng gián tiếp cho D-8: hai gói
 biểu mẫu giữ cho FE-05 **không** xuất hiện trong bảng này, vì `package.json` ngoài phạm vi quét.
 
+### 3.10 Kết quả chạy đầy đủ sau Bước 8
+
+#### 3.10.a `verify-arch-rules.sh` — 20 PASS / 0 FAIL / 6 WARN
+
+```
+$ bash scripts/verify-arch-rules.sh; echo "exit=$?"
+
+LUẬT 1 - Mọi tương tác chain đi qua ILedgerPort
+  PASS  viem/ethers không xuất hiện ngoài app/src/lib
+  PASS  @stellar/stellar-sdk không xuất hiện ngoài app/src/lib
+  PASS  Không có lời gọi contract trực tiếp trong components/ và app/
+
+LUẬT 2 - Mọi thao tác ký đi qua ISigner
+  PASS  SERVER_SIGNER_PRIVATE_KEY chỉ đọc ở env.ts và server.signer.ts
+  WARN  process.env đọc ngoài lib/config (kiểm tra xem có phải biến công khai):
+        app/src/lib/signer/index.ts:40:  const kind = process.env.SIGNER_KIND === 'fireblocks' ? 'fireblocks' : 'server';
+  PASS  Không có app/.env trong cây làm việc
+  PASS  Không có private key dạng hex 64 ký tự nhúng trong mã nguồn
+
+LUẬT 3 - Mọi kiểm quyền đi qua RBAC can()
+  PASS  Không có so sánh role cứng ngoài lib/rbac
+  PASS  actions/bank.ts có 5 server action (guard nằm ở tầng service, xem lớp 1)
+
+MỘT NGUỒN SỰ THẬT - ABI và địa chỉ contract
+  PASS  Không có ABI nhúng trong app/src (chỉ dùng từ packages/shared)
+  WARN  Địa chỉ EVM hardcode trong app/src (xác nhận có chủ đích):
+        app/src/components/pages/mint.tsx:172:                placeholder="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        app/src/components/pages/mint.tsx:178:                <span className="font-mono">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>
+  PASS  Không có contract ID Stellar hardcode trong app/src
+
+KHÔNG SỬA CONTRACT ĐÃ PASS TEST
+  WARN  Chưa đặt BASE_REF nên bỏ qua so sánh contract. Dùng: BASE_REF=<commit> bash scripts/verify-arch-rules.sh
+  PASS  Contract chính không import từ trex/ (toolchain tách biệt)
+
+CHAIN ĐƯỢC PHÉP - Polygon đã loại bỏ vĩnh viễn
+  PASS  Không còn tham chiếu Polygon/Amoy/Mumbai (ngoài comment)
+
+KÝ HIỆU TOKEN - WPT / VNDB (ký hiệu cũ SPT / tVND đã bỏ)
+  PASS  Không còn ký hiệu cũ SPT / tVND
+
+CẤU TRÚC SPEC VÀ STEERING
+  PASS  Có .kiro/steering
+  PASS  Có .kiro/specs
+  PASS  Có docs
+  PASS  spec p4-mint-testnet đủ 3 file
+  PASS  spec p7-profit-distribution đủ 3 file
+  PASS  spec p12-redemption đủ 3 file
+  WARN  spec p4-mint-stellar chưa có (chưa tới lượt làm thì bỏ qua)
+  WARN  spec p7-profit-distribution-stellar chưa có (chưa tới lượt làm thì bỏ qua)
+  WARN  spec p12-redemption-stellar chưa có (chưa tới lượt làm thì bỏ qua)
+  PASS  app/package-lock.json đã được commit (npm ci trong Docker chạy được)
+
+TỔNG KẾT
+  PASS: 20   FAIL: 0   WARN: 6
+  => ĐẠT nhưng có 6 cảnh báo cần xác nhận có chủ đích.
+exit=2
+```
+
+#### 3.10.b Sáu cảnh báo — từng cái một, kết luận rõ ràng
+
+R8.3 chỉ đòi **0 FAIL**, nên 6 WARN không phải vi phạm. Nhưng một script luôn ra 6 cảnh báo mà
+không ai biết chúng là gì thì chẳng khác gì không có cảnh báo nào, nên liệt kê đủ:
+
+| # | Cảnh báo | Nội dung | Kết luận | Xử lý |
+|---|---|---|---|---|
+| W1 | `process.env` đọc ngoài `lib/config` | `app/src/lib/signer/index.ts:40` đọc `process.env.SIGNER_KIND` trong `getBankSigner` | **LÀ NỢ** (nhỏ). Không phải rủi ro lộ khóa — `SIGNER_KIND` là cờ chọn custody, không phải bí mật. Nhưng nó đúng là một biến môi trường đọc ngoài `lib/config`, tức một nguồn cấu hình thứ hai: đổi tên biến thì `lib/config/env.ts` không biết, và không có chỗ nào validate giá trị lạ | **Không sửa ở bước này.** Sửa là chạm `app/src`, mà Bước 8 bị cấm chạm mã nguồn. Đề nghị: khai `SIGNER_KIND` trong `lib/config/env.ts` rồi `getBankSigner` đọc từ đó — việc của P5 (Fireblocks), là lúc nhánh `fireblocks` thật sự được dùng |
+| W2 | Địa chỉ EVM hardcode trong `app/src` | `components/pages/mint.tsx:172` và `:178`, cùng một địa chỉ `0x7099…79C8` = **account #1 của Hardhat** | **CÓ CHỦ ĐÍCH.** Là `placeholder` của ô nhập và một dòng gợi ý "dán thử địa chỉ này", không phải địa chỉ contract. Không vi phạm luật "một nguồn sự thật": luật đó nói về **ABI và địa chỉ contract**, còn đây là ví mẫu của chain dev | **Giữ.** Đưa vào config thì được một hằng số dùng đúng một chỗ, và mất luôn tính tự giải thích của ô nhập |
+| W3 | Chưa đặt `BASE_REF` | Phép so "contract không bị sửa" bị bỏ qua | **CÓ CHỦ ĐÍCH, theo thiết kế.** Phép kiểm này cần một mốc để so, mà mốc đúng phụ thuộc việc đang review cái gì — không có mặc định đúng cho mọi lần chạy. Cảnh báo chính là cách script nói "tôi đã bỏ qua một mục", kèm cú pháp để bật | **Giữ.** Đặt mặc định (ví dụ `origin/dev`) sẽ làm phép kiểm báo đỏ mỗi lần một spec hợp lệ sửa contract — tức nới thành nhiễu. Bước 8 **không** làm cảnh báo im bằng cách hạ điều kiện |
+| W4 | `spec p4-mint-stellar` chưa có | — | **CÓ CHỦ ĐÍCH.** Stellar là phase sau; `product.md` mục "non-goals" xếp Stellar ngoài giai đoạn đầu | **Giữ.** Chính lời cảnh báo đã ghi "chưa tới lượt làm thì bỏ qua" |
+| W5 | `spec p7-profit-distribution-stellar` chưa có | — | **CÓ CHỦ ĐÍCH**, cùng lý do W4 | **Giữ** |
+| W6 | `spec p12-redemption-stellar` chưa có | — | **CÓ CHỦ ĐÍCH**, cùng lý do W4 | **Giữ** |
+
+Tổng: **1 nợ** (W1, đã nêu chủ sở hữu và thời điểm trả), **5 có chủ đích** (W2–W6). Không cảnh báo
+nào thuộc loại "sửa rẻ và an toàn trong phạm vi bước này": W1 và W2 đều phải chạm `app/src`, W3–W6
+mà làm im thì là nới điều kiện.
+
+#### 3.10.c `run-local-all.sh` — 7 PASS / 0 FAIL, dòng kết luận in đúng
+
+```
+$ bash scripts/run-local-all.sh
+
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+
+ĐIỂM CẮM ĐANG CHỜ
+BE-05  (1 điểm cắm)
+BE-06  (1 điểm cắm, 1 điểm chặn)
+BE-07  (2 điểm cắm)
+FE-05  (2 điểm cắm)
+FE-06  (2 điểm cắm)
+SC-02  (3 điểm chặn)
+SC-03  (3 điểm chặn)
+SC-04  (4 điểm chặn)
+Tổng: 8 điểm cắm · 11 điểm chặn · 0 bước luồng
+
+  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.
+```
+
+Bảng điểm cắm **y nguyên Bước 6 và 7**: 8 / 11. Đúng như phải thế — Bước 8 không chạm tệp nào có
+marker.
+
+Chứng minh SL-5 đã hết, không chỉ nhìn bằng mắt (`cat -et` cho hiện ký tự cuối dòng bằng `$`):
+
+```
+$ tail -4 /tmp/rla.txt | cat -et
+$
+Tổng: 8 điểm cắm · 11 điểm chặn · 0 bước luồng$
+$
+^[[32m  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.^[[0m$
+
+$ grep -c '\n' /tmp/rla.txt     # đếm chuỗi HAI ký tự '\' và 'n' trong toàn bộ output
+0
+```
+
+Dòng thứ ba là một `$` đứng một mình — dòng trống **thật**. Trước Bước 8 chỗ đó là hai ký tự `\n`
+in ra nguyên văn ở đầu dòng kết luận.
+
+#### 3.10.d `npm test` — 300/300
+
+```
+$ cd app && npm test
+
+ ✓ test/wallet-status.test.ts (30 tests) 32ms
+ ✓ test/issue-price-single-source.test.ts (15 tests) 16ms
+ ✓ test/mock-ledger.test.ts (49 tests) 62ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 4ms
+ ✓ test/store-constraints.test.ts (69 tests) 22ms
+ ✓ test/evm-address-env.test.ts (5 tests) 4ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 5ms
+ ✓ test/portfolio-service.test.ts (12 tests) 7ms
+ ✓ test/purchase-service.test.ts (32 tests) 21ms
+
+ Test Files  13 passed (13)
+      Tests  300 passed (300)
+```
+
+**300/300, y nguyên Bước 7.** Bước 8 không thêm test và không sửa test nào — đúng phạm vi: bước này
+chỉ chạm hai script shell và hai tệp tài liệu.
+
 ---
 
 ## 4. Bảng phân loại đầy đủ export — số thật là **115**, không phải 27
@@ -1598,7 +1804,7 @@ Tất cả: **để nguyên**, không marker, ghi câu hỏi mở. Không đoán
 | **Test nguồn giá — đột biến 1** | Đổi giá ở **nguồn duy nhất** 100.000 → 123.000 → test nguồn giá phải **vẫn xanh** | ✅ **15/15 xanh**. Kèm phát hiện: 10 test cũ đỏ vì hardcode giá (SL-8) |
 | **Test nguồn giá — đột biến 2** | **Tách lại thành hai hằng số** (mock khai lại `100_000n`, nguồn đổi thành 123.000) → phải **đỏ** | ✅ **12/15 đỏ** — 10 ca giá trị + 2 ca cấu trúc |
 | **Test nguồn giá — đột biến 2b** | Khai lại hằng số với **đúng con số hôm nay** (giá không lệch) → phép so giá trị không thấy gì, phải còn ca nào đỏ | ✅ **2/15 đỏ**, đúng hai ca cấu trúc. Đây là lý do ba ca cấu trúc tồn tại |
-| Script lớp 3 | Thêm `SPT` vào một tệp `app/src` → phải đỏ | _(chờ Bước 8)_ |
+| **Script lớp 3** | Thêm một dòng bình luận chứa `SPT` vào `app/src/lib/mock-data.ts` → script phải **FAIL** và chỉ đúng tệp:dòng | ✅ **FAIL, `exit=1`**, `20 PASS → 19 PASS / 1 FAIL`, trỏ đúng `mock-data.ts:172`. `scan-pending.mjs --check` vẫn xanh (đột biến không tạo marker) — xem dưới |
 
 ### Bốn đột biến của Bước 4 — `app/test/pending-markers.test.ts`
 
@@ -2003,6 +2209,74 @@ Một lưu ý về phép kiểm này: đột biến 1 ở lần chạy **đầu 
 lúc đó `issue-terms.ts` còn là tệp **chưa theo dõi** (`??`) nên `git diff` không thấy nó. Đã commit
 mã nguồn và test **trước**, rồi chạy lại cả hai đột biến từ trạng thái đã commit — output ở trên là
 của lần chạy sau, và lúc này `git diff` là phép kiểm có giá trị thật.
+
+### Đột biến của Bước 8 — script lớp 3 còn bắt được vi phạm thật hay không
+
+Câu hỏi phải trả lời: sau khi khẳng định "phép quét đã PASS", làm sao biết nó PASS vì repo sạch chứ
+không phải vì nó đã hỏng và không còn quét gì? Chỉ có một cách: đặt vào đó một vi phạm và xem nó có
+kêu.
+
+**Chọn đột biến như thế nào.** Dùng một bình luận **không dấu, chữ thường, không chứa từ khoá
+marker**. Lý do không phải thẩm mỹ: `scan-pending.mjs --check` cũng quét `app/src`, nên nếu chuỗi
+đột biến tình cờ giống một marker sai cú pháp thì `run-local-all.sh` sẽ đỏ vì **lý do khác**, và
+phép kiểm này mất giá trị — ta sẽ không biết cái đỏ đó của ai.
+
+#### Gây đột biến
+
+```
+$ printf '\n// Dot bien Buoc 8.3: chuoi SPT de kiem script lop 3 bat duoc vi pham that.\n' \
+    >> app/src/lib/mock-data.ts
+$ sed -n '172p' app/src/lib/mock-data.ts
+// Dot bien Buoc 8.3: chuoi SPT de kiem script lop 3 bat duoc vi pham that.
+```
+
+#### Script phải đỏ — và đỏ đúng chỗ
+
+```
+$ bash scripts/verify-arch-rules.sh; echo "exit=$?"
+...
+KÝ HIỆU TOKEN - WPT / VNDB (ký hiệu cũ SPT / tVND đã bỏ)
+  FAIL  Còn 1 chỗ dùng ký hiệu cũ SPT / tVND (nợ P1 - phải đổi sang WPT / VNDB):
+        app/src/lib/mock-data.ts:172:SPT
+...
+TỔNG KẾT
+  PASS: 19   FAIL: 1   WARN: 6
+  => KHÔNG ĐẠT. Phải sửa 1 mục trước khi nộp checkpoint.
+exit=1
+```
+
+Ba điều cần đọc ở đây, không chỉ chữ FAIL:
+
+1. **`exit=1`**, không phải 2. Mã thoát phân biệt "có lỗi phải sửa" với "chỉ có cảnh báo", nên
+   `run-local-all.sh` xếp nó vào `FAILED` chứ không phải `PASSED (có cảnh báo)`.
+2. **`PASS: 19`**, giảm đúng 1 so với 20. Không mục nào khác bị kéo theo.
+3. **Trỏ đúng `mock-data.ts:172`** — đúng tệp, đúng dòng vừa thêm. Người sửa không phải đi tìm.
+
+#### Đột biến không làm đỏ vì lý do khác
+
+```
+$ node scripts/scan-pending.mjs --check
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
+exit=0
+```
+
+#### Hoàn nguyên, và chứng minh đột biến không lọt vào commit
+
+```
+$ bash scripts/verify-arch-rules.sh | grep -E "Không còn ký hiệu|PASS:"
+  PASS  Không còn ký hiệu cũ SPT / tVND
+  PASS: 20   FAIL: 0   WARN: 6
+
+$ git status --short -- app packages scripts
+(rỗng)
+$ git diff --stat -- app packages
+(rỗng)
+```
+
+Lưu ý cách hoàn nguyên: giữ bản sao ở `/tmp` rồi copy lại, **không** dùng `git checkout --` trên
+`scripts/`, vì lúc đó `scripts/run-local-all.sh` đang mang bản sửa SL-5 chưa commit — `git checkout`
+sẽ xóa luôn phần việc thật. Đây là lý do `git status` ở trên chỉ rỗng **sau** khi SL-5 đã được
+commit (`785bf79`).
 
 ---
 
@@ -2838,7 +3112,7 @@ $ git grep -nE '@(pending|blocked|flow|waiting|todo)' -- app/src app/test app/e2
 (rỗng, exit 1)
 ```
 
-### SL-5 — `run-local-all.sh` in ra chuỗi `\n` nguyên văn ở dòng cuối (lỗi sẵn có trên `dev`)
+### SL-5 — `run-local-all.sh` in ra chuỗi `\n` nguyên văn ở dòng cuối (lỗi sẵn có trên `dev`) — ✅ ĐÃ XỬ LÝ Ở BƯỚC 8
 
 Thấy khi dán output đầy đủ ở mục 3.5. Dòng kết luận hiện ra là `\n  => ĐẠT toàn bộ kiểm chứng
 cục bộ.` với hai ký tự `\` và `n` in thật.
@@ -2863,6 +3137,24 @@ $ git show 71932bb:scripts/run-local-all.sh | grep -n 'ĐẠT toàn bộ kiểm 
 **Không sửa ở Bước 3**, vì bước này chỉ được sửa bình luận — sửa script là đổi hành vi và sẽ
 phá phép kiểm 3. Chỉ là thẩm mỹ, không ảnh hưởng mã thoát. Cách sửa khi có bước nào chạm tới:
 bỏ `\n` khỏi tham số và gọi `printf '\n'` riêng, hoặc thêm một `echo` rỗng phía trên.
+
+**Đã trả ở Bước 8** (`785bf79`), là bước đầu tiên được phép sửa script. Sửa **cả hai** nhánh, không
+chỉ nhánh `c_grn` mà checkpoint ban đầu nêu — nhánh `c_red` ở dòng 100 có đúng cùng lỗi, và nó là
+nhánh người ta đọc lúc đang có lỗi cần sửa, nên còn quan trọng hơn:
+
+```
+$ grep -rn '\\n' scripts/*.sh | grep -vE "printf '"
+scripts/run-local-all.sh:100:  c_red "\n  => CHƯA ĐẠT. Sửa các mục FAIL trước khi nộp checkpoint."
+scripts/run-local-all.sh:103:c_grn "\n  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet."
+```
+
+Chọn cách sửa: một `printf '\n'` đặt **trước** khối `if`, thay vì thêm `\n` vào từng nhánh. Hai
+nhánh loại trừ nhau và cả hai đều cần đúng một dòng trống phía trên, nên đặt trước `if` thì không
+có chỗ nào để hai nhánh lệch nhau về sau. Kèm chú thích nêu nguyên nhân (`c_*` dùng `printf '%s'`)
+ngay tại chỗ, để không ai thêm `\n` vào tham số lần nữa.
+
+Sau khi sửa, `scripts/verify-arch-rules.sh` cũng đã được soi cùng phép kiểm đó và **không** có chỗ
+nào mắc lỗi này. Bằng chứng dòng kết luận in đúng: mục 3.10.c.
 
 ### SL-6 — Chính đột biến 4.2 bắt được một khẳng định rỗng ruột trong test Bước 4
 
@@ -2981,6 +3273,111 @@ nguyên nhân lẫn kết quả.
 | WPT_ISSUE_PRICE_VND, wptToVnd()`) thì **vẫn đúng**, vì `issuance.ts` còn re-export cả hai ký hiệu,
 nên đó không phải chỗ lạc hậu. Cả hai việc thuộc task 10.x; ghi ra đây để Bước 10 không phải đi tìm
 lại.
+
+### SL-9 — PHÁT HIỆN Ở BƯỚC 8: tiền đề của R8 đã lạc hậu; script **không** quét `docs/`, chỗ sai nằm ở lệnh trong tài liệu
+
+R8.1 viết: script `verify-arch-rules.sh` "đang quét ký hiệu cũ `SPT`/`tVND` trong cả `docs/`, nên
+báo FAIL vì các checkpoint lịch sử nhắc lại ký hiệu cũ một cách có chủ đích".
+
+**Đo lại thì cả hai vế đều không đúng.**
+
+#### Vế 1 — script không hề quét `docs/`, và mục này đã PASS từ trước
+
+```
+$ grep -n 'app/src/ app/e2e/' scripts/verify-arch-rules.sh
+216:HITS=$(grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ 2>/dev/null \
+
+$ grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/ | grep -c .
+0
+```
+
+Phạm vi là bốn đường dẫn mã nguồn và kiểm thử, **không có `docs/`**. Và nó cho 0 chỗ, nên mục
+"KÝ HIỆU TOKEN" **đã PASS trước khi Bước 8 bắt đầu** — điều này khớp với chính `requirements.md`
+mục 2, nơi bảng quét hiện trạng đã ghi "Ký hiệu cũ `SPT`/`tVND` trong mã: **0** ✓". Tức hai mục
+của cùng một tài liệu giao việc nói ngược nhau; mục 2 đúng, R8.1 lạc hậu.
+
+#### Vế 2 — chỗ sai thật là **bốn lệnh grep trong tài liệu**, và nó tệ hơn "báo FAIL"
+
+Bốn chỗ bảo người đọc chạy lệnh có `docs/` và kỳ vọng "phải rỗng":
+
+| Tệp | Chỗ |
+|---|---|
+| `docs/tech-report-maintenance.md` | mục 0 — quy ước ký hiệu token |
+| `docs/tech-report-maintenance.md` | mục 5 — tự kiểm trước khi nộp checkpoint |
+| `docs/tech-report-maintenance.md` | mục 6 — bảng chống trôi lệch, ghi rõ "gồm cả `e2e/` và `docs/`" |
+| `docs/tech-report.md` | phụ lục "lệnh kiểm chứng nhanh" |
+
+Chạy đúng lệnh như tài liệu viết:
+
+```
+$ grep -rniE "\bSPT\b|tVND" app/src app/e2e app/test packages/ docs/ > /tmp/raw1.txt
+$ wc -l < /tmp/raw1.txt
+     237
+$ echo "$(( $(wc -c < /tmp/raw1.txt) / 1024 / 1024 )) MB"
+38 MB
+```
+
+**237 dòng khớp, 38 MB output, 0 vi phạm.** Phân rã đủ 237 dòng — không nhóm nào bị bỏ sót:
+
+| Nhóm | Số dòng | Bản chất |
+|---|---|---|
+| Trong `docs/` | **60** | Có chủ đích: checkpoint lịch sử, bảng "ký hiệu cũ đã bỏ", diff dán lại mã cũ, chính spec MC-01 |
+| `Binary file … matches` | **126** | 110 ở `packages/contracts-stellar/target/` (crate Soroban từng tên `spt_token` nên đầu ra biên dịch còn chuỗi cũ) + 16 ở `node_modules/` |
+| Văn bản trong `node_modules/` | **10** | Bundle rút gọn / chuỗi base64 của thư viện ngoài — đây là phần chiếm gần hết 38 MB |
+| Định danh `distributableProfitVnd` / `netVnd` / `profitVndBn` | **29** | Dương tính giả **do `-i`**: `profi`**`tVndB`**`n` khớp `tVND` khi bỏ phân biệt chữ hoa thường |
+| Biến cục bộ `spt` | **12** | Cũng do `-i`. 6 ở `packages/contracts-evm/scripts/verify-deployment.js`, còn lại ở `node_modules` và `target/` |
+| **Vi phạm thật** | **0** | |
+
+Tức lệnh trong tài liệu có **ba** khiếm khuyết độc lập, không phải một như R8.1 nói: có `docs/`,
+dùng `-i`, và không loại đầu ra biên dịch. Sửa một mà bỏ hai thì lệnh vẫn không bao giờ rỗng.
+
+**Vì sao đây là sai lệch đáng ghi, không phải chuyện nhỏ.** `tech-report-maintenance.md` nạp
+`inclusion: always`, tức mọi phiên Kiro đều đọc nó. Một người làm theo sẽ thấy 237 dòng, kết luận
+repo đang vi phạm quy ước ký hiệu token, rồi đi "sửa" 60 chỗ trong tài liệu lịch sử — tức làm sai
+lệch hồ sơ để cho một phép kiểm sai được xanh.
+
+#### Việc này đã được báo **hai lần** trước đó và chưa ai sửa
+
+Không phải phát hiện mới của Bước 8. Hai checkpoint trước đã chỉ đúng chỗ:
+
+```
+$ grep -n "chính câu lệnh này nằm trong" docs/CHECKPOINT_TEST_PACK.md
+556:Không bao giờ rỗng được, vì **chính câu lệnh này nằm trong `docs/`**:
+```
+
+- `docs/CHECKPOINT_TEST_PACK.md` — "Câu hỏi 3 (P2) — DoD `grep … docs/` phải rỗng là bất khả thi",
+  nêu đúng lập luận **tự tham chiếu** và liệt kê đúng ba vị trí.
+- `docs/CHECKPOINT_FE01_V2.md` mục 6.4 — nêu đúng dương tính giả do `-i` với `profitVndBn`, và đã
+  **đề nghị sửa lệnh trong tài liệu quy tắc**.
+
+Cả hai lần đều là mục P2 và cả hai lần đều không được thi hành, nên khiếm khuyết sống sót qua ít
+nhất hai phase. Bài học đáng nâng thành rule: **một dương tính giả trong tài liệu `inclusion:
+always` không phải P2.** Nó sai một lần rồi sai với mọi người đọc về sau, và cái giá của nó là một
+người thật đi sửa 60 chỗ tài liệu đúng.
+
+#### Đã sửa gì
+
+Cả bốn chỗ đổi thành **đúng** phép quét của script, kèm câu giải thích vì sao `docs/` cố ý không
+quét. Sau khi sửa:
+
+```
+$ grep -rn 'rniE' docs/tech-report.md docs/tech-report-maintenance.md .kiro/steering/
+(rỗng)
+$ grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/ | grep -c .
+0
+```
+
+**Hai chỗ CỐ Ý không sửa**, và lý do quan trọng hơn việc sửa:
+
+1. `docs/CHECKPOINT_TEST_PACK.md:553` có dòng `grep -rniE … docs/   # cho kết quả rỗng` — một khẳng
+   định **sai**. Nhưng đó là checkpoint đã nộp, tức ảnh chụp một thời điểm. Sửa nó là viết lại hồ
+   sơ; `tech-report-maintenance.md` §7 cũng cấm tự ý xóa nội dung Supervisor viết. Ghi ra đây để
+   người đọc biết dòng đó không còn đúng, thay vì lặng lẽ sửa.
+2. 6 chỗ biến cục bộ tên `spt` ở `packages/contracts-evm/scripts/verify-deployment.js`
+   (`const spt = await ethers.getContractAt("ProjectToken", …)`). Đây là **tàn dư đặt tên** theo ký
+   hiệu cũ, không phải ký hiệu hiển thị, nên phép quét phân biệt chữ hoa thường cố ý không bắt. Sửa
+   là chạm mã trong `packages/` — ngoài phạm vi Bước 8. Đề nghị đổi tên khi có task nào chạm tệp đó;
+   giới hạn này đã ghi thẳng vào chú thích của script để không ai tưởng là bỏ sót.
 
 ---
 

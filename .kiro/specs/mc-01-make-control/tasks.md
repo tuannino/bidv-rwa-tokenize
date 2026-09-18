@@ -51,13 +51,13 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 5: Phân loại 27 export
 
-- [-] 5.1 Lấy danh sách bằng cách quét export chỉ xuất hiện trong chính tệp nó.
-- [~] 5.2 Phân loại từng cái theo bảng ở `design.md` mục 6.
-- [~] 5.3 Điểm cắm → gắn marker với mã task đúng.
-- [~] 5.4 Dùng nội bộ → bỏ từ khóa `export`.
-- [~] 5.5 Mã chết thật → **xóa**. Với `evmTestnet`, `hardhatLocal`, `getSigner`: xóa thử rồi chạy `npm run build` để xác minh, vì chúng có thể dùng gián tiếp.
-- [~] 5.6 Dùng trong test → xác minh test có gọi thật, không cần marker.
-- [~] 5.7 Ghi **bảng phân loại đầy đủ 27 dòng** vào checkpoint.
+- [x] 5.1 Lấy danh sách bằng cách quét export chỉ xuất hiện trong chính tệp nó.
+- [x] 5.2 Phân loại từng cái theo bảng ở `design.md` mục 6.
+- [x] 5.3 Điểm cắm → gắn marker với mã task đúng.
+- [x] 5.4 Dùng nội bộ → bỏ từ khóa `export`.
+- [x] 5.5 Mã chết thật → **xóa**. Với `evmTestnet`, `hardhatLocal`, `getSigner`: xóa thử rồi chạy `npm run build` để xác minh, vì chúng có thể dùng gián tiếp.
+- [x] 5.6 Dùng trong test → xác minh test có gọi thật, không cần marker.
+- [x] 5.7 Ghi **bảng phân loại đầy đủ 27 dòng** vào checkpoint.
 
 *Commit:* `refactor(mc): phân loại và dọn export không dùng`
 
@@ -65,11 +65,11 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 6: Hợp nhất nguồn giá phát hành
 
-- [~] 6.1 Kiểm chiều phụ thuộc trước khi làm: `lib/ledger` nhập từ `lib/bank` có ngược tầng không.
-- [~] 6.2 Nếu ngược tầng, đặt hằng số ở chỗ trung lập (`lib/config` hoặc `packages/shared`), cả hai cùng nhập. **Ghi lựa chọn và lý do vào checkpoint.**
-- [~] 6.3 `mock.adapter.ts` nhập giá thay vì khai lại `DEFAULT_WPT_PRICE_VND`.
-- [~] 6.4 Tạo `app/test/issue-price-single-source.test.ts`: đọc giá từ nguồn duy nhất, gọi `quotePurchase` trên mock, xác nhận bằng nhau.
-- [~] 6.5 **Kiểm chứng bằng đột biến:** đổi giá ở nguồn duy nhất thành số khác, chạy test, phải vẫn xanh (vì cả hai cùng đổi). Rồi thử tách lại thành hai hằng số, phải đỏ.
+- [x] 6.1 Kiểm chiều phụ thuộc trước khi làm: `lib/ledger` nhập từ `lib/bank` có ngược tầng không.
+- [x] 6.2 Nếu ngược tầng, đặt hằng số ở chỗ trung lập (`lib/config` hoặc `packages/shared`), cả hai cùng nhập. **Ghi lựa chọn và lý do vào checkpoint.**
+- [x] 6.3 `mock.adapter.ts` nhập giá thay vì khai lại `DEFAULT_WPT_PRICE_VND`.
+- [x] 6.4 Tạo `app/test/issue-price-single-source.test.ts`: đọc giá từ nguồn duy nhất, gọi `quotePurchase` trên mock, xác nhận bằng nhau.
+- [x] 6.5 **Kiểm chứng bằng đột biến:** đổi giá ở nguồn duy nhất thành số khác, chạy test, phải vẫn xanh (vì cả hai cùng đổi). Rồi thử tách lại thành hai hằng số, phải đỏ.
 
 *Commit:* `refactor(mc): hợp nhất nguồn giá phát hành WPT`
 
@@ -77,14 +77,14 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 7: Dọn phụ thuộc và làm rõ `src/empty.ts`
 
-- [~] 7.1 Xác minh 5 gói `@radix-ui/*` không còn ai dùng (`components/ui` đã chuyển sang `@base-ui`), rồi gỡ.
-- [~] 7.2 `react-hook-form` và `@hookform/resolvers`: hỏi xem FE-05 có dùng không. Nếu có thì giữ và gắn marker `@pending FE-05`; nếu không thì gỡ. **Không tự quyết, ghi câu hỏi mở nếu chưa rõ.**
-- [~] 7.3 **KHÔNG gỡ `react-dom`.**
-- [~] 7.4 Sau mỗi lần gỡ, chạy `npm run build` **và** toàn bộ test.
-- [~] 7.5 Xác minh `@x402/*` có cần thiết không: không gói nào trong `package.json` khai nó.
-- [~] 7.6 Nếu không cần, gỡ alias khỏi `next.config.ts` và thu gọn `src/empty.ts`. Kiểm nhánh `fix/cloudflare-opennext-build` trước khi gỡ.
-- [~] 7.7 Nếu còn cần, gắn marker và ghi vào nợ kỹ thuật kèm **điều kiện xóa**.
-- [~] 7.8 Xử lý cảnh báo lint còn lại, hoặc ghi rõ vì sao không xử lý được.
+- [x] 7.1 Xác minh 5 gói `@radix-ui/*` không còn ai dùng (`components/ui` đã chuyển sang `@base-ui`), rồi gỡ.
+- [x] 7.2 `react-hook-form` và `@hookform/resolvers`: hỏi xem FE-05 có dùng không. Nếu có thì giữ và gắn marker `@pending FE-05`; nếu không thì gỡ. **Không tự quyết, ghi câu hỏi mở nếu chưa rõ.**
+- [x] 7.3 **KHÔNG gỡ `react-dom`.**
+- [x] 7.4 Sau mỗi lần gỡ, chạy `npm run build` **và** toàn bộ test.
+- [x] 7.5 Xác minh `@x402/*` có cần thiết không: không gói nào trong `package.json` khai nó.
+- [x] 7.6 Nếu không cần, gỡ alias khỏi `next.config.ts` và thu gọn `src/empty.ts`. Kiểm nhánh `fix/cloudflare-opennext-build` trước khi gỡ.
+- [x] 7.7 Nếu còn cần, gắn marker và ghi vào nợ kỹ thuật kèm **điều kiện xóa**.
+- [x] 7.8 Xử lý cảnh báo lint còn lại, hoặc ghi rõ vì sao không xử lý được.
 
 *Commit:* `chore(mc): dọn phụ thuộc không dùng và làm rõ src/empty.ts`
 
@@ -92,9 +92,9 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 8: Sửa dương tính giả của script lớp 3
 
-- [~] 8.1 Giới hạn phép quét ký hiệu cũ `SPT` / `tVND` vào mã nguồn và kiểm thử, loại trừ `docs/`.
-- [~] 8.2 Chạy `verify-arch-rules.sh`, xác nhận **0 FAIL** trên `dev` hiện tại.
-- [~] 8.3 Kiểm chứng script vẫn bắt được vi phạm thật: thêm tạm `SPT` vào một tệp trong `app/src`, phải đỏ. Hoàn nguyên.
+- [x] 8.1 Giới hạn phép quét ký hiệu cũ `SPT` / `tVND` vào mã nguồn và kiểm thử, loại trừ `docs/`.
+- [x] 8.2 Chạy `verify-arch-rules.sh`, xác nhận **0 FAIL** trên `dev` hiện tại.
+- [x] 8.3 Kiểm chứng script vẫn bắt được vi phạm thật: thêm tạm `SPT` vào một tệp trong `app/src`, phải đỏ. Hoàn nguyên.
 
 *Commit:* `fix(mc): script lớp 3 không còn dương tính giả với tài liệu lịch sử`
 
