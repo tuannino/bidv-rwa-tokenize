@@ -732,19 +732,227 @@ export function formatTable(report) {
   return out.join('\n');
 }
 
-// --- CLI -------------------------------------------------------------------
-const USAGE = `Dùng: node scripts/scan-pending.mjs [--json | --check]
+// =============================================================================
+//  MỤC ĐIỂM CẮM TRONG docs/tech-report.md — SINH TỰ ĐỘNG
+// =============================================================================
+//  R10.2 đòi báo cáo công nghệ có mục điểm cắm và mục đó PHẢI sinh từ script. Bài toán:
+//  `docs/tech-report.md` là tệp VIẾT TAY, chỉ MỘT mục trong đó là máy sinh — nên không thể
+//  ghi đè cả tệp như `docs/flows/*.md` của gen-flow-diagram.mjs.
+//
+//  Cách giải: khoanh vùng bằng cặp mốc HTML comment. `--write-report` chỉ thay phần GIỮA hai
+//  mốc, mọi chữ ngoài đó không bị chạm. Không tìm thấy mốc thì DỪNG, không đoán chỗ chèn:
+//  chèn sai chỗ trong một tệp 1000 dòng viết tay là thiệt hại khó lần ra.
+//
+//  Một ĐƯỜNG SINH DUY NHẤT (`renderReportSection`) dùng cho cả ghi và kiểm — cùng lý do đã
+//  ghi ở `renderFlowDoc` của gen-flow-diagram.mjs: hai đường sinh khác nhau thì `--check-report`
+//  sẽ báo lệch vì lý do không liên quan gì tới marker, và người sửa đi tìm nguyên nhân ở chỗ
+//  không có gì sai.
+//
+//  Phép kiểm cắm vào `app/test/pending-markers.test.ts`, KHÔNG thêm mục thứ tám vào
+//  scripts/run-local-all.sh: nó cùng họ với phép kiểm sơ đồ luồng đã ở đó, và đặt cạnh nhau
+//  thì người sửa marker thấy mọi nghĩa vụ trong một lần chạy.
 
-  (không cờ)  in bảng điểm cắm cho người đọc, mã thoát 0
-  --json      in JSON ra stdout (chỉ JSON, không gì khác), mã thoát 0
-  --check     mã thoát 1 nếu có lỗi marker, 0 nếu không; lỗi in ra stderr
-  --help      in hướng dẫn này
+export const REPORT_FILE = 'docs/tech-report.md';
+export const REPORT_BEGIN = '<!-- BEGIN:diem-cam (sinh tự động — ĐỪNG SỬA TAY) -->';
+export const REPORT_END = '<!-- END:diem-cam -->';
+
+const REPORT_KIND_LABEL = { pending: 'cắm', blocked: 'chặn' };
+
+/**
+ * Nội dung marker đi vào một ô bảng Markdown. Chỉ `|` phải thoát — nó đóng ô sớm và làm
+ * lệch mọi ô còn lại của dòng. Backtick, ngoặc kép, dấu ngoặc thì để nguyên: trong ô bảng
+ * chúng vô hại và thoát đi chỉ làm nội dung khó đọc hơn.
+ */
+function cellText(text) {
+  return String(text).replace(/\s+/g, ' ').trim().replace(/\|/g, '\\|');
+}
+
+/**
+ * Toàn bộ khối giữa hai mốc, KÈM hai dòng mốc.
+ *
+ * Hàm THUẦN: không đọc đĩa, không ghi đĩa. Đây là đường sinh duy nhất.
+ *
+ * @param {ScanReport} report
+ * @returns {string}
+ */
+export function renderReportSection(report) {
+  const s = report.summary;
+  const out = [REPORT_BEGIN, ''];
+
+  out.push(
+    `> **Bảng dưới đây do \`scripts/scan-pending.mjs\` sinh ra từ marker \`@pending\` / \`@blocked\``,
+    '> trong mã nguồn.** Sửa tay sẽ bị ghi đè ở lần sinh sau, và trong khoảng thời gian trước đó',
+    '> thì bảng nói một đằng còn mã làm một nẻo. Muốn đổi nội dung thì sửa marker trong mã.',
+    '>',
+    '> - Sinh lại: `node scripts/scan-pending.mjs --write-report`',
+    '> - Kiểm còn khớp marker: `node scripts/scan-pending.mjs --check-report`',
+    '> - Quy ước marker: `.kiro/steering/make-control.md`',
+    '',
+    'Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp khi đọc bảng**:',
+    '',
+    '| Loại | Trạng thái mã | Việc của task được nhắc |',
+    '|---|---|---|',
+    '| **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |',
+    '| **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |',
+    '',
+    `**${s.pending} điểm cắm · ${s.blocked} điểm chặn**, nhóm theo task đang chờ.`,
+    '',
+  );
+
+  if (report.markers.length === 0) {
+    out.push(
+      'Hiện không có marker nào. Đây là trạng thái bình thường, không phải lỗi — còn hay hết',
+      'điểm cắm đều không làm phép kiểm nào đỏ.',
+    );
+  } else {
+    out.push('| Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |', '|---|---|---|---|');
+    for (const m of report.markers) {
+      out.push(
+        `| \`${m.task}\` | ${REPORT_KIND_LABEL[m.kind]} | \`${m.file}:${m.line}\` | ${cellText(m.note)} |`,
+      );
+    }
+  }
+
+  const flowNames = [...new Set(report.flows.map((f) => f.flow))].sort();
+  out.push('', '**Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):', '');
+  if (flowNames.length === 0) {
+    out.push('Chưa luồng nào gắn marker `@flow`, nên chưa có sơ đồ nào sinh được.');
+  } else {
+    for (const name of flowNames) {
+      const steps = report.flows.filter((f) => f.flow === name).length;
+      out.push(`- \`${name}\` — ${steps} bước → \`docs/flows/${name}.md\``);
+    }
+  }
+
+  out.push('', REPORT_END);
+  return out.join('\n');
+}
+
+/** Cắt chuỗi dài để thông báo lệch chỉ được vào chỗ cần xem */
+function shorten(text, max = 110) {
+  const t = String(text ?? '');
+  return t.length <= max ? t : `${t.slice(0, max)}…`;
+}
+
+/** Dòng đầu tiên khác nhau giữa hai khối, để chỉ đúng chỗ cần sửa */
+function firstDiffLine(onDisk, fresh) {
+  const a = onDisk.split('\n');
+  const b = fresh.split('\n');
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if (a[i] !== b[i]) {
+      return {
+        line: i + 1,
+        onDisk: a[i] ?? '(khối trên đĩa hết ở đây)',
+        fresh: b[i] ?? '(khối sinh ra hết ở đây)',
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Bóc khối giữa hai mốc trong tệp báo cáo.
+ * @returns {{ok:true, before:string, block:string, after:string}|{ok:false, reason:string}}
+ */
+function readReportBlock(repoRoot = REPO_ROOT) {
+  const abs = path.join(repoRoot, REPORT_FILE);
+  let text;
+  try {
+    text = fs.readFileSync(abs, 'utf8');
+  } catch (err) {
+    return { ok: false, reason: `không đọc được ${REPORT_FILE}: ${err.message}` };
+  }
+
+  const from = text.indexOf(REPORT_BEGIN);
+  const to = text.indexOf(REPORT_END);
+  if (from === -1 || to === -1) {
+    return {
+      ok: false,
+      reason:
+        `${REPORT_FILE} không có cặp mốc khoanh vùng mục điểm cắm. Phải có đủ hai dòng:\n`
+        + `        ${REPORT_BEGIN}\n        ${REPORT_END}\n`
+        + '      Script CỐ Ý không tự đoán chỗ chèn: đây là tệp viết tay, chèn sai chỗ là\n'
+        + '      thiệt hại khó lần ra. Thêm cặp mốc vào đúng mục rồi chạy lại.',
+    };
+  }
+  if (to < from) {
+    return {
+      ok: false,
+      reason: `${REPORT_FILE} có mốc END đứng TRƯỚC mốc BEGIN — vùng sinh tự động không xác định`,
+    };
+  }
+
+  return {
+    ok: true,
+    before: text.slice(0, from),
+    block: text.slice(from, to + REPORT_END.length),
+    after: text.slice(to + REPORT_END.length),
+  };
+}
+
+/**
+ * Mục điểm cắm trong báo cáo có còn khớp marker hiện tại hay không.
+ * @param {ScanReport} report
+ * @param {string} [repoRoot]
+ * @returns {{ok:true}|{ok:false, reason:string}}
+ */
+export function checkReportSection(report, repoRoot = REPO_ROOT) {
+  const cut = readReportBlock(repoRoot);
+  if (!cut.ok) return cut;
+
+  const fresh = renderReportSection(report);
+  if (cut.block === fresh) return { ok: true };
+
+  const diff = firstDiffLine(cut.block, fresh);
+  return {
+    ok: false,
+    reason:
+      `mục điểm cắm trong ${REPORT_FILE} đã lạc hậu so với marker trong mã.\n`
+      + `      Khác nhau từ dòng ${diff.line} của khối:\n`
+      + `        trên đĩa : ${shorten(diff.onDisk)}\n`
+      + `        sinh lại : ${shorten(diff.fresh)}\n`
+      + '      Sửa bằng: node scripts/scan-pending.mjs --write-report',
+  };
+}
+
+/** Ghi lại phần giữa hai mốc. Mọi chữ ngoài vùng đó không bị chạm. */
+function writeReportSection(report, repoRoot = REPO_ROOT) {
+  const cut = readReportBlock(repoRoot);
+  if (!cut.ok) {
+    process.stderr.write(`Không ghi được mục điểm cắm:\n\n  ${cut.reason}\n`);
+    return 1;
+  }
+
+  const fresh = renderReportSection(report);
+  if (cut.block === fresh) {
+    process.stdout.write(`Không đổi: ${REPORT_FILE} (mục điểm cắm đã khớp marker)\n`);
+    return 0;
+  }
+
+  fs.writeFileSync(path.join(repoRoot, REPORT_FILE), cut.before + fresh + cut.after, 'utf8');
+  process.stdout.write(
+    `Đã cập nhật: ${REPORT_FILE} (${report.summary.pending} điểm cắm, `
+    + `${report.summary.blocked} điểm chặn, ${report.summary.flows} bước luồng)\n`,
+  );
+  return 0;
+}
+
+// --- CLI -------------------------------------------------------------------
+const USAGE = `Dùng: node scripts/scan-pending.mjs [--json | --check | --write-report | --check-report]
+
+  (không cờ)      in bảng điểm cắm cho người đọc, mã thoát 0
+  --json          in JSON ra stdout (chỉ JSON, không gì khác), mã thoát 0
+  --check         mã thoát 1 nếu có lỗi marker, 0 nếu không; lỗi in ra stderr
+  --write-report  sinh lại mục điểm cắm trong ${REPORT_FILE} (chỉ phần giữa hai mốc)
+  --check-report  mã thoát 1 nếu mục đó lệch marker; không ghi gì
+  --help          in hướng dẫn này
 
 Quy ước marker: .kiro/steering/make-control.md`;
 
 function main(argv) {
   const flags = argv.slice(2);
-  const unknown = flags.filter((f) => !['--json', '--check', '--help', '-h'].includes(f));
+  const known = ['--json', '--check', '--write-report', '--check-report', '--help', '-h'];
+  const unknown = flags.filter((f) => !known.includes(f));
   if (unknown.length > 0) {
     process.stderr.write(`Cờ không nhận ra: ${unknown.join(', ')}\n\n${USAGE}\n`);
     return 2;
@@ -759,6 +967,30 @@ function main(argv) {
   if (flags.includes('--json')) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return 0;
+  }
+
+  // Sinh mục điểm cắm từ dữ liệu marker CÒN LỖI là ghi vào báo cáo một bảng thiếu hoặc sai
+  // dòng, mà người đọc báo cáo không có cách nào biết. Từ chối, chỉ sang --check — cùng lý lẽ
+  // với "từ chối sinh sơ đồ khi số bước sai" của gen-flow-diagram.mjs.
+  if (flags.includes('--write-report') || flags.includes('--check-report')) {
+    if (report.errors.length > 0) {
+      process.stderr.write(
+        `Marker đang có ${report.errors.length} lỗi, nên KHÔNG sinh và KHÔNG kiểm mục điểm cắm:\n`
+        + 'bảng sinh ra từ dữ liệu lỗi sẽ thiếu hoặc sai dòng, và người đọc báo cáo không có\n'
+        + 'cách nào biết. Sửa marker trước.\n\n'
+        + 'Xem chi tiết: node scripts/scan-pending.mjs --check\n',
+      );
+      return 1;
+    }
+    if (flags.includes('--write-report')) return writeReportSection(report);
+
+    const kq = checkReportSection(report);
+    if (kq.ok) {
+      process.stdout.write(`Khớp marker: mục điểm cắm trong ${REPORT_FILE}\n`);
+      return 0;
+    }
+    process.stderr.write(`Mục điểm cắm không khớp marker:\n\n  ${kq.reason}\n`);
+    return 1;
   }
 
   if (flags.includes('--check')) {

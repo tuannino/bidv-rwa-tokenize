@@ -765,6 +765,106 @@ thứ hai và hai bên sẽ lệch nhau.
 
 ---
 
+## 3.10. Điểm cắm đang chờ — `scripts/` và cơ chế marker (MC-01)
+
+Backend là tầng trung gian nên nó **xong trước** giao diện và trước contract sẽ cắm vào. Hệ
+quả: trong `app/src` có những hàm đã chạy được nhưng **chưa ai gọi**, và những method đang ném
+`LedgerNotImplementedError` vì thiếu contract. Bằng công cụ thông thường cả hai trông giống mã
+chết, nên người vào sau dễ xóa nhầm, còn người làm task giao diện thì không biết backend đã có
+sẵn gì và viết lại từ đầu.
+
+MC-01 dựng cơ chế để mỗi chỗ như vậy **tự khai báo mình đang chờ ai**, và **tự báo đỏ khi bị
+bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định để máy đọc được:
+
+| Marker | Nghĩa | Quy ước |
+|---|---|---|
+| `@pending <MÃ-TASK> \| <đã sẵn gì>` | code **đã chạy được**, chờ người gọi | steering mục 1 |
+| `@blocked <MÃ-TASK> \| <thiếu gì>` | code **chưa chạy được**, đang ném lỗi | steering mục 2 |
+| `@flow <tên-luồng>:<số bước> \| <việc của bước>` | vị trí trong luồng nghiệp vụ | steering mục 4 |
+
+| Tệp | Vai trò | Lưu ý |
+|---|---|---|
+| `.kiro/steering/make-control.md` | Quy ước đầy đủ, nạp `always` | **Nguồn duy nhất của cú pháp.** Cấm biến thể (`@todo`, `TODO`, `FIXME`, `HACK`, `XXX`) — script khớp theo từ khóa cố định nên mỗi biến thể là một điểm cắm **vô hình** với công cụ |
+| `.kiro/task-status.json` | Nguồn duy nhất về trạng thái task **và** về tập mã task hợp lệ | Bất biến: một mã ở **đúng một** trong `done`/`inProgress`/`planned`. Trùng hai chỗ thì phép kiểm "marker chờ task đã done" cho kết quả tùy thứ tự đọc, nên script báo `BAD_TASK_STATUS` chứ không im lặng |
+| `scripts/scan-pending.mjs` | Quét marker, in bảng, `--check`, `--json`, và sinh mục dưới đây | Node 20, ESM thuần, **không phụ thuộc gói ngoài**. Cú pháp khai ở đây và **chỉ** ở đây |
+| `scripts/gen-flow-diagram.mjs` | Sinh `docs/flows/<luồng>.md` (Mermaid) từ marker `@flow` | Nhập `scan()` từ script trên, **không quét lại mã nguồn** |
+| `app/test/pending-markers.test.ts` | 20 ca chốt cơ chế: marker không lạc hậu, sơ đồ khớp marker, mục dưới đây khớp marker | Tầng 2 dựng **repo giả trong thư mục tạm** để chứng minh phép kiểm có răng, không chạm repo thật |
+
+**Lưu ý khi phát triển:**
+- **Còn điểm cắm là bình thường, không làm đỏ bất cứ thứ gì.** Điểm cắm là trạng thái công
+  việc. Đỏ chỉ khi marker sai cú pháp, mã task không có trong `task-status.json`, marker chờ
+  task đã `done`, mô tả chung chung, số bước `@flow` trùng/nhảy cách, hoặc tài liệu sinh ra
+  đã lệch marker. Đừng thêm phép kiểm "số điểm cắm phải giảm".
+- **Hoàn thành một task thì phải dọn marker chờ task đó** — `@pending` đã được gọi thì xóa
+  marker, `@blocked` đã nối được thì xóa marker. Bỏ qua thì `--check` và test báo đỏ, và đó
+  là chủ đích: nếu dọn marker chỉ là "nhớ thì làm" thì sau vài tháng bảng đầy rác và không ai
+  còn tin nó.
+- **Số bước `@flow` là số nguyên liên tiếp từ 1.** Cần chèn bước vào giữa thì **đánh số lại cả
+  luồng**; số thập phân (`purchase:3.5`) là sai cú pháp. Lý do: số nguyên liên tiếp làm "thiếu
+  bước" thành thứ máy phát hiện được.
+- **Tài liệu sinh ra thì đừng sửa tay** — cả `docs/flows/*.md` lẫn khối bên dưới. Lần sinh sau
+  ghi đè, và trong khoảng thời gian trước đó thì tài liệu nói một đằng còn mã làm một nẻo.
+- **`package.json` ngoài tầm cơ chế này.** Phạm vi quét là tệp mã trong `app/src`, `app/test`,
+  `app/e2e`, `packages/*/src`, `packages/*/contracts`, `scripts`; JSON không có chú thích. Phụ
+  thuộc giữ cho task sau thì ghi ở Phần 2 (xem 2.4).
+
+**Cách mở rộng:**
+1. Thêm điểm cắm mới → gắn marker ngay trên khai báo, mã task phải có trong `task-status.json`.
+2. Thêm luồng nghiệp vụ mới, **đã hoàn thành đầu cuối ở tầng BE** → gắn `@flow` rồi
+   `node scripts/gen-flow-diagram.mjs <tên-luồng>`. Năm tên luồng là cố định
+   (`purchase`, `issue`, `distribute`, `settle`, `onboard`); cần tên mới thì sửa steering và
+   `FLOW_NAMES` trước, không tự đặt.
+3. Sau khi sửa marker → `node scripts/scan-pending.mjs --write-report` để sinh lại khối dưới.
+
+<!-- BEGIN:diem-cam (sinh tự động — ĐỪNG SỬA TAY) -->
+
+> **Bảng dưới đây do `scripts/scan-pending.mjs` sinh ra từ marker `@pending` / `@blocked`
+> trong mã nguồn.** Sửa tay sẽ bị ghi đè ở lần sinh sau, và trong khoảng thời gian trước đó
+> thì bảng nói một đằng còn mã làm một nẻo. Muốn đổi nội dung thì sửa marker trong mã.
+>
+> - Sinh lại: `node scripts/scan-pending.mjs --write-report`
+> - Kiểm còn khớp marker: `node scripts/scan-pending.mjs --check-report`
+> - Quy ước marker: `.kiro/steering/make-control.md`
+
+Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp khi đọc bảng**:
+
+| Loại | Trạng thái mã | Việc của task được nhắc |
+|---|---|---|
+| **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
+| **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
+
+**8 điểm cắm · 11 điểm chặn**, nhóm theo task đang chờ.
+
+| Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
+|---|---|---|---|
+| `BE-05` | cắm | `app/src/lib/store/index.ts:132` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-06` | chặn | `app/src/lib/ledger/evm.adapter.ts:520` | thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy |
+| `BE-06` | cắm | `app/src/lib/store/index.ts:122` | cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi |
+| `BE-07` | cắm | `app/src/lib/bank/purchase.service.ts:553` | đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch |
+| `BE-07` | cắm | `app/src/lib/store/index.ts:142` | cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới |
+| `FE-05` | cắm | `app/src/app/actions/purchase.ts:28` | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result` |
+| `FE-05` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
+| `FE-06` | cắm | `app/src/app/actions/purchase.ts:36` | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai BANK_ADMIN), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận |
+| `FE-06` | cắm | `app/src/app/actions/purchase.ts:44` | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình |
+| `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:375` | thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu" |
+| `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:381` | thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật |
+| `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:392` | thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:401` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:419` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:425` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:538` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:544` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:549` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:555` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+
+**Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
+
+- `purchase` — 10 bước → `docs/flows/purchase.md`
+
+<!-- END:diem-cam -->
+
+---
+
 # PHẦN 4. BẢN ĐỒ LUỒNG
 
 ## 4.1. Luồng MINT (đã hoàn thành — P1)

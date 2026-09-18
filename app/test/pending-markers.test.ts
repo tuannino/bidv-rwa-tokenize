@@ -4,7 +4,9 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   MIN_NOTE_CHARS,
+  REPORT_FILE,
   VAGUE_PHRASES,
+  checkReportSection,
   listScannedFiles,
   scan,
 } from '../../scripts/scan-pending.mjs';
@@ -336,5 +338,54 @@ describe('Sơ đồ luồng sinh ra khớp marker trong mã', () => {
         '  Hoặc marker bị xóa mà quên xóa tệp, hoặc tên luồng đã đổi. Xóa tệp, hoặc gắn lại\n' +
         '  marker. Giữ nguyên là giữ một sơ đồ không còn gốc trong mã nguồn.\n',
     ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+//  MỤC ĐIỂM CẮM TRONG docs/tech-report.md PHẢI KHỚP MARKER
+// ---------------------------------------------------------------------------
+//  Cùng một loại sai với hai nhóm trên, chỉ đổi chỗ lần thứ ba: R10.2 đòi mục điểm cắm trong báo
+//  cáo công nghệ phải SINH TỰ ĐỘNG, và tệp sinh ra được COMMIT — nên nó lệch mã ÂM THẦM khi ai
+//  đó sửa marker rồi quên sinh lại.
+//
+//  Ở đây hại hơn ở docs/flows/: báo cáo công nghệ là tài liệu tham chiếu ĐẦU TIÊN của dev mới
+//  (nó nói thế ngay ở đầu tệp). Một bảng điểm cắm lạc hậu trong đó nói với người vào sau rằng
+//  chỗ nào còn dở, mà nói sai.
+//
+//  Phép kiểm nằm ở đây thay vì thành mục thứ tám của scripts/run-local-all.sh: cùng lý do đã ghi
+//  cho phép kiểm sơ đồ luồng — người sửa marker thấy mọi nghĩa vụ trong một lần chạy.
+
+describe('Mục điểm cắm trong báo cáo công nghệ khớp marker', () => {
+  it(`${REPORT_FILE} có mục điểm cắm và mục đó khớp marker hiện tại`, () => {
+    const kq = checkReportSection(report);
+    expect(
+      kq.ok ? null : kq.reason,
+      '\n\n  Mục điểm cắm trong báo cáo công nghệ đã lạc hậu so với marker trong mã. Sinh lại\n' +
+        '  bằng `node scripts/scan-pending.mjs --write-report` rồi commit tệp đã sinh.\n' +
+        '  ĐỪNG sửa tay khối giữa hai mốc <!-- BEGIN:diem-cam --> / <!-- END:diem-cam -->:\n' +
+        '  lần sinh sau ghi đè, và trong khoảng thời gian trước đó thì bảng nói một đằng còn\n' +
+        '  mã làm một nẻo. Chữ NGOÀI hai mốc thì viết tay, script không chạm tới.\n',
+    ).toBeNull();
+  });
+
+  it('phép kiểm có răng: báo cáo lệch marker thì phải báo đỏ', () => {
+    // Ca trên là "không có lỗi", nên nó xanh cả khi checkReportSection hỏng và luôn trả ok.
+    // Đột biến ở đây làm trên BÁO CÁO ĐANG CÓ THẬT nhưng với dữ liệu marker đã bớt một dòng —
+    // không chạm đĩa, nên không có đường nào lọt vào commit.
+    expect(report.markers.length, 'cần ít nhất một marker để bớt đi').toBeGreaterThan(0);
+    const thieuMotDong = {
+      ...report,
+      markers: report.markers.slice(1),
+      summary: { ...report.summary, pending: report.summary.pending - 1 },
+    };
+    const kq = checkReportSection(thieuMotDong);
+    expect(
+      kq.ok,
+      'bảng trong báo cáo vẫn được coi là khớp dù dữ liệu marker đã khác — phép kiểm rỗng ruột',
+    ).toBe(false);
+    expect(
+      kq.ok ? '' : kq.reason,
+      'thông báo lệch phải chỉ ra lệnh sinh lại, không chỉ nói "khác nhau"',
+    ).toContain('--write-report');
   });
 });
