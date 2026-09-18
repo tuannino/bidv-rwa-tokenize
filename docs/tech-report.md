@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.7 |
-| Cập nhật lần cuối | 2026-09-18 |
-| Nhánh / commit | `feat/data-schema` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ) |
+| Phiên bản tài liệu | 1.8 |
+| Cập nhật lần cuối | 2026-09-19 |
+| Nhánh / commit | `fix/restore-be08` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -149,6 +149,9 @@ bidv-rwa-tokenize/
 | Free-tier | Deploy Vercel/Cloudflare | `mock` | memory | Demo public, không cần hạ tầng |
 
 Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, các cờ `USE_MOCK_*=true`.
+
+Cả hai chế độ đều để `ENABLE_DEMO_PAYMENT_MINT` **tắt**; chỉ bật trên môi trường thử của người phát
+triển. Danh sách đầy đủ các cờ ở **3.6**.
 
 ## 1.6. GHI CHÚ CHO DEV — bài học để kế thừa
 
@@ -390,34 +393,98 @@ giới hạn khoảng block.
 
 | File | Vai trò |
 |---|---|
-| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 11 action |
+| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 24 action |
 | `can.ts` | `can(role, action)` + `assertCan()` + `permissionsOf()` — **điểm kiểm quyền duy nhất** |
 | `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role` |
+| `demo-payment.ts` | Chốt chặn **hai lớp** riêng cho `demo:mint-payment`: `canMintDemoPayment()`, `assertCanMintDemoPayment()`, `DemoPaymentMintDisabledError` |
 
-**Ma trận quyền (đủ 11 action, tên đúng như trong `ACTIONS`):**
+**Ma trận quyền (đủ 24 action, tên đúng như trong `ACTIONS`):**
 
-| Action | BANK_ADMIN | COMPLIANCE | INVESTOR | AUDITOR |
-|---|:--:|:--:|:--:|:--:|
-| `token:mint` | ✅ | ❌ | ❌ | ❌ |
-| `token:burn` | ✅ | ❌ | ❌ | ❌ |
-| `token:clawback` | ✅ | ❌ | ❌ | ❌ |
-| `token:freeze` | ✅ | ✅ | ❌ | ❌ |
-| `investor:whitelist` | ✅ | ✅ | ❌ | ❌ |
-| `kyc:approve` | ✅ | ✅ | ❌ | ❌ |
-| `token:transfer` | ❌ | ❌ | ✅ | ❌ |
-| `portfolio:read` | ❌ | ❌ | ✅ | ❌ |
-| `balance:read` | ✅ | ✅ | ✅ | ✅ |
-| `txn:read` | ✅ | ✅ | ✅ | ✅ |
-| `audit:read` | ✅ | ✅ | ❌ | ✅ |
+Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho ba luồng) hoặc **BE-02**
+(nghiệp vụ lệnh mua). Action không ghi nguồn là có từ P1.
+
+| Action | BANK_ADMIN | COMPLIANCE | INVESTOR | AUDITOR | Nguồn |
+|---|:--:|:--:|:--:|:--:|:--:|
+| `token:mint` | ✅ | ❌ | ❌ | ❌ | — |
+| `token:burn` | ✅ | ❌ | ❌ | ❌ | — |
+| `token:clawback` | ✅ | ❌ | ❌ | ❌ | — |
+| `token:freeze` | ✅ | ✅ | ❌ | ❌ | — |
+| `investor:whitelist` | ✅ | ✅ | ❌ | ❌ | — |
+| `kyc:approve` | ✅ | ✅ | ❌ | ❌ | — |
+| `token:transfer` | ❌ | ❌ | ✅ | ❌ | — |
+| `order:place` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `order:execute` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `order:expire` | ✅ | ❌ | ❌ | ❌ | BE-02 |
+| `distribution:snapshot` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `distribution:execute` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `settlement:initiate` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `settlement:set-nav` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `settlement:confirm` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `treasury:manage` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `demo:mint-payment` | ✅ **+ cờ** | ❌ | ❌ | ❌ | BE-08 |
+| `portfolio:read` | ❌ | ❌ | ✅ | ❌ | — |
+| `balance:read` | ✅ | ✅ | ✅ | ✅ | — |
+| `txn:read` | ✅ | ✅ | ✅ | ✅ | — |
+| `audit:read` | ✅ | ✅ | ❌ | ✅ | — |
+| `order:read` | ✅ | ✅ | ✅ | ✅ | BE-02 |
+| `order:read:all` | ✅ | ✅ | ❌ | ✅ | BE-02 |
+| `reconcile:read` | ✅ | ✅ | ❌ | ✅ | BE-08 |
+
+**10 hành động BE-08 thêm vào** — `order:place`, `order:execute`, `distribution:snapshot`,
+`distribution:execute`, `settlement:initiate`, `settlement:set-nav`, `settlement:confirm`,
+`treasury:manage`, `demo:mint-payment`, `reconcile:read` — là **chỗ đặt guard** cho ba luồng khớp
+lệnh / chia lợi nhuận / tất toán. Trong đó `order:place` và `order:execute` đã có nghiệp vụ dùng thật
+(BE-02, xem 4.2); bảy hành động còn lại thuộc BE-03..BE-07, **chưa xây**.
+
+**3 hành động BE-02 thêm vào** — `order:expire`, `order:read`, `order:read:all` — là phần sổ lệnh
+mà BE-08 chưa khai: dọn lệnh treo, và phân biệt "xem lệnh của mình" với "xem lệnh của mọi ví".
+`order:read:all` là thứ cho `listOrders` phân biệt R5.1 với R5.2 **mà không** cần
+`if (role === 'INVESTOR')`.
+
+⚠️ Ghi chú phạm vi trong `docs/CHECKPOINT_BE02.md` nói "năm quyền `order:*` thuộc phạm vi BE-08" —
+đó là ghi chú **phạm vi thiết kế**, không phải "BE-08 đã khai đủ năm". Đối chiếu mã thật:
+BE-08 khai hai (`order:place`, `order:execute`), BE-02 khai thêm ba. Bảng trên là **hợp** của hai tập.
+
+**Vì sao ma trận chia như vậy** — đây là phân định trách nhiệm, không phải cấp quyền cho đủ:
+
+- `order:place` và `settlement:confirm` **cố tình không** cấp cho `BANK_ADMIN`. Hai việc đó là quyết
+  định của nhà đầu tư; ngân hàng đặt lệnh hoặc xác nhận hoàn vốn thay thì mất dấu ai đã đồng ý, và
+  sổ kiểm toán không còn dùng được để đối chiếu trách nhiệm.
+- `COMPLIANCE` **không** có `order:execute`, `distribution:execute`, `settlement:set-nav`. Tuân thủ
+  giám sát dòng tiền chứ không tự thực hiện: cùng một người vừa giám sát vừa chuyển tiền là mất lớp
+  kiểm soát thứ hai.
+- `settlement:*` chứ không phải `token:redeem`, vì luồng chốt là ngân hàng điều phối và đốt token,
+  không phải nhà đầu tư tự đổi. Hành động đốt **tái dùng** `token:burn` đã có.
+- `reconcile:read` nằm trong nhóm `READ_ONLY` nên ba vai ngân hàng tự nhận được; `INVESTOR` không
+  spread nhóm đó nên tự động không có. Đúng ý định: báo cáo đối soát là dữ liệu toàn hệ.
+
+⚠️ **`demo:mint-payment` cần HAI lớp, quyền RBAC một mình KHÔNG đủ.** Bảng quyền là mã nguồn, nên
+chỉ cần ai gán nhầm vai `BANK_ADMIN` trên môi trường thật là chức năng tự phát hành tiền mở ra. Lớp
+thứ hai là cờ `ENABLE_DEMO_PAYMENT_MINT` (mặc định **tắt**, xem 3.6), nằm ở cấu hình triển khai nên
+hai lớp không cùng hỏng vì một sai sót. Điểm kiểm duy nhất là `demo-payment.ts`, thứ tự **cờ trước,
+quyền sau** — cờ tắt thì từ chối luôn, không đọc vai, nhờ vậy thông báo nói đúng nguyên nhân và
+không có đường nào để vai trò "bù" cho cờ. Đừng gọi `can(role, 'demo:mint-payment')` trực tiếp.
+
+⚠️ **`demo-payment.ts` KHÔNG được export từ `rbac/index.ts`.** Barrel đó là client-safe (component
+dùng `can()` để ẩn/hiện nút), còn file này `server-only` vì phải đọc env. Đưa vào barrel là làm mọi
+component `import ... from '@/lib/rbac'` fail build.
 
 **Lưu ý:** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; role lạ **quy về AUDITOR** (quyền thấp nhất), không cho qua. Đây là nguyên tắc đóng, giữ nguyên khi mở rộng.
 
-⚠️ **`READ_ONLY` là bẫy.** Hằng private `READ_ONLY = ['balance:read','txn:read','audit:read']` được
-spread vào BANK_ADMIN, COMPLIANCE và AUDITOR. Quyền nào đặt vào đó thì **ba vai ngân hàng tự động
-có**, nên không dùng làm cổng vào kênh nhà đầu tư được. `portfolio:read` cố tình khai riêng cho
+⚠️ **`READ_ONLY` là bẫy.** Hằng private
+`READ_ONLY = ['balance:read','txn:read','audit:read','order:read','order:read:all','reconcile:read']`
+được spread vào BANK_ADMIN, COMPLIANCE và AUDITOR. Quyền nào đặt vào đó thì **ba vai ngân hàng tự
+động có**, nên không dùng làm cổng vào kênh nhà đầu tư được. `portfolio:read` cố tình khai riêng cho
 INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 
-**Cách mở rộng:** thêm action mới → khai báo trong `permissions.ts` → dùng `assertCan()` ở service. Không viết logic quyền ở nơi khác.
+**Cách mở rộng:** thêm action mới → khai báo trong `permissions.ts` → thêm một dòng vào bảng
+`NEW_ACTIONS` của `app/test/rbac.test.ts` → dùng `assertCan()` ở service. Không viết logic quyền ở
+nơi khác.
+
+Bước thêm test **không phải hình thức**: `rbac.test.ts` có một test đối chiếu `ACTIONS` với bảng
+`NEW_ACTIONS`, nên thêm action mà quên test là **đỏ ngay**, không chờ người review nhớ ra. Cùng file
+còn giữ mốc `PERMISSIONS_BEFORE_BE08` để một lần sắp xếp lại `ROLE_PERMISSIONS` không lặng lẽ gỡ
+quyền của vai nào.
 
 ⚠️ **`session.ts` là nợ kỹ thuật P1.** PoC chưa có xác thực thật, cookie do client đặt được. Phase 4 phải thay bằng phiên có chữ ký.
 
@@ -560,11 +627,25 @@ sinh ra từ nó bằng `npm run db:sql`):
 | File | Vai trò | Lưu ý |
 |---|---|---|
 | `config/env.ts` | **Nơi duy nhất đọc `process.env` ở server**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng |
-| `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được |
+| `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` tính bằng đúng hàm mà server dùng để chặn |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
 | `chains/registry.ts` | Map ChainKey → cấu hình viem, tự `defineChain` | Không import `viem/chains` để tránh phình bundle |
 | `chains/chain-store.ts` | Zustand giữ chain đang chọn | Không persist, mặc định `null` chống hydration mismatch |
 | `chains/use-selected-chain.ts` | Chain đang dùng = lựa chọn người dùng, chưa chọn thì lấy mặc định server | Lựa chọn không còn dùng được thì **lặng lẽ** lùi về mặc định — chỗ gọi phải tự kiểm `selectable` trước khi bày nút đổi chain |
+
+**Cờ tính năng trong `env.ts`:**
+
+| Cờ | Mặc định | Ý nghĩa |
+|---|:--:|---|
+| `USE_MOCK_KYC`, `USE_MOCK_ORACLE`, `USE_MOCK_COREBANK` | `true` | Dùng provider mock để mint chạy ngay, không cần tích hợp thật |
+| `USE_MOCK_DB` | `true` | `true` = Txn/audit trong RAM (free-tier); `false` = Postgres qua `DATABASE_URL` |
+| `ENABLE_DEMO_PAYMENT_MINT` | **`false`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định — **chỉ môi trường thử** |
+
+⚠️ **`ENABLE_DEMO_PAYMENT_MINT` mặc định tắt và đó là mặc định duy nhất đúng.** Bật trên môi trường
+thật là cho phép cán bộ ngân hàng tự phát hành tiền, không đối soát nào bắt được. Cờ này **không có**
+biến thể `NEXT_PUBLIC_`: nó phải do người triển khai đặt ở server, không để lộ ra bundle browser như
+một thứ bật được từ phía client. Nó là **lớp chặn thứ hai** bên cạnh quyền `demo:mint-payment`; đọc
+cờ ở đúng một chỗ là `lib/rbac/demo-payment.ts` (xem 3.3), đừng đọc rải rác.
 
 Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 
@@ -821,7 +902,7 @@ components/pages/redeem.tsx  (kênh (client))
 | Bước | File / hàm cần tạo hoặc dùng | Việc |
 |---|---|---|
 | 1 | `bank/schemas.ts` → thêm `redeemSchema` | Validate `wptAmount` |
-| 2 | `rbac/permissions.ts` → thêm action `token:redeem` (INVESTOR ✅) | Cấp quyền |
+| 2 | `rbac/permissions.ts` — quyền **đã có sẵn** từ BE-08: `settlement:confirm` (INVESTOR), `settlement:initiate` + `settlement:set-nav` (BANK_ADMIN) | **KHÔNG** thêm `token:redeem`: BE-08 đã chốt tiền tố `settlement:*` vì luồng chốt là ngân hàng điều phối và đốt, không phải nhà đầu tư tự đổi |
 | 3 | `rbac/can.ts :: assertCan()` | Kiểm quyền + audit |
 | 4 | `ledger/ledger.port.ts` → **bổ sung** `quoteRedeem()`, `redeem()`, `approve()` | Mở rộng hợp đồng port |
 | 5 | `ledger/evm.adapter.ts` | Nối `Redemption.sol` qua ABI ở `packages/shared/generated/Redemption.abi.json` |
@@ -869,7 +950,7 @@ components/pages/distribution.tsx  (kênh (admin))
 
 | Bước | File / hàm | Việc |
 |---|---|---|
-| 1 | `rbac/permissions.ts` → thêm `distribution:create` (BANK_ADMIN) | Cấp quyền |
+| 1 | `rbac/permissions.ts` — quyền **đã có sẵn** từ BE-08: `distribution:snapshot` + `distribution:execute` (BANK_ADMIN) | **KHÔNG** thêm `distribution:create`: BE-08 đã tách chốt quyền và chi trả thành hai hành động |
 | 2 | `ledger.port.ts` → thêm `createDistribution()`, `previewClaim()`, `listDistributions()` | Mở rộng port |
 | 3 | `evm.adapter.ts` | Gọi `ProfitDistributor.createDistribution(amount, period)` hoặc `createDistributionFromOracle(periodId)` |
 | 4 | Chuẩn bị on-chain | Ngân hàng phải `approve` VNDB cho ProfitDistributor trước (contract dùng `safeTransferFrom`) |

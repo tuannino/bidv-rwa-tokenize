@@ -2,6 +2,7 @@ import 'server-only';
 
 import { CHAIN_ORDER, CHAINS, type ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
+import { canMintDemoPayment } from '@/lib/rbac/demo-payment';
 import { currentRole } from '@/lib/rbac/session';
 import type { Channel } from '@/lib/session/channel';
 import { currentChannel } from '@/lib/session/current-channel';
@@ -43,6 +44,18 @@ export interface PublicConfig {
   role: Role;
   /** Kênh đang xem — quyết định hiện/ẩn bộ chọn vai và menu nào. KHÔNG dùng để phân quyền. */
   channel: Channel;
+  /**
+   * Có bày chức năng phát hành VNDB demo lên giao diện không.
+   *
+   * Tính bằng ĐÚNG hàm mà chốt chặn phía server dùng (`canMintDemoPayment`), nên nút và
+   * guard không thể lệch nhau. Nếu client tự làm `config.enableDemoPaymentMint &&
+   * can(config.role, 'demo:mint-payment')` thì hai lớp bị nhân bản ở hai nơi và sẽ lệch
+   * ở lần sửa đầu tiên.
+   *
+   * ⚠️ Đây là gợi ý HIỂN THỊ, không phải chốt chặn. Server action gọi được bằng POST trực
+   * tiếp, nên service vẫn phải `assertCanMintDemoPayment()`.
+   */
+  demoPaymentMint: boolean;
 }
 
 function reasonUnavailable(key: ChainKey): string | undefined {
@@ -95,5 +108,6 @@ export async function publicConfig(): Promise<PublicConfig> {
     },
     role,
     channel,
+    demoPaymentMint: canMintDemoPayment(role),
   };
 }

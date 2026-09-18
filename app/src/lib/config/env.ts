@@ -79,6 +79,18 @@ const envSchema = z.object({
   /** true = lưu Txn/audit trong bộ nhớ (free-tier). false = dùng Postgres qua DATABASE_URL. */
   useMockDb: boolFlag(true),
 
+  /**
+   * Cho phép cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định — CHỈ MÔI TRƯỜNG THỬ.
+   *
+   * Mặc định TẮT, và đây là mặc định duy nhất đúng: bật trên môi trường thật là cho phép
+   * tự phát hành tiền. Cờ này là LỚP CHẶN THỨ HAI, độc lập với bảng quyền RBAC — bảng quyền
+   * nằm trong mã nguồn, ai gán nhầm vai `BANK_ADMIN` là chức năng mở ra ngay; cờ thì nằm
+   * ở cấu hình triển khai nên hai lớp không cùng hỏng vì một sai sót.
+   *
+   * Điểm kiểm duy nhất: `lib/rbac/demo-payment.ts`. Đừng đọc cờ này ở chỗ khác.
+   */
+  enableDemoPaymentMint: boolFlag(false),
+
   /** Vai trò giả lập cho PoC — Phase 4 thay bằng SIWE + session thật. */
   demoRole: z
     .string()
@@ -104,6 +116,9 @@ function load(): ServerEnv {
     useMockOracle: process.env.USE_MOCK_ORACLE,
     useMockCorebank: process.env.USE_MOCK_COREBANK,
     useMockDb: process.env.USE_MOCK_DB,
+    // KHÔNG có biến thể NEXT_PUBLIC_: cờ phải do người triển khai đặt ở server, không
+    // để lộ ra bundle browser như một thứ có thể bật được từ phía client.
+    enableDemoPaymentMint: process.env.ENABLE_DEMO_PAYMENT_MINT,
     demoRole: process.env.DEMO_ROLE ?? process.env.NEXT_PUBLIC_DEMO_ROLE,
   });
 
