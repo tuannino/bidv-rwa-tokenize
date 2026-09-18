@@ -5,8 +5,8 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–5/10 xong.** Bước 6–10 chưa làm |
-| Phạm vi | Không đổi hành vi hệ thống. Mọi test đang xanh phải xanh nguyên |
+| Tiến độ | **Bước 1–6/10 xong.** Bước 7–10 chưa làm |
+| Phạm vi | Không đổi hành vi hệ thống, **trừ một ngoại lệ Owner đã chốt** (D-7 ở mục 9). Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
 
@@ -253,6 +253,35 @@ Tệp sửa — **7** tệp:
 ra được — số thật là 115.** Phép đo, cách lệch, và bảng đủ 115 dòng ở mục 4. Ba dự đoán của
 `design.md` mục 6 **sai**, và mỗi cái sai theo một kiểu khác nhau (mục 10, SL-7).
 
+### Bước 6 — Hợp nhất nguồn giá phát hành ✅
+
+Ba commit, chia theo **mục tiêu**:
+
+| Commit | Nội dung |
+|---|---|
+| `f285acf` | `refactor(mc): xóa server action dọn lệnh treo theo chủ đích một đường vào` — Owner chốt Q5 phương án (a3). Đây là **đổi hành vi có chủ đích**, ghi ở D-7 mục 9 |
+| `42d0a88` | `refactor(mc): hợp nhất nguồn giá phát hành WPT` — hằng số về một nguồn ở `lib/config/issue-terms.ts` |
+| `c96f8f3` | `test(mc): chống lệch hai nguồn giá phát hành` — 15 ca, 285 → **300** test |
+| *(commit này)* | `docs(mc): chốt kết quả Bước 6 vào checkpoint` |
+
+Tệp sửa — **5** tệp:
+
+| Tệp | Sửa gì |
+|---|---|
+| `app/src/lib/config/issue-terms.ts` | **mới** — nguồn duy nhất của `WPT_ISSUE_PRICE_VND`, mang theo khối chú thích "tham số cấu hình, không phải giá thị trường" |
+| `app/src/lib/bank/issuance.ts` | nhập + re-export hằng số, giữ `wptToVnd` và cảnh báo hiển thị |
+| `app/src/lib/ledger/mock.adapter.ts` | `DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND)`, không còn khai bằng số |
+| `app/src/app/actions/purchase.ts` | xóa `expireStaleOrdersAction` + khối câu hỏi mở; thêm chú thích vì sao service có 4 hàm mà đây chỉ 3 action |
+| `app/test/issue-price-single-source.test.ts` | **mới** — 15 ca: giá trị, nghiệp vụ, và **cấu trúc** |
+
+**Giá trị không đổi: 100.000 VND / WPT.** Chỗ đặt và bằng chứng chiều phụ thuộc ở mục 6; hai đột
+biến ở mục 5; kết quả chạy đầy đủ ở 3.8.
+
+**Điều đáng chú ý nhất của Bước 6:** đột biến 1 (đổi giá ở nguồn duy nhất) làm **10 test cũ đỏ** —
+`mock-ledger.test.ts` và `purchase-service.test.ts` hardcode số VNDB suy ra từ 100.000. Đó không
+phải lỗi của Bước 6 và **không** được sửa (cấm chạm test đang xanh), nhưng nó là một món nợ thật:
+xem SL-8 ở mục 10.
+
 ---
 
 ## 2. Đối chiếu DoD
@@ -281,7 +310,11 @@ ra được — số thật là 115.** Phép đo, cách lệch, và bảng đủ
 | 5.5 | Mã chết thật → xóa, với `evmTestnet`/`hardhatLocal`/`getSigner` phải thử `npm run build` | ✅ | **2** hàm bọc bị xóa (`getChainInfo`, `getDeployment`). Ba ký hiệu spec nêu đích danh thì **không** cái nào là mã chết: `evmTestnet`/`hardhatLocal` nằm trong mảng `chains` (cạm bẫy #2), `getSigner` được `getBankSigner` gọi. `npm run build` chạy **3 lần** (nền + sau khi bỏ export + sau khi xóa), 17/17 route mỗi lần — mục 3.7 |
 | 5.6 | Dùng trong test → xác minh test có gọi thật | ✅ | **Không cái nào thuộc nhóm này.** Ba hàm `design.md` dự đoán (`resetSignerCache`, `resetChainRegistryCache`, `resetKycProviderCache`) không có test nào gọi — bằng chứng ở 4.3 → chuyển sang nhóm I + Q7 |
 | 5.7 | Ghi bảng phân loại đầy đủ vào checkpoint | ✅ | Mục 4, **đủ 115 dòng**, mỗi dòng có tệp:dòng, nhóm, xử lý, bằng chứng chạy được |
-| 6.x | Hợp nhất nguồn giá phát hành | ⬜ | _(chờ Bước 6)_ |
+| 6.1 | Kiểm chiều phụ thuộc trước khi làm: `lib/ledger` nhập từ `lib/bank` có ngược tầng không | ✅ | Đo bằng `git grep` trên chính câu lệnh `import`, hai chiều: `lib/bank` → `lib/ledger` **4 chỗ**, chiều ngược **0 chỗ**. Kết luận: ngược tầng. Output nguyên văn ở mục 6 |
+| 6.2 | Nếu ngược tầng, đặt hằng số ở chỗ trung lập (`lib/config` hoặc `packages/shared`), cả hai cùng nhập; **ghi lựa chọn và lý do** | ✅ | Chọn `app/src/lib/config/issue-terms.ts`. Bốn lý do + lý do loại `packages/shared` ở mục 6. Hai điều **cố ý** ở tệp mới: không có `import` nào (tệp lá → không thể tạo vòng), không có `server-only` |
+| 6.3 | `mock.adapter.ts` nhập giá thay vì khai lại `DEFAULT_WPT_PRICE_VND` | ✅ | `BigInt(WPT_ISSUE_PRICE_VND)`. Hành vi giữ nguyên: `quotePurchase` vẫn trả đúng số cũ, 49 ca `mock-ledger.test.ts` và 32 ca `purchase-service.test.ts` xanh nguyên |
+| 6.4 | `app/test/issue-price-single-source.test.ts`: đọc giá từ nguồn duy nhất, gọi `quotePurchase` trên mock, xác nhận bằng nhau | ✅ | **15 ca**, CỐ Ý không hardcode 100.000. 6 lượng khác nhau (tới 123.456.789 để chắc phép tính chạy trên `bigint`), 4 ca "giá hiển thị = giá khớp lệnh", **3 ca cấu trúc** bắt được cả trường hợp khai lại với đúng con số hôm nay (đột biến 2b ở mục 5) |
+| 6.5 | **Đột biến:** đổi giá ở nguồn duy nhất → vẫn xanh; tách lại thành hai hằng số → đỏ | ✅ | Đột biến 1: test nguồn giá **15/15 xanh** (và 10 test cũ đỏ vì hardcode giá — SL-8). Đột biến 2: **12/15 đỏ**. Thêm đột biến 2b: khai lại với đúng con số hôm nay → **2/15 đỏ**, đúng hai ca cấu trúc. Hoàn nguyên: `git diff -- app packages scripts` **rỗng** cả hai lần |
 | 7.x | Dọn phụ thuộc, làm rõ `src/empty.ts` | ⬜ | _(chờ Bước 7)_ |
 | 8.x | Script lớp 3 không dương tính giả | ⬜ | _(chờ Bước 8)_ |
 | 9.x | Nền cho sơ đồ luồng | ⬜ | _(chờ Bước 9)_ |
@@ -858,6 +891,122 @@ là bước đầu tiên chạm mã nguồn ngoài bình luận, nên điều đ
 nào** — kể cả sau khi xóa hai hàm khỏi `packages/shared`, nơi `verify-arch-rules.sh` kiểm cấu
 trúc repo.
 
+### 3.8 Kết quả chạy đầy đủ sau Bước 6
+
+```
+$ cd app && npm test
+
+ ✓ test/rbac.test.ts (38 tests) 15ms
+ ✓ test/env-private-key.test.ts (5 tests) 35ms
+ ✓ test/wallet-status.test.ts (30 tests) 16ms
+ ✓ test/issue-price-single-source.test.ts (15 tests) 10ms
+ ✓ test/mock-ledger.test.ts (49 tests) 11ms
+ ✓ test/purchase-state.test.ts (19 tests) 7ms
+ ✓ test/evm-address-env.test.ts (5 tests) 3ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 4ms
+ ✓ test/store-constraints.test.ts (69 tests) 21ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 3ms
+ ✓ test/portfolio-service.test.ts (12 tests) 9ms
+ ✓ test/purchase-service.test.ts (32 tests) 23ms
+
+ Test Files  13 passed (13)
+      Tests  300 passed (300)
+```
+
+**285 test cũ xanh nguyên, thêm 15 ca mới.** Không ca nào của 12 tệp cũ phải sửa — kể cả
+`portfolio-service.test.ts`, tệp nhập `WPT_ISSUE_PRICE_VND` từ `@/lib/bank/issuance`. Đó là lý do
+`issuance.ts` **re-export** thay vì chuyển hẳn đường nhập: chuyển thì tệp test đó đỏ, và sửa nó là
+chạm test đang xanh — việc bị cấm.
+
+```
+$ cd app && npm run typecheck
+> tsc --noEmit
+(không output = không lỗi)
+
+$ cd app && npx eslint .
+/Users/anbinh/.../app/src/empty.ts
+  16:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+✖ 1 problem (0 errors, 1 warning)
+```
+
+Cảnh báo lint **vẫn đúng một cái, vẫn ở `src/empty.ts`** — Bước 6 không thêm cái nào. Cái này là
+việc của Bước 7 (task 7.6/7.8).
+
+```
+$ cd app && npm run build
+
+✓ Compiled successfully in 5.7s
+  Running TypeScript ...
+  Finished TypeScript in 5.7s ...
+✓ Generating static pages using 9 workers (17/17) in 278ms
+
+Route (app)
+┌ ƒ /                        ├ ƒ /api/token          ├ ƒ /kyc
+├ ƒ /_not-found              ├ ƒ /api/txns           ├ ƒ /mint
+├ ƒ /api/balance             ├ ƒ /assets             ├ ƒ /portfolio
+├ ƒ /api/investors           ├ ƒ /audit              ├ ƒ /reconciliation
+├ ƒ /api/mint                                        ├ ƒ /tokens/[symbol]
+├ ƒ /api/purchase                                    └ ƒ /wallet
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+**17/17 route.** Xóa `expireStaleOrdersAction` **không** làm mất route nào: server action không
+phải một route, nó là một endpoint POST mà Next.js đăng ký theo tham chiếu từ phía client — mà
+không màn hình nào tham chiếu tới nó. Đó chính là bằng chứng cho phương án (a3) của Q5.
+
+```
+$ node scripts/scan-pending.mjs --check
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
+$ echo "exit=$?"
+exit=0
+```
+
+**8 điểm cắm / 11 điểm chặn — y nguyên số của Bước 5.** Đúng như dự đoán: xóa
+`expireStaleOrdersAction` không làm mất marker nào, vì marker `@pending BE-07` nằm ở
+`purchase.service.ts:543` (service), không ở server action. Hàm bị xóa vốn **không có** marker —
+nó mang khối chú thích câu hỏi mở, và khối đó bị xóa cùng vì Owner đã trả lời.
+
+```
+$ bash scripts/run-local-all.sh
+
+########## LỚP 3 - 3 LUẬT KIẾN TRÚC + CẤU TRÚC REPO ##########
+  PASS  viem/ethers không xuất hiện ngoài app/src/lib
+  PASS  @stellar/stellar-sdk không xuất hiện ngoài app/src/lib
+  PASS  Không có lời gọi contract trực tiếp trong components/ và app/
+  PASS  SERVER_SIGNER_PRIVATE_KEY chỉ đọc ở env.ts và server.signer.ts
+  PASS  Không có app/.env trong cây làm việc
+  PASS  Không có private key dạng hex 64 ký tự nhúng trong mã nguồn
+  PASS  Không có so sánh role cứng ngoài lib/rbac
+  PASS  actions/bank.ts có 5 server action (guard nằm ở tầng service, xem lớp 1)
+  PASS  Không có ABI nhúng trong app/src (chỉ dùng từ packages/shared)
+  PASS  Không có contract ID Stellar hardcode trong app/src
+  PASS  Contract chính không import từ trex/ (toolchain tách biệt)
+  PASS  Không còn tham chiếu Polygon/Amoy/Mumbai (ngoài comment)
+  PASS  Không còn ký hiệu cũ SPT / tVND
+  ... (20 PASS, 0 FAIL, 6 WARN — y nguyên Bước 5)
+  PASS: 20   FAIL: 0   WARN: 6
+
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+(bảng điểm cắm 19 dòng như trên — run-local-all in lại ở đây)
+```
+
+**7 PASS / 0 FAIL.** Sáu `WARN` của lớp 3 y nguyên Bước 4 và Bước 5.
+
+Một điểm đáng ghi: `actions/bank.ts có 5 server action` vẫn PASS. Phép kiểm đó đếm server action
+của `bank.ts`, không đếm `purchase.ts`, nên việc xóa một action ở `purchase.ts` không chạm nó.
+Tức **không có phép kiểm tự động nào chốt số server action của `purchase.ts`** — chú thích ở đầu
+tệp là thứ duy nhất giữ chủ đích "3 action cho 4 hàm service". Ghi ra để Supervisor biết đó là
+chốt bằng văn bản, không phải chốt bằng máy.
+
 ---
 
 ## 4. Bảng phân loại đầy đủ export — số thật là **115**, không phải 27
@@ -1214,7 +1363,9 @@ Tất cả: **để nguyên**, không marker, ghi câu hỏi mở. Không đoán
 | Phép kiểm | Đột biến | Kết quả |
 |---|---|---|
 | **Đột biến script quét** | 11 dòng marker trong một tệp tạm: 1 đúng, 9 sai theo 9 kiểu khác nhau, 1 ca đối chứng phải **không** bị báo → script phải đỏ và liệt kê đủ loại | ✅ **đỏ, `exit=1`, 9 lỗi / 6 mã lỗi**, ca đối chứng im lặng — xem dưới |
-| Test nguồn giá | Tách lại thành hai hằng số → phải đỏ | _(chờ Bước 6)_ |
+| **Test nguồn giá — đột biến 1** | Đổi giá ở **nguồn duy nhất** 100.000 → 123.000 → test nguồn giá phải **vẫn xanh** | ✅ **15/15 xanh**. Kèm phát hiện: 10 test cũ đỏ vì hardcode giá (SL-8) |
+| **Test nguồn giá — đột biến 2** | **Tách lại thành hai hằng số** (mock khai lại `100_000n`, nguồn đổi thành 123.000) → phải **đỏ** | ✅ **12/15 đỏ** — 10 ca giá trị + 2 ca cấu trúc |
+| **Test nguồn giá — đột biến 2b** | Khai lại hằng số với **đúng con số hôm nay** (giá không lệch) → phép so giá trị không thấy gì, phải còn ca nào đỏ | ✅ **2/15 đỏ**, đúng hai ca cấu trúc. Đây là lý do ba ca cấu trúc tồn tại |
 | Script lớp 3 | Thêm `SPT` vào một tệp `app/src` → phải đỏ | _(chờ Bước 8)_ |
 
 ### Bốn đột biến của Bước 4 — `app/test/pending-markers.test.ts`
@@ -1470,11 +1621,263 @@ $ ls app/src/lib/__scan-probe.ts
 ls: app/src/lib/__scan-probe.ts: No such file or directory
 ```
 
+### Ba đột biến của Bước 6 — `app/test/issue-price-single-source.test.ts`
+
+Hai đột biến mà tài liệu giao việc đòi đi **ngược hướng nhau**, và đó là điểm cốt yếu: một phép
+kiểm hardcode giá sẽ **đỏ ở cả hai**, nên nó không phân biệt được "hai chỗ lệch nhau" với "giá
+khác 100.000". Chỉ khi đột biến 1 xanh **và** đột biến 2 đỏ thì test mới đang kiểm đúng tính chất.
+
+Đột biến 2b do Kiro thêm: nó bịt lỗ hổng mà cả hai đột biến kia bỏ ngỏ.
+
+| # | Đột biến | Kỳ vọng | Kết quả |
+|---|---|---|---|
+| **1** | Nguồn duy nhất: `100_000` → `123_000` | **xanh** (cả hai tầng cùng đổi theo) | ✅ **15/15 xanh** |
+| **2** | Mock khai lại `100_000n` **+** nguồn đổi `123_000` → hai chỗ lệch | **đỏ** | ✅ **12/15 đỏ** |
+| **2b** | Mock khai lại `100_000n`, nguồn **giữ** `100_000` → hai chỗ **không** lệch | phải còn ca đỏ, nếu không thì test chỉ bắt được lệch giá trị | ✅ **2/15 đỏ**, đúng hai ca cấu trúc |
+
+#### Đột biến 1 — đổi giá ở nguồn duy nhất, phải VẪN XANH
+
+```
+$ perl -pi -e 's/^export const WPT_ISSUE_PRICE_VND = 100_000;$/export const WPT_ISSUE_PRICE_VND = 123_000;/' \
+    app/src/lib/config/issue-terms.ts
+$ git diff -- app/src/lib/config/issue-terms.ts
+@@ -44,4 +44,4 @@
+  */
+ /** Giá phát hành một WPT, đơn vị VND. WPT có decimals = 0 nên đây là giá của trọn một token. */
+-export const WPT_ISSUE_PRICE_VND = 100_000;
++export const WPT_ISSUE_PRICE_VND = 123_000;
+
+$ cd app && npx vitest run test/issue-price-single-source.test.ts
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+```
+
+Đúng kỳ vọng: test không biết con số 100.000, nó chỉ biết "giá ở nguồn" và "lượng × giá ở nguồn".
+
+Nhưng chạy **toàn bộ** suite dưới cùng đột biến thì ra một chuyện khác:
+
+```
+$ cd app && npx vitest run
+   × R2 — khớp lệnh mua > báo giá chỉ nhân số lượng với giá bán, không gọi nguồn tỷ giá nào
+   × R2 — khớp lệnh mua > khớp lệnh chuyển VNDB và WPT trong cùng một lần gọi
+   × R2 — khớp lệnh mua > CHẶN khớp lệnh khi thiếu ủy quyền VNDB dù số dư đủ
+   × R2 — khớp lệnh mua > CHẶN khớp lệnh khi ví SPV thiếu WPT, và KHÔNG trừ VNDB
+   × R4 — chốt quyền và đọc số dư theo thời điểm > mua WPT sau khi chốt quyền thì balanceOfAt ở mã snapshot cũ KHÔNG đổi
+   × placeOrder > tính đúng số VNDB phải trả và lưu vào lệnh
+   × executeOrder — từ chối trước khi gửi giao dịch > giá đổi sau khi đặt lệnh thì REJECTED với PRICE_CHANGED
+   × 7.5 — khớp lệnh thành công > số dư hai bên đổi đúng, cả WPT và VNDB
+   × 7.7 — một lệnh chỉ gửi đúng một giao dịch > gọi executeOrder hai lần tuần tự: chỉ một lần gửi
+   × 7.7 — một lệnh chỉ gửi đúng một giao dịch > gọi đồng thời hai lần: chỉ một lần gửi, một lời gọi bị chặn
+
+ AssertionError: expected 9631000n to be 9700000n
+ ❯ test/purchase-service.test.ts:483:53
+
+   Test Files  2 failed | 11 passed (13)
+        Tests  10 failed | 290 passed (300)
+```
+
+`9_631_000 = 10_000_000 − 3 × 123_000` còn `9_700_000 = 10_000_000 − 3 × 100_000`: mười ca này
+hardcode số VNDB suy ra từ giá 100.000. Tài liệu giao việc nói "nếu đỏ thì test đang hardcode giá,
+sửa test" — nhưng mười ca đỏ **không phải** test của Bước 6, chúng nằm trong 285 test đang xanh mà
+Bước 6 bị **cấm sửa**. Đã để nguyên và ghi thành SL-8 ở mục 10.
+
+#### Đột biến 2 — tách lại thành hai hằng số, phải ĐỎ
+
+```
+$ git diff -- app/src/lib/config/issue-terms.ts app/src/lib/ledger/mock.adapter.ts
+    -export const WPT_ISSUE_PRICE_VND = 100_000;
+    +export const WPT_ISSUE_PRICE_VND = 123_000;
+    -const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
+    +const DEFAULT_WPT_PRICE_VND = 100_000n;
+
+$ cd app && npx vitest run test/issue-price-single-source.test.ts
+   ✓ nguồn duy nhất là số nguyên dương, không phải undefined hay 0
+   × quotePurchase cho 1 WPT bằng đúng giá ở nguồn duy nhất
+     → expected 100000n to be 123000n
+   × quotePurchase cho 2n WPT = lượng × giá ở nguồn duy nhất
+     → expected 200000n to be 246000n
+   × quotePurchase cho 7n WPT = lượng × giá ở nguồn duy nhất
+     → expected 700000n to be 861000n
+   × quotePurchase cho 250n WPT = lượng × giá ở nguồn duy nhất
+     → expected 25000000n to be 30750000n
+   × quotePurchase cho 1000000n WPT = lượng × giá ở nguồn duy nhất
+     → expected 100000000000n to be 123000000000n
+   × quotePurchase cho 123456789n WPT = lượng × giá ở nguồn duy nhất
+     → expected 12345678900000n to be 15185185047000n
+   × giá hiển thị và giá khớp lệnh cho 1 WPT là cùng một con số
+     → expected '123000' to be '100000'
+   × giá hiển thị và giá khớp lệnh cho 3 WPT là cùng một con số
+     → expected '369000' to be '300000'
+   × giá hiển thị và giá khớp lệnh cho 250 WPT là cùng một con số
+     → expected '30750000' to be '25000000'
+   × giá hiển thị và giá khớp lệnh cho 1000000 WPT là cùng một con số
+     → expected '123000000000' to be '100000000000'
+   ✓ re-export ở lib/bank/issuance.ts là chính giá ở nguồn duy nhất
+   × mock.adapter.ts suy ra giá từ nguồn duy nhất, không khai bằng số
+     → Giá phải suy ra từ `WPT_ISSUE_PRICE_VND` (nguồn: lib/config/issue-terms.ts), không được
+       khai bằng số đếm ở đây.: expected '100_000n' to contain 'WPT_ISSUE_PRICE_VND'
+   ✓ lib/bank/issuance.ts re-export, không khai lại hằng số
+   × cả app/src chỉ có MỘT tệp khai hằng số giá bằng số đếm
+     → Mỗi dòng ở đây là một nguồn giá. Hơn một dòng nghĩa là giá lại có hai nguồn — nhập từ
+       `lib/config/issue-terms.ts` thay vì khai thêm.: expected [ …(2) ] to deeply equal [ Array(1) ]
+
+   Test Files  1 failed (1)
+        Tests  12 failed | 13 passed (15)
+```
+
+Ba ca xanh sót lại nói đúng chuyện: giá ở nguồn vẫn dương, `issuance.ts` vẫn re-export đúng — hai
+điều đó **thật sự** không bị đột biến này chạm. Không có ca nào đỏ theo kiểu dây chuyền.
+
+#### Đột biến 2b — khai lại hằng số với ĐÚNG con số hôm nay
+
+Đây là dạng nguy hiểm nhất của việc tách nguồn, vì hôm nay nó **không** gây sai số nào:
+
+```
+$ git diff -- app/src/lib/config/issue-terms.ts app/src/lib/ledger/mock.adapter.ts
+    -const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
+    +const DEFAULT_WPT_PRICE_VND = 100_000n;
+    (nguồn duy nhất giữ nguyên 100_000)
+
+$ cd app && npx vitest run test/issue-price-single-source.test.ts
+     ✓ quotePurchase cho 2n WPT = lượng × giá ở nguồn duy nhất
+     ✓ quotePurchase cho 7n WPT = lượng × giá ở nguồn duy nhất
+     ✓ quotePurchase cho 250n WPT = lượng × giá ở nguồn duy nhất
+     ✓ quotePurchase cho 1000000n WPT = lượng × giá ở nguồn duy nhất
+     ✓ quotePurchase cho 123456789n WPT = lượng × giá ở nguồn duy nhất
+     × mock.adapter.ts suy ra giá từ nguồn duy nhất, không khai bằng số
+     × cả app/src chỉ có MỘT tệp khai hằng số giá bằng số đếm
+
+   Test Files  1 failed (1)
+        Tests  2 failed | 13 passed (15)
+```
+
+**Mọi phép so giá trị đều xanh.** Nếu test chỉ có các ca so giá trị thì repo vừa quay về đúng hiện
+trạng mà R5.2 mô tả — hai hằng số độc lập — và không ai biết, cho tới lần đổi giá sau. Hai ca đỏ
+là hai ca **cấu trúc**, và đây là toàn bộ lý do chúng tồn tại.
+
+#### Hoàn nguyên
+
+```
+$ git diff --stat -- app packages scripts
+(rỗng)
+$ git status --short
+ M .kiro/specs/mc-01-make-control/tasks.md
+$ cd app && npx vitest run
+   Test Files  13 passed (13)
+        Tests  300 passed (300)
+```
+
+Một lưu ý về phép kiểm này: đột biến 1 ở lần chạy **đầu tiên** không kiểm được bằng `git diff`, vì
+lúc đó `issue-terms.ts` còn là tệp **chưa theo dõi** (`??`) nên `git diff` không thấy nó. Đã commit
+mã nguồn và test **trước**, rồi chạy lại cả hai đột biến từ trạng thái đã commit — output ở trên là
+của lần chạy sau, và lúc này `git diff` là phép kiểm có giá trị thật.
+
 ---
 
 ## 6. Lựa chọn chỗ đặt hằng số giá phát hành và lý do
 
-_(chờ Bước 6 — phải kiểm chiều phụ thuộc `lib/ledger` → `lib/bank` trước khi quyết)_
+### 6.1 Bằng chứng chiều phụ thuộc — đo trước khi quyết
+
+Câu hỏi: `lib/ledger` nhập từ `lib/bank` có ngược tầng không? Đo hai chiều bằng `git grep` trên
+chính câu lệnh `import`:
+
+```
+$ git grep -nE "from '(@/lib/bank|\.\./bank)" -- 'app/src/lib/ledger'
+(không có dòng nào — 0 chỗ)
+
+$ git grep -nE "from '(@/lib/ledger|\.\./ledger)" -- 'app/src/lib/bank'
+app/src/lib/bank/authorize.ts:4:import { LedgerError, InvalidAddressError } from '@/lib/ledger';
+app/src/lib/bank/mint.service.ts:4:import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
+app/src/lib/bank/portfolio.service.ts:5:import { getLedger } from '@/lib/ledger';
+app/src/lib/bank/purchase.service.ts:4:import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
+```
+
+| Chiều | Số chỗ |
+|---|---|
+| `lib/bank` (nghiệp vụ) → `lib/ledger` (cổng) | **4** |
+| `lib/ledger` (cổng) → `lib/bank` (nghiệp vụ) | **0** |
+
+Chiều phụ thuộc hiện có là **một chiều**, và `structure.md` xác nhận đó là chiều đúng: `lib/ledger`
+là tầng cổng (`ILedgerPort` + adapter ra chuỗi), `lib/bank` là tầng nghiệp vụ. Nên cách mà
+`design.md` mục 4 phác ra — `mock.adapter` nhập `@/lib/bank/issuance` — **là ngược tầng**, và nó sẽ
+là chỗ ngược tầng **duy nhất** trong cả `app/src/lib`.
+
+Đó không chỉ là chuyện hình thức. Hậu quả cụ thể:
+
+```
+bank/portfolio.service → ledger/index → ledger/mock.adapter → bank/issuance
+```
+
+`ledger/index.ts` nhập `mock.adapter`, nên nếu `mock.adapter` nhập ngược về `lib/bank` thì đồ hình
+trên thành một **vòng** ngay khi `issuance.ts` nhập bất cứ thứ gì từ `lib/bank` — điều rất dễ xảy
+ra, vì `issuance.ts` là tệp nghiệp vụ. Hôm nay `issuance.ts` không nhập gì nên chưa vỡ, tức đây là
+cái bẫy **đang mở** chứ không phải đã sập.
+
+Và chỗ nó sập là chỗ tệ nhất: `mock.adapter` dùng giá ở **phạm vi module**
+(`const DEFAULT_NAV_RATE = DEFAULT_WPT_PRICE_VND;`), đúng lúc module đang khởi tạo. Trong vòng phụ
+thuộc, giá trị ở đó là `undefined` (hoặc ném TDZ, tuỳ bundler) → `BigInt(undefined)` ném, hoặc giá
+thành `0` và khớp lệnh biến thành "mua không mất tiền". `lessons.md` đã ghi đúng loại lỗi đó:
+*"Mock adapter dễ tính hơn contract thật → SAI … giá bán mặc định 0 làm khớp lệnh thành mua không
+mất tiền"*.
+
+### 6.2 Chọn `app/src/lib/config/issue-terms.ts`
+
+```
+app/src/lib/config/issue-terms.ts     ← NGUỒN DUY NHẤT
+        ↑                    ↑
+lib/bank/issuance.ts    lib/ledger/mock.adapter.ts
+(re-export + wptToVnd)  (BigInt(...) cho DEFAULT_WPT_PRICE_VND)
+```
+
+Bốn lý do, theo thứ tự quan trọng:
+
+| # | Lý do |
+|---|---|
+| 1 | **Cả hai tầng nhập xuống đều thuận.** `lib/config` là tầng cấu hình, dưới cả nghiệp vụ và cổng. Không tạo chỗ ngược tầng nào, và `lib/config` hiện **không** nhập từ `lib/bank` hay `lib/ledger` (đo: 0 chỗ) nên không có vòng nào |
+| 2 | **BE-04 chỉ phải đổi một chỗ.** Khi giá vào cơ sở dữ liệu, hằng số này thành "giá mặc định khi chưa cấu hình". Cơ sở dữ liệu (Prisma) nằm trong `app/`, cùng tầng với `lib/config`, nên BE-04 sửa một tệp trong cùng cây với chỗ nó đọc DB |
+| 3 | **Ngữ nghĩa khớp tên thư mục.** Giá phát hành là *tham số cấu hình do ngân hàng ấn định*, không phải số liệu thị trường (lập luận đầy đủ đi theo hằng số sang tệp mới) |
+| 4 | **Không phải sửa test đang xanh.** `issuance.ts` re-export nên `portfolio-service.test.ts` giữ nguyên đường nhập `@/lib/bank/issuance` |
+
+Vì sao **không** chọn `packages/shared`:
+
+| # | Lý do |
+|---|---|
+| 1 | `structure.md` khoanh phạm vi của nó: *"ABI (generated), addresses.json, chain config, types"*. Giá phát hành không thuộc bốn thứ đó |
+| 2 | `packages/shared` còn được dùng bởi toolchain hợp đồng (`packages/contracts-evm`). Đặt một điều khoản phát hành ở đó là mở nó ra cho cả script deploy, trong khi **không contract nào** đọc con số này — mở rộng bán kính ảnh hưởng mà không được gì |
+| 3 | BE-04 sẽ phải **chuyển nó lần nữa** về `app/` để đọc giá từ DB, tức hai lần đổi thay vì một |
+
+**Không** phải lý do, và nói rõ để Supervisor không đọc nhầm: **kích thước bundle không phân biệt
+được hai ứng viên.** `packages/shared` vốn đã được bundle vào worker (chain config, ABI), và một
+hằng số số nguyên thì gần như không có kích thước. `lessons.md` nói *"đồ nặng để ở packages, không
+ship nguyên vào worker"* — bài học đó nhắm hardhat/ethers/artifact, không nhắm một con số. Cả hai
+ứng viên đều không vi phạm nó.
+
+### 6.3 Hằng số có vào bundle client không, và có đường nào cho ra `undefined`/`0` không
+
+Trả lời câu hỏi của tài liệu giao việc, bằng đo chứ không bằng suy đoán:
+
+**Hôm nay: không vào bundle client.** Hai người dùng đều là tệp `server-only`
+(`portfolio.service.ts`, `mock.adapter.ts`). Các component chỉ nhập **kiểu** (`import type
+{ PortfolioView }`), mà kiểu bị xoá lúc biên dịch. Con số đến được trình duyệt dưới dạng **dữ
+liệu** trong `PortfolioView.issuePriceVnd`, không phải dưới dạng module được nhập.
+
+**Nhưng tệp nguồn CỐ Ý không đặt `import 'server-only'`**, khác `env.ts` và `flags.ts` cùng thư
+mục. Lý do: đây là số hiển thị được, không phải bí mật; chặn nó ở phía client sẽ chặn luôn
+`wptToVnd` và mọi màn hình muốn tự quy đổi — FE-05 rất có thể cần. Cùng cách chia đã có tiền lệ
+trong repo: `lib/session/channel.ts` (dùng chung) đứng cạnh `current-channel.ts` (`server-only`).
+
+**Đường cho ra `undefined`/`0`: không có, và lý do là cấu trúc chứ không phải may mắn.**
+
+| Đường chạy | Kết luận |
+|---|---|
+| Vòng phụ thuộc | **Không thể.** `issue-terms.ts` là **tệp lá**: không có `import` nào. Không có cạnh đi ra thì không có vòng. Đã ghi vào chú thích của tệp rằng đây là điều cố ý, để người sau không "dọn" bằng cách thêm import |
+| `server-only` bị nạp ở client | **Không xảy ra.** Tệp nguồn không có `server-only`, nên nó nạp được ở cả hai phía. Nếu có `server-only` thì lỗi là *build fail* (rõ ràng), không phải *giá = 0* (âm thầm) |
+| Kiểu sai | `BigInt(number)` với số nguyên an toàn là toàn phần. Ca đầu của test chốt `typeof === 'number'`, `Number.isSafeInteger`, `> 0` |
+| `seedMockLedger({ wptPriceVnd: 0n })` | Có thật, nhưng là **seam kiểm thử** đã có từ BE-01, không phải đường chạy nghiệp vụ, và nó ghi đè giá một cách tường minh. Test nguồn giá gọi `resetMockLedger()` ở `beforeEach` nên luôn đọc giá mặc định |
+
+Ca *"nguồn duy nhất là số nguyên dương, không phải undefined hay 0"* đứng **đầu** test có lý do:
+nếu một ngày ai thêm import vào tệp nguồn và sinh ra vòng, ca đó đỏ trước, nên lỗi được đọc đúng
+là "nguồn giá hỏng" chứ không bị đọc nhầm thành "lệch giá".
 
 ---
 
@@ -1550,6 +1953,34 @@ không `spawnSync`) và phạm vi lệnh `git diff` khi chứng minh đột bi�
 | 3 | **Không xóa** `UnsupportedChainError`, `evmTestnet`, `hardhatLocal`, `getSigner` — bốn ký hiệu `design.md` xếp vào "mã chết thật" | Không cái nào là mã chết (SL-7). `evmTestnet`/`hardhatLocal` nằm trong mảng `chains`, và xóa chúng **vẫn build xanh** vì mảng rỗng là kiểu hợp lệ — đúng cạm bẫy tài liệu giao việc cảnh báo |
 | 4 | **Thêm `createWalletSigner`** vào nhóm điểm cắm, dù nó không có trong danh sách 7 ký hiệu của spec | Nó nằm trong 115 dòng đo được, và là cửa vào `ISigner` phía ví — LUẬT #2. Đúng loại mã mà cơ chế marker được dựng để bảo vệ: chưa ai gọi nên trông như rác |
 | 5 | **Không gắn marker** cho 6 kiểu `z.input` của `schemas.ts`, dù chúng cũng "đã sẵn, chưa ai dùng" | Steering mục 1 định nghĩa `@pending` là "code **đã chạy được**, chỉ chưa ai gọi". Kiểu không chạy và không gọi được; gắn marker cho nó là dùng sai marker, mà steering mục 3 nói dùng sai còn tệ hơn không có |
+
+### D-7 (Bước 6) — ĐỔI HÀNH VI: xóa `expireStaleOrdersAction`
+
+**Owner chốt ở vòng review Bước 5** (Q5 phương án a3).
+
+`tasks.md` ghi rõ *"Không đổi hành vi hệ thống"*, và xóa một server action là **thu hẹp mặt tiền
+transport** — một endpoint POST mà Next.js từng đăng ký thì nay không còn. Đây là deviation duy
+nhất của cả MC-01 mà Kiro **cố ý** đổi hành vi, và nó chỉ được làm vì Owner đã quyết.
+
+| | |
+|---|---|
+| Commit | `f285acf` |
+| Tệp | `app/src/app/actions/purchase.ts` (duy nhất) |
+| Đã xóa | `expireStaleOrdersAction` + khối chú thích 8 dòng nêu câu hỏi mở; `expireStaleOrders` gỡ khỏi danh sách `import` (không còn ai dùng trong tệp) |
+| Đã thêm | 5 dòng ở khối chú thích đầu tệp: service có **bốn** hàm, tệp này **ba** action, và đó là chủ đích — dẫn chủ đích ở `api/purchase/route.ts` |
+| Giữ nguyên | `expireStaleOrders` trong `purchase.service.ts` và marker `@pending BE-07` của nó |
+
+Kết quả: dọn lệnh treo còn **một** đường vào duy nhất — tiến trình theo lịch của BE-07 gọi thẳng
+service. Hai tệp transport giờ nói cùng một chuyện, thay vì route handler cố ý không mở trong khi
+server action thì đã mở.
+
+Dòng chú thích thêm vào là cần, không phải trang trí: người sau đọc tệp thấy **3 action** trong khi
+service có **4 hàm** sẽ tưởng là bỏ sót và thêm lại đúng cái vừa bị xóa. Và phép kiểm tự động thì
+không chặn được việc đó — `verify-arch-rules.sh` chỉ đếm server action của `bank.ts`, không đếm
+`purchase.ts` (xem 3.8).
+
+**Không có phép kiểm nào đỏ vì deviation này:** `npm run typecheck`, `npx eslint .`, 285 test,
+`npm run build` 17/17 route, `scan-pending.mjs --check` `exit=0` — tất cả xanh ngay ở commit đó.
 
 ---
 
@@ -1906,12 +2337,59 @@ Script đo là tệp tạm ở `/tmp`, **đã xóa**. Bước 5 không có nhi�
 thêm một script "quét export chết" là thêm một thứ phải bảo trì mà chưa ai yêu cầu. Ba bước của
 phép đo ghi ở 4.1; mỗi dòng của bảng 4.4 kèm lệnh `grep` chạy được ngay.
 
+### SL-8 — PHÁT HIỆN Ở BƯỚC 6: **10 test cũ hardcode giá phát hành**, nên hợp nhất nguồn vẫn chưa đủ để đổi giá an toàn
+
+Hợp nhất nguồn (R5.1) giải quyết đúng vấn đề R5.2 nêu: giá hiển thị và giá khớp lệnh không lệch
+nhau được nữa. Nhưng đột biến 1 làm lộ ra một tầng thứ hai mà R5 không nói tới:
+
+```
+$ (đổi giá ở nguồn duy nhất thành 123_000, rồi chạy toàn bộ suite)
+   Tests  10 failed | 290 passed (300)
+```
+
+| Tệp | Số ca đỏ |
+|---|---|
+| `app/test/mock-ledger.test.ts` | 5 (nhóm `R2 — khớp lệnh mua`, `R4 — chốt quyền`) |
+| `app/test/purchase-service.test.ts` | 5 (`placeOrder`, `executeOrder`, `7.5`, `7.7` ×2) |
+
+Mười ca này viết thẳng số VNDB suy ra từ giá 100.000, ví dụ `10_000_000n - 300_000n` cho 3 WPT.
+Chúng **không sai** — hôm nay chúng xanh và chúng kiểm đúng thứ chúng nói là kiểm. Nhưng hệ quả
+thực tế là: **BE-04 đổi giá mặc định sẽ thấy 10 test đỏ**, và người đọc con đỏ đó sẽ mất một lúc
+mới nhận ra đây là số cũ trong test chứ không phải lỗi mới trong mã.
+
+Vì sao **không sửa ở Bước 6**: `tasks.md` cấm sửa test đang xanh, và tài liệu giao việc Bước 6 nhắc
+lại bằng chữ ("Không sửa test đang xanh (285 test)"). Sửa 10 ca trong hai tệp test của BE-01/BE-02
+cũng vượt ra ngoài mục tiêu "hợp nhất nguồn giá" — nó là một mục tiêu khác, nên thuộc một commit
+khác, đúng theo `workflow.md`.
+
+Đề xuất, xin Owner/Supervisor quyết:
+
+- **(a)** Để nguyên. Món nợ nhỏ và chỉ chạm tới khi BE-04 đổi giá. Rủi ro: BE-04 mất thời gian chẩn
+  đoán 10 con đỏ trông như lỗi hồi quy.
+- **(b)** Một nhánh `test/` riêng cho BE-04 dùng: thay số hardcode bằng biểu thức suy ra từ
+  `WPT_ISSUE_PRICE_VND`, đúng cách mà `issue-price-single-source.test.ts` đang làm. Sau đó đổi giá
+  ở nguồn là **cả 300 test** xanh, tức nguồn giá thật sự có một chỗ duy nhất cả trong mã lẫn trong
+  kiểm thử.
+
+**Đề xuất (b), nhưng làm ở nhánh khác, không phải MC-01.** Hai lý do: nó sửa test đang xanh (việc
+MC-01 bị cấm), và nó phục vụ BE-04 nên nên nằm cùng chỗ với BE-04 để người review thấy được cả
+nguyên nhân lẫn kết quả.
+
+#### Món nợ tài liệu kèm theo, đã hẹn Bước 10
+
+`docs/tech-report.md` mục 3.6 (`app/src/lib/config/`) liệt kê `env.ts`, `flags.ts`,
+`config-context.tsx` — **chưa có** `issue-terms.ts`. Dòng 500 (`issuance.ts | Điều khoản phát hành
+| WPT_ISSUE_PRICE_VND, wptToVnd()`) thì **vẫn đúng**, vì `issuance.ts` còn re-export cả hai ký hiệu,
+nên đó không phải chỗ lạc hậu. Cả hai việc thuộc task 10.x; ghi ra đây để Bước 10 không phải đi tìm
+lại.
+
 ---
 
 ## 11. Câu hỏi mở
 
-> **Q1 và Q2 đã được Owner chốt ở Bước 2.** Quyết định và cách thi hành ghi ngay dưới mỗi câu.
-> **Q3 và Q4 mở ở Bước 3. Q5 đến Q8 mở ở Bước 5.**
+> **Q1 và Q2 đã được Owner chốt ở Bước 2. Q5 (vế a) đã được Owner chốt ở vòng review Bước 5** —
+> quyết định và cách thi hành ghi ngay dưới mỗi câu.
+> **Q3 và Q4 mở ở Bước 3. Q5 (vế b) đến Q8 còn mở.**
 
 ### Q3 — Ba chỗ phân loại 50/50, đã để nhóm C, xin xác nhận
 
@@ -2035,6 +2513,23 @@ $ git check-ignore -v .kiro/specs/mc-01-make-control/tasks.meta.json
 
 ### Q5 — Ai sẽ gọi `expireStaleOrdersAction` và `tokenOverviewAction`? Hai tài liệu nói ngược nhau
 
+> **✅ VẾ (a) ĐÃ CHỐT — Owner chọn phương án (a3) ở vòng review Bước 5: XÓA `expireStaleOrdersAction`.**
+>
+> Đã thi hành ở Bước 6, commit `f285acf`. Dọn lệnh treo còn **một** đường vào: tiến trình theo lịch
+> của BE-07 gọi thẳng service. Chi tiết và bằng chứng chạy ở D-7 (mục 9).
+>
+> Ba việc đã làm, đúng phạm vi Owner chốt, không hơn:
+> 1. Xóa `expireStaleOrdersAction` **và** khối chú thích câu hỏi mở ngay trên nó (khối đó là chính
+>    câu hỏi này, giờ đã có câu trả lời nên nó hết việc).
+> 2. Gỡ `expireStaleOrders` khỏi danh sách `import` — không còn ai dùng trong tệp.
+> 3. Thêm chú thích ở khối đầu tệp nói vì sao service có **bốn** hàm mà đây chỉ **ba** action, dẫn
+>    chủ đích ở `api/purchase/route.ts`.
+>
+> `expireStaleOrders` trong `purchase.service.ts` và marker `@pending BE-07` của nó **giữ nguyên**.
+> Bảng điểm cắm vẫn 8 cắm / 11 chặn, không mất marker nào (3.8).
+>
+> **Vế (b) `tokenOverviewAction` vẫn còn mở** — chờ mã task của màn hình tài sản kênh `(admin)`.
+
 Hai server action này đã chạy được và chưa ai gọi, tức đúng hình dạng một điểm cắm. Nhưng marker
 đòi **một** mã task, và với hai cái này không có mã nào đứng vững. Đã **để nguyên, không marker**,
 theo chỉ dẫn "không xếp được thì không đoán".
@@ -2067,8 +2562,10 @@ Ba cách hiểu:
 tức đổi hành vi, mà Bước 5 bị cấm đổi hành vi. Nếu Supervisor chốt (a3) thì đó là 3 dòng xóa +
 một dòng ghi chú, làm ở Bước 7 hoặc một nhánh `fix/` riêng.
 
-Đã ghi nguyên văn lập luận này vào khối chú thích ngay trên hàm, để người đọc mã thấy được lý do
-thiếu marker mà không phải mở checkpoint.
+Ở Bước 5 lập luận này được ghi nguyên văn vào khối chú thích ngay trên hàm, để người đọc mã thấy
+được lý do thiếu marker mà không phải mở checkpoint. **Bước 6 xóa khối đó cùng với hàm**: câu hỏi
+đã có câu trả lời nên một khối chú thích nói "chưa rõ ai sẽ gọi" trở thành thông tin sai. Thay vào
+đó là 5 dòng ở khối đầu tệp nói chủ đích đã chốt.
 
 **(b) `tokenOverviewAction` — `app/src/app/actions/bank.ts:36`**
 
@@ -2136,6 +2633,27 @@ Nếu Supervisor chốt thu hẹp: một dòng (`export function getSigner` → 
 ---
 
 ## 12. Tự đánh giá 3 LUẬT kiến trúc
+
+### Bước 6 — chạm `lib/ledger` (LUẬT #1) và một server action, nên đánh giá kỹ
+
+```
+$ git diff --name-only c17fc1e..HEAD -- app/src app/test packages
+app/src/app/actions/purchase.ts
+app/src/lib/bank/issuance.ts
+app/src/lib/config/issue-terms.ts
+app/src/lib/ledger/mock.adapter.ts
+app/test/issue-price-single-source.test.ts
+```
+
+| LUẬT | Có bị chạm? | Bằng chứng |
+|---|---|---|
+| **#1** mọi tương tác chain qua `ILedgerPort` | **Có chạm, nhưng không làm yếu** | Sửa duy nhất trong `mock.adapter.ts` là **nguồn của một hằng số**: `100_000n` → `BigInt(WPT_ISSUE_PRICE_VND)`. Không thêm/bớt/đổi method nào của `ILedgerPort`, không đổi chữ ký, không đổi hành vi — 49 ca `mock-ledger.test.ts` xanh nguyên. Chiều nhập mới là `ledger → config`, tức tầng cổng nhập xuống tầng cấu hình; **không** tạo chỗ nào để nghiệp vụ hay component gọi chain trực tiếp |
+| **#2** mọi thao tác ký qua `ISigner` | **Không** | `app/src/lib/signer/` không có tệp nào trong danh sách. Giá phát hành không liên quan tới ký |
+| **#3** mọi kiểm quyền qua RBAC | **Không, và đây là chỗ cần nói rõ** | Xóa `expireStaleOrdersAction` **không** gỡ phép kiểm quyền nào: guard `order:expire` nằm **trong** `expireStaleOrders` của service (`assertCan` qua `authorize()`), không nằm ở server action — đúng chủ đích đã ghi ở đầu `actions/purchase.ts`. Đường vào còn lại (BE-07 gọi thẳng service) **vẫn đi qua đúng guard đó**. Xóa một transport không mở lối tắt nào quanh RBAC; ngược lại nó bỏ một điểm vào HTTP |
+
+Một điều đáng ghi về hướng của thay đổi: đặt hằng số ở `lib/config` **giữ** cho `lib/ledger` không
+phải nhập từ `lib/bank`. Nếu làm theo cách `design.md` mục 4 phác ra thì `app/src/lib` sẽ có đúng
+một chỗ ngược tầng, và nó nằm ngay trong tầng cổng của LUẬT #1 (bằng chứng và hậu quả ở mục 6.1).
 
 ### Bước 5 — bước ĐẦU TIÊN chạm mã thực thi, nên đánh giá kỹ hơn
 
