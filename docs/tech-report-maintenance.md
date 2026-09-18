@@ -20,8 +20,11 @@ Kiro chịu trách nhiệm giữ `tech-report.md` **luôn khớp với mã ngu�
 Khi chạm vào bất kỳ file nào còn ký hiệu cũ, **đổi luôn trong cùng commit**. Kiểm bằng:
 
 ```bash
-grep -rniE "\bSPT\b|tVND" app/src app/e2e app/test packages/ docs/   # phải rỗng
+# Giống hệt phép quét trong scripts/verify-arch-rules.sh mục "KÝ HIỆU TOKEN". Phải rỗng.
+grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/
 ```
+
+**`docs/` cố ý KHÔNG bị quét.** Tài liệu nhắc ký hiệu cũ một cách có chủ đích — checkpoint lịch sử, bảng "ký hiệu cũ đã bỏ" ngay phía trên, diff dán lại mã cũ — nên thêm `docs/` vào là tự tạo 60 dương tính giả. Thêm nữa, phép quét này **tự tham chiếu**: chính dòng lệnh ở đây nằm trong `docs/`. Cũng **không dùng `-i`**: ký hiệu niêm yết có đúng một cách viết, còn `-i` làm `tVND` khớp các định danh hợp lệ như `distributableProfitVnd` / `profitVndBn`. Lý do đầy đủ, kèm số đo, ghi trong chú thích của chính script.
 
 Lưu ý: đổi nhãn giao diện sẽ **làm gãy selector trong `app/e2e/`**. Sửa test cùng lúc, không để lại cho vòng sau.
 
@@ -115,8 +118,8 @@ grep -rnE "from '(viem|ethers)'" app/src/ | grep -v "src/lib/"     # phải rỗ
 grep -rln "SERVER_SIGNER_PRIVATE_KEY" app/src/                      # chỉ env.ts + server.signer.ts
 grep -rnE "role ===|role ==" app/src/ | grep -v "src/lib/rbac/"     # phải rỗng
 
-# Ký hiệu token cũ
-grep -rniE "\bSPT\b|tVND" app/src app/e2e app/test packages/ docs/  # phải rỗng
+# Ký hiệu token cũ - KHÔNG quét docs/ và KHÔNG dùng -i, xem mục 0 để biết vì sao
+grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/
 
 # Chất lượng
 cd app && npm run typecheck && npx eslint . && npm test && npm run test:e2e
@@ -145,7 +148,7 @@ Tài liệu lệch mã nguồn thường do bốn nguyên nhân. Xử lý sẵn:
 | Đổi tên hàm nhưng quên sửa tài liệu | Sau khi đổi tên, `grep` tên cũ trong `tech-report.md`. Còn kết quả là chưa xong |
 | Xóa file nhưng tài liệu vẫn liệt kê | Đối chiếu cây thư mục bằng `find` trước khi nộp |
 | Mô tả luồng theo dự định, không theo mã | Chỉ viết mục 4.x sau khi mã chạy được, và ghi đúng tên hàm trong mã |
-| Đổi ký hiệu token nhưng sót chỗ | Chạy lệnh grep ký hiệu cũ ở mục 5, gồm cả `e2e/` và `docs/` |
+| Đổi ký hiệu token nhưng sót chỗ | Chạy lệnh grep ký hiệu cũ ở mục 5, gồm cả `e2e/`. **Không** gồm `docs/` — mục 0 giải thích vì sao |
 
 **Khi phát hiện tài liệu đã lệch:** sửa ngay trong commit hiện tại, đồng thời ghi một dòng vào checkpoint mục "Sai lệch phát hiện được". Không im lặng sửa lén.
 

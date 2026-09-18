@@ -1027,8 +1027,10 @@ grep -rnE "from '(viem|ethers)'" app/src/ | grep -v "src/lib/"
 grep -rln "SERVER_SIGNER_PRIVATE_KEY" app/src/
 grep -rnE "role ===|role ==" app/src/ | grep -v "src/lib/rbac/"
 
-# Ký hiệu token cũ không được còn sót (phải rỗng)
-grep -rniE "\bSPT\b|tVND" app/src app/e2e app/test packages/ docs/
+# Ký hiệu token cũ không được còn sót (phải rỗng).
+# KHÔNG quét docs/ (tài liệu lịch sử nhắc ký hiệu cũ có chủ đích) và KHÔNG dùng -i
+# (làm tVND khớp định danh hợp lệ profitVndBn). Lý do đầy đủ: tech-report-maintenance.md mục 0.
+grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/
 
 # Kiểm thử
 cd app && npm run typecheck && npx eslint . && npm test && npm run test:e2e
