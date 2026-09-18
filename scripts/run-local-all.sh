@@ -96,8 +96,11 @@ for f in "${FAILED[@]:-}"; do [ -n "$f" ] && c_red "    FAIL  $f"; done
 printf '\n'
 node scripts/scan-pending.mjs || c_yel "  (không in được bảng điểm cắm - xem scripts/scan-pending.mjs)"
 
+# Dòng trống tách kết luận khỏi bảng điểm cắm. Phải in bằng printf riêng: c_red/c_grn
+# dùng printf '%s' nên chuỗi "\n" đặt trong THAM SỐ sẽ in ra nguyên văn hai ký tự.
+printf '\n'
 if [ "${#FAILED[@]}" -gt 0 ]; then
-  c_red "\n  => CHƯA ĐẠT. Sửa các mục FAIL trước khi nộp checkpoint."
+  c_red "  => CHƯA ĐẠT. Sửa các mục FAIL trước khi nộp checkpoint."
   exit 1
 fi
-c_grn "\n  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet."
+c_grn "  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet."
