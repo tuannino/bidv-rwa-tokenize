@@ -4,17 +4,24 @@ inclusion: always
 
 # BÁO CÁO CÔNG NGHỆ — BIDV RWA TOKENIZE (TOKEN HÓA DỰ ÁN ĐIỆN GIÓ)
 
-> **Tài liệu sống.** Kiro bắt buộc cập nhật file này sau mỗi thay đổi mã nguồn, theo quy tắc trong `.kiro/steering/tech-report-maintenance.md`.
+> **Tài liệu sống.** Kiro bắt buộc cập nhật file này sau mỗi thay đổi mã nguồn, theo quy tắc trong `docs/tech-report-maintenance.md`.
 > Đây là nguồn tham chiếu đầu tiên cho dev mới tiếp nhận source.
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.8 |
+| Phiên bản tài liệu | 1.9 |
 | Cập nhật lần cuối | 2026-09-19 |
-| Nhánh / commit | `fix/restore-be08` |
+| Nhánh / commit | `mc/01-make-control`, nền `dev` @ `71932bb` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_MC01.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ) |
+| Đang chờ nghiệm thu | **MC-01** (cơ chế điểm cắm — xem 3.10 và `docs/CHECKPOINT_MC01.md`). Mã đã xong trên nhánh, **chưa** merge vào `dev`, nên `.kiro/task-status.json` còn để `MC-01` ở `inProgress` |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
+
+**Vì sao 1.8 → 1.9 chứ không phải 2.0.** `tech-report-maintenance.md` §3 bước 5 để `+1.0` cho
+"đổi lớn về kiến trúc". MC-01 **không đổi kiến trúc**: ba luật bất di không bị chạm, không thêm
+tầng, không đổi luồng nghiệp vụ nào, và bản thân task tự ràng buộc là "không đổi hành vi hệ
+thống". Cơ chế mới (marker + tài liệu sinh từ mã) là cơ chế **quy trình tài liệu**, và nó thêm
+vào chứ không thay thế thứ gì đang có — nên đây là thay đổi thường, `+0.1`.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -80,20 +87,24 @@ Hạ tầng (chain EVM/Stellar/mock, Postgres/memory)
 
 ## 1.4. Cây thư mục
 
+Đối chiếu bằng `find` trước khi nộp checkpoint (`tech-report-maintenance.md` §6).
+
 ```
 bidv-rwa-tokenize/
 ├── .kiro/
 │   ├── steering/              # Quy tắc Kiro nạp mỗi phiên (always)
 │   │   ├── workflow.md        # Vòng lặp Kiro ↔ Supervisor, quy tắc chống "kẹt"
+│   │   ├── branching.md       # `dev` là nền duy nhất; cấm revert-rồi-merge-lại
 │   │   ├── lessons.md         # Bài học tích lũy — đọc trước khi code
 │   │   ├── structure.md       # Cấu trúc thư mục chuẩn
 │   │   ├── tech.md            # Ràng buộc kỹ thuật
 │   │   ├── frontend.md        # Chuẩn giao diện, màu BIDV
 │   │   ├── solidity.md        # Chuẩn viết contract
 │   │   ├── product.md         # Bối cảnh nghiệp vụ
-│   │   ├── tech-report.md     # ★ Báo cáo công nghệ (file này)
-│   │   └── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
-│   └── specs/<feature>/       # requirements.md, design.md, tasks.md
+│   │   ├── testnet.md         # Quy ước làm việc trên Sepolia
+│   │   └── make-control.md    # ★ Quy ước marker @pending/@blocked/@flow (MC-01)
+│   ├── specs/<feature>/       # requirements.md, design.md, tasks.md
+│   └── task-status.json       # ★ Nguồn DUY NHẤT: trạng thái task + tập mã task hợp lệ
 │
 ├── app/                       # Next.js 16 full-stack
 │   ├── src/app/
@@ -138,8 +149,23 @@ bidv-rwa-tokenize/
 │   ├── contracts-stellar/     # Soroban (Rust) — phase 7
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
 │
+├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20 / bash, không phụ thuộc ngoài)
+│   ├── run-local-all.sh       # Chạy toàn bộ kiểm chứng cục bộ — 7 mục
+│   ├── verify-arch-rules.sh   # Lớp 3: 3 luật kiến trúc + cấu trúc repo + ký hiệu token
+│   ├── scan-pending.mjs       # ★ Quét marker; --check, --json, --write-report, --check-report
+│   ├── gen-flow-diagram.mjs   # ★ Sinh docs/flows/<luồng>.md (Mermaid) từ marker @flow
+│   └── demo-mint.mjs          # Kịch bản demo luồng mint
+│
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
+    ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
+    ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
+    └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
+        └── purchase.md        #   Luồng mua WPT, 10 bước
 ```
+
+⚠️ **`tech-report.md` và `tech-report-maintenance.md` nằm ở `docs/`, không ở `.kiro/steering/`**
+dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư mục ở đây liệt kê chúng trong
+`.kiro/steering/` — đường dẫn đó không tồn tại.
 
 ## 1.5. Hai chế độ chạy
 
@@ -215,10 +241,11 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 | ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
-| **P1** | **10 trong 16 method mới của `ILedgerPort` chưa nối được ở `evm.adapter`** — chờ contract phát hành một lần (SC-02), contract khớp lệnh (SC-03), mapping `snapshotId`→`distributionId` (BE-06), và xác nhận cờ tất toán/NAV nối vào contract nào. Bảng đầy đủ ở 3.1 | Hiện phát triển trên chain `mock` (đã hiện thực đủ 16/16, có 48 test). Khi contract xong thì bổ sung `evm.adapter` trong commit riêng — `docs/CHECKPOINT_BE01.md` |
+| **P1** | **11 trong 16 method mới của `ILedgerPort` chưa nối được ở `evm.adapter`** — chờ contract phát hành một lần (SC-02), contract khớp lệnh (SC-03), mapping `snapshotId`→`distributionId` (BE-06), và quyết định cờ tất toán/NAV nối vào contract nào (SC-04). Bảng đầy đủ ở 3.1; bảng sinh tự động theo marker ở 3.10 | Hiện phát triển trên chain `mock` (đã hiện thực đủ 16/16, có 49 test). Khi contract xong thì bổ sung `evm.adapter` trong commit riêng — `docs/CHECKPOINT_BE01.md`. **Con số đo lại ở MC-01: `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` → 11, không phải 10** |
 | **P2** | Chưa có CI. Mọi kiểm tra chạy tay | Thêm GitHub Actions chạy `typecheck + lint + test` mỗi lần push |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
 | ~~P2~~ | ~~1 cảnh báo lint ở `src/empty.ts`~~ | **ĐÃ XỬ LÝ ở MC-01 Bước 7.** Cảnh báo là `import/no-anonymous-default-export` do `export default {}`. Đo lại thì default export đó **không cần cho build**, nên xóa luôn thay vì đặt tên biến hay dùng `eslint-disable`. Nay `npx eslint .` cho **0 error, 0 warning**. Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8 |
+| **P2** *(đề nghị, Supervisor chốt mức)* | **Spec tồn tại hai bản song song và đã lệch nhau.** Đo ở MC-01: `docs/` có **8** thư mục spec, `.kiro/specs/` có **10**, trùng tên nhau **6** cặp (số còn lại chỉ tồn tại một phía). Trong 6 cặp đó, **5 cặp đã khác nhau** — `be-01-ledger-port`, `be-02-purchase-orders`, `fe-01-investor-channel-v2`, `fe-02-wallet-connect` lệch **cả ba** tệp; `mc-01-make-control` lệch `tasks.md`; chỉ `be-09-data-schema` còn giống hệt. Hai bản lệch nghĩa là "spec nói gì" phụ thuộc vào việc người đọc mở bản nào | Chọn **một** bản làm nguồn (`.kiro/specs/` là bản Kiro nạp) rồi bản kia thành con trỏ trỏ sang, hoặc xóa. Việc này Supervisor quyết vì nó đổi cách tổ chức tài liệu. Lệnh đo: `diff -rq docs/<tên> .kiro/specs/<tên>` |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`app/src/empty.ts` + alias `@x402/*` trong `next.config.ts` là vá cho phụ thuộc của bên thứ ba.** `@x402/*` là `peerDependencies` **tùy chọn** của `@coinbase/cdp-sdk` nên npm không cài, nhưng mã cdp-sdk vẫn `import` chúng và cdp-sdk có trong đồ thị module của app theo chuỗi `providers.tsx → @rainbow-me/rainbowkit → @wagmi/connectors/baseAccount → @base-org/account → @coinbase/cdp-sdk`. Bỏ alias ra thì `next build` FAIL 8 lỗi *Module not found* ở 5 specifier | Đã thu gọn tối đa ở MC-01 Bước 7: `empty.ts` còn **1 export** (`toClientEvmSigner`, import tĩnh duy nhất mà build đòi), alias Turbopack còn **1 dòng wildcard**. **ĐIỀU KIỆN XÓA:** khi `cd app && npm ls @coinbase/cdp-sdk` trả về rỗng — tức wagmi/connectors không còn kéo `@base-org/account`. Lúc đó gỡ cả hai khối alias, xóa `app/src/empty.ts`, chạy lại `npm run build` + `npm run cf:build` để xác minh |
 
 ### D. Cách làm việc
@@ -288,8 +315,8 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 
 | Công nghệ | Mục đích | Bản dùng | Mới nhất | License |
 |---|---|---|---|---|
-| Vitest | Unit test (36 test) | 3.2.4 | 5.0.0 | MIT |
-| Playwright | E2E (5 test) | 1.63.0 | 1.63.0 | Apache-2.0 |
+| Vitest | Unit test — **309 test / 13 tệp** (`cd app && npm test`) | 3.2.4 | 5.0.0 | MIT |
+| Playwright | E2E — **30 test / 4 tệp** (`cd app && npx playwright test --list`) | 1.63.0 | 1.63.0 | Apache-2.0 |
 | ESLint | Kiểm tra mã nguồn | 9.x | 10.10.0 | MIT |
 | Docker / Compose | 3 service: chain, db, web | — | 29.7.1 | Apache-2.0 |
 | @opennextjs/cloudflare | Đưa Next.js lên Workers | 1.14.0 | 1.20.6 | MIT |
@@ -303,11 +330,11 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 
 | File | Vai trò |
 |---|---|
-| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (250 dòng) |
+| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (272 dòng) |
 | `index.ts` | Factory `getLedger(chain, signer)` — map chain → adapter |
-| `evm.adapter.ts` | Hiện thực EVM bằng viem (570 dòng) |
-| `mock.adapter.ts` | Ledger trong RAM, không cần chain (592 dòng) |
-| `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng (135 dòng) |
+| `evm.adapter.ts` | Hiện thực EVM bằng viem (599 dòng) |
+| `mock.adapter.ts` | Ledger trong RAM, không cần chain (607 dòng) |
+| `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng (138 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
 ### `ILedgerPort` — 7 nhóm, 28 method
@@ -341,13 +368,19 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 19 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
 | 20 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
 | 21 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
-| 22 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
-| 23 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | xác nhận cờ tất toán nối vào contract nào |
-| 24 | | `setNavRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
-| 25 | | `navRate` | ✅ | ⏳ | ⏳ | xác nhận NAV có phải `Redemption.rate` |
+| 22 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 23 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 24 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
+| 25 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
 | 26 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
 | 27 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
 | 28 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+
+**Bốn method tất toán (22–25) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
+`Redemption` lẫn `ProjectToken` đã deploy; thiếu là câu trả lời cho "cờ *đang tất toán* nằm ở
+đâu" và "NAV có phải `Redemption.rate` hay không". Owner đã mở mã task **SC-04** cho quyết định
+đó, nên marker trong `evm.adapter.ts` ghi `@blocked SC-04` — xem bảng sinh tự động ở 3.10. Đừng
+nối tạm vào `Redemption.paused`: nó **ngược hướng** với "bật giai đoạn tất toán".
 
 `spvWallet` thêm ở **BE-02**. Lý do: QĐ-2 của luồng mua buộc kiểm "ví thanh toán SPV còn đủ
 WPT" **trước khi** gửi giao dịch, mà phép kiểm đó là `balanceOf(<ví SPV>)` — cần một địa chỉ.
@@ -502,7 +535,7 @@ quyền của vai nào.
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) | `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
 | `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic. `ORDER_STATUSES` **re-export** từ `store/order.store.port.ts`, không khai lại | `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES`, `findPaidPendingDeliveryStatuses()` |
-| `issuance.ts` | Điều khoản phát hành | `WPT_ISSUE_PRICE_VND`, `wptToVnd()` |
+| `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không còn giữ hằng số giá**: từ MC-01 nó `re-export` `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6) để người gọi cũ giữ nguyên đường nhập | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
 | `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `executeOrderSchema`, `orderQuerySchema`, `amountSchema`, `walletSchema` |
@@ -547,7 +580,7 @@ công mà phản hồi bị mất).
 - `authorize()` ghi audit cho **cả hai kết cục** ALLOWED và DENIED. Giữ nguyên: kênh kiểm toán cần thấy cả những lần bị chặn.
 - `authorize()`/`toResult()` nằm ở `authorize.ts`, **không** sao chép vào service mới: hai đường ghi audit song song sẽ lệch nhau ở lần sửa đầu tiên, và sổ kiểm toán thiếu bản ghi thì không dùng được để đối chiếu trách nhiệm.
 - Hàm đọc dữ liệu theo ví phải để `wallet` **bắt buộc** trong schema. `ITxnStore.listTxns` không truyền `wallet` sẽ trả giao dịch của **mọi** ví; để optional là mở đường cho một lời gọi thiếu tham số làm rò dữ liệu ví khác ra giao diện nhà đầu tư.
-- Giá phát hành là **tham số cấu hình** (`issuance.ts`), không phải dữ liệu mẫu và không phải giá thị trường. Nhờ vậy `số dư thật × giá phát hành` không trộn số thật với số bịa.
+- Giá phát hành là **tham số cấu hình**, không phải dữ liệu mẫu và không phải giá thị trường. Nhờ vậy `số dư thật × giá phát hành` không trộn số thật với số bịa. **Hằng số nằm ở `lib/config/issue-terms.ts`, một nguồn duy nhất** — `issuance.ts` chỉ re-export, `mock.adapter.ts` nhập cùng hằng số đó. Đừng khai lại giá ở tầng nghiệp vụ hay tầng cổng: trước MC-01 có **hai** hằng số độc lập cùng ý nghĩa, đổi một chỗ thì test vẫn xanh mà giá hiển thị lệch giá khớp lệnh. `app/test/issue-price-single-source.test.ts` (15 ca) chốt việc đó, và **cố ý không hardcode con số** nên nó bắt cả trường hợp khai lại với đúng giá hôm nay.
 - Luôn **lưu giao dịch PENDING trước khi chờ receipt**. Nếu tiến trình chết giữa chừng, giao dịch vẫn còn dấu vết để đối soát.
 - Luôn **đọc lại trạng thái từ chain** sau khi ghi, không tin receipt.
 - Ghi audit và ghi `Txn` phải dùng **vai đang thực hiện thao tác**, không phải vai đã tạo bản ghi trước đó. Nhà đầu tư đặt lệnh, ngân hàng khớp lệnh — lấy `order.actorRole` cho bản ghi `order:execute` sẽ ghi vào sổ rằng nhà đầu tư tự khớp lệnh của mình, đúng cái điều mà việc tách `order:place`/`order:execute` được dựng để ngăn.
@@ -633,6 +666,7 @@ sinh ra từ nó bằng `npm run db:sql`):
 |---|---|---|
 | `config/env.ts` | **Nơi duy nhất đọc `process.env` ở server**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng |
 | `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` tính bằng đúng hàm mà server dùng để chặn |
+| `config/issue-terms.ts` | **Nguồn duy nhất của giá phát hành WPT**: `WPT_ISSUE_PRICE_VND` (MC-01) | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** khác hai tệp trên — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. BE-04 đưa giá vào CSDL thì hằng số này thành giá mặc định |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
 | `chains/registry.ts` | Map ChainKey → cấu hình viem, tự `defineChain` | Không import `viem/chains` để tránh phình bundle |
 | `chains/chain-store.ts` | Zustand giữ chain đang chọn | Không persist, mặc định `null` chống hydration mismatch |
@@ -919,6 +953,18 @@ thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transp
          └──────────────────────────────────────────→ lib/bank/purchase.service.ts
 ```
 
+**Sơ đồ sinh từ mã nguồn: `docs/flows/purchase.md`** (Mermaid, sinh bằng
+`node scripts/gen-flow-diagram.mjs purchase` từ marker `@flow` — xem 3.10). Nó nói được thứ mục
+này không nói: điểm cắm `@pending` nằm trên đúng hàm nào, và dừng ở đâu vì chưa có contract.
+
+⚠️ **Hai hệ đánh số bước, KHÔNG so được với nhau — đừng đọc chéo bằng số bước.** Bảng "Giai đoạn
+1/2" dưới đây đánh số **các bước bên trong một hàm** (bước 5 của Giai đoạn 1 là lời gọi
+`quotePurchase` *trong* `placeOrder`). Marker `@flow` đánh số **các hàm** trên đường đi
+(`purchase:3` là chính `quotePurchase`, một ô riêng của sơ đồ). Hai hệ cắt lát ở hai độ mịn khác
+nhau nên "bước 5" ở hai chỗ là hai thứ khác nhau; đối chiếu phải làm bằng **tên hàm**, không bằng
+số. Sơ đồ cũng **cố ý nói ít hơn** mục này: một chuỗi số nguyên không biểu diễn được nhánh phụ,
+đường về, hay lựa chọn adapter lúc chạy.
+
 ### Giai đoạn 1 — đặt lệnh: `placeOrder()`
 
 | Bước | File / hàm | Việc |
@@ -980,6 +1026,14 @@ Phép kiểm giá chạy **trước** cả bốn vì cả bốn đều so với 
 |---|---|---|
 | `listOrders()` | `order:read`; bỏ trống bộ lọc ví cần thêm `order:read:all` | Vai không có `order:read:all` mà thiếu ví → **lỗi validate**, không phải trả toàn bộ sổ lệnh |
 | `expireStaleOrders()` | `order:expire` (BANK_ADMIN) | Chỉ nhắm `PLACED`. **Không** dựng lịch ở đây — việc gọi định kỳ thuộc BE-07, và cố ý **không** mở điểm vào HTTP |
+
+⚠️ **`expireStaleOrders` có ĐÚNG MỘT đường vào: BE-07 gọi thẳng service.** Từ MC-01 Bước 6 điều
+này đúng trong mã, không chỉ trên giấy: `expireStaleOrdersAction` đã bị **xóa** theo quyết định
+Owner. Trước đó câu "cố ý không mở điểm vào HTTP" ở dòng trên **mâu thuẫn với mã** — server
+action cũng là một điểm vào HTTP, gọi được bằng POST trực tiếp chứ không chỉ qua giao diện. Vì
+vậy `lib/bank/purchase.service.ts` có **bốn** hàm mà `app/actions/purchase.ts` chỉ có **ba**
+action; đó là chủ đích, có ghi lý do ngay trong khối chú thích đầu tệp đó. Đừng "bổ sung cho
+đủ bộ".
 
 ### Nợ đã biết của luồng này
 
@@ -1107,9 +1161,10 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | P1 | **MINT** end-to-end | ✅ Xong |
 | — | Dọn giao diện sang chủ đề điện gió | ✅ Xong |
 | — | FE-01 v2 kênh nhà đầu tư + trang tổng quan | ✅ Xong |
-| — | BE-01 mở rộng `ILedgerPort` cho ba luồng (`mock` đủ 16/16, `evm` còn 10 method chờ contract) | ✅ Xong |
+| — | BE-01 mở rộng `ILedgerPort` cho ba luồng (`mock` đủ 16/16, `evm` còn **11** method chờ contract/quyết định) | ✅ Xong |
 | — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
 | — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, chờ SC-02/SC-03 cho `evm`) | ✅ Xong |
+| — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | 🔶 Mã xong trên nhánh `mc/01-make-control`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | P2 | **REDEEM** (`Redemption.sol`) | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** (`ProfitDistributor` + `EnergyOracle`) | ⏳ |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
@@ -1132,7 +1187,16 @@ grep -rnE "role ===|role ==" app/src/ | grep -v "src/lib/rbac/"
 # (làm tVND khớp định danh hợp lệ profitVndBn). Lý do đầy đủ: tech-report-maintenance.md mục 0.
 grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node_modules | grep -v target/
 
+# Marker điểm cắm và tài liệu sinh từ marker (xem 3.10)
+node scripts/scan-pending.mjs                  # bảng điểm cắm cho người đọc
+node scripts/scan-pending.mjs --check          # đỏ khi marker sai/lạc hậu, KHÔNG đỏ vì còn điểm cắm
+node scripts/gen-flow-diagram.mjs --check      # docs/flows/*.md còn khớp marker @flow
+node scripts/scan-pending.mjs --check-report   # mục 3.10 còn khớp marker
+
 # Kiểm thử
 cd app && npm run typecheck && npx eslint . && npm test && npm run test:e2e
 cd packages/contracts-evm && npx hardhat test
+
+# Hoặc chạy cả bộ (đã bao gồm mọi lệnh trên trừ e2e)
+bash scripts/run-local-all.sh
 ```
