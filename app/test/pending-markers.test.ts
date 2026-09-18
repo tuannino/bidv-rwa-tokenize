@@ -117,7 +117,6 @@ describe('Marker điểm cắm trong repo thật', () => {
         '  lỗi mới thêm vào script không lặng lẽ nằm ngoài tầm test.\n',
     ).toEqual([]);
   });
-
 });
 
 // ---------------------------------------------------------------------------
