@@ -41,9 +41,9 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 4: Test chống marker lạc hậu
 
-- [-] 4.1 Tạo `app/test/pending-markers.test.ts` với 4 ca theo `design.md` mục 3.
-- [~] 4.2 **Kiểm chứng bằng đột biến:** thêm tạm `BE-02` vào marker của một tệp, chạy test, phải **đỏ**. Ghi kết quả vào checkpoint rồi hoàn nguyên.
-- [~] 4.3 Kiểm ca mã task không tồn tại: thử `@pending XX-99`, phải đỏ.
+- [x] 4.1 Tạo `app/test/pending-markers.test.ts` với 4 ca theo `design.md` mục 3.
+- [x] 4.2 **Kiểm chứng bằng đột biến:** thêm tạm `BE-02` vào marker của một tệp, chạy test, phải **đỏ**. Ghi kết quả vào checkpoint rồi hoàn nguyên.
+- [x] 4.3 Kiểm ca mã task không tồn tại: thử `@pending XX-99`, phải đỏ.
 
 *Commit:* `test(mc): chống marker lạc hậu và sai định dạng`
 
@@ -51,7 +51,7 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 5: Phân loại 27 export
 
-- [~] 5.1 Lấy danh sách bằng cách quét export chỉ xuất hiện trong chính tệp nó.
+- [-] 5.1 Lấy danh sách bằng cách quét export chỉ xuất hiện trong chính tệp nó.
 - [~] 5.2 Phân loại từng cái theo bảng ở `design.md` mục 6.
 - [~] 5.3 Điểm cắm → gắn marker với mã task đúng.
 - [~] 5.4 Dùng nội bộ → bỏ từ khóa `export`.
