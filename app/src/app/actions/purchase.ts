@@ -24,6 +24,7 @@ import { executeOrder, listOrders, placeOrder } from '@/lib/bank/purchase.servic
  */
 
 /**
+ * @flow purchase:1 | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase
  * @pending FE-05 | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result`
  */
 export async function placeOrderAction(input: unknown) {
@@ -31,6 +32,7 @@ export async function placeOrderAction(input: unknown) {
 }
 
 /**
+ * @flow purchase:4 | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId
  * @pending FE-06 | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai BANK_ADMIN), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận
  */
 export async function executeOrderAction(input: unknown) {
@@ -38,6 +40,7 @@ export async function executeOrderAction(input: unknown) {
 }
 
 /**
+ * @flow purchase:9 | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase
  * @pending FE-06 | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình
  */
 export async function listOrdersAction(input: unknown) {
