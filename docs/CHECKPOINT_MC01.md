@@ -4,8 +4,8 @@
 |---|---|
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
-| Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–9/10 xong.** Bước 10 chưa làm |
+| Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 10) |
+| Tiến độ | **Bước 1–10/10 xong.** Chờ Supervisor nghiệm thu — Kiro **không** merge vào `dev` |
 | Phạm vi | Không đổi hành vi hệ thống, **trừ một ngoại lệ Owner đã chốt** (D-7 ở mục 9). Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -23,6 +23,49 @@ $ git merge-base dev HEAD
 71932bbbcd27811b202e98487cc55b7bf6878619
 $ git merge-base --is-ancestor dev HEAD   → 0 (HEAD chứa toàn bộ dev)
 ```
+
+---
+
+## 0. Đọc trước — hai bảng để nghiệm thu
+
+### 0.1 Đối chiếu 12 "Điều kiện hoàn thành" của `requirements.md` mục 5
+
+Lấy đúng 12 dòng checkbox ở `.kiro/specs/mc-01-make-control/requirements.md` mục 5, không thêm
+không bớt. Cột bằng chứng ghi **số mục của checkpoint này** để tra được ngay, không ghi "đã làm".
+
+| # | Điều kiện (nguyên văn, rút gọn) | | Bằng chứng ở mục |
+|---|---|---|---|
+| 1 | Quy ước marker có trong `.kiro/steering/`, đủ ba thông tin ở R1.2 | ✅ | 1 (Bước 1) · 2 (DoD 1.1, 1.3) |
+| 2 | Toàn bộ marker tự do trong 33 tệp đã chuyển sang quy ước mới hoặc bị bỏ | ✅ | 1 (Bước 3) · 3.4 (bảng) · 3.5 (4 phép kiểm) · **10 SL-3** — con số 33 của spec sai, số thật là **13 chỗ / 2 tệp**, có phép đo |
+| 3 | Script quét chạy được, có trong `run-local-all.sh`, sinh bảng nhóm theo task | ✅ | 3.4 (bảng script in ra) · 3.12.a (lần chạy chốt, mục `LỚP 3 - ĐIỂM CẮM`) |
+| 4 | Test chống marker lạc hậu hoạt động: đánh dấu một task đã xong phải **đỏ** | ✅ | **5** (đột biến 3 của Bước 4 — `@pending BE-02` → đỏ ở ca 3 `STALE_TASK`, đúng tệp:dòng) |
+| 5 | 27 export đã phân loại xong; mã chết thật đã xóa; điểm cắm đã gắn marker | ✅ | **4** (bảng đủ **115** dòng) · 4.2 (13 chỗ / 7 tệp) · **10 SL-7** — số thật 115, không phải 27 |
+| 6 | Giá phát hành còn **một** nguồn, có test chống lệch | ✅ | **6** (chỗ đặt + bằng chứng chiều phụ thuộc) · **5** (3 đột biến, gồm 2b) · 3.8 |
+| 7 | Gói không dùng đã gỡ; `npm run build` và test vẫn xanh | ✅ | 1 (Bước 7) · 3.9 (4 lần build) · 3.12.b (build chốt: 16 route) · 3.12.c (309 test) |
+| 8 | `src/empty.ts` đã làm rõ: gỡ **hoặc** gắn marker kèm điều kiện xóa | 🔶 | **7** (10 mục con) · **9 D-8**. Đã làm rõ và thu gọn 12 export → **1**, có **điều kiện xóa đo được bằng một lệnh**; nhưng **không gỡ được** (bỏ ra thì build FAIL 8 lỗi) và **không gắn được marker** — nó chờ bên thứ ba, không chờ task nào trong `.kiro/task-status.json`. Ghi 🔶 vì chữ của điều kiện là "gỡ hoặc gắn marker", và Kiro làm **cả hai vế đều không đúng chữ** dù đạt tinh thần. Xin Supervisor chốt |
+| 9 | `verify-arch-rules.sh` cho **0 FAIL** trên `dev` | ✅ | 3.10.b (20 PASS / 0 FAIL / 6 WARN, từng WARN có kết luận) · 3.12.e. Đo trên nhánh; phép quét ký hiệu token cũng cho **0** khi đo thẳng vào `dev`: `git grep -nE "\bSPT\b\|tVND" dev -- app/src app/e2e app/test packages` → **0 dòng** |
+| 10 | Sinh được sơ đồ Mermaid cho luồng mua WPT từ mã nguồn | ✅ | **8** (sơ đồ + 4 mục con đối chiếu) · `docs/flows/purchase.md` · 3.11 |
+| 11 | `tech-report.md` có mục điểm cắm sinh tự động | ✅ | 1 (Bước 10) · 3.12.d · **5** (đột biến Bước 10: sửa tay khối sinh tự động → `--check-report` đỏ) |
+| 12 | `bash scripts/run-local-all.sh` xanh toàn bộ | ✅ | **3.12.a** — 7 PASS / **0 FAIL** |
+
+**11 ✅ · 1 🔶 · 0 ❌.** Món 🔶 duy nhất là món 8, và nó 🔶 vì **chữ của điều kiện không có nhánh
+nào khớp hiện thực**, không phải vì việc chưa làm.
+
+### 0.2 Tự kiểm trước khi mở PR — `branching.md` §11
+
+Nhánh này có thay đổi mã (`app/src`, `packages/`, `scripts/`), nên dùng **bản đầy đủ** 7 dòng.
+
+| Dòng của §11 | | Bằng chứng chạy được |
+|---|---|---|
+| Nhánh tạo từ `dev`, không phải từ nhánh phụ | ✅ | `git merge-base dev HEAD` → `71932bb` = `git rev-parse dev` → `71932bb`. Trước khi tạo nhánh đã kiểm `dev` lành theo §5 — ba lệnh ở đầu tệp này |
+| Đã rebase về `dev` mới nhất | ✅ **không cần rebase** | `git fetch origin && git rev-parse origin/dev` → `71932bb`, **trùng** merge-base. `dev` không đi trước một commit nào kể từ lúc tạo nhánh, nên rebase sẽ là phép không-làm-gì. Kiro **không** tự rebase (ràng buộc của Owner cho vòng này) |
+| `bash scripts/run-local-all.sh` xanh toàn bộ | ✅ | 3.12.a — **7 PASS / 0 FAIL**, 6 WARN đều đã đối chiếu ở 3.10.b |
+| Có spec trong `.kiro/specs/<tên>/` đủ 3 file | ✅ | `git ls-files .kiro/specs/mc-01-make-control/` → `design.md`, `requirements.md`, `tasks.md`. `tasks.meta.json` **cố ý** không vào git (Owner chốt ở Q2): `git check-ignore -v` chỉ đúng `.gitignore:39` |
+| Có checkpoint và đã được nghiệm thu PASS | 🔶 **chờ** | Checkpoint là tệp này. Nghiệm thu là việc của Supervisor, chưa diễn ra — nên dòng này **chưa** đạt, và đó là lý do Kiro không merge |
+| `docs/tech-report.md` đã cập nhật theo `tech-report-maintenance.md` | ✅ | Commit `5bbcb52` (8 nhóm thay đổi, mọi con số đo lại bằng lệnh) + mục **3.10** sinh tự động, `--check-report` → `exit=0` (3.12.d) |
+| Nhánh chỉ giải quyết một mục tiêu | ✅ | 37 commit, **toàn bộ** mang phạm vi `(mc)` và thuộc 10 bước của `tasks.md` — danh sách đủ ở 3.12.g. Một lần đổi hành vi duy nhất (D-7) do **Owner chốt** trong chính task này, không phải việc lạc đề |
+
+Hai dòng còn lại của §11 không áp dụng cho nhánh mã: bản gọn dành cho nhánh `docs/`.
 
 ---
 
@@ -496,6 +539,69 @@ kiểm một tệp tài liệu. Việc đọc bằng mắt ở 9.6 là phần b�
 
 ---
 
+### Bước 10 — Tài liệu ✅
+
+Bốn commit, chia theo **mục tiêu**:
+
+| Commit | Nội dung |
+|---|---|
+| `54b0694` | `feat(mc): sinh mục điểm cắm trong báo cáo công nghệ từ script` — `--write-report` / `--check-report` + mục **3.10** của `tech-report.md` + 2 ca test (20 → 22) |
+| `63e266f` | `docs(mc): quy tắc duy trì marker, sơ đồ luồng và trạng thái task` — `docs/tech-report-maintenance.md` |
+| `5bbcb52` | `docs(mc): cập nhật báo cáo công nghệ theo số đo thật và metadata` — 8 nhóm thay đổi ở `tech-report.md`, mọi con số đo lại bằng lệnh |
+| *(commit này)* | `docs(mc): hoàn thiện checkpoint MC-01` |
+
+Tệp tạo mới / sửa:
+
+| Tệp | Sửa gì |
+|---|---|
+| `scripts/scan-pending.mjs` | `--write-report` (sinh) + `--check-report` (kiểm), **dùng chung** một đường sinh `renderReportSection()` |
+| `docs/tech-report.md` | mục **3.10** (phần mô tả viết tay + khối sinh tự động giữa hai mốc) và 8 nhóm cập nhật của 10.3/10.4 |
+| `docs/tech-report-maintenance.md` | quy tắc: thêm điểm cắm thì gắn marker, dùng hết thì xóa, xong task thì cập nhật `.kiro/task-status.json` |
+| `app/test/pending-markers.test.ts` | +2 ca (20 → **22**): một ca kiểm khối trên đĩa khớp marker, một ca đột biến chứng minh phép kiểm có răng |
+
+#### Vì sao khoanh vùng bằng cặp mốc, không ghi đè cả tệp
+
+`docs/flows/purchase.md` sinh 100% nên script ghi đè cả tệp được. `tech-report.md` thì **là tài
+liệu viết tay 1200 dòng**, chỉ một khối nhỏ trong đó là dữ liệu sinh ra. Nên `--write-report`
+chỉ thay phần giữa `<!-- BEGIN:diem-cam -->` và `<!-- END:diem-cam -->`, và **không tìm thấy cặp
+mốc thì dừng** thay vì đoán chỗ chèn — đoán sai một lần là ghi đè mất chữ người viết.
+
+Marker còn lỗi thì script **từ chối sinh** và chỉ sang `--check`, cùng một nguyên tắc với
+`gen-flow-diagram.mjs`: sinh tài liệu từ dữ liệu đã biết là sai thì cho ra một bảng tự tin và sai.
+
+#### Tám nhóm thay đổi của 10.3 + 10.4, và cái gì đo bằng lệnh nào
+
+| Nhóm | Sửa gì | Đo bằng |
+|---|---|---|
+| Metadata | 1.8 → **1.9** kèm lý do vì sao không phải 2.0; nhánh/commit; thêm dòng "đang chờ nghiệm thu" nói rõ `MC-01` còn ở `inProgress` | `tech-report-maintenance.md` §3 bước 5 (`+1.0` dành cho đổi lớn về kiến trúc — MC-01 không đổi kiến trúc) |
+| Cây thư mục 1.4 | thêm `branching.md`, `testnet.md`, `make-control.md`, `task-status.json`, cả thư mục `scripts/` và `docs/flows/`; **sửa một chỗ sai cũ**: `tech-report.md` nằm ở `docs/`, không ở `.kiro/steering/` | `ls -1 .kiro/steering/ scripts/ docs/flows/` |
+| Nợ 1.6.C | 10 → **11** method chờ nối, gắn mã `SC-04` | `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` → **11** |
+| Nợ 1.6.C (mới) | thêm món "spec tồn tại hai bản song song và đã lệch nhau" | `diff -rq docs/<tên> .kiro/specs/<tên>` trên **6** cặp trùng tên → **5 cặp lệch**, chỉ `be-09-data-schema` giống hệt |
+| Bảng 3.1 | dòng 22–25: lý do chặn là một **quyết định** (SC-04), không phải contract chưa có | đọc mã: cả `Redemption` lẫn `ProjectToken` đã deploy |
+| Số dòng 3.4 | 250→**272**, 570→**599**, 592→**607**, 135→**138** | `wc -l app/src/lib/ledger/*.ts` |
+| Bảng 2.5 | 36 → **309** test vitest / 13 tệp; 5 → **30** test e2e / 4 tệp | `npm test` và `npx playwright test --list` |
+| 3.4 / 3.6 | `issuance.ts` nay **re-export**; thêm `issue-terms.ts` là nguồn duy nhất của giá, kèm hai điều **cố ý** đừng "dọn" mất | đọc hai tệp |
+| 4.2 | trỏ sang sơ đồ sinh tự động + **cảnh báo hai hệ đánh số bước không so được với nhau** + `expireStaleOrdersAction` đã xóa nên service có 4 hàm mà actions chỉ 3 | SL-10; `git grep expireStaleOrdersAction -- app/src` → rỗng |
+| 4.6 | thêm dòng MC-01, trạng thái 🔶 "chưa nghiệm thu, chưa merge vào `dev`" | — |
+| Phụ lục | thêm 4 lệnh marker/sơ đồ + `run-local-all.sh` | — |
+
+#### Ba món nợ tài liệu mà Bước 8–9 hẹn lại, đã trả
+
+| Hẹn ở | Việc | Trả ở |
+|---|---|---|
+| Bước 7 (D-9) | metadata đầu `tech-report.md` — cố ý hoãn vì `tasks.md` xếp vào 10.4 | nhóm "Metadata" trên |
+| Bước 6 (SL-8) | 3.6 thiếu `issue-terms.ts`; dòng `issuance.ts` ở 3.4 cần nói rõ nay chỉ re-export | nhóm "3.4 / 3.6" |
+| Bước 9 (SL-10) | trỏ giữa `tech-report.md` 4.2 và `docs/flows/purchase.md`, nói rõ hai cách đánh số khác nhau | nhóm "4.2" — **một chiều**, xem SL-13 |
+
+#### Điều đáng chú ý nhất của Bước 10: con số vừa đo đã lạc hậu ngay trong cùng một bước
+
+Bản nháp 10.3 ghi "**307** test / 13 tệp". Đo lại ở vòng chốt: **309**. Nguyên nhân là chính
+commit `54b0694` của Bước 10 thêm 2 ca test **sau** khi con số được viết vào tài liệu. Đã sửa
+trước khi commit. Chi tiết và bài học ở **SL-12** — nó là lý do phép kiểm sinh tự động tồn tại,
+áp cho đúng loại con số mà máy sinh được.
+
+---
+
 ## 2. Đối chiếu DoD
 
 | Task | DoD | Đạt? | Ghi chú |
@@ -545,7 +651,10 @@ kiểm một tệp tài liệu. Việc đọc bằng mắt ở 9.6 là phần b�
 | 9.4 | Sinh `docs/flows/purchase.md` | ✅ | Commit **cùng** script (`d8d3b0d`) để commit test ngay sau đó không làm nhánh đỏ. Có đầu đề cảnh báo + lệnh sinh lại + lệnh `--check`. Nội dung đầy đủ ở mục 8 |
 | 9.5 | Thêm ca kiểm vào `pending-markers.test.ts`: số bước không trùng và không nhảy cách | ✅ | **+7 ca (13 → 20)**, 13 ca cũ **không sửa**. Tầng 1: ca 5 `BAD_FLOW_STEP` trên repo thật. Tầng 2: **3 dòng mới** trong bảng `DOT_BIEN` — trùng số (2 lỗi), nhảy cách, không bắt đầu từ 1. Thêm nhóm thứ ba: sơ đồ trên đĩa khớp marker + không tệp mồ côi |
 | 9.6 | Mở sơ đồ ra xem, xác nhận **đọc được và đúng thứ tự thật** | ✅ | Đã đối chiếu từng bước với `tech-report.md` mục 4.2 — bảng đối chiếu 10 dòng ở mục 8, kèm **3 chỗ sơ đồ nói ít hơn tài liệu viết tay** và lý do từng chỗ |
-| 10.x | Tài liệu | ⬜ | _(chờ Bước 10)_ |
+| 10.1 | Thêm mục điểm cắm vào `tech-report.md`, nội dung **sinh từ script**, kèm ghi chú là phần sinh tự động | ✅ | Mục **3.10**: phần mô tả cơ chế viết tay, bảng sinh tự động bọc trong `<!-- BEGIN:diem-cam -->` / `<!-- END:diem-cam -->`, đầu khối có cảnh báo + lệnh sinh lại. `--write-report` **chỉ** thay phần giữa hai mốc, không tìm thấy mốc thì dừng chứ không đoán chỗ chèn. Phép kiểm `--check-report` + 2 ca test (20 → **22**); đột biến sửa tay khối → đỏ **đúng 1 ca**, `--check` vẫn xanh (mục 5) |
+| 10.2 | Bổ sung `tech-report-maintenance.md`: thêm điểm cắm thì gắn marker, dùng hết thì xóa, xong task thì cập nhật `.kiro/task-status.json` | ✅ | `docs/tech-report-maintenance.md` (commit `63e266f`). Vế "xong task thì cập nhật JSON" **có một chỗ mơ hồ** về thời điểm — trước hay sau nghiệm thu; ghi thành **Q9** ở mục 11, Kiro **không** tự sửa steering |
+| 10.3 | Cập nhật mục nợ kỹ thuật: xóa món đã trả, thêm món mới nếu `src/empty.ts` còn phải giữ | ✅ | 1.6.C: 10 → **11** method (đo bằng `git grep -c`), gắn `SC-04`; thêm món **spec hai bản song song** (6 cặp trùng tên, **5 lệch**); món `src/empty.ts` giữ nguyên kèm **điều kiện xóa đo được bằng một lệnh**; hai món đã trả (`ENOENT` Cloudflare, cảnh báo lint) để **Supervisor xác nhận rồi xóa** theo §8 chứ Kiro không tự xóa |
+| 10.4 | Cập nhật metadata | ✅ | 1.8 → **1.9** kèm lý do vì sao không phải 2.0; nhánh + nền `71932bb`; thêm dòng "đang chờ nghiệm thu"; 4.6 thêm dòng MC-01 🔶. Mọi con số khác đo lại bằng lệnh — bảng đối chiếu ở mục 1 (Bước 10), và **một con số đã sai bị bắt ở vòng chốt**: SL-12 |
 
 ---
 
@@ -1769,6 +1878,265 @@ chưa tới lượt), đã liệt kê từng cái ở bảng 3.10.b.
 
 ---
 
+### 3.12 Lần chạy CHỐT sau Bước 10 — dán nguyên văn
+
+Chạy trên `mc/01-make-control` sau commit `5bbcb52`, cây làm việc sạch. Đây là bộ số dùng để
+nghiệm thu; các mục 3.1–3.11 là ảnh chụp từng bước, giữ lại để lần được lịch sử.
+
+#### 3.12.a `bash scripts/run-local-all.sh` — phần TỔNG KẾT và bảng điểm cắm
+
+Năm mục đầu (luật kiến trúc, điểm cắm, contract EVM 67 test, contract Soroban 48 test, typecheck
+/ lint / vitest) đều PASS; dưới đây là phần TỔNG KẾT và bảng điểm cắm mà `tasks.md` đòi dán.
+
+```
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+
+ĐIỂM CẮM ĐANG CHỜ
+
+BE-05  (1 điểm cắm)
+  [cắm]   app/src/lib/store/index.ts:132  cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ
+
+BE-06  (1 điểm cắm, 1 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:520  thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy
+  [cắm]   app/src/lib/store/index.ts:122         cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi
+
+BE-07  (2 điểm cắm)
+  [cắm]   app/src/lib/bank/purchase.service.ts:553  đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch
+  [cắm]   app/src/lib/store/index.ts:142            cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới
+
+FE-05  (2 điểm cắm)
+  [cắm]   app/src/app/actions/purchase.ts:28      đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result`
+  [cắm]   app/src/lib/signer/wallet.signer.ts:10  đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ
+
+FE-06  (2 điểm cắm)
+  [cắm]   app/src/app/actions/purchase.ts:36  đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai BANK_ADMIN), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận
+  [cắm]   app/src/app/actions/purchase.ts:44  đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình
+
+SC-02  (3 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:375  thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu"
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:381  thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:392  thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ
+
+SC-03  (3 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:401  thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:419  thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:425  thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch
+
+SC-04  (4 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:538  thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:544  thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:549  thiếu quyết định giá NAV có phải `Redemption.rate` hay không
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:555  thiếu quyết định giá NAV có phải `Redemption.rate` hay không
+
+LUỒNG NGHIỆP VỤ (marker @flow)
+
+purchase  (10 bước)
+   1  app/src/app/actions/purchase.ts:27        một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase  ::placeOrderAction
+   2  app/src/lib/bank/purchase.service.ts:95   validate Zod, kiểm quyền order:place, lưu lệnh PLACED, ghi sổ kiểm toán  ::placeOrder
+   3  app/src/lib/ledger/ledger.port.ts:115     chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh  ::quotePurchase
+   4  app/src/app/actions/purchase.ts:35        một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId  ::executeOrderAction
+   5  app/src/lib/bank/purchase.service.ts:278  kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần  ::executeOrder
+   6  app/src/lib/bank/purchase.service.ts:165  kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên  ::runPurchaseChecks
+   7  app/src/lib/bank/purchase.service.ts:383  gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED  ::sendAndSettle
+   8  app/src/lib/ledger/ledger.port.ts:129     chuyển VNDB và WPT trong cùng một giao dịch  ::executePurchase
+   9  app/src/app/actions/purchase.ts:43        một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase  ::listOrdersAction
+  10  app/src/lib/bank/purchase.service.ts:512  kiểm order:read và order:read:all, lọc theo ví ở tầng service  ::listOrders
+
+Tổng: 8 điểm cắm · 11 điểm chặn · 10 bước luồng
+
+  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.
+```
+
+**7 PASS / 0 FAIL.** Bảng điểm cắm in **sau** phần kết luận và **không** vào `PASSED`/`FAILED`:
+còn điểm cắm là trạng thái bình thường, không phải lỗi — đúng R2.2.
+
+#### 3.12.b `cd app && npm run build`
+
+```
+▲ Next.js 16.2.7 (Turbopack)
+✓ Compiled successfully in 6.4s
+  Running TypeScript ...
+  Finished TypeScript in 5.9s ...
+✓ Generating static pages using 9 workers (17/17) in 283ms
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/balance
+├ ƒ /api/investors
+├ ƒ /api/mint
+├ ƒ /api/purchase
+├ ƒ /api/token
+├ ƒ /api/txns
+├ ƒ /assets
+├ ƒ /audit
+├ ƒ /kyc
+├ ƒ /mint
+├ ƒ /portfolio
+├ ƒ /reconciliation
+├ ƒ /tokens/[symbol]
+└ ƒ /wallet
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+**Xanh. Bảng route có 16 dòng**, tất cả `ƒ` (dựng theo yêu cầu). Dòng *Generating static pages*
+đếm **17** vì nó tính cả trang lỗi nội bộ mà bảng route không liệt kê — hai con số đo hai thứ
+khác nhau, không phải một chỗ lệch. Không có cảnh báo build, không `exit 137`.
+
+#### 3.12.c `cd app && npm test`
+
+```
+ ✓ test/purchase-state.test.ts (19 tests) 15ms
+ ✓ test/pending-markers.test.ts (22 tests) 21ms
+ ✓ test/env-private-key.test.ts (5 tests) 36ms
+ ✓ test/rbac.test.ts (38 tests) 23ms
+ ✓ test/wallet-status.test.ts (30 tests) 38ms
+ ✓ test/issue-price-single-source.test.ts (15 tests) 7ms
+ ✓ test/mock-ledger.test.ts (49 tests) 9ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 6ms
+ ✓ test/store-constraints.test.ts (69 tests) 27ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 2ms
+ ✓ test/evm-address-env.test.ts (5 tests) 3ms
+ ✓ test/purchase-service.test.ts (32 tests) 20ms
+ ✓ test/portfolio-service.test.ts (12 tests) 8ms
+
+ Test Files  13 passed (13)
+      Tests  309 passed (309)
+```
+
+**309/309 xanh, 13 tệp.** Nền lúc MC-01 bắt đầu là **272**; MC-01 thêm **37** ca và **không sửa**
+ca nào đang xanh (22 marker + 15 nguồn giá).
+
+#### 3.12.d Bốn lệnh của cơ chế marker
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 10 bước luồng. Không có lỗi.
+exit=0
+
+$ node scripts/scan-pending.mjs --check-report; echo "exit=$?"
+Khớp marker: mục điểm cắm trong docs/tech-report.md
+exit=0
+
+$ node scripts/gen-flow-diagram.mjs --check; echo "exit=$?"
+Sơ đồ khớp marker: purchase. Không có tệp mồ côi.
+exit=0
+```
+
+Bảng đầy đủ của `node scripts/scan-pending.mjs` (không cờ) dán ở 3.12.a — `run-local-all.sh` in
+đúng bảng đó ở phần TỔNG KẾT, nên không dán lại hai lần.
+
+#### 3.12.e `bash scripts/verify-arch-rules.sh`
+
+```
+TỔNG KẾT
+  PASS: 20   FAIL: 0   WARN: 6
+  => ĐẠT nhưng có 6 cảnh báo cần xác nhận có chủ đích.
+exit=2
+```
+
+**0 FAIL** — đúng điều kiện hoàn thành số 9. Mã thoát **2** là mã "đạt nhưng có cảnh báo" do
+chính script định nghĩa, và `run-local-all.sh` hiểu mã đó là PASS có cảnh báo (xem mã nguồn
+`run-local-all.sh`, nhánh `rc = 2`). Sáu WARN đã đối chiếu từng cái ở 3.10.b, không cái nào là
+vi phạm mới.
+
+#### 3.12.f `cd app && npm run test:e2e` — **chạy được, 30/30 xanh**
+
+```
+Running 30 tests using 1 worker
+  ✓   1 [chromium] › e2e/chain-selector.spec.ts:12:5 › dropdown chain có đúng các chain đã chốt, KHÔNG có Polygon (498ms)
+  ✓   2 [chromium] › e2e/chain-selector.spec.ts:28:5 › đổi chain rồi mint vẫn chạy, và số dư tính theo từng chain (750ms)
+  ✓   3 [chromium] › e2e/investor-channel.spec.ts:44:7 › INVESTOR vào được /portfolio và thấy đủ bốn hộp (395ms)
+  …
+  ✓  19 [chromium] › e2e/mint.spec.ts:15:7 › KYC + whitelist rồi mint 100 WPT thì số dư thành 100 (544ms)
+  ✓  20 [chromium] › e2e/mint.spec.ts:47:7 › mint cho ví chưa whitelist bị từ chối kèm lý do rõ ràng (451ms)
+  ✓  21 [chromium] › e2e/mint.spec.ts:58:7 › vai trò AUDITOR không vào được kênh ngân hàng (629ms)
+  …
+  ✓  30 [chromium] › e2e/wallet-connect.spec.ts:202:9 › vai AUDITOR KHÔNG vào được trang ví của nhà đầu tư (283ms)
+
+  30 passed (23.4s)
+```
+
+**Chạy thật được, không phải "chưa kiểm được".** Ba điều kiện đủ đã có sẵn nên không phải dựng
+gì thêm: browser Chromium của Playwright đã cài trên máy này; `playwright.config.ts` tự bật
+`next dev` ở cổng 3100 qua `webServer` nên **không** cần server chạy trước; và cấu hình đặt
+`NEXT_PUBLIC_DEFAULT_CHAIN=mock` + `USE_MOCK_DB=true` nên **không** cần hardhat node lẫn Postgres.
+
+`run-local-all.sh` **cố ý không** gọi e2e (nó cần browser, khác tính chất với 7 mục còn lại), nên
+đây là lần chạy riêng. MC-01 không sửa tệp e2e nào: `git diff --stat 71932bb..HEAD -- app/e2e`
+rỗng.
+
+#### 3.12.g `git log --oneline 71932bb..HEAD` — toàn bộ commit của nhánh
+
+```
+5bbcb52 docs(mc): cập nhật báo cáo công nghệ theo số đo thật và metadata
+63e266f docs(mc): quy tắc duy trì marker, sơ đồ luồng và trạng thái task
+54b0694 feat(mc): sinh mục điểm cắm trong báo cáo công nghệ từ script
+5d2f97f docs(mc): sơ đồ luồng mua WPT và kết quả Bước 9
+dce8894 test(mc): chống số bước luồng trùng và nhảy cách
+d8d3b0d feat(mc): sinh sơ đồ luồng thực thi từ marker
+660cebc feat(mc): marker @flow cho luồng mua WPT
+d45182a docs(mc): kết quả Bước 8 vào checkpoint
+785bf79 fix(mc): run-local-all in đúng dòng mới ở kết luận
+676e3e6 docs(mc): lệnh kiểm ký hiệu token khớp phạm vi script
+4567a5f fix(mc): script lớp 3 không còn dương tính giả với tài liệu lịch sử
+f5b73f3 docs(mc): kết luận @x402 và nợ kỹ thuật src/empty.ts
+3318d0e chore(mc): thu gọn src/empty.ts và gỡ nhóm alias @vercel/og
+6fb8ac8 chore(mc): gỡ 5 gói @radix-ui không còn ai dùng
+934df06 docs(mc): chốt kết quả Bước 6 vào checkpoint
+c96f8f3 test(mc): chống lệch hai nguồn giá phát hành
+42d0a88 refactor(mc): hợp nhất nguồn giá phát hành WPT
+f285acf refactor(mc): xóa server action dọn lệnh treo theo chủ đích một đường vào
+c17fc1e docs(mc): bảng phân loại export vào checkpoint
+9ab73d5 refactor(mc): xóa mã chết đã xác minh bằng build
+6930b9a refactor(mc): thu hẹp phạm vi export chỉ dùng nội bộ
+3cdac3a refactor(mc): marker điểm cắm cho server action và cổng lưu trữ
+1f7757f style(mc): bỏ dòng trống sót lại trong pending-markers.test.ts
+f9abbbc docs(mc): chốt kết quả Bước 4 và bốn đột biến vào checkpoint
+b65c077 test(mc): kiểm "điểm cắm không phải lỗi" trên repo giả thay vì repo thật
+49768e1 test(mc): chống marker lạc hậu và sai định dạng
+1bcd62b feat(mc): phép kiểm mô tả marker chung chung (VAGUE_NOTE)
+dd0fac0 docs(mc): chốt số đo Bước 3 và bảng điểm cắm vào checkpoint
+d1d5c13 refactor(mc): marker điểm cắm expireStaleOrders, dọn ghi chú lạc hậu ở lib/bank
+4e20eae refactor(mc): marker điểm chặn cho 11 method chưa nối được ở lib/ledger
+a1ab71e feat(mc): run-local-all gọi scan-pending --check
+609deb8 feat(mc): script quét điểm cắm
+c84ec7f chore(mc): thêm mã task SC-04 và bỏ tasks.meta.json khỏi git
+803ef3f docs(mc): khung checkpoint MC-01
+cefc895 feat(mc): quy ước marker điểm cắm và nguồn trạng thái task
+350fdfb docs(mc): spec MC-01 make control (requirements, design, tasks)
+```
+
+**36 commit ở trên, cộng commit checkpoint này là 37.** SHA của commit cuối không dán được vào
+chính nó, nên Supervisor chạy lại `git log --oneline 71932bb..HEAD | wc -l` sẽ thấy **37**.
+
+Phân bố theo loại: `feat` 6 · `refactor` 6 · `test` 4 · `fix` 3 · `chore` 3 · `style` 1 ·
+`docs` 14. Số commit tài liệu cao vì mỗi bước chốt một lần vào checkpoint — đó là yêu cầu của
+`workflow.md`, không phải commit rác.
+
+#### 3.12.h `git status --short` — sau commit checkpoint
+
+```
+$ git status --short
+(rỗng)
+```
+
+Đo ngay trước commit cuối: chỉ còn **chính tệp checkpoint này** ở trạng thái `M`, và nó là nội
+dung của commit cuối. Không có tệp lạ, không có đột biến sót lại — bốn lần đột biến của Bước 4,
+ba của Bước 6, một của Bước 8, một của Bước 9 và một của Bước 10 đều đã hoàn nguyên, mỗi lần đều
+có phép kiểm `git status` đi kèm ở mục 5.
+
+---
+
 ## 4. Bảng phân loại đầy đủ export — số thật là **115**, không phải 27
 
 ### 4.1 Phép đo, và vì sao con số 27 không dùng được
@@ -2120,13 +2488,26 @@ Tất cả: **để nguyên**, không marker, ghi câu hỏi mở. Không đoán
 
 ## 5. Kết quả các lần kiểm chứng bằng đột biến
 
-| Phép kiểm | Đột biến | Kết quả |
-|---|---|---|
-| **Đột biến script quét** | 11 dòng marker trong một tệp tạm: 1 đúng, 9 sai theo 9 kiểu khác nhau, 1 ca đối chứng phải **không** bị báo → script phải đỏ và liệt kê đủ loại | ✅ **đỏ, `exit=1`, 9 lỗi / 6 mã lỗi**, ca đối chứng im lặng — xem dưới |
-| **Test nguồn giá — đột biến 1** | Đổi giá ở **nguồn duy nhất** 100.000 → 123.000 → test nguồn giá phải **vẫn xanh** | ✅ **15/15 xanh**. Kèm phát hiện: 10 test cũ đỏ vì hardcode giá (SL-8) |
-| **Test nguồn giá — đột biến 2** | **Tách lại thành hai hằng số** (mock khai lại `100_000n`, nguồn đổi thành 123.000) → phải **đỏ** | ✅ **12/15 đỏ** — 10 ca giá trị + 2 ca cấu trúc |
-| **Test nguồn giá — đột biến 2b** | Khai lại hằng số với **đúng con số hôm nay** (giá không lệch) → phép so giá trị không thấy gì, phải còn ca nào đỏ | ✅ **2/15 đỏ**, đúng hai ca cấu trúc. Đây là lý do ba ca cấu trúc tồn tại |
-| **Script lớp 3** | Thêm một dòng bình luận chứa `SPT` vào `app/src/lib/mock-data.ts` → script phải **FAIL** và chỉ đúng tệp:dòng | ✅ **FAIL, `exit=1`**, `20 PASS → 19 PASS / 1 FAIL`, trỏ đúng `mock-data.ts:172`. `scan-pending.mjs --check` vẫn xanh (đột biến không tạo marker) — xem dưới |
+`tasks.md` đòi **ba** lần (test marker lạc hậu, test nguồn giá, script lớp 3). Thực tế đã làm
+**11 lần**, trải **6 bước** — mỗi phép kiểm mới dựng ra đều phải tự chứng minh là có răng, nếu
+không thì nó chỉ là một test luôn xanh. Bảng dưới là danh sách đủ; chi tiết từng lần ở các mục con.
+
+| # | Bước | Phép kiểm | Đột biến | Kết quả |
+|---|---|---|---|---|
+| 1 | 2 | **Script quét** `scan-pending.mjs --check` | 11 dòng marker trong một tệp tạm: 1 đúng, 9 sai theo 9 kiểu khác nhau, 1 ca đối chứng phải **không** bị báo | ✅ **đỏ, `exit=1`, 9 lỗi / 6 mã lỗi**, ca đối chứng im lặng |
+| 2 | 4 | **Test marker** — `BAD_SYNTAX` | bỏ dấu `\|` khỏi marker thật ở `purchase.service.ts:543` | ✅ đỏ **đúng ca 1**, 1/13, chỉ đúng tệp:dòng |
+| 3 | 4 | **Test marker** — `UNKNOWN_TASK` | `@pending XX-99 \| <mô tả cũ>` | ✅ đỏ **đúng ca 2**, 1/13 |
+| 4 | 4 | **Test marker lạc hậu** — `STALE_TASK` *(đúng lần `tasks.md` 4.2 đòi)* | `@pending BE-02` — một task đã `done` | ✅ đỏ **đúng ca 3**, 1/13 |
+| 5 | 4 | **Test marker** — `VAGUE_NOTE` | `@pending BE-07 \| chờ làm` | ✅ đỏ **đúng ca 4**, 1/13 |
+| 6 | 6 | **Test nguồn giá** — đột biến 1 | đổi giá ở **nguồn duy nhất** 100.000 → 123.000 → test nguồn giá phải **vẫn xanh** | ✅ **15/15 xanh**. Kèm phát hiện: 10 test cũ đỏ vì hardcode giá (SL-8) |
+| 7 | 6 | **Test nguồn giá** — đột biến 2 | **tách lại thành hai hằng số** (mock khai lại `100_000n`, nguồn đổi thành 123.000) → phải **đỏ** | ✅ **12/15 đỏ** — 10 ca giá trị + 2 ca cấu trúc |
+| 8 | 6 | **Test nguồn giá** — đột biến 2b | khai lại hằng số với **đúng con số hôm nay** (giá không lệch) → phép so giá trị không thấy gì, phải còn ca nào đỏ | ✅ **2/15 đỏ**, đúng hai ca cấu trúc. Đây là lý do ba ca cấu trúc tồn tại |
+| 9 | 8 | **Script lớp 3** `verify-arch-rules.sh` | thêm một dòng bình luận chứa `SPT` vào `app/src/lib/mock-data.ts` | ✅ **FAIL, `exit=1`**, `20 PASS → 19 PASS / 1 FAIL`, trỏ đúng `mock-data.ts:172`. `scan-pending.mjs --check` vẫn xanh |
+| 10 | 9 | **Số bước luồng** — `BAD_FLOW_STEP` + sơ đồ | đổi một ký tự: `@flow purchase:3` → `purchase:5` | ✅ **3 lỗi `BAD_FLOW_STEP`** (trùng số báo ở **cả hai** marker), `gen-flow-diagram.mjs` **từ chối sinh**, test đỏ **đúng 2 ca** |
+| 11 | 10 | **Mục điểm cắm trong báo cáo** — `--check-report` | sửa tay khối sinh tự động: `8 điểm cắm` → `9 điểm cắm` | ✅ **đỏ, `exit=1`**, chỉ đúng dòng lệch; test đỏ **đúng 1 ca**; `--check` marker vẫn **xanh** |
+
+**Mọi lần đều hoàn nguyên và có phép kiểm chứng minh sạch** (`git status --short` hoặc
+`git diff --stat` rỗng). Không lần nào đột biến được để lại trong nhánh.
 
 ### Bốn đột biến của Bước 4 — `app/test/pending-markers.test.ts`
 
@@ -2708,6 +3089,93 @@ nguyên bằng `str_replace` đổi lại đúng ký tự, **không** bằng `se
 thử `sed` với dấu `|` làm phân cách đã **im lặng không đổi gì** — vì chính cú pháp marker có
 dấu `|` bên trong mẫu. Một lệnh hoàn nguyên không báo lỗi mà cũng không làm gì là cách tốt
 nhất để tin rằng mình đã hoàn nguyên trong khi chưa.
+
+---
+
+### Đột biến của Bước 10 — sửa tay khối sinh tự động trong `tech-report.md`
+
+**Đột biến chọn đúng cái sai mà quy ước cấm**: sửa tay một con số **bên trong** cặp mốc
+`<!-- BEGIN:diem-cam -->` / `<!-- END:diem-cam -->`, ở dòng tổng `**8 điểm cắm · 11 điểm chặn**`
+→ `**9 điểm cắm · 11 điểm chặn**`. Đây cũng là hình dạng của ca lạc hậu thật: ai đó thêm một
+marker rồi quên chạy `--write-report`, và bảng nói 9 trong khi mã có 8.
+
+#### `--check-report` phải đỏ, và phải chỉ ra chỗ lệch
+
+```
+$ node scripts/scan-pending.mjs --check-report; echo "exit=$?"
+Mục điểm cắm không khớp marker:
+  mục điểm cắm trong docs/tech-report.md đã lạc hậu so với marker trong mã.
+      Khác nhau từ dòng 18 của khối:
+        trên đĩa : **9 điểm cắm · 11 điểm chặn**, nhóm theo task đang chờ.
+        sinh lại : **8 điểm cắm · 11 điểm chặn**, nhóm theo task đang chờ.
+      Sửa bằng: node scripts/scan-pending.mjs --write-report
+exit=1
+```
+
+Thông báo đặt **hai dòng cạnh nhau** thay vì chỉ nói "lệch": người sửa thấy ngay bên nào là bản
+đúng mà không phải tự sinh ra để so. Và nó chỉ đường bằng **lệnh sinh lại**, không mời sửa tay —
+sửa tay là nguyên nhân chứ không phải cách chữa.
+
+#### `--check` của marker phải VẪN XANH
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 10 bước luồng. Không có lỗi.
+exit=0
+```
+
+Đây là nửa quan trọng của đột biến. Marker trong mã **không** bị chạm, nên nếu `--check` cũng đỏ
+thì hai phép kiểm đã lẫn vào nhau và người sửa sẽ đi tìm lỗi marker không tồn tại. Hai mã thoát
+độc lập nghĩa là hai câu hỏi độc lập: *marker có đúng không* và *tài liệu có còn khớp marker không*.
+
+#### Test phải đỏ đúng một ca, và ca "có răng" phải vẫn xanh
+
+```
+$ npx vitest run test/pending-markers.test.ts
+ ❯ test/pending-markers.test.ts (22 tests | 1 failed) 17ms
+   ✓ Marker điểm cắm trong repo thật > ca 1 — mọi marker đúng cú pháp
+   ✓ Marker điểm cắm trong repo thật > ca 2 — mã task trong marker đều tồn tại
+   ✓ Marker điểm cắm trong repo thật > ca 3 — không marker nào chờ task đã hoàn thành
+   ✓ Marker điểm cắm trong repo thật > ca 4 — mô tả marker không rỗng và không chung chung
+   ✓ Marker điểm cắm trong repo thật > ca 5 — số bước của mỗi luồng là chuỗi liên tiếp từ 1
+   ✓ Marker điểm cắm trong repo thật > chốt chặn — không còn loại lỗi marker nào khác
+   ✓ Phép kiểm có răng — đột biến trên repo giả > (10 ca, tất cả xanh)
+   ✓ Sơ đồ luồng sinh ra khớp marker trong mã > docs/flows/purchase.md khớp marker hiện tại
+   ✓ Sơ đồ luồng sinh ra khớp marker trong mã > không tệp nào trong docs/flows/ mất gốc marker
+   × Mục điểm cắm trong báo cáo công nghệ khớp marker > docs/tech-report.md có mục điểm cắm và mục đó khớp marker hiện tại
+     →
+  Mục điểm cắm trong báo cáo công nghệ đã lạc hậu so với marker trong mã. Sinh lại
+  bằng `node scripts/scan-pending.mjs --write-report` rồi commit tệp đã sinh.
+  ĐỪNG sửa tay khối giữa hai mốc <!-- BEGIN:diem-cam --> / <!-- END:diem-cam -->:
+  lần sinh sau ghi đè, và trong khoảng thời gian trước đó thì bảng nói một đằng còn
+  mã làm một nẻo. Chữ NGOÀI hai mốc thì viết tay, script không chạm tới.
+   ✓ Mục điểm cắm trong báo cáo công nghệ khớp marker > phép kiểm có răng: báo cáo lệch marker thì phải báo đỏ
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 passed (22)
+```
+
+**Đúng một ca đỏ trong 22.** Ba điều đáng ghi:
+
+1. Ca **"phép kiểm có răng"** ngay bên dưới vẫn **xanh** — nó dựng dữ liệu lệch trong bộ nhớ nên
+   không phụ thuộc trạng thái tệp thật. Đó là lý do nó tồn tại: ca ở trên xanh trong cả hai
+   trường hợp "tài liệu khớp" và "phép kiểm không chạy", ca này thì chỉ xanh khi phép kiểm chạy.
+2. Thông báo nói **đúng việc phải làm** (sinh lại rồi commit) và nói rõ **chữ ngoài hai mốc vẫn
+   viết tay** — không có câu đó thì người đọc dễ kết luận cả mục 3.10 là do máy sinh và thôi
+   không viết giải thích nữa.
+3. Hai nhóm ca sơ đồ (Bước 9) **không đỏ theo**. Ba phép kiểm tài liệu-sinh-tự-động — marker, sơ
+   đồ, báo cáo — đỏ độc lập nhau.
+
+#### Hoàn nguyên
+
+```
+$ git checkout -- docs/tech-report.md
+$ node scripts/scan-pending.mjs --check-report; echo "exit=$?"
+Khớp marker: mục điểm cắm trong docs/tech-report.md
+exit=0
+$ git status --short
+(rỗng)
+```
 
 ---
 
@@ -3960,11 +4428,108 @@ viết trước khi biết FE-05 chưa xây. Ghi ra để lần sau không ai "s
 
 ---
 
+### SL-12 — PHÁT HIỆN Ở BƯỚC 10: một con số vừa đo đã lạc hậu **trong cùng bước đó**
+
+Bản nháp 10.3 viết vào bảng 2.5 của `tech-report.md`: *"Unit test — **307** test / 13 tệp"*. Đo
+lại ở vòng chốt:
+
+```
+$ cd app && npm test | tail -3
+ Test Files  13 passed (13)
+      Tests  309 passed (309)
+```
+
+**309, không phải 307.** Đã sửa trước khi commit `5bbcb52`.
+
+Nguyên nhân đo được, không phải sơ suất khi gõ: chính commit `54b0694` của **Bước 10** thêm 2 ca
+vào `pending-markers.test.ts` (20 → 22), và nó nằm **sau** thời điểm con số 307 được viết ra.
+
+```
+$ git show 54b0694 --stat | grep pending-markers
+ app/test/pending-markers.test.ts | ...
+```
+
+Cùng vòng đó còn một chỗ thứ hai phải sửa, kiểu khác: món nợ "spec hai bản song song" viết *"Mỗi
+feature có cả `docs/<tên>/` và `.kiro/specs/<tên>/`"*. Đo lại thì **không phải mỗi feature**:
+
+```
+$ ls -1 .kiro/specs/ | wc -l                                  → 10
+$ for d in docs/*/; do [ -f "$d/requirements.md" ] && echo "$d"; done | wc -l   → 8
+# trùng tên nhau: 6 cặp. Chỉ tồn tại ở docs/: be-08-rbac-actions, fe-01-investor-channel
+# Chỉ tồn tại ở .kiro/specs/: mint-flow, p4-mint-testnet, p7-profit-distribution, p12-redemption
+```
+
+Câu "5 trong 6 cặp đã lệch" thì **đúng**; câu "mỗi feature có cả hai bản" thì **sai**. Đã sửa
+thành số đo: 8 thư mục ở `docs/`, 10 ở `.kiro/specs/`, 6 cặp trùng tên, 5 cặp lệch.
+
+**Bài học, và nó nói đúng vì sao 10.1 tồn tại.** Con số viết tay vào tài liệu lạc hậu **âm thầm**,
+kể cả khi người viết vừa đo xong vài giờ trước — chỉ cần một commit sau đó đổi thứ được đếm. Đó
+là lý do bảng điểm cắm ở mục 3.10 **sinh từ script** và có `--check-report` trong cổng test: loại
+con số nào máy đếm được thì đừng để người gõ. Con số nào máy chưa đếm được (số dòng tệp, số test,
+số route) thì phải đo lại **ở vòng chốt**, không tin bản nháp của chính mình.
+
+### SL-13 — Con trỏ giữa `tech-report.md` 4.2 và `docs/flows/purchase.md` hiện **một chiều**
+
+Bước 9 (SL-10) hẹn Bước 10 "thêm một dòng trỏ **qua lại** giữa hai tài liệu". Đã làm được **một
+chiều**: `tech-report.md` 4.2 nay trỏ sang `docs/flows/purchase.md` kèm cảnh báo hai hệ đánh số
+không so được với nhau. Chiều còn lại **chưa** có, và đó là một chọn lựa chứ không phải bỏ sót:
+
+```
+$ grep -c "tech-report" docs/flows/purchase.md
+0
+```
+
+`docs/flows/purchase.md` **sinh 100% từ script**. Thêm một dòng vào đó bằng tay là đúng việc mà
+chính tệp cấm ở dòng đầu, và lần `--write` sau sẽ ghi đè — tức con trỏ đó sống được đúng tới lần
+sinh tiếp theo. Muốn có thật thì phải để `gen-flow-diagram.mjs` sinh ra nó, nghĩa là script cần
+một bảng ánh xạ *tên luồng → mục tài liệu viết tay*; đó là đổi mã, và MC-01 Bước 10 là bước tài
+liệu. Đề xuất: làm cùng luồng thứ hai (`distribute` hoặc `settle`), khi đã có **hai** luồng để
+biết bảng ánh xạ nên có hình dạng nào. Xin Supervisor chốt mức nợ.
+
+---
+
 ## 11. Câu hỏi mở
 
 > **Q1 và Q2 đã được Owner chốt ở Bước 2. Q5 (vế a) đã được Owner chốt ở vòng review Bước 5** —
 > quyết định và cách thi hành ghi ngay dưới mỗi câu.
-> **Q3 và Q4 mở ở Bước 3. Q5 (vế b) đến Q8 còn mở.**
+> **Q3 và Q4 mở ở Bước 3. Q5 (vế b) đến Q8 còn mở. Q9 mở ở Bước 10 và cần trả lời trước khi
+> merge** — nó quyết định `MC-01` được đánh `done` vào lúc nào.
+
+### Q9 — `.kiro/task-status.json`: đánh `done` **trước** hay **sau** nghiệm thu?
+
+**Hiện trạng đã làm:** `MC-01` vẫn ở `inProgress`, **chưa** chuyển sang `done`.
+
+```
+$ node -e "const s=require('./.kiro/task-status.json'); console.log('done:',s.done.length,'| inProgress:',JSON.stringify(s.inProgress),'| planned:',s.planned.length)"
+done: 6 | inProgress: ["MC-01"] | planned: 19
+```
+
+**Chỗ mơ hồ.** `make-control.md` mục 7 nói Kiro cập nhật tệp này "trong **commit cuối của mỗi
+task**, cùng lúc với cập nhật `docs/tech-report.md`". Câu đó không nói commit cuối là commit nào
+trong hai mốc dưới đây, mà hai mốc cách nhau ít nhất một vòng review:
+
+| Cách hiểu | "Commit cuối" là | Hệ quả |
+|---|---|---|
+| **(a)** | commit cuối Kiro đẩy lên **trước** khi nộp checkpoint | `MC-01` thành `done` trong khi nhánh chưa được nghiệm thu và chưa vào `dev` |
+| **(b)** | commit cuối **sau** khi được nghiệm thu PASS (trước lúc Owner merge) | `done` chỉ mang nghĩa "đã vào `dev`", nhưng cần thêm một commit sau vòng review |
+
+**Đề xuất: (b)**, và đề nghị Owner/Supervisor cho sửa steering mục 7 thành *"commit cuối **sau
+khi** được nghiệm thu PASS"*. Lý do là một hệ quả đo được, không phải sở thích:
+
+`done` là **nền của phép kiểm `STALE_TASK`** — marker chờ một task đã `done` bị coi là lạc hậu và
+làm `--check` đỏ. Nếu đánh `done` theo cách (a) thì tại thời điểm nộp checkpoint này, mọi marker
+chờ `MC-01` sẽ bị báo lạc hậu trong khi việc chưa xong. Đo thử được: đó **đúng** là đột biến số 4
+ở mục 5 (`@pending BE-02` → đỏ ở ca 3) — cùng một cơ chế, chỉ khác là lần đó đột biến cố ý, còn
+ở đây sẽ là đỏ oan do thời điểm.
+
+Nhánh này không có marker nào chờ `MC-01`, nên chọn (a) **hôm nay** sẽ không làm đỏ gì. Nhưng
+quy tắc phải đúng cho task sau: một task mở điểm cắm cho **chính mình** dùng ở phần sau (ví dụ
+BE-06 gắn `@blocked BE-06` trong khi đang làm) thì cách (a) làm đỏ ngay giữa task.
+
+**Kiro không tự sửa steering** (ràng buộc của vòng này), nên hiện tại thi hành cách (b) và ghi
+câu hỏi ở đây. Nếu Supervisor chốt (a) thì việc phải làm là một commit đổi `MC-01` từ
+`inProgress` sang `done` **trước** khi merge; chốt (b) thì commit đó đi sau nghiệm thu, và steering
+mục 7 nên được sửa một dòng cho khỏi mơ hồ lần sau.
 
 ### Q3 — Ba chỗ phân loại 50/50, đã để nhóm C, xin xác nhận
 
@@ -4208,6 +4773,90 @@ Nếu Supervisor chốt thu hẹp: một dòng (`export function getSigner` → 
 ---
 
 ## 12. Tự đánh giá 3 LUẬT kiến trúc
+
+### Đánh giá CHỐT cho toàn nhánh — trả lời lời hẹn ở cuối mục này
+
+Bước 1 hẹn "đánh giá đầy đủ ở vòng nộp cuối, khi Bước 5–7 đã chạm mã nguồn". Đây là nó, đo trên
+**toàn bộ** 37 commit thay vì từng bước. Bước 7, 8, 9, 10 không có mục riêng bên dưới vì chúng
+không chạm `app/src` (Bước 8–10) hoặc chỉ chạm `src/empty.ts` + `next.config.ts` (Bước 7) — đánh
+giá của chúng gộp vào đây.
+
+```
+$ git diff --stat 71932bb..HEAD -- app/src packages
+ app/src/app/actions/purchase.ts        | 29 ++++--
+ app/src/app/api/purchase/route.ts      |  7 ++
+ app/src/empty.ts                       | 34 ++++---
+ app/src/lib/bank/issuance.ts           | 26 +++--
+ app/src/lib/bank/portfolio.service.ts  |  6 +-
+ app/src/lib/bank/purchase.service.ts   | 14 ++-
+ app/src/lib/bank/schemas.ts            | 11 ++-
+ app/src/lib/config/issue-terms.ts      | 47 ++++++++++
+ app/src/lib/ledger/evm.adapter.ts      | 33 +++++--
+ app/src/lib/ledger/ledger.port.ts      |  4 +
+ app/src/lib/ledger/mock.adapter.ts     | 13 ++-
+ app/src/lib/signer/wallet.signer.ts    |  2 +
+ app/src/lib/store/index.ts             |  9 ++
+ app/src/lib/wagmi.ts                   |  9 +-
+ packages/shared/src/addresses.ts       |  6 +-
+ packages/shared/src/chains.ts          |  4 -
+ packages/shared/src/index.ts           |  1 -
+ 17 files changed, 188 insertions(+), 67 deletions(-)
+```
+
+**11 trong 17 tệp chỉ đổi bình luận** (marker `@pending`/`@blocked`/`@flow` và ghi chú). Sáu tệp
+đổi mã thực thi, và cả sáu đều là việc mà `tasks.md` gọi tên:
+
+| Tệp | Đổi gì ở mã thực thi | Thuộc |
+|---|---|---|
+| `lib/config/issue-terms.ts` | tệp mới, giữ hằng số giá | Bước 6 |
+| `lib/bank/issuance.ts` | nhập + re-export thay vì khai hằng số | Bước 6 |
+| `lib/ledger/mock.adapter.ts` | `BigInt(WPT_ISSUE_PRICE_VND)` thay số viết cứng | Bước 6 |
+| `app/actions/purchase.ts` | **xóa** `expireStaleOrdersAction` (D-7, Owner chốt) | Bước 6 |
+| `lib/bank/schemas.ts`, `lib/wagmi.ts` | 4 ký hiệu bỏ từ khóa `export` | Bước 5 |
+| `packages/shared/{chains,addresses,index}.ts` | **xóa** 2 hàm bọc là mã chết | Bước 5 |
+| `src/empty.ts` | 12 export → 1 | Bước 7 |
+
+- [x] **LUẬT #1 — mọi tương tác chain qua `ILedgerPort`.** Không thêm/bớt/đổi chữ ký method nào
+      của cổng; `ledger.port.ts` chỉ +4 dòng bình luận `@flow`. Hai adapter đổi đúng một thứ: mock
+      lấy giá từ `lib/config` thay vì viết cứng. **Không** thêm lời gọi chain nào ngoài
+      `lib/ledger` — `verify-arch-rules.sh` LUẬT 1 vẫn 3/3 PASS (3.12.e).
+- [x] **LUẬT #2 — mọi ký qua `ISigner`.** `wallet.signer.ts` **+2 dòng, cả hai là bình luận**
+      (marker `@pending FE-05`). Không đổi cách tạo signer, không thêm đường ký nào. Ba phép kiểm
+      khóa bí mật của script vẫn PASS.
+- [x] **LUẬT #3 — mọi kiểm quyền qua RBAC.** `git diff --stat 71932bb..HEAD -- app/src/lib/rbac`
+      **rỗng**: không chạm một dòng nào. Việc xóa `expireStaleOrdersAction` **không** bỏ phép kiểm
+      quyền nào — `authorize('order:expire')` nằm ở `expireStaleOrders` trong service, tức ở tầng
+      dưới server action, nên đường BE-07 gọi vẫn qua RBAC. Phép kiểm "không so sánh role cứng"
+      vẫn PASS.
+
+Không sửa test nào đang xanh trong toàn nhánh: **272 → 309** là **+37 ca thêm mới** (22 marker +
+15 nguồn giá), 13 tệp test cũ giữ nguyên nội dung. `app/e2e` **không bị chạm** —
+`git diff --stat 71932bb..HEAD -- app/e2e` rỗng — và 30/30 e2e vẫn xanh (3.12.f).
+
+### Bước 10
+
+**Không chạm tệp mã nguồn nào** trong `app/src` hay `packages/*/src`. Chỉ sửa `scripts/`,
+`app/test/`, và tài liệu.
+
+```
+$ git diff --name-only 5d2f97f..HEAD        # đo TRƯỚC commit checkpoint này
+.kiro/specs/mc-01-make-control/tasks.md
+app/test/pending-markers.test.ts
+docs/tech-report-maintenance.md
+docs/tech-report.md
+scripts/scan-pending.mjs
+```
+
+Commit checkpoint thêm `docs/CHECKPOINT_MC01.md` vào danh sách trên — chạy lại sau khi merge sẽ
+thấy 6 tệp. Không tệp nào thuộc `app/src` hay `packages/*/src` ở cả hai lần.
+
+- [x] **LUẬT #1 / #2 / #3** — không đổi. Không tệp nào trong `app/src` bị sửa, nên ba luật không
+      có mặt trong phạm vi bước này.
+
+Một điều đáng nói: mục **3.10** của `tech-report.md` chứa **dữ liệu về** `lib/ledger` (11 điểm
+chặn) nhưng nó là dữ liệu **sinh ra từ bình luận**, không phải mã. Sửa marker để bảng đẹp hơn là
+đổi tài liệu mô tả mã, mà đo được rằng không lần nào làm thế: `git diff 5d2f97f..HEAD -- app/src`
+rỗng.
 
 ### Bước 6 — chạm `lib/ledger` (LUẬT #1) và một server action, nên đánh giá kỹ
 
