@@ -5,7 +5,7 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–3/10 xong.** Bước 4–10 chưa làm |
+| Tiến độ | **Bước 1–4/10 xong.** Bước 5–10 chưa làm |
 | Phạm vi | Không đổi hành vi hệ thống. Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -102,6 +102,130 @@ Tệp sửa — **ba** tệp, và **chỉ bình luận**:
 trong tài liệu.** Spec nói 33 tệp, Bước 1 đo 43 tệp / 115 dòng, thực tế phải gắn marker
 **13 chỗ trên 2 tệp**. Số đo và cách phân loại ở mục 10, SL-3.
 
+### Bước 4 — Test chống marker lạc hậu ✅
+
+Ba commit, chia theo đơn vị mục tiêu:
+
+| Commit | Nội dung |
+|---|---|
+| `1bcd62b` | `feat(mc): phép kiểm mô tả marker chung chung (VAGUE_NOTE)` — mã lỗi thứ 8 + `@typedef` cho cấu trúc báo cáo |
+| `49768e1` | `test(mc): chống marker lạc hậu và sai định dạng` — `app/test/pending-markers.test.ts`, hai tầng |
+| `b65c077` | `test(mc): kiểm "điểm cắm không phải lỗi" trên repo giả thay vì repo thật` — sửa một khẳng định rỗng ruột do chính `49768e1` thêm vào, xem SL-6 |
+
+Tệp tạo mới / sửa:
+
+| Tệp | Sửa gì |
+|---|---|
+| `app/test/pending-markers.test.ts` | **Mới.** 13 ca, hai tầng. 272 → 285 test, 11 → 12 tệp test |
+| `scripts/scan-pending.mjs` | Mã lỗi `VAGUE_NOTE` + `vagueNoteReason()` + `@typedef` `Marker` / `FlowStep` / `MarkerError` / `ScanReport` |
+
+**Không** sửa test cũ nào, **không** sửa marker thật nào để test dễ xanh. Bằng chứng: 12 marker
+hiện có vẫn qua `--check` với `exit=0` sau khi thêm `VAGUE_NOTE` (mục 3.6), và `git diff` trên
+`app/src` giữa `dd0fac0` và HEAD là **rỗng**.
+
+#### Vì sao phải hai tầng, không phải một
+
+| Tầng | Kiểm gì | Trả lời câu hỏi nào |
+|---|---|---|
+| **1** | `scan()` trên **repo thật**: 4 ca theo `design.md` mục 3, thêm một chốt chặn bắt mọi mã lỗi còn lại | *Repo hiện tại có marker sai không?* — đây là cái **chặn thật** |
+| **2** | `scan(repoGia)` trên **repo giả** dựng trong `mkdtemp`: mỗi ca một đột biến, xác nhận đúng mã lỗi | *Phép kiểm ở tầng 1 có răng không?* |
+
+Tầng 1 hiện **xanh**. Một test luôn xanh thì không phân biệt được "cơ chế đúng" với "cơ chế
+không chạy" — nó xanh trong cả hai trường hợp. Tầng 2 dựng dữ liệu sai rồi đòi `scan()` phải
+báo đúng mã lỗi, nên nó xanh **chỉ khi** phép kiểm thật sự hoạt động.
+
+Tầng 1 còn một phép kiểm chống rỗng ruột riêng: *phạm vi quét đọc được mã nguồn thật, không
+rỗng*. Không có nó thì `SCAN_ROOTS` lệch đường dẫn sẽ làm cả bốn ca xanh mà không kiểm gì — kiểu
+hỏng tệ nhất, vì nó trông y như "repo sạch".
+
+#### Cách test đọc `scripts/scan-pending.mjs`: `import` trực tiếp
+
+Tài liệu giao việc lường hai đường: `import` trực tiếp, hoặc `spawnSync('node', [...'--json'])`
+nếu Vite chặn tệp ngoài `app/`. **Đã chọn `import` trực tiếp**, vì đo thật thì Vite không chặn:
+
+```
+$ cd app && npx vitest --run test/__probe-import.test.ts     # tệp thăm dò, đã xóa
+ ✓ test/__probe-import.test.ts (1 test) 21ms
+```
+
+`app/vitest.config.ts` không đặt `server.fs.allow`, và `scan-pending.mjs` là ESM thuần không phụ
+thuộc gói ngoài nên Vite nạp được nguyên trạng. Chọn `import` hơn `spawnSync` vì ba lẽ:
+
+1. `scan(repoRoot)` nhận tham số gốc repo, nên tầng 2 gọi thẳng vào hàm với repo giả. Qua CLI thì
+   không có cờ nào truyền gốc repo — muốn dùng `spawnSync` phải **thêm cờ mới vào CLI chỉ để phục
+   vụ test**, tức đổi giao diện công cụ vì lý do kiểm thử.
+2. Lỗi hiện ra là lỗi JavaScript có vết gọi, không phải một chuỗi stdout phải tự phân tích.
+3. `MIN_NOTE_CHARS` và `VAGUE_PHRASES` nhập được vào **thông báo lỗi của test**, nên hướng dẫn sửa
+   trong test luôn khớp ngưỡng thật. Qua `spawnSync` thì phải gõ lại ngưỡng vào test — đúng cái
+   bẫy "hai bản quy ước lệch nhau" mà tài liệu giao việc cấm.
+
+Không sao chép một biểu thức chính quy nào sang test. Toàn bộ những gì test nhập:
+`scan`, `listScannedFiles`, `MIN_NOTE_CHARS`, `VAGUE_PHRASES`.
+
+#### `VAGUE_NOTE` — định nghĩa "chung chung", và vì sao đặt trong script
+
+Phép kiểm nằm trong `scripts/scan-pending.mjs` dưới mã lỗi `VAGUE_NOTE`, **không** nằm riêng
+trong test: `--check` trong `run-local-all.sh` phải chặn được luôn, và quy ước chỉ được khai một
+nơi.
+
+Hai điều kiện, đủ một là đỏ:
+
+| | Điều kiện | Ngưỡng |
+|---|---|---|
+| (a) | Mô tả (sau `trim`) ngắn hơn mức tối thiểu | `MIN_NOTE_CHARS = 15` |
+| (b) | Bỏ cụm vô nghĩa + từ đệm + mã task đi thì phần còn lại quá ngắn | `MIN_INFORMATIVE_CHARS = 8` |
+
+Điều kiện (b) là chỗ **tinh chỉnh so với đề xuất trong tài liệu giao việc**. Đề xuất gốc là "khớp
+danh sách cụm vô nghĩa, chỉ khi mô tả gần như chỉ có cụm đó" nhưng không nói "gần như" là bao
+nhiêu — để mơ hồ thì mỗi người cài một kiểu. Định nghĩa đã chốt: *bỏ cụm vô nghĩa đi, phần còn
+lại phải còn ≥ 8 ký tự chữ-và-số.* Nhờ vậy câu dài có chứa cụm vô nghĩa ở giữa **không** bị bắt
+oan:
+
+```
+$ node --input-type=module -e "import {vagueNoteReason} from '\$PWD/scripts/scan-pending.mjs'; ..."
+VAGUE "chờ làm"                → mô tả chỉ 7 ký tự, dưới mức tối thiểu 15
+VAGUE "chờ làm sau nhé"        → mô tả gần như chỉ gồm cụm vô nghĩa "chờ làm", "làm sau"
+VAGUE "chờ task FE-05 làm sau" → mô tả gần như chỉ gồm cụm vô nghĩa "làm sau", "chờ task"
+VAGUE "TBD"                    → mô tả chỉ 3 ký tự, dưới mức tối thiểu 15
+VAGUE "đã sẵn hết"             → mô tả chỉ 10 ký tự, dưới mức tối thiểu 15
+OK    "đã sẵn: validate Zod + kiểm quyền + ghi sổ kiểm toán"
+OK    "expireStaleOrders đã sẵn validate + kiểm quyền, BE-07 sẽ làm phần gọi theo lịch"
+OK    "thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ"
+```
+
+Dòng thứ bảy là ca quan trọng nhất: nó chứa "sẽ làm" mà **không** bị bắt, vì bỏ cụm đó ra thì
+vẫn còn đủ nội dung. Bắt oan nó thì người viết sẽ học cách tránh từ ngữ thay vì viết mô tả tốt.
+
+Mã task cũng bị trừ khỏi phần "còn lại": mã đã nằm ở đầu marker, nhắc lại trong mô tả không thêm
+thông tin nào. Nhờ vậy `"chờ task FE-05 làm sau"` (22 ký tự, quá ngưỡng (a)) vẫn bị bắt.
+
+**Ngưỡng có làm marker thật đỏ không: KHÔNG.** 12 marker hiện có đều qua, `--check` vẫn `exit=0`
+(mục 3.6). Nên không phải nới ngưỡng, và cũng không phải kết luận marker nào tệ.
+
+**Một khác biệt có chủ đích: `@flow` chỉ áp điều kiện (b), không áp (a).** Mô tả `@flow` là nhãn
+một ô trên sơ đồ, đứng cạnh tên tệp và tên hàm nên ngắn là đúng — chính `design.md` QĐ-5 dùng
+nhãn `"nhập số lượng"` (13 ký tự). Một ngưỡng bác bỏ ví dụ của chính quy ước thì ngưỡng đó sai,
+không phải ví dụ sai. Cụm vô nghĩa thì vẫn bị bắt ở cả hai loại marker:
+
+```
+--- @flow (checkLength: false) ---
+OK    "nhập số lượng"
+VAGUE "xem sau"          → mô tả gần như chỉ gồm cụm vô nghĩa "xem sau"
+OK    "nhận lệnh từ giao diện"
+```
+
+#### Chừa chỗ cho task 9.5, không phải viết lại
+
+Task 9.5 thêm ca "số bước trong cùng luồng không trùng, không nhảy cách" (`BAD_FLOW_STEP`). Test
+đã dựng để việc đó là **thêm**, không phải sửa:
+
+- Tầng 1: phép kiểm *chốt chặn — không còn loại lỗi marker nào khác* đã bao `BAD_FLOW_STEP` ngay
+  từ giờ. Mã lỗi mới thêm vào script **không** lặng lẽ nằm ngoài tầm test.
+- Tầng 2: các đột biến nằm trong một **bảng dữ liệu** (`DOT_BIEN`); thêm ca = thêm một dòng.
+
+Bước 4 **không** gắn `@flow` nào (việc của Bước 9) và **không** viết ca `BAD_FLOW_STEP` (việc của
+9.5).
+
 ---
 
 ## 2. Đối chiếu DoD
@@ -120,7 +244,9 @@ trong tài liệu.** Spec nói 33 tệp, Bước 1 đo 43 tệp / 115 dòng, th�
 | 3.3 | Bỏ marker không còn đúng, ví dụ nhắc task đã hoàn thành | ✅ | 1 chỗ nhóm D: `portfolio.service.ts` khẳng định `ILedgerPort` thiếu `paymentBalanceOf` — **sai**, method có từ BE-01. Chi tiết ở mục 10, SL-3 |
 | 3.4 | Giữ nguyên nội dung `LedgerNotImplementedError` | ✅ | Chứng minh bằng phép kiểm "không đổi mã thực thi" ở mục 3.5, phép kiểm 3: diff **rỗng** |
 | 3.5 | Chạy `scan-pending.mjs`, bảng ra đúng, không còn marker sai định dạng | ✅ | Mục 3.4 (bảng) và 3.5 (`exit=0`, 7 PASS / 0 FAIL) |
-| 4.x | Test chống marker lạc hậu | ⬜ | _(chờ Bước 4)_ |
+| 4.1 | `app/test/pending-markers.test.ts` với 4 ca theo `design.md` mục 3 | ✅ | 4 ca có tên + 1 chốt chặn bắt mọi mã lỗi còn lại + 1 chống rỗng ruột (tầng 1), 7 ca kiểm chính phép kiểm (tầng 2) = **13 ca**. 272 → **285** test |
+| 4.2 | **Đột biến:** thêm tạm `BE-02` vào marker một tệp → test phải **đỏ**; ghi kết quả rồi hoàn nguyên | ✅ | Đỏ ở **ca 3**, đúng tệp:dòng. Output nguyên văn ở mục 5. Hoàn nguyên: `git diff -- app packages scripts` **rỗng** |
+| 4.3 | `@pending XX-99` → phải đỏ | ✅ | Đỏ ở **ca 2**. Thêm hai đột biến nữa cho đủ bộ 4 ca: thiếu dấu `\|` → ca 1, mô tả `chờ làm` → ca 4 |
 | 5.x | Phân loại 27 export | ⬜ | _(chờ Bước 5)_ |
 | 6.x | Hợp nhất nguồn giá phát hành | ⬜ | _(chờ Bước 6)_ |
 | 7.x | Dọn phụ thuộc, làm rõ `src/empty.ts` | ⬜ | _(chờ Bước 7)_ |
@@ -438,6 +564,88 @@ SL-5 để bước nào chạm tới script thì sửa.
 tiên** báo `FAIL LỚP 3 - ĐIỂM CẮM (marker)` với 2 lỗi `BAD_SYNTAX` — xem SL-4 ở mục 10. Đã sửa
 gốc rễ ở script, không im lặng bỏ qua và cũng không loại trừ cả tệp cho xanh.
 
+### 3.6 Kết quả chạy đầy đủ sau Bước 4
+
+#### Số test: 272 → **285** (+13), không test cũ nào đỏ
+
+```
+$ cd app && npm test
+ ✓ test/purchase-state.test.ts (19 tests) 5ms
+ ✓ test/pending-markers.test.ts (13 tests) 17ms      ← MỚI
+ ✓ test/rbac.test.ts (38 tests) 14ms
+ ✓ test/env-private-key.test.ts (5 tests) 35ms
+ ✓ test/wallet-status.test.ts (30 tests) 32ms
+ ✓ test/evm-address-env.test.ts (5 tests) 2ms
+ ✓ test/mock-ledger.test.ts (49 tests) 24ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 5ms
+ ✓ test/store-constraints.test.ts (69 tests) 18ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 3ms
+ ✓ test/portfolio-service.test.ts (12 tests) 8ms
+ ✓ test/purchase-service.test.ts (32 tests) 20ms
+
+ Test Files  12 passed (12)
+      Tests  285 passed (285)
+```
+
+285 − 272 = **13**, đúng bằng số ca của tệp mới. 11 tệp cũ giữ nguyên số ca từng tệp
+(19+38+5+30+5+49+8+69+5+12+32 = 272), nên **không tệp cũ nào bị sửa**.
+
+#### `--check` vẫn `exit=0` sau khi thêm `VAGUE_NOTE`
+
+Đây là phép kiểm quan trọng nhất theo hướng ngược của Bước 4: ngưỡng mới **không được** làm marker
+thật đỏ.
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 1 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
+exit=0
+```
+
+#### `bash scripts/run-local-all.sh` — 7 PASS / 0 FAIL, mã thoát 0
+
+```
+########## LỚP 3 - 3 LUẬT KIẾN TRÚC + CẤU TRÚC REPO ##########
+  PASS: 20   FAIL: 0   WARN: 6
+########## LỚP 3 - ĐIỂM CẮM (marker) ##########
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+########## LỚP 1 - SPEC TEST CONTRACT EVM ##########
+  => PASS: LỚP 1 - SPEC TEST CONTRACT EVM
+########## LỚP 1 - SPEC TEST CONTRACT SOROBAN ##########
+  => PASS: LỚP 1 - SPEC TEST CONTRACT SOROBAN
+########## APP - TYPECHECK ##########
+  => PASS: APP - TYPECHECK
+########## APP - LINT ##########
+  => PASS: APP - LINT
+########## APP - VITEST ##########
+ Test Files  12 passed (12)
+      Tests  285 passed (285)
+  => PASS: APP - VITEST
+
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+
+Tổng: 1 điểm cắm · 11 điểm chặn · 0 bước luồng
+
+$ echo "exit=$?"
+exit=0
+```
+
+Sáu `WARN` của lớp 3 và cảnh báo lint ở `app/src/empty.ts` **y nguyên** Bước 3 — Bước 4 không
+thêm cảnh báo nào. Bảng điểm cắm vẫn 12 dòng như mục 3.4: Bước 4 không thêm, không bớt, không sửa
+marker thật nào.
+
+**Từng commit riêng lẻ cũng xanh**, không chỉ trạng thái cuối. `1bcd62b` (chỉ script, chưa có tệp
+test) đã chạy `run-local-all.sh` riêng và ra **7 PASS / 0 FAIL với 272 test** — đúng con số Bước 3,
+tức thêm `VAGUE_NOTE` một mình không làm gì đỏ.
+
 ---
 
 ## 4. Bảng phân loại đầy đủ 27 export
@@ -446,15 +654,209 @@ _(chờ Bước 5)_
 
 ---
 
-## 5. Kết quả ba lần kiểm chứng bằng đột biến
+## 5. Kết quả các lần kiểm chứng bằng đột biến
 
 | Phép kiểm | Đột biến | Kết quả |
 |---|---|---|
 | **Đột biến script quét** | 11 dòng marker trong một tệp tạm: 1 đúng, 9 sai theo 9 kiểu khác nhau, 1 ca đối chứng phải **không** bị báo → script phải đỏ và liệt kê đủ loại | ✅ **đỏ, `exit=1`, 9 lỗi / 6 mã lỗi**, ca đối chứng im lặng — xem dưới |
-| Test marker lạc hậu | Thêm `BE-02` vào marker một tệp → phải đỏ | _(chờ Bước 4)_ |
-| Test marker mã task không tồn tại | `@pending XX-99` → phải đỏ | _(chờ Bước 4)_ |
 | Test nguồn giá | Tách lại thành hai hằng số → phải đỏ | _(chờ Bước 6)_ |
 | Script lớp 3 | Thêm `SPT` vào một tệp `app/src` → phải đỏ | _(chờ Bước 8)_ |
+
+### Bốn đột biến của Bước 4 — `app/test/pending-markers.test.ts`
+
+Cùng **một dòng** bị đột biến cả bốn lần: `app/src/lib/bank/purchase.service.ts:543`, marker
+`@pending BE-07` thật trên `expireStaleOrders`. Chọn cùng một dòng có lý do: nếu bốn lần đỏ ở bốn
+ca khác nhau trong khi chỉ đổi nội dung marker, thì bốn ca đó thật sự phân biệt được bốn loại lỗi
+chứ không phải cùng một phép kiểm mang bốn cái tên.
+
+| Ca | Đột biến dán vào dòng 543 | Ca đỏ | Số ca đỏ | Thông báo có chỉ đúng tệp:dòng? |
+|---|---|---|---|---|
+| **1** `BAD_SYNTAX` | `@pending BE-07` *(bỏ dấu `\|`)* | ✅ **ca 1** | 1/13 | ✅ `purchase.service.ts:543` |
+| **2** `UNKNOWN_TASK` | `@pending XX-99 \| <mô tả cũ>` | ✅ **ca 2** | 1/13 | ✅ `purchase.service.ts:543` |
+| **3** `STALE_TASK` | `@pending BE-02 \| <mô tả cũ>` | ✅ **ca 3** | 1/13 | ✅ `purchase.service.ts:543` |
+| **4** `VAGUE_NOTE` | `@pending BE-07 \| chờ làm` | ✅ **ca 4** | 1/13 | ✅ `purchase.service.ts:543` |
+
+Mỗi lần **đúng một ca đỏ**, 12 ca còn lại xanh. Đó là điều cần chứng minh: không có ca nào đỏ
+theo kiểu dây chuyền, nên đọc tên ca đỏ là biết ngay loại lỗi.
+
+#### Đột biến 1 (task 4.2 mở rộng) — ca 3, marker chờ task đã `done`
+
+```
+$ perl -i -pe 's/\@pending BE-07 \|/\@pending BE-02 |/ if $. == 543' app/src/lib/bank/purchase.service.ts
+$ cd app && npm test -- pending-markers
+
+ ❯ test/pending-markers.test.ts (13 tests | 1 failed) 13ms
+   ✓ Marker điểm cắm trong repo thật > phạm vi quét đọc được mã nguồn thật, không rỗng 2ms
+   ✓ Marker điểm cắm trong repo thật > ca 1 — mọi marker đúng cú pháp 0ms
+   ✓ Marker điểm cắm trong repo thật > ca 2 — mã task trong marker đều tồn tại 0ms
+   × Marker điểm cắm trong repo thật > ca 3 — không marker nào chờ task đã hoàn thành 3ms
+     →
+  [STALE_TASK] — Task đã `done` mà marker vẫn chờ nó. Đúng hai cách sửa, chọn một:
+    (a) DỌN MARKER — điểm cắm đã được dùng, marker hết việc (steering mục 7, vế b);
+    (b) bỏ mã khỏi "done" trong `.kiro/task-status.json` — task chưa thật sự xong.
+  Không có cách thứ ba. Nới phép kiểm cho xanh là bỏ luôn lý do test này tồn tại.
+: expected [ Array(1) ] to deeply equal []
+   ✓ Marker điểm cắm trong repo thật > ca 4 — mô tả marker không rỗng và không chung chung 0ms
+   ✓ Marker điểm cắm trong repo thật > chốt chặn — không còn loại lỗi marker nào khác 0ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > đối chứng: marker đúng thì không sinh lỗi và vào được bảng 1ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > nhiều điểm cắm cũng không phải lỗi 1ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > 'ca 1' — 'thiếu dấu | sau mã task' phải sinh 'BAD_SYNTAX' 1ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > 'ca 2' — 'mã task không có trong nguồn trạng th…' phải sinh 'UNKNOWN_TASK' 0ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > 'ca 3' — 'marker chờ task đã done' phải sinh 'STALE_TASK' 0ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > 'ca 4' — 'mô tả chung chung' phải sinh 'VAGUE_NOTE' 0ms
+   ✓ Phép kiểm có răng — đột biến trên repo giả > nguồn trạng thái task hỏng thì báo đỏ, không im lặng bỏ qua 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pending-markers.test.ts > Marker điểm cắm trong repo thật > ca 3 — không marker nào chờ task đã hoàn thành
+AssertionError:
+  [STALE_TASK] — Task đã `done` mà marker vẫn chờ nó. Đúng hai cách sửa, chọn một:
+    (a) DỌN MARKER — điểm cắm đã được dùng, marker hết việc (steering mục 7, vế b);
+    (b) bỏ mã khỏi "done" trong `.kiro/task-status.json` — task chưa thật sự xong.
+  Không có cách thứ ba. Nới phép kiểm cho xanh là bỏ luôn lý do test này tồn tại.
+: expected [ Array(1) ] to deeply equal []
+- Expected
++ Received
+- []
++ [
++   "app/src/lib/bank/purchase.service.ts:543
++       marker lạc hậu: BE-02 đã done. Task xong thì phải dọn marker (steering mục 7, vế b)",
++ ]
+ ❯ test/pending-markers.test.ts:102:61
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+```
+
+Thông báo nói đủ ba thứ người sửa cần: **task nào** đã done, **ở đâu** (`tệp:dòng`, dán được vào
+terminal), và **hai cách sửa duy nhất** — dọn marker, hoặc bỏ mã khỏi `done`. Câu cuối cố ý chặn
+cách thứ ba: nới phép kiểm cho xanh.
+
+Hoàn nguyên, test xanh lại:
+
+```
+$ git checkout -- app/src/lib/bank/purchase.service.ts
+$ cd app && npm test -- pending-markers
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+```
+
+#### Đột biến 2 (task 4.3) — ca 2, mã task không tồn tại
+
+```
+$ perl -i -pe 's/\@pending BE-07 \|/\@pending XX-99 |/ if $. == 543' app/src/lib/bank/purchase.service.ts
+$ cd app && npm test -- pending-markers
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pending-markers.test.ts > Marker điểm cắm trong repo thật > ca 2 — mã task trong marker đều tồn tại
+AssertionError:
+  [UNKNOWN_TASK] — Mã task phải nằm trong `.kiro/task-status.json` (hợp done + inProgress + planned).
+  Mở tệp đó ra: hoặc bạn gõ sai mã, hoặc task này chưa được khai. Đừng sửa test.
+: expected [ Array(1) ] to deeply equal []
+- Expected
++ Received
+- []
++ [
++   "app/src/lib/bank/purchase.service.ts:543
++       mã task XX-99 không có trong .kiro/task-status.json (hợp done + inProgress + planned)",
++ ]
+ ❯ test/pending-markers.test.ts:98:65
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+```
+
+#### Đột biến 3 — ca 1, marker sai cú pháp (bỏ dấu `|`)
+
+```
+$ perl -i -pe 's/\@pending BE-07 \|/\@pending BE-07/ if $. == 543' app/src/lib/bank/purchase.service.ts
+$ sed -n '543p' app/src/lib/bank/purchase.service.ts | cut -c1-60
+ * @pending BE-07 đã sẵn đầu cuối: validate Zod, kiểm quyền
+
+$ cd app && npm test -- pending-markers
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pending-markers.test.ts > Marker điểm cắm trong repo thật > ca 1 — mọi marker đúng cú pháp
+AssertionError:
+  [BAD_SYNTAX] — Cú pháp đúng, chọn một trong ba dạng:
+    // @pending <MÃ-TASK> | <đã sẵn những gì>
+    // @blocked <MÃ-TASK> | <thiếu gì>
+    // @flow <tên-luồng>:<số nguyên> | <việc của bước này>
+  Hay quên nhất: thiếu dấu | , hoặc mô tả rỗng, hoặc số bước ghi thập phân.
+  Marker phải đứng ngay sau dấu mở chú thích (`// @pending ...`), không lọt giữa câu văn.
+: expected [ Array(1) ] to deeply equal []
+- Expected
++ Received
+- []
++ [
++   "app/src/lib/bank/purchase.service.ts:543
++       có từ khóa marker nhưng sai cú pháp. Đúng phải là \"@pending <MÃ-TASK> | <mô tả>\", \"@blocked <MÃ-TASK> | <mô tả>\" hoặc \"@flow <tên-luồng>:<số nguyên> | <mô tả>\"",
++ ]
+ ❯ test/pending-markers.test.ts:94:61
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+```
+
+Marker mất dấu `|` **không** trôi thành "không phải marker" rồi im lặng — đó mới là kiểu hỏng nguy
+hiểm, vì điểm cắm biến mất khỏi bảng mà không ai được báo.
+
+#### Đột biến 4 — ca 4, mô tả chung chung
+
+```
+$ perl -i -pe 's/^ \* \@pending BE-07 \|.*$/ * \@pending BE-07 | chờ làm/ if $. == 543' app/src/lib/bank/purchase.service.ts
+$ sed -n '543p' app/src/lib/bank/purchase.service.ts
+ * @pending BE-07 | chờ làm
+
+$ cd app && npm test -- pending-markers
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  test/pending-markers.test.ts > Marker điểm cắm trong repo thật > ca 4 — mô tả marker không rỗng và không chung chung
+AssertionError:
+  [VAGUE_NOTE] — Mô tả sau dấu | vô dụng với người đọc. Người nhận task đọc đúng câu đó để biết
+  mình KHÔNG phải viết lại cái gì (@pending) hoặc còn thiếu đúng cái gì (@blocked).
+  Ngưỡng: tối thiểu 15 ký tự, và không được gần như chỉ gồm một cụm
+  vô nghĩa (chờ làm, sẽ làm, chưa làm, cần làm, làm sau, xem sau, chờ task, chờ fe, chờ be, sau này, tbd, wip, n/a).
+  Ví dụ đủ: "đã sẵn: validate Zod + kiểm quyền + ghi sổ kiểm toán, chỉ cần gọi".
+: expected [ Array(1) ] to deeply equal []
+- Expected
++ Received
++ [
++   "app/src/lib/bank/purchase.service.ts:543
++       @pending BE-07: mô tả chỉ 7 ký tự, dưới mức tối thiểu 15. Mô tả phải nói rõ ĐÃ SẴN gì, vì người nhận BE-07 đọc đúng câu này để biết mình không phải viết lại cái gì",
++ ]
+ ❯ test/pending-markers.test.ts:108:61
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+```
+
+Danh sách cụm vô nghĩa trong thông báo **nhập từ `VAGUE_PHRASES`**, không gõ tay vào test. Thêm
+cụm vào script thì hướng dẫn sửa tự cập nhật theo.
+
+#### Chứng minh đột biến không lọt vào commit
+
+Sau lần hoàn nguyên cuối:
+
+```
+$ git checkout -- app/src/lib/bank/purchase.service.ts
+$ git status --short -- app packages scripts
+(rỗng)
+$ git diff -- app packages scripts
+(rỗng)
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 1 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
+exit=0
+$ cd app && npm test
+ Test Files  12 passed (12)
+      Tests  285 passed (285)
+```
+
+**Một điểm phải nói rõ:** `git status --short` **không** giới hạn phạm vi thì còn một dòng
+` M .kiro/specs/mc-01-make-control/tasks.md`. Đó **không phải** đột biến còn sót, mà là trạng thái
+checkbox do bộ theo dõi task của Kiro tự ghi (`[~]` → `[-]` → `[x]`) — cùng hiện tượng SL-1 đã ghi
+ở Bước 1. Vì vậy phép kiểm "đột biến không lọt vào commit" giới hạn vào `app packages scripts`,
+tức đúng những đường dẫn đột biến có thể chạm tới. Ghi cách giới hạn ra đây để Supervisor kiểm lại
+được, thay vì dán một lệnh `git diff` trơn rồi phải giải thích một dòng lạ.
 
 ### Đột biến script quét — chi tiết
 
@@ -564,6 +966,25 @@ Tài liệu giao việc để mở, đây là chỗ Kiro tự quyết, ghi lại
 Kể cả khi có lỗi. `--json` là bản **xuất dữ liệu**, lỗi nằm trong mảng `errors` của chính JSON.
 Phép kiểm đỏ/xanh là việc của `--check`. Làm `--json` đỏ theo thì mọi lệnh `| node -e ...` phải
 bọc thêm `|| true`, không lợi gì.
+
+### D-5 (Bước 4) — Bảy chỗ Kiro tự quyết
+
+Tài liệu giao việc để mở hoặc nói "tinh chỉnh nếu thấy lý do tốt hơn". Ghi ra để Supervisor bác
+nếu thấy sai:
+
+| # | Quyết định | Vì sao |
+|---|---|---|
+| 1 | Định nghĩa "gần như chỉ có cụm đó" = **bỏ cụm vô nghĩa + từ đệm + mã task đi thì còn dưới 8 ký tự** | Đề xuất gốc không nói "gần như" là bao nhiêu. Để mơ hồ thì mỗi người cài một kiểu, và ca 4 thành ca không kiểm được. Ngưỡng này cho kết quả đúng trên cả hai đầu: bắt `"chờ task FE-05 làm sau"`, tha `"...BE-07 sẽ làm phần gọi theo lịch"` |
+| 2 | **Trừ mã task** khỏi phần "còn lại" | Mã đã nằm ở đầu marker; nhắc lại trong mô tả không thêm thông tin nào. Không trừ thì `"chờ task FE-05 làm sau"` (22 ký tự) lọt |
+| 3 | `@flow` chỉ áp điều kiện (b), **không** áp ngưỡng 15 ký tự | Nhãn sơ đồ đứng cạnh tên tệp và tên hàm nên ngắn là đúng; `design.md` QĐ-5 dùng nhãn `"nhập số lượng"` (13 ký tự). Ngưỡng bác ví dụ của chính quy ước thì ngưỡng sai. Sẽ ảnh hưởng Bước 9 nên nói trước |
+| 4 | `VAGUE_NOTE` kiểm **sau** `UNKNOWN_TASK` và `STALE_TASK` | Giữ nguyên nếp cũ của script: một dòng báo một lỗi, lỗi nền tảng trước. Mã task sai thì đó là điều phải sửa trước, mô tả tính sau |
+| 5 | Thêm ca **"chốt chặn — không còn loại lỗi marker nào khác"** ngoài 4 ca có tên | 4 ca của `design.md` bỏ ngỏ `FORBIDDEN_KEYWORD`, `BAD_FLOW_NAME`, `BAD_FLOW_STEP`, `BAD_TASK_STATUS`. Không có ca này thì mã lỗi mới thêm vào script nằm ngoài tầm test mà không ai biết, và task 9.5 phải sửa test thay vì thêm |
+| 6 | Thêm `@typedef` vào `scan-pending.mjs` | Test chạy dưới TypeScript; JSDoc cũ khai `summary:Object` nên `npm run typecheck` đỏ ở `report.summary.errors`. Hai cách sửa: khai kiểu ở script, hoặc `interface` riêng trong test. Chọn cách một — cách hai là khai lại cấu trúc ở hai nơi, đúng cái bẫy "hai bản lệch nhau" |
+| 7 | **Commit thứ ba** `b65c077` ngoài hai commit tài liệu giao việc nêu tên | `b65c077` sửa lỗi của chính `49768e1` (xem SL-6). Chọn commit mới thay vì `--amend` để lịch sử nói đúng chuyện đã xảy ra: khẳng định rỗng ruột được thêm vào, rồi bị đột biến bắt, rồi bị sửa. Gộp bằng `--amend` là xoá mất bằng chứng cho giá trị của bước chạy đột biến |
+
+Ngoài bảng trên, hai chỗ nữa đã ghi ở mục 1 (Bước 4): cách test đọc script (`import` trực tiếp,
+không `spawnSync`) và phạm vi lệnh `git diff` khi chứng minh đột biến không lọt vào commit
+(`-- app packages scripts`).
 
 ---
 
@@ -848,6 +1269,38 @@ $ git show 71932bb:scripts/run-local-all.sh | grep -n 'ĐẠT toàn bộ kiểm 
 phá phép kiểm 3. Chỉ là thẩm mỹ, không ảnh hưởng mã thoát. Cách sửa khi có bước nào chạm tới:
 bỏ `\n` khỏi tham số và gọi `printf '\n'` riêng, hoặc thêm một `echo` rỗng phía trên.
 
+### SL-6 — Chính đột biến 4.2 bắt được một khẳng định rỗng ruột trong test Bước 4
+
+Đây là sai lệch **do Kiro tự gây ra rồi tự bắt được**, ghi lại vì cách bắt được nó là thứ đáng
+giữ, không phải vì cái lỗi.
+
+Commit `49768e1` có một ca ở tầng 1 tên *"còn điểm cắm là bình thường, không phải lỗi"*, thân là:
+
+```ts
+expect(report.summary.errors).toBe(0);
+expect(report.summary.pending + report.summary.blocked).toBeGreaterThanOrEqual(0);
+```
+
+Đọc riêng thì trông hợp lý. Chạy đột biến 4.2 mới thấy hai chỗ sai:
+
+- Khẳng định thứ nhất **lặp lại đúng bốn ca ở trên** dưới một cái tên nói sai việc nó làm. Hệ quả:
+  đột biến làm ca 3 đỏ thì ca này đỏ theo, với thông báo `expected 1 to be +0` — vô dụng với người
+  đi sửa, và làm cho "một đột biến, một ca đỏ" thành "một đột biến, hai ca đỏ".
+- Khẳng định thứ hai là `x >= 0` với `x` là tổng hai số không âm. **Luôn đúng**, không thể đỏ, nên
+  không kiểm gì.
+
+Đã sửa ở `b65c077`: chuyển tính chất đó xuống **tầng 2**, dựng repo giả có 3 marker hợp lệ rồi
+đòi `errors` rỗng và `byTask` / `summary` đếm đúng. Ở đó nó là phép kiểm thật cho *"nhiều điểm cắm
+cũng không đỏ"* — tính chất giữ cho người sau không xóa marker cho xanh.
+
+Bài học rút ra, đề nghị đưa vào `lessons.md` nếu Supervisor thấy đáng: **khẳng định "không có lỗi"
+đặt trên cùng một nguồn dữ liệu với các ca có tên thì không phải phép kiểm mới, nó là bản sao mang
+tên khác.** Muốn kiểm "trạng thái bình thường không sinh lỗi" thì phải kiểm trên **dữ liệu dựng
+riêng**, nơi biết chắc đầu vào là hợp lệ.
+
+Và điều này là bằng chứng cho chính lý do tầng 2 tồn tại: nếu Bước 4 chỉ có tầng 1 rồi không chạy
+đột biến, hai khẳng định trên vẫn xanh mãi mãi và không ai biết chúng rỗng.
+
 ---
 
 ## 11. Câu hỏi mở
@@ -978,6 +1431,30 @@ $ git check-ignore -v .kiro/specs/mc-01-make-control/tasks.meta.json
 ---
 
 ## 12. Tự đánh giá 3 LUẬT kiến trúc
+
+### Bước 4
+
+**Không chạm tệp mã nguồn nào** trong `app/src` hay `packages/*/src`. Chỉ thêm một tệp test và sửa
+một script ở `scripts/`. Bằng chứng:
+
+```
+$ git diff --name-only dd0fac0..HEAD
+app/test/pending-markers.test.ts
+scripts/scan-pending.mjs
+$ git diff --stat dd0fac0..HEAD -- app/src packages
+(rỗng)
+```
+
+Ba luật vì vậy **không bị chạm**, nhưng có một chỗ đáng nói theo hướng tích cực: `app/src` trong
+lần đột biến bị sửa bốn lần rồi hoàn nguyên bốn lần, và `git diff -- app packages scripts` rỗng
+chứng minh không lần nào lọt vào commit. Lớp 3 của `verify-arch-rules.sh` vẫn `20 PASS / 0 FAIL /
+6 WARN`, đúng con số Bước 3 — không thêm cảnh báo nào.
+
+Cần lưu ý cho các bước sau: tệp test mới `import` từ `scripts/scan-pending.mjs`, tức có một cạnh
+phụ thuộc mới từ `app/test` ra ngoài `app/`. Cạnh này **chỉ tồn tại lúc chạy test**, không vào
+bundle nào (`scan-pending.mjs` không được `app/src` nhập), nên không ảnh hưởng kích thước bundle
+Cloudflare. Đã kiểm `npm run build` không cần chạy lại vì `tsconfig.json` đã `include` tệp test từ
+trước và `npm run typecheck` xanh.
 
 ### Bước 3
 

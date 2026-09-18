@@ -29,11 +29,11 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 3: Chuyển marker tự do sang quy ước mới
 
-- [-] 3.1 Rà **33 tệp** đang có bình luận nhắc task khác (danh sách trong `requirements.md` mục 2).
-- [~] 3.2 Mỗi chỗ: chuyển sang `@pending` nếu code đã chạy được và chờ người gọi; `@blocked` nếu chưa chạy được.
-- [~] 3.3 Bỏ marker không còn đúng, ví dụ nhắc task đã hoàn thành.
-- [~] 3.4 Giữ nguyên nội dung thông báo lỗi `LedgerNotImplementedError`; marker là thứ **thêm vào**, không thay thế.
-- [~] 3.5 Chạy `scan-pending.mjs`, xác nhận bảng ra đúng và không còn marker sai định dạng.
+- [x] 3.1 Rà **33 tệp** đang có bình luận nhắc task khác (danh sách trong `requirements.md` mục 2).
+- [x] 3.2 Mỗi chỗ: chuyển sang `@pending` nếu code đã chạy được và chờ người gọi; `@blocked` nếu chưa chạy được.
+- [x] 3.3 Bỏ marker không còn đúng, ví dụ nhắc task đã hoàn thành.
+- [x] 3.4 Giữ nguyên nội dung thông báo lỗi `LedgerNotImplementedError`; marker là thứ **thêm vào**, không thay thế.
+- [x] 3.5 Chạy `scan-pending.mjs`, xác nhận bảng ra đúng và không còn marker sai định dạng.
 
 *Commit:* `refactor(mc): chuyển marker tự do sang quy ước @pending và @blocked`
 
@@ -41,7 +41,7 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 4: Test chống marker lạc hậu
 
-- [~] 4.1 Tạo `app/test/pending-markers.test.ts` với 4 ca theo `design.md` mục 3.
+- [-] 4.1 Tạo `app/test/pending-markers.test.ts` với 4 ca theo `design.md` mục 3.
 - [~] 4.2 **Kiểm chứng bằng đột biến:** thêm tạm `BE-02` vào marker của một tệp, chạy test, phải **đỏ**. Ghi kết quả vào checkpoint rồi hoàn nguyên.
 - [~] 4.3 Kiểm ca mã task không tồn tại: thử `@pending XX-99`, phải đỏ.
 
