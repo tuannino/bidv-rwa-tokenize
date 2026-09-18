@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Task | BE-09 (Backend, S1, P0, 5 điểm) |
-| Nhánh | `feat/data-schema`, tạo **từ `dev`** (`fdb7b55`) |
+| Nhánh | `feat/data-schema`, tạo **từ `dev`** (`fdb7b55`), **đã rebase lên `dev` mới** (`1316d2e`) — xem mục 0 |
 | Spec | `docs/be-09-data-schema/{requirements,design,tasks}.md` + bản giống hệt ở `.kiro/specs/be-09-data-schema/` |
-| Commit | 8 commit, xem mục 1 |
-| Phạm vi | **Chỉ lược đồ + cổng lưu trữ.** Không một dòng logic nghiệp vụ đọc ghi các bảng này |
+| Commit | 11 commit (đếm lại sau lần gộp ở mục 0), xem mục 1 |
+| Phạm vi | Lược đồ + cổng lưu trữ, **cộng** phần đồng bộ tầng nghiệp vụ BE-02 — nằm chung trong commit `207de04`, xem mục 0 |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
 
@@ -18,22 +18,59 @@ $ git ls-tree -r --name-only dev | grep -c AssetRegistry          → 0    (ph�
 
 ---
 
+## 0. Rebase lên `dev` sau khi BE-02 merge — Q1 đã có câu trả lời
+
+`dev` tiến lên `1316d2e` (merge PR #19, nhánh BE-02 `feat/purchase-orders`) trong lúc nhánh này
+chờ nghiệm thu. Đã `git rebase origin/dev` theo `branching.md` §7. **Lịch sử nhánh bị viết lại,
+nên mọi SHA trong tài liệu này là SHA mới; SHA cũ không còn tồn tại.**
+
+Q1 ở mục 6 hỏi merge theo hướng nào. **Đã chốt phương án (a): kiến trúc BE-09 là đích, BE-09 thay
+thế chứ không cộng dồn hai bản.** Căn cứ: chính bình luận trong mã của BE-02 ghi "bảng lệnh mua
+thuộc BE-09. BE-02 khai trước vì không có nó thì không hiện thực được nghiệp vụ nào … BE-09 tiếp
+nhận hoặc thay thế".
+
+Sáu chỗ va nhau và hướng giải (dòng cuối gộp hai bản `store.ts`):
+
+| File | Hướng giải |
+|---|---|
+| `app/prisma/schema.prisma` | Lấy bản BE-09 của model `PurchaseOrder` (`status String @default("PLACED")`, `txHash String? @unique`). **Xoá `enum OrderStatus`** của BE-02 vì không còn model nào dùng |
+| `app/prisma/init.sql` | Sinh lại từ lược đồ bằng `npm run db:sql`, không gỡ tay |
+| `app/src/lib/store/store.port.ts` | Bản BE-09: chỉ `ITxnStore` + kiểu giao dịch/audit. Xoá khối lệnh mua của BE-02 (`OrderRecord`, `NewOrder`, `OrderTransition`, `IOrderStore`, `IBankStore`) và xoá `import type { OrderStatus } from '@/lib/bank/purchase.state'` |
+| `app/src/lib/store/index.ts` | Bản BE-09 (factory riêng từng cổng). Kiểu lệnh mua chỉ export từ `order.store.port`, không export trùng từ `store.port` |
+| `app/src/lib/store/{memory,postgres}.store.ts` | Bản BE-09 (chỉ txn + audit). Hiện thực lệnh mua nội tuyến của BE-02 bị thay bởi `{memory,postgres}.order.store.ts` |
+| `docs/tech-report.md` | Metadata gộp cả hai phase, **bump 1.6 → 1.7** đúng như Q1 đã lường. Mục 3.5 lấy bản BE-09 vì nó là bản viết lại của cùng mục đó và bản BE-02 nay mô tả `IBankStore`/`ensurePurchaseOrderTable()` đã bị xoá |
+
+Phần đồng bộ tầng nghiệp vụ BE-02 (`purchase.service.ts`, `purchase.state.ts`,
+`purchase-service.test.ts`) nằm **chung trong commit bốn cổng lưu trữ `207de04`**, không tách thành
+commit riêng, để **mọi commit trên nhánh đều build được**: chính commit đó xoá `IBankStore` khỏi
+`store.port.ts` và BE-02 là người gọi duy nhất, nên tách ra thì các commit ở giữa không biên dịch
+nổi. **Owner đã chọn phương án này.** Hành vi nghiệp vụ của BE-02 **không đổi**.
+
+Kiểm chứng: `npm run typecheck` chạy tại **từng** commit từ `dev` (`1316d2e`) tới HEAD, **11/11 xanh**
+(`git rebase --exec 'cd app && npm run typecheck' origin/dev`). `git bisect` và `git revert` từng
+phần dùng được trên toàn nhánh.
+
+---
+
 ## 1. Đã làm
 
-Tám commit, mỗi commit một mục tiêu, mỗi commit đều build/test được:
+Mười một commit, mỗi commit một mục tiêu:
 
 | Commit | Nội dung |
 |---|---|
-| `ee8c87d` | `docs(spec): spec BE-09 mở rộng lược đồ dữ liệu` |
-| `3b5918a` | `feat(db): bảng lệnh mua WPT` |
-| `60aded3` | `feat(db): bảng kỳ chia và chi tiết chia lợi nhuận` |
-| `08fa732` | `feat(db): bảng đợt tất toán và hồ sơ người nắm giữ` |
-| `49f863c` | `feat(db): bảng mốc chạy tiến trình hẹn giờ` |
-| `0624c30` | `chore(db): sinh lại init.sql từ lược đồ` |
-| `8bea356` | `feat(store): bốn cổng lưu trữ cho ba luồng nghiệp vụ` |
-| `fbb52fa` | `test(store): kiểm thử ràng buộc duy nhất ở cả hai bản lưu trữ` |
+| `aa1624b` | `docs(spec): spec BE-09 mở rộng lược đồ dữ liệu` |
+| `2b0673e` | `feat(db): bảng lệnh mua WPT` |
+| `69236d1` | `feat(db): bảng kỳ chia và chi tiết chia lợi nhuận` |
+| `d8f8514` | `feat(db): bảng đợt tất toán và hồ sơ người nắm giữ` |
+| `b8d8d8e` | `feat(db): bảng mốc chạy tiến trình hẹn giờ` |
+| `3bf0899` | `chore(db): sinh lại init.sql từ lược đồ` |
+| `207de04` | `feat(store): bốn cổng lưu trữ cho ba luồng nghiệp vụ` — **gồm cả** phần đồng bộ tầng nghiệp vụ BE-02, xem mục 0 |
+| `f21ed08` | `test(store): kiểm thử ràng buộc duy nhất ở cả hai bản lưu trữ` |
+| `7a2f21b` | `docs: cập nhật báo cáo công nghệ cho lược đồ mới` |
+| `ef32b2f` | `docs: checkpoint BE-09` |
+| _(commit này)_ | `docs(checkpoint): ghi lần rebase lên dev và câu trả lời cho Q1` — SHA chỉ có sau `--amend` nên không tự trỏ vào chính nó |
 
-Diff so với `dev`: 28 file, +4413 / −126.
+Diff so với `dev` (`1316d2e`): 33 file, +5068 / −648.
 
 ---
 
@@ -222,16 +259,23 @@ nào được ghi` đặt ví hợp lệ **trước** dòng trùng, đúng chỗ
 
 ### 3.3. `run-local-all.sh`
 
+Chạy lại **sau rebase** lên `dev` (`1316d2e`) và sau khi gộp phần đồng bộ tầng nghiệp vụ vào
+commit `207de04`:
+
 ```
   Đạt:     6
-    PASS  luật kiến trúc (có cảnh báo)          ← cảnh báo có sẵn từ trước, không phải của BE-09
+    PASS  luật kiến trúc (có cảnh báo)          ← 6 cảnh báo có sẵn từ trước, không phải của BE-09
     PASS  LỚP 1 - SPEC TEST CONTRACT EVM
     PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
     PASS  APP - TYPECHECK
     PASS  APP - LINT
-    PASS  APP - VITEST                          ← 190 test (121 cũ + 69 mới)
+    PASS  APP - VITEST                          ← 245 test / 11 file, gồm 51 test lệnh mua của BE-02
   Không đạt: 0
 ```
+
+Trước rebase con số là 190 test (121 cũ + 69 mới của BE-09). Sau rebase là 245 vì `dev` đã có thêm
+55 test của BE-02: hai file mới `purchase-service` (32) và `purchase-state` (19), cộng `rbac`
+8 → 11 và `mock-ledger` 48 → 49.
 
 ---
 
@@ -340,7 +384,11 @@ không thể nạp lượng dữ liệu bất kỳ vào bộ nhớ.
 
 ## 6. Câu hỏi mở
 
-### Q1 — Nhánh BE-02 và nhánh này cùng sửa bốn file. Merge theo hướng nào?
+### Q1 — ✅ ĐÃ GIẢI QUYẾT: chọn phương án (a). Chi tiết ở mục 0
+
+Giữ lại nguyên văn để thấy căn cứ của quyết định. Đã thực hiện bằng `git rebase origin/dev`, phần
+đồng bộ nằm chung trong commit `207de04`; `tech-report.md` thành 1.7 đúng như lường ở đoạn cuối mục
+này.
 
 `app/prisma/schema.prisma`, `app/prisma/init.sql`, `app/src/lib/store/store.port.ts`,
 `app/src/lib/store/index.ts`. Cả hai nhánh đều lấy nền từ `dev` nên đây là xung đột thật, phải có
