@@ -8,6 +8,7 @@ import {
   listScannedFiles,
   scan,
 } from '../../scripts/scan-pending.mjs';
+import { checkFlowDoc, orphanFlowDocs } from '../../scripts/gen-flow-diagram.mjs';
 
 /**
  * Chốt an toàn cho cơ chế điểm cắm (`.kiro/steering/make-control.md`).
@@ -58,6 +59,15 @@ const CACH_SUA: Record<string, string> = {
     `  Ngưỡng: tối thiểu ${MIN_NOTE_CHARS} ký tự, và không được gần như chỉ gồm một cụm\n` +
     `  vô nghĩa (${VAGUE_PHRASES.join(', ')}).\n` +
     '  Ví dụ đủ: "đã sẵn: validate Zod + kiểm quyền + ghi sổ kiểm toán, chỉ cần gọi".',
+  BAD_FLOW_STEP:
+    'Số bước trong cùng một luồng phải là một CHUỖI SỐ NGUYÊN LIÊN TIẾP TỪ 1:\n' +
+    '  không trùng, không nhảy cách, không bắt đầu từ số khác 1.\n' +
+    '  Ba kiểu sai và ý nghĩa của từng kiểu:\n' +
+    '    trùng số      — hai hàm cùng nhận là bước thứ n, nên thứ tự giữa chúng không xác định;\n' +
+    '    nhảy cách     — thiếu bước giữa, dấu hiệu ai đó xóa hàm mà quên sửa marker;\n' +
+    '    không từ 1    — thiếu bước đầu, cùng một dấu hiệu như trên.\n' +
+    '  Cần chèn một bước vào giữa thì ĐÁNH SỐ LẠI CẢ LUỒNG. Số thập phân (purchase:3.5) là\n' +
+    '  sai cú pháp và cũng bỏ mất chính phép kiểm này (steering mục 4).',
 };
 
 const CA_CO_TEN = new Set(Object.keys(CACH_SUA));
@@ -106,6 +116,10 @@ describe('Marker điểm cắm trong repo thật', () => {
     // Mô tả RỖNG không tới được đây: script báo nó là BAD_SYNTAX (ca 1). Ở đây là
     // phần còn lại của yêu cầu: mô tả có chữ nhưng không nói được gì.
     expect(loiTheoMa('VAGUE_NOTE'), thongBao('VAGUE_NOTE')).toEqual([]);
+  });
+
+  it('ca 5 — số bước của mỗi luồng là chuỗi liên tiếp từ 1', () => {
+    expect(loiTheoMa('BAD_FLOW_STEP'), thongBao('BAD_FLOW_STEP')).toEqual([]);
   });
 
   it('chốt chặn — không còn loại lỗi marker nào khác', () => {
@@ -163,8 +177,13 @@ interface DotBien {
   soLoi?: number;
 }
 
-// Thêm ca mới = thêm một dòng vào bảng này. Ca số bước luồng (BAD_FLOW_STEP) thuộc
-// task 9.5, chưa làm ở Bước 4 — bảng đã chừa chỗ, không phải viết lại test.
+// Thêm ca mới = thêm một dòng vào bảng này.
+//
+// Ba ca BAD_FLOW_STEP ở cuối bảng có một ràng buộc không hiển nhiên: `validateFlowSteps`
+// báo lỗi nhảy cách và lỗi "không bắt đầu từ 1" TẠI marker của bước LỚN HƠN, nên muốn lỗi
+// đầu tiên nằm ở dòng 1 (phép kiểm chung của bảng này khẳng định thế) thì marker bước lớn
+// phải viết TRƯỚC trong tệp giả. Thứ tự marker trong tệp không liên quan tới thứ tự bước —
+// đó cũng chính là lý do số bước phải khai tường minh chứ không suy từ vị trí dòng.
 const DOT_BIEN: DotBien[] = [
   {
     ten: 'thiếu dấu | sau mã task',
@@ -189,6 +208,34 @@ const DOT_BIEN: DotBien[] = [
     ca: 'ca 4',
     code: 'VAGUE_NOTE',
     than: '// @pending FE-05 | chờ làm\nexport function probe() { return 1; }\n',
+  },
+  {
+    // Hai bước 2, một bước 1: chuỗi vẫn bắt đầu từ 1 và không có khoảng trống, nên lỗi DUY
+    // NHẤT là lỗi trùng — cô lập đúng một triệu chứng thay vì kéo theo hai lỗi khác.
+    ten: 'hai bước cùng số trong một luồng',
+    ca: 'ca 5',
+    code: 'BAD_FLOW_STEP',
+    soLoi: 2, // một lỗi cho MỖI marker trong nhóm trùng, để cả hai chỗ đều chỉ ra được
+    than:
+      '// @flow purchase:2 | validate rồi lưu lệnh PLACED\nexport function mot() { return 1; }\n\n' +
+      '// @flow purchase:2 | chốt số VNDB phải trả\nexport function hai() { return 2; }\n\n' +
+      '// @flow purchase:1 | nhận yêu cầu đặt lệnh\nexport function ba() { return 3; }\n',
+  },
+  {
+    ten: 'chuỗi bước nhảy cách',
+    ca: 'ca 5',
+    code: 'BAD_FLOW_STEP',
+    than:
+      '// @flow purchase:3 | chốt số VNDB phải trả\nexport function mot() { return 1; }\n\n' +
+      '// @flow purchase:1 | nhận yêu cầu đặt lệnh\nexport function hai() { return 2; }\n',
+  },
+  {
+    ten: 'chuỗi bước không bắt đầu từ 1',
+    ca: 'ca 5',
+    code: 'BAD_FLOW_STEP',
+    than:
+      '// @flow purchase:2 | validate rồi lưu lệnh PLACED\nexport function mot() { return 1; }\n\n' +
+      '// @flow purchase:3 | chốt số VNDB phải trả\nexport function hai() { return 2; }\n',
   },
 ];
 
@@ -243,5 +290,51 @@ describe('Phép kiểm có răng — đột biến trên repo giả', () => {
     );
     const bao = scan(root);
     expect(bao.errors.map((e) => e.code)).toContain('BAD_TASK_STATUS');
+  });
+});
+
+// ---------------------------------------------------------------------------
+//  SƠ ĐỒ LUỒNG TRONG docs/flows/ PHẢI KHỚP MARKER
+// ---------------------------------------------------------------------------
+//  Cùng một loại sai với ca 3 (marker lạc hậu), chỉ đổi chỗ: tệp sinh ra được COMMIT, nên
+//  nó lệch mã ÂM THẦM khi ai đó sửa marker rồi quên sinh lại. Không có gì đổ vỡ nên không
+//  ai phát hiện, và sơ đồ nói một đằng còn mã làm một nẻo.
+//
+//  Phép kiểm nằm ở đây thay vì thành một mục mới trong scripts/run-local-all.sh: nó cùng
+//  họ với các ca trên, và người sửa marker thấy cả hai nghĩa vụ trong một lần chạy.
+//
+//  Danh sách luồng lấy TỪ MARKER, không gõ tay: gắn thêm một luồng mới thì ca này tự phủ
+//  luôn luồng đó, không phải nhớ sửa test.
+
+describe('Sơ đồ luồng sinh ra khớp marker trong mã', () => {
+  const tenLuong = [...new Set(report.flows.map((f) => f.flow))].sort();
+
+  it('có ít nhất một luồng đã gắn marker để sơ đồ có thứ mà mô tả', () => {
+    // Chống rỗng ruột, cùng lý do như ca "phạm vi quét không rỗng": nếu chưa luồng nào gắn
+    // marker thì ca dưới chạy zero lần và xanh mà không kiểm gì.
+    expect(
+      tenLuong,
+      'chưa luồng nào có marker @flow — xem .kiro/steering/make-control.md mục 4',
+    ).not.toEqual([]);
+  });
+
+  it.each(tenLuong)('docs/flows/%s.md khớp marker hiện tại', (ten) => {
+    const kq = checkFlowDoc(report, ten);
+    expect(
+      kq.ok ? null : kq.reason,
+      '\n\n  Sơ đồ trên đĩa đã lạc hậu so với marker @flow. Sinh lại bằng\n' +
+        `  \`node scripts/gen-flow-diagram.mjs ${ten}\` rồi commit tệp sinh ra.\n` +
+        '  ĐỪNG sửa tay tệp trong docs/flows/: lần sinh sau ghi đè, và trong khoảng thời gian\n' +
+        '  trước đó thì sơ đồ nói một đằng còn mã làm một nẻo.\n',
+    ).toBeNull();
+  });
+
+  it('không tệp nào trong docs/flows/ mất gốc marker', () => {
+    expect(
+      orphanFlowDocs(report),
+      '\n\n  Tệp sơ đồ còn trên đĩa nhưng luồng tương ứng không còn marker @flow nào trong mã.\n' +
+        '  Hoặc marker bị xóa mà quên xóa tệp, hoặc tên luồng đã đổi. Xóa tệp, hoặc gắn lại\n' +
+        '  marker. Giữ nguyên là giữ một sơ đồ không còn gốc trong mã nguồn.\n',
+    ).toEqual([]);
   });
 });
