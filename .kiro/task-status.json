@@ -1,0 +1,34 @@
+{
+  "_note": "Nguồn DUY NHẤT về trạng thái task và về tập mã task hợp lệ. Kiro cập nhật trong commit cuối của mỗi task, cùng lúc với docs/tech-report.md; đồng thời dọn mọi marker @pending/@blocked đang chờ task vừa xong. Bất biến: một mã task chỉ xuất hiện ở ĐÚNG MỘT trong ba danh sách done/inProgress/planned; hợp ba danh sách là tập mã hợp lệ cho marker. Quy ước đầy đủ: .kiro/steering/make-control.md",
+  "done": [
+    "FE-01",
+    "FE-02",
+    "BE-01",
+    "BE-02",
+    "BE-08",
+    "BE-09"
+  ],
+  "inProgress": [
+    "MC-01"
+  ],
+  "planned": [
+    "AU-01",
+    "AU-02",
+    "BE-03",
+    "BE-04",
+    "BE-05",
+    "BE-06",
+    "BE-07",
+    "BE-10",
+    "BE-11",
+    "FE-04",
+    "FE-05",
+    "FE-06",
+    "FE-09",
+    "FE-10",
+    "FE-11",
+    "MC-02",
+    "SC-02",
+    "SC-03"
+  ]
+}
