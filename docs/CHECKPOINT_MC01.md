@@ -5,7 +5,7 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–2/10 xong.** Bước 3–10 chưa làm |
+| Tiến độ | **Bước 1–3/10 xong.** Bước 4–10 chưa làm |
 | Phạm vi | Không đổi hành vi hệ thống. Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -80,7 +80,27 @@ contract nào và `navRate` nối vào đâu. Bước 2 **chỉ thêm mã vào J
 việc gắn `@blocked SC-04` cho bốn method `setSettlementMode` / `isSettlementMode` /
 `setNavRate` / `navRate` thuộc Bước 3.
 
-**Bước 3–10:** _(chưa làm)_
+### Bước 3 — Chuyển marker tự do sang quy ước mới ✅
+
+Hai commit mã nguồn, chia theo **vùng**:
+
+| Commit | Nội dung |
+|---|---|
+| `4e20eae` | `refactor(mc): marker điểm chặn cho 11 method chưa nối được ở lib/ledger` — 11 `@blocked` chia **bốn** nhóm (SC-02 ×3, SC-03 ×3, BE-06 ×1, SC-04 ×4) |
+| `d1d5c13` | `refactor(mc): marker điểm cắm expireStaleOrders, dọn ghi chú lạc hậu ở lib/bank` — 1 `@pending BE-07` + 1 ghi chú nhóm D viết lại |
+| *(commit này)* | `docs(mc): chốt số đo Bước 3 và bảng điểm cắm vào checkpoint` |
+
+Tệp sửa — **ba** tệp, và **chỉ bình luận**:
+
+| Tệp | Sửa gì |
+|---|---|
+| `app/src/lib/ledger/evm.adapter.ts` | 11 marker `@blocked`; khối chú thích đầu tệp thôi liệt kê mã task |
+| `app/src/lib/bank/purchase.service.ts` | 1 marker `@pending BE-07` trên `expireStaleOrders` |
+| `app/src/lib/bank/portfolio.service.ts` | Viết lại ghi chú lạc hậu trong `PortfolioView` (nhóm D) |
+
+**Điều bất ngờ nhất của Bước 3: số chỗ phải gắn marker ít hơn nhiều so với mọi con số
+trong tài liệu.** Spec nói 33 tệp, Bước 1 đo 43 tệp / 115 dòng, thực tế phải gắn marker
+**13 chỗ trên 2 tệp**. Số đo và cách phân loại ở mục 10, SL-3.
 
 ---
 
@@ -95,7 +115,11 @@ việc gắn `@blocked SC-04` cho bốn method `setSettlementMode` / `isSettleme
 | 2.2 | `--check` khác 0 **chỉ khi** marker sai định dạng, mã task không tồn tại, hoặc chờ task đã `done`; còn điểm cắm là bình thường | ✅ | Đo thật: repo lành → `exit=0` (mục 3.4). Đột biến → `exit=1` và liệt kê đủ loại lỗi (mục 5) |
 | 2.3 | Cắm vào `run-local-all.sh`: chạy `--check`, in bảng ở tổng kết | ✅ | Mục `LỚP 3 - ĐIỂM CẮM (marker)` vào `PASSED`/`FAILED`; bảng in ở TỔNG KẾT, **không** ảnh hưởng mã thoát |
 | 2.4 | Chạy thử trên `dev` hiện tại, xác nhận script đọc được marker đang có hoặc báo đúng là sai định dạng | ✅ | Repo hiện **0 marker** đúng cú pháp và **0 marker** sai cú pháp — bảng rỗng tử tế, không nổ lỗi (mục 3.4). Khả năng nhận dạng chứng minh bằng đột biến |
-| 3.x | Chuyển marker tự do sang quy ước mới | ⬜ | _(chờ Bước 3)_ |
+| 3.1 | Rà các tệp đang có bình luận nhắc task khác | ✅ | Đo lại từng **dòng**, không tin con số 33 hay 43. Phân loại A/B/C/D + một nhóm thứ năm mà tài liệu giao việc không lường: mục 10, SL-3 |
+| 3.2 | Chuyển sang `@pending` nếu code chạy được, `@blocked` nếu chưa | ✅ | 1 `@pending` (nhóm A) + 11 `@blocked` (nhóm B). Bảng ở mục 3.4. `expireStaleOrders` chạy được và **có test phủ** nên là `@pending`, không phải `@blocked` |
+| 3.3 | Bỏ marker không còn đúng, ví dụ nhắc task đã hoàn thành | ✅ | 1 chỗ nhóm D: `portfolio.service.ts` khẳng định `ILedgerPort` thiếu `paymentBalanceOf` — **sai**, method có từ BE-01. Chi tiết ở mục 10, SL-3 |
+| 3.4 | Giữ nguyên nội dung `LedgerNotImplementedError` | ✅ | Chứng minh bằng phép kiểm "không đổi mã thực thi" ở mục 3.5, phép kiểm 3: diff **rỗng** |
+| 3.5 | Chạy `scan-pending.mjs`, bảng ra đúng, không còn marker sai định dạng | ✅ | Mục 3.4 (bảng) và 3.5 (`exit=0`, 7 PASS / 0 FAIL) |
 | 4.x | Test chống marker lạc hậu | ⬜ | _(chờ Bước 4)_ |
 | 5.x | Phân loại 27 export | ⬜ | _(chờ Bước 5)_ |
 | 6.x | Hợp nhất nguồn giá phát hành | ⬜ | _(chờ Bước 6)_ |
@@ -237,32 +261,66 @@ Lần chạy này cũng chứng minh việc `import` module **không** kích ho�
 
 ### 3.4 Bảng điểm cắm mà script in ra
 
-Bảng **rỗng**, và rỗng là **đúng** ở thời điểm này: Bước 2 chỉ dựng công cụ, việc gắn marker
-vào mã nguồn thật là Bước 3 (chuyển 33 chỗ bình luận tự do) và Bước 9 (`@flow` luồng mua WPT).
-Ràng buộc của Bước 2 nói rõ **không** được gắn marker vào tệp mã nguồn.
+Bảng sau Bước 3 — **dán nguyên văn**, đây là thứ Supervisor đọc đầu tiên. `[cắm]` = code đã
+chạy được, chờ người gọi. `[chặn]` = code đang ném lỗi, chờ phụ thuộc xong trước.
 
 ```
 $ node scripts/scan-pending.mjs
+ĐIỂM CẮM ĐANG CHỜ
+
+BE-06  (1 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:520  thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy
+
+BE-07  (1 điểm cắm)
+  [cắm]   app/src/lib/bank/purchase.service.ts:543  đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch
+
+SC-02  (3 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:375  thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu"
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:381  thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:392  thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ
+
+SC-03  (3 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:401  thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:419  thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:425  thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch
+
+SC-04  (4 điểm chặn)
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:538  thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:544  thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:549  thiếu quyết định giá NAV có phải `Redemption.rate` hay không
+  [chặn]  app/src/lib/ledger/evm.adapter.ts:555  thiếu quyết định giá NAV có phải `Redemption.rate` hay không
+
+LUỒNG NGHIỆP VỤ (marker @flow)
+
+  Chưa có marker @flow nào. Sơ đồ luồng sinh từ marker, chưa gắn thì chưa sinh được.
+
+Tổng: 1 điểm cắm · 11 điểm chặn · 0 bước luồng
+```
+
+Bảng `@flow` còn rỗng là **đúng**: gắn `@flow` là Bước 9, và Bước 3 bị cấm gắn.
+
+`--check` vẫn **mã thoát 0** sau khi thêm 12 marker. Đây là phép kiểm quan trọng nhất của
+Bước 3 theo hướng ngược: **còn điểm cắm là bình thường, không được làm đỏ**. Nếu chỗ này đỏ
+thì cả cơ chế sẽ bị người sau vô hiệu hoá cho xanh, và bảng điểm cắm mất luôn giá trị.
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 1 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
+exit=0
+```
+
+Hai khối dưới đây giữ từ Bước 2, khi bảng còn rỗng — để thấy script không nổ lỗi ở cả hai
+đầu (không có marker nào, và có 12 marker).
+
+```
+$ node scripts/scan-pending.mjs        # bản Bước 2
 ĐIỂM CẮM ĐANG CHỜ
 
   Chưa có điểm cắm nào: không có marker @pending / @blocked nào trong phạm vi quét.
   Đây là trạng thái bình thường, không phải lỗi — còn hay hết điểm cắm đều
   không làm `--check` đỏ. Quy ước: .kiro/steering/make-control.md
 
-LUỒNG NGHIỆP VỤ (marker @flow)
-
-  Chưa có marker @flow nào. Sơ đồ luồng sinh từ marker, chưa gắn thì chưa sinh được.
-
 Tổng: 0 điểm cắm · 0 điểm chặn · 0 bước luồng
-```
-
-`--check` trên repo lành: **mã thoát 0**. Đây là điểm dễ làm sai nhất của Bước 2 — script
-không được đỏ chỉ vì "còn/chưa có điểm cắm".
-
-```
-$ node scripts/scan-pending.mjs --check; echo "exit=$?"
-Marker hợp lệ: 0 điểm cắm, 0 điểm chặn, 0 bước luồng. Không có lỗi.
-exit=0
 ```
 
 `--json` chỉ in JSON ra stdout, không lẫn thứ gì khác (test và script sinh tài liệu đọc stdout):
@@ -271,42 +329,48 @@ exit=0
 $ node scripts/scan-pending.mjs --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{JSON.parse(s);console.log('JSON hợp lệ')})"
 JSON hợp lệ
 
-$ node scripts/scan-pending.mjs --json
+$ node scripts/scan-pending.mjs --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);console.log(JSON.stringify({byTask:r.byTask,summary:r.summary},null,2))})"
 {
-  "markers": [],
-  "flows": [],
-  "byTask": {},
-  "errors": [],
+  "byTask": {
+    "BE-06": 1,
+    "BE-07": 1,
+    "SC-02": 3,
+    "SC-03": 3,
+    "SC-04": 4
+  },
   "summary": {
-    "pending": 0,
-    "blocked": 0,
+    "pending": 1,
+    "blocked": 11,
     "flows": 0,
     "errors": 0
   }
 }
 ```
 
-Hình dạng bảng khi **có** marker — chụp từ lần chạy đột biến ở mục 5, để Supervisor thấy trước
-định dạng mà Bước 3 sẽ sinh ra:
+`byTask` là thứ Bước 10 sẽ đọc để sinh mục điểm cắm trong `tech-report.md`, không gõ tay.
+
+### 3.5 Bốn phép kiểm chứng của Bước 3
+
+#### Phép kiểm 3 — chứng minh **không đổi hành vi**
+
+Đây là phép kiểm quan trọng nhất của Bước 3, vì ràng buộc của bước này là *chỉ sửa bình
+luận*. Lệnh lọc mọi dòng thêm/bớt trong `app/src` và `packages` **không** bắt đầu bằng dấu
+mở chú thích; còn lại dòng nào thì dòng đó là mã thực thi bị sửa.
 
 ```
-ĐIỂM CẮM ĐANG CHỜ
-
-FE-05  (1 điểm cắm)
-  [cắm]   app/src/lib/__scan-probe.ts:3  marker ĐÚNG: probeOk đã sẵn, chờ màn hình mua WPT gọi vào
-
-LUỒNG NGHIỆP VỤ (marker @flow)
-
-purchase  (1 bước)
-   2  app/src/lib/__scan-probe.ts:23  luồng không có bước 1, phải báo BAD_FLOW_STEP  ::probeFlowGap
-
-Tổng: 1 điểm cắm · 0 điểm chặn · 1 bước luồng
-Có 9 lỗi marker. Chạy `node scripts/scan-pending.mjs --check` để xem chi tiết.
+$ git diff -U0 a1ab71e..HEAD -- 'app/src' 'packages' | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:space:]]*(//|/\*|\*|#)'
+(rỗng)
 ```
 
-### 3.5 `bash scripts/run-local-all.sh` — 7 PASS, 0 FAIL
+**Rỗng.** Không một dòng mã thực thi nào bị đổi, nên `pendingContract(...)` và nội dung
+`LedgerNotImplementedError` giữ nguyên từng ký tự — đúng DoD 3.4.
 
-Chạy đầy đủ sau khi cắm mục điểm cắm vào. Mã thoát `0`.
+Phép kiểm này cũng là **lý do một chỗ nhóm D KHÔNG được sửa**, xem SL-3 mục "Ba chỗ cùng nói
+một điều đã sai".
+
+#### Phép kiểm 4 — `bash scripts/run-local-all.sh` — 7 PASS, 0 FAIL
+
+Mã thoát `0`. Giống Bước 2 từng mục, chỉ khác dòng đếm marker.
 
 ```
 ########## LỚP 3 - 3 LUẬT KIẾN TRÚC + CẤU TRÚC REPO ##########
@@ -317,7 +381,7 @@ TỔNG KẾT
   => PASS có cảnh báo: luật kiến trúc
 
 ########## LỚP 3 - ĐIỂM CẮM (marker) ##########
-Marker hợp lệ: 0 điểm cắm, 0 điểm chặn, 0 bước luồng. Không có lỗi.
+Marker hợp lệ: 1 điểm cắm, 11 điểm chặn, 0 bước luồng. Không có lỗi.
   => PASS: LỚP 3 - ĐIỂM CẮM (marker)
 
 ########## LỚP 1 - SPEC TEST CONTRACT EVM ##########
@@ -351,25 +415,24 @@ Marker hợp lệ: 0 điểm cắm, 0 điểm chặn, 0 bước luồng. Không 
     PASS  APP - VITEST
   Không đạt: 0
 
-ĐIỂM CẮM ĐANG CHỜ
+(bảng điểm cắm 12 dòng như mục 3.4 — run-local-all in lại ở đây)
 
-  Chưa có điểm cắm nào: không có marker @pending / @blocked nào trong phạm vi quét.
-  Đây là trạng thái bình thường, không phải lỗi — còn hay hết điểm cắm đều
-  không làm `--check` đỏ. Quy ước: .kiro/steering/make-control.md
-
-LUỒNG NGHIỆP VỤ (marker @flow)
-
-  Chưa có marker @flow nào. Sơ đồ luồng sinh từ marker, chưa gắn thì chưa sinh được.
-
-Tổng: 0 điểm cắm · 0 điểm chặn · 0 bước luồng
-
-  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.
+\n  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet.
 ```
 
 Không có mục nào FAIL, nên không có mục nào phải báo lại Supervisor. Sáu `WARN` của lớp 3 là
-trạng thái nền của `dev`, không do Bước 2 gây ra (`process.env` ở `signer/index.ts`, địa chỉ ví
-mẫu trong placeholder màn mint, `BASE_REF` chưa đặt, ba spec Stellar chưa tới lượt). Cảnh báo
-lint duy nhất ở `app/src/empty.ts` là món thuộc Bước 7.
+trạng thái nền của `dev`, không do Bước 2 hay Bước 3 gây ra (`process.env` ở
+`signer/index.ts`, địa chỉ ví mẫu trong placeholder màn mint, `BASE_REF` chưa đặt, ba spec
+Stellar chưa tới lượt). Cảnh báo lint duy nhất ở `app/src/empty.ts` là món thuộc Bước 7.
+
+272 test vitest / 11 tệp, 13 test hardhat, 47 test cargo — **y nguyên** con số của Bước 2.
+Không sửa test nào, không thêm test nào (Bước 4 mới làm việc đó).
+
+Chuỗi `\n` in ra nguyên văn ở dòng cuối là **lỗi sẵn có trên `dev`**, không phải do Bước 3:
+`scripts/run-local-all.sh:103` gọi `c_grn "\n  => ĐẠT..."` mà `c_grn` dùng
+`printf '%s'` nên `\n` không được hiểu là dòng mới. Đã kiểm `git show 71932bb:scripts/run-local-all.sh`
+cũng có nguyên dòng đó. **Không sửa ở Bước 3** vì bước này chỉ được sửa bình luận; ghi ở
+SL-5 để bước nào chạm tới script thì sửa.
 
 **Lưu ý về dương tính giả đã bắt được ngay trong Bước 2:** lần chạy `run-local-all.sh` **đầu
 tiên** báo `FAIL LỚP 3 - ĐIỂM CẮM (marker)` với 2 lỗi `BAD_SYNTAX` — xem SL-4 ở mục 10. Đã sửa
@@ -566,9 +629,13 @@ nhóm này, không gắn `@blocked SC-02` cho cả 11.
 Bài học `lessons.md` đã lường đúng tình huống này: "Tin số dòng/số chỗ trong tài liệu giao việc
 mà không đo lại → SAI. Luôn `git grep` đếm lại trước khi lập kế hoạch."
 
-### SL-3 — Số tệp có bình luận nhắc task khác là **43**, không phải 33
+### SL-3 — CHỐT Ở BƯỚC 3: cả **33** và **43** đều sai, số thật là **13 chỗ trên 2 tệp**
 
-`requirements.md` mục 2 và `tasks.md` 3.1 nói "rải rác **33 tệp**". Đo thật:
+`requirements.md` mục 2 và `tasks.md` 3.1 nói "rải rác **33 tệp**". Bước 1 đo ra 43 tệp / 115
+dòng. Bước 3 đo lại và phân loại **từng dòng** thì cả ba con số đều không dùng được để lập kế
+hoạch, vì cả ba đếm **mọi** lần nhắc mã task trong mã nguồn.
+
+#### Số đo cuối
 
 ```
 $ git grep -l -E '(FE|BE|SC|AU|MC)-[0-9][0-9]' -- app/src app/test app/e2e packages | wc -l
@@ -577,10 +644,121 @@ $ git grep -n -E '(FE|BE|SC|AU|MC)-[0-9][0-9]' -- app/src app/test app/e2e packa
 115
 ```
 
-Chưa kết luận đây là sai lệch của spec: phép đếm 43 bắt **mọi** lần nhắc mã task, kể cả câu văn
-giải thích thiết kế ("theo BE-01 design QĐ-1") vốn **không phải** marker điểm cắm và **không nên**
-đổi thành `@pending`. Con số 33 có thể là số tệp thật sự chứa marker. **Bước 3 phải đo lại và phân
-loại từng chỗ**, ghi con số cuối vào mục này, không dùng bừa 33 hay 43.
+115 dòng đó tách làm hai trước khi phân loại được:
+
+| | Dòng | Tệp |
+|---|---|---|
+| Dòng **bình luận** | **91** | 38 |
+| Dòng **không phải bình luận** (chuỗi trong mã, chữ hiển thị trên giao diện, tên test) | **24** | 9 |
+
+Rồi 91 dòng bình luận chia bốn nhóm:
+
+| Nhóm | Ý nghĩa | Dòng | Xử lý ở Bước 3 |
+|---|---|---|---|
+| **A. Điểm cắm** | code chạy được, chưa ai gọi | **1** | `@pending BE-07` trên `expireStaleOrders` |
+| **B. Điểm chặn** | code đang ném lỗi | **5** | Chuyển thành `@blocked`; cộng 6 method không có bình luận riêng → **11 marker** |
+| **C. Văn giải thích** | nói *vì sao code hiện tại như thế này* | **84** | **GIỮ NGUYÊN**, không gắn marker |
+| **D. Lạc hậu** | nhắc task đã `done` như thể còn phải làm | **1** | Viết lại cho đúng hiện trạng |
+
+Tổng marker gắn được: **12** (1 `@pending` + 11 `@blocked`) trên **2 tệp**, cộng **1** chỗ nhóm
+D viết lại = **13 chỗ sửa**. So với 115: **79 %** số dòng nhắc mã task là văn giải thích phải
+giữ nguyên.
+
+#### 33 và 43 sai ở đâu
+
+Cả hai con số **đếm sai đơn vị**. Chúng đếm "tệp có nhắc mã task", còn việc cần làm là "chỗ
+phải gắn marker" — hai tập gần như không giao nhau. Ví dụ ba dòng dưới đây đều bị cả hai phép
+đếm bắt, và cả ba **không được** thành marker:
+
+```
+app/src/lib/store/memory.order.store.ts:17   ⚠️ Bản này phải NGHIÊM NGẶT NGANG bản Postgres (BE-09 QĐ-3)
+app/src/lib/ledger/ledger.port.ts:32         Kết quả kiểm tra trước khi gửi giao dịch (BE-01 R3).
+app/test/rbac.test.ts:137                    Bảng quyền hiện có TRƯỚC BE-08, chép từ `git show dev:...`
+```
+
+Biến chúng thành `@pending` thì được một bảng điểm cắm 91 dòng mà **không dòng nào là việc phải
+làm** — và vì BE-01 / BE-08 / BE-09 đã `done`, `--check` sẽ báo `STALE_TASK` và đỏ ngay lập tức.
+Tức là gắn sai không chỉ vô ích, nó còn làm đỏ phép kiểm và buộc người sau tháo cơ chế ra.
+
+Nguyên tắc phân biệt đã dùng, đúng theo steering mục 3: **marker trả lời "ai phải làm gì
+tiếp"; văn giải thích trả lời "vì sao code hiện tại như thế này"**. Câu "theo BE-09 QĐ-3" là
+loại thứ hai — nó dẫn nguồn một quyết định đã chốt, không giao việc cho ai.
+
+Phép đếm 33 / 43 / 115 vì vậy **không phải phép đo của Bước 3** mà chỉ là danh sách chỗ cần
+đọc. Số đáng theo dõi về sau là số marker trong bảng của `scan-pending.mjs`, và số đó máy đếm.
+
+#### Nhóm thứ năm mà tài liệu giao việc không lường: 24 dòng KHÔNG phải bình luận
+
+Đây là phát hiện có hệ quả thật, vì nó **giao với ràng buộc "chỉ sửa bình luận"**:
+
+| Dạng | Số dòng | Ví dụ | Vì sao không chạm |
+|---|---|---|---|
+| Chuỗi tham số trong mã | 13 | `pendingContract('spvWallet', 'hợp đồng phát hành một lần (SC-02)')` · `todoNeeds(...)` ở `stellar.adapter.ts` | Là **mã thực thi**. Sửa là đổi thông báo lỗi — DoD 3.4 cấm, và có test kiểm nội dung đó |
+| Tên `describe` / `it` | 8 | `it('sáu bảng BE-09 đều được tạo', ...)` | Là **tên test**. Sửa test đang xanh bị cấm tuyệt đối |
+| Dòng GIỮA khối `{/* ... */}` | 2 | `header.tsx:79` · `wallet-status-card.tsx:109` | **Là bình luận thật**, nhưng dòng bắt đầu bằng chữ chứ không bằng `*`. Xem đoạn dưới |
+| Chữ hiển thị cho người dùng | 1 | `asset-summary.tsx:148` | Là **kết xuất**, sửa là đổi giao diện |
+
+Hai dòng dạng thứ ba đáng nói riêng, vì chúng là **điểm mù thật** chứ không phải lỗi phân loại.
+Bình luận JSX viết thế này:
+
+```tsx
+{/*
+  Số dư WPT và VNDB không hiển thị ở đây: hai thứ đó là số dư hợp đồng, phải đi qua
+  `ILedgerPort` và thuộc FE-04. Xem ở trang Tổng quan.
+*/}
+```
+
+Dòng giữa không có tiền tố `*` nào. Hệ quả kép:
+
+1. **`scan-pending.mjs` không nhận marker ở đó** — cú pháp đòi marker đứng ngay sau dấu mở chú
+   thích (SL-4), mà dòng giữa khối JSX không có dấu mở nào. Muốn gắn marker trong JSX thì phải
+   viết `{/* @pending FE-05 | ... */}` **trên một dòng**.
+2. **Sửa dòng giữa làm phép kiểm "không đổi mã thực thi" mất tác dụng** — bộ lọc ở mục 3.5 chỉ
+   tha dòng bắt đầu bằng `//` `/*` `*` `#`, nên một sửa đổi bình luận hợp lệ sẽ hiện ra y như
+   một sửa đổi mã.
+
+Cả hai dòng này đều thuộc nhóm C (văn giải thích) nên Bước 3 không phải chạm tới, tức giới hạn
+trên chưa gây thiệt hại. Nhưng nó có thật, và Bước 9 sẽ gặp nếu muốn gắn `@flow` cho thành phần
+giao diện — ghi ở Q3.
+
+Hệ quả cụ thể lên `stellar.adapter.ts`: tệp đó có 6 dòng nhắc SC-02/SC-03, **tất cả nằm trong
+chuỗi tham số**, và toàn bộ ~25 method của nó đều ném lỗi. Nhưng chúng bị chặn bởi **Phase 7
+(Stellar)** chứ không bởi SC-02/SC-03 — xong SC-02 cũng không nối được gì ở đây vì chưa có SDK
+Soroban. Gắn `@blocked SC-02` vào đó là nói sai thứ đang thiếu. Bước 3 **không gắn marker nào**
+cho `stellar.adapter.ts`; nếu muốn theo dõi thì phải có mã task cho Phase 7 trước — ghi ở Q3.
+
+#### Nhóm D: bốn chỗ cùng nói một điều đã sai, chỉ sửa được một
+
+Ghi chú ở `portfolio.service.ts` khẳng định `ILedgerPort` **chưa có** phương thức đọc số dư
+token thanh toán, và gọi đó là "nợ chờ BE-01". Cả hai vế đều sai:
+
+```
+$ git grep -n 'paymentBalanceOf' -- app/src/lib/ledger/ledger.port.ts
+117:  paymentBalanceOf(wallet: string): Promise<bigint>;
+$ git log --oneline -S'paymentBalanceOf' -- app/src/lib/ledger/ledger.port.ts
+bac0da3 refactor(ledger): tách ILedgerPort theo nghiệp vụ và thêm chữ ký cho ba luồng
+$ git grep -n 'paymentBalanceOf' -- app/src/lib/bank
+app/src/lib/bank/purchase.service.ts:184:  const paymentBalance = await ledger.paymentBalanceOf(order.investorWallet);
+```
+
+Method có từ BE-01 (`bac0da3`) và `purchase.service` đang dùng nó. Đã viết lại ghi chú cho đúng
+hiện trạng và trỏ sang **FE-04** — task thật sự sẽ hiển thị số dư.
+
+**Không gắn marker cho chỗ này.** Ở đây không có mã nào chạy được mà chờ người gọi; thiếu một
+**trường** trong `PortfolioView`. `@pending FE-04` sẽ nói "đã sẵn, chỉ cần gọi" — sai.
+
+Cùng lời khẳng định sai đó còn ở **ba** chỗ nữa, và **cả ba không sửa được trong Bước 3**:
+
+| Chỗ | Dạng | Vì sao không sửa |
+|---|---|---|
+| `asset-summary.tsx:141-143` | bình luận JSX `{/* ... */}` | Dòng bên trong bắt đầu bằng **chữ**, không bằng `*`. Sửa nó thì phép kiểm "không đổi mã thực thi" ở mục 3.5 sẽ **báo có thay đổi** và mất luôn giá trị làm bằng chứng. (Khối này còn không nhắc mã task nào nên nằm ngoài cả 115 dòng đã đo) |
+| `asset-summary.tsx:147-148` | chữ hiển thị cho người dùng | Sửa là đổi giao diện |
+| `portfolio-service.test.ts:118` | tên test `it('... (chờ BE-01) ...')` | Sửa test đang xanh bị cấm |
+
+Ghi lại làm nợ: khi FE-04 nối số dư VNDB thì phải sửa **cả ba** chỗ đó cùng lúc với
+`portfolio.service.ts`. Đây cũng là một giới hạn thật của cơ chế marker: nó chỉ thấy bình luận
+theo dạng `//` / `/* */`, còn khẳng định lạc hậu nằm trong chữ hiển thị và tên test thì không
+công cụ nào trong MC-01 bắt được.
 
 ### SL-4 — Cắm script vào `run-local-all.sh` làm chính `run-local-all.sh` báo đỏ
 
@@ -644,12 +822,99 @@ $ git grep -nE '@(pending|blocked|flow|waiting|todo)' -- app/src app/test app/e2
 (rỗng, exit 1)
 ```
 
+### SL-5 — `run-local-all.sh` in ra chuỗi `\n` nguyên văn ở dòng cuối (lỗi sẵn có trên `dev`)
+
+Thấy khi dán output đầy đủ ở mục 3.5. Dòng kết luận hiện ra là `\n  => ĐẠT toàn bộ kiểm chứng
+cục bộ.` với hai ký tự `\` và `n` in thật.
+
+Nguyên nhân: `c_grn` dùng `printf '%s'` nên chuỗi `\n` trong **tham số** không được hiểu là dòng
+mới.
+
+```
+$ grep -n 'c_grn()' scripts/run-local-all.sh
+25:c_grn() { printf '\033[32m%s\033[0m\n' "$1"; }
+$ grep -n 'ĐẠT toàn bộ kiểm chứng' scripts/run-local-all.sh
+103:c_grn "\n  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet."
+```
+
+Có sẵn trên `dev`, không do Bước 2 hay Bước 3:
+
+```
+$ git show 71932bb:scripts/run-local-all.sh | grep -n 'ĐẠT toàn bộ kiểm chứng'
+88:c_grn "\n  => ĐẠT toàn bộ kiểm chứng cục bộ. Bước tiếp: nghiệm thu DoD trên testnet."
+```
+
+**Không sửa ở Bước 3**, vì bước này chỉ được sửa bình luận — sửa script là đổi hành vi và sẽ
+phá phép kiểm 3. Chỉ là thẩm mỹ, không ảnh hưởng mã thoát. Cách sửa khi có bước nào chạm tới:
+bỏ `\n` khỏi tham số và gọi `printf '\n'` riêng, hoặc thêm một `echo` rỗng phía trên.
+
 ---
 
 ## 11. Câu hỏi mở
 
 > **Q1 và Q2 đã được Owner chốt ở Bước 2.** Quyết định và cách thi hành ghi ngay dưới mỗi câu.
-> Chưa có câu hỏi mở mới.
+> **Q3 và Q4 mở ở Bước 3.**
+
+### Q3 — Ba chỗ phân loại 50/50, đã để nhóm C, xin xác nhận
+
+Theo chỉ dẫn "không chắc thì để nguyên nhóm C, bỏ sót thì Bước sau thêm được, gắn sai thì không
+ai phát hiện". Ba chỗ dưới đây tôi thấy có thể tranh luận được cả hai chiều. Không chỗ nào chặn
+Bước 4; nếu Supervisor thấy nên gắn thì Bước 5 thêm vào là đủ.
+
+**(a) `nav-config.ts:76` — ba mục nav `disabled` chờ FE-05 / FE-09 / FE-11**
+
+```ts
+/**
+ * Kênh nhà đầu tư. Ba mục cuối chưa có nghiệp vụ nên để `disabled`:
+ * `/purchase` chờ FE-05, `/earnings` chờ FE-09, `/settlement` chờ FE-11.
+ */
+export const INVESTOR_NAV: NavSection = { ... };
+```
+
+- **Cách hiểu 1 (điểm cắm):** nó trả lời đúng câu "ai phải làm gì tiếp" — FE-05 chỉ cần bỏ
+  `disabled: true` và thêm trang. Gắn marker thì `--check` sẽ tự buộc dọn khi FE-05 xong.
+- **Cách hiểu 2 (văn giải thích — đã chọn):** `@pending` theo steering mục 1 là "code ĐÃ CHẠY
+  ĐƯỢC, chỉ **chưa ai gọi**". `INVESTOR_NAV` đang được gọi và đang kết xuất thật, chỉ ở trạng
+  thái mờ. Nó không phải mã trông như rác mà người sau dễ xóa — tức không phải vấn đề mà cơ chế
+  này dựng ra để giải.
+- Còn một trở ngại kỹ thuật: một dòng chỉ mang **một** marker, mà chỗ này chờ **ba** task; đặt
+  ba marker chồng nhau trên một `const` thì chỉ marker cuối là "ngay trên khai báo".
+
+**(b) `wrong-chain-banner.tsx:26` và `use-wallet-status.ts:45` — hạ tầng dựng sẵn cho FE-05/09/11**
+
+Bình luận nói rõ thành phần được tách riêng để ba màn hình sau dùng lại. Nhưng đo thật thì cả
+hai **đang được gọi**: `WrongChainBanner` dùng ở `wallet-connect.tsx:72,83`, `useWalletStatus`
+dùng ở `wallet-connect.tsx:31`. Đã chạy và đã có người gọi thì không phải điểm cắm. Để nhóm C.
+
+**(c) `stellar.adapter.ts` — ~25 method đều ném lỗi, không có mã task nào đúng nghĩa**
+
+Toàn bộ adapter là stub Phase 7. Sáu dòng nhắc SC-02/SC-03 đều nằm trong **chuỗi tham số**
+(không phải bình luận), và bản thân SC-02/SC-03 **không** mở khoá được gì ở đây — còn thiếu SDK
+Soroban. Đây đúng tình huống Q1 của Bước 2 (chặn vì một việc chưa có mã task), và cách xử lý đã
+chốt lúc đó là **mở một mã task mới**. Bước 3 không tự làm việc đó: mở mã task là quyết định của
+Owner, và Stellar thuộc `non-goals` của giai đoạn đầu theo `product.md`.
+
+Đề xuất: **để nguyên, không marker.** Nếu Owner muốn theo dõi thì thêm một mã cho Phase 7
+(ví dụ `SC-05` = *adapter Soroban*) rồi Bước 5 gắn một marker duy nhất cho cả adapter.
+
+### Q4 — Bình luận JSX không gắn được marker ở dòng giữa khối; có cần nới cú pháp?
+
+Chi tiết và bằng chứng ở SL-3, mục "Nhóm thứ năm". Tóm lại: `{/* ... */}` nhiều dòng có dòng
+giữa bắt đầu bằng **chữ**, nên (1) `scan-pending.mjs` không nhận marker ở đó, và (2) sửa dòng
+đó làm phép kiểm "không đổi mã thực thi" báo dương tính giả.
+
+Chưa gây thiệt hại: cả hai dòng như vậy trong repo đều thuộc nhóm C. Nhưng Bước 9 sẽ gặp nếu
+muốn gắn `@flow` cho thành phần giao diện.
+
+Hai hướng, **chưa tự chọn**:
+
+- **(a) Không đổi gì.** Quy ước là: marker trong JSX phải viết gọn một dòng
+  `{/* @pending FE-05 | ... */}`. Giữ cú pháp chặt, đổi cách viết.
+- **(b) Nới `COMMENT_OPEN`** để nhận cả dòng giữa khối JSX. Rủi ro: mất đúng cái điều kiện vị
+  trí mà SL-4 vừa dựng lên để loại dương tính giả — câu văn nhắc tên từ khóa trong JSX sẽ bị
+  báo `BAD_SYNTAX`.
+
+**Đề xuất (a).** Nó không nới lỏng phép kiểm nào, và một marker một dòng thì vẫn đọc được.
 
 ### Q1 — Bốn method tất toán chặn vì một **quyết định**, không vì một task. Ghi marker thế nào?
 
@@ -713,6 +978,37 @@ $ git check-ignore -v .kiro/specs/mc-01-make-control/tasks.meta.json
 ---
 
 ## 12. Tự đánh giá 3 LUẬT kiến trúc
+
+### Bước 3
+
+Bước đầu tiên **chạm tệp mã nguồn**, nên đánh giá ở đây là đánh giá thật chứ không phải hình
+thức. Ba tệp bị sửa, và **chỉ bình luận** — chứng minh bằng diff rỗng ở mục 3.5, phép kiểm 3.
+
+```
+$ git diff --name-only a1ab71e..HEAD
+.kiro/specs/mc-01-make-control/tasks.md
+app/src/lib/bank/portfolio.service.ts
+app/src/lib/bank/purchase.service.ts
+app/src/lib/ledger/evm.adapter.ts
+docs/CHECKPOINT_MC01.md
+```
+
+Ba tệp mã nguồn, còn lại là tài liệu và trạng thái spec.
+
+- [x] **LUẬT #1** mọi tương tác chain qua `ILedgerPort` — không đổi. `evm.adapter.ts` vẫn là
+      adapter đứng sau cổng; không thêm/bớt method, không đổi thân method nào. `verify-arch-rules.sh`
+      vẫn 20 PASS / 0 FAIL.
+- [x] **LUẬT #2** mọi ký qua `ISigner` — không chạm `lib/signer`.
+- [x] **LUẬT #3** mọi kiểm quyền qua RBAC — không chạm `lib/rbac`. Marker `@pending BE-07` **nhắc**
+      quyền `order:expire` trong phần mô tả, nhưng đó là chữ trong bình luận; phép kiểm quyền vẫn
+      nằm nguyên trong `expireStaleOrders` qua `authorize()`.
+
+Không sửa test nào đang xanh: 272 test vitest, 13 test hardhat, 47 test cargo giữ nguyên số và
+vẫn xanh (mục 3.5). Không thêm test — Bước 4 mới làm.
+
+Một điều đáng nói về DoD 3.4 (*giữ nguyên thông báo lỗi*): nó **không** được kiểm bằng cách đọc
+lại bằng mắt mà bằng bộ lọc diff ở mục 3.5. Đọc mắt thì bỏ sót được, còn bộ lọc thì hoặc rỗng
+hoặc không.
 
 ### Bước 2
 
