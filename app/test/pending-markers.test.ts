@@ -118,13 +118,6 @@ describe('Marker điểm cắm trong repo thật', () => {
     ).toEqual([]);
   });
 
-  it('còn điểm cắm là bình thường, không phải lỗi', () => {
-    // Phép kiểm ngược, chốt lại điều steering nhấn mạnh: điểm cắm là TRẠNG THÁI CÔNG
-    // VIỆC, không phải lỗi. Đừng bao giờ thêm phép kiểm "số điểm cắm phải giảm" —
-    // người sau sẽ xóa marker cho xanh thay vì làm xong việc.
-    expect(report.summary.errors).toBe(0);
-    expect(report.summary.pending + report.summary.blocked).toBeGreaterThanOrEqual(0);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -147,7 +140,7 @@ const TRANG_THAI_GIA = JSON.stringify({
  * Repo giả: `.kiro/task-status.json` + một tệp mã trong phạm vi quét.
  * Không chạm repo thật, nên đột biến không thể lọt vào commit.
  */
-function repoGia(noiDung: string, trangThai = TRANG_THAI_GIA): string {
+function repoGia(noiDung: string, trangThai: string = TRANG_THAI_GIA): string {
   const root = mkdtempSync(path.join(tmpdir(), 'mc01-marker-'));
   daTao.push(root);
   for (const [rel, text] of Object.entries({
@@ -208,6 +201,25 @@ describe('Phép kiểm có răng — đột biến trên repo giả', () => {
     expect(bao.markers.map((m) => ({ kind: m.kind, task: m.task, symbol: m.symbol }))).toEqual([
       { kind: 'pending', task: 'FE-05', symbol: 'probe' },
     ]);
+  });
+
+  it('nhiều điểm cắm cũng không phải lỗi', () => {
+    // Chốt lại điều steering nhấn mạnh: điểm cắm là TRẠNG THÁI CÔNG VIỆC, không phải
+    // lỗi. Kiểm trên repo giả chứ không trên repo thật, vì trên repo thật thì khẳng
+    // định "không có lỗi" chỉ lặp lại bốn ca ở tầng 1 dưới một cái tên nói sai việc
+    // nó làm — đột biến ca 3 sẽ kéo nó đỏ theo với thông báo vô dụng.
+    const root = repoGia(
+      `// @pending FE-05 | ${MO_TA_DU}\nexport function mot() { return 1; }\n\n` +
+        `// @blocked SC-02 | thiếu hợp đồng phát hành một lần, chưa contract nào giữ cờ\n` +
+        `export function hai() { return 2; }\n\n` +
+        `// @pending FE-05 | đã sẵn quy đổi VNDB sang WPT theo giá phát hành\n` +
+        `export function ba() { return 3; }\n`,
+      JSON.stringify({ done: ['BE-02'], inProgress: ['MC-01'], planned: ['FE-05', 'SC-02'] }),
+    );
+    const bao = scan(root);
+    expect(bao.errors, 'nhiều marker hợp lệ mà vẫn đỏ thì người sau sẽ xóa marker cho xanh').toEqual([]);
+    expect(bao.byTask).toEqual({ 'FE-05': 2, 'SC-02': 1 });
+    expect(bao.summary).toEqual({ pending: 2, blocked: 1, flows: 0, errors: 0 });
   });
 
   it.each(DOT_BIEN)('$ca — $ten phải sinh $code', ({ code, than, soLoi = 1 }) => {
