@@ -21,6 +21,10 @@
 //  của .kiro/task-status.json. <tên-luồng> chỉ được là một trong năm tên:
 //  purchase, issue, distribute, settle, onboard.
 //
+//  Marker phải đứng NGAY SAU dấu mở chú thích (`// @pending ...`, `# @flow ...`,
+//  `* @blocked ...`). Câu văn chỉ NHẮC TÊN từ khóa giữa dòng không bị coi là
+//  marker sai cú pháp — xem chú thích ở hằng COMMENT_OPEN để biết vì sao.
+//
 //  Một dòng mang TỐI ĐA MỘT marker. Dòng vừa có marker đúng vừa có từ khóa bị cấm
 //  thì chỉ báo lỗi từ khóa bị cấm — dòng đó đang ở trạng thái lỗi nên không đếm
 //  vào bảng.
@@ -129,19 +133,33 @@ const SELF_EXCLUDED = new Set([
 // không viết lại biểu thức chính quy ở chỗ khác.
 export const TASK_CODE_SOURCE = '[A-Z]{2,3}-\\d{2}';
 
+// Marker phải nằm NGAY SAU dấu mở chú thích. Steering mục 6 đã đòi thế (marker
+// đứng một mình trên dòng ngay trên khai báo), và điều kiện này loại hẳn một lớp
+// dương tính giả: câu văn trong chú thích NHẮC TÊN từ khóa để giải thích cơ chế
+// (ví dụ scripts/run-local-all.sh: "marker @pending / @blocked / @flow đúng quy
+// ước") không phải là marker sai cú pháp. Không có điều kiện này thì mọi tệp
+// trong phạm vi quét vĩnh viễn không được phép nhắc tên từ khóa.
+// Vẫn nhận marker viết ở cuối dòng mã (`doSomething(); // @pending FE-05 | ...`).
+const COMMENT_OPEN = String.raw`(?:^|[ \t])(?:\/\/+|\/\*+|\*+|#+|--+)[ \t]*`;
+
 /** `@pending FE-05 | mô tả` hoặc `@blocked SC-02 | mô tả` */
 export const MARKER_RE = new RegExp(
-  `@(pending|blocked)[ \\t]+(${TASK_CODE_SOURCE})[ \\t]*\\|(.*)$`,
+  `${COMMENT_OPEN}@(pending|blocked)[ \\t]+(${TASK_CODE_SOURCE})[ \\t]*\\|(.*)$`,
 );
 
 /** `@flow purchase:3 | mô tả` — số bước là số nguyên, không thập phân */
-export const FLOW_RE = /@flow[ \t]+([a-z][a-z0-9-]*):(\d{1,3})[ \t]*\|(.*)$/;
+export const FLOW_RE = new RegExp(
+  `${COMMENT_OPEN}@flow[ \\t]+([a-z][a-z0-9-]*):(\\d{1,3})[ \\t]*\\|(.*)$`,
+);
 
-/** Dò "có từ khóa" để phân biệt "sai cú pháp" với "không phải marker" */
-export const LOOSE_RE = /@(pending|blocked|flow)/i;
+/** Dò "có từ khóa ở vị trí marker" để phân biệt "sai cú pháp" với "không phải marker" */
+export const LOOSE_RE = new RegExp(`${COMMENT_OPEN}@(pending|blocked|flow)`, 'i');
 
 /** Biến thể dạng marker bị cấm (steering mục 5) — so không phân biệt chữ hoa */
-export const FORBIDDEN_MARKER_RE = /@waiting|@blocked-by|@pending-on|@todo/gi;
+export const FORBIDDEN_MARKER_RE = new RegExp(
+  `${COMMENT_OPEN}(@waiting|@blocked-by|@pending-on|@todo)`,
+  'gi',
+);
 
 /** Từ khóa ghi chú bị cấm — CHỈ dạng chữ hoa, để không bắt oan chữ thường
  *  trong câu văn tiếng Anh thông thường (ví dụ từ "hack" trong một câu giải thích) */
@@ -302,11 +320,17 @@ function cleanNote(raw) {
 
 function findForbidden(line) {
   const hits = new Set();
-  for (const re of [FORBIDDEN_MARKER_RE, FORBIDDEN_WORD_RE]) {
-    re.lastIndex = 0;
-    let m;
-    while ((m = re.exec(line)) !== null) hits.add(m[0]);
-  }
+  let m;
+
+  // Biến thể dạng marker: chỉ tính khi đứng ở vị trí marker (ngay sau dấu mở chú thích)
+  FORBIDDEN_MARKER_RE.lastIndex = 0;
+  while ((m = FORBIDDEN_MARKER_RE.exec(line)) !== null) hits.add(m[1]);
+
+  // Từ khóa ghi chú: tính ở BẤT KỲ vị trí nào trong dòng, vì steering cấm hẳn cách
+  // ghi chú này chứ không chỉ cấm nó ở vị trí marker
+  FORBIDDEN_WORD_RE.lastIndex = 0;
+  while ((m = FORBIDDEN_WORD_RE.exec(line)) !== null) hits.add(m[1]);
+
   return [...hits];
 }
 

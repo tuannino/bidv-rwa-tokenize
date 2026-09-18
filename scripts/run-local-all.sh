@@ -6,9 +6,13 @@
 #
 #  Gồm:
 #    1. Lớp 3 - 3 luật kiến trúc + cấu trúc repo
-#    2. Lớp 1 - spec test contract EVM   (hardhat)
-#    3. Lớp 1 - spec test contract Soroban (cargo)
-#    4. Chất lượng app                    (typecheck, lint, vitest)
+#    2. Lớp 3 - điểm cắm: marker @pending / @blocked / @flow đúng quy ước
+#    3. Lớp 1 - spec test contract EVM   (hardhat)
+#    4. Lớp 1 - spec test contract Soroban (cargo)
+#    5. Chất lượng app                    (typecheck, lint, vitest)
+#
+#  Phần TỔNG KẾT in thêm bảng điểm cắm đang chờ. Bảng đó là THÔNG TIN, không ảnh
+#  hưởng mã thoát: còn điểm cắm là trạng thái bình thường, không phải lỗi.
 #
 #  Dùng trước mỗi lần nộp hoặc review checkpoint.
 # =============================================================================
@@ -56,11 +60,18 @@ else
   fi
 fi
 
-# --- 2. Spec test contract EVM ----------------------------------------------
+# --- 2. Điểm cắm (marker) ---------------------------------------------------
+# Chỉ đỏ khi marker SAI: sai cú pháp, mã task không có trong .kiro/task-status.json,
+# marker chờ task đã done, từ khóa biến thể bị cấm, số bước @flow trùng/nhảy cách.
+# Còn nhiều điểm cắm thì KHÔNG đỏ. Quy ước: .kiro/steering/make-control.md
+run "LỚP 3 - ĐIỂM CẮM (marker)" . \
+    node scripts/scan-pending.mjs --check
+
+# --- 3. Spec test contract EVM ----------------------------------------------
 run "LỚP 1 - SPEC TEST CONTRACT EVM" packages/contracts-evm \
     npx hardhat test
 
-# --- 3. Spec test contract Soroban ------------------------------------------
+# --- 4. Spec test contract Soroban ------------------------------------------
 if command -v cargo >/dev/null 2>&1; then
   run "LỚP 1 - SPEC TEST CONTRACT SOROBAN" packages/contracts-stellar \
       cargo test
@@ -69,7 +80,7 @@ else
   c_yel "  BỎ QUA: chưa cài Rust/cargo. Cài Rust 1.84+ rồi chạy lại."
 fi
 
-# --- 4. Chất lượng app ------------------------------------------------------
+# --- 5. Chất lượng app ------------------------------------------------------
 run "APP - TYPECHECK" app npm run typecheck
 run "APP - LINT"      app npx eslint .
 run "APP - VITEST"    app npm test
@@ -80,6 +91,10 @@ echo "  Đạt:     ${#PASSED[@]}"
 for p in "${PASSED[@]:-}"; do [ -n "$p" ] && echo "    PASS  $p"; done
 echo "  Không đạt: ${#FAILED[@]}"
 for f in "${FAILED[@]:-}"; do [ -n "$f" ] && c_red "    FAIL  $f"; done
+
+# Bảng điểm cắm: THÔNG TIN thôi, không tính vào PASSED/FAILED và không đổi mã thoát.
+printf '\n'
+node scripts/scan-pending.mjs || c_yel "  (không in được bảng điểm cắm - xem scripts/scan-pending.mjs)"
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   c_red "\n  => CHƯA ĐẠT. Sửa các mục FAIL trước khi nộp checkpoint."

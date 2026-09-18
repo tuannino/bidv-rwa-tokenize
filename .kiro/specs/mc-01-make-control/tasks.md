@@ -8,9 +8,9 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 1: Chốt quy ước và nguồn trạng thái task
 
-- [-] 1.1 Tạo `.kiro/steering/make-control.md` với `inclusion: always`, ghi quy ước `@pending`, `@blocked`, `@flow` theo `design.md` mục 1 và 5.
-- [~] 1.2 Tạo `.kiro/task-status.json` với danh sách `done` hiện tại: FE-01, FE-02, BE-01, BE-02, BE-08, BE-09.
-- [~] 1.3 Ghi vào steering: ai cập nhật tệp này và cập nhật lúc nào.
+- [x] 1.1 Tạo `.kiro/steering/make-control.md` với `inclusion: always`, ghi quy ước `@pending`, `@blocked`, `@flow` theo `design.md` mục 1 và 5.
+- [x] 1.2 Tạo `.kiro/task-status.json` với danh sách `done` hiện tại: FE-01, FE-02, BE-01, BE-02, BE-08, BE-09.
+- [x] 1.3 Ghi vào steering: ai cập nhật tệp này và cập nhật lúc nào.
 
 *Commit:* `feat(mc): quy ước marker điểm cắm và nguồn trạng thái task`
 
@@ -18,7 +18,7 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 2: Script quét marker
 
-- [~] 2.1 Tạo `scripts/scan-pending.mjs` với ba chế độ theo `design.md` mục 2.
+- [-] 2.1 Tạo `scripts/scan-pending.mjs` với ba chế độ theo `design.md` mục 2.
 - [~] 2.2 Chế độ `--check` trả mã thoát khác 0 **chỉ khi** marker sai định dạng, mã task không tồn tại, hoặc chờ task đã `done`. Còn điểm cắm là bình thường.
 - [~] 2.3 Cắm vào `scripts/run-local-all.sh`: chạy `--check`, in bảng ở phần tổng kết.
 - [~] 2.4 Chạy thử trên `dev` hiện tại, xác nhận script đọc được marker tự do đang có hoặc báo đúng là sai định dạng.
