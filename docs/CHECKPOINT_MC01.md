@@ -5,7 +5,7 @@
 | Task | MC-01 (Make Control, P0, 8 điểm) |
 | Nhánh | `mc/01-make-control`, tạo **từ `dev`** (`71932bb`) |
 | Spec | `docs/mc-01-make-control/{requirements,design,tasks}.md` + bản ở `.kiro/specs/mc-01-make-control/` (xem sai lệch SL-1 ở mục 7) |
-| Tiến độ | **Bước 1–8/10 xong.** Bước 9–10 chưa làm |
+| Tiến độ | **Bước 1–9/10 xong.** Bước 10 chưa làm |
 | Phạm vi | Không đổi hành vi hệ thống, **trừ một ngoại lệ Owner đã chốt** (D-7 ở mục 9). Mọi test đang xanh phải xanh nguyên |
 
 `dev` đã kiểm lành trước khi tạo nhánh, theo `branching.md` §5:
@@ -377,6 +377,125 @@ manh còn tệ hơn không viết: nó trả lời sai một câu hỏi mà ngư
 
 ---
 
+### Bước 9 — Nền cho sơ đồ luồng ✅
+
+**10 bước** cho luồng `purchase`, gắn ở **3 tệp**, **3 tầng**. Sơ đồ sinh ra ở
+`docs/flows/purchase.md`, dán lại ở mục 8.
+
+Bốn commit, chia theo **mục tiêu**:
+
+| Commit | Nội dung |
+|---|---|
+| `660cebc` | `feat(mc): marker @flow cho luồng mua WPT` — chỉ thêm bình luận, 4 tệp trong `app/src` |
+| `d8d3b0d` | `feat(mc): sinh sơ đồ luồng thực thi từ marker` — `scripts/gen-flow-diagram.mjs` **kèm** tệp nó sinh ra |
+| `dce8894` | `test(mc): chống số bước luồng trùng và nhảy cách` — 7 ca mới, 13 ca cũ không sửa |
+| *(commit này)* | `docs(mc): sơ đồ luồng mua WPT và kết quả Bước 9` |
+
+Tệp sinh ra đi **cùng** commit của script, không để tới commit tài liệu cuối: commit
+`dce8894` thêm phép kiểm "tệp trên đĩa khớp marker", nên nếu `docs/flows/purchase.md` chưa
+được commit thì tại đúng commit đó nhánh đỏ. Mỗi commit phải tự chạy được test.
+
+#### Cách xếp ba giai đoạn thành MỘT chuỗi
+
+`docs/tech-report.md` mục 4.2 chia luồng mua thành ba giai đoạn viết tay. Chuỗi 10 bước ánh
+xạ 1-1 vào ba giai đoạn đó, theo đúng thứ tự tài liệu đã xếp:
+
+| Giai đoạn của 4.2 | Bước | Tầng |
+|---|---|---|
+| 1 — đặt lệnh | 1 → 2 → 3 | vận chuyển → nghiệp vụ → cổng |
+| 2 — khớp lệnh | 4 → 5 → 6 → 7 → 8 | vận chuyển → nghiệp vụ (3 bước) → cổng |
+| 3 — truy vấn | 9 → 10 | vận chuyển → nghiệp vụ |
+
+Ba giai đoạn **nối được** thành một chuỗi vì chúng nối tiếp nhau về nghiệp vụ: không khớp
+được lệnh chưa đặt, và sổ lệnh chỉ có nghĩa sau khi có lệnh. Đó cũng là thứ tự mà chính
+`tech-report.md` đã chọn khi đánh số giai đoạn 1/2/3, nên sơ đồ không đặt ra một thứ tự mới.
+
+#### Hai tầng vận chuyển song song — xử lý thế nào
+
+`app/src/app/actions/purchase.ts` (server action) và `app/src/app/api/purchase/route.ts`
+(route handler) là **hai đường vào cùng một bước service**. Quy ước cho mỗi bước **đúng một**
+số nguyên, nên gắn cả hai chỗ sẽ thành hai marker trùng số bước và `--check` báo
+`BAD_FLOW_STEP` — đúng cái phép kiểm mà Bước 9 vừa dựng.
+
+Đã chọn: gắn marker ở **server action**, vì đó là đường FE-05/FE-06 sẽ dùng và là đường mang
+marker `@pending` sẵn có. Đường HTTP được nhắc **hai chỗ**, cả hai đều máy đọc được hoặc nằm
+cạnh mã:
+
+1. Trong **nhãn** của chính bước vận chuyển: *"một trong hai đường vận chuyển … đường kia là
+   POST /api/purchase"*. Nhãn này vào cả sơ đồ lẫn bảng bước, nên người đọc sơ đồ thấy ngay.
+2. Trong **bình luận tại `route.ts`**, nơi người sửa tệp đó sẽ đọc: nói rõ tệp này không có
+   marker, vì sao, và gắn thêm sẽ đỏ ở đâu.
+
+**Không** chọn "gộp hai transport thành một bước" vì không có cú pháp nào để gộp: một marker
+nằm ở đúng một dòng của đúng một tệp. Giải pháp duy nhất còn lại là nới quy ước cho phép
+trùng số bước — mà làm thế là bỏ mất phép kiểm "thiếu bước = có ai xóa hàm mà quên sửa
+marker", tức đổi một thứ đo được lấy một thứ vẽ đẹp hơn.
+
+#### Ba chỗ quy ước KHÔNG biểu diễn được thứ cần biểu diễn
+
+Đây là giới hạn thật của quy ước, không phải chỗ làm sơ sài. Cả ba được ghi thẳng vào mục
+"Đọc sơ đồ này thế nào" của tệp sinh ra, để người đọc sơ đồ không suy ra điều sơ đồ không nói.
+
+| # | Không biểu diễn được | Hệ quả trên sơ đồ | Đã xử lý |
+|---|---|---|---|
+| 1 | **Nhánh song song** — hai transport vào cùng một bước | `route.ts` không xuất hiện | nhắc trong nhãn bước 1/4/9 + bình luận tại `route.ts` |
+| 2 | **Lồng nhau và đường về** — bước 5 gọi bước 6, nhận kết quả, rồi mới gọi bước 7 | mũi tên 6 → 7 **không** phải cạnh gọi hàm; không có mũi tên về | ghi thẳng ở mục "đọc sơ đồ này thế nào": mũi tên là **thứ tự thời gian** |
+| 3 | **Nhánh chạy ngoài chuỗi** — `expireStaleOrders` (PLACED → EXPIRED) | không có bước nào cho nó, dù `tech-report.md` 4.2 xếp nó vào giai đoạn 3 | **cố ý không gắn**: nó không có transport (BE-07 gọi theo lịch) và đặt nó làm bước 11 sẽ nói rằng dọn lệnh treo xảy ra **sau** khi xem sổ lệnh. Nó đã có `@pending BE-07`, nên không vô hình |
+
+#### Không gắn marker cho tệp không tồn tại
+
+`design.md` QĐ-5 vẽ ví dụ có bước 1 là `components/pages/purchase.tsx`. **Tệp đó không tồn
+tại** — màn mua WPT là FE-05, chưa làm. Steering mục 4 cấm gắn `@flow` cho luồng chưa có, nên
+chuỗi bắt đầu ở tầng vận chuyển đang có thật.
+
+"Giao diện chưa có" vẫn hiện trên sơ đồ, nhưng **suy ra từ dữ liệu có thật**: script khớp
+`(tệp, ký hiệu)` của mỗi bước với marker `@pending`/`@blocked` đang nằm trên đúng hàm đó, rồi
+vẽ thành ô bầu dục nối bằng mũi tên gạch rời. Ba ô như vậy trên luồng mua: `FE-05` ở bước 1,
+`FE-06` ở bước 4 và bước 9. Không dòng marker nào phải bịa ra, và khi FE-05 xong thì việc dọn
+marker (steering mục 7 vế b) tự làm ô đó biến mất khỏi sơ đồ.
+
+#### Vì sao script TỪ CHỐI sinh khi số bước sai
+
+`BAD_FLOW_STEP` nghĩa là chuỗi bước không còn là một chuỗi. Vẫn sinh được một hình vẽ từ dữ
+liệu đó, và hình vẽ đó trông hoàn toàn hợp lệ trong khi thiếu bước hoặc nối sai — người đọc
+không có cách nào biết. Nên script dừng và chỉ sang `scan-pending.mjs --check`. Đo thật trong
+lần đột biến ở mục 5.
+
+#### `--check`: có, và vì sao nó nằm trong test chứ không trong `run-local-all.sh`
+
+`docs/flows/purchase.md` **được commit**, nên nó lạc hậu **âm thầm**: ai đó sửa marker, quên
+sinh lại, và từ đó sơ đồ nói một đằng còn mã làm một nẻo. Không có gì đổ vỡ nên không ai phát
+hiện — đúng cùng một loại sai với marker lạc hậu ở ca 3.
+
+Ba chế độ: `<luồng>` sinh, `<luồng> --check` so tệp trên đĩa với bản sinh từ marker hiện tại,
+`--check` trần kiểm **mọi** luồng và bắt luôn **tệp mồ côi** (tệp còn trên đĩa mà luồng không
+còn marker nào).
+
+Phép kiểm cắm vào `app/test/pending-markers.test.ts`, **không** thêm một mục thứ 8 vào
+`run-local-all.sh`. Hai lý do: nó cùng họ với các ca "marker không lạc hậu" đã ở đó nên người
+sửa marker thấy cả hai nghĩa vụ trong một lần chạy; và `run-local-all.sh` đã chạy
+`npm test` nên phép kiểm vẫn vào cổng cục bộ mà không làm bảng tổng kết dài thêm.
+
+#### Nhãn Mermaid — ba chỗ dễ làm sơ đồ không render nổi
+
+| Ký tự | Vì sao phá | Xử lý |
+|---|---|---|
+| `"` | đóng chuỗi nhãn sớm | `&quot;` |
+| `` ` `` | Mermaid v10 coi `["` liền dấu nháy ngược là mở *markdown string* | **bỏ hẳn**, không thoát |
+| `#` | mở entity của Mermaid | `&num;` — **không** dùng `&#35;`, vì bản thay thế đó lại chứa `#` và sẽ làm phép tự kiểm báo đỏ chính bản đã thoát |
+| `<` `>` | mở/đóng thẻ HTML | `&lt;` `&gt;`, trừ `<br/>` do chính script chèn |
+
+Đây không phải lo xa: marker `@pending FE-06` của `listOrdersAction` chứa dấu ngoặc kép quanh
+*"vai nào xem được sổ lệnh nào"*, và nội dung đó đi vào một ô của sơ đồ. Script **tự kiểm**
+nhãn trước khi ghi tệp: còn ký tự thô thì dừng và nói rõ đây là lỗi của chính script, không
+phải lỗi marker.
+
+**Giới hạn đã biết của phép tự kiểm này:** nó kiểm *ký tự*, không kiểm *cú pháp*. Repo không
+có bộ phân tích Mermaid nào (`npm ls mermaid` → rỗng) và Bước 9 không thêm phụ thuộc chỉ để
+kiểm một tệp tài liệu. Việc đọc bằng mắt ở 9.6 là phần bù cho chỗ này, kết quả ở mục 8.
+
+---
+
 ## 2. Đối chiếu DoD
 
 | Task | DoD | Đạt? | Ghi chú |
@@ -420,7 +539,12 @@ manh còn tệ hơn không viết: nó trả lời sai một câu hỏi mà ngư
 | 8.2 | Chạy `verify-arch-rules.sh`, xác nhận **0 FAIL** | ✅ | **20 PASS / 0 FAIL / 6 WARN**, mã thoát 2. R8.3 chỉ đòi 0 FAIL nên 6 WARN không phải vi phạm — nhưng đã liệt kê **từng** cảnh báo kèm kết luận "có chủ đích" hay "là nợ" ở bảng 3.10.b. Không cảnh báo nào được làm im bằng cách nới điều kiện script |
 | 8.3 | **Đột biến:** thêm tạm `SPT` vào một tệp `app/src` → phải đỏ, rồi hoàn nguyên | ✅ | **FAIL, `exit=1`**, chỉ đúng `app/src/lib/mock-data.ts:172`. Đã kiểm thêm rằng đột biến không làm `scan-pending.mjs --check` đỏ vì lý do khác. Hoàn nguyên: `git status --short -- app packages scripts` **rỗng**. Output nguyên văn ở mục 5 |
 | +SL-5 | `run-local-all.sh` in `\n` nguyên văn ở dòng kết luận (nợ ghi từ Bước 3) | ✅ | Đã sửa cả **hai** nhánh (`c_red` và `c_grn`). Chứng minh bằng `cat -et`: dòng trống là dòng trống thật, và `grep -c '\n'` trên toàn output cho **0** |
-| 9.x | Nền cho sơ đồ luồng | ⬜ | _(chờ Bước 9)_ |
+| 9.1 | Gắn `@flow purchase:<n>` từ tầng vận chuyển xuống tầng nghiệp vụ và tầng cổng | ✅ | **10 bước / 3 tệp / 3 tầng**: `actions/purchase.ts` (3 bước), `lib/bank/purchase.service.ts` (5 bước), `lib/ledger/ledger.port.ts` (2 bước). **Chỉ thêm bình luận** — chứng minh ở 3.11.a: lệnh lọc dòng không phải chú thích trong `app/src`+`packages` trả về **rỗng** |
+| 9.2 | Số bước cách nhau 1, bắt đầu từ 1, không trùng, không nhảy cách | ✅ | 1..10 liên tiếp. `scan-pending.mjs --check` → `exit=0`, `10 bước luồng` (3.11.b). Phép kiểm này có răng: đột biến đổi `purchase:3` → `purchase:5` cho **3 lỗi `BAD_FLOW_STEP`** (mục 5) |
+| 9.3 | Tạo `scripts/gen-flow-diagram.mjs`, sinh Mermaid theo `design.md` QĐ-5 | ✅ | Nhập `scan()` từ `scan-pending.mjs`, **không** quét lại. `flowchart TD`, mỗi ô có **tệp + tên hàm + việc của bước** (R9.4). Ba ca lỗi đều tử tế: tên luồng sai → `exit=2` kèm bảng 5 tên; luồng chưa gắn marker → `exit=1`, **không** sinh tệp rỗng; số bước sai → **từ chối sinh** (3.11.d) |
+| 9.4 | Sinh `docs/flows/purchase.md` | ✅ | Commit **cùng** script (`d8d3b0d`) để commit test ngay sau đó không làm nhánh đỏ. Có đầu đề cảnh báo + lệnh sinh lại + lệnh `--check`. Nội dung đầy đủ ở mục 8 |
+| 9.5 | Thêm ca kiểm vào `pending-markers.test.ts`: số bước không trùng và không nhảy cách | ✅ | **+7 ca (13 → 20)**, 13 ca cũ **không sửa**. Tầng 1: ca 5 `BAD_FLOW_STEP` trên repo thật. Tầng 2: **3 dòng mới** trong bảng `DOT_BIEN` — trùng số (2 lỗi), nhảy cách, không bắt đầu từ 1. Thêm nhóm thứ ba: sơ đồ trên đĩa khớp marker + không tệp mồ côi |
+| 9.6 | Mở sơ đồ ra xem, xác nhận **đọc được và đúng thứ tự thật** | ✅ | Đã đối chiếu từng bước với `tech-report.md` mục 4.2 — bảng đối chiếu 10 dòng ở mục 8, kèm **3 chỗ sơ đồ nói ít hơn tài liệu viết tay** và lý do từng chỗ |
 | 10.x | Tài liệu | ⬜ | _(chờ Bước 10)_ |
 
 ---
@@ -1447,6 +1571,204 @@ chỉ chạm hai script shell và hai tệp tài liệu.
 
 ---
 
+### 3.11 Kết quả chạy đầy đủ sau Bước 9
+
+#### 3.11.a Chỉ thêm bình luận vào `app/src` — đo, không hứa
+
+Lệnh lọc mọi dòng thêm/bớt **không** phải chú thích, trong `app/src` và `packages`:
+
+```
+$ git diff -U0 d45182a..HEAD -- 'app/src' 'packages' \
+    | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:space:]]*(//|/\*|\*|#)'
+$ echo "exit=$?"
+exit=1
+```
+
+`exit=1` của `grep` = **không khớp dòng nào** = không một dòng mã nào bị thêm hay bớt. Diff
+toàn bước:
+
+```
+$ git diff --stat d45182a..HEAD
+ app/src/app/actions/purchase.ts     |   3 +
+ app/src/app/api/purchase/route.ts   |   7 +
+ app/src/lib/bank/purchase.service.ts|  10 +
+ app/src/lib/ledger/ledger.port.ts   |   4 +
+ app/test/pending-markers.test.ts    |  97 +-
+ docs/flows/purchase.md              |  91 ++
+ scripts/gen-flow-diagram.mjs        | 517 +++++++++
+ 7 files changed, 727 insertions(+), 2 deletions(-)
+```
+
+Hai dòng bị xóa nằm ở `pending-markers.test.ts`: một **chú thích** nói "ca `BAD_FLOW_STEP`
+thuộc task 9.5, chưa làm ở Bước 4 — bảng đã chừa chỗ". Task 9.5 đã làm nên chú thích đó sai;
+thay bằng chú thích mới ghi ràng buộc thật của ba fixture mới.
+
+#### 3.11.b `node scripts/scan-pending.mjs --check`
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 10 bước luồng. Không có lỗi.
+exit=0
+```
+
+#### 3.11.c Phần `@flow` của bảng mà `node scripts/scan-pending.mjs` in ra
+
+Phần điểm cắm / điểm chặn không đổi so với 3.10 (8 + 11, y nguyên). Phần mới:
+
+```
+LUỒNG NGHIỆP VỤ (marker @flow)
+
+purchase  (10 bước)
+   1  app/src/app/actions/purchase.ts:27        một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase  ::placeOrderAction
+   2  app/src/lib/bank/purchase.service.ts:95   validate Zod, kiểm quyền order:place, lưu lệnh PLACED, ghi sổ kiểm toán  ::placeOrder
+   3  app/src/lib/ledger/ledger.port.ts:115     chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh  ::quotePurchase
+   4  app/src/app/actions/purchase.ts:35        một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId  ::executeOrderAction
+   5  app/src/lib/bank/purchase.service.ts:278  kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần  ::executeOrder
+   6  app/src/lib/bank/purchase.service.ts:165  kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên  ::runPurchaseChecks
+   7  app/src/lib/bank/purchase.service.ts:383  gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED  ::sendAndSettle
+   8  app/src/lib/ledger/ledger.port.ts:129     chuyển VNDB và WPT trong cùng một giao dịch  ::executePurchase
+   9  app/src/app/actions/purchase.ts:43        một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase  ::listOrdersAction
+  10  app/src/lib/bank/purchase.service.ts:512  kiểm order:read và order:read:all, lọc theo ví ở tầng service  ::listOrders
+
+
+Tổng: 8 điểm cắm · 11 điểm chặn · 10 bước luồng
+```
+
+`::tênHàm` ở cuối mỗi dòng là ký hiệu `scan-pending.mjs` suy ra từ dòng khai báo ngay dưới
+marker. **Cả 10 bước đều suy ra được**, kể cả hai method của `interface` trong `ledger.port.ts`
+— đó là điều kiện để mỗi ô sơ đồ có tên hàm (R9.4).
+
+#### 3.11.d `gen-flow-diagram.mjs` — bốn đường vào, gồm ba đường lỗi
+
+```
+$ node scripts/gen-flow-diagram.mjs purchase; echo "exit=$?"
+Đã tạo: docs/flows/purchase.md (10 bước)
+exit=0
+
+$ node scripts/gen-flow-diagram.mjs purchase --check; echo "exit=$?"
+Khớp marker: docs/flows/purchase.md
+exit=0
+
+$ node scripts/gen-flow-diagram.mjs --check; echo "exit=$?"
+Sơ đồ khớp marker: purchase. Không có tệp mồ côi.
+exit=0
+```
+
+**Luồng hợp lệ nhưng chưa gắn marker** — thông báo phải nói được ba việc: tình trạng, vì sao
+không sinh tệp rỗng, và làm gì tiếp:
+
+```
+$ node scripts/gen-flow-diagram.mjs issue; echo "exit=$?"
+Luồng "issue" là tên hợp lệ nhưng CHƯA GẮN MARKER @flow nào, nên chưa có gì để vẽ.
+
+Sơ đồ sinh từ marker: không có marker thì không có sơ đồ, và sinh một tệp rỗng chỉ tạo
+cảm giác luồng đã được mô tả. Gắn marker trước:
+
+  // @flow issue:1 | <việc của bước này>
+
+Chỉ gắn cho luồng ĐÃ hoàn thành đầu cuối ở tầng backend (.kiro/steering/make-control.md
+mục 4). Luồng đang có marker: purchase
+exit=1
+```
+
+**Tên luồng ngoài năm tên đã chốt** — `exit=2` (lỗi cách dùng), khác `exit=1` (không có gì để
+sinh), để người gọi từ script phân biệt được hai tình huống:
+
+```
+$ node scripts/gen-flow-diagram.mjs mua-wpt; echo "exit=$?"
+Tên luồng "mua-wpt" không thuộc năm tên đã chốt.
+
+  purchase    Nhà đầu tư mua WPT
+  issue       Ngân hàng phát hành WPT
+  distribute  Chia lợi nhuận theo sản lượng
+  settle      Tất toán và hoàn vốn
+  onboard     KYC và whitelist ví
+
+Năm tên này là cố định (.kiro/steering/make-control.md mục 4). Cần một luồng mới thì
+phải sửa steering và FLOW_NAMES trong scripts/scan-pending.mjs trước, không tự đặt tên.
+exit=2
+```
+
+#### 3.11.e `cd app && npm test` — 307/307
+
+```
+$ cd app && npm test
+ ✓ test/pending-markers.test.ts (20 tests) 16ms
+ ✓ test/wallet-status.test.ts (30 tests) 14ms
+ ✓ test/rbac.test.ts (38 tests) 21ms
+ ✓ test/env-private-key.test.ts (5 tests) 41ms
+ ✓ test/issue-price-single-source.test.ts (15 tests) 10ms
+ ✓ test/store-constraints.test.ts (69 tests) 21ms
+ ✓ test/mock-ledger.test.ts (49 tests) 17ms
+ ✓ test/purchase-state.test.ts (19 tests) 8ms
+ ✓ test/evm-address-env.test.ts (5 tests) 3ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 9ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 2ms
+ ✓ test/portfolio-service.test.ts (12 tests) 9ms
+ ✓ test/purchase-service.test.ts (32 tests) 22ms
+
+ Test Files  13 passed (13)
+      Tests  307 passed (307)
+```
+
+**300 → 307.** Bảy ca mới đều ở `pending-markers.test.ts` (13 → 20); **12 tệp test còn lại
+không đổi một ca nào**, đúng số cũ từng tệp.
+
+| Ca mới | Tầng | Bắt gì |
+|---|---|---|
+| ca 5 — số bước của mỗi luồng là chuỗi liên tiếp từ 1 | 1 (repo thật) | `BAD_FLOW_STEP` ở repo thật |
+| ca 5 — hai bước cùng số trong một luồng | 2 (repo giả) | trùng số, **2 lỗi** — một cho mỗi marker trong nhóm |
+| ca 5 — chuỗi bước nhảy cách | 2 | thiếu bước giữa |
+| ca 5 — chuỗi bước không bắt đầu từ 1 | 2 | thiếu bước đầu |
+| có ít nhất một luồng đã gắn marker | 3 (sơ đồ) | chống rỗng ruột: hai ca dưới chạy zero lần nếu không luồng nào có marker |
+| `docs/flows/purchase.md` khớp marker hiện tại | 3 | sơ đồ commit vào repo bị lạc hậu âm thầm |
+| không tệp nào trong `docs/flows/` mất gốc marker | 3 | tệp còn trên đĩa mà marker đã bị xóa hết |
+
+#### 3.11.f `npm run typecheck` và `npx eslint .`
+
+```
+$ npm run typecheck
+> tsc --noEmit
+(không output, exit=0)
+
+$ npx eslint .
+(không output, exit=0)
+```
+
+**0 lỗi, 0 cảnh báo**, y nguyên Bước 7 và Bước 8. Script mới là `.mjs` có JSDoc kiểu, nhập
+được từ `.ts` mà không phải nới `tsconfig`.
+
+#### 3.11.g `bash scripts/run-local-all.sh` — 7 PASS / 0 FAIL
+
+```
+########## TỔNG KẾT ##########
+  Đạt:     7
+    PASS  luật kiến trúc (có cảnh báo)
+    PASS  LỚP 3 - ĐIỂM CẮM (marker)
+    PASS  LỚP 1 - SPEC TEST CONTRACT EVM
+    PASS  LỚP 1 - SPEC TEST CONTRACT SOROBAN
+    PASS  APP - TYPECHECK
+    PASS  APP - LINT
+    PASS  APP - VITEST
+  Không đạt: 0
+```
+
+Bảng ở phần TỔNG KẾT giờ in thêm khối `LUỒNG NGHIỆP VỤ (marker @flow)` với 10 bước — nguyên
+văn ở 3.11.c. **Vẫn 7 mục**, không thêm mục thứ 8: phép kiểm sơ đồ nằm trong `APP - VITEST`.
+
+#### 3.11.h `bash scripts/verify-arch-rules.sh`
+
+```
+TỔNG KẾT
+  PASS: 20   FAIL: 0   WARN: 6
+  => ĐẠT nhưng có 6 cảnh báo cần xác nhận có chủ đích.
+```
+
+**20 PASS / 0 FAIL / 6 WARN**, y nguyên Bước 8. Sáu cảnh báo là sáu cảnh báo cũ (spec Stellar
+chưa tới lượt), đã liệt kê từng cái ở bảng 3.10.b.
+
+---
+
 ## 4. Bảng phân loại đầy đủ export — số thật là **115**, không phải 27
 
 ### 4.1 Phép đo, và vì sao con số 27 không dùng được
@@ -2280,6 +2602,115 @@ commit (`785bf79`).
 
 ---
 
+### Đột biến của Bước 9 — số bước luồng trùng và nhảy cách
+
+**Đột biến:** đổi đúng một ký tự, `@flow purchase:3` → `@flow purchase:5` ở
+`app/src/lib/ledger/ledger.port.ts:115`. Bước 5 đã có người dùng
+(`purchase.service.ts::executeOrder`), nên một thay đổi sinh ra **hai** triệu chứng khác nhau:
+trùng số ở 5, và khoảng trống ở 3.
+
+#### `scan-pending.mjs --check` — phải đỏ với `BAD_FLOW_STEP`
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Có 3 lỗi marker:
+
+  [BAD_FLOW_STEP] app/src/app/actions/purchase.ts:35
+      luồng "purchase" nhảy cách: có bước 2 rồi tới 4, thiếu bước 3
+  [BAD_FLOW_STEP] app/src/lib/bank/purchase.service.ts:278
+      luồng "purchase" có 2 marker cùng bước 5 (app/src/lib/bank/purchase.service.ts:278, app/src/lib/ledger/ledger.port.ts:115)
+  [BAD_FLOW_STEP] app/src/lib/ledger/ledger.port.ts:115
+      luồng "purchase" có 2 marker cùng bước 5 (app/src/lib/bank/purchase.service.ts:278, app/src/lib/ledger/ledger.port.ts:115)
+
+Quy ước: .kiro/steering/make-control.md
+exit=1
+```
+
+**Ba lỗi, không phải một, và đó là chủ đích.** Lỗi trùng số báo ở **cả hai** marker cùng số:
+người sửa không biết trước marker nào là marker sai, nên chỉ đường tới một chỗ là bắt họ tự
+đoán nửa còn lại. Thông báo còn liệt kê **cả hai** vị trí trong cùng một câu để so được ngay.
+
+#### `gen-flow-diagram.mjs` — phải TỪ CHỐI sinh
+
+```
+$ node scripts/gen-flow-diagram.mjs purchase; echo "exit=$?"
+Không sinh sơ đồ cho luồng "purchase": số bước đang sai, nên chuỗi bước không còn
+là một chuỗi. Sinh từ dữ liệu đó ra một hình vẽ trông hợp lệ mà thiếu bước hoặc nối
+sai, và người đọc không có cách nào biết.
+
+  [BAD_FLOW_STEP] app/src/app/actions/purchase.ts:35
+      luồng "purchase" nhảy cách: có bước 2 rồi tới 4, thiếu bước 3
+  [BAD_FLOW_STEP] app/src/lib/bank/purchase.service.ts:278
+      luồng "purchase" có 2 marker cùng bước 5 (app/src/lib/bank/purchase.service.ts:278, app/src/lib/ledger/ledger.port.ts:115)
+  [BAD_FLOW_STEP] app/src/lib/ledger/ledger.port.ts:115
+      luồng "purchase" có 2 marker cùng bước 5 (app/src/lib/bank/purchase.service.ts:278, app/src/lib/ledger/ledger.port.ts:115)
+
+Sửa marker rồi chạy lại. Xem đầy đủ: node scripts/scan-pending.mjs --check
+exit=1
+```
+
+Nếu script cứ sinh thì `docs/flows/purchase.md` sẽ có 10 ô nhưng nhảy từ bước 2 sang bước 4,
+với hai ô cùng đánh số 5 — một tài liệu tự tin và sai.
+
+#### Test — phải đỏ ĐÚNG hai ca, không lan sang ca khác
+
+```
+$ npx vitest run test/pending-markers.test.ts
+ ❯ test/pending-markers.test.ts (20 tests | 2 failed) 19ms
+   ✓ Marker điểm cắm trong repo thật > phạm vi quét đọc được mã nguồn thật, không rỗng
+   ✓ Marker điểm cắm trong repo thật > ca 1 — mọi marker đúng cú pháp
+   ✓ Marker điểm cắm trong repo thật > ca 2 — mã task trong marker đều tồn tại
+   ✓ Marker điểm cắm trong repo thật > ca 3 — không marker nào chờ task đã hoàn thành
+   ✓ Marker điểm cắm trong repo thật > ca 4 — mô tả marker không rỗng và không chung chung
+   × Marker điểm cắm trong repo thật > ca 5 — số bước của mỗi luồng là chuỗi liên tiếp từ 1
+   ✓ Marker điểm cắm trong repo thật > chốt chặn — không còn loại lỗi marker nào khác
+   ✓ Phép kiểm có răng — đột biến trên repo giả > (10 ca, tất cả xanh)
+   ✓ Sơ đồ luồng sinh ra khớp marker trong mã > có ít nhất một luồng đã gắn marker
+   × Sơ đồ luồng sinh ra khớp marker trong mã > docs/flows/purchase.md khớp marker hiện tại
+   ✓ Sơ đồ luồng sinh ra khớp marker trong mã > không tệp nào trong docs/flows/ mất gốc marker
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+```
+
+**Đúng hai ca đỏ, và đúng hai ca cần đỏ.** Ba điều đáng ghi:
+
+1. **Ca "chốt chặn" vẫn XANH.** Đó là bằng chứng `BAD_FLOW_STEP` đã thật sự rời khỏi ca bắt
+   sót và vào ca có tên riêng. Nếu nó còn ở ca chốt chặn thì đột biến sẽ làm **hai** ca đỏ
+   cùng lúc, và ca có thông báo vô dụng hơn lại là ca người sửa đọc trước.
+2. **Ca sơ đồ đỏ theo, với thông báo nói đúng việc phải làm** — không nói "số bước sai" (đã có
+   ca 5 nói) mà nói "sinh lại rồi commit", kèm cảnh báo đừng sửa tay `docs/flows/`.
+3. **Mười ca tầng 2 vẫn xanh.** Chúng chạy trên repo giả trong thư mục tạm, nên đột biến ở
+   repo thật không kéo chúng theo. Đó là lý do tầng 2 tồn tại: nó chứng minh phép kiểm có răng
+   mà không phụ thuộc trạng thái repo.
+
+#### Hoàn nguyên, và chứng minh sạch
+
+```
+$ node scripts/scan-pending.mjs --check; echo "exit=$?"
+Marker hợp lệ: 8 điểm cắm, 11 điểm chặn, 10 bước luồng. Không có lỗi.
+exit=0
+
+$ node scripts/gen-flow-diagram.mjs --check; echo "exit=$?"
+Sơ đồ khớp marker: purchase. Không có tệp mồ côi.
+exit=0
+
+$ git diff --stat -- app/src/lib/ledger/ledger.port.ts
+ app/src/lib/ledger/ledger.port.ts | 4 ++++
+ 1 file changed, 4 insertions(+)
+```
+
+`4 ++++` là **đúng bốn dòng chú thích** của hai marker `@flow` (mỗi marker một dòng `*` trống
++ một dòng marker), không dòng nào khác. Đột biến không để lại vết.
+
+Một điều đã kiểm và đáng nói vì nó **chống lại** một cách sửa dễ nghĩ: đột biến này được hoàn
+nguyên bằng `str_replace` đổi lại đúng ký tự, **không** bằng `sed -i 's|...|...|'`. Lần đầu
+thử `sed` với dấu `|` làm phân cách đã **im lặng không đổi gì** — vì chính cú pháp marker có
+dấu `|` bên trong mẫu. Một lệnh hoàn nguyên không báo lỗi mà cũng không làm gì là cách tốt
+nhất để tin rằng mình đã hoàn nguyên trong khi chưa.
+
+---
+
 ## 6. Lựa chọn chỗ đặt hằng số giá phát hành và lý do
 
 ### 6.1 Bằng chứng chiều phụ thuộc — đo trước khi quyết
@@ -2692,7 +3123,114 @@ $ git branch -a --contains 3fc7c27 | head -2
 
 ## 8. Sơ đồ luồng mua WPT
 
-_(chờ Bước 9)_
+Sinh bằng `node scripts/gen-flow-diagram.mjs purchase`. Bản đầy đủ (kèm bảng bước, bảng điểm
+cắm, mục "đọc sơ đồ này thế nào") ở `docs/flows/purchase.md`. **Đừng sửa tay tệp đó** — lần
+sinh sau ghi đè, và `app/test/pending-markers.test.ts` sẽ báo đỏ.
+
+```mermaid
+flowchart TD
+  s1["1 · placeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase"]
+  s2["2 · placeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>validate Zod, kiểm quyền order:place, lưu lệnh PLACED, ghi sổ kiểm toán"]
+  s3["3 · quotePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh"]
+  s4["4 · executeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có…"]
+  s5["5 · executeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần"]
+  s6["6 · runPurchaseChecks()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên"]
+  s7["7 · sendAndSettle()<br/>app/src/lib/bank/purchase.service.ts<br/>gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED"]
+  s8["8 · executePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chuyển VNDB và WPT trong cùng một giao dịch"]
+  s9["9 · listOrdersAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase"]
+  s10["10 · listOrders()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm order:read và order:read:all, lọc theo ví ở tầng service"]
+  w1(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối ở placeOrder: validate Zod, kiểm quyền order:place…"])
+  w2(["điểm cắm, chờ FE-06<br/>đã sẵn đầu cuối ở executeOrder: kiểm quyền order:execute (vai…"])
+  w3(["điểm cắm, chờ FE-06<br/>đã sẵn đầu cuối ở listOrders: phân biệt order:read với…"])
+  s1 --> s2
+  s2 --> s3
+  s3 --> s4
+  s4 --> s5
+  s5 --> s6
+  s6 --> s7
+  s7 --> s8
+  s8 --> s9
+  s9 --> s10
+  w1 -.-> s1
+  w2 -.-> s4
+  w3 -.-> s9
+```
+
+### 8.1 Đọc bằng mắt — sơ đồ có **đọc được** không
+
+**Có.** Ba điều làm nó đọc được, và cả ba là lựa chọn, không phải mặc định:
+
+1. **Mỗi ô ba dòng theo thứ tự "số · hàm / tệp / việc".** Số và tên hàm ở dòng đầu để quét dọc
+   được; đường dẫn dòng giữa để dán vào terminal; việc ở dòng cuối. Đảo thứ tự (đường dẫn lên
+   đầu) làm ô nào cũng bắt đầu bằng `app/src/...` và mất khả năng quét.
+2. **Nhãn cắt ở 96 ký tự, cắt tại ranh giới từ.** Bước 4 là bước duy nhất bị cắt (`…có…`),
+   phần bị cắt là ba chữ `orderId` — vẫn còn đủ trong **bảng bước** của tệp sinh ra, nơi không
+   cắt. Ô sơ đồ rộng quá là ô không đọc được, nên cắt ở ô và giữ đủ ở bảng là đúng phân vai.
+3. **Ba ô điểm cắm dùng hình khác và mũi tên gạch rời**, nên không lẫn vào chuỗi 10 bước.
+
+**Chưa render bằng máy.** Repo không có bộ phân tích Mermaid (`npm ls mermaid` → rỗng) và Bước
+9 không thêm phụ thuộc chỉ để kiểm một tệp tài liệu. Đã kiểm được: từng dòng khối Mermaid đúng
+dạng `id["..."]` / `id(["..."])` / `a --> b` / `a -.-> b`; nhãn không còn `"`, `#`, `` ` ``,
+`<`, `>` thô (phép tự kiểm trong script, chạy trước mỗi lần ghi). **Không** kiểm được: Mermaid
+có chấp nhận toàn bộ cú pháp hay không. Đây là giới hạn thật, ghi ra thay vì nói "đã kiểm".
+
+### 8.2 Đối chiếu với `docs/tech-report.md` mục 4.2 — thứ tự có **đúng thật** không
+
+**Đúng.** Mười bước ánh xạ hết vào ba giai đoạn viết tay, không bước nào đảo chỗ:
+
+| Bước | Hàm | Khớp với 4.2 |
+|---|---|---|
+| 1 | `placeOrderAction` | sơ đồ ASCII của 4.2, nhánh `placeOrderAction()` |
+| 2 | `placeOrder` | Giai đoạn 1, gộp bước 1, 2, 3, 6, 7, 8 |
+| 3 | `quotePurchase` | Giai đoạn 1, bước 5 — *"**chốt** số VNDB phải trả tại thời điểm đặt"* |
+| 4 | `executeOrderAction` | sơ đồ ASCII của 4.2, nhánh `executeOrderAction()` |
+| 5 | `executeOrder` | Giai đoạn 2, bước 1, 2, 3, 5 |
+| 6 | `runPurchaseChecks` | Giai đoạn 2, bước 4 — *"kiểm giá (QĐ-3) rồi bốn phép đọc"* |
+| 7 | `sendAndSettle` | Giai đoạn 2, bước 7, 8, 9, 10, 11 |
+| 8 | `executePurchase` | Giai đoạn 2, bước 6 — *"VNDB và WPT trong cùng một giao dịch"* |
+| 9 | `listOrdersAction` | Giai đoạn 3, hàng `listOrders()` |
+| 10 | `listOrders` | Giai đoạn 3, hàng `listOrders()` |
+
+Ba chỗ then chốt về thứ tự đều đúng: giá chốt ở lúc **đặt** (bước 3 thuộc giai đoạn 1, không
+thuộc giai đoạn 2); bốn phép kiểm (bước 6) đứng **trước** lúc gửi (bước 7–8); và chiếm
+`EXECUTING` nằm trong bước 5, tức **sau** bước 6 về thời gian dù số nhỏ hơn — xem sai lệch
+**SL-10** ngay dưới.
+
+### 8.3 Năm chỗ sơ đồ nói **khác hoặc ít hơn** tài liệu viết tay
+
+Không chỗ nào là sơ đồ nói **sai**; cả năm là chỗ quy ước không chứa nổi thứ tài liệu viết tay
+diễn đạt được. Ghi đủ ở đây vì người đọc hai tài liệu cạnh nhau sẽ gặp đúng năm chỗ này.
+
+| # | Tài liệu 4.2 có | Sơ đồ | Vì sao |
+|---|---|---|---|
+| 1 | **Hai lối vào, một điểm hội tụ** — cả `actions/purchase.ts` và `api/purchase/route.ts` | chỉ có server action | một bước một số; hai transport song song không biểu diễn được. Đường HTTP nhắc trong nhãn bước 1/4/9 và trong bình luận tại `route.ts` |
+| 2 | `expireStaleOrders()` ở Giai đoạn 3 | không có | nhánh ngoài chuỗi, không có transport. Đặt làm bước 11 sẽ nói dọn lệnh treo xảy ra **sau** khi xem sổ lệnh. Vẫn thấy được qua `@pending BE-07` |
+| 3 | **Bốn phép kiểm** liệt kê từng lời gọi cổng: `paymentBalanceOf`, `paymentAllowanceOf`, `spvWallet` → `balanceOf`, `canTransfer` | gộp vào một ô (bước 6) | gắn cả bốn thì tầng cổng chiếm 6 trong 14 bước và chuỗi thành danh sách lời gọi, không còn là luồng. Bảng bốn phép kiểm giữ ở 4.2, nơi có chỗ cho bảng |
+| 4 | `quotePurchase()` xuất hiện **hai lần**: chốt giá ở Giai đoạn 1 bước 5, và kiểm lại giá ở Giai đoạn 2 bước 4 (QĐ-3) | một ô duy nhất, bước 3 | marker nằm trên **khai báo**, nên một hàm dùng ở hai chỗ chỉ mang được một số bước. Lần dùng thứ hai được nhắc trong nhãn bước 6 (*"kiểm giá đã chốt"*) |
+| 5 | Bước 5 của Giai đoạn 2 (`CHECKING → EXECUTING`) nằm **sau** bước 4 (bốn phép kiểm) — 4.2 gọi đây là *"điểm dễ sửa sai nhất của cả luồng"* | nằm trong ô bước **5**, tức số nhỏ hơn ô bốn phép kiểm (bước 6) | xem SL-10 |
+
+### 8.4 SL-10 — số bước `@flow` **không so được** với số bước của `tech-report.md` 4.2
+
+Hai tài liệu đánh số hai thứ khác nhau, và chỗ này đã gây nhầm một lần trong chính lúc làm
+Bước 9:
+
+- `tech-report.md` 4.2 đánh số **các bước BÊN TRONG một hàm** (Giai đoạn 2 có 11 bước, tất cả
+  nằm trong `executeOrder` + `sendAndSettle`).
+- `@flow` đánh số **các hàm** (Giai đoạn 2 có 5 bước, mỗi bước một hàm).
+
+Hệ quả cụ thể: *"Giai đoạn 2 bước 5"* của tài liệu là việc chiếm `EXECUTING`, nằm **trong** hàm
+`executeOrder` mà `@flow` gọi là **bước 5** — hai con số 5 trùng nhau hoàn toàn tình cờ, và
+*"Giai đoạn 2 bước 4"* (bốn phép kiểm) lại là `@flow` **bước 6**. Đọc chéo hai tài liệu bằng
+số bước sẽ ra kết luận sai.
+
+**Không sửa bằng cách đánh số lại một trong hai.** Hai cách đánh số đều đúng cho việc của
+chúng: người sửa `executeOrder` cần 11 bước bên trong, người tìm đường đi qua hệ thống cần 5
+bước theo hàm. Ép chúng trùng nhau thì một trong hai mất độ phân giải cần thiết. Đã xử lý bằng
+cách **nói ra**: mục 8.2 đối chiếu bằng **tên hàm**, không bằng số bước; và `docs/flows/purchase.md`
+ghi rõ mũi tên là thứ tự thời gian chứ không phải cạnh gọi hàm.
+
+Việc cần làm ở Bước 10: thêm một dòng trỏ qua lại giữa `tech-report.md` 4.2 và
+`docs/flows/purchase.md`, nói rõ hai cách đánh số khác nhau.
 
 ---
 
@@ -3378,6 +3916,47 @@ $ grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ | grep -v node
    hiệu cũ, không phải ký hiệu hiển thị, nên phép quét phân biệt chữ hoa thường cố ý không bắt. Sửa
    là chạm mã trong `packages/` — ngoài phạm vi Bước 8. Đề nghị đổi tên khi có task nào chạm tệp đó;
    giới hạn này đã ghi thẳng vào chú thích của script để không ai tưởng là bỏ sót.
+
+---
+
+### SL-10 — PHÁT HIỆN Ở BƯỚC 9: số bước `@flow` **không so được** với số bước của `tech-report.md` 4.2
+
+Nội dung đầy đủ ở **mục 8.4** (đặt cạnh sơ đồ để người đọc sơ đồ gặp ngay). Tóm lại:
+`tech-report.md` 4.2 đánh số **các bước bên trong một hàm**, `@flow` đánh số **các hàm**, nên
+*"Giai đoạn 2 bước 4"* của tài liệu là `@flow` **bước 6**, còn hai con số 5 ở hai tài liệu
+trùng nhau hoàn toàn tình cờ. Đọc chéo bằng số bước sẽ ra kết luận sai.
+
+Không sửa bằng cách đánh số lại một trong hai — cả hai cách đánh số đều đúng cho việc của
+chúng. Đã xử lý bằng cách đối chiếu theo **tên hàm** ở mục 8.2 và ghi rõ trong tệp sinh ra.
+Nợ lại cho Bước 10: thêm dòng trỏ qua lại giữa hai tài liệu.
+
+### SL-11 — PHÁT HIỆN Ở BƯỚC 9: `design.md` QĐ-5 vẽ ví dụ bằng một tệp **không tồn tại**
+
+QĐ-5 vẽ sơ đồ mẫu có bước 1 là `components/pages/purchase.tsx`. Đo thật:
+
+```
+$ git ls-files | grep -c 'purchase\.tsx'
+0
+$ git ls-files -- 'app/src/components/pages'
+app/src/components/pages/assets.tsx
+app/src/components/pages/dashboard.tsx
+app/src/components/pages/investor-portfolio.tsx
+app/src/components/pages/investor-token-detail.tsx
+app/src/components/pages/kyc.tsx
+app/src/components/pages/mint.tsx
+app/src/components/pages/reconciliation.tsx
+app/src/components/pages/wallet-connect.tsx
+```
+
+Thư mục có thật và có 8 màn hình, nhưng **không có màn mua WPT** — đó là FE-05, chưa làm. Nói
+cách khác: đường dẫn trong QĐ-5 trông hợp lý đúng tới mức dễ tin là có, nên phải `git ls-files`
+mới biết. Làm theo ví dụ của QĐ-5
+sẽ vi phạm chính steering mục 4 (*"Gắn cho luồng còn dở sinh ra sơ đồ mô tả thứ chưa tồn tại"*),
+nên chuỗi bắt đầu ở tầng vận chuyển đang có thật và "giao diện chưa có" được **suy ra** từ
+marker `@pending FE-05` đang nằm trên `placeOrderAction`.
+
+Đây là sai lệch của tài liệu spec, không phải deviation của việc làm: ví dụ trong QĐ-5 được
+viết trước khi biết FE-05 chưa xây. Ghi ra để lần sau không ai "sửa" sơ đồ cho giống ví dụ.
 
 ---
 

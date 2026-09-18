@@ -102,12 +102,12 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 9: Nền cho sơ đồ luồng
 
-- [~] 9.1 Gắn `@flow purchase:<n>` cho luồng mua WPT, từ tầng vận chuyển xuống tầng nghiệp vụ và tầng cổng.
-- [~] 9.2 Số bước cách nhau 1, bắt đầu từ 1, không trùng, không nhảy cách.
-- [~] 9.3 Tạo `scripts/gen-flow-diagram.mjs`, sinh Mermaid theo `design.md` mục QĐ-5.
-- [~] 9.4 Sinh `docs/flows/purchase.md`.
-- [~] 9.5 Thêm ca kiểm vào `pending-markers.test.ts`: số bước trong cùng luồng không trùng và không nhảy cách.
-- [~] 9.6 Mở sơ đồ ra xem, xác nhận nó **đọc được và đúng thứ tự thật** của luồng.
+- [x] 9.1 Gắn `@flow purchase:<n>` cho luồng mua WPT, từ tầng vận chuyển xuống tầng nghiệp vụ và tầng cổng.
+- [x] 9.2 Số bước cách nhau 1, bắt đầu từ 1, không trùng, không nhảy cách.
+- [x] 9.3 Tạo `scripts/gen-flow-diagram.mjs`, sinh Mermaid theo `design.md` mục QĐ-5.
+- [x] 9.4 Sinh `docs/flows/purchase.md`.
+- [x] 9.5 Thêm ca kiểm vào `pending-markers.test.ts`: số bước trong cùng luồng không trùng và không nhảy cách.
+- [x] 9.6 Mở sơ đồ ra xem, xác nhận nó **đọc được và đúng thứ tự thật** của luồng.
 
 *Commit:* `feat(mc): sinh sơ đồ luồng thực thi từ marker`
 
