@@ -36,22 +36,6 @@ enum AuditOutcome {
   FAILURE
 }
 
-/// Trạng thái lệnh mua WPT. Nguồn sự thật của bảng này là
-/// app/src/lib/bank/purchase.state.ts (ORDER_STATUSES + ORDER_TRANSITIONS).
-///
-/// ⚠️ KHÔNG thêm trạng thái mô tả "đã trả tiền nhưng chưa nhận token": chuyển VNDB và
-/// chuyển WPT nằm trong CÙNG một giao dịch nên tình huống đó không tồn tại. Test
-/// app/test/purchase-state.test.ts chốt điều này bằng máy.
-enum OrderStatus {
-  PLACED
-  CHECKING
-  EXECUTING
-  COMPLETED
-  REJECTED
-  FAILED
-  EXPIRED
-}
-
 /// Giao dịch đã gửi lên ledger (mọi chain, kể cả mock).
 model Txn {
   id           String   @id @default(uuid())
@@ -92,36 +76,236 @@ model AuditLog {
   @@index([actorRole, action])
 }
 
-/// Lệnh mua WPT của nhà đầu tư (BE-02; bảng thuộc phạm vi BE-09, khai trước ở đây).
+// =============================================================================
+//  BE-09 — LỆNH MUA WPT
+// =============================================================================
+
+/// Lệnh mua WPT của nhà đầu tư.
 ///
-/// `vndAmount` được CHỐT lúc đặt lệnh và không tính lại khi khớp: nhà đầu tư trả đúng
-/// giá đã thấy. Vì vậy nó là một CỘT, không phải giá trị suy ra từ `wptAmount`.
+/// ⚠️ TRẠNG THÁI lưu dạng `String`, KHÔNG dùng enum của Prisma (design BE-09 QĐ-4).
+/// Danh sách giá trị hợp lệ là `ORDER_STATUSES` ở `app/src/lib/store/order.store.port.ts`,
+/// lấy đúng theo mô hình đã chốt ở BE-02:
+///     PLACED → CHECKING → EXECUTING → COMPLETED
+///                │            └────→ FAILED
+///                └────→ REJECTED
+///     PLACED → EXPIRED
+/// Cổng lưu trữ CHẶN giá trị ngoài danh sách ở CẢ hai bản (bộ nhớ + Postgres), vì cột
+/// `String` thì cơ sở dữ liệu không tự chặn được — xem `assertOrderStatus`.
 ///
-/// KHÔNG có cột số dư WPT: số dư luôn đọc từ chuỗi. Ghi vào đây là tạo nguồn sự thật
-/// thứ hai, và nó sẽ lệch ngay lần đầu có giao dịch không đi qua hệ thống này.
+/// ⚠️ KHÔNG thêm trạng thái mô tả "đã trả tiền nhưng chưa nhận token": chuyển VNDB và
+/// chuyển WPT nằm trong CÙNG một giao dịch on-chain nên tình huống đó không tồn tại, và
+/// mã viết ra để xử lý nó là mã xử lý tình huống tưởng tượng.
+///
+/// `vndAmount` được CHỐT lúc đặt lệnh, KHÔNG tính lại khi khớp: nhà đầu tư trả đúng giá
+/// đã thấy lúc bấm. Vì vậy nó là một CỘT, không phải giá trị suy ra từ `wptAmount`.
+///
+/// KHÔNG có cột số dư WPT: số dư luôn đọc từ chuỗi. Ghi vào đây là tạo nguồn sự thật thứ
+/// hai, và nó lệch ngay lần đầu có giao dịch không đi qua hệ thống này.
 model PurchaseOrder {
-  id             String      @id @default(uuid())
+  id             String   @id @default(uuid())
   /// ChainKey: hardhat-local | evm | stellar | mock
   chain          String
   investorWallet String
   /// Decimal thay vì BigInt: uint256 vượt tầm int8 của Postgres.
-  wptAmount      Decimal     @db.Decimal(78, 0)
-  vndAmount      Decimal     @db.Decimal(78, 0)
-  status         OrderStatus @default(PLACED)
-  /// Có ngay khi gửi giao dịch, TRƯỚC khi chờ biên nhận — để tiến trình chết giữa
-  /// chừng vẫn còn dấu vết đối soát.
-  txHash         String?
+  wptAmount      Decimal  @db.Decimal(78, 0)
+  /// Số VNDB phải trả, chốt tại thời điểm đặt lệnh.
+  vndAmount      Decimal  @db.Decimal(78, 0)
+  status         String   @default("PLACED")
+  /// R1.4 — DUY NHẤT là ràng buộc chống một giao dịch bị gắn cho hai lệnh khác nhau.
+  /// Postgres coi mỗi NULL là khác nhau, nên lệnh chưa gửi giao dịch không đụng ràng buộc.
+  txHash         String?  @unique
+  /// Lý do từ chối / thất bại / hết hạn, hiển thị được cho người dùng.
   reason         String?
   /// Vai đã đặt lệnh — phục vụ đối soát trách nhiệm.
   actorRole      String
-  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
-  /// Nhà đầu tư xem lệnh của mình: lọc theo ví, sắp theo thời gian.
+  /// R1.3 — nhà đầu tư xem lệnh của mình: lọc theo ví, sắp theo thời gian.
   @@index([investorWallet, createdAt])
-  /// Ngân hàng lọc theo trạng thái; cũng là chỉ mục cho `expireOrders`.
+  /// R1.3 — ngân hàng lọc theo trạng thái; cũng là chỉ mục cho việc dọn lệnh quá hạn.
   @@index([status, createdAt])
-  @@index([txHash])
+}
+
+// =============================================================================
+//  BE-09 — CHIA LỢI NHUẬN
+// =============================================================================
+
+/// Một kỳ chia lợi nhuận đã chốt quyền.
+///
+/// `periodKey` DUY NHẤT (R2.2) là chốt chặn "mở cùng một kỳ hai lần". Không dựa vào
+/// kiểm tra trong mã trước khi ghi: hai tiến trình chạy song song có thể cùng vượt qua
+/// kiểm tra rồi cùng ghi, chỉ ràng buộc ở cơ sở dữ liệu mới nguyên tử.
+///
+/// `snapshotId` là mã ảnh chụp số dư trên chuỗi, lấy từ event `Snapshot` trong biên nhận
+/// (`ILedgerSnapshot.takeSnapshot`). KHÔNG tự tăng số đếm và KHÔNG gọi
+/// `getCurrentSnapshotId()` sau khi gửi giao dịch: tx snapshot của người khác chen vào
+/// giữa hai lời gọi là lấy về mã của họ, rồi chia lợi nhuận theo ảnh chụp sai.
+///
+/// `totalSupplyAt` lưu lại thay vì đọc lại từ chuỗi mỗi lần tính: đây là mẫu số của mọi
+/// phép chia trong kỳ, giữ nó cạnh `snapshotId` để hồ sơ đã chốt không đổi theo chuỗi.
+model DistributionPeriod {
+  id            String               @id @default(uuid())
+  /// Mã kỳ do nghiệp vụ đặt, ví dụ "2026-Q1". DUY NHẤT toàn hệ.
+  periodKey     String               @unique
+  /// Mã ảnh chụp trên chuỗi. Int vì mã snapshot là số đếm nhỏ, không phải uint256.
+  snapshotId    Int
+  /// Tổng VNDB của kỳ.
+  totalAmount   Decimal              @db.Decimal(78, 0)
+  /// Tổng cung WPT tại ảnh chụp — mẫu số khi tính phần từng ví.
+  totalSupplyAt Decimal              @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: DISTRIBUTION_PERIOD_STATUSES ở lib/store/distribution.store.port.ts
+  status        String               @default("OPEN")
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain         String
+  /// Thời điểm chốt quyền.
+  openedAt      DateTime             @default(now()) @db.Timestamptz(3)
+  completedAt   DateTime?            @db.Timestamptz(3)
+  payouts       DistributionPayout[]
+
+  @@index([status, openedAt])
+  @@index([chain, openedAt])
+}
+
+/// Phần lợi nhuận của MỘT ví trong MỘT kỳ.
+///
+/// Duy nhất `(periodId, investorWallet)` (R2.4) là chốt chặn chia trùng cho một nhà đầu
+/// tư trong cùng kỳ. Đây là ràng buộc quan trọng nhất của bảng này: chia trùng là mất
+/// tiền thật, và không có cách nào phát hiện muộn ngoài đối soát tay.
+///
+/// `amount` lưu lại thay vì tính lại từ `balanceAt / totalSupplyAt`: số đã chuyển cho
+/// người ta thì không được đổi theo bất cứ thứ gì sửa sau đó.
+model DistributionPayout {
+  id             String             @id @default(uuid())
+  periodId       String
+  period         DistributionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  investorWallet String
+  /// Số dư WPT của ví TẠI ảnh chụp của kỳ.
+  balanceAt      Decimal            @db.Decimal(78, 0)
+  /// Số VNDB được chia, chốt tại thời điểm lập hồ sơ.
+  amount         Decimal            @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: DISTRIBUTION_PAYOUT_STATUSES ở lib/store/distribution.store.port.ts
+  status         String             @default("PENDING")
+  txHash         String?
+  /// Số thứ tự lô đã gửi. Chia lô là việc của nghiệp vụ (BE-06); ở đây chỉ ghi lại để
+  /// chạy lại đúng lô lỗi thay vì chạy lại cả kỳ.
+  batchNo        Int?
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  /// R2.4 — một nhà đầu tư chỉ có MỘT hồ sơ trong một kỳ.
+  @@unique([periodId, investorWallet])
+  /// Task 2.3 — nhà đầu tư tra lịch sử lợi nhuận của chính mình.
+  @@index([investorWallet, createdAt])
+  /// Lấy các hồ sơ còn phải chi của một kỳ, và chạy lại lô lỗi.
+  @@index([periodId, status])
+}
+
+// =============================================================================
+//  BE-09 — TẤT TOÁN
+// =============================================================================
+
+/// Một đợt tất toán (đóng quỹ) đã khởi tạo.
+///
+/// `navRate` lưu ở đây là giá NAV ÁP CHO ĐỢT NÀY, không phải giá đang đặt trên chuỗi.
+/// Chuỗi chỉ giữ một giá trị hiện hành (`ILedgerSettlement.navRate`); sửa nó không được
+/// làm đổi hồ sơ của đợt đã chốt.
+model SettlementRound {
+  id          String            @id @default(uuid())
+  /// Mã ảnh chụp số dư dùng để lập danh sách người nắm giữ của đợt.
+  snapshotId  Int
+  /// Số VNDB trả cho mỗi 1 WPT, chốt cho đợt này.
+  navRate     Decimal           @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: SETTLEMENT_ROUND_STATUSES ở lib/store/settlement.store.port.ts
+  status      String            @default("INITIATED")
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain       String
+  initiatedAt DateTime          @default(now()) @db.Timestamptz(3)
+  completedAt DateTime?         @db.Timestamptz(3)
+  cases       SettlementCase[]
+
+  @@index([status, initiatedAt])
+  @@index([chain, initiatedAt])
+}
+
+/// Hồ sơ tất toán của MỘT người nắm giữ trong MỘT đợt.
+///
+/// BỐN trạng thái theo R3.2, mỗi trạng thái một cột thời điểm (R3.3):
+///     NOTIFIED  → notifiedAt   (thông báo, ngoài chuỗi — không có giao dịch)
+///     CONFIRMED → confirmedAt  (nhà đầu tư đồng ý, `settlement:confirm` — không có giao dịch)
+///     PAID      → paidAt   + paidTxHash
+///     BURNED    → burnedAt + burnTxHash
+///
+/// ⚠️ ĐỪNG rút gọn còn hai trạng thái: màn hình FE-10 cần theo dõi đủ bốn, và gộp
+/// "đã chi trả" với "đã đốt" là mất đúng cái mốc phân biệt tiền đã ra khỏi ngân hàng
+/// với token đã bị thu hồi — hai việc không cùng một giao dịch.
+///
+/// Chỉ hai cột mã giao dịch, không phải bốn: R3.3 nói "mã giao dịch tương ứng NẾU CÓ",
+/// và hai bước đầu không sinh giao dịch nào. Thêm hai cột luôn rỗng chỉ để cho cân đối
+/// là mời người đọc sau đi tìm giao dịch không tồn tại.
+///
+/// `payoutAmount` chốt tại thời điểm lập hồ sơ, KHÔNG tính lại từ `navRate` (task 3.4):
+/// nếu giá NAV bị sửa thì hồ sơ đã chốt không đổi theo.
+model SettlementCase {
+  id           String          @id @default(uuid())
+  roundId      String
+  round        SettlementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  holderWallet String
+  /// Số WPT phải thu hồi.
+  wptAmount    Decimal         @db.Decimal(78, 0)
+  /// Số VNDB phải trả, chốt tại thời điểm lập hồ sơ.
+  payoutAmount Decimal         @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: SETTLEMENT_CASE_STATUSES ở lib/store/settlement.store.port.ts
+  status       String          @default("NOTIFIED")
+  notifiedAt   DateTime?       @db.Timestamptz(3)
+  confirmedAt  DateTime?       @db.Timestamptz(3)
+  paidAt       DateTime?       @db.Timestamptz(3)
+  paidTxHash   String?
+  burnedAt     DateTime?       @db.Timestamptz(3)
+  burnTxHash   String?
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
+
+  /// R3.4 — chốt chặn chi trả hoặc đốt trùng cho một ví trong cùng đợt.
+  @@unique([roundId, holderWallet])
+  /// Nhà đầu tư xem hồ sơ tất toán của chính mình.
+  @@index([holderWallet, createdAt])
+  /// Lấy các hồ sơ còn phải xử lý của một đợt.
+  @@index([roundId, status])
+}
+
+// =============================================================================
+//  BE-09 — TIẾN TRÌNH HẸN GIỜ
+// =============================================================================
+
+/// Mốc chạy của tiến trình hẹn giờ (BE-07).
+///
+/// Duy nhất `(jobName, periodKey)` (R4.2) là chốt chặn chạy trùng, và nó phải nằm ở cơ
+/// sở dữ liệu chứ không phải ở mã: hai instance web cùng nhận một lịch — chuyện thường
+/// gặp khi chạy nhiều bản sao hoặc khi lịch trước chưa xong đã tới lịch sau — sẽ cùng
+/// đọc thấy "chưa chạy" rồi cùng chạy. Ghi dòng mốc TRƯỚC khi làm việc, thất bại ở
+/// ràng buộc này chính là cách một bản biết bản kia đã nhận việc.
+///
+/// `periodKey` là chuỗi tự do do từng công việc quy ước (kỳ chia "2026-Q1", ngày
+/// "2026-09-18", đợt tất toán...), không phải khóa ngoài: một công việc có thể chạy theo
+/// kỳ không tương ứng bảng nào.
+model KeeperRun {
+  id         String    @id @default(uuid())
+  /// Tên công việc, ví dụ "expire-orders".
+  jobName    String
+  /// Kỳ mà lần chạy này phụ trách.
+  periodKey  String
+  startedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  /// Giá trị hợp lệ: KEEPER_RUN_STATUSES ở lib/store/keeper.store.port.ts
+  status     String    @default("RUNNING")
+  /// Thông báo lỗi khi thất bại.
+  error      String?
+
+  /// R4.2 — một công việc chạy đúng một lần cho một kỳ.
+  @@unique([jobName, periodKey])
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
 }
 
 /// Nhà đầu tư + trạng thái KYC (Phase 4 nối provider thật).

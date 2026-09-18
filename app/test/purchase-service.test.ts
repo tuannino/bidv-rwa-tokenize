@@ -64,7 +64,7 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
 
 const { resetServerEnvCache } = await import('@/lib/config/env');
 const { resetMockLedger, seedMockLedger } = await import('@/lib/ledger/mock.adapter');
-const { getStore, resetMemoryStore, resetStoreCache } = await import('@/lib/store');
+const { getOrderStore, getStore, resetMemoryStore, resetStoreCache } = await import('@/lib/store');
 const { getLedger } = await import('@/lib/ledger');
 const { executeOrder, expireStaleOrders, listOrders, placeOrder } = await import(
   '@/lib/bank/purchase.service'
@@ -118,14 +118,19 @@ async function placeAsInvestor(wptAmount: string, investor = ALICE): Promise<str
   return placed.data.id;
 }
 
-/** Cấu trúc state của `memory.store.ts` — chỉ dùng để giả lập thời gian trong test. */
+/**
+ * Cấu trúc state của các bản lưu trữ bộ nhớ — chỉ dùng để giả lập thời gian trong test.
+ *
+ * Một khoá `globalThis` duy nhất (`memory.state.ts`) chia theo vùng; lệnh mua nằm ở vùng
+ * `order` do `memory.order.store.ts` khai.
+ */
 interface MemoryStoreShape {
-  __bidvMemoryStore__?: { orders: { createdAt: string }[] };
+  __bidvMemoryStores__?: { order?: { orders: { createdAt: string }[] } };
 }
 
 /** Đẩy `createdAt` của một lệnh về mốc chỉ định, để thử nhánh hết hạn mà không phải chờ. */
 function makeOrderStale(index: number, createdAt: string): void {
-  const orders = (globalThis as MemoryStoreShape).__bidvMemoryStore__?.orders;
+  const orders = (globalThis as MemoryStoreShape).__bidvMemoryStores__?.order?.orders;
   if (!orders?.[index]) throw new Error(`không có lệnh ở vị trí ${index} trong store bộ nhớ`);
   orders[index].createdAt = createdAt;
 }
@@ -234,7 +239,7 @@ describe('executeOrder — từ chối trước khi gửi giao dịch', () => {
     expect(fault.sendCount, 'không được gửi giao dịch nào').toBe(0);
     expect(await snapshotBalances()).toEqual(before);
 
-    const order = await getStore().findOrder(orderId);
+    const order = await getOrderStore().findOrder(orderId);
     expect(order?.status).toBe('REJECTED');
     expect(order?.txHash, 'REJECTED thì không có mã giao dịch').toBeNull();
     expect(order?.reason).toMatch(reasonPattern);
@@ -295,7 +300,7 @@ describe('executeOrder — từ chối trước khi gửi giao dịch', () => {
     if (result.ok) return;
     expect(result.code).toBe('PRICE_CHANGED');
     // Số đã chốt vẫn là số cũ: nghiệp vụ TỪ CHỐI, không âm thầm thu theo giá mới.
-    const order = await getStore().findOrder(orderId);
+    const order = await getOrderStore().findOrder(orderId);
     expect(order?.vndAmount).toBe((2n * PRICE).toString());
     expect(fault.sendCount).toBe(0);
   });
@@ -310,7 +315,7 @@ describe('executeOrder — từ chối trước khi gửi giao dịch', () => {
     if (result.ok) return;
     expect(result.error).toMatch(/đóng băng/);
     expect(fault.sendCount).toBe(0);
-    expect((await getStore().findOrder(orderId))?.status).toBe('REJECTED');
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('REJECTED');
   });
 });
 
@@ -351,7 +356,7 @@ describe('7.5 — khớp lệnh thành công', () => {
     expect(result.data.balanceAfter).toBe((await getLedger(CHAIN).balanceOf(ALICE)).toString());
     expect(result.data.balanceAfter).toBe('3');
 
-    const order = await getStore().findOrder(orderId);
+    const order = await getOrderStore().findOrder(orderId);
     expect(order?.status).toBe('COMPLETED');
     expect(order?.txHash).toBe(result.data.txHash);
   });
@@ -395,7 +400,7 @@ describe('7.6 — khớp lệnh thất bại', () => {
     // Điểm cốt lõi: không nửa vời. Không ai bị trừ, không ai được cộng.
     expect(await snapshotBalances()).toEqual(before);
 
-    const order = await getStore().findOrder(orderId);
+    const order = await getOrderStore().findOrder(orderId);
     // FAILED, KHÔNG phải REJECTED: đã chiếm EXECUTING nên không còn chứng minh được là
     // chưa có giao dịch nào lên chuỗi.
     expect(order?.status).toBe('FAILED');
@@ -416,7 +421,7 @@ describe('7.6 — khớp lệnh thất bại', () => {
     expect(result.error).toMatch(/revert/);
     expect(await snapshotBalances()).toEqual(before);
 
-    const order = await getStore().findOrder(orderId);
+    const order = await getOrderStore().findOrder(orderId);
     expect(order?.status).toBe('FAILED');
     // R3.2: mã giao dịch được lưu TRƯỚC khi chờ biên nhận, nên vẫn còn dấu vết đối soát.
     expect(order?.txHash).toBe(`0x${'f'.repeat(64)}`);
@@ -620,7 +625,7 @@ describe('7.9 — cổng quyền order:execute', () => {
     await executeOrder({ chain: CHAIN, orderId });
 
     // Vẫn PLACED: một lần bị chặn không được đẩy lệnh sang CHECKING rồi bỏ đó.
-    expect((await getStore().findOrder(orderId))?.status).toBe('PLACED');
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('PLACED');
   });
 });
 
@@ -632,8 +637,8 @@ describe('expireStaleOrders', () => {
     await seedReadyToBuy();
     const orderId = await placeAsInvestor('1');
 
-    const store = getStore();
-    expect(await store.listOrders({})).toHaveLength(1);
+    const orderStore = getOrderStore();
+    expect(await orderStore.listOrders({})).toHaveLength(1);
 
     // Kéo `createdAt` về quá khứ thay vì chờ thật.
     //
@@ -649,9 +654,9 @@ describe('expireStaleOrders', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.expired).toBe(1);
-    expect((await store.findOrder(orderId))?.status).toBe('EXPIRED');
+    expect((await orderStore.findOrder(orderId))?.status).toBe('EXPIRED');
 
-    const audit = await store.listAudit({ limit: 20 });
+    const audit = await getStore().listAudit({ limit: 20 });
     expect(audit.some((e) => e.action === 'order:expire' && e.outcome === 'SUCCESS')).toBe(true);
   });
 
@@ -665,7 +670,7 @@ describe('expireStaleOrders', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.expired).toBe(0);
-    expect((await getStore().findOrder(orderId))?.status).toBe('PLACED');
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('PLACED');
   });
 
   it('olderThanMinutes = 0 bị chặn ở validate', async () => {

@@ -1,10 +1,18 @@
 /**
  * MÔ HÌNH TRẠNG THÁI LỆNH MUA WPT.
  *
- * Tách khỏi `purchase.service.ts` vì hai lý do:
- *   - Phần này KHÔNG cần cơ sở dữ liệu lẫn chain, nên test được độc lập và chốt được
- *     trước khi bảng dữ liệu tồn tại (BE-09 lấy đúng bảng dưới đây làm enum).
- *   - Bảng chuyển tiếp là DỮ LIỆU, không phải chuỗi `if`. Thêm trạng thái = sửa bảng.
+ * Tách khỏi `purchase.service.ts` vì bảng chuyển tiếp là DỮ LIỆU, không phải chuỗi `if`.
+ * Thêm trạng thái = sửa bảng.
+ *
+ * ⚠️ NGUỒN SỰ THẬT của danh sách trạng thái nằm ở `@/lib/store/order.store.port`, không ở
+ * file này. BE-02 khai `ORDER_STATUSES` ở đây trước vì lúc đó chưa có bảng dữ liệu; BE-09
+ * dựng bảng `PurchaseOrder` và cột `status` phải khớp đúng danh sách đó, nên giữ hai bản
+ * khai song song là mời gọi lệch nhau ở lần thêm trạng thái đầu tiên. File này chỉ
+ * RE-EXPORT lại để mọi chỗ gọi hiện tại không phải sửa đường import.
+ *
+ * ⚠️ Import TRỰC TIẾP module `order.store.port`, KHÔNG qua barrel `@/lib/store`: barrel có
+ * `import 'server-only'`, mà file này bị `schemas.ts` kéo theo sang phía form/client.
+ * Đi qua barrel sẽ làm vỡ build.
  *
  * ============================================================================
  *  PLACED ──► CHECKING ──► EXECUTING ──► COMPLETED
@@ -25,17 +33,9 @@
  * chốt máy kiểm để lần sau ai thêm trạng thái như vậy thì test đỏ ngay.
  */
 
-export const ORDER_STATUSES = [
-  'PLACED',
-  'CHECKING',
-  'EXECUTING',
-  'COMPLETED',
-  'REJECTED',
-  'FAILED',
-  'EXPIRED',
-] as const;
+import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export { ORDER_STATUSES, type OrderStatus };
 
 /**
  * Bảng chuyển tiếp hợp lệ. Trạng thái kết thúc có danh sách RỖNG, không phải thiếu

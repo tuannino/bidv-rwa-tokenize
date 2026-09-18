@@ -9,10 +9,10 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.6 |
-| Cập nhật lần cuối | 2026-09-17 |
-| Nhánh / commit | `feat/purchase-orders` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT) |
+| Phiên bản tài liệu | 1.7 |
+| Cập nhật lần cuối | 2026-09-18 |
+| Nhánh / commit | `feat/data-schema` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -429,7 +429,7 @@ INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 | `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) | `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
-| `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic | `ORDER_STATUSES`, `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES` |
+| `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic. `ORDER_STATUSES` **re-export** từ `store/order.store.port.ts`, không khai lại | `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES`, `findPaidPendingDeliveryStatuses()` |
 | `issuance.ts` | Điều khoản phát hành | `WPT_ISSUE_PRICE_VND`, `wptToVnd()` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
@@ -469,6 +469,9 @@ dịch, vì lúc đó không còn chứng minh được là chưa có gì lên c
 công mà phản hồi bị mất).
 
 **Lưu ý khi phát triển:**
+- **`purchase.service.ts` cầm HAI cổng lưu trữ, không phải một.** `getStore()` (`ITxnStore`) cho sổ giao dịch và sổ kiểm toán; `getOrderStore()` (`IOrderStore`) cho bảng lệnh mua. Đừng dựng lại một interface hợp nhất kiểu `IBankStore`: một cổng gộp buộc mọi nghiệp vụ phải cầm cả những hàm nó không dùng, và mỗi lần thêm bảng lại phải sửa cả hai bản hiện thực dù việc mới chẳng liên quan.
+- **`ORDER_STATUSES` có đúng MỘT nguồn: `store/order.store.port.ts`.** `purchase.state.ts` chỉ re-export. Khai lại ở tầng nghiệp vụ là mời gọi cột `status` trong cơ sở dữ liệu lệch khỏi mô hình trạng thái ngay lần thêm trạng thái đầu tiên.
+- **`purchase.state.ts` import TRỰC TIẾP `@/lib/store/order.store.port`, không qua barrel `@/lib/store`.** Barrel có `import 'server-only'`, mà `purchase.state.ts` bị `schemas.ts` kéo theo sang phía form/client — đi qua barrel là vỡ build, và lỗi hiện ra ở một file không liên quan.
 - `authorize()` ghi audit cho **cả hai kết cục** ALLOWED và DENIED. Giữ nguyên: kênh kiểm toán cần thấy cả những lần bị chặn.
 - `authorize()`/`toResult()` nằm ở `authorize.ts`, **không** sao chép vào service mới: hai đường ghi audit song song sẽ lệch nhau ở lần sửa đầu tiên, và sổ kiểm toán thiếu bản ghi thì không dùng được để đối chiếu trách nhiệm.
 - Hàm đọc dữ liệu theo ví phải để `wallet` **bắt buộc** trong schema. `ITxnStore.listTxns` không truyền `wallet` sẽ trả giao dịch của **mọi** ví; để optional là mở đường cho một lời gọi thiếu tham số làm rò dữ liệu ví khác ra giao diện nhà đầu tư.
@@ -484,14 +487,73 @@ công mà phản hồi bị mất).
 
 ## 3.5. `app/src/lib/store/` và `providers/`
 
-| File | Vai trò |
-|---|---|
-| `store/store.port.ts` | `ITxnStore` (giao dịch + audit) và `IOrderStore` (lệnh mua); `IBankStore` là hợp của hai, và là thứ `getStore()` trả về |
-| `store/memory.store.ts` | Bản RAM cho free-tier; state đặt trên `globalThis` để không mất khi Next reload module |
-| `store/postgres.store.ts` | Bản Postgres, dùng `pg` thuần, query tham số hóa. `ensurePurchaseOrderTable()` tạo bảng lệnh mua cho volume dựng **trước** BE-02 — `init.sql` chỉ chạy khi bảng `Txn` chưa có, nên DB cũ sẽ không bao giờ nhận bảng mới |
-| `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |
+**Năm cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09). Hai hiện thực cho mỗi cổng, chọn bằng
+cùng cờ `USE_MOCK_DB`.
 
-**Cách mở rộng:** thêm provider mới (oracle, core banking) theo đúng khuôn: `*.port.ts` + `mock.provider.ts` + `real.provider.stub.ts` + `index.ts` chọn theo cờ.
+| File | Cổng / vai trò | Hàm chính |
+|---|---|---|
+| `store/store.port.ts` | `ITxnStore` — giao dịch + audit log | `saveTxn`, `updateTxnStatus`, `listTxns`, `appendAudit`, `listAudit` |
+| `store/order.store.port.ts` | `IOrderStore` — lệnh mua WPT | `createOrder`, `findOrder`, `transitionOrder`, `attachOrderTxHash`, `listOrders`, `expireOrders` |
+| `store/distribution.store.port.ts` | `IDistributionStore` — kỳ chia + hồ sơ chia | `openPeriod`, `findPeriod`, `findPeriodByKey`, `listPeriods`, `setPeriodStatus`, `createPayouts`, `markPayout`, `listPayouts` |
+| `store/settlement.store.port.ts` | `ISettlementStore` — đợt tất toán + hồ sơ người nắm giữ | `openRound`, `findRound`, `listRounds`, `setRoundStatus`, `createCases`, `markCase`, `listCases` |
+| `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
+| `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
+| `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
+| `store/memory.{store,order,distribution,settlement,keeper}.store.ts` | Bản RAM cho free-tier | |
+| `store/postgres.pool.ts` | Pool `pg` + `ensureSchema` dùng chung cho cả năm bản Postgres | `pgQuery` |
+| `store/postgres.{store,order,distribution,settlement,keeper}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
+| `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `resetStoreCache`, `resetMemoryStore` |
+| `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
+
+**Bảng dữ liệu và ràng buộc duy nhất** (`app/prisma/schema.prisma` là nguồn sự thật; `init.sql`
+sinh ra từ nó bằng `npm run db:sql`):
+
+| Bảng | Ràng buộc duy nhất | Chặn điều gì |
+|---|---|---|
+| `PurchaseOrder` | `txHash` | một mã giao dịch gắn cho hai lệnh mua |
+| `DistributionPeriod` | `periodKey` | mở cùng một kỳ chia hai lần |
+| `DistributionPayout` | `(periodId, investorWallet)` | **chia trùng** cho một nhà đầu tư trong cùng kỳ |
+| `SettlementCase` | `(roundId, holderWallet)` | **chi trả hoặc đốt trùng** cho một ví trong cùng đợt |
+| `KeeperRun` | `(jobName, periodKey)` | tiến trình hẹn giờ chạy trùng |
+| `SettlementRound` | — | (hồ sơ từng ví mới là chỗ cần chặn) |
+
+**Lưu ý khi phát triển:**
+
+- **Ràng buộc duy nhất là ở cơ sở dữ liệu, không phải phép kiểm trước khi ghi.** Hai tiến
+  trình song song đều có thể vượt qua `if (đã tồn tại) return` rồi cùng ghi. Cách dùng đúng
+  của `IKeeperStore.startRun` là **gọi trước khi làm việc** và coi `UniqueConstraintError`
+  là tín hiệu "bản khác đã nhận việc". `findRun` chỉ để hiển thị.
+- **`transitionOrder` đặt điều kiện trạng thái TRONG câu `UPDATE`** và trả `null` khi không
+  dòng nào khớp. Đọc trạng thái rồi mới ghi thì hai lời gọi đồng thời cùng thấy `CHECKING`,
+  cùng kết luận được phép, rồi cùng gửi giao dịch — nhà đầu tư bị trừ tiền hai lần.
+- **Bản bộ nhớ phải nghiêm ngặt NGANG bản Postgres.** Mọi phép kiểm nằm ở `store.errors.ts`
+  và các `assert*Status` trong từng port, cả hai bản đều gọi. Bản bộ nhớ dễ tính hơn sẽ sinh
+  loại lỗi xanh ở free-tier và đỏ khi `docker compose up`. Ba khác biệt đã được xử lý riêng:
+  so mốc thời gian theo giá trị chứ không so chuỗi, kiểm số tiền là chuỗi chữ số không âm,
+  và **không giới hạn số dòng** như `memory.store.ts` (Postgres không bao giờ bỏ dòng).
+- **Cột trạng thái là `String`, không phải enum của Postgres.** Đánh đổi: cơ sở dữ liệu
+  không tự chặn giá trị lạ, nên chốt chặn duy nhất là `assert*Status` ở tầng cổng —
+  `test/store-constraints.test.ts` giữ chỗ đó.
+- **`ensureSchema` áp `init.sql` theo TỪNG câu lệnh trong SAVEPOINT riêng**, bỏ qua đúng bốn
+  mã lỗi "đã có rồi". Nhờ vậy một volume Postgres dựng trước BE-09 được bổ sung bảng mới,
+  chứ không thiếu bảng cho tới lúc nghiệp vụ đầu tiên chạm vào.
+- **Số tiền vào và ra đều là CHUỖI chữ số.** `bigint` không JSON-hoá được nên không qua được
+  biên máy chủ sang trình duyệt, và `number` mất chính xác từ 2^53.
+- **Không dùng Prisma Client lúc chạy** (~22MB có cả query engine nhị phân). Prisma chỉ sinh
+  lược đồ; runtime là `pg` (~0.5MB, nằm trong `serverExternalPackages` mặc định của Next).
+
+**Cách mở rộng:**
+
+1. Thêm bảng → sửa `prisma/schema.prisma`, chạy `npm run db:sql` sinh lại `init.sql`. **Không
+   sửa `init.sql` bằng tay** — hai nguồn DDL là nguồn lỗi khó tìm.
+2. Thêm ràng buộc duy nhất → khai thêm một dòng vào `UNIQUE_CONSTRAINTS` (hoặc `FOREIGN_KEYS`)
+   ở `store.errors.ts`, để `UniqueConstraintError` nói được cột nào trùng. Test đối chiếu bảng
+   tra này với `init.sql` theo **cả hai chiều**, nên quên một chiều là đỏ ngay.
+3. Thêm nghiệp vụ → thêm một cổng `*.store.port.ts` + hai hiện thực + một factory ở `index.ts`.
+   **Không nhồi vào `ITxnStore`**: interface 20 hàm thì mỗi lần thêm nghiệp vụ phải sửa cả hai
+   bản dù việc mới không liên quan.
+4. Thêm provider mới (oracle, core banking) theo đúng khuôn: `*.port.ts` + `mock.provider.ts` +
+   `real.provider.stub.ts` + `index.ts` chọn theo cờ.
 
 ## 3.6. `app/src/lib/config/` và `chains/`
 
@@ -677,11 +739,11 @@ thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transp
 |---|---|---|
 | 1 | `bank/schemas.ts` → `placeOrderSchema.safeParse` | Validate ví; `wptAmount` chuỗi → `bigint`, > 0 |
 | 2 | `bank/authorize.ts` → `rbac/can.ts` → `permissions.ts` | `authorize('order:place')` — quyền của **INVESTOR** |
-| 3 | `store/index.ts` | Ghi audit ALLOWED / DENIED |
+| 3 | `getStore() :: appendAudit()` | Ghi audit ALLOWED / DENIED |
 | 4 | `ledger/index.ts :: getLedger(chain)` | Chọn adapter |
 | 5 | `ledger :: quotePurchase(wptAmount)` | **Chốt** số VNDB phải trả tại thời điểm đặt |
-| 6 | `store :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
-| 7 | `store :: appendAudit()` | Bản ghi SUCCESS |
+| 6 | `getOrderStore() :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
+| 7 | `getStore() :: appendAudit()` | Bản ghi SUCCESS |
 | 8 | `bank/result.ts` | Trả `Result<OrderView>`, mọi con số dạng **chuỗi** |
 
 Bước 5 là QĐ-3 của BE-02: số VNDB **không** được tính lại khi khớp. Tính lại là âm thầm thu
@@ -691,15 +753,15 @@ một số khác với số đã báo trên màn hình lúc bấm — sai về n
 
 | Bước | File / hàm | Việc |
 |---|---|---|
-| 1 | `store :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
+| 1 | `getOrderStore() :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
 | 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **BANK_ADMIN**, tách khỏi `order:place` |
-| 3 | `store :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
+| 3 | `orderStore :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
 | 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới |
-| 5 | `store :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
+| 5 | `orderStore :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
 | 6 | `ledger :: executePurchase(investor, wptAmount)` | VNDB và WPT trong **cùng một** giao dịch |
-| 7 | `store :: attachOrderTxHash()` + `saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
+| 7 | `orderStore :: attachOrderTxHash()` + `txnStore :: saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
 | 8 | `ledger :: waitReceipt(txHash, receiptTimeoutFor(chain))` | 30s hardhat-local/mock, 90s Sepolia |
-| 9 | `store :: transitionOrder(→ COMPLETED \| FAILED)` + `appendAudit()` | Vai ghi sổ là vai **đang khớp** |
+| 9 | `orderStore :: transitionOrder(→ COMPLETED \| FAILED)` + `txnStore :: appendAudit()` | Vai ghi sổ là vai **đang khớp** |
 | 10 | `ledger :: balanceOf(investor)` | **Đọc lại số dư WPT từ chuỗi**, không tin biên nhận |
 | 11 | `bank/result.ts` | Trả `Result<OrderExecutionView>` |
 
@@ -765,7 +827,7 @@ components/pages/redeem.tsx  (kênh (client))
 | 5 | `ledger/evm.adapter.ts` | Nối `Redemption.sol` qua ABI ở `packages/shared/generated/Redemption.abi.json` |
 | 6 | `ledger/mock.adapter.ts` | **Bắt buộc** hiện thực song song, giữ đủ ràng buộc: `paused`, `isWhitelisted`, đủ thanh khoản VNDB |
 | 7 | `signer/wallet.signer.ts` | Nhà đầu tư ký (khác mint) |
-| 8 | `store/` | `saveTxn` PENDING → `waitReceipt` → cập nhật |
+| 8 | `store/` | `saveTxn` PENDING → `waitReceipt` → cập nhật. Nếu làm theo mô hình **đợt tất toán do ngân hàng điều phối** thì dùng `getSettlementStore()` của BE-09 (bốn trạng thái, duy nhất `(roundId, holderWallet)`) — xem câu hỏi mở trong `docs/CHECKPOINT_BE09.md` về việc hai mô hình `redeem` và `settlement` đang cùng tồn tại |
 | 9 | `bank/result.ts` | Mã lỗi mới: `INSUFFICIENT_LIQUIDITY`, `REDEMPTION_PAUSED`, `NOT_WHITELISTED` |
 
 **Điều kiện `Redemption.redeem()` yêu cầu (phải phản ánh đủ ở UI và mock):**
@@ -811,7 +873,7 @@ components/pages/distribution.tsx  (kênh (admin))
 | 2 | `ledger.port.ts` → thêm `createDistribution()`, `previewClaim()`, `listDistributions()` | Mở rộng port |
 | 3 | `evm.adapter.ts` | Gọi `ProfitDistributor.createDistribution(amount, period)` hoặc `createDistributionFromOracle(periodId)` |
 | 4 | Chuẩn bị on-chain | Ngân hàng phải `approve` VNDB cho ProfitDistributor trước (contract dùng `safeTransferFrom`) |
-| 5 | `store/` + audit | Ghi kỳ chia, snapshotId, tổng tiền |
+| 5 | `store/` + audit — bảng **đã có sẵn** từ BE-09: `getDistributionStore().openPeriod()` rồi `createPayouts()` | Ghi kỳ chia, `snapshotId`, tổng tiền. `periodKey` duy nhất chặn mở kỳ hai lần; `(periodId, investorWallet)` duy nhất chặn chia trùng — **đừng** thay hai ràng buộc đó bằng phép kiểm trước khi ghi |
 
 **Quyền on-chain cần có:** ProfitDistributor phải giữ `SNAPSHOT_ROLE` trên ProjectToken (vì nó gọi `snapshot()`), và người tạo phải có `DISTRIBUTOR_ROLE`. Thiếu vai trò là nguyên nhân lỗi phổ biến nhất khi triển khai.
 
