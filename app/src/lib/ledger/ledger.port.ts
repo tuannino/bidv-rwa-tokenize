@@ -111,6 +111,8 @@ export interface ILedgerPurchase {
    *
    * VNDB quy đổi 1:1 với VND nên hàm này KHÔNG gọi bất kỳ nguồn tỷ giá nào
    * (BE-01 R2.6) — chỉ nhân số lượng với giá bán một WPT.
+   *
+   * @flow purchase:3 | chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh
    */
   quotePurchase(wptAmount: bigint): Promise<bigint>;
   /** Số dư token thanh toán (VNDB) của một ví. */
@@ -123,6 +125,8 @@ export interface ILedgerPurchase {
    *
    * Thiếu số dư, thiếu ủy quyền, hoặc ví SPV thiếu WPT thì thất bại và KHÔNG
    * để lại trạng thái nửa vời (R2.5).
+   *
+   * @flow purchase:8 | chuyển VNDB và WPT trong cùng một giao dịch
    */
   executePurchase(investor: string, wptAmount: bigint): Promise<TxResult>;
 }

@@ -91,6 +91,8 @@ function toView(order: OrderRecord): OrderView {
  *
  * Lệnh sinh ra ở `PLACED` và KHÔNG gửi giao dịch nào. Kiểm điều kiện và gửi giao dịch là
  * việc của `executeOrder`.
+ *
+ * @flow purchase:2 | validate Zod, kiểm quyền order:place, lưu lệnh PLACED, ghi sổ kiểm toán
  */
 export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   const parsed = placeOrderSchema.safeParse(input);
@@ -159,6 +161,8 @@ const failCheck = (code: ErrorCode, reason: string): PurchaseCheck => ({
  *
  * Phép kiểm giá (QĐ-3) chạy TRƯỚC bốn phép này vì cả bốn đều so với `vndAmount` đã chốt;
  * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu.
+ *
+ * @flow purchase:6 | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên
  */
 async function runPurchaseChecks(
   ledger: ILedgerPort,
@@ -270,6 +274,8 @@ async function auditExecution(
  * dịch — vì lúc đó không còn chứng minh được là chưa có giao dịch nào lên chuỗi (lệnh gửi
  * có thể đã thành công mà phản hồi bị mất). `REJECTED` nghĩa là CHẮC CHẮN chưa tốn phí;
  * dùng nó ở đây sẽ nói với nhà đầu tư một điều ta không biết.
+ *
+ * @flow purchase:5 | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần
  */
 export async function executeOrder(input: unknown): Promise<Result<OrderExecutionView>> {
   const parsed = executeOrderSchema.safeParse(input);
@@ -373,6 +379,8 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
  * Nhận CẢ HAI cổng vì bước này chạm cả hai bảng: `orderStore` đổi trạng thái lệnh và gắn mã
  * giao dịch, `txnStore` ghi sổ giao dịch và sổ kiểm toán. Truyền vào thay vì gọi factory
  * bên trong để hàm vẫn test được trực tiếp mà không phải đổi cờ môi trường.
+ *
+ * @flow purchase:7 | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED
  */
 async function sendAndSettle(
   txnStore: ITxnStore,
@@ -500,6 +508,8 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
  * đảm được "danh sách trả về không lẫn lệnh của ví khác", nhưng KHÔNG chặn được một nhà
  * đầu tư chủ động truyền ví của người khác vào. Ràng buộc ví ↔ phiên là việc của AU-01;
  * đã ghi thành câu hỏi mở trong checkpoint.
+ *
+ * @flow purchase:10 | kiểm order:read và order:read:all, lọc theo ví ở tầng service
  */
 export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
   const parsed = orderQuerySchema.safeParse(input);
@@ -533,12 +543,14 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
 /**
  * LỆNH QUÁ HẠN -> `EXPIRED` (R4.4).
  *
- * Chỉ CUNG CẤP hàm, KHÔNG dựng lịch. Việc gọi định kỳ thuộc BE-07: dựng lịch ở đây thì
+ * Chỉ CUNG CẤP hàm, KHÔNG dựng lịch: dựng lịch ở đây thì
  * mỗi instance serverless sẽ chạy một bản sao, và trên free-tier thì không có tiến trình
  * nào sống đủ lâu để lịch chạy — hai lỗi ngược nhau, cùng sinh ra từ một chỗ sai.
  *
  * Chỉ nhắm `PLACED`. Từ `CHECKING` trở đi đã có tiến trình đang xử lý; cho hết hạn chen
  * ngang sẽ tạo đúng loại tranh chấp mà khoá lạc quan được dựng để chặn.
+ *
+ * @pending BE-07 | đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch
  */
 export async function expireStaleOrders(input: unknown): Promise<Result<{ expired: number }>> {
   const parsed = expireOrdersSchema.safeParse(input);

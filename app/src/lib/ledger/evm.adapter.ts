@@ -44,12 +44,16 @@ import {
  * và KHÔNG tốn một tx thất bại on-chain — khớp requirements AC#2.
  *
  * ----------------------------------------------------------------------------
- * NỢ CÓ CHỦ ĐÍCH — các method chờ hợp đồng SC-02/SC-03
+ * NỢ CÓ CHỦ ĐÍCH — 11 method chưa nối được
  *
  * `ILedgerPort` mô tả ba luồng đã chốt, nhưng hợp đồng cho hai luồng khớp lệnh và
  * tất toán CHƯA có trên `dev`. Theo `docs/be-01-ledger-port/design.md` mục 5,
  * những method đó ném `LedgerNotImplementedError` kèm gợi ý nêu rõ thứ còn thiếu,
  * thay vì nối tạm vào một contract có ngữ nghĩa gần gần.
+ *
+ * Mỗi method như vậy có một marker điểm chặn ở ngay trên khai báo của nó, nêu đúng task
+ * phải xong trước. KHÔNG liệt kê danh sách task ở đây: hai chỗ cùng nói một việc thì một
+ * chỗ sẽ lạc hậu. Bảng tổng: `node scripts/scan-pending.mjs`.
  *
  * Nối sai còn tệ hơn chưa nối: `Redemption.paused` chẳng hạn NGƯỢC hướng với "bật
  * giai đoạn tất toán", nối vào sẽ cho ra một hệ thống chạy được nhưng làm ngược.
@@ -363,26 +367,29 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     },
 
     /**
-     * NỢ SC-02. `ProjectToken.mint` phát hành được nhiều lần và không lưu cờ "đã
+     * `ProjectToken.mint` phát hành được nhiều lần và không lưu cờ "đã
      * phát hành nguồn cung ban đầu", nên không có cách nào giữ ràng buộc R1.3
      * ("phát hành lần hai phải bị từ chối") ở tầng adapter: kiểm bằng
      * `totalSupply > 0` thì một lần mint lẻ bất kỳ cũng khoá luôn việc phát hành.
+     *
+     * @blocked SC-02 | thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu"
      */
     async mintInitialSupply() {
       return pendingContract('mintInitialSupply', 'hợp đồng phát hành một lần (SC-02)');
     },
 
+    /** @blocked SC-02 | thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật */
     async isInitialSupplyMinted() {
       return pendingContract('isInitialSupplyMinted', 'hợp đồng phát hành một lần (SC-02)');
     },
 
     /**
-     * NỢ SC-02: địa chỉ ví thanh toán SPV do hợp đồng phát hành một lần giữ.
-     *
      * KHÔNG lấy tạm địa chỉ ví ngân hàng đang ký làm ví SPV. Hai ví có thể trùng nhau
      * trong một lần dựng demo, nhưng chúng là hai vai khác nhau — ví ngân hàng ký giao
      * dịch, ví SPV giữ token chưa bán. Nối tạm thì phép kiểm "SPV còn đủ WPT" sẽ đo số
      * dư của ví SAI, và nó vẫn "chạy" nên không ai phát hiện tới lúc chạy thật.
+     *
+     * @blocked SC-02 | thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ
      */
     async spvWallet() {
       return pendingContract('spvWallet', 'hợp đồng phát hành một lần (SC-02)');
@@ -391,7 +398,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     // =========================================================================
     //  KHỚP LỆNH MUA
     // =========================================================================
-    /** NỢ SC-03: giá bán một WPT nằm trong hợp đồng khớp lệnh, chưa có contract nào giữ. */
+    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ */
     async quotePurchase(wptAmount) {
       assertPositiveAmount(chain, 'quotePurchase', wptAmount);
       return pendingContract('quotePurchase', 'hợp đồng khớp lệnh (SC-03)');
@@ -405,14 +412,17 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     },
 
     /**
-     * NỢ SC-03. `VNDToken.allowance` đã có trong ABI, nhưng `spender` phải là địa
+     * `VNDToken.allowance` đã có trong ABI, nhưng `spender` phải là địa
      * chỉ hợp đồng khớp lệnh — chưa tồn tại. Truyền một địa chỉ khác vào sẽ trả về
      * một con số có vẻ hợp lệ nhưng vô nghĩa, tệ hơn là báo lỗi.
+     *
+     * @blocked SC-03 | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI
      */
     async paymentAllowanceOf() {
       return pendingContract('paymentAllowanceOf', 'địa chỉ hợp đồng khớp lệnh (SC-03)');
     },
 
+    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch */
     async executePurchase(investor, wptAmount) {
       assertPositiveAmount(chain, 'executePurchase', wptAmount);
       return pendingContract('executePurchase', 'hợp đồng khớp lệnh (SC-03)');
@@ -499,13 +509,15 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     },
 
     /**
-     * NỢ SC-03/BE-06. `ProfitDistributor.distributeTo` nhận `distributionId`, KHÔNG
+     * `ProfitDistributor.distributeTo` nhận `distributionId`, KHÔNG
      * nhận `snapshotId`: một kỳ chia gắn với một snapshot VÀ một số tiền đã chốt.
      *
      * Muốn nối, phải có mapping snapshotId -> distributionId. Mapping đó là trạng
      * thái nghiệp vụ (đọc từ event `DistributionCreated` rồi lưu vào cơ sở dữ liệu),
      * không phải việc của adapter — dò bằng cách quét `distributions(i)` trong đây
      * là nhét logic nghiệp vụ vào tầng chuyển đổi, đúng thứ BE-01 cấm.
+     *
+     * @blocked BE-06 | thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy
      */
     async distributeBatch() {
       return pendingContract(
@@ -518,24 +530,29 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     //  TẤT TOÁN
     // =========================================================================
     /**
-     * NỢ: chưa contract nào phơi ra cờ "đang tất toán" đúng nghĩa.
+     * Chưa contract nào phơi ra cờ "đang tất toán" đúng nghĩa.
      * `ProjectToken.paused` chặn chuyển nhượng và vẫn cho `agentBurn` (khớp R6.3),
      * còn `Redemption.paused` thì NGƯỢC hướng. Chọn sai một trong hai sẽ ra hệ thống
      * chạy được nhưng làm ngược — cần Owner/Supervisor xác nhận trước khi nối.
+     *
+     * @blocked SC-04 | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau
      */
     async setSettlementMode() {
       return pendingContract('setSettlementMode', 'xác nhận cờ tất toán nối vào contract nào');
     },
 
+    /** @blocked SC-04 | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc */
     async isSettlementMode() {
       return pendingContract('isSettlementMode', 'xác nhận cờ tất toán nối vào contract nào');
     },
 
+    /** @blocked SC-04 | thiếu quyết định giá NAV có phải `Redemption.rate` hay không */
     async setNavRate(rate) {
       assertPositiveAmount(chain, 'setNavRate', rate);
       return pendingContract('setNavRate', 'xác nhận giá NAV có phải Redemption.rate hay không');
     },
 
+    /** @blocked SC-04 | thiếu quyết định giá NAV có phải `Redemption.rate` hay không */
     async navRate() {
       return pendingContract('navRate', 'xác nhận giá NAV có phải Redemption.rate hay không');
     },

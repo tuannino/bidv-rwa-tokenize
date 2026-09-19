@@ -10,6 +10,13 @@ import { httpStatusFor } from '@/lib/bank/result';
  *
  * `expireStaleOrders` CỐ Ý không có ở đây: nó là thao tác dọn dẹp theo lịch của BE-07, mở
  * một điểm vào HTTP cho nó là mời gọi việc gọi tay giữa lúc có lệnh đang xử lý.
+ *
+ * ⚠️ TỆP NÀY KHÔNG CÓ MARKER VỊ TRÍ LUỒNG, và đó là giới hạn của quy ước chứ không phải
+ * bỏ sót. Quy ước ở `.kiro/steering/make-control.md` mục 4 cho mỗi bước ĐÚNG MỘT số nguyên,
+ * nên hai transport song song vào cùng một bước service không biểu diễn được: gắn cả hai
+ * chỗ sẽ thành hai marker trùng số bước và `scan-pending.mjs --check` báo `BAD_FLOW_STEP`.
+ * Vì vậy bước vận chuyển chỉ gắn ở `app/src/app/actions/purchase.ts`, còn đường này được
+ * nhắc trong chính nhãn của bước đó. Sơ đồ sinh ra: `docs/flows/purchase.md`.
  */
 
 /**
