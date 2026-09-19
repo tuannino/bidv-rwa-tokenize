@@ -115,10 +115,10 @@ Task này **không đổi hành vi hệ thống**. Mọi test đang xanh phải 
 
 ## Bước 10: Tài liệu
 
-- [-] 10.1 Thêm mục điểm cắm đang chờ vào `tech-report.md`, nội dung **sinh từ script**, kèm ghi chú là phần sinh tự động.
-- [~] 10.2 Bổ sung `tech-report-maintenance.md`: thêm điểm cắm thì gắn marker, dùng hết thì xóa marker, hoàn thành task thì cập nhật `.kiro/task-status.json`.
-- [~] 10.3 Cập nhật mục nợ kỹ thuật: xóa món đã trả, thêm món mới nếu `src/empty.ts` còn phải giữ.
-- [~] 10.4 Cập nhật metadata.
+- [x] 10.1 Thêm mục điểm cắm đang chờ vào `tech-report.md`, nội dung **sinh từ script**, kèm ghi chú là phần sinh tự động.
+- [x] 10.2 Bổ sung `tech-report-maintenance.md`: thêm điểm cắm thì gắn marker, dùng hết thì xóa marker, hoàn thành task thì cập nhật `.kiro/task-status.json`.
+- [x] 10.3 Cập nhật mục nợ kỹ thuật: xóa món đã trả, thêm món mới nếu `src/empty.ts` còn phải giữ.
+- [x] 10.4 Cập nhật metadata.
 
 *Commit:* `docs(mc): cập nhật báo cáo công nghệ và quy tắc duy trì`
 
