@@ -149,6 +149,30 @@ const failCheck = (code: ErrorCode, reason: string): PurchaseCheck => ({
 });
 
 /**
+ * Dữ liệu vào của bộ phép kiểm — THAM SỐ THUẦN, không phải `OrderRecord`.
+ *
+ * Nhận `OrderRecord` thì phải có lệnh trong cơ sở dữ liệu mới kiểm được, nên nhà đầu tư
+ * chỉ biết mình thiếu điều kiện SAU khi lệnh đã bị từ chối. Tham số thuần cho ba đường
+ * gọi cùng dùng một bộ kiểm: xem trước (chưa có lệnh), đặt lệnh (đang tạo lệnh), khớp
+ * lệnh (đã có lệnh).
+ */
+export interface PurchaseCheckInput {
+  /** Ví nhà đầu tư sẽ trả VNDB và nhận WPT. */
+  investorWallet: string;
+  /** Số WPT muốn mua. */
+  wptAmount: bigint;
+  /**
+   * Số VNDB ĐÃ CHỐT của một lệnh có sẵn (QĐ-3). Có thì kiểm thêm "giá đã đổi chưa".
+   *
+   * KHÔNG có nghĩa là chưa có lệnh nào — xem trước hoặc đang đặt lệnh mới — nên không có
+   * giá cũ để so, và báo giá hiện tại chính là mốc đúng. Bỏ hẳn phép kiểm giá trong hai
+   * đường đó là đúng chứ không phải nới tay: so báo giá vừa lấy với chính nó thì phép
+   * kiểm luôn đạt, tức là một phép kiểm không nói gì.
+   */
+  quotedVndAmount?: bigint;
+}
+
+/**
  * BỐN PHÉP KIỂM TRƯỚC KHI GỬI GIAO DỊCH (QĐ-2), dừng ở lần trượt đầu tiên.
  *
  * Cả bốn đều là hàm ĐỌC, không tốn phí. Hợp đồng cũng kiểm lại, nhưng kiểm ở đây có hai
@@ -160,41 +184,45 @@ const failCheck = (code: ErrorCode, reason: string): PurchaseCheck => ({
  * sai việc phải làm.
  *
  * Phép kiểm giá (QĐ-3) chạy TRƯỚC bốn phép này vì cả bốn đều so với `vndAmount` đã chốt;
- * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu.
+ * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu. Nó CHỈ chạy khi người gọi
+ * đưa `quotedVndAmount` — lý do ở `PurchaseCheckInput`.
  *
  * @flow purchase:6 | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên
  */
 async function runPurchaseChecks(
   ledger: ILedgerPort,
-  order: OrderRecord,
+  input: PurchaseCheckInput,
 ): Promise<PurchaseCheck> {
-  const wptAmount = BigInt(order.wptAmount);
-  const vndAmount = BigInt(order.vndAmount);
+  const { investorWallet, wptAmount, quotedVndAmount } = input;
 
   // --- QĐ-3: giá đổi giữa lúc đặt và lúc khớp -------------------------------------
   // So khớp CHÍNH XÁC, không có biên dung sai. Giá bán WPT là tham số do ngân hàng ấn
   // định (xem `issuance.ts`), không phải giá thị trường dao động, nên mọi thay đổi đều
   // là quyết định có chủ ý — dung sai chỉ để lọc nhiễu, mà ở đây không có nhiễu.
   const quotedNow = await ledger.quotePurchase(wptAmount);
-  if (quotedNow !== vndAmount) {
+  if (quotedVndAmount !== undefined && quotedNow !== quotedVndAmount) {
     return failCheck(
       'PRICE_CHANGED',
-      `Giá bán đã đổi từ lúc đặt lệnh: lệnh chốt ${vndAmount} VNDB, giá hiện tại là ` +
+      `Giá bán đã đổi từ lúc đặt lệnh: lệnh chốt ${quotedVndAmount} VNDB, giá hiện tại là ` +
         `${quotedNow} VNDB cho ${wptAmount} WPT. Đặt lại lệnh để xác nhận giá mới.`,
     );
   }
 
+  // Qua được phép kiểm trên thì `quotedVndAmount` (nếu có) BẰNG `quotedNow`, nên dùng
+  // `quotedNow` làm mốc cho cả ba đường gọi — không cần nhánh riêng cho từng đường.
+  const vndAmount = quotedNow;
+
   // --- 1. Số dư VNDB của nhà đầu tư ------------------------------------------------
-  const paymentBalance = await ledger.paymentBalanceOf(order.investorWallet);
+  const paymentBalance = await ledger.paymentBalanceOf(investorWallet);
   if (paymentBalance < vndAmount) {
     return failCheck(
       'INSUFFICIENT_PAYMENT_BALANCE',
-      `Số dư VNDB không đủ: cần ${vndAmount}, ví ${order.investorWallet} chỉ có ${paymentBalance}.`,
+      `Số dư VNDB không đủ: cần ${vndAmount}, ví ${investorWallet} chỉ có ${paymentBalance}.`,
     );
   }
 
   // --- 2. Mức ủy quyền VNDB --------------------------------------------------------
-  const allowance = await ledger.paymentAllowanceOf(order.investorWallet);
+  const allowance = await ledger.paymentAllowanceOf(investorWallet);
   if (allowance < vndAmount) {
     return failCheck(
       'INSUFFICIENT_ALLOWANCE',
@@ -222,7 +250,7 @@ async function runPurchaseChecks(
   // --- 4. Khả năng chuyển nhượng ---------------------------------------------------
   // Chiều SPV -> nhà đầu tư, đúng chiều mà `executePurchase` sẽ chuyển. Kiểm chiều
   // ngược lại sẽ cho ra một câu trả lời đúng về một giao dịch không tồn tại.
-  const transferable = await ledger.canTransfer(spv, order.investorWallet, wptAmount);
+  const transferable = await ledger.canTransfer(spv, investorWallet, wptAmount);
   if (!transferable.allowed) {
     return failCheck('LEDGER', transferable.reason);
   }
@@ -330,7 +358,13 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     }
 
     // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
-    const check = await runPurchaseChecks(ledger, checking);
+    // Truyền `vndAmount` ĐÃ CHỐT ở lệnh, nên đường này — và chỉ đường này — kiểm thêm
+    // "giá đã đổi chưa". Xem trước và đặt lệnh không có giá cũ để so.
+    const check = await runPurchaseChecks(ledger, {
+      investorWallet: checking.investorWallet,
+      wptAmount: BigInt(checking.wptAmount),
+      quotedVndAmount: BigInt(checking.vndAmount),
+    });
     if (!check.passed) {
       // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
       await orderStore.transitionOrder({
