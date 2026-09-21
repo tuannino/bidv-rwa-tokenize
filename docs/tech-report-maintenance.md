@@ -63,6 +63,8 @@ Sau khi sửa mã, đối chiếu bảng này. Nếu một dòng khớp, mục t
 | Đổi cách build/deploy | Phần 1.5 + bảng nợ kỹ thuật nếu phát sinh ràng buộc mới |
 | Thêm/xóa điểm cắm, hoặc sửa nội dung marker `@pending` / `@blocked` | **Không sửa tay** mục điểm cắm ở 3.10 — chạy `node scripts/scan-pending.mjs --write-report` rồi commit tệp đã sinh |
 | Hoàn thành một task | `.kiro/task-status.json`: chuyển mã task sang `done`, **và** dọn mọi marker đang chờ task đó |
+| Viết checkpoint cho một task | Mục 0 theo `docs/CHECKPOINT_TEMPLATE.md`, kiểm bằng `node scripts/check-checkpoint.mjs --in-progress` (mục 10) |
+| Đổi ngưỡng độ dài checkpoint | Hằng số đầu `scripts/check-checkpoint.mjs` **và** bảng ở `.kiro/steering/checkpoint.md` §3 — cùng commit, hai chỗ phải khớp |
 | Xây xong một luồng đầu cuối ở tầng BE | Gắn `@flow`, chạy `node scripts/gen-flow-diagram.mjs <tên-luồng>`, thêm dòng trỏ sang `docs/flows/<tên-luồng>.md` ở mục 4.x của luồng đó |
 | Thêm tệp vào `scripts/` | Phần 3.10 (bảng công cụ) + cây thư mục ở 1.4 |
 
@@ -130,14 +132,17 @@ node scripts/scan-pending.mjs --check          # cú pháp marker, mã task, mar
 node scripts/gen-flow-diagram.mjs --check      # docs/flows/*.md còn khớp marker @flow
 node scripts/scan-pending.mjs --check-report   # mục 3.10 của báo cáo còn khớp marker
 
+# Khuôn checkpoint (mục 10)
+node scripts/check-checkpoint.mjs --in-progress # mục 0 của checkpoint task đang làm
+
 # Chất lượng
 cd app && npm run typecheck && npx eslint . && npm test && npm run test:e2e
 cd packages/contracts-evm && npx hardhat test
 ```
 
-Ba lệnh `--check` ở trên **đã nằm trong** `bash scripts/run-local-all.sh` + `npm test`, nên
-chạy bộ đầy đủ là đủ. Liệt kê riêng ở đây để khi một mục đỏ thì biết chạy đúng lệnh hẹp nhất
-mà xem, thay vì chạy lại cả bộ.
+Bốn lệnh `--check` / `--in-progress` ở trên **đã nằm trong** `bash scripts/run-local-all.sh` +
+`npm test`, nên chạy bộ đầy đủ là đủ. Liệt kê riêng ở đây để khi một mục đỏ thì biết chạy đúng
+lệnh hẹp nhất mà xem, thay vì chạy lại cả bộ.
 
 **Checklist tài liệu (tự trả lời từng câu, không bỏ qua):**
 
@@ -152,6 +157,8 @@ mà xem, thay vì chạy lại cả bộ.
 - [ ] Mục điểm cắm ở 3.10 đã **sinh lại**, chưa sửa tay dòng nào trong hai mốc?
 - [ ] Task vừa xong đã vào `done` của `.kiro/task-status.json`, và marker chờ nó đã dọn?
 - [ ] Con số trong tài liệu (số test, số method chờ contract, số dòng) có **đo lại** không?
+- [ ] Checkpoint đã có mục 0 và `node scripts/check-checkpoint.mjs --in-progress` xanh chưa?
+- [ ] Mọi con số dùng làm **bằng chứng** trong checkpoint có **kèm lệnh đo** không?
 
 ---
 
@@ -166,7 +173,7 @@ Tài liệu lệch mã nguồn thường do bốn nguyên nhân. Xử lý sẵn:
 | Mô tả luồng theo dự định, không theo mã | Chỉ viết mục 4.x sau khi mã chạy được, và ghi đúng tên hàm trong mã |
 | Đổi ký hiệu token nhưng sót chỗ | Chạy lệnh grep ký hiệu cũ ở mục 5, gồm cả `e2e/`. **Không** gồm `docs/` — mục 0 giải thích vì sao |
 | Sửa marker rồi quên sinh lại tài liệu | Ba lệnh `--check` ở mục 5. Chúng đã ở trong `run-local-all.sh` + `npm test` nên lệch là đỏ, không im lặng |
-| Tin con số trong tài liệu giao việc mà không đo lại | Đo bằng lệnh trước khi lập kế hoạch. Đã xảy ra thật ở MC-01: "10 method chờ contract" đo lại là **11**, "36 test" đo lại là **307**, "5 test e2e" đo lại là **30** |
+| Tin con số trong tài liệu giao việc mà không đo lại | Đo bằng lệnh trước khi lập kế hoạch. Đã xảy ra thật ở MC-01: "10 method chờ contract" đo lại là **11**, "36 test" đo lại là **307**, "5 test e2e" đo lại là **30**. Từ MC-02, **mọi con số làm bằng chứng phải kèm lệnh đo** — trong checkpoint và trong spec (mục 10) |
 
 **Khi phát hiện tài liệu đã lệch:** sửa ngay trong commit hiện tại, đồng thời ghi một dòng vào checkpoint mục "Sai lệch phát hiện được". Không im lặng sửa lén.
 
@@ -191,6 +198,8 @@ Tài liệu lệch mã nguồn thường do bốn nguyên nhân. Xử lý sẵn:
 | Thêm/xóa mục nợ kỹ thuật 1.6.C | **Supervisor** quyết định mức P0/P1/P2; Kiro báo cáo phát hiện |
 | Gắn và dọn marker `@pending` / `@blocked` / `@flow` | **Kiro** |
 | Cập nhật `.kiro/task-status.json` | **Kiro** (mục 9 nói rõ lúc nào) |
+| Viết mục 0 của checkpoint, kèm lệnh đo cho mọi con số | **Kiro** (mục 10) |
+| Giữ con số trong **spec** kèm lệnh đo | **Supervisor**; Kiro đo lại và báo sai lệch, không làm theo số sai |
 | Sinh lại `docs/flows/*.md` và mục điểm cắm ở 3.10 | **Kiro**, bằng script — **không** gõ tay |
 | Duyệt tài liệu đã khớp mã nguồn | **Supervisor** khi review checkpoint |
 
@@ -289,3 +298,52 @@ tự đoán chỗ chèn: chèn sai chỗ trong một tệp viết tay là thiệ
 Cả hai lệnh sinh đều **từ chối chạy khi marker còn lỗi**. Sinh từ dữ liệu lỗi ra một bảng hoặc
 một hình vẽ trông hợp lệ mà thiếu dòng hoặc nối sai, và người đọc tài liệu không có cách nào
 biết — tệ hơn là không sinh.
+
+---
+
+## 10. Khuôn checkpoint và con số kèm lệnh đo
+
+> Quy ước đầy đủ (ba ký hiệu trạng thái, hai ngưỡng, ba thứ máy không kiểm) ở
+> `.kiro/steering/checkpoint.md`. Khuôn kèm ví dụ điền sẵn ở `docs/CHECKPOINT_TEMPLATE.md`.
+> Mục này chỉ nói **nghĩa vụ duy trì**.
+
+### 10.1. Mọi checkpoint mở đầu bằng mục 0
+
+Mục 0 là bản để **quyết**; mục 1 trở xuống là **vết**. Bốn thứ bắt buộc: bảng đối chiếu **đủ** các
+điều kiện hoàn thành ở `requirements.md` (không thêm không bớt), **số mục** chứa bằng chứng ở mỗi
+dòng, dòng **kết luận** đếm theo trạng thái, và mục **việc cần Owner quyết** (không có thì ghi rõ
+"không có"). Mục 0 **không vượt 60 dòng**; cả tệp vượt **800 dòng** thì tách
+`CHECKPOINT_<TASK>_DETAIL.md`.
+
+Cột bằng chứng ghi **số mục**, không ghi "đã làm": "đã làm" trả lời hộ đúng câu hỏi mà người review
+đang muốn tự kiểm, nên nó lấy mất chính việc họ cần làm. Script báo `MISSING_EVIDENCE`.
+
+### 10.2. Con số phải kèm lệnh đo — cả trong spec
+
+Mọi con số dùng làm **bằng chứng** phải kèm lệnh đã dùng để đo ra nó. Áp dụng cho **cả spec do
+Supervisor viết**, không riêng checkpoint của Kiro.
+
+Bài học có thiệt hại thật ở MC-01: spec ghi 33 tệp, 27 export, 10 method — cả ba đều sai, và sai đó
+đi được xa vì không con số nào kèm lệnh đo nên không ai kiểm lại được.
+
+**Khi con số trong spec lệch số đo thật:** dùng **số đo thật**, ghi thành mục sai lệch trong
+checkpoint, **không** làm theo số sai. Đã dùng đúng quy tắc này ở MC-02: `design.md` ghi mục 0 của
+MC-01 dài 43 dòng, đo bằng script ra **40** — chênh 3 dòng trình bày.
+
+Phần này **không có máy kiểm** và cố ý không có: máy không phân biệt được đâu là con số làm bằng
+chứng. Nó thuộc mục 5 (tự kiểm trước khi nộp).
+
+### 10.3. Kiểm bằng máy trước khi nộp
+
+```bash
+node scripts/check-checkpoint.mjs --in-progress   # đã nằm trong run-local-all.sh (mục 3)
+node scripts/check-checkpoint.mjs docs/CHECKPOINT_XX01.md .kiro/specs/xx-01-.../requirements.md
+```
+
+Mã thoát: `0` đạt · `1` checkpoint sai khuôn · `2` không chạy được (sai cách gọi, không tìm ra
+`requirements.md`, nguồn trạng thái task hỏng).
+
+**Checkpoint của task đã `done` thì script không chạm** — vết lịch sử không sửa lại để vừa một quy
+tắc ra sau. `CHECKPOINT_MC01.md` và `CHECKPOINT_BE09.md` **không** đạt khuôn mới, và đó là dữ liệu,
+không phải việc cần vá. Tương ứng: task đang làm mà chưa viết checkpoint thì script **bỏ qua** có
+in thông báo, không đỏ — nghĩa vụ "phải có checkpoint trước khi mở PR" nằm ở `branching.md` §11.
