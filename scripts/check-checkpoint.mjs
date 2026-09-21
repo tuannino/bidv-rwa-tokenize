@@ -57,7 +57,12 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..
 //  HAI NGƯỠNG — đặt ở đầu script để đổi được, lý do chọn con số ở steering §3
 // -----------------------------------------------------------------------------
 
-/** Mục 0 phải đọc trọn trong một trang màn hình. Mục 0 của MC-01 dài 43 dòng. */
+/**
+ * Mục 0 phải đọc trọn trong một trang màn hình.
+ * Đo trên tiền lệ: mục 0 của docs/CHECKPOINT_MC01.md dài 40 dòng NỘI DUNG (dòng trắng và
+ * đường kẻ `---` ở cuối không tính — xem timMuc0). Đếm bằng awk theo dải `## 0.` → `## 1.`
+ * sẽ ra 43; chênh 3 là ba dòng trình bày đó.
+ */
 export const MAX_SUMMARY_LINES = 60;
 
 /** Quá mức này thì phần chi tiết phải tách ra tệp _DETAIL.md riêng. */
