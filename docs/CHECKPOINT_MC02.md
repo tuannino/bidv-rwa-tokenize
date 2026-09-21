@@ -56,7 +56,7 @@ Lấy đúng **7** ô ở `requirements.md` mục 4, không thêm không bớt.
 | 3 | `40c067c` | `test(mc): kiểm thử script kiểm checkpoint` — `app/test/check-checkpoint.test.ts`, 21 ca |
 | 4 | *(commit này)* | `docs(mc): checkpoint MC-02 và cập nhật báo cáo` |
 
-Tệp thay đổi — đo bằng `git diff --stat dev...HEAD`: **13 tệp, +1808 / −12**.
+Tệp thay đổi — đo bằng `git diff --stat dev...HEAD`: **16 tệp, +2318 / −28**.
 
 | Tệp | Trạng thái | Số dòng |
 |---|---|---|
