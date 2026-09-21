@@ -54,9 +54,22 @@ Lấy đúng **7** ô ở `requirements.md` mục 4, không thêm không bớt.
 | 2 | `ccf35c6` | `chore(mc): MC-01 vào done, MC-02 vào inProgress` — điều kiện cần để cắm `--in-progress`, xem 3.6 |
 | 2 | `1d467fb` | `feat(mc): script kiểm khuôn checkpoint` — `scripts/check-checkpoint.mjs`, cắm vào `run-local-all.sh` |
 | 3 | `40c067c` | `test(mc): kiểm thử script kiểm checkpoint` — `app/test/check-checkpoint.test.ts`, 21 ca |
-| 4 | *(commit này)* | `docs(mc): checkpoint MC-02 và cập nhật báo cáo` |
+| 4 | `d649840` | `docs(mc): checkpoint MC-02 và cập nhật báo cáo` — tệp này + `tech-report.md` + `tech-report-maintenance.md` |
+| 4 | `e804822` | `docs(mc): đo lại số tệp thay đổi trong checkpoint MC-02` — xem ghi chú tự tham chiếu ngay dưới |
+| 4 | *(commit này)* | `docs(mc): đối chiếu lại bảng commit và số commit của nhánh` |
 
-Tệp thay đổi — đo bằng `git diff --stat dev...HEAD`: **16 tệp, +2318 / −28**.
+Đo tại `e804822`, tức **trước** commit cuối; commit cuối chỉ sửa chính tệp này nên không đổi tệp nào khác:
+
+```
+$ git rev-list --count dev..HEAD   → 7 commit
+$ git diff --stat dev...HEAD | tail -1
+16 files changed, 2318 insertions(+), 28 deletions(-)
+```
+
+⚠️ **Hai con số trên tự tham chiếu:** chúng đếm cả chính tệp checkpoint này, nên ghi số vào đây là
+làm số đó lệch. Cách xử lý ở trên là ghi rõ **đo tại commit nào**, thay vì đuổi theo một con số
+không bao giờ đứng yên. Đây là ca thật cho quy tắc "con số kèm lệnh đo" ở
+`.kiro/steering/checkpoint.md` §2: lệnh đo quan trọng hơn con số, vì lệnh thì chạy lại được.
 
 | Tệp | Trạng thái | Số dòng |
 |---|---|---|
@@ -322,10 +335,10 @@ Dòng số đo của mục 3, in ra ở chính lần chạy đó:
 
 ```
 ĐẠT     MC-02 · docs/CHECKPOINT_MC02.md
-  mục 0: 23/60 dòng · bảng đối chiếu 7 dòng / 7 điều kiện · 7 ✅ 0 🔶 0 ❌ · cả tệp 375/800 dòng
+  mục 0: 23/60 dòng · bảng đối chiếu 7 dòng / 7 điều kiện · 7 ✅ 0 🔶 0 ❌ · cả tệp 388/800 dòng
 ```
 
-Mục 0 dùng **23/60** dòng và cả tệp **375/800** dòng, nên checkpoint này không phải cắt gì để lọt
+Mục 0 dùng **23/60** dòng và cả tệp **388/800** dòng, nên checkpoint này không phải cắt gì để lọt
 ngưỡng — nó vừa khuôn một cách tự nhiên. Đó là phép thử có ý nghĩa nhất cho hai ngưỡng: nếu chính
 task đặt ra ngưỡng mà phải vặn nội dung mới lọt thì ngưỡng đó sai.
 
@@ -372,4 +385,4 @@ Nhánh này có thay đổi mã (`scripts/`, `app/test/`), nên dùng **bản đ
 | Có spec trong `.kiro/specs/<tên>/` đủ 3 file | ✅ | `.kiro/specs/mc-02-checkpoint-format/{requirements,design,tasks}.md`, giống hệt bản `docs/` (mục 3.1) |
 | Có checkpoint và đã được nghiệm thu PASS | 🔶 **chờ** | Checkpoint là tệp này, và nó qua được máy kiểm (mục 3.8). Nghiệm thu là việc của Supervisor, chưa diễn ra — đó là lý do Kiro không merge |
 | `docs/tech-report.md` đã cập nhật theo `tech-report-maintenance.md` | ✅ | mục 3.7 — 5 mục của báo cáo + 5 mục của quy tắc duy trì |
-| Nhánh chỉ giải quyết một mục tiêu | ✅ | 6 commit, toàn bộ mang phạm vi `(mc)` và thuộc 4 bước của `tasks.md` — bảng ở mục 1 |
+| Nhánh chỉ giải quyết một mục tiêu | ✅ | `git rev-list --count dev..HEAD` → **7** (đo tại `e804822`), toàn bộ mang phạm vi `(mc)` và thuộc 4 bước của `tasks.md` — bảng ở mục 1 |
