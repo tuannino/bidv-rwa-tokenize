@@ -1,6 +1,11 @@
 'use server';
 
-import { executeOrder, listOrders, placeOrder } from '@/lib/bank/purchase.service';
+import {
+  executeOrder,
+  listOrders,
+  placeOrder,
+  previewPurchase,
+} from '@/lib/bank/purchase.service';
 
 /**
  * Server actions cho luồng mua WPT — vỏ mỏng quanh `purchase.service`.
@@ -16,7 +21,7 @@ import { executeOrder, listOrders, placeOrder } from '@/lib/bank/purchase.servic
  * `input: unknown` là cố ý: validate bằng Zod ở trong service, một schema dùng chung cho
  * form và server. Khai kiểu hẹp ở đây sẽ tạo cảm giác đã kiểm dữ liệu trong khi chưa.
  *
- * ⚠️ Service có BỐN hàm, tệp này chỉ có BA action — thiếu `expireStaleOrders`, và đó là chủ
+ * ⚠️ Service có NĂM hàm, tệp này chỉ có BỐN action — thiếu `expireStaleOrders`, và đó là chủ
  * đích chứ không phải bỏ sót. Dọn lệnh treo chỉ có MỘT đường vào: tiến trình theo lịch của
  * BE-07 gọi thẳng service. Server action cũng là một điểm vào HTTP, nên mở nó ở đây sẽ phá
  * đúng chủ đích đã ghi ở `app/src/app/api/purchase/route.ts` — mời gọi việc gọi tay giữa
@@ -24,15 +29,23 @@ import { executeOrder, listOrders, placeOrder } from '@/lib/bank/purchase.servic
  */
 
 /**
- * @flow purchase:1 | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase
- * @pending FE-05 | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result`
+ * @flow purchase:1 | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào
+ * @pending FE-05 | đã sẵn đầu cuối ở `previewPurchase`: kiểm quyền `order:place`, báo giá, chạy ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy, trả `canPlaceOrder` + `blockers` + `howToFix` cho từng phép kiểm. Màn mua WPT chỉ cần gọi và hiển thị. FE-05 PHẢI chống gọi dồn: hàm này gọi được sau mỗi ký tự người dùng gõ vào ô số lượng, nên màn hình phải hoãn lời gọi và bỏ phản hồi đã cũ — service KHÔNG có bộ nhớ đệm, và cũng không nên có
+ */
+export async function previewPurchaseAction(input: unknown) {
+  return previewPurchase(input);
+}
+
+/**
+ * @flow purchase:3 | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase
+ * @pending FE-05 | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), kiểm điều kiện trước khi tạo bản ghi, CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result`
  */
 export async function placeOrderAction(input: unknown) {
   return placeOrder(input);
 }
 
 /**
- * @flow purchase:4 | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId
+ * @flow purchase:6 | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId
  * @pending FE-06 | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai BANK_ADMIN), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận
  */
 export async function executeOrderAction(input: unknown) {
@@ -40,7 +53,7 @@ export async function executeOrderAction(input: unknown) {
 }
 
 /**
- * @flow purchase:9 | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase
+ * @flow purchase:11 | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase
  * @pending FE-06 | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình
  */
 export async function listOrdersAction(input: unknown) {
