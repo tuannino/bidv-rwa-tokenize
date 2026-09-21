@@ -120,6 +120,9 @@ export interface PurchasePreviewView {
  *
  * Hệ quả cần biết: một lần xem trước BỊ CHẶN cũng không để lại dấu vết. Hàm này chỉ đọc và
  * không đổi gì, nên hiện tại chấp nhận được; đã ghi câu hỏi mở trong checkpoint BE-03.
+ *
+ * @flow purchase:2 | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu
+ * @pending FE-05 | đã sẵn đầu cuối: validate Zod dùng chung schema với đặt lệnh, kiểm quyền qua RBAC, báo giá qua ILedgerPort, và ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy. FE-05 chỉ cần gọi rồi hiển thị `blockers` và `howToFix`, KHÔNG viết lại phép kiểm nào ở client, và PHẢI chống gọi dồn khi người dùng gõ số lượng vì mỗi ký tự là một lời gọi
  */
 export async function previewPurchase(input: unknown): Promise<Result<PurchasePreviewView>> {
   const parsed = previewPurchaseSchema.safeParse(input);
@@ -166,7 +169,7 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
  * thiếu gì sau khi đã đặt lệnh. `executeOrder` VẪN kiểm lại — điều kiện đổi được giữa hai
  * thời điểm, nên kiểm ở đây không thay thế được kiểm ở đó.
  *
- * @flow purchase:2 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED
+ * @flow purchase:4 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED
  */
 export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   const parsed = placeOrderSchema.safeParse(input);
@@ -349,7 +352,7 @@ export interface PurchaseCheckInput {
  * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu. Nó CHỈ chạy khi người gọi
  * đưa `quotedVndAmount` — lý do ở `PurchaseCheckInput`.
  *
- * @flow purchase:6 | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên
+ * @flow purchase:8 | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên
  */
 async function runPurchaseChecks(
   ledger: ILedgerPort,
@@ -518,7 +521,7 @@ async function auditExecution(
  * có thể đã thành công mà phản hồi bị mất). `REJECTED` nghĩa là CHẮC CHẮN chưa tốn phí;
  * dùng nó ở đây sẽ nói với nhà đầu tư một điều ta không biết.
  *
- * @flow purchase:5 | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần
+ * @flow purchase:7 | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần
  */
 export async function executeOrder(input: unknown): Promise<Result<OrderExecutionView>> {
   const parsed = executeOrderSchema.safeParse(input);
@@ -630,7 +633,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
  * giao dịch, `txnStore` ghi sổ giao dịch và sổ kiểm toán. Truyền vào thay vì gọi factory
  * bên trong để hàm vẫn test được trực tiếp mà không phải đổi cờ môi trường.
  *
- * @flow purchase:7 | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED
+ * @flow purchase:9 | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED
  */
 async function sendAndSettle(
   txnStore: ITxnStore,
@@ -759,7 +762,7 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
  * đầu tư chủ động truyền ví của người khác vào. Ràng buộc ví ↔ phiên là việc của AU-01;
  * đã ghi thành câu hỏi mở trong checkpoint.
  *
- * @flow purchase:10 | kiểm order:read và order:read:all, lọc theo ví ở tầng service
+ * @flow purchase:12 | kiểm order:read và order:read:all, lọc theo ví ở tầng service
  */
 export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
   const parsed = orderQuerySchema.safeParse(input);
