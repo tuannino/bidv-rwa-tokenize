@@ -7,9 +7,10 @@
 #  Gồm:
 #    1. Lớp 3 - 3 luật kiến trúc + cấu trúc repo
 #    2. Lớp 3 - điểm cắm: marker @pending / @blocked / @flow đúng quy ước
-#    3. Lớp 1 - spec test contract EVM   (hardhat)
-#    4. Lớp 1 - spec test contract Soroban (cargo)
-#    5. Chất lượng app                    (typecheck, lint, vitest)
+#    3. Lớp 3 - khuôn checkpoint của task đang làm (mục 0 tóm tắt nghiệm thu)
+#    4. Lớp 1 - spec test contract EVM   (hardhat)
+#    5. Lớp 1 - spec test contract Soroban (cargo)
+#    6. Chất lượng app                    (typecheck, lint, vitest)
 #
 #  Phần TỔNG KẾT in thêm bảng điểm cắm đang chờ. Bảng đó là THÔNG TIN, không ảnh
 #  hưởng mã thoát: còn điểm cắm là trạng thái bình thường, không phải lỗi.
@@ -67,11 +68,19 @@ fi
 run "LỚP 3 - ĐIỂM CẮM (marker)" . \
     node scripts/scan-pending.mjs --check
 
-# --- 3. Spec test contract EVM ----------------------------------------------
+# --- 3. Khuôn checkpoint -----------------------------------------------------
+# CHỈ kiểm checkpoint của task đang làm, đọc .kiro/task-status.json mục inProgress.
+# Không có task nào đang làm, hoặc task đang làm chưa viết checkpoint => BỎ QUA, không đỏ.
+# Checkpoint của task đã done thì KHÔNG kiểm: đó là vết lịch sử, không sửa lại để vừa một
+# quy tắc ra sau. Quy ước: .kiro/steering/checkpoint.md
+run "LỚP 3 - KHUÔN CHECKPOINT" . \
+    node scripts/check-checkpoint.mjs --in-progress
+
+# --- 4. Spec test contract EVM ----------------------------------------------
 run "LỚP 1 - SPEC TEST CONTRACT EVM" packages/contracts-evm \
     npx hardhat test
 
-# --- 4. Spec test contract Soroban ------------------------------------------
+# --- 5. Spec test contract Soroban ------------------------------------------
 if command -v cargo >/dev/null 2>&1; then
   run "LỚP 1 - SPEC TEST CONTRACT SOROBAN" packages/contracts-stellar \
       cargo test
@@ -80,7 +89,7 @@ else
   c_yel "  BỎ QUA: chưa cài Rust/cargo. Cài Rust 1.84+ rồi chạy lại."
 fi
 
-# --- 5. Chất lượng app ------------------------------------------------------
+# --- 6. Chất lượng app ------------------------------------------------------
 run "APP - TYPECHECK" app npm run typecheck
 run "APP - LINT"      app npx eslint .
 run "APP - VITEST"    app npm test

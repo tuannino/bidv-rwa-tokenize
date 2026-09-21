@@ -309,7 +309,12 @@ export function inferSymbol(lines, markerIndex) {
 // --- Đọc nguồn trạng thái task ----------------------------------------------
 /**
  * Đọc .kiro/task-status.json và kiểm bất biến "một mã ở đúng một danh sách".
- * Trả về { done:Set, valid:Set, errors:[] }.
+ * Trả về { done:Set, inProgress:string[], valid:Set, errors:[] }.
+ *
+ * `inProgress` là MẢNG, giữ đúng thứ tự trong tệp: scripts/check-checkpoint.mjs
+ * (MC-02) dùng nó để biết phải kiểm checkpoint của task nào. Để ở đây thay vì đọc
+ * lại JSON ở script kia vì bất biến "một mã ở đúng một danh sách" chỉ được kiểm ở
+ * MỘT chỗ — hai nơi cùng đọc thì sớm muộn hai nơi hiểu bất biến khác nhau.
  */
 export function readTaskStatus(repoRoot = REPO_ROOT) {
   const errors = [];
@@ -324,7 +329,7 @@ export function readTaskStatus(repoRoot = REPO_ROOT) {
       line: 0,
       message: `không đọc được nguồn trạng thái task: ${err.message}`,
     });
-    return { done: new Set(), valid: new Set(), errors };
+    return { done: new Set(), inProgress: [], valid: new Set(), errors };
   }
 
   const lists = { done: raw.done ?? [], inProgress: raw.inProgress ?? [], planned: raw.planned ?? [] };
@@ -347,6 +352,7 @@ export function readTaskStatus(repoRoot = REPO_ROOT) {
 
   return {
     done: new Set(lists.done),
+    inProgress: [...lists.inProgress],
     valid: new Set(seen.keys()),
     errors,
   };

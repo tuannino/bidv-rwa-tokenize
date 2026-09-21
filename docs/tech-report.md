@@ -9,19 +9,19 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 1.9 |
-| Cập nhật lần cuối | 2026-09-19 |
-| Nhánh / commit | `mc/01-make-control`, nền `dev` @ `71932bb` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_MC01.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ) |
-| Đang chờ nghiệm thu | **MC-01** (cơ chế điểm cắm — xem 3.10 và `docs/CHECKPOINT_MC01.md`). Mã đã xong trên nhánh, **chưa** merge vào `dev`, nên `.kiro/task-status.json` còn để `MC-01` ở `inProgress` |
+| Phiên bản tài liệu | 2.0 |
+| Cập nhật lần cuối | 2026-09-21 |
+| Nhánh / commit | `mc/02-checkpoint-format`, nền `dev` @ `69a38a9` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_MC02.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ), **MC-01** (cơ chế điểm cắm — đã merge vào `dev` ở PR #21, xem 3.10) |
+| Đang chờ nghiệm thu | **MC-02** (khuôn checkpoint + máy kiểm — xem 3.11 và `docs/CHECKPOINT_MC02.md`). Mã đã xong trên nhánh, **chưa** merge vào `dev`, nên `.kiro/task-status.json` còn để `MC-02` ở `inProgress` |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
-**Vì sao 1.8 → 1.9 chứ không phải 2.0.** `tech-report-maintenance.md` §3 bước 5 để `+1.0` cho
-"đổi lớn về kiến trúc". MC-01 **không đổi kiến trúc**: ba luật bất di không bị chạm, không thêm
-tầng, không đổi luồng nghiệp vụ nào, và bản thân task tự ràng buộc là "không đổi hành vi hệ
-thống". Cơ chế mới (marker + tài liệu sinh từ mã) là cơ chế **quy trình tài liệu**, và nó thêm
-vào chứ không thay thế thứ gì đang có — nên đây là thay đổi thường, `+0.1`.
+**Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
+lớn", nhưng đây chỉ là phép cộng: `tech-report-maintenance.md` §3 bước 5 để `+0.1` cho thay đổi
+thường, và `1.9 + 0.1 = 2.0`. MC-02 **không đổi kiến trúc** — ba luật bất di không bị chạm, không
+thêm tầng, không đổi luồng nghiệp vụ nào, không chạm `app/src`. Nó thêm một **cổng quy trình**
+(khuôn checkpoint + máy kiểm), cùng họ với MC-01. Lần `+1.0` sẽ là lần thật sự đổi kiến trúc.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -102,7 +102,8 @@ bidv-rwa-tokenize/
 │   │   ├── solidity.md        # Chuẩn viết contract
 │   │   ├── product.md         # Bối cảnh nghiệp vụ
 │   │   ├── testnet.md         # Quy ước làm việc trên Sepolia
-│   │   └── make-control.md    # ★ Quy ước marker @pending/@blocked/@flow (MC-01)
+│   │   ├── make-control.md    # ★ Quy ước marker @pending/@blocked/@flow (MC-01)
+│   │   └── checkpoint.md      # ★ Khuôn checkpoint: mục 0 bắt buộc, con số kèm lệnh đo (MC-02)
 │   ├── specs/<feature>/       # requirements.md, design.md, tasks.md
 │   └── task-status.json       # ★ Nguồn DUY NHẤT: trạng thái task + tập mã task hợp lệ
 │
@@ -150,15 +151,17 @@ bidv-rwa-tokenize/
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
 │
 ├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20 / bash, không phụ thuộc ngoài)
-│   ├── run-local-all.sh       # Chạy toàn bộ kiểm chứng cục bộ — 7 mục
+│   ├── run-local-all.sh       # Chạy toàn bộ kiểm chứng cục bộ — 8 mục
 │   ├── verify-arch-rules.sh   # Lớp 3: 3 luật kiến trúc + cấu trúc repo + ký hiệu token
 │   ├── scan-pending.mjs       # ★ Quét marker; --check, --json, --write-report, --check-report
 │   ├── gen-flow-diagram.mjs   # ★ Sinh docs/flows/<luồng>.md (Mermaid) từ marker @flow
+│   ├── check-checkpoint.mjs   # ★ Kiểm khuôn checkpoint; --in-progress (MC-02)
 │   └── demo-mint.mjs          # Kịch bản demo luồng mint
 │
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
     ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
+    ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
         └── purchase.md        #   Luồng mua WPT, 10 bước
 ```
@@ -253,6 +256,8 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 - **Chia commit nhỏ theo mục tiêu.** Không dồn cả phase vào một commit. Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `chore:`). Mỗi commit phải ở trạng thái build được để `git bisect` và revert từng phần.
 - **Quy tắc chống "kẹt":** không hiểu yêu cầu thì **dừng, không đoán** — ghi câu hỏi vào checkpoint kèm 2 cách hiểu khả dĩ. Cùng một lỗi trượt 2 vòng review thì dừng vá lẻ, tổng hợp báo Supervisor.
 - **Không sửa mò quá 2 lần** cho cùng một triệu chứng.
+- **Checkpoint mở đầu bằng mục 0 tóm tắt nghiệm thu**, tối đa 60 dòng, bảng đối chiếu **đủ** các điều kiện hoàn thành của `requirements.md` kèm **số mục** chứa bằng chứng. Có máy kiểm: `node scripts/check-checkpoint.mjs --in-progress`. Khuôn ở `docs/CHECKPOINT_TEMPLATE.md`, quy tắc ở `.kiro/steering/checkpoint.md`, chi tiết ở **3.11**.
+- **Mọi con số dùng làm bằng chứng phải kèm lệnh đo** — trong checkpoint **và** trong spec do Supervisor viết. Con số không có lệnh đo thì không ai kiểm lại được, và điều đó đã gây thiệt hại thật ở MC-01 (spec ghi 33 tệp / 27 export / 10 method, cả ba đều sai). Số trong spec lệch số đo thật thì **dùng số đo thật** và ghi thành mục sai lệch.
 
 ---
 
@@ -897,6 +902,58 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 
 <!-- END:diem-cam -->
 
+## 3.11. Khuôn checkpoint và máy kiểm (MC-02)
+
+Checkpoint là thứ **duy nhất** Supervisor dựa vào để nghiệm thu, và nó phải làm hai việc mâu thuẫn
+nhau: **đọc trọn trong một trang** để quyết được, và **giữ đủ vết** để lần lại sau. Độ dài thực tế
+cho thấy vế thứ hai đang thắng — đo bằng `wc -l docs/CHECKPOINT_*.md | sort -n`: các checkpoint
+thường **164–626** dòng, còn `CHECKPOINT_MC01.md` là **5013** dòng.
+
+MC-02 tách hai vai: **mục 0** là bản để quyết, mục 1 trở xuống là vết.
+
+| Tệp | Vai trò | Lưu ý |
+|---|---|---|
+| `docs/CHECKPOINT_TEMPLATE.md` | Khuôn, kèm **ví dụ điền sẵn** cho cả ba ký hiệu | Mục 0 đặt ngay sau bảng thông tin task; sáu mục cũ giữ nguyên phía dưới |
+| `.kiro/steering/checkpoint.md` | Quy ước đầy đủ, nạp `always` | **Nguồn duy nhất của quy tắc.** Hai ngưỡng ở đây phải khớp hằng số trong script |
+| `scripts/check-checkpoint.mjs` | Năm phép kiểm, `--in-progress` | Node 20, ESM thuần, **không phụ thuộc gói ngoài**, không dùng thư viện phân tích Markdown |
+| `app/test/check-checkpoint.test.ts` | 21 ca chốt cơ chế | Chạy trên **tệp mẫu trong thư mục tạm**, không chạm checkpoint thật |
+
+Ba ký hiệu trạng thái **cố định**, và script nhận dòng bảng đối chiếu theo đúng ba ký hiệu này:
+`✅` đạt · `🔶` đạt một phần · `❌` không đạt.
+
+| Mã lỗi | Khi nào đỏ |
+|---|---|
+| `NO_SUMMARY` | không có tiêu đề mục 0 |
+| `SUMMARY_TOO_LONG` | mục 0 vượt `MAX_SUMMARY_LINES` = **60** dòng |
+| `DOD_COUNT_MISMATCH` | số dòng bảng đối chiếu khác số ô `- [ ]` ở mục điều kiện hoàn thành của `requirements.md` |
+| `MISSING_EVIDENCE` | có dòng mà cột bằng chứng rỗng hoặc chỉ ghi "đã làm" |
+| `NOT_SPLIT` | cả tệp vượt `MAX_FILE_LINES` = **800** dòng mà chưa có tệp `_DETAIL.md` |
+
+**Lưu ý khi phát triển:**
+- **Chỉ kiểm task đang làm.** `--in-progress` đọc `.kiro/task-status.json` mục `inProgress`.
+  Checkpoint của task đã `done` thì script **không chạm**: đó là vết lịch sử, và sửa lại vết lịch
+  sử để vừa một quy tắc ra sau là làm sai chính thứ mà vết đó dùng để ghi. Cụ thể:
+  `CHECKPOINT_MC01.md` đỏ `NOT_SPLIT` và `CHECKPOINT_BE09.md` đỏ `DOD_COUNT_MISMATCH` — cả hai là
+  **dữ liệu, không phải lỗi cần vá**.
+- **Ba trường hợp CỐ Ý không đỏ**, đừng "sửa" bằng cách thêm mã lỗi thứ sáu: (a) không có task nào
+  đang làm; (b) task đang làm chưa viết checkpoint — báo đỏ ở đây biến `run-local-all.sh` thành đèn
+  đỏ thường trực, và đèn đỏ thường trực thì bị bỏ qua, nghĩa vụ này đã có ở `branching.md` §11;
+  (c) con số không kèm lệnh đo — không phân biệt được bằng máy.
+- **Hai ngưỡng khai ở hai nơi và phải khớp:** hằng số đầu `check-checkpoint.mjs` và bảng ở
+  `.kiro/steering/checkpoint.md` §3. Đổi thì đổi cả hai trong cùng commit.
+- **Mã thoát 1 khác 2.** `1` = checkpoint sai khuôn (sửa checkpoint). `2` = không chạy được: sai
+  cách gọi, không tìm ra `requirements.md`, nguồn trạng thái task hỏng (sửa cách gọi hoặc dữ liệu
+  nền). Gộp hai loại thì người đọc thông báo đi sửa sai chỗ.
+- **Script chỉ dọn phần cơ học.** Ghi `✅` cho việc chưa xong thì script vẫn xanh. "Script xanh"
+  không phải "đã được nghiệm thu".
+
+**Cách mở rộng:**
+1. Đổi ngưỡng → sửa hằng số trong script **và** bảng trong steering, cùng commit.
+2. Thêm phép kiểm mới → thêm mã lỗi trong script **và** một ca vào bảng `DOT_BIEN` của
+   `app/test/check-checkpoint.test.ts`. Có ca "chốt chặn" so tập mã lỗi, nên thiếu ca là đỏ.
+3. Quy ước đặt tên checkpoint mới (ngoài `CHECKPOINT_<MÃ>.md` và `CHECKPOINT_<MÃ>_<hậu tố>.md`) →
+   sửa `resolveTaskFiles`. Khi nhiều tệp cùng khớp một mã task thì script **dừng**, không tự chọn.
+
 ---
 
 # PHẦN 4. BẢN ĐỒ LUỒNG
@@ -1192,6 +1249,10 @@ node scripts/scan-pending.mjs                  # bảng điểm cắm cho ngư�
 node scripts/scan-pending.mjs --check          # đỏ khi marker sai/lạc hậu, KHÔNG đỏ vì còn điểm cắm
 node scripts/gen-flow-diagram.mjs --check      # docs/flows/*.md còn khớp marker @flow
 node scripts/scan-pending.mjs --check-report   # mục 3.10 còn khớp marker
+
+# Khuôn checkpoint (xem 3.11)
+node scripts/check-checkpoint.mjs --in-progress            # task đang làm; không có task thì bỏ qua
+node scripts/check-checkpoint.mjs <checkpoint> <requirements>   # một tệp cụ thể
 
 # Kiểm thử
 cd app && npm run typecheck && npx eslint . && npm test && npm run test:e2e
