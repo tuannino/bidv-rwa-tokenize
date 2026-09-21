@@ -69,18 +69,23 @@ bằng chứng, đâu là con số trong câu văn bình thường. Nó là quy 
 
 | Ngưỡng | Giá trị | Vì sao con số đó |
 |---|---|---|
-| Mục 0 | **60 dòng** | Một trang màn hình. Đủ cho bảng khoảng 15 điều kiện cộng kết luận và việc cần quyết. Đo trên tiền lệ: mục 0 của `CHECKPOINT_MC01.md` dài **43** dòng, nằm trong ngưỡng mà không phải cắt gì |
+| Mục 0 | **60 dòng** | Một trang màn hình. Đủ cho bảng khoảng 15 điều kiện cộng kết luận và việc cần quyết. Đo trên tiền lệ: mục 0 của `CHECKPOINT_MC01.md` dài **40** dòng, nằm trong ngưỡng mà không phải cắt gì |
 | Cả tệp, trước khi phải tách | **800 dòng** | Checkpoint lớn nhất hiện có ngoài MC-01 là **626** dòng (`CHECKPOINT_TEST_PACK.md`). Ngưỡng 800 không làm vướng task bình thường, chỉ chặn trường hợp như MC-01 (**5013** dòng) |
 
 Lệnh đo hai con số trên:
 
 ```bash
-# Độ dài mục 0 của một checkpoint (từ "## 0." tới trước "## 1.")
-awk '/^## 0\./{f=1} /^## 1\./{if(f){print NR-s; exit}} f&&!s{s=NR}' docs/CHECKPOINT_MC01.md
+# Độ dài mục 0 — lấy từ chính script, dòng "mục 0: 40/60 dòng"
+node scripts/check-checkpoint.mjs docs/CHECKPOINT_MC01.md docs/mc-01-make-control/requirements.md
 
 # Độ dài toàn bộ các checkpoint
 wc -l docs/CHECKPOINT_*.md | sort -n
 ```
+
+⚠️ **Đếm bằng `awk '/^## 0\./,/^## 1\./'` cho 43, không phải 40.** Chênh 3 là dòng trắng và
+đường kẻ ngang `---` trước mục 1. Script **cố ý** không tính chúng: đó là phần trình bày, và
+tính chúng vào hạn mức làm ngưỡng phụ thuộc khoảng trắng — thêm một dòng trắng là mất một dòng
+nội dung. Con số của script là con số có hiệu lực.
 
 **Khi cả tệp vượt 800 dòng:** tách phần chi tiết ra `docs/CHECKPOINT_<TASK>_DETAIL.md`, tệp
 chính giữ mục 0 và các mục ngắn. Mục 0 của tệp chính phải **trỏ được** sang đúng mục trong tệp
