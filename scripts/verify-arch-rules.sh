@@ -191,6 +191,28 @@ fi
 # -----------------------------------------------------------------------------
 head1 "KÝ HIỆU TOKEN - WPT / VNDB (ký hiệu cũ SPT / tVND đã bỏ)"
 # -----------------------------------------------------------------------------
+# PHẠM VI CỦA PHÉP QUÉT NÀY LÀ CÓ CHỦ ĐÍCH. Ba giới hạn dưới đây đều đã được đo,
+# đừng "sửa" bằng cách nới rộng lại - xem docs/CHECKPOINT_MC01.md mục 10 SL-9.
+#
+# 1) KHÔNG quét docs/. Tài liệu nhắc ký hiệu cũ MỘT CÁCH CÓ CHỦ ĐÍCH: checkpoint
+#    lịch sử, bảng "ký hiệu cũ đã bỏ", diff dán lại mã cũ, chính spec MC-01. Đo
+#    thật: docs/ có 60 chỗ, 0 chỗ là vi phạm. Nặng hơn, phép quét này TỰ THAM
+#    CHIẾU - chính dòng lệnh định nghĩa nó cũng chứa chuỗi cần tìm, nên một phép
+#    quét docs/ không thể phát biểu mà không tự loại trừ chính mình.
+#
+# 2) KHÔNG dùng -i (phân biệt chữ hoa/thường). Đây là ký hiệu niêm yết, nó có
+#    đúng một cách viết. Thêm -i thì "tVND" khớp các định danh hợp lệ
+#    distributableProfitVnd / netVnd / profitVndBn, và "SPT" khớp biến cục bộ
+#    spt: 51 dòng dương tính giả, 0 vi phạm.
+#
+# 3) LOẠI node_modules và target/. Crate Soroban từng tên spt_token nên đầu ra
+#    biên dịch còn giữ chuỗi cũ; cộng với bundle của thư viện ngoài là 126 dòng
+#    "Binary file ... matches" và ~38 MB output.
+#
+# Giới hạn đã biết: vì phân biệt chữ hoa/thường, phép quét này KHÔNG bắt định
+# danh viết thường đặt theo ký hiệu cũ (còn 6 chỗ ở
+# packages/contracts-evm/scripts/verify-deployment.js). Đó là quy ước đặt tên,
+# không phải ký hiệu hiển thị, và cố ý nằm ngoài phép kiểm này.
 HITS=$(grep -rnoE "\bSPT\b|tVND" app/src/ app/e2e/ app/test/ packages/ 2>/dev/null \
         | grep -v node_modules | grep -v target/ || true)
 if [ -z "$HITS" ]; then

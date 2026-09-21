@@ -87,10 +87,6 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
 /** Thứ tự hiển thị trên dropdown. */
 export const CHAIN_ORDER: ChainKey[] = ['hardhat-local', 'mock', 'evm', 'stellar'];
 
-export function getChainInfo(key: ChainKey): ChainInfo {
-  return CHAINS[key];
-}
-
 /**
  * URL xem giao dịch trên explorer của chain, hoặc `null` nếu chain không có explorer.
  *

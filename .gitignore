@@ -34,6 +34,9 @@ app/next-env.d.ts
 # Debug logs
 npm-debug.log*
 yarn-debug.log*
+# Trạng thái máy sinh của bộ theo dõi task Kiro (đổi mỗi lần một checkbox đổi).
+# Theo tiền lệ be-02 / be-09: không commit.
+.kiro/specs/*/tasks.meta.json
 # other
 BIDV_RWA_Analysis.docx
 .claude

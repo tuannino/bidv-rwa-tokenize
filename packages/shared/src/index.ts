@@ -6,5 +6,4 @@ export {
   addressEnvKey,
   findContractAddress,
   getContractAddress,
-  getDeployment,
 } from './addresses';

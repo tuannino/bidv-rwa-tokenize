@@ -31,7 +31,12 @@ export const chainSchema = z.enum(CHAIN_KEYS);
  * `.transform()` thì khác `.refine()`: nó tạo một pipe, và pipe KHÔNG chạy khi vế trước đã
  * trượt. Nên chuyển đổi sang `bigint` trước rồi so sánh trên `bigint` là an toàn.
  */
-export const amountSchema = z
+/**
+ * KHÔNG `export`: đây là khối xây dựng cho `mintSchema` và `placeOrderSchema` trong cùng
+ * tệp, không tệp nào ngoài tệp này dùng tới. Form cần validate riêng ô số lượng thì lấy
+ * `placeOrderSchema.shape.wptAmount` — vẫn đúng một nguồn quy tắc, không thêm mặt tiền.
+ */
+const amountSchema = z
   .string()
   .trim()
   .regex(/^\d+$/, 'Số lượng phải là số nguyên không dấu.')
@@ -91,8 +96,10 @@ export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
  * `.trim()` rồi mới `.pipe(z.uuid())`, không phải `z.uuid().trim()`: thứ tự sau sẽ kiểm
  * dạng TRƯỚC khi cắt khoảng trắng, nên một id dán từ log có xuống dòng ở cuối bị coi là
  * sai dạng. `z.string().uuid()` đã `@deprecated` ở Zod 4 nên không dùng.
+ *
+ * KHÔNG `export`: chỉ `executeOrderSchema` trong cùng tệp dùng tới.
  */
-export const orderIdSchema = z
+const orderIdSchema = z
   .string()
   .trim()
   .pipe(z.uuid('Mã lệnh phải là UUID.'));

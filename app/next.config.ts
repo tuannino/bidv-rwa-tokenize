@@ -46,42 +46,54 @@ const nextConfig: NextConfig = {
   // (đã thử, fail "Module not found"). Cách xử lý: san phẳng standalone sau `next build`
   // — xem scripts/flatten-standalone.mjs + `buildCommand` trong open-next.config.ts.
   outputFileTracingRoot: repoRoot,
+  //
+  // ALIAS `@x402/*` -> src/empty.ts: BẮT BUỘC, đã đo bằng thực nghiệm (MC-01 Bước 7).
+  //
+  // Vì sao cần dù `@x402/*` KHÔNG có trong package.json và không có node_modules/@x402:
+  // chúng là peerDependencies TÙY CHỌN của @coinbase/cdp-sdk (npm không cài), nhưng mã của
+  // cdp-sdk vẫn `import` chúng, và cdp-sdk nằm trong đồ thị module của app theo chuỗi:
+  //   src/components/providers.tsx -> @rainbow-me/rainbowkit -> @wagmi/connectors/baseAccount
+  //   -> @base-org/account -> @coinbase/cdp-sdk
+  // Bỏ nhóm alias này ra thì `next build` FAIL với 8 lỗi "Module not found" ở 5 specifier:
+  //   @x402/core/client, @x402/evm/exact/client, @x402/evm/upto/client,
+  //   @x402/svm/exact/client, @x402/evm
+  //
+  // ĐIỀU KIỆN XÓA: khi `cd app && npm ls @coinbase/cdp-sdk` trả về rỗng (tức wagmi/connectors
+  // không còn kéo @base-org/account), thì bỏ alias + xóa src/empty.ts + chạy lại `npm run build`.
+  //
+  // ĐÃ GỠ (đo được là không cần): 3 alias `@vercel/og`,
+  // `next/dist/server/og/image-response`, `next/dist/compiled/@vercel/og`. App không dùng OG
+  // image, không tệp nào nhập ImageResponse. Bỏ ra thì `next build`, `build:standalone` và
+  // `cf:build` đều xanh, và `.open-next` ra CÙNG kích thước (52608 KB) với CÙNG số tham chiếu
+  // resvg.wasm/yoga.wasm (5+5) — tức alias này chưa từng khớp lần nào.
+  // Hai dòng wasm ở `outputFileTracingExcludes` bên dưới là cơ chế KHÁC, vẫn cần, đừng gộp.
+  //
+  // Khối `webpack` dưới đây KHÔNG chạy trong bất kỳ đường build nào của repo: Next 16 mặc định
+  // dùng Turbopack, và nó chỉ chặn build khi có `webpack` mà KHÔNG có `turbopack`
+  // (xem node_modules/next/dist/lib/turbopack-warning.js: `hasWebpackConfig && !hasTurboConfig`).
+  // Giữ lại làm đường thoát cho `next build --webpack`; đã kiểm `--webpack` chạy được.
+  //
+  // Ở đây phải liệt kê ĐỦ 5 specifier, KHÔNG rút về một khóa tiền tố `"@x402"` như bên
+  // Turbopack: alias của webpack là phép THAY THẾ tiền tố, nên `@x402/core/client` gặp khóa
+  // `"@x402"` sẽ thành `<emptyPath>/core/client` -> vẫn "Module not found" (đã thử, fail 5 lỗi).
   webpack: (config) => {
     const emptyPath = path.resolve(process.cwd(), "src/empty.ts");
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      "@x402/core": emptyPath,
       "@x402/core/client": emptyPath,
       "@x402/evm/exact/client": emptyPath,
       "@x402/evm/upto/client": emptyPath,
       "@x402/svm/exact/client": emptyPath,
-      "@x402/svm/upto/client": emptyPath,
       "@x402/evm": emptyPath,
-      "@x402/svm": emptyPath,
-      "@x402/client": emptyPath,
-      "@vercel/og": emptyPath,
-      "next/dist/server/og/image-response": emptyPath,
-      "next/dist/compiled/@vercel/og": emptyPath,
     };
     return config;
   },
   // For Next.js 16+ Turbopack
   turbopack: {
     root: repoRoot,
+    // Một dòng wildcard là đủ: đã đo, nó phủ cả 5 specifier kể trên. Không cần liệt kê tay.
     resolveAlias: {
-      "@x402/core": "./src/empty.ts",
-      "@x402/core/client": "./src/empty.ts",
-      "@x402/evm/exact/client": "./src/empty.ts",
-      "@x402/evm/upto/client": "./src/empty.ts",
-      "@x402/svm/exact/client": "./src/empty.ts",
-      "@x402/svm/upto/client": "./src/empty.ts",
-      "@x402/evm": "./src/empty.ts",
-      "@x402/svm": "./src/empty.ts",
-      "@x402/client": "./src/empty.ts",
       "@x402/*": "./src/empty.ts",
-      "@vercel/og": "./src/empty.ts",
-      "next/dist/server/og/image-response": "./src/empty.ts",
-      "next/dist/compiled/@vercel/og": "./src/empty.ts",
     }
   },
   // `pg-cloudflare` khai `exports` có điều kiện `workerd` trỏ tới `./esm/index.mjs`.

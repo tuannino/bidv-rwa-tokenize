@@ -1,22 +1,18 @@
-/**
- * Điều khoản phát hành WPT — THAM SỐ CẤU HÌNH, không phải số liệu thị trường.
- *
- * Vì sao đặt ở đây mà không phải `mock-data.ts`:
- *
- * `mock-data.ts` chứa số liệu *bịa để minh hoạ* (sản lượng, số nhà đầu tư...) và mọi thứ lấy
- * từ đó đều phải gắn nhãn "dữ liệu mẫu" trên giao diện. Giá phát hành thì khác: nó là một
- * điều khoản của đợt phát hành, giống con số trên term sheet — do ngân hàng ấn định, không
- * phải quan sát từ thị trường. Nhờ vậy `số dư thật × giá phát hành` là *thật × tham số*, không
- * phải *thật × số bịa*, nên không vi phạm quy tắc "không trộn số liệu thật với số liệu mẫu
- * trong cùng một con số".
- *
- * ⚠️ Đây KHÔNG phải giá thị trường. Hệ thống chưa có thị trường thứ cấp nên không có giá giao
- * dịch. Mọi chỗ hiển thị con số quy đổi PHẢI ghi rõ là "theo giá phát hành", tuyệt đối không
- * gọi là giá trị thị trường hay định giá.
- */
+import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 
-/** Giá phát hành một WPT, đơn vị VND. WPT có decimals = 0 nên đây là giá của trọn một token. */
-export const WPT_ISSUE_PRICE_VND = 100_000;
+/**
+ * Quy đổi số dư WPT sang VND theo **giá phát hành**.
+ *
+ * ⚠️ Giá phát hành là THAM SỐ CẤU HÌNH, không phải giá thị trường — hệ thống chưa có thị trường
+ * thứ cấp nên không có giá giao dịch. Mọi chỗ hiển thị con số ra từ đây PHẢI ghi rõ là "theo giá
+ * phát hành", tuyệt đối không gọi là giá trị thị trường hay định giá. Lập luận đầy đủ về việc
+ * con số này khác số liệu mẫu ở chỗ nào: `lib/config/issue-terms.ts`.
+ *
+ * Hằng số nằm ở `lib/config/issue-terms.ts` chứ không ở tệp này vì `lib/ledger/mock.adapter.ts`
+ * cũng cần đúng con số đó, mà tầng cổng nhập từ tầng nghiệp vụ là ngược chiều phụ thuộc. Re-export
+ * ở đây để người gọi cũ (`portfolio.service.ts`) giữ nguyên đường nhập.
+ */
+export { WPT_ISSUE_PRICE_VND };
 
 /**
  * Quy đổi số lượng WPT sang VND theo giá phát hành.

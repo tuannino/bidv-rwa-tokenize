@@ -51,8 +51,10 @@ export interface PortfolioView {
     totalSupply: string;
   };
   /**
-   * KHÔNG có trường số dư VNDB: `ILedgerPort` chưa có phương thức đọc số dư token thanh toán.
-   * Thêm trường trả 0 sẽ là bịa số, nên bỏ hẳn và để giao diện ẩn phần đó — nợ chờ BE-01.
+   * KHÔNG có trường số dư VNDB. `ILedgerPort.paymentBalanceOf` ĐÃ có (thêm ở BE-01, đang
+   * được `purchase.service` dùng), nhưng hàm này chưa đọc tới — phần hiển thị số dư VNDB
+   * cho nhà đầu tư thuộc FE-04, cùng chỗ với số dư ví (xem `lib/hooks/use-native-balance.ts`).
+   * Thêm trường trả 0 thì vẫn là bịa số, nên vẫn bỏ hẳn cho tới lúc có chỗ dùng thật.
    */
 }
 

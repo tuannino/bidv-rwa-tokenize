@@ -118,6 +118,9 @@ export function getOrderStore(): IOrderStore {
   return cache.order;
 }
 
+/**
+ * @pending BE-06 | cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi
+ */
 export function getDistributionStore(): IDistributionStore {
   cache.distribution ??= wantsMemoryStore()
     ? createMemoryDistributionStore()
@@ -125,6 +128,9 @@ export function getDistributionStore(): IDistributionStore {
   return cache.distribution;
 }
 
+/**
+ * @pending BE-05 | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ
+ */
 export function getSettlementStore(): ISettlementStore {
   cache.settlement ??= wantsMemoryStore()
     ? createMemorySettlementStore()
@@ -132,6 +138,9 @@ export function getSettlementStore(): ISettlementStore {
   return cache.settlement;
 }
 
+/**
+ * @pending BE-07 | cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới
+ */
 export function getKeeperStore(): IKeeperStore {
   cache.keeper ??= wantsMemoryStore() ? createMemoryKeeperStore() : createPostgresKeeperStore();
   return cache.keeper;

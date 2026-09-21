@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
+import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey, normalizeEvmAddress } from './address';
 import {
   LedgerError,
@@ -83,12 +84,20 @@ const TOKEN: Omit<TokenInfo, 'totalSupply'> = {
 };
 
 /**
- * Giá bán mặc định 1 WPT = 100.000 VNDB.
+ * Giá bán mặc định 1 WPT, tính bằng VNDB (VNDB quy đổi 1:1 với VND).
+ *
+ * LẤY TỪ nguồn duy nhất `lib/config/issue-terms.ts`, KHÔNG khai lại con số ở đây. Khai lại là
+ * loại lỗi tệ nhất mock có thể mắc: đổi giá phát hành thì màn nhà đầu tư hiện giá mới trong khi
+ * `quotePurchase` vẫn khớp lệnh theo giá cũ, mà test vẫn xanh. `app/test/issue-price-single-source.test.ts`
+ * giữ cho việc tách lại thành hai hằng số là đỏ.
+ *
+ * `BigInt(...)` vì `ILedgerPort` làm việc bằng `bigint` (uint256), còn nguồn để `number` để qua
+ * được biên server -> client (`PortfolioView.issuePriceVnd`).
  *
  * KHÔNG để 0: giá 0 làm `quotePurchase` trả 0 và khớp lệnh thành "mua không mất tiền",
  * tức mock dễ tính hơn contract thật ở đúng chỗ dễ sai nhất.
  */
-const DEFAULT_WPT_PRICE_VND = 100_000n;
+const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
 
 /** Giá NAV mặc định khi tất toán = giá phát hành. Nghiệp vụ đặt lại bằng `setNavRate`. */
 const DEFAULT_NAV_RATE = DEFAULT_WPT_PRICE_VND;

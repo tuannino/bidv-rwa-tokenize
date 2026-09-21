@@ -10,7 +10,7 @@
  *            NEXT_PUBLIC_ADDR_HARDHAT_LOCAL_PROJECT_TOKEN=0x...
  */
 import addressBookJson from './addresses.json';
-import type { AddressBook, ChainKey, ContractName, DeploymentRecord } from './types';
+import type { AddressBook, ChainKey, ContractName } from './types';
 
 export const addressBook: AddressBook = (addressBookJson as { chains: AddressBook }).chains ?? {};
 
@@ -31,10 +31,6 @@ function readEnv(key: string): string | undefined {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   const value = env?.[key];
   return value && value.length > 0 ? value : undefined;
-}
-
-export function getDeployment(chain: ChainKey): DeploymentRecord | undefined {
-  return addressBook[chain];
 }
 
 /** Trả về địa chỉ hoặc `undefined` nếu chain đó chưa deploy. */
