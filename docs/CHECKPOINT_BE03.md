@@ -50,12 +50,21 @@ Bốn commit, một mục tiêu mỗi commit (`workflow.md` — chia commit nh�
 | `015a4c9` | **Bước 1** — `runPurchaseChecks` nhận tham số thuần thay vì `OrderRecord` |
 | `d4dd0fb` | **Bước 2** — `previewPurchase` + `placeOrder` chặn lệnh rác + ca kiểm thử |
 | `a56959b` | **Bước 3** — `previewPurchaseAction`, marker `@pending FE-05`, đánh số lại `@flow` |
+| `15aeb9e` | **Bước 4** — `tech-report.md` 2.1, `BE-03` sang `done`, checkpoint này |
+| *(commit cuối)* | **Bước 4** — đo lại số liệu của chính checkpoint này, vì hai con số dưới đây chỉ đúng **sau** commit `15aeb9e` |
 
-Phạm vi đo được:
+Phạm vi đo được (gồm cả tệp spec và checkpoint):
 
 ```
 $ git diff --stat dev...HEAD | tail -1
- 10 files changed, 801 insertions(+), 128 deletions(-)
+ 11 files changed, 1243 insertions(+), 153 deletions(-)
+```
+
+Chỉ tính mã nguồn và test:
+
+```
+$ git diff --stat dev...HEAD -- app | tail -1
+ 5 files changed, 650 insertions(+), 91 deletions(-)
 ```
 
 Ba thứ mới ở tầng nghiệp vụ:
