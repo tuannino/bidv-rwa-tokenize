@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 2.0 |
+| Phiên bản tài liệu | 2.1 |
 | Cập nhật lần cuối | 2026-09-21 |
-| Nhánh / commit | `mc/02-checkpoint-format`, nền `dev` @ `69a38a9` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_MC02.md` |
+| Nhánh / commit | `feat/purchase-preview`, nền `dev` @ `ac25c8b` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE03.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ), **MC-01** (cơ chế điểm cắm — đã merge vào `dev` ở PR #21, xem 3.10) |
-| Đang chờ nghiệm thu | **MC-02** (khuôn checkpoint + máy kiểm — xem 3.11 và `docs/CHECKPOINT_MC02.md`). Mã đã xong trên nhánh, **chưa** merge vào `dev`, nên `.kiro/task-status.json` còn để `MC-02` ở `inProgress` |
+| Đang chờ nghiệm thu | **MC-02** (khuôn checkpoint + máy kiểm — xem 3.11 và `docs/CHECKPOINT_MC02.md`). Mã đã merge vào `dev` ở PR #22 nhưng `.kiro/task-status.json` còn để `MC-02` ở `inProgress` — xem câu hỏi mở của `docs/CHECKPOINT_BE03.md`. · **BE-03** (xem trước điều kiện mua WPT — xem 4.2 và `docs/CHECKPOINT_BE03.md`) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -22,6 +22,11 @@ lớn", nhưng đây chỉ là phép cộng: `tech-report-maintenance.md` §3 b�
 thường, và `1.9 + 0.1 = 2.0`. MC-02 **không đổi kiến trúc** — ba luật bất di không bị chạm, không
 thêm tầng, không đổi luồng nghiệp vụ nào, không chạm `app/src`. Nó thêm một **cổng quy trình**
 (khuôn checkpoint + máy kiểm), cùng họ với MC-01. Lần `+1.0` sẽ là lần thật sự đổi kiến trúc.
+
+**2.0 → 2.1 (BE-03).** Thêm một hàm nghiệp vụ và một server action vào luồng mua đã có, không thêm
+tầng và không đổi ba luật. Có **một đổi hành vi** cần đọc kỹ: `placeOrder` nay kiểm điều kiện
+trước khi tạo bản ghi, nên một lệnh thiếu điều kiện **không còn** vào sổ lệnh rồi chuyển
+`REJECTED` — chi tiết ở 4.2.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -477,7 +482,11 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 `distribution:execute`, `settlement:initiate`, `settlement:set-nav`, `settlement:confirm`,
 `treasury:manage`, `demo:mint-payment`, `reconcile:read` — là **chỗ đặt guard** cho ba luồng khớp
 lệnh / chia lợi nhuận / tất toán. Trong đó `order:place` và `order:execute` đã có nghiệp vụ dùng thật
-(BE-02, xem 4.2); bảy hành động còn lại thuộc BE-03..BE-07, **chưa xây**.
+(BE-02, xem 4.2); bảy hành động còn lại thuộc BE-04..BE-07, **chưa xây**.
+
+**BE-03 KHÔNG thêm quyền nào.** Xem trước dùng lại `order:place` — đúng quyền của việc nó xem
+trước. Thêm một `order:preview` riêng sẽ cho phép cấu hình ra một vai xem được điều kiện mua mà
+không đặt được lệnh, tức một quyền không tương ứng với việc nào trong nghiệp vụ.
 
 **3 hành động BE-02 thêm vào** — `order:expire`, `order:read`, `order:read:all` — là phần sổ lệnh
 mà BE-08 chưa khai: dọn lệnh treo, và phân biệt "xem lệnh của mình" với "xem lệnh của mọi ví".
@@ -538,12 +547,12 @@ quyền của vai nào.
 | `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ** | `authorize()`, `toResult()` |
 | `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
-| `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) | `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
+| `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) + xem trước điều kiện (BE-03) | `previewPurchase()`, `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
 | `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic. `ORDER_STATUSES` **re-export** từ `store/order.store.port.ts`, không khai lại | `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES`, `findPaidPendingDeliveryStatuses()` |
 | `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không còn giữ hằng số giá**: từ MC-01 nó `re-export` `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6) để người gọi cũ giữ nguyên đường nhập | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `executeOrderSchema`, `orderQuerySchema`, `amountSchema`, `walletSchema` |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `amountSchema`, `walletSchema` |
 
 ### Mô hình trạng thái lệnh mua (`purchase.state.ts`)
 
@@ -991,11 +1000,11 @@ components/pages/mint.tsx
 
 ---
 
-## 4.2. Luồng MUA WPT (đã hoàn thành — BE-02)
+## 4.2. Luồng MUA WPT (đã hoàn thành — BE-02, mở rộng ở BE-03)
 
-**Nghiệp vụ:** nhà đầu tư đặt lệnh mua; hệ thống kiểm số dư VNDB, ủy quyền và tồn WPT; nếu
-đạt thì chuyển VNDB (nhà đầu tư → ví thanh toán SPV) và chuyển WPT (ví SPV → nhà đầu tư)
-trong **cùng một** giao dịch.
+**Nghiệp vụ:** nhà đầu tư xem trước xem mình đủ điều kiện chưa; đặt lệnh mua; hệ thống kiểm số
+dư VNDB, ủy quyền và tồn WPT; nếu đạt thì chuyển VNDB (nhà đầu tư → ví thanh toán SPV) và chuyển
+WPT (ví SPV → nhà đầu tư) trong **cùng một** giao dịch.
 
 **Ai ký:** ví **ngân hàng/SPV** qua `getBankSigner(chain)`, không phải ví nhà đầu tư — khác
 hẳn luồng REDEEM ở 4.3. Nhà đầu tư chỉ tham gia bằng một lần `approve` VNDB **trước đó**, từ
@@ -1007,22 +1016,54 @@ thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transp
 
 ```
 (FE-05/FE-06, chưa xây)
+   └─ previewPurchaseAction()                    ──→ app/actions/purchase.ts
    └─ placeOrderAction() / executeOrderAction() ──→ app/actions/purchase.ts
                                                      (hoặc app/api/purchase/route.ts)
          └──────────────────────────────────────────→ lib/bank/purchase.service.ts
 ```
+
+⚠️ **`previewPurchase` KHÔNG có đường HTTP thứ hai.** `app/api/purchase/route.ts` chỉ phục vụ
+đặt/khớp/xem sổ lệnh cho kịch bản demo và e2e. Thêm một nhánh xem trước vào đó không sai về
+nguyên tắc, nhưng chưa ai cần nên chưa làm — mỗi điểm vào HTTP là một thứ phải giữ đồng bộ.
 
 **Sơ đồ sinh từ mã nguồn: `docs/flows/purchase.md`** (Mermaid, sinh bằng
 `node scripts/gen-flow-diagram.mjs purchase` từ marker `@flow` — xem 3.10). Nó nói được thứ mục
 này không nói: điểm cắm `@pending` nằm trên đúng hàm nào, và dừng ở đâu vì chưa có contract.
 
 ⚠️ **Hai hệ đánh số bước, KHÔNG so được với nhau — đừng đọc chéo bằng số bước.** Bảng "Giai đoạn
-1/2" dưới đây đánh số **các bước bên trong một hàm** (bước 5 của Giai đoạn 1 là lời gọi
+1/2" dưới đây đánh số **các bước bên trong một hàm** (bước 6 của Giai đoạn 1 là lời gọi
 `quotePurchase` *trong* `placeOrder`). Marker `@flow` đánh số **các hàm** trên đường đi
-(`purchase:3` là chính `quotePurchase`, một ô riêng của sơ đồ). Hai hệ cắt lát ở hai độ mịn khác
+(`purchase:5` là chính `quotePurchase`, một ô riêng của sơ đồ). Hai hệ cắt lát ở hai độ mịn khác
 nhau nên "bước 5" ở hai chỗ là hai thứ khác nhau; đối chiếu phải làm bằng **tên hàm**, không bằng
 số. Sơ đồ cũng **cố ý nói ít hơn** mục này: một chuỗi số nguyên không biểu diễn được nhánh phụ,
 đường về, hay lựa chọn adapter lúc chạy.
+
+### Giai đoạn 0 — xem trước điều kiện: `previewPurchase()` (BE-03)
+
+| Bước | File / hàm | Việc |
+|---|---|---|
+| 1 | `bank/schemas.ts` → `previewPurchaseSchema.safeParse` | **Cùng schema với đặt lệnh**, nên không thể "xem trước nói hợp lệ, đặt lệnh từ chối vì sai dạng" |
+| 2 | `rbac/session.ts :: currentRole()` → `rbac/can.ts :: assertCan()` | Quyền `order:place`. **Không** đi qua `authorize()` — xem cảnh báo dưới |
+| 3 | `purchase.service :: runPurchaseChecks()` | **Đúng** bộ kiểm mà `executeOrder` chạy, chỉ khác là không truyền `vndAmount` đã chốt nên phép kiểm giá không chạy |
+| 4 | `bank/result.ts` | `Result<PurchasePreviewView>`: `vndAmount`, `canPlaceOrder`, `blockers`, và `checks` — từng phép kiểm kèm `reason` / `howToFix` / `actual` / `required` |
+
+⚠️ **Hàm này KHÔNG ghi một dòng nào vào cơ sở dữ liệu, kể cả sổ kiểm toán.** Đó là lý do nó dùng
+`assertCan` thay vì `authorize()`: `authorize()` ghi một bản ghi cho **mỗi** lời gọi, mà FE-05 gọi
+hàm này sau mỗi ký tự người dùng gõ vào ô số lượng — dùng `authorize()` sẽ đổ hàng chục bản ghi
+"đã cho phép xem" cho một lần mua và làm sổ kiểm toán không còn dùng được để đối chiếu trách
+nhiệm. LUẬT #3 vẫn giữ: quyền đi qua RBAC, không so tên vai. **Hệ quả phải biết:** một lần xem
+trước **bị chặn** cũng không để lại dấu vết; câu hỏi mở về việc này ở `docs/CHECKPOINT_BE03.md`.
+
+**`checks` là DANH SÁCH, không phải đối tượng có đủ năm khoá, và đó là chủ đích.** Bộ kiểm dừng ở
+phép trượt đầu tiên, nên phép nằm sau nó **vắng mặt** — vắng nghĩa là "chưa kiểm", khác hẳn
+`ok: true`. Một đối tượng đủ khoá sẽ buộc phải điền giá trị cho phép kiểm chưa chạy, và mọi giá
+trị điền vào đó đều là nói sai. Vì dừng sớm nên `blockers` có **nhiều nhất một** phần tử; nó vẫn
+là mảng để giao diện không phải viết lại khi thứ tự kiểm thay đổi.
+
+**Vì sao không chạy hết cả năm phép rồi báo tất cả:** `canTransfer` kiểm lại cả số dư WPT của ví
+SPV, nên chạy hết sẽ báo **hai** blocker (`supply` và `transferable`) cho **một** nguyên nhân. Thứ
+tự kiểm cũng là thứ tự người dùng sửa được, nên báo một việc phải làm tại một thời điểm là đúng
+hơn, không phải là nói thiếu.
 
 ### Giai đoạn 1 — đặt lệnh: `placeOrder()`
 
@@ -1032,13 +1073,30 @@ số. Sơ đồ cũng **cố ý nói ít hơn** mục này: một chuỗi số n
 | 2 | `bank/authorize.ts` → `rbac/can.ts` → `permissions.ts` | `authorize('order:place')` — quyền của **INVESTOR** |
 | 3 | `getStore() :: appendAudit()` | Ghi audit ALLOWED / DENIED |
 | 4 | `ledger/index.ts :: getLedger(chain)` | Chọn adapter |
-| 5 | `ledger :: quotePurchase(wptAmount)` | **Chốt** số VNDB phải trả tại thời điểm đặt |
-| 6 | `getOrderStore() :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
-| 7 | `getStore() :: appendAudit()` | Bản ghi SUCCESS |
-| 8 | `bank/result.ts` | Trả `Result<OrderView>`, mọi con số dạng **chuỗi** |
+| 5 | `purchase.service :: runPurchaseChecks()` | **BE-03.** Không đạt → **không tạo bản ghi**, ghi audit FAILURE, trả đúng mã lỗi của phép kiểm trượt |
+| 6 | `ledger :: quotePurchase(wptAmount)` *(bên trong bước 5)* | **Chốt** số VNDB phải trả tại thời điểm đặt |
+| 7 | `getOrderStore() :: createOrder()` | Lưu lệnh ở `PLACED`, kèm `vndAmount` đã chốt |
+| 8 | `getStore() :: appendAudit()` | Bản ghi SUCCESS |
+| 9 | `bank/result.ts` | Trả `Result<OrderView>`, mọi con số dạng **chuỗi** |
 
-Bước 5 là QĐ-3 của BE-02: số VNDB **không** được tính lại khi khớp. Tính lại là âm thầm thu
+Bước 6 là QĐ-3 của BE-02: số VNDB **không** được tính lại khi khớp. Tính lại là âm thầm thu
 một số khác với số đã báo trên màn hình lúc bấm — sai về nghiệp vụ, không phải chuyện làm tròn.
+Báo giá chỉ gọi **một lần**, lấy từ giá trị `runPurchaseChecks` trả ra: gọi `quotePurchase` thêm
+lần nữa ở bước 7 là mở cửa cho lệnh được lưu theo một giá còn phép kiểm chạy theo giá kia.
+
+⚠️ **Bước 5 là ĐỔI HÀNH VI so với BE-02 — đọc trước khi sửa test cũ.** Trước BE-03, một lệnh
+thiếu điều kiện vẫn được **lưu** rồi chuyển `REJECTED` ở một lần gọi `executeOrder` khác. Nay nó
+không vào sổ lệnh nữa. Hai hệ quả:
+
+- Trạng thái "có lệnh trong sổ **và** `spvWallet()` trả `null`" thành **không thể đạt**: lệnh chỉ
+  tồn tại khi đã phát hành nguồn cung, mà nguồn cung phát hành rồi thì không thu lại được. Ca kiểm
+  thử tương ứng đã chuyển từ `executeOrder` sang `placeOrder`.
+- Muốn dựng một lệnh bị `REJECTED` lúc khớp thì phải đặt lệnh khi **đủ** điều kiện rồi hạ điều
+  kiện xuống — đúng tình huống có thật ngoài đời, và là cách `app/test/purchase-service.test.ts`
+  đang làm (bảng `DEGRADATIONS`).
+
+`executeOrder` **vẫn kiểm lại** toàn bộ. Kiểm ở `placeOrder` không thay thế được: điều kiện đổi
+được giữa lúc đặt và lúc khớp, và đó chính là ba tình huống trong bảng `DEGRADATIONS`.
 
 ### Giai đoạn 2 — khớp lệnh: `executeOrder()`
 
@@ -1047,7 +1105,7 @@ một số khác với số đã báo trên màn hình lúc bấm — sai về n
 | 1 | `getOrderStore() :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
 | 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **BANK_ADMIN**, tách khỏi `order:place` |
 | 3 | `orderStore :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
-| 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới |
+| 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới. Lấy phép trượt **đầu tiên** trong danh sách trả về |
 | 5 | `orderStore :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
 | 6 | `ledger :: executePurchase(investor, wptAmount)` | VNDB và WPT trong **cùng một** giao dịch |
 | 7 | `orderStore :: attachOrderTxHash()` + `txnStore :: saveTxn()` | Lưu mã giao dịch **ngay khi có**, trước khi chờ |
@@ -1059,17 +1117,32 @@ một số khác với số đã báo trên màn hình lúc bấm — sai về n
 **Bốn phép kiểm ở bước 4** (QĐ-2), dừng ở lần trượt đầu tiên, tất cả đều là hàm **đọc** nên
 không tốn phí:
 
-| # | Lời gọi | Trượt thì trả mã |
-|---|---|---|
-| 0 | `quotePurchase()` so với `vndAmount` đã chốt | `PRICE_CHANGED` |
-| 1 | `paymentBalanceOf(investor)` | `INSUFFICIENT_PAYMENT_BALANCE` |
-| 2 | `paymentAllowanceOf(investor)` | `INSUFFICIENT_ALLOWANCE` |
-| 3 | `spvWallet()` → `balanceOf(spv)` | `INSUFFICIENT_SUPPLY` |
-| 4 | `canTransfer(spv, investor, wptAmount)` | `LEDGER` |
+| # | `id` của phép kiểm | Lời gọi | Trượt thì trả mã |
+|---|---|---|---|
+| 0 | `price` | `quotePurchase()` so với `vndAmount` đã chốt | `PRICE_CHANGED` |
+| 1 | `paymentBalance` | `paymentBalanceOf(investor)` | `INSUFFICIENT_PAYMENT_BALANCE` |
+| 2 | `allowance` | `paymentAllowanceOf(investor)` | `INSUFFICIENT_ALLOWANCE` |
+| 3 | `supply` | `spvWallet()` → `balanceOf(spv)` | `INSUFFICIENT_SUPPLY` |
+| 4 | `transferable` | `canTransfer(spv, investor, wptAmount)` | `LEDGER` |
 
 Thứ tự là thứ tự người dùng sửa được: có tiền chưa → đã cho phép trừ chưa → còn hàng không →
 chuyển được không. Trả lời "chưa cấp ủy quyền" cho người chưa có tiền là chỉ sai việc phải làm.
 Phép kiểm giá chạy **trước** cả bốn vì cả bốn đều so với `vndAmount` đã chốt.
+
+**`runPurchaseChecks` nhận THAM SỐ THUẦN `{ investorWallet, wptAmount, quotedVndAmount? }`, không
+nhận `OrderRecord`** (đổi ở BE-03). Nhận `OrderRecord` thì phải có lệnh trong cơ sở dữ liệu mới
+kiểm được, tức nhà đầu tư chỉ biết mình thiếu gì **sau** khi lệnh đã bị từ chối. Tham số thuần cho
+ba đường gọi — xem trước, đặt lệnh, khớp lệnh — dùng **đúng một** bộ kiểm.
+
+**Phép kiểm `price` CHỈ chạy khi có `quotedVndAmount`**, tức chỉ ở `executeOrder`. Xem trước và đặt
+lệnh chưa có giá cũ để so, nên bỏ phép kiểm đó là đúng chứ không phải nới tay: so báo giá vừa lấy
+với chính nó thì phép kiểm luôn đạt, tức một phép kiểm không nói gì. Khi `price` trượt thì hàm trả
+về **ngay**, không chạy bốn phép còn lại — cả bốn đều so với một con số vừa được chứng minh là lạc
+hậu. Đó là lý do `price` là **cổng**, không phải một phép kiểm ngang hàng.
+
+**Một đường kiểm duy nhất là điều được test chốt lại.** `app/test/purchase-service.test.ts` có ba
+ca dùng cùng dữ liệu vào cho cả xem trước và khớp lệnh, rồi so `code` **và** `reason` của hai bên.
+Ai viết đường kiểm thứ hai thì ba ca đó đỏ.
 
 **Vị trí bước 5 là điểm dễ sửa sai nhất của cả luồng.** Nó phải ở **sau** bốn phép kiểm và
 **trước** lời gọi gửi giao dịch:
@@ -1090,7 +1163,7 @@ Phép kiểm giá chạy **trước** cả bốn vì cả bốn đều so với 
 này đúng trong mã, không chỉ trên giấy: `expireStaleOrdersAction` đã bị **xóa** theo quyết định
 Owner. Trước đó câu "cố ý không mở điểm vào HTTP" ở dòng trên **mâu thuẫn với mã** — server
 action cũng là một điểm vào HTTP, gọi được bằng POST trực tiếp chứ không chỉ qua giao diện. Vì
-vậy `lib/bank/purchase.service.ts` có **bốn** hàm mà `app/actions/purchase.ts` chỉ có **ba**
+vậy `lib/bank/purchase.service.ts` có **năm** hàm mà `app/actions/purchase.ts` chỉ có **bốn**
 action; đó là chủ đích, có ghi lý do ngay trong khối chú thích đầu tệp đó. Đừng "bổ sung cho
 đủ bộ".
 
@@ -1100,6 +1173,15 @@ Trên chain `evm`/`hardhat-local`, luồng mua **chưa chạy được**: `quote
 `paymentAllowanceOf`, `executePurchase` và `spvWallet` đều ném `LedgerNotImplementedError` vì
 hợp đồng khớp lệnh (SC-03) và hợp đồng phát hành một lần (SC-02) chưa có. Nghiệp vụ đã xong và
 chạy đủ trên chain `mock`; nối chuỗi thật là việc của SC-02/SC-03, **không** phải sửa service.
+
+`previewPurchase` thừa hưởng đúng giới hạn đó: nó gọi `quotePurchase` và `spvWallet`, nên trên
+`evm`/`hardhat-local` nó trả `Result` mã `LEDGER` chứ không trả một bảng điều kiện. Đây là hành vi
+đúng — báo "chưa nối chuỗi" tốt hơn là dựng một bảng điều kiện từ số liệu không có.
+
+⚠️ **Xem trước KHÔNG bảo đảm lệnh sẽ khớp được.** Nó chạy đúng bộ kiểm mà khớp lệnh chạy, nên hai
+bên không lệch nhau vì **logic**; nhưng điều kiện đổi được giữa hai thời điểm, nên chúng vẫn lệch
+nhau vì **thời gian**. Đó là giới hạn thật của mọi màn hình xem trước, không phải lỗi cần vá. Đừng
+"sửa" bằng cách giữ lại kết quả xem trước rồi tin nó lúc khớp.
 
 ---
 
@@ -1224,6 +1306,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
 | — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, chờ SC-02/SC-03 cho `evm`) | ✅ Xong |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | 🔶 Mã xong trên nhánh `mc/01-make-control`, **chưa nghiệm thu, chưa merge vào `dev`** |
+| — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | 🔶 Mã xong trên nhánh `feat/purchase-preview`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | P2 | **REDEEM** (`Redemption.sol`) | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** (`ProfitDistributor` + `EnergyOracle`) | ⏳ |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
