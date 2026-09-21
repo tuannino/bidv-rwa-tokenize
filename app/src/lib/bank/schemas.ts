@@ -87,6 +87,18 @@ export const placeOrderSchema = z.object({
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
 
 /**
+ * Xem trước điều kiện mua (BE-03). CÙNG ba trường với đặt lệnh, nên dùng LẠI schema đó
+ * thay vì khai lần thứ hai.
+ *
+ * Khai lại một schema cùng nội dung thì hai bản sẽ lệch nhau ở lần sửa đầu tiên, và hệ quả
+ * đúng là thứ màn hình xem trước tồn tại để tránh: xem trước trả lời "đủ điều kiện" cho một
+ * dữ liệu mà đặt lệnh từ chối vì sai dạng. Bút danh riêng ở đây chỉ để chỗ gọi đọc ra đúng
+ * việc nó đang làm.
+ */
+export const previewPurchaseSchema = placeOrderSchema;
+export type PreviewPurchaseInput = z.input<typeof previewPurchaseSchema>;
+
+/**
  * ID lệnh: UUID, không phải chuỗi tự do.
  *
  * Ràng buộc dạng ở đây có giá trị thật: `executeOrder` tra lệnh theo id, nhận chuỗi

@@ -66,7 +66,7 @@ const { resetServerEnvCache } = await import('@/lib/config/env');
 const { resetMockLedger, seedMockLedger } = await import('@/lib/ledger/mock.adapter');
 const { getOrderStore, getStore, resetMemoryStore, resetStoreCache } = await import('@/lib/store');
 const { getLedger } = await import('@/lib/ledger');
-const { executeOrder, expireStaleOrders, listOrders, placeOrder } = await import(
+const { executeOrder, expireStaleOrders, listOrders, placeOrder, previewPurchase } = await import(
   '@/lib/bank/purchase.service'
 );
 
@@ -107,6 +107,62 @@ async function seedReadyToBuy(options?: {
   });
   return ledger;
 }
+
+/**
+ * Cấp ĐỦ điều kiện mua cho một nhà đầu tư thứ hai.
+ *
+ * KHÔNG gọi `seedReadyToBuy` lần nữa: `mintInitialSupply` chỉ chạy được một lần cho cả dự
+ * án (R1.3), lần hai bị hợp đồng từ chối. Ví thứ hai chỉ cần KYC và tiền.
+ */
+async function fundInvestor(investor: string, amount = 10_000_000n) {
+  await getLedger(CHAIN).whitelist(investor);
+  seedMockLedger({
+    paymentBalances: { [investor]: amount },
+    paymentAllowances: { [investor]: amount },
+  });
+}
+
+/**
+ * Ba cách một lệnh ĐÃ ĐẶT mất điều kiện trước khi khớp.
+ *
+ * Từ BE-03, `placeOrder` kiểm điều kiện TRƯỚC khi tạo bản ghi, nên không còn đặt được một
+ * lệnh vốn đã thiếu điều kiện — và đó là chủ đích của BE-03. Ca "khớp lệnh bị từ chối" vì
+ * thế phải dựng đúng như ngoài đời: đặt lệnh lúc đủ điều kiện, rồi điều kiện đổi trước khi
+ * khớp. Bảng này là nguồn duy nhất của ba tình huống đó, dùng cho cả ca 7.2/7.3/7.4 và cho
+ * ca "hai đường kiểm không lệch nhau".
+ */
+const DEGRADATIONS = [
+  {
+    name: 'nhà đầu tư rút hết VNDB sau khi đặt lệnh',
+    /** Hạ điều kiện SAU khi lệnh đã ở PLACED. */
+    degrade: async () => {
+      seedMockLedger({ paymentBalances: { [ALICE]: 0n } });
+    },
+    code: 'INSUFFICIENT_PAYMENT_BALANCE',
+    blocker: 'paymentBalance',
+    reasonPattern: /Số dư VNDB không đủ/,
+  },
+  {
+    name: 'nhà đầu tư thu hồi ủy quyền VNDB sau khi đặt lệnh',
+    degrade: async () => {
+      seedMockLedger({ paymentAllowances: { [ALICE]: 0n } });
+    },
+    code: 'INSUFFICIENT_ALLOWANCE',
+    blocker: 'allowance',
+    reasonPattern: /Ủy quyền VNDB không đủ/,
+  },
+  {
+    name: 'tồn WPT ở ví SPV tụt xuống dưới số đã đặt',
+    // `burn` là đường duy nhất hạ tồn của ví SPV mà không phải khớp một lệnh khác:
+    // `seedMockLedger` chỉ nạp được số dư VNDB, không nạp số dư WPT.
+    degrade: async () => {
+      await getLedger(CHAIN).burn(SPV, 998n);
+    },
+    code: 'INSUFFICIENT_SUPPLY',
+    blocker: 'supply',
+    reasonPattern: /không đủ WPT/,
+  },
+] as const;
 
 /** Đặt lệnh với vai INVESTOR rồi trả về mã lệnh, đồng thời đổi sang vai ngân hàng. */
 async function placeAsInvestor(wptAmount: string, investor = ALICE): Promise<string> {
@@ -214,6 +270,245 @@ describe('placeOrder', () => {
       expect(result.code).toBe('VALIDATION');
     }
   });
+
+  // ===========================================================================
+  //  BE-03 — CHẶN LỆNH RÁC: thiếu điều kiện thì KHÔNG tạo bản ghi
+  // ===========================================================================
+  /**
+   * Điểm cốt lõi của cả ba ca dưới đây là "sổ lệnh vẫn TRỐNG", không phải "có trả về lỗi".
+   * Chỉ kiểm mã lỗi thì test vẫn xanh khi lệnh được tạo rồi bị từ chối ngay sau đó — đúng
+   * cái hành vi mà BE-03 dựng để bỏ đi.
+   */
+  async function expectNotPlaced(wptAmount: string, code: string, reasonPattern: RegExp) {
+    const result = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe(code);
+    expect(result.error).toMatch(reasonPattern);
+
+    expect(await getOrderStore().listOrders({}), 'không được tạo bản ghi lệnh nào').toHaveLength(0);
+
+    // Không có bản ghi lệnh thì sổ kiểm toán là dấu vết DUY NHẤT còn lại của lần đặt lệnh
+    // bị từ chối. Thiếu nó là mất hẳn việc đã xảy ra.
+    const audit = await getStore().listAudit({ limit: 20 });
+    const rejected = audit.find((e) => e.action === 'order:place' && e.outcome === 'FAILURE');
+    expect(rejected?.detail).toMatch(reasonPattern);
+  }
+
+  it('thiếu số dư VNDB thì KHÔNG tạo lệnh', async () => {
+    // Đủ ủy quyền nhưng không đủ tiền: tách hai điều kiện để chắc chắn phép kiểm nào chạy.
+    await seedReadyToBuy({ vndb: 99_999n, allowance: 10_000_000n });
+
+    await expectNotPlaced('1', 'INSUFFICIENT_PAYMENT_BALANCE', /Số dư VNDB không đủ/);
+  });
+
+  it('thiếu ủy quyền VNDB thì KHÔNG tạo lệnh', async () => {
+    await seedReadyToBuy({ vndb: 10_000_000n, allowance: 99_999n });
+
+    await expectNotPlaced('1', 'INSUFFICIENT_ALLOWANCE', /Ủy quyền VNDB không đủ/);
+  });
+
+  it('ví SPV không đủ WPT thì KHÔNG tạo lệnh', async () => {
+    await seedReadyToBuy({ supply: 3n });
+
+    await expectNotPlaced('4', 'INSUFFICIENT_SUPPLY', /không đủ WPT/);
+  });
+
+  /**
+   * Ca này TRƯỚC BE-03 nằm ở `executeOrder`. Chuyển sang đây vì sau BE-03 nó KHÔNG CÒN ĐẠT
+   * ĐƯỢC ở đó: lệnh chỉ tồn tại khi đã phát hành nguồn cung, mà nguồn cung phát hành rồi
+   * thì không thu lại được — tức `spvWallet()` không bao giờ trả `null` khi đã có lệnh.
+   * Phép kiểm vẫn còn nguyên trong bộ kiểm, chỉ đổi chỗ bắt được nó.
+   */
+  it('chưa phát hành nguồn cung thì KHÔNG tạo lệnh, mã INSUFFICIENT_SUPPLY', async () => {
+    // Không gọi mintInitialSupply -> `spvWallet()` trả null, không có ví nào để đọc tồn.
+    await getLedger(CHAIN).whitelist(ALICE);
+    seedMockLedger({
+      paymentBalances: { [ALICE]: 10_000_000n },
+      paymentAllowances: { [ALICE]: 10_000_000n },
+    });
+
+    await expectNotPlaced('1', 'INSUFFICIENT_SUPPLY', /Chưa phát hành nguồn cung/);
+  });
+});
+
+// =============================================================================
+//  BE-03 — XEM TRƯỚC ĐIỀU KIỆN MUA
+// =============================================================================
+describe('previewPurchase', () => {
+  /** Ảnh chụp mọi thứ xem trước KHÔNG được phép chạm tới. */
+  async function snapshotStore() {
+    return {
+      orders: await getOrderStore().listOrders({}),
+      audit: await getStore().listAudit({ limit: 200 }),
+      txns: await getStore().listTxns({}),
+    };
+  }
+
+  it('ca 1 — đủ điều kiện: canPlaceOrder đúng, vndAmount khớp báo giá', async () => {
+    const ledger = await seedReadyToBuy();
+
+    const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '3' });
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.canPlaceOrder).toBe(true);
+    expect(result.data.blockers).toEqual([]);
+    // Khớp BÁO GIÁ của ledger, không phải một con số gõ lại trong test.
+    expect(result.data.vndAmount).toBe((await ledger.quotePurchase(3n)).toString());
+    expect(result.data.wptAmount).toBe('3');
+    // Cả bốn phép kiểm đều đã chạy và đều đạt. Phép kiểm giá KHÔNG chạy: chưa có lệnh nào
+    // nên không có giá cũ để so.
+    expect(result.data.checks.map((c) => c.id)).toEqual([
+      'paymentBalance',
+      'allowance',
+      'supply',
+      'transferable',
+    ]);
+    expect(result.data.checks.every((c) => c.ok)).toBe(true);
+  });
+
+  /**
+   * Ca 2 — ba tình huống thiếu điều kiện. Kiểm đúng `blockers`, và kiểm luôn rằng xem trước
+   * không hề tạo lệnh: đây là đường mà FE-05 gọi liên tục trong lúc người dùng gõ.
+   */
+  it('ca 2a — thiếu số dư VNDB: blockers đúng, có howToFix và actual/required', async () => {
+    await seedReadyToBuy({ vndb: 99_999n, allowance: 10_000_000n });
+
+    const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.canPlaceOrder).toBe(false);
+    expect(result.data.blockers).toEqual(['paymentBalance']);
+
+    const blocked = result.data.checks.find((c) => !c.ok);
+    expect(blocked?.ok).toBe(false);
+    if (!blocked || blocked.ok) return;
+    expect(blocked.reason).toMatch(/Số dư VNDB không đủ/);
+    expect(blocked.actual).toBe('99999');
+    expect(blocked.required).toBe(PRICE.toString());
+    // Viết cho cán bộ ngân hàng đọc: không có từ kỹ thuật của ví.
+    expect(blocked.howToFix).toMatch(/Nạp thêm 1 VNDB/);
+    expect(blocked.howToFix).not.toMatch(/allowance|approve|revert/i);
+
+    expect(await getOrderStore().listOrders({})).toHaveLength(0);
+  });
+
+  it('ca 2b — thiếu ủy quyền VNDB: blockers đúng, không tạo lệnh', async () => {
+    await seedReadyToBuy({ vndb: 10_000_000n, allowance: 99_999n });
+
+    const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.blockers).toEqual(['allowance']);
+    // Phép kiểm số dư đã chạy và ĐẠT, nên nó có mặt và `ok`. Phép kiểm sau nó thì vắng —
+    // vắng nghĩa là chưa kiểm, không phải đã đạt.
+    expect(result.data.checks.map((c) => c.id)).toEqual(['paymentBalance', 'allowance']);
+
+    const blocked = result.data.checks.find((c) => !c.ok);
+    if (!blocked || blocked.ok) throw new Error('phải có đúng một phép kiểm trượt');
+    expect(blocked.howToFix).not.toMatch(/allowance|approve|revert/i);
+    expect(await getOrderStore().listOrders({})).toHaveLength(0);
+  });
+
+  it('ca 2c — ví SPV thiếu WPT: blockers đúng, không tạo lệnh', async () => {
+    await seedReadyToBuy({ supply: 3n });
+
+    const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '4' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.canPlaceOrder).toBe(false);
+    expect(result.data.blockers).toEqual(['supply']);
+    expect(await getOrderStore().listOrders({})).toHaveLength(0);
+  });
+
+  it('ca 3 — xem trước KHÔNG ghi gì vào cơ sở dữ liệu', async () => {
+    await seedReadyToBuy();
+    const before = await snapshotStore();
+
+    // Gọi nhiều lần, cả ca đạt lẫn ca bị chặn: FE-05 gọi theo từng ký tự người dùng gõ.
+    for (const wptAmount of ['1', '3', '999999']) {
+      const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount });
+      expect(result.ok, `wptAmount=${wptAmount}`).toBe(true);
+    }
+
+    const after = await snapshotStore();
+    expect(after.orders, 'không được tạo lệnh').toEqual(before.orders);
+    expect(after.txns, 'không được ghi giao dịch').toEqual(before.txns);
+    // Kể cả sổ kiểm toán: `authorize()` ghi một bản ghi cho MỖI lời gọi, nên dùng nó ở đây
+    // sẽ đổ hàng chục bản ghi "đã cho phép xem" cho một lần mua.
+    expect(after.audit, 'không được ghi sổ kiểm toán').toEqual(before.audit);
+    expect(fault.sendCount).toBe(0);
+  });
+
+  /**
+   * Ca 4 — CA THEN CHỐT. Cùng dữ liệu vào, xem trước và `executeOrder` phải trượt CÙNG MỘT
+   * phép kiểm. Đây là thứ giữ hai đường không lệch nhau về sau: cả hai gọi cùng một
+   * `runPurchaseChecks`, và ca này là cái đỏ lên nếu ai đó viết đường kiểm thứ hai.
+   */
+  for (const scenario of DEGRADATIONS) {
+    it(`ca 4 — ${scenario.name}: xem trước và khớp lệnh trượt cùng một phép kiểm`, async () => {
+      await seedReadyToBuy();
+      const orderId = await placeAsInvestor('3');
+      await scenario.degrade();
+
+      // Xem trước TRƯỚC, vì nó chỉ đọc; khớp lệnh sau vì nó đổi trạng thái lệnh.
+      actAs('INVESTOR');
+      const preview = await previewPurchase({
+        chain: CHAIN,
+        investorWallet: ALICE,
+        wptAmount: '3',
+      });
+      actAs('BANK_ADMIN');
+      const executed = await executeOrder({ chain: CHAIN, orderId });
+
+      expect(preview.ok).toBe(true);
+      expect(executed.ok).toBe(false);
+      if (!preview.ok || executed.ok) return;
+
+      const blocked = preview.data.checks.find((c) => !c.ok);
+      if (!blocked || blocked.ok) throw new Error('xem trước phải thấy một phép kiểm trượt');
+
+      // Cùng phép kiểm, cùng mã lỗi, cùng câu lý do — không chỉ "cùng thất bại".
+      expect(preview.data.blockers).toEqual([scenario.blocker]);
+      expect(blocked.code).toBe(executed.code);
+      expect(blocked.reason).toBe(executed.error);
+      expect(preview.data.canPlaceOrder).toBe(false);
+    });
+  }
+
+  it('vai không có order:place không xem trước được', async () => {
+    await seedReadyToBuy();
+
+    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
+      actAs(role);
+      const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
+      expect(result.ok, `${role} không được xem trước`).toBe(false);
+      if (result.ok) continue;
+      expect(result.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('số lượng sai dạng bị chặn ở validate, dùng CÙNG schema với đặt lệnh', async () => {
+    await seedReadyToBuy();
+
+    for (const wptAmount of ['0', '-1', '1.5', 'abc', '']) {
+      const preview = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount });
+      const placed = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount });
+
+      // Hai đường phải từ chối CÙNG mã: xem trước nói "hợp lệ" cho dữ liệu mà đặt lệnh từ
+      // chối vì sai dạng là đúng cái sai mà màn hình xem trước tồn tại để tránh.
+      expect(preview.ok, `wptAmount=${wptAmount}`).toBe(false);
+      expect(placed.ok).toBe(false);
+      if (preview.ok || placed.ok) continue;
+      expect(preview.code).toBe('VALIDATION');
+      expect(preview.code).toBe(placed.code);
+    }
+  });
 });
 
 // =============================================================================
@@ -245,42 +540,26 @@ describe('executeOrder — từ chối trước khi gửi giao dịch', () => {
     expect(order?.reason).toMatch(reasonPattern);
   }
 
-  it('7.2 — thiếu số dư VNDB thì REJECTED, không gửi giao dịch', async () => {
-    // Đủ ủy quyền nhưng không đủ tiền: tách hai điều kiện để chắc chắn phép kiểm nào chạy.
-    await seedReadyToBuy({ vndb: 99_999n, allowance: 10_000_000n });
-    const orderId = await placeAsInvestor('1');
+  /**
+   * 7.2 / 7.3 / 7.4 — cùng ba tình huống cũ, dựng theo đường đi có thật sau BE-03: lệnh
+   * được đặt khi đủ điều kiện, rồi điều kiện tụt xuống trước khi khớp. Mã lỗi, câu lý do
+   * và trạng thái `REJECTED` giữ nguyên như BE-02.
+   */
+  for (const scenario of DEGRADATIONS) {
+    it(`${scenario.name} -> REJECTED, không gửi giao dịch`, async () => {
+      await seedReadyToBuy();
+      const orderId = await placeAsInvestor('3');
+      await scenario.degrade();
 
-    await expectRejected(orderId, 'INSUFFICIENT_PAYMENT_BALANCE', /Số dư VNDB không đủ/);
-  });
-
-  it('7.3 — thiếu ủy quyền VNDB thì REJECTED', async () => {
-    await seedReadyToBuy({ vndb: 10_000_000n, allowance: 99_999n });
-    const orderId = await placeAsInvestor('1');
-
-    await expectRejected(orderId, 'INSUFFICIENT_ALLOWANCE', /Ủy quyền VNDB không đủ/);
-  });
-
-  it('7.4 — ví thanh toán SPV thiếu WPT thì REJECTED', async () => {
-    await seedReadyToBuy({ supply: 3n });
-    const orderId = await placeAsInvestor('4');
-
-    await expectRejected(orderId, 'INSUFFICIENT_SUPPLY', /không đủ WPT/);
-  });
-
-  it('chưa phát hành nguồn cung thì REJECTED với INSUFFICIENT_SUPPLY', async () => {
-    // Không gọi mintInitialSupply -> `spvWallet()` trả null, không có ví nào để đọc tồn.
-    const ledger = getLedger(CHAIN);
-    await ledger.whitelist(ALICE);
-    seedMockLedger({ paymentBalances: { [ALICE]: 10_000_000n }, paymentAllowances: { [ALICE]: 10_000_000n } });
-    const orderId = await placeAsInvestor('1');
-
-    await expectRejected(orderId, 'INSUFFICIENT_SUPPLY', /Chưa phát hành nguồn cung/);
-  });
+      await expectRejected(orderId, scenario.code, scenario.reasonPattern);
+    });
+  }
 
   it('thứ tự kiểm: thiếu cả tiền lẫn ủy quyền thì báo THIẾU TIỀN trước', async () => {
     // Trả lời "chưa cấp ủy quyền" cho người chưa có tiền là chỉ sai việc phải làm.
-    await seedReadyToBuy({ vndb: 0n, allowance: 0n });
+    await seedReadyToBuy();
     const orderId = await placeAsInvestor('1');
+    seedMockLedger({ paymentBalances: { [ALICE]: 0n }, paymentAllowances: { [ALICE]: 0n } });
 
     const result = await executeOrder({ chain: CHAIN, orderId });
     expect(result.ok).toBe(false);
@@ -519,7 +798,9 @@ describe('7.7 — một lệnh chỉ gửi đúng một giao dịch', () => {
 describe('7.8 — listOrders lọc theo ví ở tầng nghiệp vụ', () => {
   async function seedTwoInvestors() {
     await seedReadyToBuy({ investor: ALICE });
-    await getLedger(CHAIN).whitelist(BOB);
+    // BOB phải có tiền, không chỉ có KYC: từ BE-03 `placeOrder` kiểm điều kiện nên một ví
+    // rỗng không đặt được lệnh nào, và cả bốn ca dưới đây cần BOB có đúng một lệnh.
+    await fundInvestor(BOB);
     await placeAsInvestor('1', ALICE);
     await placeAsInvestor('2', BOB);
   }
