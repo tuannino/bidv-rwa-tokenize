@@ -290,10 +290,10 @@ CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 CREATE INDEX "SystemConfigHistory_key_changedAt_idx" ON "SystemConfigHistory"("key", "changedAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Project_tokenSymbol_key" ON "Project"("tokenSymbol");
+CREATE INDEX "Project_chain_status_idx" ON "Project"("chain", "status");
 
 -- CreateIndex
-CREATE INDEX "Project_chain_status_idx" ON "Project"("chain", "status");
+CREATE UNIQUE INDEX "Project_tokenSymbol_chain_key" ON "Project"("tokenSymbol", "chain");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");

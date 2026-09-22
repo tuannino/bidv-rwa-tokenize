@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
+import type { ChainKey } from '@bidv/shared';
 import { memoryState } from './memory.state';
 import {
   assertProjectStatus,
@@ -8,7 +9,7 @@ import {
   type NewProject,
   type ProjectRecord,
 } from './project.store.port';
-import { SEED_PROJECT } from './seed-data';
+import { SEED_PROJECTS } from './seed-data';
 import { assertAmount, UniqueConstraintError } from './store.errors';
 
 /**
@@ -29,37 +30,40 @@ const state = (): ProjectState =>
   memoryState('project', () => {
     const now = new Date().toISOString();
     return {
-      projects: [
-        {
-          id: randomUUID(),
-          tokenSymbol: SEED_PROJECT.tokenSymbol,
-          name: SEED_PROJECT.name,
-          totalSupply: assertAmount('totalSupply', SEED_PROJECT.totalSupply),
-          status: assertProjectStatus(SEED_PROJECT.status),
-          chain: SEED_PROJECT.chain,
-          contractAddress: null,
-          issuedAt: null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
+      projects: SEED_PROJECTS.map((seed) => ({
+        id: randomUUID(),
+        tokenSymbol: seed.tokenSymbol,
+        name: seed.name,
+        totalSupply: assertAmount('totalSupply', seed.totalSupply),
+        status: assertProjectStatus(seed.status),
+        chain: seed.chain,
+        contractAddress: null,
+        issuedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
     };
   });
 
 /**
- * Ràng buộc `Project_tokenSymbol_key`: một mã token chỉ có MỘT dòng.
+ * Ràng buộc `Project_tokenSymbol_chain_key`: một mã token chỉ có MỘT dòng TRÊN MỘT CHUỖI.
  *
- * So sánh CHÍNH XÁC, không hạ chữ thường: ràng buộc duy nhất của Postgres so chuỗi chính xác,
- * nên hạ chữ thường ở đây sẽ làm bản bộ nhớ NGHIÊM hơn bản Postgres — lệch theo chiều ngược
- * lại vẫn là lệch, và triệu chứng là một test đỏ chỉ khi có Postgres thật.
+ * Kiểm cả `chain`, không chỉ `tokenSymbol`: cùng một token tồn tại độc lập trên từng chuỗi (xem
+ * lập luận ở `prisma/schema.prisma`). Bỏ `chain` khỏi phép kiểm sẽ làm bản bộ nhớ NGHIÊM hơn bản
+ * Postgres — nó từ chối một dòng mà Postgres nhận, và triệu chứng là test đỏ chỉ ở chế độ bộ nhớ.
+ *
+ * So sánh CHÍNH XÁC, không hạ chữ thường: ràng buộc duy nhất của Postgres so chuỗi chính xác, nên
+ * hạ chữ thường ở đây lại làm bản bộ nhớ nghiêm hơn theo một chiều khác.
  */
-function assertSymbolFree(tokenSymbol: string): void {
-  const clash = state().projects.find((project) => project.tokenSymbol === tokenSymbol);
+function assertSymbolFree(tokenSymbol: string, chain: ChainKey): void {
+  const clash = state().projects.find(
+    (project) => project.tokenSymbol === tokenSymbol && project.chain === chain,
+  );
   if (!clash) return;
   throw new UniqueConstraintError(
     'Project',
-    ['tokenSymbol'],
-    `Mã token này đã thuộc dự án "${clash.name}" (${clash.id}).`,
+    ['tokenSymbol', 'chain'],
+    `Mã token này đã thuộc dự án "${clash.name}" (${clash.id}) trên chuỗi "${chain}".`,
   );
 }
 
@@ -69,7 +73,7 @@ export function createMemoryProjectStore(): IProjectStore {
 
     async createProject(project: NewProject): Promise<ProjectRecord> {
       // Mọi phép kiểm chạy TRƯỚC mọi thay đổi trạng thái.
-      assertSymbolFree(project.tokenSymbol);
+      assertSymbolFree(project.tokenSymbol, project.chain);
       const now = new Date().toISOString();
       const record: ProjectRecord = {
         id: randomUUID(),

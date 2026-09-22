@@ -409,8 +409,8 @@ model SystemConfigHistory {
 /// gian mà chuỗi không cho đọc lại.
 model Project {
   id              String    @id @default(uuid())
-  /// Mã token, ví dụ "WPT". DUY NHẤT toàn hệ.
-  tokenSymbol     String    @unique
+  /// Mã token, ví dụ "WPT". Duy nhất theo TỪNG CHAIN — xem `@@unique` ở cuối model.
+  tokenSymbol     String
   name            String
   /// Tổng cung phát hành một lần. Decimal thay vì BigInt: uint256 vượt tầm int8.
   totalSupply     Decimal   @db.Decimal(78, 0)
@@ -425,6 +425,18 @@ model Project {
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
 
+  /// DUY NHẤT theo `(tokenSymbol, chain)`, KHÔNG phải `tokenSymbol` một mình.
+  ///
+  /// Vì sao có `chain` trong khoá: cùng một token tồn tại độc lập trên từng chuỗi, đúng như mọi
+  /// bảng khác trong lược đồ này đều mang cột `chain` (Txn, PurchaseOrder, DistributionPeriod,
+  /// SettlementRound). Giao diện cho đổi chuỗi, và mỗi chuỗi có trạng thái phát hành riêng: đã
+  /// phát hành trên `hardhat-local` không có nghĩa là đã phát hành trên `mock`.
+  ///
+  /// Duy nhất theo `tokenSymbol` một mình thì toàn hệ chỉ có ĐÚNG MỘT dòng WPT, nằm trên một
+  /// chuỗi; mọi chuỗi còn lại tra ra `null` và `issueInitialSupply` từ chối với lý do "chưa có dự
+  /// án" — trong khi dự án rõ ràng có. Đó là bản demo chạy được ở một chế độ triển khai và chết ở
+  /// chế độ kia, đúng thứ steering đòi tránh khi nói một codebase phục vụ cả free-tier lẫn VPS.
+  @@unique([tokenSymbol, chain])
   @@index([chain, status])
 }
 

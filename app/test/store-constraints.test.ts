@@ -26,7 +26,7 @@ import type { IOrderStore } from '@/lib/store/order.store.port';
 import type { IProjectStore } from '@/lib/store/project.store.port';
 import type { ISettlementStore } from '@/lib/store/settlement.store.port';
 import { CONFIG_KEYS, WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
-import { SEED_PROJECT } from '@/lib/store/seed-data';
+import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import {
   FOREIGN_KEYS,
   ForeignKeyError,
@@ -756,26 +756,47 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       chain: 'mock' as const,
     });
 
-    it('dữ liệu khởi tạo có dự án WPT ở DRAFT, đúng tổng cung của nguồn duy nhất', async () => {
-      const project = await store.projects.findProject({
-        tokenSymbol: WPT_TOKEN_SYMBOL,
-        chain: SEED_PROJECT.chain,
-      });
+    /**
+     * Dữ liệu khởi tạo phải có dự án trên MỌI chuỗi trong `SEED_PROJECT_CHAINS`, không chỉ trên
+     * chuỗi mặc định. Thiếu một chuỗi nghĩa là `issueInitialSupply` ở chuỗi đó từ chối với lý do
+     * "chưa có dự án", tức là luồng phát hành chết ở một chế độ triển khai.
+     */
+    it.each(SEED_PROJECT_CHAINS)('dữ liệu khởi tạo có dự án WPT ở DRAFT trên chuỗi %s', async (chain) => {
+      const project = await store.projects.findProject({ tokenSymbol: WPT_TOKEN_SYMBOL, chain });
 
-      expect(project, 'dữ liệu khởi tạo phải có dự án WPT').not.toBeNull();
+      expect(project, `dữ liệu khởi tạo phải có dự án WPT trên "${chain}"`).not.toBeNull();
       expect(project?.status).toBe('DRAFT');
       expect(project?.issuedAt).toBeNull();
       // Đọc từ nguồn duy nhất, không gõ lại 20.000.000 ở đây.
       expect(project?.totalSupply).toBe(String(WPT_TOTAL_SUPPLY));
     });
 
-    it('hai dự án cùng mã token bị chặn bởi ràng buộc duy nhất', async () => {
+    it('hai dự án cùng mã token TRÊN CÙNG chuỗi bị chặn bởi ràng buộc duy nhất', async () => {
       const symbol = `T${randomUUID().slice(0, 6)}`;
       await store.projects.createProject(newProject(symbol));
 
       await expect(store.projects.createProject(newProject(symbol))).rejects.toBeInstanceOf(
         UniqueConstraintError,
       );
+    });
+
+    /**
+     * Chiều còn lại: cùng mã token trên chuỗi KHÁC thì được phép.
+     *
+     * Ca này là thứ giữ cho khoá duy nhất không bị thu về `tokenSymbol` một mình. Không có nó,
+     * việc bỏ `chain` khỏi khoá vẫn xanh, và triệu chứng chỉ hiện ra khi đổi chuỗi trên giao diện.
+     */
+    it('cùng mã token trên chuỗi KHÁC thì được phép', async () => {
+      const symbol = `T${randomUUID().slice(0, 6)}`;
+      await store.projects.createProject(newProject(symbol));
+
+      const other = await store.projects.createProject({
+        ...newProject(symbol),
+        chain: 'hardhat-local',
+      });
+
+      expect(other.chain).toBe('hardhat-local');
+      expect(other.tokenSymbol).toBe(symbol);
     });
 
     /**

@@ -66,23 +66,40 @@ export interface SeedProjectRow {
   chain: ChainKey;
 }
 
+/** Tên dự án điện gió của PoC. */
+const SEED_PROJECT_NAME = 'Dự án điện gió Bạc Liêu';
+
 /**
- * Dự án điện gió duy nhất của PoC, trạng thái `DRAFT` (chưa phát hành).
+ * Các chuỗi được nạp sẵn dòng dự án.
  *
- * `chain` lấy `DEFAULT_CHAIN` thay vì viết cứng một chain: chain mặc định do
- * `packages/shared` quyết định, và dựng dữ liệu khởi tạo trên một chain khác chain mặc định là
- * để người mở demo lần đầu thấy "chưa có dự án nào".
+ * HAI chuỗi, không phải một, và đây là điểm dễ làm sai nhất của dữ liệu khởi tạo. Bảng `Project`
+ * duy nhất theo `(tokenSymbol, chain)` vì mỗi chuỗi có trạng thái phát hành riêng, nên một dòng
+ * duy nhất trên `DEFAULT_CHAIN` sẽ làm `issueInitialSupply` từ chối với lý do "chưa có dự án" ở
+ * MỌI chuỗi khác — trong khi dự án rõ ràng có.
+ *
+ * Hệ quả cụ thể nếu chỉ nạp `DEFAULT_CHAIN` (= `hardhat-local`): bản demo free-tier chạy ở `mock`
+ * không phát hành được gì, tức là luồng chính của BE-04 chết ở đúng chế độ triển khai mặc định của
+ * demo công khai — và chỉ chạy được khi có một hardhat node thường trú, thứ steering đòi tránh.
+ *
+ * `evm` KHÔNG nằm trong danh sách: đó là testnet công khai, nơi dự án phải được deploy thật kèm
+ * địa chỉ hợp đồng. Nạp sẵn một dòng `DRAFT` ở đó là mời gọi phát hành lên testnet bằng dữ liệu
+ * dựng sẵn mà chưa ai kiểm.
+ */
+export const SEED_PROJECT_CHAINS: readonly ChainKey[] = ['mock', DEFAULT_CHAIN];
+
+/**
+ * Dự án điện gió của PoC trên từng chuỗi được nạp sẵn, trạng thái `DRAFT` (chưa phát hành).
  *
  * ⚠️ `status: 'DRAFT'` và không có `issuedAt`. Nạp sẵn một dự án ĐÃ phát hành sẽ làm
  * `issueInitialSupply` không bao giờ chạy được trong demo, mà đó chính là luồng BE-04 dựng ra.
  */
-export const SEED_PROJECT: SeedProjectRow = {
+export const SEED_PROJECTS: readonly SeedProjectRow[] = SEED_PROJECT_CHAINS.map((chain) => ({
   tokenSymbol: WPT_TOKEN_SYMBOL,
-  name: 'Dự án điện gió Bạc Liêu',
+  name: SEED_PROJECT_NAME,
   totalSupply: String(WPT_TOTAL_SUPPLY),
-  status: 'DRAFT',
-  chain: DEFAULT_CHAIN,
-};
+  status: 'DRAFT' as ProjectStatus,
+  chain,
+}));
 
 export interface SeedRoleRow {
   name: Role;
