@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { LedgerError } from '@/lib/ledger/ledger.port';
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { InvalidAddressError } from '@/lib/ledger/address';
@@ -125,7 +126,17 @@ describe('chuẩn hoá địa chỉ theo EIP-55', () => {
 
 /** Ví thanh toán SPV — giữ WPT chưa bán, nhận VNDB khi khớp lệnh. */
 const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
-const PRICE = 100_000n; // giá mặc định của mock: 1 WPT = 100.000 VNDB
+/**
+ * Giá bán mặc định của mock, ĐỌC TỪ NGUỒN DUY NHẤT `lib/config/issue-terms.ts`.
+ *
+ * Không gõ lại `100_000n` ở đây (BE-04 việc 16): giá là DỮ LIỆU của các ca dưới — chúng suy ra số
+ * VNDB phải trả rồi đối chiếu số dư. Gõ lại con số thì đổi giá mặc định ở nguồn sẽ làm cả nhóm ca
+ * này đỏ, dù không ca nào trong đó nói gì về việc giá phải bằng bao nhiêu.
+ *
+ * `createMockLedger()` trong tệp này gọi KHÔNG truyền `readInitialPrice`, nên nó chạy bằng đúng
+ * mặc định trong mã và không cần cơ sở dữ liệu.
+ */
+const PRICE = BigInt(WPT_ISSUE_PRICE_VND);
 
 /** Dựng sẵn: SPV + nhà đầu tư đã KYC, nguồn cung đã phát hành vào ví SPV. */
 async function issuedLedger(supply = 1_000n) {
