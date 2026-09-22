@@ -616,15 +616,24 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
     };
 
     it('hai lệnh không dùng chung một mã giao dịch (R1.4)', async () => {
+      /**
+       * Mã giao dịch phải DUY NHẤT MỖI LẦN CHẠY, không phải một chuỗi cố định.
+       *
+       * Bản Postgres cố ý không `TRUNCATE` (đây có thể là cơ sở dữ liệu demo của Owner), nên một
+       * chuỗi cố định sẽ do dòng của LẦN CHẠY TRƯỚC chiếm giữ: lần chạy thứ hai trượt ngay ở lời
+       * gọi THỨ NHẤT, và thông báo lỗi trông y như thể ràng buộc duy nhất đang hỏng. Phát hiện ở
+       * BE-04 khi chạy hai lượt trên cùng một cơ sở dữ liệu thật.
+       */
+      const sharedTxHash = `0xtrung-${randomUUID()}`;
       const first = await store.orders.createOrder(newOrder());
       const second = await store.orders.createOrder(newOrder());
       await toExecuting(first.id);
       await toExecuting(second.id);
 
-      await store.orders.attachOrderTxHash({ id: first.id, txHash: '0xtrung' });
+      await store.orders.attachOrderTxHash({ id: first.id, txHash: sharedTxHash });
 
       await expect(
-        store.orders.attachOrderTxHash({ id: second.id, txHash: '0xtrung' }),
+        store.orders.attachOrderTxHash({ id: second.id, txHash: sharedTxHash }),
       ).rejects.toMatchObject({
         name: 'UniqueConstraintError',
         table: 'PurchaseOrder',

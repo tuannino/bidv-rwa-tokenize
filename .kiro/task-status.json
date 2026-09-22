@@ -9,11 +9,10 @@
     "BE-08",
     "BE-09",
     "MC-01",
-    "MC-02"
-  ],
-  "inProgress": [
+    "MC-02",
     "BE-04"
   ],
+  "inProgress": [],
   "planned": [
     "AU-01",
     "AU-02",
