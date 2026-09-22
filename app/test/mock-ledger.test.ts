@@ -202,6 +202,66 @@ describe('R2 — khớp lệnh mua', () => {
     await expect(ledger.quotePurchase(0n)).rejects.toThrow(/lớn hơn 0/);
   });
 
+  /**
+   * BE-04 — `setPurchasePrice` phải đổi CÙNG con số mà `quotePurchase` đọc.
+   *
+   * Đây là phát biểu quan trọng nhất của method mới. Nếu nó ghi vào một ô state khác thì
+   * `quotePurchase` vẫn trả giá cũ, và tầng nghiệp vụ tưởng đã đẩy giá xuống chuỗi thành công —
+   * ra đúng tình trạng "giá hiển thị khác giá khớp lệnh" mà BE-04 dựng ra để dẹp.
+   */
+  it('đặt giá xong thì báo giá đổi theo ngay, không cần dựng lại ledger', async () => {
+    const ledger = createMockLedger();
+    const newPrice = PRICE * 3n;
+
+    await ledger.setPurchasePrice(newPrice);
+
+    expect(await ledger.quotePurchase(1n)).toBe(newPrice);
+    expect(await ledger.quotePurchase(4n)).toBe(4n * newPrice);
+  });
+
+  /** Giá mới phải áp vào TIỀN THẬT BỊ TRỪ, không chỉ vào con số báo giá. */
+  it('đặt giá xong thì khớp lệnh trừ tiền theo giá mới', async () => {
+    const ledger = await issuedLedger(1_000n);
+    const newPrice = 250_000n;
+    await ledger.setPurchasePrice(newPrice);
+
+    const cost = 2n * newPrice;
+    seedMockLedger({
+      paymentBalances: { [INVESTOR]: cost },
+      paymentAllowances: { [INVESTOR]: cost },
+    });
+
+    await ledger.executePurchase(INVESTOR, 2n);
+
+    expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
+    expect(await ledger.paymentBalanceOf(SPV)).toBe(cost);
+    expect(await ledger.balanceOf(INVESTOR)).toBe(2n);
+  });
+
+  /**
+   * Giá 0 làm khớp lệnh thành "mua không mất tiền", nên phải bị chặn — và chặn TRƯỚC khi
+   * state đổi, không phải sau. Ca này kiểm luôn "giá cũ còn nguyên".
+   */
+  it.each([[0n], [-1n]])('CHẶN đặt giá %s và giữ nguyên giá cũ', async (bad) => {
+    const ledger = createMockLedger();
+
+    await expect(ledger.setPurchasePrice(bad)).rejects.toThrow(/lớn hơn 0/);
+    expect(await ledger.quotePurchase(1n)).toBe(PRICE);
+  });
+
+  /**
+   * `setPurchasePrice` và `setNavRate` là HAI điều khoản khác nhau dù khởi tạo cùng một số.
+   * Gộp chúng lại thì đổi giá bán sẽ âm thầm đổi giá hoàn vốn của đợt tất toán đang mở.
+   */
+  it('đặt giá bán KHÔNG làm đổi giá NAV', async () => {
+    const ledger = createMockLedger();
+    const navBefore = await ledger.navRate();
+
+    await ledger.setPurchasePrice(PRICE * 5n);
+
+    expect(await ledger.navRate()).toBe(navBefore);
+  });
+
   it('khớp lệnh chuyển VNDB và WPT trong cùng một lần gọi', async () => {
     const ledger = await issuedLedger(1_000n);
     const cost = 10n * PRICE;

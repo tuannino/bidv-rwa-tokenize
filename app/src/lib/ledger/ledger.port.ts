@@ -115,6 +115,28 @@ export interface ILedgerPurchase {
    * @flow purchase:5 | chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh
    */
   quotePurchase(wptAmount: bigint): Promise<bigint>;
+
+  /**
+   * Đặt giá bán một WPT, tính bằng VNDB (BE-04).
+   *
+   * THÊM Ở BE-04, và đây là lý do. Giá khớp lệnh nằm Ở PHÍA CHUỖI: mock giữ nó trong
+   * `state().wptPriceVnd`, chain thật giữ nó trong hợp đồng khớp lệnh. Trước method này
+   * `ILedgerPort` chỉ có `quotePurchase` để ĐỌC giá, không có đường nào ĐẶT — nên ghi giá
+   * mới vào cơ sở dữ liệu là tạo ra hai con số: nhà đầu tư THẤY giá mới trên màn hình và bị
+   * TRỪ TIỀN theo giá cũ. Không phép kiểm nào ở tầng nghiệp vụ bắt được, vì cả hai con số
+   * đều "đúng" so với nguồn của chúng.
+   *
+   * Vì vậy `lib/bank/config.service.ts` gọi method này TRƯỚC, thành công mới ghi cơ sở dữ
+   * liệu. Thứ tự đó là chốt chặn duy nhất giữ "giá hiển thị == giá khớp lệnh".
+   *
+   * `pricePerWpt` phải > 0: giá 0 biến khớp lệnh thành "mua không mất tiền".
+   *
+   * ⚠️ KHÔNG dùng method này để đặt giá NAV khi tất toán — đó là `setNavRate`. Hai con số
+   * trùng nhau lúc khởi tạo nhưng là hai điều khoản khác nhau, và gộp lại thì đổi giá bán sẽ
+   * âm thầm đổi cả giá hoàn vốn của đợt tất toán đang mở.
+   */
+  setPurchasePrice(pricePerWpt: bigint): Promise<TxResult>;
+
   /** Số dư token thanh toán (VNDB) của một ví. */
   paymentBalanceOf(wallet: string): Promise<bigint>;
   /** Mức ủy quyền VNDB mà `owner` đã cấp cho hợp đồng khớp lệnh. */

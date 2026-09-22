@@ -421,6 +421,23 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
       return wptAmount * state().wptPriceVnd;
     },
 
+    /**
+     * Đặt giá bán một WPT. Đây là thứ `quotePurchase` và `executePurchase` cùng đọc, nên
+     * đổi ở đây là đổi CẢ giá báo và giá trừ tiền — đúng một con số, không có cách nào lệch.
+     *
+     * `assertPositiveAmount` chạy TRƯỚC khi gán: giá 0 hoặc âm bị chặn khi state chưa đổi,
+     * nên một lời gọi sai không để lại "mua không mất tiền".
+     *
+     * KHÔNG chặn theo ngưỡng đổi giá ở đây. Ngưỡng là quy tắc NGHIỆP VỤ và nó cần biết giá
+     * cũ trong cơ sở dữ liệu cùng lời xác nhận của người dùng — adapter không có hai thứ đó.
+     * `lib/bank/config.service.ts` kiểm ngưỡng trước khi gọi xuống.
+     */
+    async setPurchasePrice(pricePerWpt) {
+      assertPositiveAmount(chain, 'setPurchasePrice', pricePerWpt);
+      state().wptPriceVnd = pricePerWpt;
+      return confirmed();
+    },
+
     async paymentBalanceOf(wallet) {
       return paymentBalance(normalizeEvmAddress(wallet));
     },
