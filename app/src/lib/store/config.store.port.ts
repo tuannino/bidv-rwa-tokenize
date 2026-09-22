@@ -88,6 +88,17 @@ export interface IConfigStore {
    */
   setConfig(change: ConfigChange): Promise<ConfigRecord>;
 
-  /** Lịch sử đổi một tham số, mới nhất trước. */
+  /**
+   * Lịch sử đổi một tham số, mới nhất trước.
+   *
+   * ⚠️ GIỚI HẠN ĐÃ BIẾT: hai lần ghi TRÙNG mốc thời gian tới từng phần nghìn giây thì thứ tự
+   * tương đối của chúng KHÔNG xác định — cả hai bản hiện thực phá thế bằng `id`, một uuid ngẫu
+   * nhiên chứ không phải thứ tự chèn. Đừng viết mã (hay test) dựa vào `history[0]` là lần ghi mới
+   * nhất khi hai lần ghi có thể sát nhau; tra theo nội dung, hoặc so `changedAt`.
+   *
+   * Không sửa bằng cột số thứ tự vì đó là đổi lược đồ cho một tình huống chỉ xảy ra khi hai lần
+   * đổi giá cách nhau dưới một phần nghìn giây — chuyện không có trong thao tác của người. Đã ghi
+   * thành câu hỏi mở trong checkpoint BE-04 để Owner quyết có cần thứ tự tuyệt đối hay không.
+   */
   listConfigHistory(options?: { key?: string; limit?: number }): Promise<ConfigHistoryRecord[]>;
 }

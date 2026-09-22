@@ -90,7 +90,7 @@ export function IssuanceStatusBox() {
 
             <Row label="Giá phát hành">
               <span className="font-mono font-semibold">
-                {data.issuePriceVnd.toLocaleString('vi-VN')} ₫
+                {nf(data.issuePriceVnd)} ₫
               </span>
             </Row>
 

@@ -79,12 +79,19 @@ describe('giá phát hành WPT — một nguồn duy nhất', () => {
   /**
    * Đây là phát biểu nghiệp vụ của cả test: con số nhà đầu tư THẤY (`wptToVnd`, tầng nghiệp vụ)
    * và con số nhà đầu tư TRẢ (`quotePurchase`, tầng cổng) là cùng một con số.
+   *
+   * Từ BE-04 `wptToVnd` nhận GIÁ làm tham số thay vì đọc hằng số bên trong — xem lập luận ở
+   * `lib/bank/issuance.ts`. Ca này truyền vào chính con số ở nguồn duy nhất, nên nó vẫn kiểm đúng
+   * tính chất cũ: hai tầng không lệch nhau. Một `createMockLedger()` KHÔNG truyền
+   * `readInitialPrice` thì chạy bằng mặc định trong mã, tức là không cần cơ sở dữ liệu.
    */
   it.each(['1', '3', '250', '1000000'])(
     'giá hiển thị và giá khớp lệnh cho %s WPT là cùng một con số',
     async (amount) => {
       const ledger = createMockLedger();
-      expect(wptToVnd(amount)).toBe((await ledger.quotePurchase(BigInt(amount))).toString());
+      expect(wptToVnd(amount, WPT_ISSUE_PRICE_VND)).toBe(
+        (await ledger.quotePurchase(BigInt(amount))).toString(),
+      );
     },
   );
 
@@ -122,17 +129,56 @@ describe('giá phát hành WPT — một nguồn duy nhất', () => {
     expect(source).toContain("from '@/lib/config/issue-terms'");
   });
 
-  it('cả app/src chỉ có MỘT tệp khai hằng số giá bằng số đếm', () => {
+  /**
+   * Danh sách ĐẦY ĐỦ các hằng số khai bằng số đếm mà tên có chứa `PRICE`, kèm tệp chứa chúng.
+   *
+   * Liệt kê tường minh chứ không chỉ đếm số tệp: thêm một hằng số dạng này ở bất cứ đâu — kể cả
+   * trong chính tệp nguồn duy nhất — đều làm ca kiểm đỏ và buộc người thêm phải sửa danh sách
+   * này một cách có chủ ý. Đó đúng là điều cần: mỗi dòng ở đây là một con số về giá mà không suy
+   * ra từ dòng nào khác, và số dòng đó phải nhỏ và được biết hết.
+   *
+   * `WPT_PRICE_CHANGE_THRESHOLD` nằm trong danh sách vì TÊN nó chứa `PRICE`, nhưng nó KHÔNG phải
+   * một mức giá — nó là hệ số chặn đổi giá quá mạnh (BE-04). Nó đứng cùng tệp với giá vì cả hai
+   * là điều khoản của cùng một đợt phát hành, nên không vi phạm "giá có một nguồn".
+   */
+  it('mọi hằng số giá khai bằng số đếm đều nằm ở tệp nguồn duy nhất', () => {
     const declarations = tsFilesUnder(SRC).flatMap((file) =>
       [...readFileSync(file, 'utf8').matchAll(LITERAL_PRICE_DECL)].map(
         (match) => `${path.relative(SRC, file)}: ${match[1]}`,
       ),
     );
+    const source = path.relative(SRC, SINGLE_SOURCE);
 
     expect(
-      declarations,
-      'Mỗi dòng ở đây là một nguồn giá. Hơn một dòng nghĩa là giá lại có hai nguồn — ' +
-        'nhập từ `lib/config/issue-terms.ts` thay vì khai thêm.',
-    ).toEqual([`${path.relative(SRC, SINGLE_SOURCE)}: WPT_ISSUE_PRICE_VND`]);
+      [...declarations].sort(),
+      'Mỗi dòng ở đây là một con số về giá không suy ra từ dòng nào khác. Dòng lạ nghĩa là giá ' +
+        'lại có hai nguồn — nhập từ `lib/config/issue-terms.ts` thay vì khai thêm.',
+    ).toEqual(
+      [`${source}: WPT_ISSUE_PRICE_VND`, `${source}: WPT_PRICE_CHANGE_THRESHOLD`].sort(),
+    );
+  });
+
+  /**
+   * Phát biểu vẫn phải giữ: chỉ MỘT tệp được khai loại hằng số này.
+   *
+   * Tách khỏi ca trên vì hai ca trả lời hai câu khác nhau, và câu này là câu quan trọng hơn: ca
+   * trên đỏ khi có hằng số mới (có thể hợp lệ), ca này đỏ khi hằng số đó nằm ở tệp khác — thứ
+   * chưa bao giờ hợp lệ.
+   */
+  it('cả app/src chỉ có MỘT tệp khai hằng số giá bằng số đếm', () => {
+    /**
+     * Dùng `matchAll` rồi lọc theo số kết quả, KHÔNG dùng `regex.test()`.
+     *
+     * `LITERAL_PRICE_DECL` có cờ `g` nên `test()` mang theo `lastIndex` giữa các lời gọi: tệp thứ
+     * hai sẽ được dò từ giữa chuỗi và khai báo ở đầu tệp bị bỏ sót. `matchAll` tạo iterator riêng
+     * mỗi lần nên không có trạng thái dính lại.
+     */
+    const files = tsFilesUnder(SRC).filter(
+      (file) => [...readFileSync(file, 'utf8').matchAll(LITERAL_PRICE_DECL)].length > 0,
+    );
+
+    expect(files.map((file) => path.relative(SRC, file))).toEqual([
+      path.relative(SRC, SINGLE_SOURCE),
+    ]);
   });
 });

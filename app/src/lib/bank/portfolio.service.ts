@@ -4,8 +4,9 @@ import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { getStore } from '@/lib/store';
+import { readIssuePriceVnd } from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
-import { WPT_ISSUE_PRICE_VND, wptToVnd } from './issuance';
+import { wptToVnd } from './issuance';
 import { err, ok, type Result } from './result';
 import { chainSchema, walletSchema } from './schemas';
 import type { TxnView } from './mint.service';
@@ -40,7 +41,14 @@ export interface PortfolioView {
   balance: string;
   /** Quy đổi theo giá phát hành, KHÔNG phải giá thị trường (xem `issuance.ts`). */
   valueVnd: string;
-  issuePriceVnd: number;
+  /**
+   * Giá phát hành ĐANG CÓ HIỆU LỰC, đọc từ cấu hình (BE-04) — không còn là hằng số trong mã.
+   *
+   * `string` chứ không `number`: giá là uint256, và tuy 100.000 thì `number` chứa được, một đợt
+   * phát hành dùng token có `decimals = 18` sẽ cho ra con số vượt `Number.MAX_SAFE_INTEGER` ngay.
+   * Đổi kiểu ở đây để chỗ hiển thị không phải đổi lần thứ hai về sau.
+   */
+  issuePriceVnd: string;
   whitelisted: boolean;
   frozen: boolean;
   token: {
@@ -75,11 +83,14 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
     await authorize('portfolio:read', wallet, chain);
 
     const ledger = getLedger(chain);
-    const [balance, whitelisted, frozen, info] = await Promise.all([
+    // Giá đọc CÙNG lô với số dư: một lời gọi, một con số, nên số hiển thị và số quy đổi không
+    // thể lệch nhau trong cùng một phản hồi.
+    const [balance, whitelisted, frozen, info, issuePriceVnd] = await Promise.all([
       ledger.balanceOf(wallet),
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
       ledger.tokenInfo(),
+      readIssuePriceVnd(),
     ]);
 
     const balanceString = balance.toString();
@@ -88,8 +99,8 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       wallet,
       chain,
       balance: balanceString,
-      valueVnd: wptToVnd(balanceString),
-      issuePriceVnd: WPT_ISSUE_PRICE_VND,
+      valueVnd: wptToVnd(balanceString, issuePriceVnd),
+      issuePriceVnd: issuePriceVnd.toString(),
       whitelisted,
       frozen,
       token: {
@@ -153,7 +164,8 @@ export interface TokenSummary {
   decimals: number;
   totalSupply: string;
   chain: ChainKey;
-  issuePriceVnd: number;
+  /** Giá phát hành đang có hiệu lực. Chuỗi, cùng lý do như `PortfolioView.issuePriceVnd`. */
+  issuePriceVnd: string;
 }
 
 /**
@@ -170,7 +182,10 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
 
   try {
     await authorize('portfolio:read', null, parsed.data);
-    const info = await getLedger(parsed.data).tokenInfo();
+    const [info, issuePriceVnd] = await Promise.all([
+      getLedger(parsed.data).tokenInfo(),
+      readIssuePriceVnd(),
+    ]);
 
     return ok({
       name: info.name,
@@ -178,7 +193,7 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
       decimals: info.decimals,
       totalSupply: info.totalSupply.toString(),
       chain: parsed.data,
-      issuePriceVnd: WPT_ISSUE_PRICE_VND,
+      issuePriceVnd: issuePriceVnd.toString(),
     });
   } catch (error) {
     return toResult(error);

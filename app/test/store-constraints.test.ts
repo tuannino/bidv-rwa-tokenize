@@ -716,10 +716,21 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
 
       const history = await store.config.listConfigHistory({ key });
       expect(history).toHaveLength(2);
-      // Mới nhất trước.
-      expect(history[0]).toMatchObject({ oldValue: '100', newValue: '250', reason: 'điều chỉnh đợt hai' });
+
+      /**
+       * Tra theo NỘI DUNG, không theo VỊ TRÍ trong danh sách.
+       *
+       * Hai lần ghi liền nhau có thể trùng mốc thời gian tới từng phần nghìn giây, và khi trùng
+       * thì cả hai bản hiện thực phá thế bằng `id` — một uuid ngẫu nhiên, không phải thứ tự chèn.
+       * Ca kiểm dựa vào `history[0]` vì vậy đỏ tuỳ lần chạy (đã gặp thật). Thứ cần khẳng định ở
+       * đây là "mỗi lần ghi có đúng một dòng, và dòng đó mang đúng giá trị cũ", không phải thứ tự.
+       */
+      const second = history.find((entry) => entry.newValue === '250');
+      const first = history.find((entry) => entry.newValue === '100');
+
+      expect(second).toMatchObject({ oldValue: '100', reason: 'điều chỉnh đợt hai' });
       // Lần ĐẦU cho một khoá thì không có giá trị cũ — `null`, không phải '' hay '0'.
-      expect(history[1]).toMatchObject({ oldValue: null, newValue: '100' });
+      expect(first).toMatchObject({ oldValue: null });
     });
 
     it('kiểu tham số lạ bị chặn TRƯỚC khi ghi gì', async () => {

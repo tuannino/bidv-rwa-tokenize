@@ -1,3 +1,4 @@
+import { ForbiddenError, assertCan } from './can';
 import { FALLBACK_ROLE, ROLES, isRole, type Role } from './permissions';
 
 /**
@@ -61,3 +62,38 @@ export function isConfigRole(role: unknown): boolean {
  * nhau ở lần đổi đầu tiên — lúc đó cơ sở dữ liệu nói một đằng, guard chạy một nẻo.
  */
 export const CONFIG_ROLE_NAMES: readonly Role[] = ROLES.filter((role) => CONFIG_ROLES[role]);
+
+/**
+ * Vai có quyền `treasury:manage` nhưng `isConfig` đang tắt.
+ *
+ * Kế thừa `ForbiddenError` để `toResult()` ở `lib/bank/authorize.ts` tự quy về mã `FORBIDDEN`
+ * (403) — không phải sửa bảng quy lỗi. Nhưng message nói rõ nguyên nhân là CỜ CẤU HÌNH, không
+ * phải thiếu quyền: người vận hành đọc log cần biết đi bật `isConfig` cho vai đó, chứ không đi
+ * cấp thêm `treasury:manage` mà vai đã có.
+ */
+export class NotConfigRoleError extends ForbiddenError {
+  constructor(role: Role) {
+    super(role, 'treasury:manage');
+    this.name = 'NotConfigRoleError';
+    this.message =
+      `Vai ${role} có quyền "treasury:manage" nhưng KHÔNG được đổi tham số hệ thống ` +
+      `(isConfig = false). Đổi giá phát hành là quyết định riêng, cấp tách khỏi quyền quản trị ví.`;
+  }
+}
+
+/**
+ * Chốt chặn HAI LỚP cho mọi thao tác đổi tham số hệ thống.
+ *
+ * Thứ tự là RBAC TRƯỚC, `isConfig` SAU — ngược với `demo-payment.ts`, và có lý do. Ở đó lớp
+ * thứ hai là cờ triển khai, tắt thì không vai nào làm được nên hỏi vai trước là hỏi vô ích. Ở
+ * đây lớp thứ hai gắn với TỪNG VAI, nên phải biết vai nào rồi mới trả lời được — và thông báo
+ * "thiếu quyền treasury:manage" đúng hơn cho vai không liên quan gì tới ngân quỹ.
+ *
+ * Giữ CẢ HAI lớp: bỏ `assertCan` thì `isConfig` thành nguồn phân quyền thứ hai nằm ngoài RBAC
+ * (trái LUẬT #3); bỏ `isConfig` thì quyền quản trị ví tự động kéo theo quyền ấn định giá bán.
+ */
+export function assertCanConfigure(role: unknown): asserts role is Role {
+  const resolved: Role = isRole(role) ? role : FALLBACK_ROLE;
+  assertCan(resolved, 'treasury:manage');
+  if (!isConfigRole(resolved)) throw new NotConfigRoleError(resolved);
+}
