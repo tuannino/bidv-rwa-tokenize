@@ -132,8 +132,23 @@ export async function onboardInvestor(input: unknown): Promise<Result<OnboardRes
   }
 }
 
-/** B2 của luồng: phát hành token cho nhà đầu tư đã whitelist. */
-export async function mintTokens(input: unknown): Promise<Result<MintResult>> {
+/**
+ * Phát hành WPT TRỰC TIẾP cho một nhà đầu tư đã whitelist.
+ *
+ * ⚠️ ĐÂY LÀ ĐƯỜNG NỀN CHO BẢN TRÌNH DIỄN, KHÔNG PHẢI LUỒNG NGHIỆP VỤ CHÍNH.
+ *
+ * Mô hình đã chốt là phát hành MỘT LẦN toàn bộ nguồn cung vào ví thanh toán SPV
+ * (`issuance.service.ts`), rồi nhà đầu tư mua từ ví đó qua `executeOrder`. Hàm này mint thẳng
+ * cho từng ví, tức là làm PHÌNH tổng cung mỗi lần gọi — thứ mà mô hình chính cấm.
+ *
+ * Giữ lại vì nó là đường ngắn nhất để trình diễn "ví có token" mà không cần dựng trước ví SPV,
+ * VNDB và uỷ quyền. Đổi tên từ `mintTokens` ở BE-04 chính là để cái tên nói ra điều đó: `mintTokens`
+ * nghe như luồng phát hành chuẩn, nên người đọc sau sẽ dùng nó thay cho luồng thật.
+ *
+ * KHÔNG gắn `@flow issue:*`: nó không phải một bước của luồng phát hành, nó là một đường khác.
+ * Gắn vào sẽ sinh ra sơ đồ mô tả hai lối phát hành như thể cùng một trình tự.
+ */
+export async function mintToInvestorDirect(input: unknown): Promise<Result<MintResult>> {
   const parsed = mintSchema.safeParse(input);
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
