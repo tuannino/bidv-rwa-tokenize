@@ -1,19 +1,25 @@
 import 'server-only';
 
 import { serverEnv } from '@/lib/config/env';
+import type { IConfigStore } from './config.store.port';
 import type { IDistributionStore } from './distribution.store.port';
 import type { IKeeperStore } from './keeper.store.port';
+import { createMemoryConfigStore } from './memory.config.store';
 import { createMemoryDistributionStore } from './memory.distribution.store';
 import { createMemoryKeeperStore } from './memory.keeper.store';
 import { createMemoryOrderStore } from './memory.order.store';
+import { createMemoryProjectStore } from './memory.project.store';
 import { createMemorySettlementStore } from './memory.settlement.store';
 import { createMemoryStore } from './memory.store';
 import type { IOrderStore } from './order.store.port';
+import { createPostgresConfigStore } from './postgres.config.store';
 import { createPostgresDistributionStore } from './postgres.distribution.store';
 import { createPostgresKeeperStore } from './postgres.keeper.store';
 import { createPostgresOrderStore } from './postgres.order.store';
+import { createPostgresProjectStore } from './postgres.project.store';
 import { createPostgresSettlementStore } from './postgres.settlement.store';
 import { createPostgresStore } from './postgres.store';
+import type { IProjectStore } from './project.store.port';
 import type { ISettlementStore } from './settlement.store.port';
 import type { ITxnStore } from './store.port';
 
@@ -83,6 +89,25 @@ export {
   type KeeperRunTerminalStatus,
 } from './keeper.store.port';
 
+export {
+  assertConfigValueType,
+  CONFIG_VALUE_TYPES,
+  type ConfigChange,
+  type ConfigHistoryRecord,
+  type ConfigRecord,
+  type ConfigValueType,
+  type IConfigStore,
+} from './config.store.port';
+
+export {
+  assertProjectStatus,
+  type IProjectStore,
+  type NewProject,
+  PROJECT_STATUSES,
+  type ProjectRecord,
+  type ProjectStatus,
+} from './project.store.port';
+
 export { resetMemoryStore } from './memory.store';
 
 /**
@@ -104,6 +129,8 @@ const cache: {
   distribution?: IDistributionStore;
   settlement?: ISettlementStore;
   keeper?: IKeeperStore;
+  config?: IConfigStore;
+  project?: IProjectStore;
 } = {};
 
 const wantsMemoryStore = (): boolean => serverEnv().useMockDb;
@@ -147,6 +174,20 @@ export function getKeeperStore(): IKeeperStore {
 }
 
 /**
+ * Cổng tham số hệ thống. KHÔNG có `@pending`: `lib/bank/config.service.ts` gọi ngay ở BE-04.
+ */
+export function getConfigStore(): IConfigStore {
+  cache.config ??= wantsMemoryStore() ? createMemoryConfigStore() : createPostgresConfigStore();
+  return cache.config;
+}
+
+/** Cổng dự án. `lib/bank/issuance.service.ts` đọc `totalSupply` từ đây ngay ở BE-04. */
+export function getProjectStore(): IProjectStore {
+  cache.project ??= wantsMemoryStore() ? createMemoryProjectStore() : createPostgresProjectStore();
+  return cache.project;
+}
+
+/**
  * Xoá cache của MỌI cổng.
  *
  * Một hàm cho tất cả, không phải một hàm mỗi cổng: test đổi `USE_MOCK_DB` rồi chỉ xoá cache
@@ -159,4 +200,6 @@ export function resetStoreCache(): void {
   cache.distribution = undefined;
   cache.settlement = undefined;
   cache.keeper = undefined;
+  cache.config = undefined;
+  cache.project = undefined;
 }

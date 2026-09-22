@@ -228,6 +228,7 @@ export const UNIQUE_CONSTRAINTS: Readonly<
     columns: ['roundId', 'holderWallet'],
   },
   KeeperRun_jobName_periodKey_key: { table: 'KeeperRun', columns: ['jobName', 'periodKey'] },
+  Project_tokenSymbol_key: { table: 'Project', columns: ['tokenSymbol'] },
 };
 
 /** Tên khoá ngoài trong `prisma/init.sql` → bảng + cột. */

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Pool } from 'pg';
 import { serverEnv } from '@/lib/config/env';
+import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_PROJECT, SEED_ROLE_ROWS } from './seed-data';
 
 /**
  * Kết nối Postgres dùng chung cho MỌI cổng lưu trữ, và việc áp lược đồ một lần lúc khởi động.
@@ -149,7 +150,53 @@ async function applyInitSql(client: import('pg').PoolClient, sql: string): Promi
 }
 
 /**
- * Bảo đảm lược đồ đã đúng: áp `init.sql` rồi nâng kiểu cột thời gian của bảng cũ.
+ * Nạp DỮ LIỆU KHỞI TẠO, lấy từ CÙNG nguồn với bản bộ nhớ (`seed-data.ts`).
+ *
+ * Vì sao ở đây chứ không phải một tệp `seed.sql`: `prisma/init.sql` do `prisma migrate diff`
+ * sinh ra nên chỉ có DDL, không mang được dòng dữ liệu. Viết seed thành SQL tay là tạo nguồn
+ * thứ hai cho giá phát hành và tổng cung — đúng loại lệch mà `seed-data.ts` được lập ra để
+ * chặn, và nó sẽ lệch âm thầm vì demo free-tier không chạy đường SQL này.
+ *
+ * `ON CONFLICT DO NOTHING` ở mọi câu: hàm chạy MỖI lần khởi động, và lần thứ hai không được
+ * ghi đè giá mà cán bộ ngân hàng vừa đặt. Đây là "nạp nếu còn trống", không phải "đặt lại".
+ */
+async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
+  for (const row of SEED_CONFIG_ROWS) {
+    await client.query(
+      `INSERT INTO "SystemConfig" ("key","value","type","updatedBy","updatedAt")
+       VALUES ($1,$2,$3,$4,CURRENT_TIMESTAMP)
+       ON CONFLICT ("key") DO NOTHING`,
+      [row.key, row.value, row.type, SEED_ACTOR_ROLE],
+    );
+  }
+
+  await client.query(
+    `INSERT INTO "Project"
+       ("id","tokenSymbol","name","totalSupply","status","chain","updatedAt")
+     VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,CURRENT_TIMESTAMP)
+     ON CONFLICT ("tokenSymbol") DO NOTHING`,
+    [
+      SEED_PROJECT.tokenSymbol,
+      SEED_PROJECT.name,
+      SEED_PROJECT.totalSupply,
+      SEED_PROJECT.status,
+      SEED_PROJECT.chain,
+    ],
+  );
+
+  for (const role of SEED_ROLE_ROWS) {
+    await client.query(
+      `INSERT INTO "Role" ("id","name","isConfig")
+       VALUES (gen_random_uuid()::text,$1,$2)
+       ON CONFLICT ("name") DO NOTHING`,
+      [role.name, role.isConfig],
+    );
+  }
+}
+
+/**
+ * Bảo đảm lược đồ đã đúng: áp `init.sql`, nâng kiểu cột thời gian của bảng cũ, rồi nạp dữ liệu
+ * khởi tạo.
  *
  * Bọc trong transaction + chốt tư vấn để hai instance khởi động cùng lúc không tạo bảng
  * nửa vời hay ALTER chồng nhau.
@@ -164,6 +211,7 @@ async function ensureSchema(pool: Pool): Promise<void> {
     await client.query('SELECT pg_advisory_xact_lock(918273645)');
     await applyInitSql(client, sql);
     await migrateTimestampColumns(client);
+    await seedInitialData(client);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -185,4 +233,41 @@ export const pgQuery: PgQuery = async <T extends object>(sql: string, params: un
   await schemaReady;
   const result = await pool.query<T>(sql, params);
   return result.rows;
+};
+
+/**
+ * Chạy nhiều câu lệnh trong MỘT transaction, trên CÙNG một connection.
+ *
+ * Cần hàm riêng vì `pgQuery` lấy connection từ pool cho từng lời gọi, nên `BEGIN` và `COMMIT`
+ * gửi qua nó có thể rơi vào hai connection khác nhau — khi đó `BEGIN` mở một transaction rồi bị
+ * bỏ lửng, và các câu ở giữa chạy tự động commit từng câu. Triệu chứng là "transaction có mà
+ * không có tác dụng": lỗi ở câu thứ hai không lùi được câu thứ nhất.
+ *
+ * `run` truyền vào callback là hàm truy vấn ĐÃ gắn với connection đang mở transaction. Người
+ * gọi phải dùng nó, không dùng `pgQuery`.
+ */
+export type PgTransaction = <T>(
+  body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
+) => Promise<T>;
+
+export const pgTransaction: PgTransaction = async <T>(
+  body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
+): Promise<T> => {
+  const { pool, schemaReady } = holder();
+  await schemaReady;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await body(async <R extends object>(sql: string, params: unknown[] = []) => {
+      const rows = await client.query<R>(sql, params);
+      return rows.rows;
+    });
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
