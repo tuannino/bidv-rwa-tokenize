@@ -37,11 +37,58 @@
  *    màn hình muốn tự quy đổi. Cùng cách chia như `lib/session/channel.ts` (dùng chung) đứng
  *    cạnh `current-channel.ts` (`server-only`).
  *
- * ## Ghi chú cho BE-04
+ * ## Ba hằng số dưới đây là MẶC ĐỊNH KHI CHƯA CẤU HÌNH (BE-04)
  *
- * Khi giá phát hành vào cơ sở dữ liệu, hằng số này thành **giá mặc định khi chưa cấu hình**.
- * Đổi ở đây là đổi cho cả hai tầng cùng lúc — BE-04 chỉ phải sửa một chỗ.
+ * Từ BE-04, giá phát hành và tổng cung sống trong cơ sở dữ liệu (`SystemConfig`, `Project`) và
+ * cán bộ ngân hàng đổi được. Ba hằng số ở đây là giá trị dùng khi cơ sở dữ liệu còn trống —
+ * `getIssuePrice()` đọc bảng trước, không có dòng nào thì lùi về đây.
+ *
+ * ⚠️ KHÔNG lưu bản sao của mấy con số này vào `SystemConfig` như một "giá trị mặc định". Mặc
+ * định thuộc mã nguồn nên nó đi cùng bản triển khai; lưu thêm một bản trong cơ sở dữ liệu là
+ * tạo nguồn thứ hai, và nó lệch ngay lần sửa mã đầu tiên mà không ai chạy lại dữ liệu khởi tạo.
  */
 
 /** Giá phát hành một WPT, đơn vị VND. WPT có decimals = 0 nên đây là giá của trọn một token. */
 export const WPT_ISSUE_PRICE_VND = 100_000;
+
+/**
+ * Tổng cung WPT của đợt phát hành, dùng làm `Project.totalSupply` lúc khởi tạo.
+ *
+ * WPT có `decimals = 0` nên đây là số token trọn, không phải đơn vị nhỏ nhất — 20 triệu token
+ * ứng với 2.000 tỷ VND theo giá phát hành mặc định.
+ *
+ * Để ở đây thay vì viết cứng trong `issueInitialSupply` vì cùng một lý do với giá: đổi quy mô
+ * một đợt phát hành không được đòi sửa mã nghiệp vụ. Nghiệp vụ đọc `Project.totalSupply`;
+ * hằng số này chỉ là con số nạp vào dòng `Project` đầu tiên.
+ */
+export const WPT_TOTAL_SUPPLY = 20_000_000;
+
+/**
+ * Hệ số chặn đổi giá quá mạnh: giá mới lệch quá **gấp đôi** hoặc **còn một nửa** so với giá
+ * đang có hiệu lực thì `setIssuePrice` từ chối, trừ khi người gọi xác nhận tường minh.
+ *
+ * Vì sao là HỆ SỐ chứ không phải phần trăm: giá phát hành không dao động theo thị trường, nên
+ * mọi lần đổi đều là quyết định có chủ ý. Ngưỡng ở đây không nhằm chặn biến động, nó nhằm chặn
+ * lỗi ĐÁNH MÁY — thiếu hoặc thừa một chữ số 0 làm giá lệch 10 lần, còn sửa 100.000 thành
+ * 120.000 là việc bình thường. Phần trăm nhỏ sẽ chặn cả việc bình thường; hệ số 2 chỉ chặn
+ * đúng loại sai lệch một bậc độ lớn.
+ *
+ * KHÔNG để 1: khi đó mọi lần đổi giá đều cần xác nhận, và lời xác nhận trở thành động tác bấm
+ * cho qua — lúc đó nó không còn chặn được gì.
+ */
+export const WPT_PRICE_CHANGE_THRESHOLD = 2;
+
+/**
+ * Khoá của từng tham số trong bảng `SystemConfig`.
+ *
+ * Khai thành hằng số thay vì gõ chuỗi tại chỗ gọi: khoá là thứ nối mã nguồn với một dòng trong
+ * cơ sở dữ liệu, mà gõ sai chuỗi thì không có lỗi biên dịch nào — chỉ có một lần đọc trả về
+ * "chưa cấu hình" rồi âm thầm dùng giá mặc định, đúng lúc ngân hàng vừa đặt giá mới.
+ */
+export const CONFIG_KEYS = {
+  issuePriceVnd: 'wpt.issue_price_vnd',
+  priceChangeThreshold: 'wpt.price_change_threshold',
+} as const;
+
+/** Mã token của dự án điện gió duy nhất trong PoC. */
+export const WPT_TOKEN_SYMBOL = 'WPT';

@@ -68,7 +68,7 @@ flowchart TD
 | 7 | `app/src/lib/bank/purchase.service.ts:524` | `executeOrder()` | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần |
 | 8 | `app/src/lib/bank/purchase.service.ts:355` | `runPurchaseChecks()` | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên |
 | 9 | `app/src/lib/bank/purchase.service.ts:636` | `sendAndSettle()` | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
-| 10 | `app/src/lib/ledger/ledger.port.ts:129` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
+| 10 | `app/src/lib/ledger/ledger.port.ts:151` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
 | 11 | `app/src/app/actions/purchase.ts:56` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
 | 12 | `app/src/lib/bank/purchase.service.ts:765` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service |
 

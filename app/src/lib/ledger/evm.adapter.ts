@@ -404,6 +404,19 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return pendingContract('quotePurchase', 'hợp đồng khớp lệnh (SC-03)');
     },
 
+    /**
+     * KHÔNG nối tạm vào `EnergyOracle` hay một hàm `setPrice` của contract nào khác đang có.
+     * Giá bán phải nằm ĐÚNG chỗ mà `executePurchase` đọc để trừ tiền; đặt nó vào một contract
+     * khác thì giá báo cho nhà đầu tư và giá thật sự trừ là hai con số, tức là dựng lại chính
+     * lỗi mà `setPurchasePrice` được thêm vào để dẹp — nhưng lần này có vẻ "đã xong".
+     *
+     * @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi
+     */
+    async setPurchasePrice(pricePerWpt) {
+      assertPositiveAmount(chain, 'setPurchasePrice', pricePerWpt);
+      return pendingContract('setPurchasePrice', 'hợp đồng khớp lệnh (SC-03)');
+    },
+
     /** Đọc được ngay: VNDToken đã deploy, địa chỉ có trong packages/shared. */
     async paymentBalanceOf(wallet) {
       return readOn<bigint>('paymentBalanceOf', 'VNDToken', vndTokenAbi, 'balanceOf', [

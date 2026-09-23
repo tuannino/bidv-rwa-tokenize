@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { LedgerError } from '@/lib/ledger/ledger.port';
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { InvalidAddressError } from '@/lib/ledger/address';
@@ -125,7 +126,17 @@ describe('chuẩn hoá địa chỉ theo EIP-55', () => {
 
 /** Ví thanh toán SPV — giữ WPT chưa bán, nhận VNDB khi khớp lệnh. */
 const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
-const PRICE = 100_000n; // giá mặc định của mock: 1 WPT = 100.000 VNDB
+/**
+ * Giá bán mặc định của mock, ĐỌC TỪ NGUỒN DUY NHẤT `lib/config/issue-terms.ts`.
+ *
+ * Không gõ lại `100_000n` ở đây (BE-04 việc 16): giá là DỮ LIỆU của các ca dưới — chúng suy ra số
+ * VNDB phải trả rồi đối chiếu số dư. Gõ lại con số thì đổi giá mặc định ở nguồn sẽ làm cả nhóm ca
+ * này đỏ, dù không ca nào trong đó nói gì về việc giá phải bằng bao nhiêu.
+ *
+ * `createMockLedger()` trong tệp này gọi KHÔNG truyền `readInitialPrice`, nên nó chạy bằng đúng
+ * mặc định trong mã và không cần cơ sở dữ liệu.
+ */
+const PRICE = BigInt(WPT_ISSUE_PRICE_VND);
 
 /** Dựng sẵn: SPV + nhà đầu tư đã KYC, nguồn cung đã phát hành vào ví SPV. */
 async function issuedLedger(supply = 1_000n) {
@@ -200,6 +211,66 @@ describe('R2 — khớp lệnh mua', () => {
     expect(await ledger.quotePurchase(1n)).toBe(PRICE);
     expect(await ledger.quotePurchase(7n)).toBe(7n * PRICE);
     await expect(ledger.quotePurchase(0n)).rejects.toThrow(/lớn hơn 0/);
+  });
+
+  /**
+   * BE-04 — `setPurchasePrice` phải đổi CÙNG con số mà `quotePurchase` đọc.
+   *
+   * Đây là phát biểu quan trọng nhất của method mới. Nếu nó ghi vào một ô state khác thì
+   * `quotePurchase` vẫn trả giá cũ, và tầng nghiệp vụ tưởng đã đẩy giá xuống chuỗi thành công —
+   * ra đúng tình trạng "giá hiển thị khác giá khớp lệnh" mà BE-04 dựng ra để dẹp.
+   */
+  it('đặt giá xong thì báo giá đổi theo ngay, không cần dựng lại ledger', async () => {
+    const ledger = createMockLedger();
+    const newPrice = PRICE * 3n;
+
+    await ledger.setPurchasePrice(newPrice);
+
+    expect(await ledger.quotePurchase(1n)).toBe(newPrice);
+    expect(await ledger.quotePurchase(4n)).toBe(4n * newPrice);
+  });
+
+  /** Giá mới phải áp vào TIỀN THẬT BỊ TRỪ, không chỉ vào con số báo giá. */
+  it('đặt giá xong thì khớp lệnh trừ tiền theo giá mới', async () => {
+    const ledger = await issuedLedger(1_000n);
+    const newPrice = 250_000n;
+    await ledger.setPurchasePrice(newPrice);
+
+    const cost = 2n * newPrice;
+    seedMockLedger({
+      paymentBalances: { [INVESTOR]: cost },
+      paymentAllowances: { [INVESTOR]: cost },
+    });
+
+    await ledger.executePurchase(INVESTOR, 2n);
+
+    expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
+    expect(await ledger.paymentBalanceOf(SPV)).toBe(cost);
+    expect(await ledger.balanceOf(INVESTOR)).toBe(2n);
+  });
+
+  /**
+   * Giá 0 làm khớp lệnh thành "mua không mất tiền", nên phải bị chặn — và chặn TRƯỚC khi
+   * state đổi, không phải sau. Ca này kiểm luôn "giá cũ còn nguyên".
+   */
+  it.each([[0n], [-1n]])('CHẶN đặt giá %s và giữ nguyên giá cũ', async (bad) => {
+    const ledger = createMockLedger();
+
+    await expect(ledger.setPurchasePrice(bad)).rejects.toThrow(/lớn hơn 0/);
+    expect(await ledger.quotePurchase(1n)).toBe(PRICE);
+  });
+
+  /**
+   * `setPurchasePrice` và `setNavRate` là HAI điều khoản khác nhau dù khởi tạo cùng một số.
+   * Gộp chúng lại thì đổi giá bán sẽ âm thầm đổi giá hoàn vốn của đợt tất toán đang mở.
+   */
+  it('đặt giá bán KHÔNG làm đổi giá NAV', async () => {
+    const ledger = createMockLedger();
+    const navBefore = await ledger.navRate();
+
+    await ledger.setPurchasePrice(PRICE * 5n);
+
+    expect(await ledger.navRate()).toBe(navBefore);
   });
 
   it('khớp lệnh chuyển VNDB và WPT trong cùng một lần gọi', async () => {

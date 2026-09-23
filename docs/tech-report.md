@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 2.1 |
-| Cập nhật lần cuối | 2026-09-21 |
-| Nhánh / commit | `feat/purchase-preview`, nền `dev` @ `ac25c8b` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE03.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ), **MC-01** (cơ chế điểm cắm — đã merge vào `dev` ở PR #21, xem 3.10) |
-| Đang chờ nghiệm thu | **MC-02** (khuôn checkpoint + máy kiểm — xem 3.11 và `docs/CHECKPOINT_MC02.md`). Mã đã merge vào `dev` ở PR #22 nhưng `.kiro/task-status.json` còn để `MC-02` ở `inProgress` — xem câu hỏi mở của `docs/CHECKPOINT_BE03.md`. · **BE-03** (xem trước điều kiện mua WPT — xem 4.2 và `docs/CHECKPOINT_BE03.md`) |
+| Phiên bản tài liệu | 2.2 |
+| Cập nhật lần cuối | 2026-09-22 |
+| Nhánh / commit | `feat/issuance-and-config`, nền `dev` @ `59fa611` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE04.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11) |
+| Đang chờ nghiệm thu | **BE-04** (giá phát hành cấu hình được + phát hành một lần — xem 3.12 và 4.3, checkpoint `docs/CHECKPOINT_BE04.md`) |
 | Phase kế tiếp | P7 Distribution → P12 Redemption |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -27,6 +27,18 @@ thêm tầng, không đổi luồng nghiệp vụ nào, không chạm `app/src`.
 tầng và không đổi ba luật. Có **một đổi hành vi** cần đọc kỹ: `placeOrder` nay kiểm điều kiện
 trước khi tạo bản ghi, nên một lệnh thiếu điều kiện **không còn** vào sổ lệnh rồi chuyển
 `REJECTED` — chi tiết ở 4.2.
+
+**2.1 → 2.2 (BE-04).** Ba bảng dữ liệu mới, hai cổng lưu trữ mới, một method mới ở `ILedgerPort`
+(29 method, trước là 28), một luồng nghiệp vụ mới (`issue`). Vẫn `+0.1`: không thêm tầng, ba luật
+bất di không bị chạm. Có **bốn đổi hành vi** cần đọc kỹ:
+
+1. Giá phát hành nay nằm trong cơ sở dữ liệu và **đổi được lúc chạy**. Hằng số
+   `WPT_ISSUE_PRICE_VND` trở thành **giá mặc định khi chưa cấu hình**, không còn là giá đang có
+   hiệu lực — mọi chỗ hiển thị phải đọc qua `readIssuePriceVnd()` (xem 3.12).
+2. `wptToVnd(amount)` đổi chữ ký thành `wptToVnd(amount, issuePriceVnd)`.
+3. `PortfolioView.issuePriceVnd` và `TokenSummary.issuePriceVnd` đổi kiểu `number` → `string`.
+4. `mintTokens` đổi tên thành `mintToInvestorDirect`. Tên server action `mintAction` **giữ nguyên**,
+   nên không component nào phải sửa.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -117,7 +129,8 @@ bidv-rwa-tokenize/
 │   │   ├── (admin)/           # Kênh ngân hàng: mint, kyc, assets, reconciliation
 │   │   ├── (audit)/           # Kênh kiểm toán: chỉ đọc
 │   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, tokens/[symbol], wallet
-│   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts)
+│   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts,
+│   │   │                      #   purchase.ts, config.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns
 │   │   ├── layout.tsx, page.tsx, globals.css
 │   ├── src/components/
@@ -168,7 +181,8 @@ bidv-rwa-tokenize/
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
-        └── purchase.md        #   Luồng mua WPT, 10 bước
+        ├── purchase.md        #   Luồng mua WPT, 12 bước
+        └── issue.md           #   Luồng phát hành nguồn cung, 9 bước (BE-04)
 ```
 
 ⚠️ **`tech-report.md` và `tech-report-maintenance.md` nằm ở `docs/`, không ở `.kiro/steering/`**
@@ -239,6 +253,16 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 - **Dò ví bằng external store, không đọc `window.ethereum` một lần lúc mount.** Ví theo EIP-6963 công bố không đồng bộ: ngay sau khi tải trang có thể chưa thấy gì, một nhịp sau mới có. Thêm chốt an toàn: đã `isConnected` thì không kết luận "chưa cài ví" dù phép dò không thấy.
 - **State lỗi mang theo khoá tình huống, không phải `string | null` trơn.** Không có khoá thì thông báo sống dai hơn tình huống sinh ra nó — người dùng tự đổi mạng trong ví rồi mà câu "Bạn đã từ chối chuyển mạng" vẫn còn. Có khoá thì "còn hiệu lực" là thứ suy ra, và tránh luôn `setState` trong effect mà React Compiler chặn.
 - **`explorerTxUrl`/`explorerAddressUrl` trả `null` cho chain không có explorer.** UI phải ẩn liên kết. Trỏ tx của `hardhat-local` sang explorer công khai sẽ ra trang "not found" — tệ hơn là không có liên kết.
+- **Giá tồn tại ở hai nơi thì THỨ TỰ GHI là thứ phải bảo vệ, không phải giá trị.** Cơ sở dữ liệu giữ giá để **hiển thị**, ledger giữ giá để **trừ tiền**. Đẩy xuống ledger **trước**, ghi cơ sở dữ liệu **sau**, ghi thất bại thì hoàn nguyên ledger. Không transaction nào bao được cả một lời gọi on-chain và một câu SQL, nên việc duy nhất làm được là chọn thứ tự mà hỏng giữa đường vẫn để lại trạng thái giải thích được. Đầy đủ ở 3.12.
+- **Bảng mang cột `chain` thì khoá duy nhất phải có `chain` trong đó.** `Project` duy nhất theo `tokenSymbol` một mình làm toàn hệ chỉ có ĐÚNG MỘT dòng WPT trên một chuỗi, mọi chuỗi khác tra ra `null`, và nghiệp vụ từ chối "chưa có dự án" trong khi dự án rõ ràng có. Cùng lý do: dữ liệu khởi tạo theo chuỗi phải nạp cho **mọi** chuỗi mà demo chạy được, không chỉ `DEFAULT_CHAIN` — nạp một chuỗi là để bản free-tier ở `mock` chết ở đúng luồng chính.
+- **Dữ liệu ĐỊNH DANH đối soát khác dữ liệu ĐẦU VÀO kiểm quyền.** `actorAddress` chỉ để đối soát, mà `mock` không ký gì nên không có địa chỉ; làm cả lượt phát hành thất bại vì thiếu một nhãn là đánh đổi sai. Bắt lỗi rồi ghi `null`. Nhưng **đừng** mở rộng cách này sang chuỗi thật, nơi thiếu signer nghĩa là giao dịch không gửi được.
+
+**Bốn bài học về TEST, học được ở BE-04:**
+
+- **Đổi hằng số cấu hình rồi chạy lại toàn bộ test là phép kiểm rẻ và bắt được nhiều.** Ca 5 của BE-04 (đổi `WPT_ISSUE_PRICE_VND` thành 537.000 rồi thành 7) bắt **5 chỗ** gõ cứng mà đọc mắt không thấy. Ba trong số đó tệ hơn "sai số": chúng dùng một số tuyệt đối làm *"thiếu tiền"*, nên ở giá nhỏ nó thành **dư** tiền — **tình huống mà ca kiểm cần dựng đã bốc hơi**, và test đỏ không phải vì mã sai. Nhớ phục hồi rồi kiểm `git diff` **rỗng**.
+- **`vi.spyOn` trên đối tượng namespace của module KHÔNG chặn được lời gọi nội bộ trong cùng module.** `assertCanConfigure` gọi `isConfigRole` như một tham chiếu lexical, nên vá từ ngoài làm ca kiểm **xanh oan** — nó không kiểm được gì mà vẫn báo đạt. Cách đúng cho một đột biến: sửa **thật** bảng dữ liệu (`CONFIG_ROLES.BANK_ADMIN = false`) rồi trả lại trong `finally`.
+- **Test trên cơ sở dữ liệu không `TRUNCATE` thì mọi khoá phải duy nhất MỖI LẦN CHẠY.** Một chuỗi cố định sẽ do dòng của lượt trước chiếm giữ, và lượt hai trượt ở lời gọi *thứ nhất* với thông báo trông y như ràng buộc duy nhất đang hỏng. Phát hiện ở BE-04 khi chạy hai lượt trên một Postgres thật.
+- **Đừng dựa vào thứ tự danh sách khi khoá sắp xếp có thể trùng.** Hai lần ghi cùng mốc phần nghìn giây thì thứ tự phá thế bằng uuid ngẫu nhiên, nên `history[0]` đỏ **tuỳ lần chạy**. Tra theo **nội dung**, và ghi giới hạn đó vào doc của cổng để người sau không mắc lại.
 
 ### C. Nợ kỹ thuật đã biết (cần xử lý, đã ghi nhận)
 
@@ -347,7 +371,7 @@ triển. Danh sách đầy đủ các cờ ở **3.6**.
 | `stellar.adapter.ts` | Stub Soroban, mọi hàm ném lỗi rõ ràng (138 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
-### `ILedgerPort` — 7 nhóm, 28 method
+### `ILedgerPort` — 7 nhóm, 29 method
 
 Từ BE-01, `ILedgerPort` được **tách thành 7 interface con theo nghiệp vụ** trong cùng
 `ledger.port.ts`, rồi hợp lại bằng kế thừa kiểu. Tên `ILedgerPort` giữ nguyên và vẫn là
@@ -370,23 +394,24 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 11 | | `isInitialSupplyMinted` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
 | 12 | | `spvWallet` | ✅ | ⏳ | ⏳ | contract phát hành một lần (SC-02) |
 | 13 | `ILedgerPurchase` | `quotePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 14 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 15 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
-| 16 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 17 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
-| 18 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 19 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 20 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
-| 21 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
-| 22 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
-| 23 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
-| 24 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
-| 25 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
-| 26 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 27 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
-| 28 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 14 | | `setPurchasePrice` (BE-04) | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 15 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 16 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
+| 17 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 18 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
+| 19 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 20 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 21 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
+| 22 | | `distributeBatch` | ✅ | ⏳ | ⏳ | mapping `snapshotId`→`distributionId` (BE-06) |
+| 23 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 24 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 25 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
+| 26 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
+| 27 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 28 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
+| 29 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
 
-**Bốn method tất toán (22–25) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
+**Bốn method tất toán (23–26) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
 `Redemption` lẫn `ProjectToken` đã deploy; thiếu là câu trả lời cho "cờ *đang tất toán* nằm ở
 đâu" và "NAV có phải `Redemption.rate` hay không". Owner đã mở mã task **SC-04** cho quyết định
 đó, nên marker trong `evm.adapter.ts` ghi `@blocked SC-04` — xem bảng sinh tự động ở 3.10. Đừng
@@ -445,6 +470,7 @@ giới hạn khoảng block.
 | `can.ts` | `can(role, action)` + `assertCan()` + `permissionsOf()` — **điểm kiểm quyền duy nhất** |
 | `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role` |
 | `demo-payment.ts` | Chốt chặn **hai lớp** riêng cho `demo:mint-payment`: `canMintDemoPayment()`, `assertCanMintDemoPayment()`, `DemoPaymentMintDisabledError` |
+| `config-role.ts` | Chốt chặn **hai lớp** cho việc đổi tham số hệ thống (BE-04): `CONFIG_ROLES`, `isConfigRole()`, `assertCanConfigure()`, `NotConfigRoleError`. Thứ tự là **RBAC trước, `isConfig` sau** — ngược `demo-payment.ts`, vì lớp thứ hai ở đây gắn với TỪNG VAI nên phải biết vai nào rồi mới trả lời được |
 
 **Ma trận quyền (đủ 24 action, tên đúng như trong `ACTIONS`):**
 
@@ -545,14 +571,16 @@ quyền của vai nào.
 | File | Vai trò | Hàm chính |
 |---|---|---|
 | `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ** | `authorize()`, `toResult()` |
-| `mint.service.ts` | Nghiệp vụ phát hành | `onboardInvestor()`, `mintTokens()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
+| `mint.service.ts` | KYC/whitelist + mint LẺ. ⚠️ `mintToInvestorDirect` (BE-04 đổi tên từ `mintTokens`) là **đường nền cho bản trình diễn**, không phải luồng phát hành chính: nó mint thẳng cho từng ví nên làm **phình tổng cung** mỗi lần gọi. Luồng chính là `issuance.service.ts` | `onboardInvestor()`, `mintToInvestorDirect()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
+| `issuance.service.ts` | **Phát hành MỘT LẦN** toàn bộ nguồn cung vào ví SPV (BE-04). Tổng cung đọc từ bảng `Project`, **không** nhận từ input | `issueInitialSupply()`, `getIssuanceStatus()` |
+| `config.service.ts` | Tham số hệ thống: đổi giá phát hành (BE-04). Thứ tự **đẩy xuống ledger trước, ghi cơ sở dữ liệu sau** — xem 3.12 | `getIssuePrice()`, `setIssuePrice()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) + xem trước điều kiện (BE-03) | `previewPurchase()`, `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
 | `purchase.state.ts` | Mô hình trạng thái lệnh mua — dữ liệu, không phải logic. `ORDER_STATUSES` **re-export** từ `store/order.store.port.ts`, không khai lại | `ORDER_TRANSITIONS`, `canTransitionOrder()`, `EXECUTABLE_ORDER_STATUSES`, `findPaidPendingDeliveryStatuses()` |
-| `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không còn giữ hằng số giá**: từ MC-01 nó `re-export` `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6) để người gọi cũ giữ nguyên đường nhập | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
+| `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không giữ hằng số giá**: re-export `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6). ⚠️ BE-04 đổi chữ ký thành `wptToVnd(amount, issuePriceVnd)` — nhận giá làm **tham số** để tệp này giữ được tính thuần và **không** phải thành `server-only` | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `amountSchema`, `walletSchema` |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `issueInitialSupplySchema` (BE-04 — **cố ý không có trường số lượng**), `amountSchema`, `walletSchema` |
 
 ### Mô hình trạng thái lệnh mua (`purchase.state.ts`)
 
@@ -606,8 +634,8 @@ công mà phản hồi bị mất).
 
 ## 3.5. `app/src/lib/store/` và `providers/`
 
-**Năm cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09). Hai hiện thực cho mỗi cổng, chọn bằng
-cùng cờ `USE_MOCK_DB`.
+**Bảy cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09 năm cổng, BE-04 thêm hai). Hai hiện thực cho
+mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 
 | File | Cổng / vai trò | Hàm chính |
 |---|---|---|
@@ -616,12 +644,16 @@ cùng cờ `USE_MOCK_DB`.
 | `store/distribution.store.port.ts` | `IDistributionStore` — kỳ chia + hồ sơ chia | `openPeriod`, `findPeriod`, `findPeriodByKey`, `listPeriods`, `setPeriodStatus`, `createPayouts`, `markPayout`, `listPayouts` |
 | `store/settlement.store.port.ts` | `ISettlementStore` — đợt tất toán + hồ sơ người nắm giữ | `openRound`, `findRound`, `listRounds`, `setRoundStatus`, `createCases`, `markCase`, `listCases` |
 | `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
+| `store/config.store.port.ts` | `IConfigStore` — tham số hệ thống **và** lịch sử đổi tham số (BE-04). MỘT cổng cho HAI bảng: mọi lần ghi giá PHẢI kèm một dòng lịch sử, nên tách hai cổng là mở đường gọi một mà quên cái kia | `getConfig`, `setConfig`, `listConfigHistory` |
+| `store/project.store.port.ts` | `IProjectStore` — dự án đã token hoá; giữ **tổng cung** của đợt phát hành (BE-04) | `createProject`, `findProject`, `markIssued`, `listProjects` |
+| `store/seed-data.ts` | **MỘT nguồn dữ liệu khởi tạo cho CẢ HAI bản lưu trữ** (BE-04). Không con số nào gõ tay ở đây: giá/tổng cung/ngưỡng nhập từ `lib/config/issue-terms.ts`, danh sách vai được đổi cấu hình suy từ `lib/rbac/config-role.ts` | `SEED_CONFIG_ROWS`, `SEED_PROJECTS`, `SEED_PROJECT_CHAINS`, `SEED_ROLE_ROWS` |
+| `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. Đặt ở tầng lưu trữ vì có HAI người đọc ở hai tầng: `lib/bank` và **factory `getLedger`** — để ở `lib/bank` thì tầng cổng phải nhập tầng nghiệp vụ, tức ngược chiều phụ thuộc | `readIssuePriceVnd`, `readPriceChangeThreshold` |
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
 | `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
-| `store/memory.{store,order,distribution,settlement,keeper}.store.ts` | Bản RAM cho free-tier | |
-| `store/postgres.pool.ts` | Pool `pg` + `ensureSchema` dùng chung cho cả năm bản Postgres | `pgQuery` |
-| `store/postgres.{store,order,distribution,settlement,keeper}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
-| `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `resetStoreCache`, `resetMemoryStore` |
+| `store/memory.{store,order,distribution,settlement,keeper,config,project}.store.ts` | Bản RAM cho free-tier. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
+| `store/postgres.pool.ts` | Pool `pg` + `ensureSchema` + **nạp dữ liệu khởi tạo** (BE-04, `ON CONFLICT DO NOTHING` nên chạy lại không ghi đè giá ngân hàng đã đặt) | `pgQuery`, `pgTransaction` |
+| `store/postgres.{store,order,distribution,settlement,keeper,config,project}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
+| `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `resetStoreCache`, `resetMemoryStore` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
 
 **Bảng dữ liệu và ràng buộc duy nhất** (`app/prisma/schema.prisma` là nguồn sự thật; `init.sql`
@@ -634,7 +666,17 @@ sinh ra từ nó bằng `npm run db:sql`):
 | `DistributionPayout` | `(periodId, investorWallet)` | **chia trùng** cho một nhà đầu tư trong cùng kỳ |
 | `SettlementCase` | `(roundId, holderWallet)` | **chi trả hoặc đốt trùng** cho một ví trong cùng đợt |
 | `KeeperRun` | `(jobName, periodKey)` | tiến trình hẹn giờ chạy trùng |
+| `Project` | `(tokenSymbol, chain)` | hai dự án cùng mã token trên cùng một chuỗi |
 | `SettlementRound` | — | (hồ sơ từng ví mới là chỗ cần chặn) |
+| `SystemConfig` | `key` là khoá chính | hai dòng cùng một tham số |
+| `SystemConfigHistory` | — | (bảng chỉ ghi thêm, không có gì phải chặn trùng) |
+
+⚠️ **`Project` duy nhất theo `(tokenSymbol, chain)`, không phải `tokenSymbol` một mình.** Mỗi
+chuỗi có trạng thái phát hành riêng: đã phát hành trên `hardhat-local` không có nghĩa là đã phát
+hành trên `mock`. Duy nhất theo `tokenSymbol` thì toàn hệ chỉ có ĐÚNG MỘT dòng WPT nằm trên một
+chuỗi, và mọi chuỗi khác tra ra `null` — `issueInitialSupply` từ chối với lý do "chưa có dự án"
+trong khi dự án rõ ràng có. Cùng lý do đó, `SEED_PROJECT_CHAINS` nạp dòng dự án cho **cả `mock`
+và chuỗi mặc định**, để bản demo free-tier phát hành được mà không cần hardhat node.
 
 **Lưu ý khi phát triển:**
 
@@ -680,7 +722,7 @@ sinh ra từ nó bằng `npm run db:sql`):
 |---|---|---|
 | `config/env.ts` | **Nơi duy nhất đọc `process.env` ở server**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng |
 | `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` tính bằng đúng hàm mà server dùng để chặn |
-| `config/issue-terms.ts` | **Nguồn duy nhất của giá phát hành WPT**: `WPT_ISSUE_PRICE_VND` (MC-01) | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** khác hai tệp trên — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. BE-04 đưa giá vào CSDL thì hằng số này thành giá mặc định |
+| `config/issue-terms.ts` | **Nguồn duy nhất của điều khoản phát hành**: `WPT_ISSUE_PRICE_VND`, `WPT_TOTAL_SUPPLY`, `WPT_PRICE_CHANGE_THRESHOLD`, `CONFIG_KEYS`, `WPT_TOKEN_SYMBOL` | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. ⚠️ Từ BE-04 ba hằng số này là **giá trị MẶC ĐỊNH KHI CHƯA CẤU HÌNH**, không còn là giá trị đang có hiệu lực: đọc giá đang dùng bằng `readIssuePriceVnd()` (3.12) |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
 | `chains/registry.ts` | Map ChainKey → cấu hình viem, tự `defineChain` | Không import `viem/chains` để tránh phình bundle |
 | `chains/chain-store.ts` | Zustand giữ chain đang chọn | Không persist, mặc định `null` chống hydration mismatch |
@@ -881,34 +923,40 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**10 điểm cắm · 11 điểm chặn**, nhóm theo task đang chờ.
+**14 điểm cắm · 12 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
-| `BE-05` | cắm | `app/src/lib/store/index.ts:132` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
-| `BE-06` | chặn | `app/src/lib/ledger/evm.adapter.ts:520` | thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy |
-| `BE-06` | cắm | `app/src/lib/store/index.ts:122` | cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi |
+| `BE-05` | cắm | `app/src/lib/store/index.ts:159` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-06` | chặn | `app/src/lib/ledger/evm.adapter.ts:533` | thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy |
+| `BE-06` | cắm | `app/src/lib/store/index.ts:149` | cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi |
 | `BE-07` | cắm | `app/src/lib/bank/purchase.service.ts:806` | đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch |
-| `BE-07` | cắm | `app/src/lib/store/index.ts:142` | cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới |
+| `BE-07` | cắm | `app/src/lib/store/index.ts:169` | cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới |
 | `FE-05` | cắm | `app/src/app/actions/purchase.ts:33` | đã sẵn đầu cuối ở `previewPurchase`: kiểm quyền `order:place`, báo giá, chạy ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy, trả `canPlaceOrder` + `blockers` + `howToFix` cho từng phép kiểm. Màn mua WPT chỉ cần gọi và hiển thị. FE-05 PHẢI chống gọi dồn: hàm này gọi được sau mỗi ký tự người dùng gõ vào ô số lượng, nên màn hình phải hoãn lời gọi và bỏ phản hồi đã cũ — service KHÔNG có bộ nhớ đệm, và cũng không nên có |
 | `FE-05` | cắm | `app/src/app/actions/purchase.ts:41` | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), kiểm điều kiện trước khi tạo bản ghi, CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result` |
 | `FE-05` | cắm | `app/src/lib/bank/purchase.service.ts:125` | đã sẵn đầu cuối: validate Zod dùng chung schema với đặt lệnh, kiểm quyền qua RBAC, báo giá qua ILedgerPort, và ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy. FE-05 chỉ cần gọi rồi hiển thị `blockers` và `howToFix`, KHÔNG viết lại phép kiểm nào ở client, và PHẢI chống gọi dồn khi người dùng gõ số lượng vì mỗi ký tự là một lời gọi |
 | `FE-05` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-06` | cắm | `app/src/app/actions/purchase.ts:49` | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai BANK_ADMIN), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận |
 | `FE-06` | cắm | `app/src/app/actions/purchase.ts:57` | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình |
+| `FE-07` | cắm | `app/src/app/actions/bank.ts:38` | đã sẵn đầu cuối ở `issueInitialSupply`: đọc tổng cung từ bảng dự án (KHÔNG nhận từ input, nên màn hình không có ô số lượng và không được thêm), kiểm quyền `token:mint`, chặn phát hành lần hai ở CẢ cơ sở dữ liệu lẫn chuỗi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành bằng khoá lạc quan, đọc lại tổng cung từ chuỗi. Màn phát hành chỉ cần ô ví SPV và một nút |
+| `FE-07` | cắm | `app/src/app/actions/bank.ts:46` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG con số dự kiến trong bảng dự án và tổng cung thật trên chuỗi, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
+| `FE-07` | cắm | `app/src/app/actions/config.ts:18` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
+| `FE-07` | cắm | `app/src/app/actions/config.ts:25` | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư |
 | `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:375` | thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu" |
 | `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:381` | thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật |
 | `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:392` | thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ |
 | `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:401` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:419` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:425` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:538` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:544` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:549` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:555` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:413` | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:432` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:438` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:551` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:557` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:562` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:568` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
+- `issue` — 9 bước → `docs/flows/issue.md`
 - `purchase` — 12 bước → `docs/flows/purchase.md`
 
 <!-- END:diem-cam -->
@@ -965,21 +1013,99 @@ Ba ký hiệu trạng thái **cố định**, và script nhận dòng bảng đ�
 3. Quy ước đặt tên checkpoint mới (ngoài `CHECKPOINT_<MÃ>.md` và `CHECKPOINT_<MÃ>_<hậu tố>.md`) →
    sửa `resolveTaskFiles`. Khi nhiều tệp cùng khớp một mã task thì script **dừng**, không tự chọn.
 
+## 3.12. Giá phát hành cấu hình được (BE-04)
+
+Giá phát hành WPT tồn tại ở **HAI nơi**, và đó là sự thật phải hiểu trước khi sửa bất cứ gì trong
+mục này:
+
+| Nơi | Ai đọc | Dùng để |
+|---|---|---|
+| Cơ sở dữ liệu (`SystemConfig`) | `readIssuePriceVnd()`, `getIssuePrice()` | **HIỂN THỊ** cho nhà đầu tư |
+| Ledger (`state().wptPriceVnd` ở mock, contract khớp lệnh ở chuỗi thật) | `quotePurchase`, `executePurchase` | **TRỪ TIỀN** |
+
+Hai con số lệch nhau thì nhà đầu tư **thấy một giá và bị trừ theo giá khác**, và không phép kiểm
+nào ở tầng nghiệp vụ bắt được — cả hai đều đúng so với nguồn của chúng. Đây là rủi ro chính của
+BE-04, nên ba cơ chế dưới đây tồn tại chỉ để chặn nó.
+
+**1. Thứ tự trong `setIssuePrice`: đẩy xuống ledger TRƯỚC, ghi cơ sở dữ liệu SAU.**
+
+```
+validate Zod
+  → assertCanConfigure(role)          hai lớp: treasury:manage RỒI isConfig
+  → kiểm ngưỡng đổi giá               (trước khi chạm ledger)
+  → ledger.setPurchasePrice(giá mới)  ★ BƯỚC 1 — thất bại thì CSDL không đổi gì
+  → configStore.setConfig(...)        ★ BƯỚC 2 — giá + dòng lịch sử, nguyên khối
+       └─ thất bại → ledger.setPurchasePrice(giá CŨ)   hoàn nguyên
+```
+
+Không có transaction nào bao được cả một lời gọi on-chain và một câu lệnh SQL, nên việc duy nhất
+làm được là **chọn thứ tự mà hỏng giữa đường vẫn để lại trạng thái giải thích được**. Thứ tự ngược
+lại cho ra trạng thái tệ hơn cả lúc chưa có `setPurchasePrice`: người dùng nhận thông báo thất bại
+và tin rằng không có gì đã đổi, trong khi ledger đã bán theo giá mới.
+
+⚠️ Ca kiểm giữ thứ tự này là **`test/config-service.test.ts` đột biến 1**. Mọi ca đường thuận vẫn
+xanh nếu ai đảo thứ tự — hai nguồn vẫn khớp khi không có lỗi. Đừng xoá ca đó.
+
+**2. Ngưỡng đổi giá là HỆ SỐ, và phép so dùng phép NHÂN.**
+
+`WPT_PRICE_CHANGE_THRESHOLD = 2`: giá mới quá gấp đôi hoặc dưới một nửa giá đang có hiệu lực thì bị
+từ chối, trừ khi người gọi truyền `confirmLargeChange: true`. Ngưỡng này **không** nhằm chặn biến
+động (giá phát hành không dao động theo thị trường) mà nhằm chặn **lỗi đánh máy** — thừa hoặc thiếu
+một chữ số 0.
+
+So bằng phép nhân, **không** phép chia: `priceVnd` và giá cũ là `bigint`, và chia `bigint` lấy phần
+nguyên nên `150000n / 100000n === 1n` — mọi mức lệch dưới hai lần bị làm tròn thành "không lệch", và
+phép kiểm mất tác dụng ở đúng vùng nó cần đo.
+
+**3. Ledger mô phỏng nạp giá từ cấu hình, và việc đó nằm ở FACTORY.**
+
+State của mock nằm trên `globalThis` nên mất khi tiến trình khởi động lại, còn giá đã cấu hình thì
+nằm trong cơ sở dữ liệu và vẫn còn. Không nạp lại thì sau restart mock khớp lệnh theo **giá mặc
+định** trong khi màn hình hiện giá đã cấu hình.
+
+`getLedger(chain)` truyền `readInitialPrice: readIssuePriceVnd` vào `createMockLedger`. Đặt ở factory
+chứ không trong `mock.adapter.ts` vì mock là **tầng cổng**: cho nó nhập `lib/store` là để tầng cổng
+phụ thuộc tầng lưu trữ, và khi đó `createMockLedger` không dựng được trong test mà không có cơ sở dữ
+liệu. Truyền **hàm** chứ không giá trị vì `getLedger` là hàm đồng bộ và đang được gọi ở hàng chục chỗ.
+
+Mock nạp **một lần cho mỗi vòng đời state** (cờ `priceHydrated`), không đọc lại mỗi lần gọi: đọc lại
+sẽ biến cơ sở dữ liệu thành nguồn giá thứ hai bên cạnh `state().wptPriceVnd`, và khi đó
+`setPurchasePrice` mất tác dụng — đúng thứ mà bước 1 ở trên dựa vào.
+
+**Lưu ý khi phát triển:**
+
+- **`WPT_ISSUE_PRICE_VND` không còn là giá đang có hiệu lực.** Nó là giá mặc định khi bảng trống.
+  Dùng nó để hiển thị là hiển thị sai ngay sau lần đổi giá đầu tiên.
+- **Không đệm giá xuyên yêu cầu.** `readIssuePriceVnd()` cố ý không có lớp đệm: đổi giá phải có hiệu
+  lực ở yêu cầu tiếp theo.
+- **`vndAmount` của lệnh đã đặt KHÔNG tính lại theo giá mới.** Nhà đầu tư trả đúng giá đã thấy lúc
+  bấm; ca kiểm là `test/config-service.test.ts` ca 3.
+- **Trong test, đừng gõ lại con số giá.** Đọc từ `WPT_ISSUE_PRICE_VND` rồi suy ra. Ca 5 của BE-04
+  (đổi giá mặc định, toàn bộ test vẫn xanh) đã bắt được **5 chỗ** gõ cứng mà mắt thường không thấy —
+  trong đó ba ca dùng một số tuyệt đối làm "thiếu tiền", và ở giá nhỏ nó thành **dư** tiền nên tình
+  huống mà ca kiểm cần dựng đã bốc hơi.
+
 ---
 
 # PHẦN 4. BẢN ĐỒ LUỒNG
 
-## 4.1. Luồng MINT (đã hoàn thành — P1)
+## 4.1. Luồng MINT LẺ (đã hoàn thành — P1)
 
-**Hai lối vào, một điểm hội tụ:** UI dùng Server Action, demo runner và e2e dùng `POST /api/mint`. Cả hai gọi cùng `mintTokens()` nên guard không thể bị bỏ sót.
+⚠️ **Đây là ĐƯỜNG NỀN CHO BẢN TRÌNH DIỄN, không phải luồng phát hành chính.** Nó mint thẳng cho
+từng ví nên làm **phình tổng cung** mỗi lần gọi — thứ mà mô hình đã chốt cấm. Luồng chính là phát
+hành một lần vào ví SPV, xem **4.3**. Giữ lại vì đây là đường ngắn nhất để trình diễn "ví có token"
+mà không cần dựng trước ví SPV, VNDB và uỷ quyền. BE-04 đổi tên hàm từ `mintTokens` thành
+`mintToInvestorDirect` chính là để cái tên nói ra điều đó.
+
+**Hai lối vào, một điểm hội tụ:** UI dùng Server Action, demo runner và e2e dùng `POST /api/mint`. Cả hai gọi cùng `mintToInvestorDirect()` nên guard không thể bị bỏ sót.
 
 ```
 components/pages/mint.tsx
    └─ mintAction() ──→ app/actions/bank.ts        (hoặc app/api/mint/route.ts)
-         └─────────────→ lib/bank/mint.service.ts :: mintTokens()
+         └─────────────→ lib/bank/mint.service.ts :: mintToInvestorDirect()
 ```
 
-**Bên trong `mintTokens()`:**
+**Bên trong `mintToInvestorDirect()`:**
 
 | Bước | File / hàm | Việc |
 |---|---|---|
@@ -1185,7 +1311,56 @@ nhau vì **thời gian**. Đó là giới hạn thật của mọi màn hình xe
 
 ---
 
-## 4.3. Luồng REDEEM — hoàn vốn (P2, chưa xây)
+## 4.3. Luồng PHÁT HÀNH NGUỒN CUNG (đã hoàn thành — BE-04)
+
+> **Sơ đồ sinh tự động từ marker `@flow`: `docs/flows/issue.md` (9 bước).** Đừng sửa tay tệp đó —
+> sửa marker trong mã rồi chạy `node scripts/gen-flow-diagram.mjs issue`.
+
+**Nghiệp vụ:** phát hành **MỘT LẦN** toàn bộ nguồn cung WPT vào **ví thanh toán SPV**. Sau lần này,
+WPT đến tay nhà đầu tư qua `executeOrder` (chuyển từ ví SPV) — **không mint thêm**.
+
+```
+app/actions/bank.ts :: issueInitialSupplyAction()        ← điểm cắm, chờ FE-07
+   └──→ lib/bank/issuance.service.ts :: issueInitialSupply()
+```
+
+**Bên trong `issueInitialSupply()`:**
+
+| Bước | Việc | Chặn ở đâu |
+|---|---|---|
+| 1 | `issueInitialSupplySchema.safeParse` | Ví SPV sai dạng → `VALIDATION`. **Không có trường số lượng** trong schema |
+| 2 | `authorize('token:mint', ...)` | Vai không có quyền → `FORBIDDEN`, ghi audit `DENIED` |
+| 3 | `projectStore.findProject({tokenSymbol, chain})` | Chưa có dự án trên chuỗi đang chọn → `VALIDATION` |
+| 4 | `project.issuedAt !== null` | Đã phát hành → `ORDER_STATE`, **không gửi giao dịch** |
+| 5 | `ledger.isInitialSupplyMinted()` | Chuỗi đã phát hành mà bảng chưa ghi mốc → `ORDER_STATE`, **đòi đối soát** |
+| 6 | `ledger.mintInitialSupply(spvWallet, amount)` | `amount` = `project.totalSupply` |
+| 7 | `store.saveTxn(...)` trạng thái chờ | **Trước** khi đợi biên nhận |
+| 8 | `ledger.waitReceipt(...)` + `updateTxnStatus` | `FAILED` → `LEDGER`, **không** ghi `issuedAt` |
+| 9 | `projectStore.markIssued(...)` | Khoá lạc quan; trả `null` → `ORDER_STATE` + audit `FAILURE` |
+| 10 | `ledger.tokenInfo()` | Đọc lại tổng cung **từ chuỗi** làm sự thật cuối cùng |
+
+**Ai ký:** ví ngân hàng (`getBankSigner(chain)`). Trên chuỗi `mock` không có gì để ký, nên
+`actorAddress` của dòng giao dịch để `null` thay vì làm cả lượt phát hành thất bại — địa chỉ đó là
+**dữ liệu đối soát**, không phải đầu vào của phép kiểm quyền nào.
+
+**Hai chốt chặn quan trọng nhất:**
+
+1. **Tổng cung KHÔNG đến từ input.** `issueInitialSupplySchema` cố ý không có trường số lượng; nhận
+   nó từ input nghĩa là ai gọi được server action cũng đặt được quy mô phát hành của cả dự án. Ca
+   kiểm: `test/issuance-service.test.ts` — truyền thêm `amount: '999'` phải bị **bỏ qua**.
+2. **Chống phát hành hai lần bằng khoá lạc quan, không bằng "đọc rồi ghi".** Điều kiện
+   `status = 'DRAFT' AND issuedAt IS NULL` nằm **trong** câu `UPDATE` của `markIssued`. Đọc `issuedAt`
+   rồi mới ghi thì hai lời gọi đồng thời đều thấy `null`, đều kết luận "chưa phát hành", rồi cùng gửi
+   giao dịch mint — **nguồn cung ra gấp đôi con số đã công bố**, và không sửa được vì token đã ở trong
+   ví người khác.
+
+**Nợ đã biết của luồng này:** `evm.adapter` chưa nối được ba method `mintInitialSupply`,
+`isInitialSupplyMinted`, `spvWallet` — chờ **SC-02** (contract phát hành một lần). Trên chuỗi thật
+luồng này chưa chạy; trên `mock` đã chạy đầu cuối. Xem bảng điểm cắm ở 3.10.
+
+---
+
+## 4.4. Luồng REDEEM — hoàn vốn (P2, chưa xây)
 
 **Nghiệp vụ:** nhà đầu tư trả lại **WPT**, nhận về **VNDB** theo tỷ giá. WPT bị **đốt**, tổng cung giảm.
 
@@ -1223,7 +1398,7 @@ components/pages/redeem.tsx  (kênh (client))
 
 ---
 
-## 4.4. Luồng DISTRIBUTION — chia lợi tức (P3, chưa xây)
+## 4.5. Luồng DISTRIBUTION — chia lợi tức (P3, chưa xây)
 
 **Nghiệp vụ:** cuối kỳ, sản lượng điện được chốt → tính lợi nhuận phân phối → chụp snapshot số dư WPT → nhà đầu tư nhận VNDB theo tỷ lệ nắm giữ **tại thời điểm chốt**.
 
@@ -1276,7 +1451,7 @@ Tiền chưa nhận sau `claimWindow` có thể thu hồi bằng `sweepDust(id, 
 
 ---
 
-## 4.5. Chu kỳ nghiệp vụ đầy đủ
+## 4.6. Chu kỳ nghiệp vụ đầy đủ
 
 Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đã chạy được ở tầng contract:
 
@@ -1294,7 +1469,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 
 ---
 
-## 4.6. Lộ trình phase
+## 4.7. Lộ trình phase
 
 | Phase | Nội dung | Trạng thái |
 |---|---|---|

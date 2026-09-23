@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CHAIN_KEYS } from '@bidv/shared';
+import { WPT_TOKEN_SYMBOL } from '@/lib/config/issue-terms';
 import { ORDER_STATUSES } from './purchase.state';
 
 /**
@@ -58,6 +59,25 @@ export const mintSchema = z.object({
 });
 /** `z.input` để form dùng amount dạng chuỗi; server nhận được bigint sau parse. */
 export type MintInput = z.input<typeof mintSchema>;
+
+/**
+ * Phát hành nguồn cung ban đầu (BE-04).
+ *
+ * ⚠️ KHÔNG có trường số lượng, và đó là chốt chặn chính của schema này. Tổng cung đọc từ
+ * `Project.totalSupply`; nhận nó từ input nghĩa là ai gọi được server action cũng đặt được quy mô
+ * phát hành của cả dự án. Một `amount` optional ở đây cũng không được: optional thì vẫn có đường
+ * truyền vào.
+ *
+ * `tokenSymbol` mặc định là token duy nhất của PoC, để lời gọi thường không phải truyền. Nhận
+ * tham số để về sau có dự án thứ hai thì không phải đổi chữ ký.
+ */
+export const issueInitialSupplySchema = z.object({
+  chain: chainSchema,
+  /** Ví thanh toán SPV — nơi giữ toàn bộ WPT chưa bán. */
+  spvWallet: walletSchema,
+  tokenSymbol: z.string().trim().min(1).max(20).default(WPT_TOKEN_SYMBOL),
+});
+export type IssueInitialSupplyInput = z.input<typeof issueInitialSupplySchema>;
 
 export const balanceQuerySchema = z.object({
   chain: chainSchema,

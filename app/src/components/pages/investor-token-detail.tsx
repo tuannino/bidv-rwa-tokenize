@@ -176,7 +176,7 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
                   </Row>
                   <Row label="Giá phát hành">
                     <span className="font-mono">
-                      {fresh.data.issuePriceVnd.toLocaleString('vi-VN')} ₫
+                      {nfBig(fresh.data.issuePriceVnd)} ₫
                     </span>
                   </Row>
                 </>

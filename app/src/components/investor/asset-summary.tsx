@@ -123,7 +123,7 @@ export function AssetSummary() {
                 không có giá giao dịch. Trình bày như định giá là sai bản chất.
               */}
               <p className="text-xs text-muted-foreground">
-                Quy đổi theo giá phát hành {data.issuePriceVnd.toLocaleString('vi-VN')} ₫/
+                Quy đổi theo giá phát hành {nf(data.issuePriceVnd)} ₫/
                 {data.token.symbol}. Chưa có thị trường thứ cấp nên đây không phải giá giao dịch.
               </p>
             </div>

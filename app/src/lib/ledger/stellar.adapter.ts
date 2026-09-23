@@ -81,6 +81,9 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async quotePurchase(): Promise<bigint> {
       return todoNeeds('quotePurchase', 'contract khớp lệnh bản Soroban (SC-03)');
     },
+    async setPurchasePrice(): Promise<TxResult> {
+      return todoNeeds('setPurchasePrice', 'contract khớp lệnh bản Soroban (SC-03)');
+    },
     async paymentBalanceOf(): Promise<bigint> {
       return todoNeeds('paymentBalanceOf', 'địa chỉ token thanh toán VNDB trên Stellar');
     },

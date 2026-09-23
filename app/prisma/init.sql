@@ -153,8 +153,49 @@ CREATE TABLE "Role" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
+    "isConfig" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Role_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SystemConfig" (
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "updatedBy" TEXT NOT NULL,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "SystemConfig_pkey" PRIMARY KEY ("key")
+);
+
+-- CreateTable
+CREATE TABLE "SystemConfigHistory" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "oldValue" TEXT,
+    "newValue" TEXT NOT NULL,
+    "changedBy" TEXT NOT NULL,
+    "reason" TEXT,
+    "changedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SystemConfigHistory_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Project" (
+    "id" TEXT NOT NULL,
+    "tokenSymbol" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "totalSupply" DECIMAL(78,0) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'DRAFT',
+    "chain" TEXT NOT NULL,
+    "contractAddress" TEXT,
+    "issuedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -244,6 +285,15 @@ CREATE UNIQUE INDEX "Investor_wallet_key" ON "Investor"("wallet");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
+
+-- CreateIndex
+CREATE INDEX "SystemConfigHistory_key_changedAt_idx" ON "SystemConfigHistory"("key", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "Project_chain_status_idx" ON "Project"("chain", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Project_tokenSymbol_chain_key" ON "Project"("tokenSymbol", "chain");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");

@@ -6,19 +6,27 @@ import { resetServerEnvCache } from '@/lib/config/env';
 import {
   createMemoryDistributionStore,
 } from '@/lib/store/memory.distribution.store';
+import { createMemoryConfigStore } from '@/lib/store/memory.config.store';
 import { createMemoryKeeperStore } from '@/lib/store/memory.keeper.store';
 import { createMemoryOrderStore } from '@/lib/store/memory.order.store';
+import { createMemoryProjectStore } from '@/lib/store/memory.project.store';
 import { createMemorySettlementStore } from '@/lib/store/memory.settlement.store';
 import { resetMemoryStores } from '@/lib/store/memory.state';
+import { createPostgresConfigStore } from '@/lib/store/postgres.config.store';
 import { createPostgresDistributionStore } from '@/lib/store/postgres.distribution.store';
 import { createPostgresKeeperStore } from '@/lib/store/postgres.keeper.store';
 import { createPostgresOrderStore } from '@/lib/store/postgres.order.store';
 import type { PgQuery } from '@/lib/store/postgres.pool';
+import { createPostgresProjectStore } from '@/lib/store/postgres.project.store';
 import { createPostgresSettlementStore } from '@/lib/store/postgres.settlement.store';
+import type { IConfigStore } from '@/lib/store/config.store.port';
 import type { IDistributionStore } from '@/lib/store/distribution.store.port';
 import type { IKeeperStore } from '@/lib/store/keeper.store.port';
 import type { IOrderStore } from '@/lib/store/order.store.port';
+import type { IProjectStore } from '@/lib/store/project.store.port';
 import type { ISettlementStore } from '@/lib/store/settlement.store.port';
+import { CONFIG_KEYS, WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
+import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import {
   FOREIGN_KEYS,
   ForeignKeyError,
@@ -70,6 +78,8 @@ const NEW_TABLES = [
 
 /** Bảng cũ — R5.1 nói KHÔNG được sửa hay xoá cột nào của chúng. */
 const OLD_TABLES = ['Txn', 'AuditLog', 'Investor', 'Role', 'Permission', 'RolePermission'] as const;
+/** Ba bảng BE-04 thêm vào. */
+const BE04_TABLES = ['SystemConfig', 'SystemConfigHistory', 'Project'] as const;
 
 /** Khối `CREATE TABLE "X" ( ... )` trong init.sql. */
 function tableBlock(table: string): string {
@@ -179,6 +189,76 @@ describe('lớp 1 — init.sql thật sự mang các ràng buộc duy nhất', (
 });
 
 // ===========================================================================
+//  LỚP 1b — BA BẢNG BE-04 VÀ CỘT Role.isConfig
+// ===========================================================================
+//  Cùng ba phép kiểm đã áp cho bảng BE-09 (bảng tồn tại, cột thời gian mang timezone, cột số
+//  tiền đủ dải uint256), vì ba bảng mới gặp đúng những cái bẫy đó. Không gộp vào `NEW_TABLES`
+//  của BE-09: chiều nghịch ở trên lọc theo danh sách ấy để bảo đảm "mọi chỉ mục duy nhất của
+//  bảng BE-09 đã khai trong mã", và trộn bảng của hai task vào một danh sách làm câu phát biểu
+//  đó mất nghĩa.
+describe('lớp 1b — init.sql mang ba bảng BE-04 và cột Role.isConfig', () => {
+  it('ba bảng BE-04 đều được tạo', () => {
+    for (const table of BE04_TABLES) {
+      expect(INIT_SQL).toContain(`CREATE TABLE "${table}" (`);
+    }
+  });
+
+  /**
+   * Cột `isConfig` là LỚP THỨ HAI của việc đổi tham số hệ thống.
+   *
+   * Mặc định phải là `false` (nguyên tắc đóng): `DEFAULT true` nghĩa là vai mới thêm vào tự
+   * nhiên đổi được giá bán, và không ai phải ra quyết định đó một cách tường minh.
+   */
+  it('Role.isConfig là BOOLEAN mặc định false', () => {
+    expect(tableBlock('Role')).toContain('"isConfig" BOOLEAN NOT NULL DEFAULT false');
+  });
+
+  it('mọi cột thời gian của bảng BE-04 là TIMESTAMPTZ(3)', () => {
+    for (const table of BE04_TABLES) {
+      const block = tableBlock(table);
+      const timeColumns = [...block.matchAll(/"(\w+)" TIMESTAMP\w*\(3\)/g)];
+      expect(timeColumns.length, `${table} phải có cột thời gian`).toBeGreaterThan(0);
+      expect(block).not.toMatch(/TIMESTAMP\(3\)/);
+    }
+  });
+
+  /**
+   * `Project.totalSupply` là uint256 — 20 triệu vừa `int8`, nhưng tổng cung của một đợt phát
+   * hành khác có thể dùng token có `decimals = 18` và khi đó con số vượt tầm ngay.
+   */
+  it('Project.totalSupply là DECIMAL(78,0)', () => {
+    expect(tableBlock('Project')).toContain('"totalSupply" DECIMAL(78,0)');
+  });
+
+  /**
+   * `SystemConfig.value` là TEXT, KHÔNG phải cột số.
+   *
+   * Cố ý kiểm: đổi nó thành `DECIMAL`/`INTEGER` sẽ chạy được với giá phát hành rồi vỡ ở tham số
+   * đầu tiên không phải số — mà `price_change_threshold` đã là hệ số, và tham số bật/tắt thì
+   * chắc chắn tới.
+   */
+  it('SystemConfig.value là TEXT để mang được mọi kiểu tham số', () => {
+    const block = tableBlock('SystemConfig');
+    expect(block).toContain('"value" TEXT NOT NULL');
+    expect(block).toContain('"type" TEXT NOT NULL');
+  });
+
+  /**
+   * `oldValue` phải cho phép NULL: lần đặt ĐẦU TIÊN cho một khoá không có giá trị cũ, và ghi
+   * `''` hay `'0'` vào đó là bịa ra một giá trị chưa từng có hiệu lực.
+   */
+  it('SystemConfigHistory.oldValue cho phép NULL', () => {
+    const block = tableBlock('SystemConfigHistory');
+    expect(block).toMatch(/"oldValue" TEXT,/);
+    expect(block).toContain('"newValue" TEXT NOT NULL');
+  });
+
+  it('lịch sử tham số có chỉ mục theo khoá và thời điểm', () => {
+    expect(INIT_SQL).toContain('ON "SystemConfigHistory"("key", "changedAt")');
+  });
+});
+
+// ===========================================================================
 //  LỚP 2 — HÀNH VI, CHẠY TRÊN MỌI BẢN CÓ SẴN
 // ===========================================================================
 
@@ -187,6 +267,8 @@ interface Backend {
   distribution: IDistributionStore;
   settlement: ISettlementStore;
   keeper: IKeeperStore;
+  config: IConfigStore;
+  projects: IProjectStore;
   /** Dọn trước mỗi ca kiểm. Bản Postgres không xoá dữ liệu, chỉ dùng khoá riêng mỗi ca. */
   reset: () => void;
 }
@@ -197,6 +279,8 @@ function memoryBackend(): Backend {
     distribution: createMemoryDistributionStore(),
     settlement: createMemorySettlementStore(),
     keeper: createMemoryKeeperStore(),
+    config: createMemoryConfigStore(),
+    projects: createMemoryProjectStore(),
     reset: resetMemoryStores,
   };
 }
@@ -217,6 +301,8 @@ function postgresBackend(): Backend {
     distribution: createPostgresDistributionStore(),
     settlement: createPostgresSettlementStore(),
     keeper: createPostgresKeeperStore(),
+    config: createPostgresConfigStore(),
+    projects: createPostgresProjectStore(),
     // Không TRUNCATE: đây có thể là cơ sở dữ liệu demo của Owner. Mỗi ca kiểm tự dùng
     // khoá riêng (uuid) nên không đụng dữ liệu cũ và chạy lại được nhiều lần.
     reset: () => {},
@@ -530,15 +616,24 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
     };
 
     it('hai lệnh không dùng chung một mã giao dịch (R1.4)', async () => {
+      /**
+       * Mã giao dịch phải DUY NHẤT MỖI LẦN CHẠY, không phải một chuỗi cố định.
+       *
+       * Bản Postgres cố ý không `TRUNCATE` (đây có thể là cơ sở dữ liệu demo của Owner), nên một
+       * chuỗi cố định sẽ do dòng của LẦN CHẠY TRƯỚC chiếm giữ: lần chạy thứ hai trượt ngay ở lời
+       * gọi THỨ NHẤT, và thông báo lỗi trông y như thể ràng buộc duy nhất đang hỏng. Phát hiện ở
+       * BE-04 khi chạy hai lượt trên cùng một cơ sở dữ liệu thật.
+       */
+      const sharedTxHash = `0xtrung-${randomUUID()}`;
       const first = await store.orders.createOrder(newOrder());
       const second = await store.orders.createOrder(newOrder());
       await toExecuting(first.id);
       await toExecuting(second.id);
 
-      await store.orders.attachOrderTxHash({ id: first.id, txHash: '0xtrung' });
+      await store.orders.attachOrderTxHash({ id: first.id, txHash: sharedTxHash });
 
       await expect(
-        store.orders.attachOrderTxHash({ id: second.id, txHash: '0xtrung' }),
+        store.orders.attachOrderTxHash({ id: second.id, txHash: sharedTxHash }),
       ).rejects.toMatchObject({
         name: 'UniqueConstraintError',
         table: 'PurchaseOrder',
@@ -587,6 +682,173 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
 
       expect(first?.status).toBe('CHECKING');
       expect(second).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  //  BE-04 — tham số hệ thống: mọi lần ghi phải kèm một dòng lịch sử
+  // -------------------------------------------------------------------------
+  describe('tham số hệ thống', () => {
+    it('dữ liệu khởi tạo có giá phát hành và ngưỡng đổi giá', async () => {
+      const price = await store.config.getConfig(CONFIG_KEYS.issuePriceVnd);
+      const threshold = await store.config.getConfig(CONFIG_KEYS.priceChangeThreshold);
+
+      // Không so với một con số gõ tay: con số nằm ở `lib/config/issue-terms.ts` và ca kiểm này
+      // chỉ khẳng định "dòng khởi tạo có mặt, kiểu đọc được".
+      expect(price?.type).toBe('bigint');
+      expect(BigInt(price!.value)).toBeGreaterThan(0n);
+      expect(threshold?.type).toBe('number');
+      expect(Number(threshold!.value)).toBeGreaterThan(1);
+    });
+
+    it('khoá chưa cấu hình trả null, KHÔNG phải lỗi', async () => {
+      expect(await store.config.getConfig(`khong.ton.tai.${randomUUID()}`)).toBeNull();
+    });
+
+    /**
+     * Đây là phát biểu chính của cổng này: một lần ghi = một giá trị mới + một dòng lịch sử.
+     * Thiếu dòng lịch sử thì sổ kiểm toán mất đúng lần đổi giá vừa xảy ra.
+     */
+    it('ghi giá trị mới kèm MỘT dòng lịch sử, giữ được giá trị cũ', async () => {
+      const key = `test.gia.${randomUUID()}`;
+
+      await store.config.setConfig({ key, value: '100', type: 'bigint', changedBy: 'BANK_ADMIN' });
+      await store.config.setConfig({
+        key,
+        value: '250',
+        type: 'bigint',
+        changedBy: 'BANK_ADMIN',
+        reason: 'điều chỉnh đợt hai',
+      });
+
+      expect((await store.config.getConfig(key))?.value).toBe('250');
+
+      const history = await store.config.listConfigHistory({ key });
+      expect(history).toHaveLength(2);
+
+      /**
+       * Tra theo NỘI DUNG, không theo VỊ TRÍ trong danh sách.
+       *
+       * Hai lần ghi liền nhau có thể trùng mốc thời gian tới từng phần nghìn giây, và khi trùng
+       * thì cả hai bản hiện thực phá thế bằng `id` — một uuid ngẫu nhiên, không phải thứ tự chèn.
+       * Ca kiểm dựa vào `history[0]` vì vậy đỏ tuỳ lần chạy (đã gặp thật). Thứ cần khẳng định ở
+       * đây là "mỗi lần ghi có đúng một dòng, và dòng đó mang đúng giá trị cũ", không phải thứ tự.
+       */
+      const second = history.find((entry) => entry.newValue === '250');
+      const first = history.find((entry) => entry.newValue === '100');
+
+      expect(second).toMatchObject({ oldValue: '100', reason: 'điều chỉnh đợt hai' });
+      // Lần ĐẦU cho một khoá thì không có giá trị cũ — `null`, không phải '' hay '0'.
+      expect(first).toMatchObject({ oldValue: null });
+    });
+
+    it('kiểu tham số lạ bị chặn TRƯỚC khi ghi gì', async () => {
+      const key = `test.kieu.${randomUUID()}`;
+      await expect(
+        // @ts-expect-error — giá trị ngoài CONFIG_VALUE_TYPES.
+        store.config.setConfig({ key, value: '1', type: 'chuoi', changedBy: 'BANK_ADMIN' }),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
+
+      expect(await store.config.getConfig(key)).toBeNull();
+      expect(await store.config.listConfigHistory({ key })).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  //  BE-04 — dự án: tổng cung và khoá lạc quan chống phát hành hai lần
+  // -------------------------------------------------------------------------
+  describe('dự án đã token hoá', () => {
+    const newProject = (tokenSymbol: string) => ({
+      tokenSymbol,
+      name: 'Dự án kiểm thử',
+      totalSupply: '1000',
+      chain: 'mock' as const,
+    });
+
+    /**
+     * Dữ liệu khởi tạo phải có dự án trên MỌI chuỗi trong `SEED_PROJECT_CHAINS`, không chỉ trên
+     * chuỗi mặc định. Thiếu một chuỗi nghĩa là `issueInitialSupply` ở chuỗi đó từ chối với lý do
+     * "chưa có dự án", tức là luồng phát hành chết ở một chế độ triển khai.
+     */
+    it.each(SEED_PROJECT_CHAINS)('dữ liệu khởi tạo có dự án WPT ở DRAFT trên chuỗi %s', async (chain) => {
+      const project = await store.projects.findProject({ tokenSymbol: WPT_TOKEN_SYMBOL, chain });
+
+      expect(project, `dữ liệu khởi tạo phải có dự án WPT trên "${chain}"`).not.toBeNull();
+      expect(project?.status).toBe('DRAFT');
+      expect(project?.issuedAt).toBeNull();
+      // Đọc từ nguồn duy nhất, không gõ lại 20.000.000 ở đây.
+      expect(project?.totalSupply).toBe(String(WPT_TOTAL_SUPPLY));
+    });
+
+    it('hai dự án cùng mã token TRÊN CÙNG chuỗi bị chặn bởi ràng buộc duy nhất', async () => {
+      const symbol = `T${randomUUID().slice(0, 6)}`;
+      await store.projects.createProject(newProject(symbol));
+
+      await expect(store.projects.createProject(newProject(symbol))).rejects.toBeInstanceOf(
+        UniqueConstraintError,
+      );
+    });
+
+    /**
+     * Chiều còn lại: cùng mã token trên chuỗi KHÁC thì được phép.
+     *
+     * Ca này là thứ giữ cho khoá duy nhất không bị thu về `tokenSymbol` một mình. Không có nó,
+     * việc bỏ `chain` khỏi khoá vẫn xanh, và triệu chứng chỉ hiện ra khi đổi chuỗi trên giao diện.
+     */
+    it('cùng mã token trên chuỗi KHÁC thì được phép', async () => {
+      const symbol = `T${randomUUID().slice(0, 6)}`;
+      await store.projects.createProject(newProject(symbol));
+
+      const other = await store.projects.createProject({
+        ...newProject(symbol),
+        chain: 'hardhat-local',
+      });
+
+      expect(other.chain).toBe('hardhat-local');
+      expect(other.tokenSymbol).toBe(symbol);
+    });
+
+    /**
+     * Ràng buộc quan trọng nhất của bảng này: phát hành nguồn cung lần thứ hai phải trượt.
+     *
+     * Kiểm qua `markIssued` chứ không qua "đọc rồi ghi": điều kiện nằm trong chính câu UPDATE,
+     * nên hai lời gọi liên tiếp chỉ một lời gọi đổi được — và lời gọi kia nhận `null` để tầng
+     * nghiệp vụ biết phải dừng.
+     */
+    it('markIssued lần hai trả null, không đổi gì thêm', async () => {
+      const symbol = `T${randomUUID().slice(0, 6)}`;
+      const project = await store.projects.createProject(newProject(symbol));
+      const firstAt = new Date().toISOString();
+
+      const issued = await store.projects.markIssued({ id: project.id, issuedAt: firstAt });
+      expect(issued?.status).toBe('ISSUED');
+      expect(issued?.issuedAt).not.toBeNull();
+
+      const again = await store.projects.markIssued({
+        id: project.id,
+        issuedAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+      expect(again, 'lần hai KHÔNG được đổi dòng nào').toBeNull();
+
+      // Mốc phát hành vẫn là mốc của lần ĐẦU.
+      const after = await store.projects.findProject({ tokenSymbol: symbol, chain: 'mock' });
+      expect(after?.issuedAt).toBe(issued?.issuedAt);
+    });
+
+    it('tổng cung sai dạng bị từ chối ở cổng', async () => {
+      await expect(
+        store.projects.createProject({ ...newProject(`T${randomUUID().slice(0, 6)}`), totalSupply: '1.5' }),
+      ).rejects.toBeInstanceOf(StoreUsageError);
+    });
+
+    it('trạng thái dự án lạ bị từ chối', async () => {
+      await expect(
+        store.projects.createProject({
+          ...newProject(`T${randomUUID().slice(0, 6)}`),
+          // @ts-expect-error — giá trị ngoài PROJECT_STATUSES.
+          status: 'DANG_PHAT_HANH',
+        }),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
     });
   });
 

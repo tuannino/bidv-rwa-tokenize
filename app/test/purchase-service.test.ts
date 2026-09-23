@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
 
 /**
@@ -75,8 +76,14 @@ const BOB = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const SPV = '0x90F79bf6EB2c4f870365E785982E1f101E93b906';
 
 const CHAIN = 'mock';
-/** Giá mặc định của adapter mock: 1 WPT = 100.000 VNDB. */
-const PRICE = 100_000n;
+/**
+ * Giá bán mặc định, ĐỌC TỪ NGUỒN DUY NHẤT `lib/config/issue-terms.ts` (BE-04 việc 16).
+ *
+ * Giá ở đây là DỮ LIỆU: các ca dưới nhân nó với số lượng để dựng số dư VNDB và mức uỷ quyền, rồi
+ * đối chiếu `vndAmount` của lệnh. Không ca nào phát biểu "giá phải bằng 100.000", nên gõ lại con
+ * số sẽ làm chúng đỏ khi ngân hàng đổi giá mặc định — đỏ vì một lý do chúng không kiểm.
+ */
+const PRICE = BigInt(WPT_ISSUE_PRICE_VND);
 
 function actAs(role: string) {
   process.env.DEMO_ROLE = role;
@@ -298,13 +305,17 @@ describe('placeOrder', () => {
 
   it('thiếu số dư VNDB thì KHÔNG tạo lệnh', async () => {
     // Đủ ủy quyền nhưng không đủ tiền: tách hai điều kiện để chắc chắn phép kiểm nào chạy.
-    await seedReadyToBuy({ vndb: 99_999n, allowance: 10_000_000n });
+    //
+    // `PRICE - 1n` chứ không phải một con số tuyệt đối: điều ca này dựng là tình huống THIẾU TIỀN,
+    // và một con số cố định chỉ còn thiếu khi giá mặc định đủ lớn. Ở giá nhỏ nó thành DƯ tiền, lúc
+    // đó ca kiểm đỏ vì tình huống nó cần đã bốc hơi — không phải vì mã sai.
+    await seedReadyToBuy({ vndb: PRICE - 1n, allowance: 10_000_000n });
 
     await expectNotPlaced('1', 'INSUFFICIENT_PAYMENT_BALANCE', /Số dư VNDB không đủ/);
   });
 
   it('thiếu ủy quyền VNDB thì KHÔNG tạo lệnh', async () => {
-    await seedReadyToBuy({ vndb: 10_000_000n, allowance: 99_999n });
+    await seedReadyToBuy({ vndb: 10_000_000n, allowance: PRICE - 1n });
 
     await expectNotPlaced('1', 'INSUFFICIENT_ALLOWANCE', /Ủy quyền VNDB không đủ/);
   });
@@ -374,7 +385,10 @@ describe('previewPurchase', () => {
    * không hề tạo lệnh: đây là đường mà FE-05 gọi liên tục trong lúc người dùng gõ.
    */
   it('ca 2a — thiếu số dư VNDB: blockers đúng, có howToFix và actual/required', async () => {
-    await seedReadyToBuy({ vndb: 99_999n, allowance: 10_000_000n });
+    // Thiếu ĐÚNG 1 VNDB so với giá một WPT. Suy từ `PRICE` chứ không gõ `99_999n`: con số tuyệt
+    // đối chỉ thiếu 1 khi giá mặc định còn là 100.000, còn phần thiếu là điều ca này thật sự kiểm.
+    const shortfall = 1n;
+    await seedReadyToBuy({ vndb: PRICE - shortfall, allowance: 10_000_000n });
 
     const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
 
@@ -387,17 +401,17 @@ describe('previewPurchase', () => {
     expect(blocked?.ok).toBe(false);
     if (!blocked || blocked.ok) return;
     expect(blocked.reason).toMatch(/Số dư VNDB không đủ/);
-    expect(blocked.actual).toBe('99999');
+    expect(blocked.actual).toBe((PRICE - shortfall).toString());
     expect(blocked.required).toBe(PRICE.toString());
     // Viết cho cán bộ ngân hàng đọc: không có từ kỹ thuật của ví.
-    expect(blocked.howToFix).toMatch(/Nạp thêm 1 VNDB/);
+    expect(blocked.howToFix).toMatch(new RegExp(`Nạp thêm ${shortfall} VNDB`));
     expect(blocked.howToFix).not.toMatch(/allowance|approve|revert/i);
 
     expect(await getOrderStore().listOrders({})).toHaveLength(0);
   });
 
   it('ca 2b — thiếu ủy quyền VNDB: blockers đúng, không tạo lệnh', async () => {
-    await seedReadyToBuy({ vndb: 10_000_000n, allowance: 99_999n });
+    await seedReadyToBuy({ vndb: 10_000_000n, allowance: PRICE - 1n });
 
     const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
 

@@ -58,6 +58,17 @@ interface MockState {
   // --- Khớp lệnh mua ---
   /** Giá bán 1 WPT tính bằng VNDB. VNDB quy đổi 1:1 với VND nên KHÔNG có tỷ giá. */
   wptPriceVnd: bigint;
+  /**
+   * Giá trong `wptPriceVnd` đã là giá THẬT hay còn là mặc định lúc dựng state (BE-04).
+   *
+   * Cần cờ này vì state của mock nằm trên `globalThis`: nó mất khi tiến trình khởi động lại,
+   * còn giá cán bộ ngân hàng đã đặt thì nằm trong cơ sở dữ liệu và vẫn còn. Không có cờ thì sau
+   * mỗi lần khởi động lại, mock bán theo GIÁ MẶC ĐỊNH trong khi màn hình hiện giá đã cấu hình —
+   * đúng loại lệch mà BE-04 dựng ra để dẹp, chỉ khác là nó chỉ xuất hiện sau khi restart.
+   *
+   * `true` sau khi nạp từ cấu hình, sau `setPurchasePrice`, hoặc sau `seedMockLedger`.
+   */
+  priceHydrated: boolean;
   /** Số dư token thanh toán VNDB. */
   paymentBalances: Map<string, bigint>;
   /** owner -> mức ủy quyền VNDB đã cấp cho hợp đồng khớp lệnh. */
@@ -121,6 +132,7 @@ function state(): MockState {
     spvWallet: undefined,
 
     wptPriceVnd: DEFAULT_WPT_PRICE_VND,
+    priceHydrated: false,
     paymentBalances: new Map(),
     paymentAllowances: new Map(),
 
@@ -172,7 +184,12 @@ export function seedMockLedger(seed: MockLedgerSeed): void {
     s.paymentAllowances.set(addressKey(normalizeEvmAddress(wallet)), amount);
   }
   if (seed.profitPool !== undefined) s.profitPool = seed.profitPool;
-  if (seed.wptPriceVnd !== undefined) s.wptPriceVnd = seed.wptPriceVnd;
+  if (seed.wptPriceVnd !== undefined) {
+    s.wptPriceVnd = seed.wptPriceVnd;
+    // Đặt giá TƯỜNG MINH thì không được để lần nạp từ cấu hình ghi đè lên sau đó: test dựng
+    // sẵn một giá rồi thấy nó đổi thành giá khác là loại lỗi rất khó lần.
+    s.priceHydrated = true;
+  }
 }
 
 function fakeTxHash(): string {
@@ -182,7 +199,25 @@ function fakeTxHash(): string {
   return `0x${s.nonce.toString(16).padStart(64, '0')}`;
 }
 
-export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
+/**
+ * Tuỳ chọn dựng ledger mô phỏng.
+ *
+ * `readInitialPrice` là cách FACTORY `getLedger` nạp giá đã cấu hình vào mock mà mock KHÔNG
+ * phải nhập `lib/store`. Adapter chỉ biết "có một hàm trả về giá"; ai cấp hàm đó, và nó đọc
+ * bảng nào, là việc của factory.
+ *
+ * Vì sao là HÀM chứ không phải một `bigint`: `createMockLedger` là hàm đồng bộ và được gọi ở
+ * mọi chỗ dùng `getLedger()`, còn đọc cơ sở dữ liệu thì bất đồng bộ. Nhận hàm rồi gọi nó LẦN
+ * ĐẦU CẦN GIÁ giữ được `getLedger` đồng bộ, nên không lời gọi nào hiện tại phải sửa.
+ */
+export interface MockLedgerOptions {
+  readInitialPrice?: () => Promise<bigint>;
+}
+
+export function createMockLedger(
+  chain: ChainKey = 'mock',
+  options: MockLedgerOptions = {},
+): ILedgerPort {
   const confirmed = (): TxResult => ({ txHash: fakeTxHash(), status: 'CONFIRMED' });
 
   /**
@@ -236,6 +271,34 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
 
   const allowance = (wallet: string): bigint =>
     state().paymentAllowances.get(addressKey(wallet)) ?? 0n;
+
+  /**
+   * Giá bán một WPT đang có hiệu lực, nạp từ cấu hình ở LẦN ĐẦU cần tới.
+   *
+   * Nạp MỘT LẦN cho mỗi vòng đời state, không đọc lại mỗi lần gọi. Đọc lại mỗi lần sẽ biến cơ
+   * sở dữ liệu thành nguồn giá thứ hai bên cạnh `state().wptPriceVnd`, và khi đó `setPurchasePrice`
+   * mất tác dụng — đúng thứ mà `lib/bank/config.service.ts` dựa vào để bảo đảm "đẩy xuống ledger
+   * thành công mới ghi cơ sở dữ liệu".
+   *
+   * ĐÂY KHÔNG PHẢI ĐỆM XUYÊN YÊU CẦU theo nghĩa bị cấm: mọi lần đổi giá đều đi qua
+   * `setPurchasePrice`, tức là cập nhật chính ô state này ngay lập tức. Lần nạp ở đây chỉ bù
+   * đúng một tình huống: tiến trình vừa khởi động lại nên state mất, còn cơ sở dữ liệu vẫn giữ
+   * giá đã đặt.
+   *
+   * Lỗi khi đọc cấu hình KHÔNG bị chặn lại: giá là con số ra tiền, nên thà để lời gọi thất bại
+   * với lý do rõ còn hơn âm thầm bán theo giá mặc định.
+   */
+  const currentPrice = async (): Promise<bigint> => {
+    const s = state();
+    if (!s.priceHydrated && options.readInitialPrice) {
+      const configured = await options.readInitialPrice();
+      // Kiểm lại ở biên: cấu hình hỏng cho ra giá 0 sẽ biến khớp lệnh thành "mua không mất tiền".
+      assertPositiveAmount(chain, 'readInitialPrice', configured);
+      s.wptPriceVnd = configured;
+      s.priceHydrated = true;
+    }
+    return s.wptPriceVnd;
+  };
 
   /**
    * Lấy ảnh chụp theo mã, từ chối với lý do rõ nếu mã không tồn tại.
@@ -418,7 +481,29 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
     async quotePurchase(wptAmount) {
       assertPositiveAmount(chain, 'quotePurchase', wptAmount);
       // VNDB 1:1 với VND — chỉ nhân, KHÔNG gọi nguồn tỷ giá nào (R2.6).
-      return wptAmount * state().wptPriceVnd;
+      return wptAmount * (await currentPrice());
+    },
+
+    /**
+     * Đặt giá bán một WPT. Đây là thứ `quotePurchase` và `executePurchase` cùng đọc, nên
+     * đổi ở đây là đổi CẢ giá báo và giá trừ tiền — đúng một con số, không có cách nào lệch.
+     *
+     * `assertPositiveAmount` chạy TRƯỚC khi gán: giá 0 hoặc âm bị chặn khi state chưa đổi,
+     * nên một lời gọi sai không để lại "mua không mất tiền".
+     *
+     * KHÔNG chặn theo ngưỡng đổi giá ở đây. Ngưỡng là quy tắc NGHIỆP VỤ và nó cần biết giá
+     * cũ trong cơ sở dữ liệu cùng lời xác nhận của người dùng — adapter không có hai thứ đó.
+     * `lib/bank/config.service.ts` kiểm ngưỡng trước khi gọi xuống.
+     */
+    async setPurchasePrice(pricePerWpt) {
+      assertPositiveAmount(chain, 'setPurchasePrice', pricePerWpt);
+      const s = state();
+      s.wptPriceVnd = pricePerWpt;
+      // Đặt tường minh thắng mọi lần nạp từ cấu hình sau đó: nếu không, một lời gọi đọc giá
+      // ngay sau đây có thể ghi đè giá vừa đặt bằng giá cũ trong bảng — mà thứ tự đúng của
+      // `setIssuePrice` là đẩy xuống ledger TRƯỚC, ghi bảng SAU.
+      s.priceHydrated = true;
+      return confirmed();
     },
 
     async paymentBalanceOf(wallet) {
@@ -439,6 +524,10 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
     async executePurchase(investor, wptAmount) {
       assertPositiveAmount(chain, 'executePurchase', wptAmount);
       requireNotSettling('executePurchase');
+      // Nạp giá TRƯỚC khối kiểm tra, không nằm giữa: `currentPrice()` có thể ghi giá đã cấu
+      // hình vào state ở lần gọi đầu, và một lần ghi state chen vào giữa các phép kiểm sẽ phá
+      // đúng bất biến "mọi kiểm tra trước mọi thay đổi" mà cả hàm này dựa vào.
+      const price = await currentPrice();
       const s = state();
 
       if (!s.initialSupplyMinted || !s.spvWallet) {
@@ -455,7 +544,9 @@ export function createMockLedger(chain: ChainKey = 'mock'): ILedgerPort {
       requireWhitelisted('executePurchase', buyer, 'Nhà đầu tư');
       requireWhitelisted('executePurchase', spv, 'Ví thanh toán SPV');
 
-      const cost = wptAmount * s.wptPriceVnd;
+      // CÙNG một nguồn giá với `quotePurchase`: số báo cho nhà đầu tư và số thật sự bị trừ
+      // không được lấy từ hai chỗ khác nhau.
+      const cost = wptAmount * price;
       if (paymentBalance(buyer) < cost) {
         reject(
           'executePurchase',

@@ -327,7 +327,117 @@ model Role {
   id          String           @id @default(uuid())
   name        String           @unique
   description String?
+  /// BE-04 — vai này được đổi THAM SỐ HỆ THỐNG (giá phát hành, ngưỡng) hay không.
+  ///
+  /// Cột RIÊNG, không phải một dòng `Permission`, và đó là chủ đích: đây là lớp thứ HAI
+  /// độc lập với bảng quyền, cùng mô hình với cờ `ENABLE_DEMO_PAYMENT_MINT` ở
+  /// `lib/rbac/demo-payment.ts`. Khai nó thành một quyền thì nó nằm chung một bảng với
+  /// `treasury:manage`, và một lần gán vai sai sẽ mở CẢ HAI lớp cùng lúc — tức là không
+  /// còn hai lớp nữa.
+  ///
+  /// Mặc định `false` (nguyên tắc đóng): vai mới thêm vào không tự nhiên đổi được giá bán.
+  ///
+  /// ⚠️ Nguồn ĐANG CÓ HIỆU LỰC là bảng trong mã `lib/rbac/config-role.ts`, giống cách
+  /// `ROLE_PERMISSIONS` đang là nguồn thật của `permissions` ở bảng này. Cột này là ĐÍCH
+  /// để AU-02 chuyển sang, khai sớm để lược đồ không phải đổi lần nữa.
+  isConfig    Boolean          @default(false)
   permissions RolePermission[]
+}
+
+// =============================================================================
+//  BE-04 — THAM SỐ HỆ THỐNG VÀ DỰ ÁN
+// =============================================================================
+
+/// Tham số hệ thống cán bộ ngân hàng cấu hình được (giá phát hành, ngưỡng đổi giá).
+///
+/// `key` là khoá chính, KHÔNG phải `id` riêng kèm `@unique` trên `key`: tra cứu luôn
+/// bằng khoá nghiệp vụ, và một `id` uuid thêm vào chỉ tạo khả năng có hai dòng cùng
+/// `key` bị chặn muộn hơn một bước.
+///
+/// `value` lưu dạng `String` cho MỌI kiểu, kèm cột `type` mô tả cách đọc. Vì sao không
+/// mỗi kiểu một cột: giá phát hành là số 78 chữ số (uint256) nên không vừa `Int`, còn
+/// `Decimal(78,0)` thì không lưu được ngưỡng phần trăm hay cờ bật/tắt sau này. Một cột
+/// chuỗi + một cột kiểu là cách duy nhất giữ bảng này mở mà không sinh cột rỗng.
+///
+/// ⚠️ KHÔNG có cột giá trị mặc định. Mặc định nằm ở `lib/config/issue-terms.ts` — mã
+/// nguồn, đi cùng bản triển khai. Lưu mặc định ở đây là tạo nguồn thứ hai, và nó lệch
+/// ngay lần đổi mã đầu tiên mà không ai chạy lại dữ liệu khởi tạo.
+model SystemConfig {
+  key       String   @id
+  value     String
+  /// Cách đọc `value`. Giá trị hợp lệ: CONFIG_VALUE_TYPES ở lib/store/config.store.port.ts
+  type      String
+  /// Vai đã cập nhật lần cuối — phục vụ đối soát trách nhiệm.
+  updatedBy String
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// Mọi lần đổi một tham số hệ thống. CHỈ GHI THÊM, không sửa, không xoá.
+///
+/// Tách khỏi `SystemConfig` vì hai bảng trả lời hai câu hỏi khác nhau: bảng kia trả lời
+/// "giá bây giờ là bao nhiêu" (một dòng một khoá), bảng này trả lời "ai đã đổi giá, từ
+/// bao nhiêu sang bao nhiêu, vì sao" (nhiều dòng một khoá). Gộp lại thì phải chọn một
+/// trong hai và mất câu còn lại.
+///
+/// `oldValue` để `null` được: lần đặt ĐẦU TIÊN cho một khoá thì không có giá trị cũ, và
+/// ghi `"0"` hay `""` vào đó là bịa ra một giá trị chưa từng có hiệu lực.
+model SystemConfigHistory {
+  id        String   @id @default(uuid())
+  key       String
+  oldValue  String?
+  newValue  String
+  /// Vai đã đổi.
+  changedBy String
+  /// Lý do đổi, hiển thị được trong sổ kiểm toán.
+  reason    String?
+  changedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Lịch sử của một tham số, mới nhất trước.
+  @@index([key, changedAt])
+}
+
+/// Dự án điện gió đã token hoá. MỘT dòng cho mỗi token phát hành.
+///
+/// `totalSupply` ở đây là nguồn DUY NHẤT của con số phát hành. Trước BE-04 không nơi nào
+/// trong `app/src` giữ con số này (đã đo: `git grep -nE "20[_.,]?000[_.,]?000" -- app`
+/// không ra kết quả), nên `issueInitialSupply` không có gì để đọc. Viết cứng nó vào mã
+/// sẽ buộc sửa mã + triển khai lại chỉ để đổi quy mô một đợt phát hành.
+///
+/// `issuedAt` là cờ "đã phát hành" ở phía cơ sở dữ liệu, `null` = chưa. Nó KHÔNG thay
+/// `ILedgerPort.isInitialSupplyMinted()` — chuỗi vẫn là nguồn sự thật cuối cùng — nhưng
+/// nó chặn được lần gọi thứ hai TRƯỚC khi tốn một lời gọi mạng, và giữ được mốc thời
+/// gian mà chuỗi không cho đọc lại.
+model Project {
+  id              String    @id @default(uuid())
+  /// Mã token, ví dụ "WPT". Duy nhất theo TỪNG CHAIN — xem `@@unique` ở cuối model.
+  tokenSymbol     String
+  name            String
+  /// Tổng cung phát hành một lần. Decimal thay vì BigInt: uint256 vượt tầm int8.
+  totalSupply     Decimal   @db.Decimal(78, 0)
+  /// Giá trị hợp lệ: PROJECT_STATUSES ở lib/store/project.store.port.ts
+  status          String    @default("DRAFT")
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain           String
+  /// Địa chỉ hợp đồng token; `null` khi chưa deploy trên chuỗi đang chọn.
+  contractAddress String?
+  /// Thời điểm phát hành nguồn cung ban đầu; `null` = chưa phát hành.
+  issuedAt        DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  /// DUY NHẤT theo `(tokenSymbol, chain)`, KHÔNG phải `tokenSymbol` một mình.
+  ///
+  /// Vì sao có `chain` trong khoá: cùng một token tồn tại độc lập trên từng chuỗi, đúng như mọi
+  /// bảng khác trong lược đồ này đều mang cột `chain` (Txn, PurchaseOrder, DistributionPeriod,
+  /// SettlementRound). Giao diện cho đổi chuỗi, và mỗi chuỗi có trạng thái phát hành riêng: đã
+  /// phát hành trên `hardhat-local` không có nghĩa là đã phát hành trên `mock`.
+  ///
+  /// Duy nhất theo `tokenSymbol` một mình thì toàn hệ chỉ có ĐÚNG MỘT dòng WPT, nằm trên một
+  /// chuỗi; mọi chuỗi còn lại tra ra `null` và `issueInitialSupply` từ chối với lý do "chưa có dự
+  /// án" — trong khi dự án rõ ràng có. Đó là bản demo chạy được ở một chế độ triển khai và chết ở
+  /// chế độ kia, đúng thứ steering đòi tránh khi nói một codebase phục vụ cả free-tier lẫn VPS.
+  @@unique([tokenSymbol, chain])
+  @@index([chain, status])
 }
 
 model Permission {
