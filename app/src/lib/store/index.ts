@@ -36,6 +36,12 @@ export {
   assertStatus,
   ForeignKeyError,
   InvalidStatusError,
+  /**
+   * Re-export vì tầng nghiệp vụ PHẢI biết giới hạn này: `createPayouts` ném lỗi khi lô vượt
+   * ngưỡng, nên BE-06 chia lô ghi theo đúng con số ở đây. Buộc nghiệp vụ nhập từ
+   * `store/store.errors` là mời gọi việc gõ lại một hằng số thứ hai cho cùng giới hạn.
+   */
+  MAX_BULK_ROWS,
   type StoreKind,
   StoreUsageError,
   UniqueConstraintError,

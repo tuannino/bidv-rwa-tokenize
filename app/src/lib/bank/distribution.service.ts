@@ -1,12 +1,27 @@
 import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
-import { getLedger, type ILedgerPort } from '@/lib/ledger';
-import { assertCan } from '@/lib/rbac';
+import { getLedger, receiptTimeoutFor, type ILedgerPort } from '@/lib/ledger';
+import { assertCan, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
-import { getDistributionStore, getOrderStore, getStore, UniqueConstraintError } from '@/lib/store';
-import type { DistributionPeriodRecord, IDistributionStore } from '@/lib/store';
-import { readDistributionDustWallet } from '@/lib/store/config-values';
+import {
+  getDistributionStore,
+  getOrderStore,
+  getStore,
+  MAX_BULK_ROWS,
+  UniqueConstraintError,
+} from '@/lib/store';
+import type {
+  DistributionPayoutRecord,
+  DistributionPayoutStatus,
+  DistributionPeriodRecord,
+  IDistributionStore,
+  ITxnStore,
+} from '@/lib/store';
+import {
+  readDistributionBatchSize,
+  readDistributionDustWallet,
+} from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
 import {
@@ -98,6 +113,26 @@ export interface DistributionPreviewView {
   /** `totalAmount - allocated`: phần dư do phép chia lấy phần nguyên. */
   dust: string;
   /** Ví nhận phần dư; `null` = chưa cấu hình, phần dư nằm lại trong ví chia lợi nhuận. */
+  dustWallet: string | null;
+}
+
+export interface DistributionRunView {
+  period: DistributionPeriodView;
+  /** Kích thước lô đã dùng, đọc từ tham số hệ thống `distribution.batch_size`. */
+  batchSize: number;
+  /** Số lô đã GỬI trong lần chạy này. `0` khi không còn hồ sơ nào phải chi. */
+  batches: number;
+  /** Số hồ sơ chuyển sang `PAID` trong lần chạy này. */
+  paid: number;
+  /** Số hồ sơ thất bại trong lần chạy này — chạy lại sẽ nhắm đúng chúng. */
+  failed: number;
+  /** Số hồ sơ được chia 0 nên không cần giao dịch nào. */
+  zero: number;
+  /** Hồ sơ chưa tới `PAID` SAU lần chạy này. `0` nghĩa là kỳ đã hoàn tất. */
+  outstanding: number;
+  /** Tổng VNDB đã chi của CẢ KỲ, không chỉ của lần chạy này. */
+  paidAmount: string;
+  dust: string;
   dustWallet: string | null;
 }
 
@@ -495,6 +530,296 @@ export async function previewDistribution(
       allocated: allocated.toString(),
       dust: dust.toString(),
       dustWallet: await readDistributionDustWallet(),
+    });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// =============================================================================
+//  B3 — CHIA THEO LÔ
+// =============================================================================
+
+/** Cắt một danh sách thành các lô kích thước `size`. Lô cuối có thể ngắn hơn. */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Đổi trạng thái cho mọi hồ sơ trong một lô.
+ *
+ * Tra theo `(periodId, investorWallet)` lấy NGUYÊN VĂN từ bản ghi đã đọc, không tự chuẩn hoá lại:
+ * ràng buộc duy nhất của cơ sở dữ liệu so chuỗi CHÍNH XÁC, nên một lần hạ hoa thường ở đây sẽ
+ * không khớp dòng nào và `markPayout` trả `null` trong im lặng.
+ */
+async function markBatch(
+  store: IDistributionStore,
+  periodId: string,
+  rows: readonly DistributionPayoutRecord[],
+  patch: { status: DistributionPayoutStatus; txHash?: string | null; batchNo?: number | null },
+): Promise<void> {
+  for (const row of rows) {
+    await store.markPayout({ periodId, investorWallet: row.investorWallet, ...patch });
+  }
+}
+
+/** Ghi sổ kiểm toán cho một lần chia — gom lại để không lặp năm chỗ. */
+async function auditDistribution(
+  txnStore: ITxnStore,
+  period: DistributionPeriodRecord,
+  actorRole: Role,
+  outcome: 'SUCCESS' | 'FAILURE',
+  detail: string,
+): Promise<void> {
+  await txnStore.appendAudit({
+    actorRole,
+    action: 'distribution:execute',
+    target: period.periodKey,
+    outcome,
+    detail: `kỳ ${period.id}: ${detail}`,
+    chain: period.chain,
+  });
+}
+
+/**
+ * CHIA LỢI NHUẬN theo lô. Gọi lại được: lần sau chỉ chia cho ví chưa nhận.
+ *
+ * ## Ba điều quyết định thiết kế hàm này
+ *
+ * **1. Lập ĐỦ hồ sơ ở `PENDING` trước khi gửi giao dịch đầu tiên.** Hồ sơ là thứ duy nhất ghi
+ * lại "ai được chia bao nhiêu" — chuỗi không liệt kê được. Gửi trước rồi ghi sau, mà tiến trình
+ * chết giữa hai việc, thì tiền đã ra khỏi ví lợi nhuận mà không dòng nào nói nó đi đâu.
+ *
+ * **2. `PENDING -> SENT -> PAID` là ba trạng thái, không phải hai.** `SENT` nghĩa là đã có mã
+ * giao dịch mà chưa biết kết quả. Gộp `SENT` vào `PAID` thì một tiến trình chết giữa lúc gửi và
+ * lúc nhận biên nhận để lại hồ sơ trông như đã chi xong, và không lần chạy lại nào xét tới nó.
+ *
+ * **3. Một lô lỗi KHÔNG dừng các lô còn lại.** Lô lỗi thành `FAILED` và kỳ ở lại `DISTRIBUTING`,
+ * nên lần chạy sau nhắm đúng những hồ sơ đó. Dừng cả lượt vì một lỗi RPC nhất thời sẽ giữ tiền
+ * của những người ở lô sau lại mà không có lý do nào thuộc về họ.
+ *
+ * Chống chia hai lần có HAI lớp, và lớp quyết định nằm ở chuỗi: contract giữ cờ đã-nhận cho từng
+ * ảnh chụp, nên một ví đã nhận thì lời gọi sau bỏ qua nó. Nhờ vậy gửi lại một lô mà ta không
+ * biết kết quả là an toàn — đó là lý do hồ sơ `SENT` được gửi lại thay vì bị bỏ mặc.
+ */
+export async function distributePeriod(input: unknown): Promise<Result<DistributionRunView>> {
+  const parsed = distributionPeriodSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, periodId } = parsed.data;
+
+  const txnStore = getStore();
+  const store = getDistributionStore();
+
+  try {
+    const role = await authorize('distribution:execute', periodId, chain);
+
+    // --- 1. Kỳ phải tồn tại, đúng chuỗi, và chưa hoàn tất --------------------
+    const found = await findPeriodOnChain(store, chain, { periodId });
+    if (!isPeriod(found)) return found;
+    let period = found;
+
+    if (period.status === 'COMPLETED') {
+      const reason =
+        `Kỳ "${period.periodKey}" đã hoàn tất lúc ${period.completedAt} — không còn hồ sơ nào ` +
+        `phải chi. Không chia lần thứ hai.`;
+      await auditDistribution(txnStore, period, role, 'FAILURE', reason);
+      return err('PERIOD_STATE', reason);
+    }
+
+    const ledger = getLedger(chain);
+    const batchSize = await readDistributionBatchSize();
+    const dustWallet = await readDistributionDustWallet();
+
+    // --- 2. Lập hồ sơ cho ví chưa có, TRƯỚC khi gửi bất kỳ giao dịch nào -----
+    const recipients = await collectRecipients(chain);
+    if (recipients.truncated) return truncatedError();
+
+    const before = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+    const known = new Set(before.map((row) => row.investorWallet.toLowerCase()));
+    const missing = recipients.wallets.filter((wallet) => !known.has(wallet.toLowerCase()));
+
+    if (missing.length > 0) {
+      const allocations = await allocate(ledger, period, missing);
+      /**
+       * Chia theo `MAX_BULK_ROWS` vì cổng lưu trữ dồn cả lô vào MỘT câu `INSERT` và giao thức
+       * Postgres chỉ mang được số tham số hữu hạn. Đây là giới hạn của cơ sở dữ liệu, KHÁC hẳn
+       * `batchSize` — giới hạn của một giao dịch on-chain. Gộp hai con số là buộc chúng đổi cùng
+       * nhau trong khi chúng không liên quan gì tới nhau.
+       */
+      for (const rows of chunk(allocations, MAX_BULK_ROWS)) {
+        await store.createPayouts({ periodId: period.id, rows });
+      }
+    }
+
+    // --- 3. Phân loại hồ sơ còn phải xử lý ----------------------------------
+    const rows = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+    const outstanding = rows.filter((row) => row.status !== 'PAID');
+
+    /**
+     * Hồ sơ được chia 0 KHÔNG đi vào lô nào, và chuyển thẳng sang `PAID`.
+     *
+     * Không gửi: một lần chuyển 0 đồng tốn một chỗ trong lô và tốn phí mà không chuyển gì —
+     * `distributeBatch` của mock cũng bỏ qua chúng, và contract có thể từ chối hẳn.
+     *
+     * Vẫn `PAID` chứ không để lại `PENDING`: hồ sơ này được chia 0 và đã nhận 0, nên nó KHÔNG
+     * còn gì phải chi. Để `PENDING` thì kỳ không bao giờ hoàn tất được, và trạng thái đó nói sai
+     * rằng còn tiền phải trả cho họ. `txHash` là `null` — đúng, vì không có giao dịch nào.
+     */
+    const zeroRows = outstanding.filter((row) => BigInt(row.amount) === 0n);
+    const toPay = outstanding.filter((row) => BigInt(row.amount) > 0n);
+    if (zeroRows.length > 0) {
+      await markBatch(store, period.id, zeroRows, { status: 'PAID' });
+    }
+
+    // --- 4. Đánh dấu kỳ đang chia TRƯỚC khi gửi lô đầu tiên -----------------
+    // Chỉ khi thật sự có lô để gửi: `DISTRIBUTING` nghĩa là "đã gửi ít nhất một lô", nên đặt nó
+    // cho một kỳ không gửi gì là ghi sai vào sổ.
+    if (toPay.length > 0 && period.status === 'OPEN') {
+      period = (await store.setPeriodStatus({ id: period.id, status: 'DISTRIBUTING' })) ?? period;
+    }
+
+    // --- 5. Gửi từng lô ----------------------------------------------------
+    // Số lô tiếp tục từ lô lớn nhất đã gửi, không đếm lại từ 1: lần chạy lại mà dùng lại số cũ
+    // sẽ làm hai lần gửi khác nhau mang cùng một số, và không đối soát được lô nào đã đi khi nào.
+    const lastBatchNo = rows.reduce((max, row) => Math.max(max, row.batchNo ?? 0), 0);
+    let paid = 0;
+    let failed = 0;
+    let batches = 0;
+
+    for (const [index, group] of chunk(toPay, batchSize).entries()) {
+      const batchNo = lastBatchNo + index + 1;
+      const groupAmount = sumAmount(group);
+      batches += 1;
+
+      let pending;
+      try {
+        pending = await ledger.distributeBatch(
+          period.snapshotId,
+          group.map((row) => row.investorWallet),
+        );
+      } catch (error) {
+        /**
+         * KHÔNG đánh dấu `PAID`, và đây là chốt chặn chính của cả hàm.
+         *
+         * `FAILED` chứ không để nguyên `PENDING`: hồ sơ cần mang vết là đã thử và trượt, để người
+         * đối soát thấy lô nào phải chạy lại. `txHash` để `undefined` — không truyền — nên mã
+         * giao dịch của lần thử trước (nếu có) được giữ lại thay vì bị xoá.
+         */
+        const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi lô.';
+        await markBatch(store, period.id, group, { status: 'FAILED', batchNo });
+        await auditDistribution(
+          txnStore,
+          period,
+          role,
+          'FAILURE',
+          `lô ${batchNo} (${group.length} ví, ${groupAmount} VNDB) gửi thất bại — ${reason}`,
+        );
+        failed += group.length;
+        continue;
+      }
+
+      // Mã giao dịch vào hồ sơ NGAY KHI CÓ, trước khi chờ biên nhận: tiến trình chết ở bước chờ
+      // thì hồ sơ vẫn còn mã để đối soát.
+      await markBatch(store, period.id, group, {
+        status: 'SENT',
+        txHash: pending.txHash,
+        batchNo,
+      });
+      const savedTxn = await txnStore.saveTxn({
+        chain,
+        operation: 'distribute',
+        txHash: pending.txHash,
+        status: pending.status,
+        fromWallet: null,
+        // Một lô có nhiều bên nhận nên không có một ví đích duy nhất; danh sách ví nằm ở
+        // `DistributionPayout`, đúng chỗ của nó.
+        toWallet: null,
+        amount: groupAmount.toString(),
+        reason: `lô ${batchNo} kỳ ${period.periodKey}, ${group.length} ví`,
+        actorRole: role,
+        actorAddress: null,
+      });
+
+      const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
+      await txnStore.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
+
+      if (receipt.status !== 'CONFIRMED') {
+        const reason = receipt.reason ?? `Giao dịch lô kết thúc ở trạng thái ${receipt.status}.`;
+        await markBatch(store, period.id, group, { status: 'FAILED', batchNo });
+        await auditDistribution(
+          txnStore,
+          period,
+          role,
+          'FAILURE',
+          `lô ${batchNo} tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+        );
+        failed += group.length;
+        continue;
+      }
+
+      await markBatch(store, period.id, group, {
+        status: 'PAID',
+        txHash: receipt.txHash,
+        batchNo,
+      });
+      await auditDistribution(
+        txnStore,
+        period,
+        role,
+        'SUCCESS',
+        `lô ${batchNo}: chia ${groupAmount} VNDB cho ${group.length} ví; tx ${receipt.txHash}`,
+      );
+      paid += group.length;
+    }
+
+    // --- 6. Hết hồ sơ phải chi thì kỳ hoàn tất -----------------------------
+    const after = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+    const remaining = after.filter((row) => row.status !== 'PAID');
+
+    if (remaining.length === 0) {
+      /**
+       * `completedAt` do NGƯỜI GỌI truyền, cổng lưu trữ không tự đặt: "hoàn tất" là kết luận của
+       * nghiệp vụ (đã hết hồ sơ phải chi), thứ mà cổng không biết và không được đoán.
+       *
+       * Đường `OPEN -> COMPLETED` (không qua `DISTRIBUTING`) là hợp lệ và có thật: một kỳ mà mọi
+       * ví được chia 0 thì không lô nào được gửi, nên đánh dấu nó `DISTRIBUTING` sẽ là ghi sai.
+       */
+      period =
+        (await store.setPeriodStatus({
+          id: period.id,
+          status: 'COMPLETED',
+          completedAt: new Date().toISOString(),
+        })) ?? period;
+    }
+
+    const allocated = sumAmount(after);
+    const dust = BigInt(period.totalAmount) - allocated;
+
+    await auditDistribution(
+      txnStore,
+      period,
+      role,
+      'SUCCESS',
+      `lượt chia xong: ${batches} lô (kích thước ${batchSize}), ${paid} hồ sơ đã chi, ` +
+        `${failed} thất bại, ${zeroRows.length} được chia 0, còn ${remaining.length} phải chi; ` +
+        `trạng thái kỳ ${period.status}; ${dustNote(dust, dustWallet)}`,
+    );
+
+    return ok({
+      period: toPeriodView(period),
+      batchSize,
+      batches,
+      paid,
+      failed,
+      zero: zeroRows.length,
+      outstanding: remaining.length,
+      paidAmount: sumAmount(after.filter((row) => row.status === 'PAID')).toString(),
+      dust: dust.toString(),
+      dustWallet,
     });
   } catch (error) {
     return toResult(error);
