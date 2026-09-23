@@ -185,6 +185,8 @@ function shareOf(totalAmount: bigint, balanceAt: bigint, totalSupplyAt: bigint):
  * Dùng chung cho xem trước VÀ cho lúc lập hồ sơ chia, và đó là điểm chính: hai đường tính rời
  * nhau sẽ lệch ở lần sửa đầu tiên, rồi màn hình xem trước hiện một số còn hồ sơ ghi số khác —
  * đúng thứ mà màn hình xem trước tồn tại để tránh.
+ *
+ * @flow distribute:6 | đọc số dư từng ví tại ảnh chụp, tính phần chia nhân trước chia sau
  */
 async function allocate(
   ledger: ILedgerPort,
@@ -254,6 +256,8 @@ interface Recipients {
  * phải đi cùng nhau: ràng buộc duy nhất `(periodId, investorWallet)` của cơ sở dữ liệu so chuỗi
  * CHÍNH XÁC, nên `0xAb…` và `0xab…` lọt được thành hai hồ sơ cho cùng một ví; còn hạ hết về chữ
  * thường thì sai địa chỉ Stellar (base32 CHỮ HOA).
+ *
+ * @flow distribute:5 | dựng danh sách người nhận từ cơ sở dữ liệu vì chuỗi không liệt kê được người nắm giữ
  */
 async function collectRecipients(chain: ChainKey): Promise<Recipients> {
   const seen = new Map<string, string>();
@@ -352,6 +356,8 @@ function isPeriod(
  * khác nhau. Lần đọc ở đây tránh tốn ảnh chụp cho một lời gọi chắc chắn trượt; ràng buộc mới là
  * thứ BẢO ĐẢM không có hai kỳ cùng mã, vì hai tiến trình song song đều đọc thấy "chưa có" rồi
  * cùng ghi. Bỏ ràng buộc và chỉ giữ lần đọc là đúng cái sai mà doc của cổng cảnh báo.
+ *
+ * @flow distribute:2 | kiểm quyền distribution:snapshot, kiểm mã kỳ và quỹ rồi mới chốt quyền, lưu kỳ ở OPEN
  */
 export async function openPeriod(input: unknown): Promise<Result<DistributionPeriodView>> {
   const parsed = openPeriodSchema.safeParse(input);
@@ -501,6 +507,8 @@ export async function openPeriod(input: unknown): Promise<Result<DistributionPer
  *
  * Kiểm `distribution:execute` chứ không phải một quyền đọc: đây là bản xem trước của đúng hành
  * động đó, nên ai xem trước được thì cũng phải là người được phép chia.
+ *
+ * @flow distribute:4 | kiểm quyền, tính phân bổ theo ảnh chụp, KHÔNG ghi gì vào cơ sở dữ liệu
  */
 export async function previewDistribution(
   input: unknown,
@@ -603,6 +611,8 @@ async function auditDistribution(
  * Chống chia hai lần có HAI lớp, và lớp quyết định nằm ở chuỗi: contract giữ cờ đã-nhận cho từng
  * ảnh chụp, nên một ví đã nhận thì lời gọi sau bỏ qua nó. Nhờ vậy gửi lại một lô mà ta không
  * biết kết quả là an toàn — đó là lý do hồ sơ `SENT` được gửi lại thay vì bị bỏ mặc.
+ *
+ * @flow distribute:8 | kiểm quyền distribution:execute, lập hồ sơ chờ rồi gửi từng lô, chốt COMPLETED khi hết hồ sơ
  */
 export async function distributePeriod(input: unknown): Promise<Result<DistributionRunView>> {
   const parsed = distributionPeriodSchema.safeParse(input);
@@ -840,6 +850,8 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
  * Quyền là `reconcile:read` — dữ liệu toàn hệ, nên ba vai phía ngân hàng (kể cả AUDITOR và
  * COMPLIANCE) đọc được, còn nhà đầu tư thì không. Nhà đầu tư xem phần của chính mình qua
  * `portfolio.service`, không qua hàm này.
+ *
+ * @flow distribute:10 | kiểm quyền reconcile:read, trả trạng thái kỳ và tiến độ chi trả
  */
 export async function getDistributionPeriod(
   input: unknown,
