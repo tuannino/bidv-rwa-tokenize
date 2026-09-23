@@ -22,10 +22,15 @@ import { assertStatus, type StoreKind } from './store.errors';
  * vừa `Int`, mà `Decimal(78,0)` thì không lưu được ngưỡng hay cờ bật/tắt. Cột `type` là thứ
  * cho người đọc biết chuỗi đó phải hiểu thế nào.
  *
- * Ba giá trị là đủ cho hiện tại và mở được về sau. Thêm kiểu mới thì thêm vào đây, cả hai bản
+ * Bốn giá trị là đủ cho hiện tại và mở được về sau. Thêm kiểu mới thì thêm vào đây, cả hai bản
  * hiện thực tự chặn giá trị lạ nhờ `assertConfigValueType`.
+ *
+ * `string` thêm ở BE-06 cho khoá `distribution.dust_wallet` — một ĐỊA CHỈ VÍ. Ba kiểu cũ không
+ * mang nổi nó: `bigint` mất tiền tố `0x` và mất chữ hoa của checksum, mà địa chỉ Stellar thì
+ * không phải số. Dùng `bigint` rồi tự ghép lại `0x` ở chỗ đọc là cách chắc chắn để một địa chỉ
+ * có chữ số 0 ở đầu bị đọc sai thành một ví khác — và tiền sẽ chuyển tới ví đó.
  */
-export const CONFIG_VALUE_TYPES = ['bigint', 'number', 'boolean'] as const;
+export const CONFIG_VALUE_TYPES = ['bigint', 'number', 'boolean', 'string'] as const;
 export type ConfigValueType = (typeof CONFIG_VALUE_TYPES)[number];
 
 /**

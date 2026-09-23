@@ -88,7 +88,33 @@ export const WPT_PRICE_CHANGE_THRESHOLD = 2;
 export const CONFIG_KEYS = {
   issuePriceVnd: 'wpt.issue_price_vnd',
   priceChangeThreshold: 'wpt.price_change_threshold',
+  distributionBatchSize: 'distribution.batch_size',
+  distributionDustWallet: 'distribution.dust_wallet',
 } as const;
+
+/**
+ * Số ví tối đa trong MỘT lô chia lợi nhuận (BE-06), dùng khi bảng chưa có dòng nào.
+ *
+ * Phải là tham số cấu hình chứ không phải hằng số trong mã: kích thước lô tối ưu phụ thuộc giới
+ * hạn gas của từng chuỗi và phải ĐO thực tế trên chuỗi đó, nên người vận hành cần đổi được mà
+ * không chờ một bản triển khai mới. `ILedgerPort.distributeBatch` cố ý không tự chia lô vì lý do
+ * này (BE-01 R5.3).
+ *
+ * 50 là mức thận trọng: một lô chuyển VNDB cho 50 ví nằm an toàn dưới giới hạn block gas của
+ * EVM, và lô nhỏ thì một lô lỗi chỉ phải chạy lại 50 hồ sơ.
+ */
+export const DISTRIBUTION_BATCH_SIZE = 50;
+
+/**
+ * Chặn trên của kích thước lô. Một cấu hình gõ sai (ví dụ 50000) không được đi tới chuỗi rồi mới
+ * vỡ: lời gọi sẽ thất bại vì hết gas SAU khi đã tốn phí, và thông báo của RPC không nói được là
+ * do lô quá lớn. Chặn ở đây thì lỗi cấu hình hiện ra trước khi chạm chuỗi.
+ *
+ * ⚠️ KHÔNG phải cùng một giới hạn với `MAX_BULK_ROWS` của cổng lưu trữ: cái đó chặn số dòng một
+ * câu `INSERT` mang được, cái này chặn số ví một giao dịch on-chain mang được. Hai giới hạn của
+ * hai hệ thống khác nhau, gộp lại là buộc chúng phải đổi cùng nhau.
+ */
+export const DISTRIBUTION_BATCH_SIZE_MAX = 500;
 
 /** Mã token của dự án điện gió duy nhất trong PoC. */
 export const WPT_TOKEN_SYMBOL = 'WPT';

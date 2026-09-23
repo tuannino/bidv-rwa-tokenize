@@ -1,6 +1,12 @@
 import 'server-only';
 
-import { CONFIG_KEYS, WPT_ISSUE_PRICE_VND, WPT_PRICE_CHANGE_THRESHOLD } from '@/lib/config/issue-terms';
+import {
+  CONFIG_KEYS,
+  DISTRIBUTION_BATCH_SIZE,
+  DISTRIBUTION_BATCH_SIZE_MAX,
+  WPT_ISSUE_PRICE_VND,
+  WPT_PRICE_CHANGE_THRESHOLD,
+} from '@/lib/config/issue-terms';
 import { getConfigStore } from './index';
 
 /**
@@ -37,4 +43,40 @@ export async function readPriceChangeThreshold(): Promise<number> {
   // dữ liệu hỏng không được làm sập cả chức năng đổi giá, nhưng cũng không được làm mất lớp bảo
   // vệ (`NaN` trong phép so sánh luôn cho `false`, tức là ngưỡng biến mất mà không ai thấy).
   return Number.isFinite(parsed) && parsed > 1 ? parsed : WPT_PRICE_CHANGE_THRESHOLD;
+}
+
+/**
+ * Số ví tối đa trong một lô chia lợi nhuận (BE-06).
+ *
+ * Giá trị lạ trong bảng -> lùi về mặc định, KHÔNG ném lỗi: cùng lập luận với
+ * `readPriceChangeThreshold`. Nhưng ở đây nhánh lùi về còn quan trọng hơn, vì một giá trị hỏng mà
+ * đi được tới `distributeBatch` sẽ cho ra hai kiểu hỏng tệ hơn hẳn: `0` hay `NaN` làm vòng chia lô
+ * không sinh ra lô nào, nên hàm chạy xong, báo thành công, và KHÔNG ai được chia đồng nào; còn một
+ * số quá lớn thì lô vượt giới hạn gas và thất bại SAU khi đã tốn phí.
+ */
+export async function readDistributionBatchSize(): Promise<number> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.distributionBatchSize);
+  if (!row) return DISTRIBUTION_BATCH_SIZE;
+
+  const parsed = Number(row.value);
+  const usable =
+    Number.isInteger(parsed) && parsed >= 1 && parsed <= DISTRIBUTION_BATCH_SIZE_MAX;
+  return usable ? parsed : DISTRIBUTION_BATCH_SIZE;
+}
+
+/**
+ * Ví nhận phần dư do làm tròn khi chia lợi nhuận. `null` = chưa cấu hình, phần dư giữ lại trong
+ * ví chia lợi nhuận.
+ *
+ * KHÔNG có mặc định trong mã, và đó là chủ đích: mọi địa chỉ ví đặt sẵn ở đây đều là một ví thật
+ * của ai đó, nên một mặc định là lệnh chuyển tiền tới một ví mà không ai chọn. Chưa cấu hình thì
+ * tiền nằm yên trong ví lợi nhuận — trạng thái duy nhất không cần ai quyết.
+ *
+ * Trả về nguyên văn chuỗi trong bảng, KHÔNG chuẩn hoá: chuẩn hoá địa chỉ là việc của biên
+ * `lib/ledger/address.ts`, và làm ở đây sẽ hỏng với địa chỉ Stellar (base32 CHỮ HOA).
+ */
+export async function readDistributionDustWallet(): Promise<string | null> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.distributionDustWallet);
+  const value = row?.value.trim();
+  return value ? value : null;
 }

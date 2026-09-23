@@ -1,6 +1,7 @@
 import { DEFAULT_CHAIN, type ChainKey } from '@bidv/shared';
 import {
   CONFIG_KEYS,
+  DISTRIBUTION_BATCH_SIZE,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
   WPT_TOKEN_SYMBOL,
@@ -37,11 +38,15 @@ export interface SeedConfigRow {
 }
 
 /**
- * Hai tham số nạp sẵn vào `SystemConfig`.
+ * Ba tham số nạp sẵn vào `SystemConfig`.
  *
  * Nạp sẵn thay vì để bảng trống và dựa vào giá trị mặc định trong mã: có dòng thật thì màn hình
  * cấu hình của FE-07 hiện được "ai đặt, lúc nào" ngay từ đầu, và đường đọc cơ sở dữ liệu được
  * chạy thật trong demo chứ không chỉ chạy nhánh lùi về mặc định.
+ *
+ * ⚠️ `distribution.dust_wallet` CỐ Ý không có ở đây. Mọi địa chỉ đặt sẵn đều là ví thật của một
+ * ai đó, nên nạp sẵn một dòng là dựng sẵn lệnh chuyển tiền tới ví mà không ai chọn. Chưa cấu hình
+ * thì phần dư nằm yên trong ví lợi nhuận — xem `readDistributionDustWallet`.
  */
 export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
   {
@@ -54,6 +59,12 @@ export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
     key: CONFIG_KEYS.priceChangeThreshold,
     // `number` vì đây là hệ số so sánh, không phải số tiền — không cần dải uint256.
     value: String(WPT_PRICE_CHANGE_THRESHOLD),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.distributionBatchSize,
+    // `number` vì đây là số đếm ví trong một lô, không phải số tiền.
+    value: String(DISTRIBUTION_BATCH_SIZE),
     type: 'number',
   },
 ];
