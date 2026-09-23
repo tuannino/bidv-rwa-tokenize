@@ -3,12 +3,12 @@
 | | |
 |---|---|
 | Mã task | BE-06 |
-| Nhánh | **CHƯA MỞ** — nền chưa xác định được, xem mục 0.2 và mục 5.1 |
+| Nhánh | `feat/distribution-service`, tạo **từ `dev`** (`28b62a8`) |
 | Spec | `docs/be-06-distribution/{requirements,tasks}.md` (không có `design.md`) |
-| Tiến độ | **Bước 0 dừng giữa đường.** Không viết một dòng mã nào. Chờ Owner quyết nền nhánh |
+| Tiến độ | Bước 0–4 xong. Chờ Supervisor nghiệm thu — Kiro **không** merge vào `dev` |
 
 > **Quy tắc viết checkpoint:** `.kiro/steering/checkpoint.md`.
-> Kiểm bằng máy: `node scripts/check-checkpoint.mjs docs/CHECKPOINT_BE06.md docs/be-06-distribution/requirements.md`.
+> Kiểm bằng máy: `node scripts/check-checkpoint.mjs docs/CHECKPOINT_BE06.md docs/be-06-distribution/requirements.md`
 
 ---
 
@@ -18,164 +18,253 @@
 
 | # | Điều kiện (rút gọn từ `requirements.md`) | | Bằng chứng |
 |---|---|---|---|
-| 1 | Mở kỳ chốt được snapshot; từ chối khi thiếu tiền, tổng cung 0, mã kỳ trùng | ❌ | mục 5.1 · 0.2 |
-| 2 | Xem trước phân bổ đúng tỷ lệ, không ghi gì vào cơ sở dữ liệu | ❌ | mục 5.1 · 0.2 |
-| 3 | Ví mua sau thời điểm chốt được chia 0 | ❌ | mục 5.1 · 0.2 |
-| 4 | Tổng đã chia bằng tổng tiền kỳ, phần dư xử lý đúng | ❌ | mục 5.1 · 5.3 · 0.2 |
-| 5 | Chia theo lô không sót ví, kích thước lô đọc từ tham số hệ thống | ❌ | mục 5.1 (đây là chỗ bị chặn cứng) · 0.2 |
-| 6 | Lô lỗi giữa chừng không đánh dấu nhầm; chạy lại không chia trùng | ❌ | mục 5.1 · 0.2 |
-| 7 | Hai mục nợ kỹ thuật đã ghi vào `tech-report.md` | ❌ | mục 5.1 · 0.2 |
-| 8 | `run-local-all.sh` xanh | ❌ | mục 5.1 · 0.2 |
+| 1 | Mở kỳ chốt được snapshot; từ chối khi thiếu tiền, tổng cung 0, mã kỳ trùng | ✅ | mục 3.2 (ca 1, 4, 5) · 2 |
+| 2 | Xem trước phân bổ đúng tỷ lệ, không ghi gì vào cơ sở dữ liệu | ✅ | mục 3.2 · 5.2 |
+| 3 | Ví mua sau thời điểm chốt được chia 0 | ✅ | mục 3.2 (ca 2) |
+| 4 | Tổng đã chia bằng tổng tiền kỳ, phần dư xử lý đúng | 🔶 | mục 4.1 · 5.1 · 0.2 |
+| 5 | Chia theo lô không sót ví, kích thước lô đọc từ tham số hệ thống | ✅ | mục 3.2 (ca 6, đột biến 2) · 3.4 |
+| 6 | Lô lỗi giữa chừng không đánh dấu nhầm; chạy lại không chia trùng | ✅ | mục 3.2 (ca 7, đột biến 1) · 3.3 |
+| 7 | Hai mục nợ kỹ thuật đã ghi vào `tech-report.md` | ✅ | mục 1 (Bước 0) · 6.2 |
+| 8 | `run-local-all.sh` xanh | ✅ | mục 3.1 — 8 PASS / 0 FAIL, mã thoát 0 |
 
-**Kết luận:** 0 ✅ · 0 🔶 · 8 ❌
+**Kết luận:** 7 ✅ · 1 🔶 · 0 ❌
 
 ### 0.2 Việc cần Owner quyết
 
-- **Nền nhánh: BE-04 chưa merge vào `dev`, mà BE-06 phụ thuộc BE-04.** `requirements.md`
-  ghi nền là "`dev` **sau khi BE-04 đã merge**"; điều kiện đó chưa đạt. Trên `dev` không có
-  tầng cấu hình (`IConfigStore`, `getConfigStore`, `config-values.ts`), nên điều kiện hoàn
-  thành số 5 — "kích thước lô đọc từ tham số hệ thống" — không có đường nào làm được.
-  Theo `branching.md` §5 tôi **dừng, không tự chọn nền khác**. Hai phương án ở mục 5.1;
-  đề xuất phương án A.
-- **Ví nhận phần dư làm tròn: `ILedgerPort` không có đường chuyển phần dư ra khỏi ví lợi
-  nhuận.** Ràng buộc tính toán đòi "phần dư dồn về ví chỉ định", nhưng phần dư nằm lại
-  trong quỹ trên chuỗi và chỉ `sweepDust` của contract lấy ra được — hàm đó chưa có ở cổng.
-  Chi tiết và ba cách xử lý ở mục 5.3; đề xuất cách 1.
+- **Phần dư làm tròn chưa CHUYỂN THẬT về ví chỉ định (điều kiện 4).** `ILedgerPort` không có hàm
+  lấy phần dư ra khỏi ví lợi nhuận (`sweepDust` của contract chưa được đưa vào cổng), và
+  `distributeBatch` tự tính phần từng ví nên không có đường bảo nó trả thêm cho một ví. Tôi ghi
+  nhận phần dư đúng số và đúng đích nhưng **không** cộng vào `amount` của ví nào — cộng vào là làm
+  sổ ghi lớn hơn số chuỗi chuyển. Ba phương án ở mục 5.1; đề xuất giữ hành vi hiện tại rồi mở task
+  thêm `sweepDust` vào cổng.
+- **`SC-05` là mã task MỚI do tôi đăng ký.** `@blocked BE-06` ở `evm.adapter.ts:533` sẽ lạc hậu khi
+  BE-06 sang `done`, nhưng không task nào đang có sở hữu việc nối adapter (BE-10 là "xử lý giao dịch
+  treo", BE-11 là "đối soát toàn hệ"). Chi tiết chẩn đoán ở mục 5.3. Owner/Supervisor có thể muốn
+  gộp vào `SC-03` thay vì mở mã mới.
+- **`FE-08` cũng là mã tôi đăng ký thêm**, và cách chia việc FE-08/FE-09 là suy luận của tôi — mục 5.4.
 
 ---
 
 ## 1. Đã làm
 
-Chỉ đọc và đo. **Không tạo nhánh, không sửa tệp nào của repo** ngoài chính tệp checkpoint này.
+Năm commit, chia theo mục tiêu:
 
-Đã đọc để nắm nền: `distribution.store.port.ts`, `order.store.port.ts`, `store/index.ts`,
-`store.errors.ts`, `memory.distribution.store.ts`, `ledger.port.ts`, `mock.adapter.ts`,
-`purchase.service.ts`, `authorize.ts`, `result.ts`, `schemas.ts`, `rbac/permissions.ts`,
-`config-values.ts`, `issue-terms.ts`, `actions/purchase.ts`, `scan-pending.mjs`,
-`run-local-all.sh`, `test/{purchase,config}-service.test.ts`.
+| Commit | Mục tiêu |
+|---|---|
+| `5c649c9` | Bước 0 — nhận spec, BE-06 sang `inProgress`, hai mục nợ kỹ thuật (việc 9) |
+| `7d5f6c2` | Bước 1 — mở kỳ, xem trước phân bổ, đọc trạng thái kỳ (việc 1–4) |
+| `8b54c1b` | Bước 2 — chia theo lô, chạy lại phần còn thiếu (việc 5–7) |
+| `c7a2add` | Bước 3 — bốn server action, marker `@flow distribute`, sơ đồ luồng (việc 8) |
+| *(commit này)* | Bước 4 — báo cáo công nghệ, BE-06 sang `done`, checkpoint |
 
-## 2. Đối chiếu DoD
+Tệp mới: `app/src/lib/bank/distribution.service.ts`, `app/src/app/actions/distribution.ts`,
+`app/test/distribution-service.test.ts`, `docs/flows/distribute.md` (sinh từ marker).
 
-Chưa có bước nào xong, xem mục 0.1.
+Tệp sửa: `lib/store/index.ts` (gỡ `@pending BE-06`, re-export `MAX_BULK_ROWS`),
+`lib/store/config-values.ts` + `lib/config/issue-terms.ts` + `lib/store/seed-data.ts` (hai khoá tham
+số mới), `lib/store/config.store.port.ts` (thêm kiểu `'string'`), `lib/bank/result.ts` (ba mã lỗi),
+`lib/bank/schemas.ts` (ba schema), `lib/ledger/evm.adapter.ts` (chỉ marker + chú thích),
+`.kiro/task-status.json`, `.kiro/steering/lessons.md`, `docs/tech-report.md`.
+
+## 2. Đối chiếu DoD từng bước
+
+| Bước | Việc | Đạt? | Ghi chú |
+|---|---|---|---|
+| 0 | BE-06 → `inProgress`, hai mục nợ kỹ thuật | ✅ | `docs/tech-report.md` §1.6.C, hai dòng P1 và P2 |
+| 1 | Việc 1–4; ca 1, 2, 4, 5 | ✅ | 20 ca lúc đó, nay nằm trong 43 ca |
+| 2 | Việc 5–7; ca 3, 6, 7, 8 + hai đột biến | ✅ | đã **chạy thật** cả hai đột biến — mục 3.3 |
+| 3 | Việc 8; sinh sơ đồ `distribute` | ✅ | 10 bước, `docs/flows/distribute.md` |
+| 4 | Báo cáo công nghệ, BE-06 → `done`, checkpoint | ✅ | mục 6 |
 
 ## 3. Cách chạy/kiểm thử
 
-Chưa có gì để chạy. Các lệnh đo dùng trong mục 5 đều ghi kèm ngay tại chỗ.
+### 3.1 Bộ đầy đủ — chạy MỘT lần ở cuối task
+
+```
+$ bash scripts/run-local-all.sh
+  Đạt:     8
+  Không đạt: 0
+  => ĐẠT toàn bộ kiểm chứng cục bộ.
+mã thoát 0
+```
+
+Chi tiết từng lớp: luật kiến trúc PASS (20 PASS / 0 FAIL / 6 WARN — sáu WARN đều là spec Stellar
+chưa tới lượt, có từ trước BE-06) · điểm cắm PASS · khuôn checkpoint PASS · hardhat **67 passing** ·
+cargo **1 passed** · typecheck PASS · lint PASS (0 error, 0 warning) · vitest **462 passed (462)**.
+
+### 3.2 Test của task này
+
+```
+$ cd app && npx vitest run test/distribution-service.test.ts
+ ✓ test/distribution-service.test.ts (43 tests) 64ms
+      Tests  43 passed (43)
+```
+
+Tám ca của spec ánh xạ sang các `describe` cùng tên (`ca 1` … `ca 8`, `đột biến 1`, `đột biến 2`).
+Ba nhóm `describe` thêm vào ngoài danh sách — `xem trước là hàm đọc`, `đọc trạng thái kỳ`, và ca
+"chưa hồ sơ nào ở PAID tại thời điểm lô đang được gửi" — đều phục vụ trực tiếp một điều kiện hoàn
+thành (số 2, và số 6), không phải ca tự thêm cho đủ số.
+
+### 3.3 Hai đột biến của spec — đã DỰNG THẬT và CHẠY THẬT
+
+| Đột biến | Kết quả lần đầu | Xử lý |
+|---|---|---|
+| Viết cứng `const batchSize = 50` | **ĐỎ ngay**: `expected 50 to be 30` ở `đột biến 2` | giữ nguyên bộ test |
+| `markBatch(..., 'PAID')` **trước** `distributeBatch` | **XANH cả 42 ca** — bộ test không bắt được | thêm ca mới, xem dưới |
+
+Đột biến thứ hai là phát hiện đáng kể nhất của task. Khối `catch` sửa hồ sơ về `FAILED`, nên **trạng
+thái sau khi hàm chạy xong giống hệt bản đúng** — mọi phép kiểm "cuối cùng hồ sơ ở `FAILED`, số dư
+bằng 0" đều vẫn xanh. Mà thiệt hại thật nằm ở *giữa* luồng: tiến trình chết đúng đó thì hồ sơ đứng
+lại ở `PAID` trong khi chưa ai nhận đồng nào, và không lần chạy lại nào xét tới họ nữa.
+
+Cách bắt: thêm hook `fault.onBatch` vào vỏ bọc ledger, chạy **ngay trước** khi lô được gửi, rồi đọc
+trạng thái hồ sơ tại đúng thời điểm ấy. Sau khi thêm:
+
+```
+$ # với đột biến
+ → expected Set{ 'PAID' } to deeply equal Set{ 'PENDING' }
+      Tests  1 failed | 42 passed (43)
+$ # bản đúng
+      Tests  43 passed (43)
+```
+
+Đã phục hồi mã, không còn vết nào: `grep -n "ĐỘT BIẾN TẠM THỜI" app/src/lib/bank/distribution.service.ts`
+→ rỗng.
+
+### 3.4 Số đo dùng làm bằng chứng
+
+```
+$ git grep -c "@pending BE-06" -- app/src | wc -l
+0
+$ grep -cE "^export async function" app/src/lib/bank/distribution.service.ts
+4
+$ grep -cE "^export async function" app/src/app/actions/distribution.ts
+4
+$ node scripts/scan-pending.mjs --check
+Marker hợp lệ: 17 điểm cắm, 12 điểm chặn, 31 bước luồng. Không có lỗi.
+```
 
 ## 4. DEVIATION so với spec
 
-Chưa có mã nên chưa có lệch. Hai chỗ **spec lệch trạng thái thật của repo**, đã ghi ở mục 5.2
-và 5.3.
+### 4.1 Phần dư làm tròn chỉ được GHI NHẬN, chưa chuyển
+
+Spec: *"Phần dư do làm tròn dồn về ví chỉ định, đọc từ tham số hệ thống `distribution.dust_wallet`."*
+
+Đã làm: đọc khoá đó, trả `dust` + `dustWallet` trong `previewDistribution` và trong khung nhìn của
+`distributePeriod`, ghi câu mô tả phần dư kèm đích vào sổ kiểm toán khi kỳ chạy xong. **Chưa** chuyển
+tiền tới ví đó. Lý do và ba phương án ở mục 5.1.
+
+### 4.2 Hai hàm đọc dùng `assertCan`, không `authorize`
+
+`previewDistribution` và `getDistributionPeriod` kiểm quyền bằng `assertCan` nên **không ghi một dòng
+kiểm toán nào**. Với `previewDistribution` đây là điều kiện hoàn thành số 2 đòi ("không ghi gì vào cơ
+sở dữ liệu" — sổ kiểm toán cũng là cơ sở dữ liệu). Với `getDistributionPeriod` là để màn theo dõi gọi
+lại theo chu kỳ mà không nhấn chìm sổ. Cùng tiền lệ `previewPurchase` ở BE-03. Đánh đổi: một lần xem
+trước **bị chặn** không để lại dấu vết.
+
+### 4.3 Thêm ba mã lỗi và một kiểu tham số cấu hình
+
+`ErrorCode`: `INSUFFICIENT_PROFIT_POOL`, `NO_CIRCULATING_SUPPLY`, `PERIOD_STATE` (cả ba HTTP 409).
+`CONFIG_VALUE_TYPES`: thêm `'string'` cho `distribution.dust_wallet` — ba kiểu cũ không mang nổi một
+địa chỉ ví. Doc của chính cổng nói đây là đường mở rộng được duyệt trước ("thêm kiểu mới thì thêm vào
+đây"), nên tôi không coi là sửa hợp đồng cổng.
+
+### 4.4 Một phép kiểm THÊM vào `openPeriod` mà spec không yêu cầu
+
+Đọc `profitPoolBalance()` **lần thứ hai** sau `takeSnapshot` và so với lần đọc trước; lệch thì từ chối
+mở kỳ. Lý do ở mục 5.1 đoạn cuối. Đây là 8 dòng thêm vào, và nó biến một sai lệch âm thầm thành một
+lần từ chối có lý do.
+
+### 4.5 KHÔNG sửa `distribution.store.port.ts`
+
+Spec cho phép sửa nếu thiếu hàm thật sự. Không thiếu hàm nào — tám method đủ cho cả luồng.
 
 ## 5. Câu hỏi mở / chỗ chưa chắc
 
-### 5.1 BE-04 chưa merge vào `dev` → không có nền hợp lệ để mở nhánh
+### 5.1 Phần dư: `ILedgerPort` không có đường chuyển nó ra khỏi ví lợi nhuận
 
-`requirements.md` ghi nền là `feat/distribution-service`, "từ `dev` sau khi BE-04 đã merge".
+`distributeBatch` **tự tính** phần từng ví theo `distributable × balanceOfAt / totalSupplyAt` chia lấy
+phần nguyên, và phần lẻ đọng trong quỹ. Contract thật quét bằng `sweepDust`, nhưng hàm đó **không có
+trong `ILedgerPort`** và `ledger.port.ts` là "đọc, không sửa" theo spec.
 
-Đo lại:
+Ba cách:
 
-```
-$ git merge-base --is-ancestor 8e69f18 dev && echo merged || echo "CHƯA merge"
-CHƯA merge
-
-$ git show dev:.kiro/task-status.json | grep -n "BE-04"
-19:    "BE-04",          # còn nằm trong "planned"
-
-$ git show dev:app/src/lib/store/index.ts | grep -c "getConfigStore"
-0
-
-$ for f in app/src/lib/store/config.store.port.ts app/src/lib/store/memory.config.store.ts \
-           app/src/lib/store/config-values.ts app/src/lib/bank/config.service.ts \
-           app/test/config-service.test.ts; do \
-    printf '%s: %s\n' "$f" "$(git ls-tree -r --name-only dev -- "$f" | wc -l)"; done
-app/src/lib/store/config.store.port.ts: 0
-app/src/lib/store/memory.config.store.ts: 0
-app/src/lib/store/config-values.ts: 0
-app/src/lib/bank/config.service.ts: 0
-app/test/config-service.test.ts: 0
-```
-
-Vì sao điều này chặn cứng, không phải bất tiện nhỏ:
-
-- Việc 6 của spec và điều kiện hoàn thành số 5 đòi kích thước lô đọc từ tham số hệ thống,
-  khóa `distribution.batch_size`. Đường đọc tham số là `getConfigStore()` → `config-values.ts`,
-  **cả hai đều chỉ có ở BE-04**.
-- Mục Tác động của spec cũng giả định BE-04 đã có: nó liệt kê `lib/config/issue-terms.ts` là
-  "nơi khai mặc định tham số" (trên `dev` tệp này chưa có `CONFIG_KEYS`) và liệt kê
-  `config-service` vào "test bị ảnh hưởng" (trên `dev` tệp test đó không tồn tại).
-- Làm trên `dev` nghĩa là dựng lại tầng cấu hình của BE-04: trùng việc, và chắc chắn xung đột
-  khi BE-04 merge.
-- Nhánh BE-04 (`feat/issuance-and-config`) **đang chờ nghiệm thu**, nên `branching.md` §1 cấm
-  lấy nó làm nền. Tôi không tự quyết việc này (§5: "DỪNG. Không tự chọn nền khác").
-
-Hai phương án:
-
-| | Phương án | Đánh đổi |
+| | Cách | Đánh đổi |
 |---|---|---|
-| **A** (đề xuất) | Owner merge PR của BE-04 vào `dev` trước, rồi tôi `git checkout -b feat/distribution-service dev` | Đúng `branching.md`, không nợ rebase. Chi phí: phải nghiệm thu BE-04 xong trước |
-| **B** | Owner cho phép tạm lấy nền `feat/issuance-and-config`, ghi rõ món nợ rebase về `dev` | Làm được ngay, nhưng lỗi của BE-04 lẫn vào BE-06 lúc nghiệm thu, và nếu BE-04 phải sửa lại thì BE-06 rebase theo — đúng ba rủi ro `branching.md` §2 mô tả |
+| **1** (đã làm) | `amount` = đúng số chuỗi trả; ghi nhận `dust` + `dustWallet` ở khung nhìn và sổ kiểm toán | Sổ khớp chuỗi tuyệt đối. Phần dư **chưa** tới ví chỉ định |
+| 2 | Cộng phần dư vào `amount` của ví chỉ định | Đúng câu chữ spec, nhưng sổ ghi lớn hơn số chuỗi chuyển — đúng loại lệch `lessons.md` cấm |
+| 3 | Thêm `sweepDust` vào `ILedgerPort` + ba adapter | Vượt phạm vi BE-06; `evm.adapter` còn chưa nối được `distributeBatch` nên cũng chưa nối được `sweepDust` |
 
-Tôi đề xuất **A**. Nếu Owner chọn **B** thì tôi sẽ ghi vào mục 4 của checkpoint này: nền đã
-dùng, lý do, và món nợ rebase về `dev` sau khi BE-04 merge.
+Đề xuất: giữ cách 1, mở một task nhỏ thêm `sweepDust` vào cổng. `test/distribution-service.test.ts`
+ca 3 **khoá lại hành vi hiện tại** (`profitPoolBalance()` bằng đúng phần dư sau khi chia), nên lần nối
+`sweepDust` buộc phải sửa test — phần dư không thể âm thầm đổi đích.
 
-### 5.2 `FE-08` không nằm trong tập mã task hợp lệ
+**Một giới hạn cùng họ, đã bù được một phần.** Contract chốt số tiền chia được **ngay tại** lời gọi
+chụp ảnh, và cổng không có hàm đọc lại con số đã chốt đó. Nên `totalAmount` ghi vào kỳ là số đọc
+*trước* khi chụp, và nó chỉ đúng khi quỹ không đổi giữa hai thời điểm. Tôi đọc lại rồi so (mục 4.4);
+lệch thì từ chối mở kỳ, mất một ảnh chụp nhưng không bao giờ ghi một `totalAmount` sai. Cách sửa gốc
+là thêm `distributableAt(snapshotId)` vào cổng — cần Supervisor chốt.
 
-Việc 8 của spec yêu cầu gắn `@pending FE-08`. Nhưng:
+### 5.2 "Không ghi gì vào cơ sở dữ liệu" — tôi hiểu gồm cả sổ kiểm toán
 
-```
-$ grep -c "FE-08" .kiro/task-status.json
-0
-$ grep -rn "FE-08" --include=*.md --include=*.ts --include=*.json . | grep -v node_modules
-docs/be-06-distribution/requirements.md:24:...gắn `@pending FE-08` và `@pending FE-09`...
-docs/be-06-distribution/requirements.md:98:- Không làm giao diện. Thuộc FE-08 và FE-09.
-```
+Hai cách hiểu: (a) không tạo kỳ/hồ sơ chia; (b) không ghi **dòng nào**, kể cả audit. Tôi chọn (b) vì
+nó kiểm được chặt và không mất gì. Ca kiểm so ảnh **cả bốn bảng** (kỳ, hồ sơ chia, lệnh mua, sổ kiểm
+toán) trước và sau lời gọi. Nếu Supervisor muốn (a) thì đổi `assertCan` → `authorize` ở
+`previewDistribution` và sửa ca đó.
 
-`make-control.md` §7 nói tập mã hợp lệ là hợp của `done` + `inProgress` + `planned` trong
-`.kiro/task-status.json`. `FE-08` không có ở đó, nên `@pending FE-08` sẽ làm
-`scan-pending.mjs --check` đỏ với mã `UNKNOWN_TASK` — tức là làm đúng spec thì `run-local-all.sh`
-đỏ.
+### 5.3 `evm.adapter.distributeBatch`: thứ thiếu là CHỮ KÝ, không phải một quyết định của BE-06
 
-**Hướng tôi định làm** (không chặn, chỉ báo để Owner/Supervisor biết): thêm `FE-08` vào
-`planned` trong cùng commit Bước 0, vì chính spec BE-06 coi FE-08 là task giao diện thật sẽ
-làm sau. Nếu Supervisor muốn gắn `@pending FE-09` cho cả hai action thay vì đăng ký mã mới thì
-nói một câu, tôi đổi.
+Marker cũ ghi việc này chờ BE-06. Dựng xong tầng nghiệp vụ thì thấy rõ hơn:
 
-### 5.3 Phần dư làm tròn: chuyển được về ví chỉ định tới mức nào
+- Trên chuỗi thật, kỳ chia sinh ra bởi `createDistribution(amount, period)` — hàm đó **tự gọi**
+  `snapshot()`. Nên `takeSnapshot()` đứng riêng không tạo kỳ chia nào, và sau nó **không tồn tại**
+  `distributionId` để tra.
+- `distributeBatch(snapshotId, wallets)` chỉ nhận `snapshotId`, tức không mang theo thứ duy nhất tra
+  được `distributionId`: mã kỳ nghiệp vụ (`periodKey`, đúng tham số `period` contract nhận).
 
-Ràng buộc tính toán: "Phần dư do làm tròn dồn về ví chỉ định, đọc từ tham số hệ thống
-`distribution.dust_wallet`. Không có thì giữ lại trong ví chia lợi nhuận."
+Hai đường xử lý (ghi đầy đủ ngay trên marker ở `evm.adapter.ts`): đổi chữ ký để mang mã kỳ xuống
+adapter, **hoặc** thêm cột `distributionId` vào `DistributionPeriod` và để `openPeriod` gọi
+`createDistribution` thay `takeSnapshot` trên chain EVM. Cả hai đều sửa `ledger.port.ts` hoặc lược đồ
+— vượt phạm vi BE-06. Tôi **không nối** vì nối sai cho ra hệ thống chạy được mà chia theo một kỳ khác.
 
-Trạng thái thật của cổng:
+Marker nay là `@blocked SC-05`. Nếu Supervisor muốn gộp vào `SC-03` thì sửa một dòng marker và một
+dòng `task-status.json`.
 
-```
-$ grep -n "distributeBatch\|profitPoolBalance\|sweepDust" app/src/lib/ledger/ledger.port.ts
-186:  profitPoolBalance(): Promise<bigint>;
-197:  distributeBatch(snapshotId: number, wallets: readonly string[]): Promise<TxResult>;
-```
+### 5.4 Cách chia FE-08 / FE-09 là suy luận của tôi
 
-`distributeBatch` **tự tính** phần từng ví theo `distributable × balanceAt / totalSupplyAt`
-chia lấy phần nguyên (`mock.adapter.ts:617`), nên tầng nghiệp vụ không có cách nào bảo nó
-"trả thêm phần dư cho ví này". Phần dư đọng trong quỹ; chính chú thích ở `mock.adapter.ts`
-ghi rằng contract thật quét bằng `sweepDust` — **hàm đó không có trong `ILedgerPort`**.
+Không task nào trong hai mã đó có spec. Tôi gán: **FE-08** = màn ngân hàng (mở kỳ, xem trước, bấm
+chia) → ba action; **FE-09** = màn đọc trạng thái kỳ → một action. Đổi thì sửa bốn dòng marker rồi
+`node scripts/scan-pending.mjs --write-report`.
 
-Ba cách, và vì sao tôi chọn cách 1:
+## 6. Sai lệch phát hiện được và cập nhật tài liệu
 
-1. **(đề xuất)** Ghi sổ đúng số chuỗi thật trả: `amount` của mỗi hồ sơ = phần nguyên.
-   `previewDistribution` trả thêm `dust` và `dustWallet`, và lúc kỳ hoàn tất thì ghi một bản
-   ghi kiểm toán nói rõ phần dư là bao nhiêu, đang nằm ở đâu. Giữ được bất biến "sổ khớp
-   chuỗi"; đổi lại, phần dư **chưa thật sự chuyển** cho ví chỉ định — còn chờ `sweepDust`.
-2. Cộng phần dư vào `amount` của ví chỉ định. Làm đúng câu chữ của spec, nhưng sổ ghi một số
-   lớn hơn số chuỗi chuyển → đúng loại lệch mà `lessons.md` đã cấm.
-3. Thêm `sweepDust` vào `ILedgerPort` + ba adapter. Vượt phạm vi BE-06, và `evm.adapter`
-   chưa nối được `distributeBatch` nên cũng chưa nối được `sweepDust`.
+### 6.1 Sai lệch so với spec / repo
 
-Cần Supervisor chốt trước khi tôi viết mã cho điều kiện hoàn thành số 4.
+- **`FE-08` không nằm trong tập mã task hợp lệ** (`grep -c "FE-08" .kiro/task-status.json` → 0 lúc
+  nhận việc), nên làm đúng việc 8 sẽ khiến `scan-pending --check` đỏ `UNKNOWN_TASK`. Đã đăng ký vào
+  `planned`.
+- **`@blocked BE-06` ở `evm.adapter.ts` sẽ lạc hậu** khi BE-06 sang `done` — mục 5.3.
+- **Vòng đầu bị chặn:** spec ghi nền là "`dev` sau khi BE-04 đã merge" mà BE-04 chưa merge. Đã dừng
+  và báo Owner theo `branching.md` §5; Owner merge BE-04 (`28b62a8`) rồi tôi mở nhánh từ `dev`. Bằng
+  chứng của vòng đó nằm trong commit `5c649c9` của tệp này.
 
-## 6. Tự đánh giá 3 LUẬT kiến trúc
+### 6.2 Mục đã cập nhật ở `docs/tech-report.md`
 
-Chưa có mã nên chưa tự đánh giá được. Ba luật sẽ áp như sau khi bắt đầu:
+Metadata (2.2 → **2.3**, nhánh/commit, phase) · ghi chú đổi phiên bản · §1.4 cây thư mục ·
+§1.6.A (bốn bài học kiến trúc + hai bài học về test, cũng đã thêm vào `.kiro/steering/lessons.md`) ·
+§1.6.C (hai mục nợ theo việc 9, và sửa mục P1 từ BE-06 sang SC-05) · §3.1 bảng method 22 ·
+§3.3 (năm hành động RBAC đã có nghiệp vụ dùng thật) · §3.4 (service + schema + ba lưu ý mới) ·
+§3.5 (cổng chia lợi nhuận đã có người gọi, `config-values.ts`) · **§3.13 mới** (bảng bốn khoá tham
+số) · **§4.5 viết lại** từ "P3, chưa xây" thành luồng thật · §4.6 · §4.7 lộ trình ·
+§3.10 (sinh lại bằng script, không sửa tay).
 
-- [ ] Mọi call chain qua `ILedgerPort` — `distribution.service.ts` chỉ gọi `getLedger(chain)`
-- [ ] Mọi ký qua `ISigner` — service không ký trực tiếp; `distributeBatch` do adapter ký
-- [ ] Mọi kiểm quyền qua RBAC — `authorize('distribution:snapshot' | 'distribution:execute', …)`
+## 7. Tự đánh giá 3 LUẬT kiến trúc
+
+- [x] **Mọi call chain qua `ILedgerPort`** — `distribution.service.ts` chỉ gọi `getLedger(chain)`.
+      `grep -rnE "from '(viem|ethers)'" app/src/ | grep -v "src/lib/"` → **0**
+- [x] **Mọi ký qua `ISigner`** — service không ký; adapter ký qua signer do `getLedger` tiêm.
+      `grep -rln "SERVER_SIGNER_PRIVATE_KEY" app/src/` → đúng 2 tệp (`config/env.ts`,
+      `signer/server.signer.ts`), không phát sinh chỗ mới
+- [x] **Mọi kiểm quyền qua RBAC** — `authorize('distribution:snapshot'|'distribution:execute', …)`
+      và `assertCan(role, 'distribution:execute'|'reconcile:read')`.
+      `grep -rnE "role ===|role ==" app/src/ | grep -v "src/lib/rbac/"` → **0**
