@@ -167,3 +167,74 @@ export const expireOrdersSchema = z.object({
   olderThanMinutes: z.coerce.number().int().min(1).max(60 * 24 * 30).default(30),
 });
 export type ExpireOrdersInput = z.input<typeof expireOrdersSchema>;
+
+// =============================================================================
+//  CHIA LỢI NHUẬN (BE-06)
+// =============================================================================
+
+/**
+ * Mã kỳ chia do nghiệp vụ đặt, ví dụ `2026-Q1`. DUY NHẤT toàn hệ.
+ *
+ * Ràng buộc bộ ký tự là có giá trị thật, không phải làm cho có: mã kỳ đi vào `target` của sổ kiểm
+ * toán và vào thông báo lỗi hiển thị cho người dùng, nên một mã chứa ký tự điều khiển hay dấu
+ * `|` sẽ làm lệch bảng trong báo cáo và mở đường cho chuỗi lạ đi qua nhật ký. Cho phép chữ, số
+ * và ba dấu nối là đủ cho mọi cách đặt tên kỳ (`2026-Q1`, `2026_06`, `thang.06`).
+ *
+ * KHÔNG `export`: chỉ hai schema trong cùng tệp này dùng tới.
+ */
+const periodKeySchema = z
+  .string()
+  .trim()
+  .min(1, 'Mã kỳ không được rỗng.')
+  .max(40, 'Mã kỳ tối đa 40 ký tự.')
+  .regex(/^[A-Za-z0-9._-]+$/, 'Mã kỳ chỉ gồm chữ, số và các dấu . _ -');
+
+/**
+ * Mã kỳ chia trong cơ sở dữ liệu: UUID.
+ *
+ * `.trim()` rồi mới `.pipe(z.uuid())`, cùng thứ tự và cùng lý do với `orderIdSchema`.
+ */
+const periodIdSchema = z.string().trim().pipe(z.uuid('Mã kỳ chia phải là UUID.'));
+
+/** Mở kỳ chia. KHÔNG có trường số tiền: tổng tiền đọc từ ví chia lợi nhuận trên chuỗi. */
+export const openPeriodSchema = z.object({
+  chain: chainSchema,
+  periodKey: periodKeySchema,
+});
+export type OpenPeriodInput = z.input<typeof openPeriodSchema>;
+
+/**
+ * Trỏ tới một kỳ ĐÃ MỞ, dùng cho xem trước và cho chia theo lô.
+ *
+ * ⚠️ KHÔNG có trường kích thước lô. Kích thước lô đọc từ tham số hệ thống
+ * `distribution.batch_size`; nhận nó từ input là tạo nguồn thứ hai, và khi hai nguồn lệch nhau
+ * thì số lần gọi `distributeBatch` phụ thuộc người bấm chứ không phụ thuộc cấu hình đã đo trên
+ * chuỗi.
+ */
+export const distributionPeriodSchema = z.object({
+  chain: chainSchema,
+  periodId: periodIdSchema,
+});
+export type DistributionPeriodInput = z.input<typeof distributionPeriodSchema>;
+
+/**
+ * Tra một kỳ theo mã kỳ HOẶC mã trong cơ sở dữ liệu — đúng một trong hai.
+ *
+ * Nhận cả hai vì hai người gọi biết hai thứ khác nhau: tiến trình vừa mở kỳ đang giữ `periodId`,
+ * còn cán bộ ngân hàng chỉ biết `periodKey` ("2026-Q1") vì đó là thứ họ tự đặt. Bắt buộc
+ * `periodId` sẽ buộc màn hình phải lưu một uuid mà người dùng không bao giờ nhìn thấy.
+ *
+ * Đòi ĐÚNG MỘT chứ không phải "ít nhất một": truyền cả hai mà chúng trỏ vào hai kỳ khác nhau thì
+ * mọi thứ tự ưu tiên đều là đoán, và kết quả là đọc trạng thái của một kỳ mà người gọi không hỏi.
+ */
+export const distributionPeriodQuerySchema = z
+  .object({
+    chain: chainSchema,
+    periodId: periodIdSchema.optional(),
+    periodKey: periodKeySchema.optional(),
+  })
+  .refine((value) => Boolean(value.periodId) !== Boolean(value.periodKey), {
+    message: 'Truyền đúng một trong hai: periodId hoặc periodKey.',
+    path: ['periodId'],
+  });
+export type DistributionPeriodQueryInput = z.input<typeof distributionPeriodQuerySchema>;

@@ -24,6 +24,14 @@ export type ErrorCode =
   | 'INSUFFICIENT_SUPPLY' // ví thanh toán SPV không còn đủ WPT
   | 'ORDER_STATE' // chuyển trạng thái không hợp lệ, hoặc lệnh đã được xử lý
   | 'PRICE_CHANGED' // giá đổi so với lúc đặt lệnh
+  // --- Chia lợi nhuận (BE-06) ---
+  // Ba mã tách riêng vì ba việc phải làm để sửa là ba việc khác nhau, do những người
+  // khác nhau làm: nạp tiền vào ví lợi nhuận (kế toán), chờ có người nắm WPT (kinh
+  // doanh), chọn lại kỳ (cán bộ đang bấm). Gộp vào 'LEDGER' thì màn hình chỉ nói được
+  // "chain từ chối" cho cả ba — trong khi chain chưa hề được gọi để ghi.
+  | 'INSUFFICIENT_PROFIT_POOL' // ví chia lợi nhuận không có tiền để chia
+  | 'NO_CIRCULATING_SUPPLY' // tổng cung WPT tại ảnh chụp bằng 0, không có quyền nào để chia
+  | 'PERIOD_STATE' // kỳ chia không tồn tại / mã kỳ trùng / kỳ đã hoàn tất / quỹ đổi lúc chốt
   | 'UNKNOWN';
 
 export type Result<T> =
@@ -60,6 +68,11 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   INSUFFICIENT_SUPPLY: 409,
   ORDER_STATE: 409,
   PRICE_CHANGED: 409,
+
+  /** Chia lợi nhuận: 409 cho cả ba, cùng lập luận với nhóm lệnh mua ở trên. */
+  INSUFFICIENT_PROFIT_POOL: 409,
+  NO_CIRCULATING_SUPPLY: 409,
+  PERIOD_STATE: 409,
 
   UNKNOWN: 500,
 };

@@ -530,12 +530,35 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
      * không phải việc của adapter — dò bằng cách quét `distributions(i)` trong đây
      * là nhét logic nghiệp vụ vào tầng chuyển đổi, đúng thứ BE-01 cấm.
      *
-     * @blocked BE-06 | thiếu quyết định mapping snapshotId -> distributionId; hợp đồng `ProfitDistributor` thì đã có và đã deploy
+     * ----------------------------------------------------------------------
+     *  CHẨN ĐOÁN CỦA BE-06 — vì sao marker này KHÔNG còn chờ BE-06 nữa
+     * ----------------------------------------------------------------------
+     *  BE-06 đã dựng xong tầng nghiệp vụ và nhờ đó thấy rõ thứ đang thiếu KHÔNG
+     *  phải một quyết định của tầng nghiệp vụ, mà là CHỮ KÝ của chính method này.
+     *
+     *  Trên chuỗi thật, một kỳ chia sinh ra bởi `createDistribution(amount, period)`
+     *  — hàm đó tự gọi `snapshot()` bên trong. Nghĩa là `takeSnapshot()` đứng riêng
+     *  KHÔNG tạo ra kỳ chia nào, nên sau nó không tồn tại `distributionId` để tra.
+     *  Còn `distributeBatch(snapshotId, wallets)` chỉ nhận `snapshotId`, tức là
+     *  không mang theo thứ duy nhất tra được `distributionId`: mã kỳ nghiệp vụ
+     *  (`DistributionPeriod.periodKey`, đúng tham số `period` mà contract nhận).
+     *
+     *  Vậy có hai đường, và cả hai đều VƯỢT phạm vi BE-06 (spec ghi `ledger.port.ts`
+     *  là "đọc, không sửa"):
+     *    a) Đổi chữ ký để `distributeBatch` nhận cả mã kỳ, rồi adapter tra
+     *       `distributionId` từ contract theo `period`.
+     *    b) Thêm cột `distributionId` vào `DistributionPeriod` và để `openPeriod`
+     *       gọi `createDistribution` thay cho `takeSnapshot` trên chain EVM.
+     *
+     *  Chưa chốt thì KHÔNG nối, vì nối sai cho ra hệ thống chạy được mà chia theo
+     *  một kỳ khác. Đã ghi thành câu hỏi mở ở `docs/CHECKPOINT_BE06.md`.
+     *
+     * @blocked SC-05 | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này
      */
     async distributeBatch() {
       return pendingContract(
         'distributeBatch',
-        'quyết định mapping snapshotId -> distributionId ở BE-06',
+        'quyết định cách mang mã kỳ xuống adapter để tra distributionId (SC-05)',
       );
     },
 

@@ -36,6 +36,12 @@ export {
   assertStatus,
   ForeignKeyError,
   InvalidStatusError,
+  /**
+   * Re-export vì tầng nghiệp vụ PHẢI biết giới hạn này: `createPayouts` ném lỗi khi lô vượt
+   * ngưỡng, nên BE-06 chia lô ghi theo đúng con số ở đây. Buộc nghiệp vụ nhập từ
+   * `store/store.errors` là mời gọi việc gõ lại một hằng số thứ hai cho cùng giới hạn.
+   */
+  MAX_BULK_ROWS,
   type StoreKind,
   StoreUsageError,
   UniqueConstraintError,
@@ -146,7 +152,12 @@ export function getOrderStore(): IOrderStore {
 }
 
 /**
- * @pending BE-06 | cổng kỳ chia lợi nhuận đã sẵn ở cả hai bản (bộ nhớ + Postgres): `periodKey` duy nhất chặn mở kỳ hai lần, `(periodId, investorWallet)` duy nhất chặn chia trùng — hai ràng buộc đó là nơi giữ đúng đắn, đừng thay bằng phép kiểm trước khi ghi
+ * Cổng kỳ chia lợi nhuận. `lib/bank/distribution.service.ts` gọi từ BE-06.
+ *
+ * Hai ràng buộc duy nhất là nơi giữ đúng đắn, KHÔNG phải phép kiểm trước khi ghi: `periodKey` chặn
+ * mở cùng một kỳ hai lần, `(periodId, investorWallet)` chặn chia trùng cho một nhà đầu tư. BE-06
+ * vẫn đọc trước khi ghi, nhưng chỉ để khỏi tốn một ảnh chụp trên chuỗi cho lời gọi chắc chắn
+ * trượt — đọc rồi ghi không chặn được hai tiến trình song song.
  */
 export function getDistributionStore(): IDistributionStore {
   cache.distribution ??= wantsMemoryStore()
