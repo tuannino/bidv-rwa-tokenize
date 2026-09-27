@@ -21,6 +21,7 @@ import type {
 import {
   readDistributionBatchSize,
   readDistributionDustWallet,
+  readDistributionMaxBatchesPerRun,
 } from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
@@ -120,6 +121,14 @@ export interface DistributionRunView {
   period: DistributionPeriodView;
   /** Kích thước lô đã dùng, đọc từ tham số hệ thống `distribution.batch_size`. */
   batchSize: number;
+  /**
+   * Số lô tối đa lần chạy này được gửi, đọc từ `distribution.max_batches_per_run`.
+   *
+   * `batches === maxBatches` và `outstanding > 0` nghĩa là lượt chia bị CHẶN vì chạm hạn mức,
+   * không phải vì lỗi — gọi lại sẽ chia tiếp. Đây là thứ phân biệt "còn việc" với "có lỗi",
+   * nên khung nhìn phải mang cả hai con số chứ không chỉ mang `outstanding`.
+   */
+  maxBatches: number;
   /** Số lô đã GỬI trong lần chạy này. `0` khi không còn hồ sơ nào phải chi. */
   batches: number;
   /** Số hồ sơ chuyển sang `PAID` trong lần chạy này. */
@@ -608,6 +617,10 @@ async function auditDistribution(
  * nên lần chạy sau nhắm đúng những hồ sơ đó. Dừng cả lượt vì một lỗi RPC nhất thời sẽ giữ tiền
  * của những người ở lô sau lại mà không có lý do nào thuộc về họ.
  *
+ * **4. Một lượt gửi TỐI ĐA `distribution.max_batches_per_run` lô** (BE-07). Hàm này vì vậy
+ * KHÔNG hứa chia xong cả kỳ trong một lời gọi — `outstanding` khác 0 là kết cục bình thường,
+ * và người gọi phải gọi lại. Lý do đầy đủ ở chỗ `break` trong vòng gửi lô.
+ *
  * Chống chia hai lần có HAI lớp, và lớp quyết định nằm ở chuỗi: contract giữ cờ đã-nhận cho từng
  * ảnh chụp, nên một ví đã nhận thì lời gọi sau bỏ qua nó. Nhờ vậy gửi lại một lô mà ta không
  * biết kết quả là an toàn — đó là lý do hồ sơ `SENT` được gửi lại thay vì bị bỏ mặc.
@@ -642,6 +655,7 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
 
     const ledger = getLedger(chain);
     const batchSize = await readDistributionBatchSize();
+    const maxBatches = await readDistributionMaxBatchesPerRun();
     const dustWallet = await readDistributionDustWallet();
 
     // --- 2. Lập hồ sơ cho ví chưa có, TRƯỚC khi gửi bất kỳ giao dịch nào -----
@@ -701,6 +715,22 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
     let batches = 0;
 
     for (const [index, group] of chunk(toPay, batchSize).entries()) {
+      /**
+       * HẠN MỨC SỐ LÔ MỖI LƯỢT (BE-07) — dừng ở đây, không chia nốt.
+       *
+       * Vòng lặp này gửi từng giao dịch on-chain rồi CHỜ biên nhận, nên với vài nghìn ví nó
+       * kéo dài hàng chục phút. Không nền chạy nào giữ một yêu cầu HTTP sống lâu thế: tiến
+       * trình bị cắt GIỮA lượt, và lúc đó phần đã gửi thì đã ghi hồ sơ còn phần chưa gửi thì
+       * không ai biết là còn hay hết.
+       *
+       * Dừng có chủ ý thì khác: kỳ ở lại `DISTRIBUTING`, `outstanding` khác 0, và lần gọi sau
+       * nhắm đúng những hồ sơ chưa `PAID`. Người gọi (tiến trình định kỳ BE-07, hoặc cán bộ
+       * bấm lại ở FE-08) chỉ cần gọi tiếp.
+       *
+       * `break` chứ không `continue`: các lô sau đều chưa gửi, đi hết vòng lặp để làm gì.
+       */
+      if (batches >= maxBatches) break;
+
       const batchNo = lastBatchNo + index + 1;
       const groupAmount = sumAmount(group);
       batches += 1;
@@ -814,14 +844,15 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       period,
       role,
       'SUCCESS',
-      `lượt chia xong: ${batches} lô (kích thước ${batchSize}), ${paid} hồ sơ đã chi, ` +
-        `${failed} thất bại, ${zeroRows.length} được chia 0, còn ${remaining.length} phải chi; ` +
-        `trạng thái kỳ ${period.status}; ${dustNote(dust, dustWallet)}`,
+      `lượt chia xong: ${batches}/${maxBatches} lô (kích thước ${batchSize}), ${paid} hồ sơ ` +
+        `đã chi, ${failed} thất bại, ${zeroRows.length} được chia 0, còn ${remaining.length} ` +
+        `phải chi; trạng thái kỳ ${period.status}; ${dustNote(dust, dustWallet)}`,
     );
 
     return ok({
       period: toPeriodView(period),
       batchSize,
+      maxBatches,
       batches,
       paid,
       failed,

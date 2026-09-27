@@ -177,7 +177,12 @@ export function getSettlementStore(): ISettlementStore {
 }
 
 /**
- * @pending BE-07 | cổng lần chạy định kỳ đã sẵn ở cả hai bản (bộ nhớ + Postgres): mở lần chạy ở `RUNNING` rồi đóng sang `SUCCESS` hoặc `FAILED`, nên tiến trình hẹn giờ có chỗ ghi vết mà không phải dựng bảng mới
+ * Cổng lần chạy định kỳ. `lib/bank/distribution-trigger.service.ts` gọi từ BE-07.
+ *
+ * Ràng buộc duy nhất `(jobName, periodKey)` là TRỌNG TÀI chống hai vòng chạy trùng, không phải
+ * một phép kiểm trong mã: BE-07 gọi `startRun` TRƯỚC khi làm gì và coi lỗi trùng ràng buộc là
+ * tín hiệu "một bản khác đã nhận việc này". Đọc trước bằng `findRun` rồi mới ghi thì hai bản
+ * cùng nhận một lịch sẽ cùng thấy "chưa chạy" và cùng chạy.
  */
 export function getKeeperStore(): IKeeperStore {
   cache.keeper ??= wantsMemoryStore() ? createMemoryKeeperStore() : createPostgresKeeperStore();

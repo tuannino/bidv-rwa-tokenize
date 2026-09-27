@@ -51,6 +51,36 @@ const privateKeySchema = z
       'SERVER_SIGNER_PRIVATE_KEY phải là hex 32 byte (64 ký tự), có hoặc không có tiền tố 0x',
   });
 
+/**
+ * Số ký tự tối thiểu của `KEEPER_SECRET`.
+ *
+ * Khoá này là thứ DUY NHẤT chặn người ngoài gọi được điểm vào chia lợi nhuận, nên một khoá
+ * ngắn kiểu `"secret"` là không có gì. 32 ký tự là độ dài của một khoá sinh bằng
+ * `openssl rand -hex 16`, tức mức thấp nhất mà một lệnh sinh khoá thông thường cho ra.
+ *
+ * Chặn ở tầng cấu hình, KHÔNG ở route: route chỉ thấy khoá đúng hay sai, còn "khoá quá yếu"
+ * phải nổ ra lúc nạp cấu hình để người triển khai biết ngay, chứ không phải im lặng chạy
+ * suốt với một khoá đoán được.
+ */
+export const KEEPER_SECRET_MIN_LENGTH = 32;
+
+/**
+ * Khoá bí mật của điểm vào tiến trình định kỳ. Thiếu -> `undefined`, và route TỪ CHỐI hết.
+ *
+ * Không có giá trị mặc định, và đó là chủ đích: một mặc định trong mã nằm trong repo công
+ * khai, nên nó tương đương không có khoá nào.
+ */
+const keeperSecretSchema = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  })
+  .refine((value) => value === undefined || value.length >= KEEPER_SECRET_MIN_LENGTH, {
+    message: `KEEPER_SECRET phải dài ít nhất ${KEEPER_SECRET_MIN_LENGTH} ký tự (sinh bằng \`openssl rand -hex 16\`)`,
+  });
+
 const envSchema = z.object({
   // --- Chain ---
   defaultChain: chainKeySchema,
@@ -91,6 +121,15 @@ const envSchema = z.object({
    */
   enableDemoPaymentMint: boolFlag(false),
 
+  /**
+   * Khoá bí mật cho `POST /api/keeper/distribution` (BE-07).
+   *
+   * Điểm vào đó chạy một vòng chia lợi nhuận, tức là nó CHUYỂN TIỀN. Không có khoá thì bất kỳ
+   * ai biết đường dẫn cũng kích hoạt được, nên route từ chối mọi yêu cầu khi biến này trống —
+   * "chưa cấu hình" phải là đóng, không phải mở.
+   */
+  keeperSecret: keeperSecretSchema,
+
   /** Vai trò giả lập cho PoC — Phase 4 thay bằng SIWE + session thật. */
   demoRole: z
     .string()
@@ -119,6 +158,9 @@ function load(): ServerEnv {
     // KHÔNG có biến thể NEXT_PUBLIC_: cờ phải do người triển khai đặt ở server, không
     // để lộ ra bundle browser như một thứ có thể bật được từ phía client.
     enableDemoPaymentMint: process.env.ENABLE_DEMO_PAYMENT_MINT,
+    // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle
+    // browser thì mọi người xem trang đều đọc được.
+    keeperSecret: process.env.KEEPER_SECRET,
     demoRole: process.env.DEMO_ROLE ?? process.env.NEXT_PUBLIC_DEMO_ROLE,
   });
 
@@ -142,6 +184,38 @@ export function serverEnv(): ServerEnv {
 /** Chỉ dùng trong test để nạp lại env sau khi đổi process.env. */
 export function resetServerEnvCache(): void {
   cached = undefined;
+}
+
+/**
+ * Khoá người gọi gửi lên CÓ khớp `KEEPER_SECRET` hay không.
+ *
+ * Đây là nơi DUY NHẤT đọc giá trị khoá, cùng khuôn với `signerPrivateKeyFor`: route handler
+ * chỉ hỏi khớp hay không, không bao giờ cầm chuỗi khoá. Nhờ vậy một lần `console.log` bất cẩn ở
+ * tầng vận chuyển không in được khoá ra nhật ký.
+ *
+ * ## Hai điều cố ý
+ *
+ * **1. Chưa cấu hình khoá -> luôn KHÔNG khớp.** Route vì vậy từ chối hết. "Chưa cấu hình" phải
+ * là đóng: điểm vào này chuyển tiền, nên mở sẵn khi thiếu cấu hình là hỏng theo chiều tệ nhất.
+ *
+ * **2. So sánh trong thời gian không phụ thuộc nội dung.** `a === b` của JS thoát ra ngay ở
+ * byte đầu khác nhau, nên thời gian trả lời tiết lộ người gọi đã đoán đúng bao nhiêu ký tự
+ * đầu — đủ để dò dần cả khoá. Vòng lặp dưới đây luôn đi hết độ dài.
+ *
+ * Độ dài vẫn lộ (so trước, rồi mới lặp), và đó là đánh đổi có chủ ý: `KEEPER_SECRET` có chặn
+ * độ dài tối thiểu nên biết độ dài không giúp thu hẹp được gì đáng kể, còn lặp trên hai chuỗi
+ * khác độ dài thì phải tự chọn cách đệm và dễ viết sai hơn chính lỗ hổng đang muốn bịt.
+ */
+export function keeperSecretMatches(provided: string | null | undefined): boolean {
+  const expected = serverEnv().keeperSecret;
+  if (!expected || !provided) return false;
+  if (provided.length !== expected.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < expected.length; i += 1) {
+    diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 /**
