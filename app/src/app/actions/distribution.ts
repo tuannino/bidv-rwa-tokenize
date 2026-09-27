@@ -1,6 +1,10 @@
 'use server';
 
 import {
+  listDistributionRuns,
+  runDistributionCycle,
+} from '@/lib/bank/distribution-trigger.service';
+import {
   distributePeriod,
   getDistributionPeriod,
   openPeriod,
@@ -54,4 +58,33 @@ export async function distributePeriodAction(input: unknown) {
  */
 export async function getDistributionPeriodAction(input: unknown) {
   return getDistributionPeriod(input);
+}
+
+// =============================================================================
+//  TIẾN TRÌNH TỰ ĐỘNG CHIA (BE-07)
+// =============================================================================
+
+/**
+ * KÍCH HOẠT TAY một vòng của tiến trình tự động chia — dùng khi lịch chạy bị trượt.
+ *
+ * Cùng một hàm nghiệp vụ với điểm vào của tiến trình định kỳ (`POST /api/keeper/distribution`),
+ * không phải một đường riêng. Hai đường thực thi khác nhau cho cùng một việc sẽ lệch nhau ở
+ * lần sửa đầu tiên, và lúc đó kết quả phụ thuộc việc ai bấm — người hay lịch.
+ *
+ * Khác biệt duy nhất giữa hai đường là CÁCH nhận diện người gọi: đường này dựa vào vai trong
+ * phiên (`distribution:execute` kiểm trong service), đường kia dựa vào khoá bí mật vì tiến
+ * trình định kỳ không có phiên nào.
+ *
+ * @flow distribute:11 | nhận yêu cầu chạy tay một vòng chia tự động, khi lịch chạy bị trượt
+ * @pending FE-08 | đã sẵn đầu cuối ở `runDistributionCycle`: kiểm quyền `distribution:execute`, tự phát hiện tiền vào ví lợi nhuận, tự sinh mã kỳ, chống hai vòng chạy trùng bằng ràng buộc duy nhất của cơ sở dữ liệu, gọi lại nghiệp vụ BE-06 để mở kỳ và chia, chỉ ghi mốc số dư khi kỳ xong toàn bộ. FE-08 chỉ cần một nút "chạy ngay" rồi hiển thị `outcome` và `message`; `outcome` là `PARTIAL` nghĩa là còn phải chạy lại, `stuck` bằng true nghĩa là cần người xem
+ */
+export async function runDistributionCycleAction(input: unknown) {
+  return runDistributionCycle(input);
+}
+
+/**
+ * @pending FE-08 | vỏ mỏng quanh `listDistributionRuns` đã sẵn: kiểm quyền `reconcile:read`, trả lịch chạy mới nhất trước, đã tách khoá ghép thành `periodKey` + `runNo`. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán nên màn theo dõi gọi lại theo chu kỳ được
+ */
+export async function listDistributionRunsAction(input: unknown) {
+  return listDistributionRuns(input);
 }

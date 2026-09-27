@@ -803,7 +803,8 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
  * Chỉ nhắm `PLACED`. Từ `CHECKING` trở đi đã có tiến trình đang xử lý; cho hết hạn chen
  * ngang sẽ tạo đúng loại tranh chấp mà khoá lạc quan được dựng để chặn.
  *
- * @pending BE-07 | đã sẵn đầu cuối: validate Zod, kiểm quyền `order:expire`, chuyển PLACED -> EXPIRED theo mốc thời gian, ghi sổ kiểm toán khi có lệnh đổi. BE-07 chỉ cần gọi theo lịch
+ * Từ BE-07, điểm vào theo lịch là `POST /api/keeper/distribution` với `job: "expire-orders"`,
+ * bảo vệ bằng khoá bí mật `KEEPER_SECRET`. Việc gọi định kỳ do hạ tầng ngân hàng lo.
  */
 export async function expireStaleOrders(input: unknown): Promise<Result<{ expired: number }>> {
   const parsed = expireOrdersSchema.safeParse(input);

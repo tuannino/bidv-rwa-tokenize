@@ -8,8 +8,10 @@ import { httpStatusFor } from '@/lib/bank/result';
  * `purchase.service`, để hai transport (server action + route handler) không thể lệch nhau.
  * Xem ghi chú đầy đủ ở `app/src/app/actions/purchase.ts`.
  *
- * `expireStaleOrders` CỐ Ý không có ở đây: nó là thao tác dọn dẹp theo lịch của BE-07, mở
- * một điểm vào HTTP cho nó là mời gọi việc gọi tay giữa lúc có lệnh đang xử lý.
+ * `expireStaleOrders` CỐ Ý không có ở đây: nó là thao tác dọn dẹp theo lịch, và mở một điểm
+ * vào HTTP công khai cho nó là mời gọi việc gọi tay giữa lúc có lệnh đang xử lý. Điểm vào của
+ * nó là `POST /api/keeper/distribution` với `job: "expire-orders"` (BE-07) — cùng đường dẫn
+ * với vòng chia tự động vì cả hai đều là công việc theo lịch, và đường đó có khoá bí mật.
  *
  * ⚠️ TỆP NÀY KHÔNG CÓ MARKER VỊ TRÍ LUỒNG, và đó là giới hạn của quy ước chứ không phải
  * bỏ sót. Quy ước ở `.kiro/steering/make-control.md` mục 4 cho mỗi bước ĐÚNG MỘT số nguyên,

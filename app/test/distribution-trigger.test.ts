@@ -86,7 +86,7 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
   };
 });
 
-const { resetServerEnvCache } = await import('@/lib/config/env');
+const { KEEPER_SECRET_MIN_LENGTH, resetServerEnvCache } = await import('@/lib/config/env');
 const { resetMockLedger, seedMockLedger } = await import('@/lib/ledger/mock.adapter');
 const { getLedger } = await import('@/lib/ledger');
 const {
@@ -101,6 +101,7 @@ const {
 const { DISTRIBUTION_JOB_NAME, listDistributionRuns, runDistributionCycle } = await import(
   '@/lib/bank/distribution-trigger.service'
 );
+const { POST: keeperRoute } = await import('@/app/api/keeper/distribution/route');
 
 const CHAIN = 'mock';
 
@@ -206,6 +207,23 @@ function barrier(count: number): () => Promise<void> {
   };
 }
 
+/** Khoá đủ dài theo `KEEPER_SECRET_MIN_LENGTH` — dạng `openssl rand -hex 16` cho ra. */
+const SECRET = 'a'.repeat(KEEPER_SECRET_MIN_LENGTH);
+
+/** Gọi điểm vào tiến trình định kỳ. `token === null` nghĩa là không gửi header nào. */
+async function callKeeper(token: string | null, body: unknown = { chain: CHAIN }) {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (token !== null) headers.authorization = `Bearer ${token}`;
+
+  return keeperRoute(
+    new Request('https://bank.example/api/keeper/distribution', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 beforeEach(() => {
   fault.batchCalls = 0;
   fault.batchWallets = [];
@@ -222,6 +240,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.DEMO_ROLE;
   delete process.env.USE_MOCK_DB;
+  delete process.env.KEEPER_SECRET;
+  delete process.env.NEXT_PUBLIC_DEFAULT_CHAIN;
   resetServerEnvCache();
   resetStoreCache();
 });
@@ -836,5 +856,157 @@ describe('ví lợi nhuận thiếu tiền giữa kỳ thì dừng, không chia 
     const failedRun = (await listRuns()).find((run) => run.periodKey.endsWith('#2'));
     expect(failedRun?.status).toBe('FAILED');
     expect(failedRun?.error).toContain('phải nạp bù');
+  });
+});
+
+// ===========================================================================
+//  CA 9 — điểm vào của tiến trình định kỳ
+// ===========================================================================
+describe('ca 9 — route handler chỉ chạy khi có khoá bí mật đúng', () => {
+  /** Một bối cảnh đủ để một vòng chạy làm được việc thật, nên "bị chặn" mới có ý nghĩa. */
+  async function seedReadyToDistribute() {
+    const [a, b] = holderWallets(2);
+    await seedHolder(a, 1n);
+    await seedHolder(b, 1n);
+    setProfitPool(1_000n);
+    return [a, b] as const;
+  }
+
+  /** Không việc gì xảy ra: không kỳ, không mốc chạy, không lô nào gửi. */
+  async function expectNothingHappened() {
+    expect(await listPeriods()).toHaveLength(0);
+    expect(await listRuns()).toHaveLength(0);
+    expect(fault.batchCalls).toBe(0);
+  }
+
+  it('không có header thì từ chối 401', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    const response = await callKeeper(null);
+
+    expect(response.status).toBe(401);
+    await expectNothingHappened();
+  });
+
+  it('khoá sai thì từ chối 401', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    const response = await callKeeper('b'.repeat(KEEPER_SECRET_MIN_LENGTH));
+
+    expect(response.status).toBe(401);
+    await expectNothingHappened();
+  });
+
+  it('khoá đúng độ dài nhưng lệch một ký tự vẫn bị từ chối', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    // Cùng độ dài: phép so sánh trong thời gian cố định phải đi hết chuỗi rồi mới kết luận.
+    const response = await callKeeper(`${SECRET.slice(0, -1)}b`);
+
+    expect(response.status).toBe(401);
+    await expectNothingHappened();
+  });
+
+  /**
+   * "Chưa cấu hình" phải là ĐÓNG.
+   *
+   * Đây là phép kiểm quan trọng nhất của ca 9: một bản triển khai quên đặt `KEEPER_SECRET` mà
+   * route lại cho qua thì điểm vào chuyển tiền thành công khai, và không lỗi nào báo.
+   */
+  it('chưa cấu hình KEEPER_SECRET thì từ chối MỌI khoá', async () => {
+    await seedReadyToDistribute();
+    delete process.env.KEEPER_SECRET;
+    resetServerEnvCache();
+
+    const withToken = await callKeeper(SECRET);
+    const withoutToken = await callKeeper(null);
+
+    expect(withToken.status).toBe(401);
+    expect(withoutToken.status).toBe(401);
+    await expectNothingHappened();
+  });
+
+  it('câu trả lời không nói khoá đã cấu hình hay chưa', async () => {
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+    const wrongKey = (await (await callKeeper('c'.repeat(KEEPER_SECRET_MIN_LENGTH))).json()) as {
+      error: string;
+    };
+
+    delete process.env.KEEPER_SECRET;
+    resetServerEnvCache();
+    const noKey = (await (await callKeeper(SECRET)).json()) as { error: string };
+
+    // Hai câu giống nhau: khác nhau là chỉ cho người dò biết họ đang ở bước nào.
+    expect(wrongKey.error).toBe(noKey.error);
+  });
+
+  it('khoá đúng thì chạy một vòng thật', async () => {
+    const [a, b] = await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    const response = await callKeeper(SECRET);
+    const payload = (await response.json()) as { ok: boolean; data: { outcome: string } };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.data.outcome).toBe('DISTRIBUTED');
+    expect(await paymentBalances([a, b])).toEqual([500n, 500n]);
+  });
+
+  it('thân yêu cầu trống thì lấy chain mặc định của bản triển khai', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    process.env.NEXT_PUBLIC_DEFAULT_CHAIN = CHAIN;
+    resetServerEnvCache();
+
+    const response = await callKeeper(SECRET, {});
+    const payload = (await response.json()) as { ok: boolean; data: { chain: string } };
+
+    expect(response.status).toBe(200);
+    expect(payload.data.chain).toBe(CHAIN);
+  });
+
+  it('vai không có quyền vẫn bị RBAC chặn dù khoá đúng', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    // `actAs` tự nạp lại env, nên đặt khoá TRƯỚC rồi đổi vai là đủ — cả hai cùng một lần nạp.
+    actAs('AUDITOR');
+
+    const response = await callKeeper(SECRET);
+
+    // Khoá bí mật trả lời "có phải tiến trình của mình", RBAC trả lời "được làm gì". Hai lớp.
+    expect(response.status).toBe(403);
+    expect(await listPeriods()).toHaveLength(0);
+  });
+
+  it('công việc dọn lệnh treo cũng đi qua điểm vào này', async () => {
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    const response = await callKeeper(SECRET, { job: 'expire-orders' });
+    const payload = (await response.json()) as { ok: boolean; data: { expired: number } };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.data.expired).toBe(0);
+  });
+
+  it('tên công việc lạ bị từ chối 400 và không chạy gì', async () => {
+    await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    const response = await callKeeper(SECRET, { job: 'chuyen-het-tien-cho-toi' });
+
+    expect(response.status).toBe(400);
+    await expectNothingHappened();
   });
 });
