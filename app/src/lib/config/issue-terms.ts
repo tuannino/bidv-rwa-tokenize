@@ -90,6 +90,28 @@ export const CONFIG_KEYS = {
   priceChangeThreshold: 'wpt.price_change_threshold',
   distributionBatchSize: 'distribution.batch_size',
   distributionDustWallet: 'distribution.dust_wallet',
+
+  // --- BE-07: tiến trình tự động chia khi ví lợi nhuận nhận tiền -------------
+  /**
+   * Số dư ví chia lợi nhuận mà hệ thống ĐÃ XỬ LÝ XONG — mốc để phát hiện tiền mới.
+   *
+   * ⚠️ Đây là **số dư dự kiến còn lại** sau kỳ đã tất toán, KHÔNG phải tổng tiền đã nhận
+   * luỹ tiến. Lý do nằm ở chính hành vi của chuỗi: chia lợi nhuận LÀM GIẢM số dư ví lợi
+   * nhuận (`ProfitDistributor.distributeTo` chuyển VNDB ra khỏi hợp đồng, và
+   * `mock.adapter` làm đúng thế), nên một mốc luỹ tiến sẽ luôn lớn hơn số dư thật ngay
+   * sau kỳ đầu tiên và mọi lần so sánh về sau đều kết luận "số dư giảm".
+   *
+   * Sau một kỳ chia xong trọn vẹn, số dư còn lại đúng bằng phần dư làm tròn của kỳ đó
+   * (`DistributionRunView.dust`) — đó là giá trị ghi vào khoá này. Nhờ vậy phần dư KHÔNG
+   * bị hiểu là tiền mới, và mọi đồng vượt quá mốc là tiền SPV vừa nạp.
+   */
+  distributionLastSettledBalance: 'distribution.last_settled_balance',
+  /** Số lô tối đa MỘT lượt chia được gửi. Xem `DISTRIBUTION_MAX_BATCHES_PER_RUN`. */
+  distributionMaxBatchesPerRun: 'distribution.max_batches_per_run',
+  /** Mức tăng tối thiểu mới coi là tiền mới. Xem `DISTRIBUTION_MIN_NEW_BALANCE`. */
+  distributionMinNewBalance: 'distribution.min_new_balance',
+  /** Số vòng chạy tối đa cho một kỳ trước khi coi là treo. Xem `DISTRIBUTION_STUCK_AFTER_RUNS`. */
+  distributionStuckAfterRuns: 'distribution.stuck_after_runs',
 } as const;
 
 /**
@@ -115,6 +137,54 @@ export const DISTRIBUTION_BATCH_SIZE = 50;
  * hai hệ thống khác nhau, gộp lại là buộc chúng phải đổi cùng nhau.
  */
 export const DISTRIBUTION_BATCH_SIZE_MAX = 500;
+
+/**
+ * Số lô tối đa MỘT lượt chia được gửi (BE-07), dùng khi bảng chưa có dòng nào.
+ *
+ * Vì sao phải có chặn này chứ không cứ chia hết trong một lượt: một lượt chia cho 5.000 ví
+ * với lô 50 là 100 giao dịch on-chain nối tiếp nhau, mỗi giao dịch còn phải chờ biên nhận.
+ * Không nền chạy nào cho một yêu cầu HTTP sống lâu thế — free-tier serverless cắt sau vài
+ * chục giây, và tiến trình bị cắt GIỮA lượt để lại kỳ chia dở mà không ai báo.
+ *
+ * Chặn số lô biến việc đó thành chuyện bình thường: mỗi lượt làm một phần, `outstanding`
+ * khác 0 nói còn phải chạy lại, và tiến trình định kỳ gọi tiếp. 5 lô × 50 ví = 250 ví mỗi
+ * lượt — đủ nhanh để xong trong một yêu cầu, đủ lớn để không cần hàng trăm lượt.
+ */
+export const DISTRIBUTION_MAX_BATCHES_PER_RUN = 5;
+
+/**
+ * Chặn trên của số lô mỗi lượt. Cùng lập luận với `DISTRIBUTION_BATCH_SIZE_MAX`: một cấu
+ * hình gõ sai (5000) làm mất hẳn tác dụng của chặn số lô, và triệu chứng chỉ hiện ra khi
+ * một lượt chia bị nền chạy cắt giữa đường.
+ */
+export const DISTRIBUTION_MAX_BATCHES_PER_RUN_MAX = 100;
+
+/**
+ * Mức tăng số dư ví lợi nhuận tối thiểu mới coi là "SPV vừa nạp tiền" (BE-07), đơn vị VNDB.
+ *
+ * VNDB có `decimals = 0` nên đây là số VND trọn. 1.000 VND nhỏ hơn mọi lần nạp lợi tức
+ * thật (kỳ chia của một dự án điện gió tính bằng trăm triệu) và lớn hơn mọi sai lệch lẻ có
+ * thể còn lại trong ví sau một kỳ — phần dư làm tròn nhiều nhất là một đồng mỗi ví.
+ *
+ * Vì sao cần ngưỡng khi mốc số dư đã trừ đúng phần dư: mốc chỉ đúng với phần dư của kỳ mà
+ * hệ thống tự chia. Tiền vào ví lợi nhuận bằng đường khác (chuyển tay, hoàn trả một giao
+ * dịch lỗi) không qua mốc nào, và mở một kỳ chia cho vài đồng lẻ là tốn một ảnh chụp trên
+ * chuỗi cộng một giao dịch cho mỗi ví để chia ra số 0.
+ */
+export const DISTRIBUTION_MIN_NEW_BALANCE = 1_000;
+
+/**
+ * Số vòng chạy tối đa cho MỘT kỳ trước khi coi là treo và ghi cảnh báo (BE-07).
+ *
+ * 3 là mức để cảnh báo còn có ý nghĩa. Một kỳ bình thường xong trong một vòng, hoặc trong
+ * vài vòng nếu số ví vượt `DISTRIBUTION_MAX_BATCHES_PER_RUN`. Tới vòng thứ ba mà vẫn còn ví
+ * chưa nhận thì hoặc lô đang lỗi lặp lại, hoặc số ví lớn hơn mức cấu hình dự tính — cả hai
+ * đều là việc người vận hành phải biết.
+ *
+ * KHÔNG để 1: khi đó mọi kỳ nhiều hơn một vòng đều sinh cảnh báo, và cảnh báo trở thành thứ
+ * bị bỏ qua — lúc đó nó không còn báo được gì.
+ */
+export const DISTRIBUTION_STUCK_AFTER_RUNS = 3;
 
 /** Mã token của dự án điện gió duy nhất trong PoC. */
 export const WPT_TOKEN_SYMBOL = 'WPT';

@@ -4,6 +4,10 @@ import {
   CONFIG_KEYS,
   DISTRIBUTION_BATCH_SIZE,
   DISTRIBUTION_BATCH_SIZE_MAX,
+  DISTRIBUTION_MAX_BATCHES_PER_RUN,
+  DISTRIBUTION_MAX_BATCHES_PER_RUN_MAX,
+  DISTRIBUTION_MIN_NEW_BALANCE,
+  DISTRIBUTION_STUCK_AFTER_RUNS,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
 } from '@/lib/config/issue-terms';
@@ -79,4 +83,83 @@ export async function readDistributionDustWallet(): Promise<string | null> {
   const row = await getConfigStore().getConfig(CONFIG_KEYS.distributionDustWallet);
   const value = row?.value.trim();
   return value ? value : null;
+}
+
+// =============================================================================
+//  BE-07 — THAM SỐ CỦA TIẾN TRÌNH TỰ ĐỘNG CHIA
+// =============================================================================
+
+/**
+ * Đọc một số nguyên trong khoảng cho phép, lùi về mặc định khi thiếu dòng hoặc giá trị lạ.
+ *
+ * Gom lại thành MỘT hàm vì ba tham số dưới đây có cùng một quy tắc đọc, và nhánh lùi về mặc
+ * định là nhánh ít được chạy nhất — ba bản sao của nó sẽ lệch nhau mà không test nào đi qua.
+ *
+ * KHÔNG `export`: chỉ ba hàm trong tệp này dùng tới. Chỗ gọi cần giá trị thì gọi hàm có tên
+ * nói rõ tham số nào, không tự truyền khoá vào một hàm chung.
+ */
+async function readBoundedInt(
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+): Promise<number> {
+  const row = await getConfigStore().getConfig(key);
+  if (!row) return fallback;
+
+  const parsed = Number(row.value);
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+}
+
+/** Số lô tối đa một lượt chia được gửi (BE-07). */
+export async function readDistributionMaxBatchesPerRun(): Promise<number> {
+  return readBoundedInt(
+    CONFIG_KEYS.distributionMaxBatchesPerRun,
+    DISTRIBUTION_MAX_BATCHES_PER_RUN,
+    1,
+    DISTRIBUTION_MAX_BATCHES_PER_RUN_MAX,
+  );
+}
+
+/** Số vòng chạy tối đa cho một kỳ trước khi coi là treo (BE-07). */
+export async function readDistributionStuckAfterRuns(): Promise<number> {
+  // Chặn trên bằng số lô tối đa mỗi lượt là con số không liên quan, nên dùng một chặn riêng:
+  // 1.000 vòng cho một kỳ đã là vô lý, đủ để bắt lỗi gõ sai mà không chặn cấu hình hợp lý.
+  return readBoundedInt(CONFIG_KEYS.distributionStuckAfterRuns, DISTRIBUTION_STUCK_AFTER_RUNS, 1, 1_000);
+}
+
+/**
+ * Mức tăng số dư tối thiểu mới coi là tiền mới (BE-07), đơn vị VNDB.
+ *
+ * `BigInt` chứ không `Number`: số dư ví lợi nhuận là uint256, và một ngưỡng qua `number` sẽ
+ * mất chính xác từ 2^53 rồi so sánh sai ngay ở chỗ quyết định có mở kỳ hay không.
+ *
+ * Giá trị lạ (không phải số nguyên không dấu) -> lùi về mặc định thay vì ném: ngưỡng là lớp
+ * BẢO VỆ, một dòng dữ liệu hỏng không được làm tiến trình định kỳ dừng hẳn. Nhưng cũng không
+ * được làm mất lớp bảo vệ, nên không lùi về 0.
+ */
+export async function readDistributionMinNewBalance(): Promise<bigint> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.distributionMinNewBalance);
+  const value = row?.value.trim();
+  if (!value || !/^\d+$/.test(value)) return BigInt(DISTRIBUTION_MIN_NEW_BALANCE);
+
+  const parsed = BigInt(value);
+  return parsed > 0n ? parsed : BigInt(DISTRIBUTION_MIN_NEW_BALANCE);
+}
+
+/**
+ * Mốc số dư ví lợi nhuận đã xử lý xong (BE-07). Chưa có dòng nào -> `0n`.
+ *
+ * Mặc định 0 là giá trị duy nhất đúng, và khác hẳn ba tham số trên: đây KHÔNG phải tham số
+ * vận hành mà là TRẠNG THÁI do tiến trình tự ghi. Mặc định khác 0 nghĩa là khẳng định một số
+ * tiền nào đó đã được chia trước khi hệ thống chạy lần đầu, và hệ quả là số tiền đó không
+ * bao giờ tới tay nhà đầu tư.
+ */
+export async function readDistributionSettledBalance(): Promise<bigint> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.distributionLastSettledBalance);
+  const value = row?.value.trim();
+  // Giá trị lạ -> 0, KHÔNG phải "giữ nguyên số dư hiện tại": 0 làm tiến trình coi toàn bộ số
+  // dư là tiền mới, tức là chia thừa một lần (contract chặn bằng cờ đã-nhận của ảnh chụp).
+  // Lùi về một mốc cao hơn thực tế thì tiền nằm lại trong ví vĩnh viễn và không ai biết.
+  return value && /^\d+$/.test(value) ? BigInt(value) : 0n;
 }
