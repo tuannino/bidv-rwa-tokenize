@@ -238,3 +238,30 @@ export const distributionPeriodQuerySchema = z
     path: ['periodId'],
   });
 export type DistributionPeriodQueryInput = z.input<typeof distributionPeriodQuerySchema>;
+
+// =============================================================================
+//  TIẾN TRÌNH TỰ ĐỘNG CHIA (BE-07)
+// =============================================================================
+
+/**
+ * Chạy MỘT vòng của tiến trình tự động chia.
+ *
+ * ⚠️ CHỈ có `chain`. Không có mã kỳ, không có số lô, không có ngưỡng — và đó là toàn bộ
+ * điểm của tiến trình này: nó TỰ phát hiện phải làm gì. Nhận mã kỳ từ input là mời người gọi
+ * chỉ định kỳ nào phải chia, tức là quay về đúng luồng bấm tay mà BE-06 đã có; còn nhận
+ * ngưỡng hay số lô là tạo nguồn thứ hai cạnh tham số hệ thống, và khi hai nguồn lệch thì
+ * quyết định "có mở kỳ hay không" phụ thuộc người gọi chứ không phụ thuộc cấu hình.
+ *
+ * `chain` vẫn phải có vì ảnh chụp số dư và ví lợi nhuận thuộc về MỘT chuỗi; một vòng chạy
+ * không xử lý được hai chuỗi cùng lúc.
+ */
+export const distributionCycleSchema = z.object({
+  chain: chainSchema,
+});
+export type DistributionCycleInput = z.input<typeof distributionCycleSchema>;
+
+/** Đọc lịch chạy của tiến trình tự động chia. Cùng chặn 200 dòng với các truy vấn khác. */
+export const keeperRunQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export type KeeperRunQueryInput = z.input<typeof keeperRunQuerySchema>;
