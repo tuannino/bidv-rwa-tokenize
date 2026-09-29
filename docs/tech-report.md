@@ -192,7 +192,7 @@ bidv-rwa-tokenize/
 │   │   ├── test/              # full-cycle, oracle-cycle (13 test)
 │   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (54 test)
 │   │   └── trex/              # ERC-3643 thật — TOOLCHAIN RIÊNG, KHÔNG trộn
-│   ├── contracts-stellar/     # Soroban (Rust) — phase 7
+│   ├── contracts-stellar/     # Soroban (Rust) — TẠM DỪNG, giữ mã (xem 2.6)
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
 │
 ├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20 / bash, không phụ thuộc ngoài)
@@ -397,7 +397,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | OpenZeppelin Contracts | AccessControl, SafeERC20, ReentrancyGuard | 5.6.1 | 5.6.1 | MIT |
 | T-REX (ERC-3643) | Khung token chứng khoán tuân thủ — production sau | 4.1.6 | 4.1.6 | ⚠️ Riêng |
 | ONCHAINID | Danh tính on-chain đi kèm ERC-3643 | 2.2.1 | 2.2.1 | ISC |
-| Soroban SDK | Contract Stellar (phase 7) | 26 | 27.0.6 | Apache-2.0 |
+| Soroban SDK | Contract Stellar — **TẠM DỪNG, không thuộc khâu kiểm chứng** (xem 2.6) | 26 | 27.0.6 | Apache-2.0 |
 
 ## 2.4. Dữ liệu và trạng thái
 
@@ -424,6 +424,39 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Docker / Compose | 3 service: chain, db, web | — | 29.7.1 | Apache-2.0 |
 | @opennextjs/cloudflare | Đưa Next.js lên Workers | 1.14.0 | 1.20.6 | MIT |
 | Wrangler | CLI triển khai Workers | đi kèm | 4.129.1 | MIT/Apache-2.0 |
+
+## 2.6. Stellar tạm dừng ở khâu kiểm chứng (OP-01)
+
+**Mã nguồn Stellar giữ nguyên. Chỉ khâu kiểm chứng và khâu chuẩn bị môi trường bỏ nó ra.**
+
+| Giữ nguyên trong repo | Đã gỡ khỏi khâu kiểm chứng |
+|---|---|
+| `packages/contracts-stellar/` (8 tệp Rust) | Nhánh gọi `cargo test` trong `scripts/run-local-all.sh` |
+| `app/src/lib/ledger/stellar.adapter.ts` | Phép kiểm `@stellar/stellar-sdk` trong `scripts/verify-arch-rules.sh` |
+| Giá trị `stellar` trong `packages/shared/src/chains.ts`, trong kiểu dữ liệu và sổ đăng ký chuỗi | Ba mục spec `p4-mint-stellar` / `p7-profit-distribution-stellar` / `p12-redemption-stellar` trong phần kiểm cấu trúc của cùng tệp đó |
+| Trạng thái `unsupported-chain` ở màn kết nối ví (xem 3.9) và kiểm thử của nó | Yêu cầu bắt buộc cài Rust trong steering |
+
+**Không ai phải cài Rust để làm việc trên dự án này.** `bash scripts/run-local-all.sh` in một dòng
+thông báo phần Soroban đang tạm dừng; dòng đó **không** tính vào PASS/FAIL và không đổi mã thoát.
+Có dòng đó để người chạy biết phần Soroban vắng mặt là chủ đích, không phải script quên gọi.
+
+**Vì sao giữ mã thay vì xoá.** Kiến trúc đa chuỗi là thứ ba luật bất di bảo vệ (xem 1.2). Gỡ
+`stellar` khỏi danh sách chuỗi và khỏi kiểu dữ liệu là bỏ đúng phần mà `ILedgerPort` tồn tại để
+bảo vệ: ngày nối lại, việc phải làm sẽ là *thêm một adapter*, không phải *dựng lại khả năng đa
+chuỗi*. Cái giá của việc giữ: mỗi method mới thêm vào `ILedgerPort` vẫn phải hiện thực ở
+`stellar.adapter.ts` — ném `LedgerNotImplementedError` kèm gợi ý nêu đúng thứ đang thiếu.
+
+**Hai phép kiểm CÒN LẠI nhắc Stellar, đừng gỡ nhầm:**
+
+| Phép kiểm | Vì sao giữ |
+|---|---|
+| Contract ID Stellar (`C...` 56 ký tự) hardcode trong `app/src` | Đây là luật "một nguồn sự thật", không phải phép kiểm chuỗi Stellar. Nó vẫn phát biểu được điều đúng ngay hôm nay |
+| `packages/contracts-stellar/contracts/**/*.rs` trong phép so contract với `BASE_REF` | Đây chính là thứ **bảo vệ** mã nguồn Stellar khỏi bị sửa. Gỡ nó đi là mở đường cho việc mà mục này cấm |
+
+**Nối lại khi nào.** Owner quyết. Lúc đó: thêm lại nhánh `cargo test` vào `run-local-all.sh`,
+thêm lại phép kiểm `@stellar/stellar-sdk` (cùng khuôn với phép kiểm viem/ethers), thêm lại ba mục
+spec, và bỏ ghi chú tạm dừng ở `.kiro/steering/tech.md` + `structure.md`. Trong lúc chưa nối:
+**không mở task Stellar mới.**
 
 ---
 
@@ -1879,7 +1912,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
 | P5 | Fireblocks thay khóa server; freeze/clawback trên UI | ⏳ |
 | P6 | EVM testnet | ⏳ |
-| P7 | Stellar (Soroban) | ⏳ |
+| P7 | Stellar (Soroban) | ⏸ **TẠM DỪNG** từ OP-01 — mã nguồn giữ nguyên, không thuộc khâu kiểm chứng (xem 2.6) |
 
 ---
 

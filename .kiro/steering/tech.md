@@ -8,7 +8,7 @@ foundationalType: tech
 - **Frontend + Backend**: Next.js 16 full-stack (App Router, server actions/API routes). KHÔNG dựng NestJS/Express riêng.
 - **Web3**: wagmi v2 + viem + RainbowKit.
 - **Contracts EVM**: Solidity 0.8.28, OpenZeppelin v5, Hardhat v2 (đã có, 13 test pass). T-REX kit tách riêng (0.8.17 + OZ v4) — để production.
-- **Stellar**: Soroban/Rust (đã có) — phase sau.
+- **Stellar**: Soroban/Rust — **phần mở rộng tương lai, đang TẠM DỪNG (OP-01)**. Mã nguồn giữ nguyên trong `packages/contracts-stellar`, nhưng **KHÔNG** thuộc khâu kiểm chứng và **KHÔNG bắt buộc cài Rust**.
 - **DB**: PostgreSQL + Prisma.
 - **Triển khai**: Docker Compose.
 
@@ -22,6 +22,7 @@ Có breaking changes so với training data. **Trước khi sửa `app/`, ĐỌC
 
 ## Chain & mock
 - Chain chọn ở UI: `hardhat-local` (mặc định) → `evm` → `stellar`. **KHÔNG dùng Polygon** (đã loại).
+- Giá trị `stellar` **ở nguyên** trong danh sách chuỗi và trong kiểu dữ liệu, dù chuỗi Stellar đang tạm dừng: đó là cái giữ cho kiến trúc đa chuỗi còn đứng. Đừng gỡ để "dọn cho gọn".
 - Mọi tích hợp (KYC/Oracle/CoreBank/ledger) có bản `mock` bật bằng feature flag `USE_MOCK_*`, mặc định mock để mint chạy nhanh.
 
 ## Mở rộng linh hoạt (kế thừa)

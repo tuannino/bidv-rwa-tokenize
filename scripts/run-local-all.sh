@@ -9,8 +9,11 @@
 #    2. Lớp 3 - điểm cắm: marker @pending / @blocked / @flow đúng quy ước
 #    3. Lớp 3 - khuôn checkpoint của task đang làm (mục 0 tóm tắt nghiệm thu)
 #    4. Lớp 1 - spec test contract EVM   (hardhat)
-#    5. Lớp 1 - spec test contract Soroban (cargo)
-#    6. Chất lượng app                    (typecheck, lint, vitest)
+#    5. Chất lượng app                    (typecheck, lint, vitest)
+#
+#  KHÔNG gồm phần Soroban. Chuỗi Stellar là phần mở rộng tương lai, hiện TẠM DỪNG ở
+#  khâu kiểm chứng: mã nguồn Rust vẫn nằm trong repo nhưng bộ công cụ Rust KHÔNG còn là
+#  thứ phải có trong môi trường làm việc. Lý do đầy đủ: docs/tech-report.md mục 2.6.
 #
 #  Phần TỔNG KẾT in thêm bảng điểm cắm đang chờ. Bảng đó là THÔNG TIN, không ảnh
 #  hưởng mã thoát: còn điểm cắm là trạng thái bình thường, không phải lỗi.
@@ -80,16 +83,12 @@ run "LỚP 3 - KHUÔN CHECKPOINT" . \
 run "LỚP 1 - SPEC TEST CONTRACT EVM" packages/contracts-evm \
     npx hardhat test
 
-# --- 5. Spec test contract Soroban ------------------------------------------
-if command -v cargo >/dev/null 2>&1; then
-  run "LỚP 1 - SPEC TEST CONTRACT SOROBAN" packages/contracts-stellar \
-      cargo test
-else
-  banner "LỚP 1 - SPEC TEST CONTRACT SOROBAN"
-  c_yel "  BỎ QUA: chưa cài Rust/cargo. Cài Rust 1.84+ rồi chạy lại."
-fi
+# Một dòng thông báo, KHÔNG phải một mục kiểm: không tính vào PASSED/FAILED và không đổi
+# mã thoát. Có dòng này để người chạy biết phần Soroban vắng mặt là CHỦ ĐÍCH, chứ không
+# phải script quên gọi hay môi trường thiếu công cụ.
+c_yel "  (Soroban: tạm dừng ở khâu kiểm chứng, không cần chạy — mã nguồn Rust giữ nguyên)"
 
-# --- 6. Chất lượng app ------------------------------------------------------
+# --- 5. Chất lượng app ------------------------------------------------------
 run "APP - TYPECHECK" app npm run typecheck
 run "APP - LINT"      app npx eslint .
 run "APP - VITEST"    app npm test

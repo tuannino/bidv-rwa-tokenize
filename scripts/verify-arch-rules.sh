@@ -40,13 +40,12 @@ else
   bad "viem/ethers bị import ngoài app/src/lib:"; echo "$HITS" | sed 's/^/        /'
 fi
 
-# Stellar SDK cũng phải bị giới hạn trong lib (áp dụng khi làm spec Stellar)
-HITS=$(grep -rn "@stellar/stellar-sdk" app/src/ 2>/dev/null | grep -v "app/src/lib/" || true)
-if [ -z "$HITS" ]; then
-  ok "@stellar/stellar-sdk không xuất hiện ngoài app/src/lib"
-else
-  bad "@stellar/stellar-sdk bị import ngoài app/src/lib:"; echo "$HITS" | sed 's/^/        /'
-fi
+# KHÔNG có phép kiểm thư viện Stellar ở đây, và đó là chủ đích (OP-01). Chuỗi Stellar là
+# phần mở rộng tương lai, đang TẠM DỪNG: `@stellar/stellar-sdk` chưa nằm trong
+# app/package.json nên phép kiểm chỉ quét được một thư viện không tồn tại — nó luôn xanh,
+# tức là một dòng PASS không phát biểu điều gì. Khi nối lại chuỗi Stellar thì thêm lại,
+# cùng khuôn với phép kiểm viem/ethers phía trên. Mã nguồn Stellar vẫn giữ nguyên:
+# `app/src/lib/ledger/stellar.adapter.ts` và `packages/contracts-stellar/`.
 
 # Component không được gọi trực tiếp contract
 HITS=$(grep -rnE "writeContract|readContract|simulateContract|new Contract\(" \
@@ -231,8 +230,12 @@ for d in .kiro/steering .kiro/specs docs; do
   if [ -d "$d" ]; then ok "Có $d"; else bad "Thiếu $d"; fi
 done
 
-for s in p4-mint-testnet p7-profit-distribution p12-redemption \
-         p4-mint-stellar p7-profit-distribution-stellar p12-redemption-stellar; do
+# Ba spec Stellar (`p4-mint-stellar`, `p7-profit-distribution-stellar`,
+# `p12-redemption-stellar`) đã được GỠ khỏi danh sách này (OP-01). Chuỗi Stellar là phần mở
+# rộng tương lai, đang tạm dừng, nên ba mục đó sinh ra ba dòng WARN vĩnh viễn cho việc
+# không ai sắp làm. Cảnh báo không bao giờ tắt được thì người đọc học cách bỏ qua cả cột
+# WARN, và lúc có cảnh báo thật thì nó lẫn vào đó. Nối lại chuỗi Stellar thì thêm lại.
+for s in p4-mint-testnet p7-profit-distribution p12-redemption; do
   if [ -d ".kiro/specs/$s" ]; then
     MISS=""
     for f in requirements.md design.md tasks.md; do
