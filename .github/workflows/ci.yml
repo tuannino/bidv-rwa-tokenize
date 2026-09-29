@@ -1,0 +1,227 @@
+# =============================================================================
+#  TÍCH HỢP LIÊN TỤC — cổng bảo vệ nhánh `dev`
+#
+#  Tệp này KHÔNG chứa danh sách lệnh cần chạy. Nó gọi lại các PHẦN của
+#  `scripts/run-local-all.sh`, vốn là nguồn duy nhất của danh sách đó:
+#
+#      bash scripts/run-local-all.sh --list
+#
+#  Vì sao làm vậy: chép danh sách lệnh sang đây là tạo ra hai danh sách phải tự tay
+#  giữ khớp nhau, và chúng SẼ lệch. Lúc đó nơi chạy tự động và nơi chạy tay kiểm hai
+#  thứ khác nhau, mà không ai biết cho tới khi một lỗi lọt qua.
+#
+#  Ba việc chạy SONG SONG:
+#    A. ứng dụng      — cổng BẮT BUỘC (arch, markers, checkpoint, typecheck, lint, vitest)
+#    B. hợp đồng EVM  — cổng BẮT BUỘC (hardhat test). KHÔNG có phần Rust: xem
+#                       docs/tech-report.md mục 2.6 (Stellar tạm dừng ở khâu kiểm chứng).
+#    C. phần nặng     — dựng bản phát hành + kiểm thử đầu cuối. KHÔNG chặn hợp nhất ở
+#                       giai đoạn này.
+#
+#  ⚠️ VIỆC C KHÔNG CHẶN — bằng cách nào. Nó KHÔNG đặt `continue-on-error`, nên đỏ thì
+#  hiện đỏ đúng như thật. Việc "không chặn" thực hiện bằng cách chủ kho mã chỉ đưa việc
+#  A và việc B vào danh sách phép kiểm bắt buộc của bảo vệ nhánh — xem
+#  docs/BRANCH_PROTECTION.md. Chọn cách này vì `continue-on-error` biến việc C thành một
+#  dấu XANH trong khi nó vừa đỏ: một cổng nói dối còn tệ hơn không có cổng.
+#  Khi việc C đủ ổn định thì thêm nó vào danh sách bắt buộc — đó là việc bấm ở cấu hình
+#  kho mã, không phải sửa tệp này.
+#
+#  KHÔNG dùng secret nào. Ba việc dưới đây chỉ đọc mã nguồn và chạy kiểm thử trên bản
+#  `mock`; không có khóa ký, không có chuỗi kết nối cơ sở dữ liệu, nên không có gì để lộ
+#  ra nhật ký chạy. Thêm secret vào đây thì phải xét lại điều đó.
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+# Đẩy commit mới lên cùng một nhánh thì huỷ lượt chạy cũ: kết quả của commit đã bị thay
+# thế không dùng để quyết định gì, mà vẫn chiếm chỗ chạy.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Chỉ đọc. Không việc nào ở đây cần quyền ghi vào kho mã.
+permissions:
+  contents: read
+
+env:
+  # Khớp với môi trường đã đo toàn bộ bằng chứng của OP-01 (node v22.13.0 cục bộ).
+  #
+  # ⚠️ `.kiro/steering/tech.md` ghi "Node pinning: .nvmrc = 20", nhưng repo KHÔNG có
+  # `.nvmrc` và cũng không có `engines.node` — nên con số 20 chưa từng có hiệu lực ở đâu.
+  # Đo thật: `vite`, `@vitejs/plugin-react` và `yargs` đòi `^20.19.0 || >=22.12.0`, tức
+  # Node 20 chỉ chạy được từ 20.19 trở lên. Chọn 22 để nơi chạy tự động giống nơi đã đo.
+  # Việc chốt con số và thêm `.nvmrc` là câu hỏi mở gửi Owner (xem checkpoint OP-01).
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  app:
+    name: A - ung dung (cong bat buoc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+        with:
+          # Cần lịch sử, không phải một commit: phép kiểm "bảng quyền không teo lại" đọc
+          # `app/src/lib/rbac/permissions.ts` ở phiên bản trên nền để so.
+          fetch-depth: 0
+
+      - name: Chọn nền để so bảng quyền
+        # Truyền qua biến môi trường chứ KHÔNG nội suy `${{ }}` vào thân script: nội suy
+        # thẳng vào shell là một lỗ chèn lệnh, kể cả khi giá trị hiện tại vô hại.
+        #
+        # Với yêu cầu hợp nhất: nền là nhánh đích (`dev`).
+        # Với đẩy thẳng lên `dev`: nền là commit TRƯỚC lần đẩy. Không lấy `origin/dev` vì
+        # sau lần đẩy nó CHÍNH LÀ commit đang kiểm — tự so với chính mình thì luôn xanh.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_REF: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags origin "$PR_BASE_REF:refs/remotes/origin/$PR_BASE_REF"
+            echo "RBAC_BASE_REF=origin/$PR_BASE_REF" >> "$GITHUB_ENV"
+          else
+            echo "RBAC_BASE_REF=$PUSH_BEFORE" >> "$GITHUB_ENV"
+          fi
+
+      - name: Cài Node và lưu đệm phụ thuộc của app
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Cài phụ thuộc của app
+        working-directory: app
+        run: npm ci
+
+      - name: Ba luật kiến trúc, điểm cắm, khuôn checkpoint, kiểu, chuẩn mã, kiểm thử đơn vị
+        run: bash scripts/run-local-all.sh arch markers checkpoint app
+
+  # ---------------------------------------------------------------------------
+  contracts:
+    name: B - hop dong EVM (cong bat buoc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+
+      - name: Cài Node và lưu đệm phụ thuộc của packages/contracts-evm
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/contracts-evm/package-lock.json
+
+      - name: Lưu đệm trình biên dịch Solidity
+        # Hardhat TẢI solc về `~/.cache/hardhat-nodejs` ở lần biên dịch đầu. Không lưu đệm
+        # thì mỗi lượt chạy tải lại vài chục MB, và lượt chạy đỏ vì mạng chứ không vì mã.
+        # Khoá theo hardhat.config.js: đổi phiên bản solc trong đó là cần bản tải khác.
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/hardhat-nodejs
+          key: solc-${{ runner.os }}-${{ hashFiles('packages/contracts-evm/hardhat.config.js') }}
+          restore-keys: |
+            solc-${{ runner.os }}-
+
+      - name: Cài phụ thuộc của contracts-evm
+        working-directory: packages/contracts-evm
+        run: npm ci
+
+      - name: Spec test contract EVM
+        run: bash scripts/run-local-all.sh contracts
+
+  # ---------------------------------------------------------------------------
+  heavy:
+    name: C - phan nang (KHONG chan hop nhat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+
+      - name: Cài Node và lưu đệm phụ thuộc của app
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Cài phụ thuộc của app
+        working-directory: app
+        run: npm ci
+
+      - name: Lưu đệm bộ nhớ đệm dựng bản
+        # `.next/cache` giữ kết quả biên dịch giữa hai lần dựng. Khoá đổi theo mã nguồn nên
+        # gần như luôn "miss"; `restore-keys` là phần có tác dụng thật: lấy bản gần nhất
+        # rồi dựng phần thay đổi.
+        uses: actions/cache@v6
+        with:
+          path: app/.next/cache
+          key: next-build-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}-${{ hashFiles('app/src/**', 'packages/shared/src/**') }}
+          restore-keys: |
+            next-build-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}-
+            next-build-${{ runner.os }}-
+
+      - name: Lưu đệm trình duyệt kiểm thử đầu cuối
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}
+
+      - name: Tải trình duyệt Playwright (chỉ khi chưa có trong đệm)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+
+      - name: Cài thư viện hệ thống cho trình duyệt đã có trong đệm
+        # Đệm chỉ giữ THƯ MỤC trình duyệt, không giữ các gói .deb mà nó cần để chạy. Bỏ
+        # bước này thì lượt chạy có đệm hỏng theo kiểu khó đoán: trình duyệt có đủ file mà
+        # không khởi động được.
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: app
+        run: npx playwright install-deps chromium
+
+      - name: Dựng bản phát hành rồi chạy kiểm thử đầu cuối
+        # Mốc phiên bản nhúng vào bản dựng để `GET /api/version` trả đúng bản đang chạy.
+        # Tên biến là tên của ỨNG DỤNG; phía phải là giá trị do nơi chạy này cấp. Đổi nơi
+        # chạy chỉ là đổi phía phải — xem app/src/lib/config/build-info.ts.
+        #
+        # Bước dựng bản CẦN MẠNG: app/src/app/layout.tsx dùng `next/font/google`.
+        env:
+          BUILD_COMMIT_SHA: ${{ github.sha }}
+          BUILD_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            bash scripts/run-local-all.sh build e2e
+
+      - name: Giữ vết Playwright khi kiểm thử đầu cuối đỏ
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-trace
+          path: |
+            app/test-results/
+            app/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+# =============================================================================
+#  KHÔNG có ở đây, và đó là chủ đích:
+#
+#  - `scripts/smoke-test.mjs` — kiểm khói cần MỘT BẢN ĐÃ TRIỂN KHAI để gọi vào. OP-01
+#    chỉ làm phần kiểm, không dựng quy trình triển khai, nên nó chạy bằng tay:
+#        node scripts/smoke-test.mjs <địa-chỉ-gốc> --expect-commit=$(git rev-parse HEAD)
+#  - Phần Rust/Soroban — xem docs/tech-report.md mục 2.6.
+#  - Bước triển khai. Task này dừng ở cổng kiểm.
+# =============================================================================
