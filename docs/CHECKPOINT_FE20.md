@@ -46,7 +46,7 @@
 
 ## 1. Đã làm
 
-Bốn commit, chia theo mục tiêu:
+Năm commit, chia theo mục tiêu:
 
 | Commit | Mục tiêu |
 |---|---|
@@ -55,12 +55,13 @@ Bốn commit, chia theo mục tiêu:
 | `fdcac36` | Bốn khu vực một-một với vai; bộ chọn bốn vai; bốn nhóm menu; nguồn số việc chờ |
 | `2d7f797` | Bảy route-group; 11 trang chỗ trống; thêm `wallet:connect`; cập nhật e2e |
 
-Commit thứ năm (tài liệu + trạng thái task + checkpoint này) nằm ở cuối, theo
-`docs/tech-report-maintenance.md` §3.
+| `651b91e` | Báo cáo công nghệ 2.6, FE-20 sang `done`, checkpoint này |
+
+Commit cuối gộp tài liệu + trạng thái task theo `docs/tech-report-maintenance.md` §3.
 
 ```
 $ git diff --stat dev...HEAD | tail -1
- 72 files changed, 2253 insertions(+), 536 deletions(-)
+ 73 files changed, 2926 insertions(+), 604 deletions(-)
 ```
 
 ### Thay đổi chính, theo thứ tự phụ thuộc
