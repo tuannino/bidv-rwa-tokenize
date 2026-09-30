@@ -1,5 +1,4 @@
 import { AppLayout } from '@/components/layout/app-layout';
-import { INVESTOR_NAV } from '@/components/layout/nav-config';
 import { InvestorPortfolioPage } from '@/components/pages/investor-portfolio';
 
 /**
@@ -11,7 +10,7 @@ import { InvestorPortfolioPage } from '@/components/pages/investor-portfolio';
  */
 export default function PortfolioPage() {
   return (
-    <AppLayout nav={INVESTOR_NAV} breadcrumbs={[{ label: 'Nhà đầu tư' }, { label: 'Tổng quan' }]}>
+    <AppLayout breadcrumbs={[{ label: 'Nhà đầu tư' }, { label: 'Tổng quan' }]}>
       <InvestorPortfolioPage />
     </AppLayout>
   );

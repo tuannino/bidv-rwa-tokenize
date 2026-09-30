@@ -878,8 +878,8 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
  * liên tục: mỗi lời gọi một bản ghi kiểm toán sẽ nhấn chìm sổ bằng hàng trăm dòng "đã cho phép
  * xem" cho một kỳ, và sổ mất khả năng dùng để đối chiếu trách nhiệm.
  *
- * Quyền là `reconcile:read` — dữ liệu toàn hệ, nên ba vai phía ngân hàng (kể cả AUDITOR và
- * COMPLIANCE) đọc được, còn nhà đầu tư thì không. Nhà đầu tư xem phần của chính mình qua
+ * Quyền là `reconcile:read` — dữ liệu toàn hệ, nên hai vai vận hành (Giao dịch viên và Kiểm
+ * soát viên) đọc được, còn nhà đầu tư thì không. Nhà đầu tư xem phần của chính mình qua
  * `portfolio.service`, không qua hàm này.
  *
  * @flow distribute:10 | kiểm quyền reconcile:read, trả trạng thái kỳ và tiến độ chi trả

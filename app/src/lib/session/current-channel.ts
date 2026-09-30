@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { CHANNEL_COOKIE, DEFAULT_CHANNEL, isChannel, type Channel } from './channel';
 
 /**
- * Kênh của phiên hiện tại. Giá trị lạ hoặc thiếu -> `admin`.
+ * Khu vực của phiên hiện tại. Giá trị lạ hoặc thiếu -> `DEFAULT_CHANNEL`.
  *
  * Tách khỏi `channel.ts` vì file này đọc cookie nên phải `server-only`, còn `channel.ts` là
  * dữ liệu thuần mà Client Component cần dùng. Cùng cách tách như `lib/rbac`.

@@ -46,7 +46,7 @@ beforeEach(() => {
   resetMemoryStore();
   resetStoreCache();
   process.env.USE_MOCK_DB = 'true';
-  actAs('BANK_ADMIN');
+  actAs('TELLER');
 });
 
 it('chuỗi dùng trong tệp này được nạp sẵn dự án, nên các ca dưới không phải tự dựng', () => {
@@ -283,7 +283,7 @@ describe('ca 4 — điều kiện biên', () => {
     expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(0n);
   });
 
-  it.each([['COMPLIANCE'], ['INVESTOR'], ['AUDITOR']])(
+  it.each([['INVESTOR'], ['SELLER'], ['CONTROLLER']])(
     'vai %s không phát hành được, và lần bị chặn được ghi vào sổ kiểm toán',
     async (role) => {
       const { issueInitialSupply } = await services();

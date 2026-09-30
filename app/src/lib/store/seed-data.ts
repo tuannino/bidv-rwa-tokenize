@@ -29,7 +29,7 @@ import type { ProjectStatus } from './project.store.port';
  */
 
 /** Vai ghi vào `updatedBy` / `changedBy` cho dòng khởi tạo. */
-export const SEED_ACTOR_ROLE: Role = 'BANK_ADMIN';
+export const SEED_ACTOR_ROLE: Role = 'TELLER';
 
 export interface SeedConfigRow {
   key: string;
@@ -121,7 +121,7 @@ export interface SeedRoleRow {
  * Bốn vai kèm cờ `isConfig`, suy từ `CONFIG_ROLES`.
  *
  * Ghi đủ bốn vai chứ không chỉ vai có `isConfig = true`: bảng `Role` là đích mà AU-02 sẽ đọc,
- * và một bảng chỉ có một dòng `BANK_ADMIN` sẽ làm AU-02 hiểu ba vai còn lại là "không tồn tại"
+ * và một bảng chỉ có một dòng `TELLER` sẽ làm AU-02 hiểu ba vai còn lại là "không tồn tại"
  * thay vì "tồn tại và không được đổi cấu hình".
  */
 export const SEED_ROLE_ROWS: readonly SeedRoleRow[] = ROLES.map((name) => ({

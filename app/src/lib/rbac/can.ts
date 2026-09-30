@@ -16,7 +16,7 @@ export class ForbiddenError extends Error {
 /**
  * Điểm kiểm quyền DUY NHẤT của hệ thống.
  * `role` nhận `unknown` để dữ liệu ngoài (cookie/header/DB) đi vào an toàn:
- * role lạ -> quy về AUDITOR (chỉ đọc) chứ không mặc định cho qua.
+ * role lạ -> quy về `FALLBACK_ROLE` (vai có bộ quyền nhỏ nhất) chứ không mặc định cho qua.
  */
 export function can(role: unknown, action: Action): boolean {
   const resolved: Role = isRole(role) ? role : FALLBACK_ROLE;

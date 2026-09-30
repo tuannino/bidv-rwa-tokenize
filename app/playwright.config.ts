@@ -55,7 +55,7 @@ export default defineConfig({
           NEXT_PUBLIC_DEFAULT_CHAIN: process.env.E2E_CHAIN ?? 'mock',
           USE_MOCK_KYC: 'true',
           USE_MOCK_DB: 'true',
-          DEMO_ROLE: 'BANK_ADMIN',
+          DEMO_ROLE: 'TELLER',
           // Không cần khóa thật ở chế độ mock, nhưng đặt sẵn để đổi sang hardhat-local là chạy.
           SERVER_SIGNER_PRIVATE_KEY:
             '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

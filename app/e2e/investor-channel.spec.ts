@@ -7,8 +7,8 @@ import { expect, test, type BrowserContext } from '@playwright/test';
  * `bidv_role`. Hai cookie phải nhất quán — đó là thứ `setChannel` bảo đảm và là thứ mấy ca
  * dưới đây kiểm.
  *
- * Máy chủ e2e chạy với `DEMO_ROLE=BANK_ADMIN` và không có cookie, nên trạng thái ban đầu là
- * kênh Admin console (mặc định `admin`) — xem `playwright.config.ts`.
+ * Máy chủ e2e chạy với `DEMO_ROLE=TELLER` và không có cookie, nên trạng thái ban đầu là
+ * khu vực Vận hành (mặc định `teller`) — xem `playwright.config.ts`.
  */
 
 /** Đặt cả hai cookie, giống hệt việc `setChannel` làm ở server. */
@@ -19,9 +19,10 @@ async function enterInvestorChannel(context: BrowserContext, baseURL: string) {
   ]);
 }
 
-async function asBankRole(context: BrowserContext, baseURL: string, role: string) {
+/** Đặt cặp (khu vực, vai) bất kỳ — FE-20: hai giá trị này một-một. */
+async function asRole(context: BrowserContext, baseURL: string, channel: string, role: string) {
   await context.addCookies([
-    { name: 'bidv_channel', value: 'admin', url: baseURL },
+    { name: 'bidv_channel', value: channel, url: baseURL },
     { name: 'bidv_role', value: role, url: baseURL },
   ]);
 }
@@ -59,9 +60,13 @@ test.describe('Cổng quyền vào kênh nhà đầu tư', () => {
    * `balance:read` làm cổng kênh, mà quyền đó nằm trong READ_ONLY nên cả bốn vai đều có.
    * v2 dùng `portfolio:read` chỉ cấp cho INVESTOR, nên ba vai ngân hàng phải bị chặn.
    */
-  for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
-    test(`vai ${role} KHÔNG vào được kênh nhà đầu tư`, async ({ page, context, baseURL }) => {
-      await asBankRole(context, baseURL!, role);
+  for (const [channel, role] of [
+    ['seller', 'SELLER'],
+    ['teller', 'TELLER'],
+    ['controller', 'CONTROLLER'],
+  ]) {
+    test(`vai ${role} KHÔNG vào được khu vực nhà đầu tư`, async ({ page, context, baseURL }) => {
+      await asRole(context, baseURL!, channel, role);
 
       await page.goto('/portfolio');
       await expect(
@@ -80,25 +85,50 @@ test.describe('Cổng quyền vào kênh nhà đầu tư', () => {
   });
 });
 
-test.describe('Bộ chọn kênh', () => {
-  test('đổi sang kênh nhà đầu tư thì về /portfolio và ẩn bộ chọn vai', async ({ page }) => {
+test.describe('Bộ chọn vai trò', () => {
+  test('có đủ bốn vai kèm mã tài khoản mẫu, và KHÔNG còn bộ chọn vai riêng', async ({ page }) => {
     await page.goto('/');
-    // Mặc định là Admin console -> phải thấy CẢ HAI bộ chọn.
-    await expect(page.locator('#channel-switcher')).toBeVisible();
-    await expect(page.locator('#role-switcher')).toBeVisible();
 
-    await waitForHydration(page);
-    await page.locator('#channel-switcher').selectOption('investor');
-
-    // R1.3 — điều hướng về trang mặc định của kênh.
-    await expect(page).toHaveURL(/\/portfolio$/);
-    // R2.1/R2.3 — kênh nhà đầu tư không có bộ chọn vai.
+    // FE-20 gỡ bộ chọn vai: chọn vai giờ chính là chọn khu vực, một ô duy nhất.
     await expect(page.locator('#role-switcher')).toHaveCount(0);
-    // R1.5 — bộ chọn kênh vẫn còn để quay lại được.
-    await expect(page.locator('#channel-switcher')).toBeVisible();
+
+    const options = page.locator('#channel-switcher option');
+    await expect(options).toHaveCount(4);
+    await expect(options).toHaveText([
+      /Nhà đầu tư · NDT001/,
+      /Người bán · NB001/,
+      /Giao dịch viên · GDV001/,
+      /Kiểm soát viên · KSV001/,
+    ]);
   });
 
-  test('đổi về Admin console khi đang là nhà đầu tư thì vai thành BANK_ADMIN', async ({
+  /**
+   * Ca 6 — đổi vai thì về trang mặc định CỦA VAI ĐÓ, và menu đổi theo.
+   *
+   * Kiểm cả hai thứ trong một ca là có chủ ý: điều hướng đúng mà menu còn của vai cũ thì
+   * người dùng đứng ở trang mình vào được nhưng menu bày mục mình bị chặn.
+   */
+  for (const [channel, url, role, menuMark] of [
+    ['investor', /\/portfolio$/, 'INVESTOR', 'Giao dịch token'],
+    ['seller', /\/seller$/, 'SELLER', 'Tạo lệnh rút'],
+    ['controller', /\/$/, 'CONTROLLER', 'Phê duyệt lệnh'],
+  ] as const) {
+    test(`đổi sang ${role} thì về trang mặc định của vai và menu đổi theo`, async ({ page }) => {
+      await page.goto('/');
+      await waitForHydration(page);
+
+      await page.locator('#channel-switcher').selectOption(channel);
+
+      await expect(page).toHaveURL(url);
+      // Sidebar in vai đang có hiệu lực (đọc từ cookie, không phải từ env).
+      await expect(page.getByRole('complementary')).toContainText(`vai trò ${role}`);
+      await expect(page.getByRole('complementary')).toContainText(menuMark);
+      // R1.5 — bộ chọn vẫn còn để quay lại được.
+      await expect(page.locator('#channel-switcher')).toBeVisible();
+    });
+  }
+
+  test('đổi từ Nhà đầu tư về Giao dịch viên thì vai và menu đều theo', async ({
     page,
     context,
     baseURL,
@@ -107,28 +137,60 @@ test.describe('Bộ chọn kênh', () => {
     await page.goto('/portfolio');
 
     await waitForHydration(page);
-    await page.locator('#channel-switcher').selectOption('admin');
+    await page.locator('#channel-switcher').selectOption('teller');
 
-    // R1.4 — về trang tổng quan ngân hàng.
     await expect(page).toHaveURL(/\/$/);
-    // R2.4 — vai INVESTOR không có quyền nào của kênh admin, nên phải được đưa về BANK_ADMIN.
-    // Sidebar in vai đang có hiệu lực (đọc từ cookie, không phải từ env).
-    await expect(page.getByRole('complementary')).toContainText('vai trò BANK_ADMIN');
-    await expect(page.locator('#role-switcher')).toBeVisible();
-  });
-
-  test('bộ chọn vai KHÔNG còn lựa chọn nhà đầu tư', async ({ page }) => {
-    await page.goto('/');
-
-    // R2.2 — chỉ ba vai ngân hàng; vai INVESTOR do bộ chọn KÊNH đặt.
-    const options = page.locator('#role-switcher option');
-    await expect(options).toHaveCount(3);
-    await expect(page.locator('#role-switcher')).not.toContainText('Nhà đầu tư');
+    await expect(page.getByRole('complementary')).toContainText('vai trò TELLER');
+    await expect(page.getByRole('complementary')).toContainText('Lập lệnh');
   });
 });
 
-test.describe('Điều hướng theo kênh', () => {
-  test('menu kênh nhà đầu tư không lẫn mục của kênh ngân hàng', async ({
+test.describe('Điều hướng theo vai trò', () => {
+  test('menu Nhà đầu tư không lẫn mục vận hành', async ({ page, context, baseURL }) => {
+    await enterInvestorChannel(context, baseURL!);
+    await page.goto('/portfolio');
+
+    const sidebar = page.getByRole('complementary');
+    await expect(sidebar).toContainText('Giao dịch token');
+    await expect(sidebar).toContainText('Rút VNDB');
+    await expect(sidebar).not.toContainText('Lập lệnh');
+    await expect(sidebar).not.toContainText('Phê duyệt lệnh');
+    await expect(sidebar).not.toContainText('Vận hành');
+  });
+
+  test('menu Giao dịch viên không lẫn mục khách hàng, và có mục Lập lệnh', async ({ page }) => {
+    await page.goto('/');
+
+    const sidebar = page.getByRole('complementary');
+    await expect(sidebar).toContainText('Vận hành');
+    await expect(sidebar).toContainText('Lập lệnh');
+    await expect(sidebar).not.toContainText('Giao dịch token');
+    await expect(sidebar).not.toContainText('Phê duyệt lệnh');
+  });
+
+  test('menu Kiểm soát viên có ba nhóm và mục Phê duyệt, KHÔNG có Lập lệnh', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await asRole(context, baseURL!, 'controller', 'CONTROLLER');
+    await page.goto('/');
+
+    const sidebar = page.getByRole('complementary');
+    for (const group of ['Vận hành', 'Kiểm soát', 'Tài khoản']) {
+      await expect(sidebar).toContainText(group);
+    }
+    await expect(sidebar).toContainText('Phê duyệt lệnh');
+    await expect(sidebar).toContainText('Chia lợi nhuận (chỉ xem)');
+    await expect(sidebar).not.toContainText('Lập lệnh');
+  });
+
+  /**
+   * FE-20 bỏ mục menu mờ: mọi mục trong menu đều bấm ra một trang thật (trang chỗ trống ghi
+   * rõ task sẽ thay). Ca này chốt điều đó — một mục mờ quay lại là một chỗ người dùng bấm
+   * không ra gì và không đọc được vì sao.
+   */
+  test('mọi mục menu đều là liên kết bấm được, không còn mục mờ', async ({
     page,
     context,
     baseURL,
@@ -137,33 +199,42 @@ test.describe('Điều hướng theo kênh', () => {
     await page.goto('/portfolio');
 
     const sidebar = page.getByRole('complementary');
-    await expect(sidebar).toContainText('Nghiệp vụ nhà đầu tư');
-    await expect(sidebar).toContainText('Mua WPT');
-    await expect(sidebar).not.toContainText('Phát hành WPT');
-    await expect(sidebar).not.toContainText('Module nghiệp vụ');
+    await expect(sidebar.locator('[aria-disabled="true"]')).toHaveCount(0);
+    // Sáu mục theo tài liệu yêu cầu, cộng liên kết logo ở đầu thanh.
+    await expect(sidebar.getByRole('link')).toHaveCount(7);
   });
 
-  test('menu kênh ngân hàng không lẫn mục của kênh nhà đầu tư', async ({ page }) => {
-    await page.goto('/mint');
-
-    const sidebar = page.getByRole('complementary');
-    await expect(sidebar).toContainText('Module nghiệp vụ');
-    await expect(sidebar).toContainText('Phát hành WPT');
-    await expect(sidebar).not.toContainText('Mua WPT');
-    await expect(sidebar).not.toContainText('Nghiệp vụ nhà đầu tư');
-  });
-
-  test('mục chưa khả dụng không điều hướng được', async ({ page, context, baseURL }) => {
+  test('bấm mục chỗ trống thì ra trang ghi rõ task sẽ thay', async ({ page, context, baseURL }) => {
     await enterInvestorChannel(context, baseURL!);
     await page.goto('/portfolio');
 
-    const sidebar = page.getByRole('complementary');
-    // Không bọc `Link` -> không có vai trò link, nên bàn phím và trình đọc màn hình cũng
-    // không đi tới được (chặn bằng CSS thì vẫn đi tới được).
-    await expect(sidebar.getByRole('link', { name: /Mua WPT/i })).toHaveCount(0);
-    await expect(sidebar.locator('[aria-disabled="true"]')).toHaveCount(3);
+    await page.getByRole('complementary').getByRole('link', { name: /Giao dịch token/i }).click();
+
+    await expect(page).toHaveURL(/\/trade$/);
+    await expect(page.getByRole('heading', { name: 'Giao dịch token' })).toBeVisible();
+    await expect(page.getByText('chờ FE-05')).toBeVisible();
+  });
+
+  test('số việc đang chờ hiện cạnh hai mục tài liệu chỉ định', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await page.goto('/');
+    // Giao dịch viên: mục Lập lệnh mang số việc chờ, giai đoạn này là 0.
+    await expect(
+      page.getByRole('complementary').getByLabel(/việc đang chờ/),
+    ).toHaveCount(1);
+    await expect(page.getByRole('complementary').getByLabel(/việc đang chờ/)).toHaveText('0');
+
+    await asRole(context, baseURL!, 'controller', 'CONTROLLER');
+    await page.goto('/');
+    await expect(
+      page.getByRole('complementary').getByLabel(/việc đang chờ/),
+    ).toHaveCount(1);
   });
 });
+
 
 test.describe('Trang chi tiết dự án token', () => {
   test('bấm một dòng trong danh sách token thì mở được trang chi tiết', async ({

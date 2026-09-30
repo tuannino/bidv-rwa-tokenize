@@ -81,7 +81,7 @@ export async function onboardInvestor(input: unknown): Promise<Result<OnboardRes
   const { chain, wallet, fullName, nationalId } = parsed.data;
 
   try {
-    // KYC và whitelist là hai quyền khác nhau: COMPLIANCE có cả hai, INVESTOR không có.
+    // KYC và whitelist là hai quyền khác nhau: TELLER có cả hai, INVESTOR không có.
     const role = await authorize('kyc:approve', wallet, chain);
     await authorize('investor:whitelist', wallet, chain);
 

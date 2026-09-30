@@ -204,7 +204,7 @@ async function setBatchSize(size: number) {
     key: CONFIG_KEYS.distributionBatchSize,
     value: String(size),
     type: 'number',
-    changedBy: 'BANK_ADMIN',
+    changedBy: 'TELLER',
   });
 }
 
@@ -213,7 +213,7 @@ async function setDustWallet(wallet: string) {
     key: CONFIG_KEYS.distributionDustWallet,
     value: wallet,
     type: 'string',
-    changedBy: 'BANK_ADMIN',
+    changedBy: 'TELLER',
   });
 }
 
@@ -268,7 +268,7 @@ beforeEach(() => {
   resetMemoryStore();
   resetStoreCache();
   process.env.USE_MOCK_DB = 'true';
-  actAs('BANK_ADMIN');
+  actAs('TELLER');
 });
 
 afterEach(() => {
@@ -595,7 +595,7 @@ describe('đọc trạng thái kỳ', () => {
     expect(other.error).toMatch(/thuộc chain/i);
   });
 
-  it.each([['INVESTOR'], ['AUDITOR'], ['COMPLIANCE']])(
+  it.each([['INVESTOR'], ['SELLER'], ['CONTROLLER']])(
     'vai %s đọc được trạng thái kỳ hay không, theo đúng bảng RBAC',
     async (role) => {
       const { can } = await import('@/lib/rbac');
@@ -874,7 +874,7 @@ describe('ca 7 — chạy lại chỉ chia cho ví chưa nhận', () => {
 //  CA 8 — quyền
 // ===========================================================================
 describe('ca 8 — vai không có distribution:execute bị chặn', () => {
-  it.each([['COMPLIANCE'], ['INVESTOR'], ['AUDITOR']])(
+  it.each([['INVESTOR'], ['SELLER'], ['CONTROLLER']])(
     'vai %s bị từ chối, có bản ghi kiểm toán DENIED, không hồ sơ nào được lập',
     async (role) => {
       await seedHolder(ALICE, 100n);
@@ -902,7 +902,7 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
     },
   );
 
-  it.each([['COMPLIANCE'], ['INVESTOR'], ['AUDITOR']])(
+  it.each([['INVESTOR'], ['SELLER'], ['CONTROLLER']])(
     'vai %s không mở được kỳ, và không tốn ảnh chụp nào',
     async (role) => {
       await seedHolder(ALICE, 100n);
@@ -923,7 +923,7 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
     fundProfitPool(1_000_000n);
     const period = await openPeriodOk('2026-Q1');
 
-    actAs('AUDITOR');
+    actAs('CONTROLLER');
     const preview = await previewDistribution({ chain: CHAIN, periodId: period.id });
 
     expect(preview.ok).toBe(false);

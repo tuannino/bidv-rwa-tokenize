@@ -37,19 +37,19 @@ import { FALLBACK_ROLE, ROLES, isRole, type Role } from './permissions';
  * thêm vai `TREASURY` sẽ không biết là có một quyết định cần ra ở đây.
  */
 export const CONFIG_ROLES: Record<Role, boolean> = {
-  /** Cán bộ ngân hàng ấn định giá phát hành — đây là vai duy nhất được đổi cấu hình. */
-  BANK_ADMIN: true,
+  INVESTOR: false,
+  SELLER: false,
+  /** Giao dịch viên ấn định giá phát hành — đây là vai duy nhất được đổi cấu hình. */
+  TELLER: true,
   /**
-   * Tuân thủ GIÁM SÁT tham số, không tự đặt. Cùng lập luận với việc COMPLIANCE không có
+   * Kiểm soát viên GIÁM SÁT tham số, không tự đặt. Cùng lập luận với việc vai này không có
    * `order:execute`: người giám sát mà đổi được chính con số mình giám sát thì lớp kiểm soát
    * thứ hai không còn.
    */
-  COMPLIANCE: false,
-  INVESTOR: false,
-  AUDITOR: false,
+  CONTROLLER: false,
 };
 
-/** Vai có được đổi tham số hệ thống không. Vai lạ quy về `AUDITOR` — nguyên tắc đóng. */
+/** Vai có được đổi tham số hệ thống không. Vai lạ quy về `FALLBACK_ROLE` — nguyên tắc đóng. */
 export function isConfigRole(role: unknown): boolean {
   const resolved: Role = isRole(role) ? role : FALLBACK_ROLE;
   return CONFIG_ROLES[resolved];

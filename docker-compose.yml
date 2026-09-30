@@ -69,7 +69,7 @@ services:
       USE_MOCK_COREBANK: "true"
       # Chế độ VPS có Postgres thật -> lưu Txn/audit vào DB.
       USE_MOCK_DB: "false"
-      DEMO_ROLE: BANK_ADMIN
+      DEMO_ROLE: TELLER
     ports:
       - "3000:3000"
 

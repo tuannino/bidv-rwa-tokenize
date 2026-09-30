@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowLeftRight,
+  Banknote,
+  ClipboardList,
   Coins,
   LayoutDashboard,
+  Receipt,
   Scale,
   ScrollText,
+  ShieldCheck,
   ShoppingCart,
   TrendingUp,
   UserCheck,
+  UserCog,
   Wallet,
   Wind,
   type LucideIcon,
@@ -18,10 +24,16 @@ import { cn } from "@/lib/utils";
 import { BidvLogo } from "@/components/bidv-logo";
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { usePublicConfig } from "@/lib/config/config-context";
-import { BANK_NAV, type NavIconName, type NavItem, type NavSection } from "./nav-config";
+import {
+  TELLER_NAV,
+  type NavIconName,
+  type NavItem,
+  type NavSection,
+  type PendingWorkCounts,
+} from "./nav-config";
 
 /**
- * Menu theo KÊNH. Danh sách mục nằm ở `nav-config.ts` (dữ liệu thuần), không ở đây.
+ * Menu theo VAI TRÒ. Danh sách mục nằm ở `nav-config.ts` (dữ liệu thuần), không ở đây.
  *
  * Bảng tra tên → component đặt ở phía client là CÓ CHỦ Ý: component không tuần tự hoá được
  * nên không thể đi qua biên server → client. Xem ghi chú đầu `nav-config.ts`.
@@ -36,22 +48,43 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   ShoppingCart,
   TrendingUp,
   Wallet,
+  Banknote,
+  UserCog,
+  ClipboardList,
+  ShieldCheck,
+  ArrowLeftRight,
+  Receipt,
 };
 
-export function Sidebar({ nav = BANK_NAV }: { nav?: NavSection }) {
+const NO_COUNTS: PendingWorkCounts = { draft: 0, approval: 0 };
+
+export function Sidebar({
+  nav = TELLER_NAV,
+  pendingWork = NO_COUNTS,
+}: {
+  nav?: NavSection;
+  pendingWork?: PendingWorkCounts;
+}) {
   const pathname = usePathname();
 
+  /**
+   * `/` chỉ khớp chính nó. Mọi mục khác khớp cả đường dẫn con, để `/seller/withdraw` vẫn làm
+   * sáng mục `Tạo lệnh rút` — nhưng KHÔNG để `/seller` sáng theo, nên phải so bằng trước rồi
+   * mới so tiền tố có dấu gạch.
+   */
   const isActive = (item: NavItem) =>
     item.href === "/"
       ? pathname === "/"
       : pathname === item.href || pathname.startsWith(item.href + "/");
+
+  const firstHref = nav.groups[0]?.items[0]?.href ?? "/";
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-sidebar">
       {/* Logo */}
       <div className="flex items-center px-4 py-4 border-b border-border">
         <Link
-          href={nav.main[0]?.href ?? "/"}
+          href={firstHref}
           className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
           <BidvLogo variant="full" />
@@ -60,18 +93,25 @@ export function Sidebar({ nav = BANK_NAV }: { nav?: NavSection }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {nav.main.map((item) => (
-          <NavLink key={item.href} item={item} active={isActive(item)} />
-        ))}
+        {nav.groups.map((group, index) => (
+          <div key={group.label ?? `group-${index}`} className="space-y-0.5">
+            {group.label !== null && (
+              <div className="pt-4 pb-1.5 px-2">
+                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                  {group.label}
+                </span>
+              </div>
+            )}
 
-        <div className="pt-4 pb-1.5 px-2">
-          <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-            {nav.moduleLabel}
-          </span>
-        </div>
-
-        {nav.modules.map((item) => (
-          <NavLink key={item.href} item={item} active={isActive(item)} />
+            {group.items.map((item) => (
+              <NavLink
+                key={item.href}
+                item={item}
+                active={isActive(item)}
+                pendingCount={item.pendingWork ? pendingWork[item.pendingWork] : undefined}
+              />
+            ))}
+          </div>
         ))}
       </nav>
 
@@ -81,7 +121,15 @@ export function Sidebar({ nav = BANK_NAV }: { nav?: NavSection }) {
   );
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({
+  item,
+  active,
+  pendingCount,
+}: {
+  item: NavItem;
+  active: boolean;
+  pendingCount?: number;
+}) {
   const Icon = NAV_ICONS[item.icon];
 
   const body = (
@@ -90,16 +138,38 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
         <Icon className={cn("h-4 w-4", active && "text-primary")} />
         {item.label}
       </div>
-      <span
-        className={cn(
-          "text-[10px] font-mono px-1.5 py-0.5 rounded border",
-          active
-            ? "border-primary/40 bg-primary/10 text-primary"
-            : "border-border bg-muted text-muted-foreground",
+      <div className="flex items-center gap-1.5">
+        {/*
+          Số việc đang chờ. Hiện cả khi bằng 0 vì đó là thông tin thật ("không có việc nào
+          chờ"), và một con số biến mất rồi xuất hiện lại làm menu nhảy chỗ mỗi lần tải.
+          Tô màu chỉ khi khác 0 để mắt bắt được việc cần làm mà không phải đọc từng số.
+        */}
+        {pendingCount !== undefined && (
+          <span
+            // `aria-label` chứ không để trình đọc đọc trơ con số: "Lập lệnh 3" nghe như tên
+            // mục, còn "Lập lệnh, 3 việc đang chờ" thì nói đúng thứ con số nghĩa là gì.
+            aria-label={`${pendingCount} việc đang chờ`}
+            className={cn(
+              "min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums",
+              pendingCount > 0
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {pendingCount}
+          </span>
         )}
-      >
-        {item.shortcut}
-      </span>
+        <span
+          className={cn(
+            "text-[10px] font-mono px-1.5 py-0.5 rounded border",
+            active
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border bg-muted text-muted-foreground",
+          )}
+        >
+          {item.shortcut}
+        </span>
+      </div>
     </>
   );
 
