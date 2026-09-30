@@ -159,7 +159,7 @@ export function isRole(value: unknown): value is Role {
 /**
  * Vai trò dùng khi không xác định được (nguyên tắc đóng: quyền thấp nhất).
  *
- * FE-20 đổi từ `AUDITOR` sang `SELLER` vì `AUDITOR` không còn. Trong bốn vai mới, `SELLER`
+ * FE-20 đổi sang `SELLER`; vai kiểm toán cũ vốn giữ chỗ này đã gỡ. Trong bốn vai mới, `SELLER`
  * có bộ quyền NHỎ NHẤT: không một hành động ghi nào, và không một quyền đọc toàn hệ nào
  * (`audit:read`, `order:read:all`, `reconcile:read` đều không có). `CONTROLLER` cũng sạch
  * quyền ghi nhưng đọc được dữ liệu toàn hệ, nên chọn nó làm nơi quy về sẽ biến một cookie

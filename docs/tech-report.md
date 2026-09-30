@@ -9,12 +9,12 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 2.5 |
-| Cập nhật lần cuối | 2026-09-29 |
-| Nhánh / commit | `op/01-ci`, nền `dev` @ `0f5dd8e` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_OP01.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4) |
-| Đang chờ nghiệm thu | **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — xem 2.6 và 2.7, checkpoint `docs/CHECKPOINT_OP01.md`) |
-| Phase kế tiếp | BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer (đổi nguồn tín hiệu của BE-07 từ hỏi định kỳ sang sự kiện on-chain) |
+| Phiên bản tài liệu | 2.6 |
+| Cập nhật lần cuối | 2026-09-30 |
+| Nhánh / commit | `feat/four-roles-shell`, nền `dev` @ `a9a60c6` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_FE20.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7) |
+| Đang chờ nghiệm thu | **FE-20** (khung bốn vai trò theo tài liệu yêu cầu — xem 1.1 và 3.3, checkpoint `docs/CHECKPOINT_FE20.md`) |
+| Phase kế tiếp | BE-12 nghiệp vụ lập–duyệt (maker-checker) + số việc đang chờ thật → FE-21/FE-22 màn Người bán và cặp lập–duyệt → BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
@@ -99,22 +99,53 @@ thuộc. Ba đổi hành vi cần đọc kỹ:
 
 Hệ thống mô phỏng nghiệp vụ ngân hàng token hóa tài sản thực (RWA) cho một dự án điện gió: ngân hàng phát hành token dự án (**WPT**) cho nhà đầu tư đã định danh, chia lợi tức theo sản lượng điện bằng **VNDB**, và hoàn vốn khi nhà đầu tư muốn thoát.
 
-Ba kênh người dùng tách theo vai trò nhưng **dùng chung một backend**:
+**Bốn vai trò** theo tài liệu yêu cầu người sử dụng (FE-20), **dùng chung một backend**:
 
-| Kênh | Route group | Vai trò | Quyền vào kênh (`requireAny`) | Nội dung |
-|---|---|---|---|---|
-| Ngân hàng | `(admin)` | BANK_ADMIN, COMPLIANCE | `token:mint`, `investor:whitelist` | Mint, KYC, whitelist, freeze, clawback |
-| Nhà đầu tư | `(client)` | INVESTOR | `portfolio:read` | Xem vị thế WPT, trạng thái phát hành, lịch sử giao dịch, chi tiết dự án |
-| Kiểm toán | `(audit)` | AUDITOR | `audit:read` | **Chỉ đọc** sổ kiểm toán |
+| Vai trò | Mã | Khu vực chính | Nội dung |
+|---|---|---|---|
+| Nhà đầu tư | `INVESTOR` | `(investor)` | Tổng quan, giao dịch token, quản lý lệnh, rút VNDB |
+| Người bán | `SELLER` | `(seller)` | Tổng quan, danh sách giao dịch, tạo lệnh rút |
+| Giao dịch viên | `TELLER` | `(ops)` + `(ops-draft)` | Bảng điều khiển, **lập lệnh**, giao dịch, chia lợi nhuận |
+| Kiểm soát viên | `CONTROLLER` | `(ops)` + `(control)` | Bảng điều khiển, giao dịch, chia lợi nhuận (chỉ xem), **phê duyệt lệnh** |
 
-**Kênh là lựa chọn tường minh, không suy ra từ quyền.** Người dùng chọn kênh ở thanh trên
-(cookie `bidv_channel`), và kênh quyết định vai: kênh nhà đầu tư ép vai `INVESTOR` và ẩn bộ chọn
-vai; kênh Admin console cho chọn giữa ba vai ngân hàng. Cookie kênh **chỉ** dùng để hiển thị —
-phân quyền vẫn đi qua vai + `can(role, action)`.
+Hai vai của bản trước — tuân thủ và kiểm toán — **không có trong tài liệu yêu cầu** nên FE-20 đã
+gỡ. `TELLER` là vai ngân hàng cũ **đổi tên, giữ nguyên bộ quyền**; `CONTROLLER` nhận phần **chỉ
+đọc** của hai vai đã gỡ, không nhận phần ghi nào.
 
-⚠️ Quyền vào kênh nhà đầu tư phải là một action **chỉ INVESTOR có**. FE-01 v1 dùng `balance:read`
-và guard không chặn được ai, vì quyền đó nằm trong nhóm `READ_ONLY` được spread vào cả ba vai
-ngân hàng. Xem 1.6.B.
+**Bảy khu vực, mỗi khu vực một cổng** — bảng ở `app/src/lib/rbac/area-gates.ts`:
+
+| Khu vực | Route group | Cổng (`requireAny`) | Vai vào được |
+|---|---|---|---|
+| Nhà đầu tư | `(investor)` | `portfolio:read` | INVESTOR |
+| Người bán | `(seller)` | `seller:read` | SELLER |
+| Vận hành | `(ops)` | `ops:read` | TELLER, CONTROLLER |
+| Lập lệnh | `(ops-draft)` | `ops:draft:read` | TELLER |
+| Phê duyệt lệnh | `(control)` | `ops:approve:read` | CONTROLLER |
+| Kết nối ví | `(wallet)` | `wallet:connect` | INVESTOR, SELLER |
+| Thông tin tài khoản | `(account)` | `balance:read` | cả bốn |
+
+**Vai trò là lựa chọn tường minh, không suy ra từ quyền.** Người dùng chọn vai ở thanh trên
+(cookie `bidv_channel` + `bidv_role`, đặt cùng lúc bởi `setChannel`). FE-20 nhập bộ chọn khu vực
+và bộ chọn vai thành **một ô**: khu vực ↔ vai là một-một (`CHANNEL_ROLE`), nên để hai ô cùng đổi
+được vai chỉ tạo đường cho hai cookie lệch nhau. Cookie **chỉ** dùng để hiển thị — phân quyền vẫn
+đi qua vai + `can(role, action)`.
+
+⚠️ Cổng của một khu vực phải là action mà **đúng tập vai cần vào** mới có. FE-01 v1 dùng
+`balance:read` và guard không chặn được ai, vì quyền đó nằm trong nhóm `READ_ONLY` được spread vào
+mọi vai phía ngân hàng. Xem 1.6.B. Ngoại lệ tường minh: khu vực `(account)` **cố ý** dùng
+`balance:read` vì nó phải mở cho cả bốn vai.
+
+⚠️ `(ops-draft)` và `(control)` là **hai group riêng, không lồng trong `(ops)`**, và đó là điểm
+kiến trúc chứ không phải cách xếp thư mục: người lập lệnh không được là người duyệt. Hai cổng là
+hai quyền khác nhau nên không có cách nào một vai giữ cả hai mà bảng quyền không ghi ra —
+`app/test/four-roles-routes.test.ts` chốt lại điều đó.
+
+⚠️ `(wallet)` dùng quyền riêng `wallet:connect` chứ không dùng `balance:read`, và không nằm trong
+`(investor)`. Hai lý do đều thật: tài liệu yêu cầu cho **cả** Nhà đầu tư và Người bán mục Kết nối
+ví (nên để trong `(investor)` thì Người bán bị chặn khỏi ví của mình), còn thao tác đặc quyền của
+ngân hàng ký bằng khóa phía máy chủ qua `ISigner` (nên mở trang kết nối ví cho hai vai vận hành là
+mời họ ký việc ngân hàng bằng ví cá nhân).
+
 
 ## 1.2. Nguyên tắc kiến trúc — 3 LUẬT bất di bất dịch
 
@@ -170,25 +201,33 @@ bidv-rwa-tokenize/
 │   └── task-status.json       # ★ Nguồn DUY NHẤT: trạng thái task + tập mã task hợp lệ
 │
 ├── app/                       # Next.js 16 full-stack
-│   ├── src/app/
-│   │   ├── (admin)/           # Kênh ngân hàng: mint, kyc, assets, reconciliation
-│   │   ├── (audit)/           # Kênh kiểm toán: chỉ đọc
-│   │   ├── (client)/          # Kênh nhà đầu tư: portfolio, tokens/[symbol], wallet
+│   ├── src/app/               # ★ BẢY khu vực, mỗi khu vực một cổng — xem 1.1 (FE-20)
+│   │   ├── (investor)/        # portfolio, trade, orders, withdraw, tokens/[symbol]
+│   │   ├── (seller)/          # seller, seller/transactions, seller/withdraw
+│   │   ├── (ops)/             # / (bảng điều khiển), transactions, distribution,
+│   │   │                      #   mint, kyc, assets, reconciliation, audit
+│   │   ├── (ops-draft)/       # draft — CHỈ Giao dịch viên
+│   │   ├── (control)/         # approvals — CHỈ Kiểm soát viên
+│   │   ├── (wallet)/          # wallet — Nhà đầu tư + Người bán
+│   │   ├── (account)/         # account — cả bốn vai
 │   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts,
 │   │   │                      #   purchase.ts, config.ts, distribution.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns,
 │   │   │                      #   purchase, keeper/distribution (BE-07, có khoá bí mật),
 │   │   │                      #   version (OP-01, không cần xác thực — xem 2.7)
-│   │   ├── layout.tsx, page.tsx, globals.css
+│   │   ├── layout.tsx, globals.css
+│   │                          # ⚠️ KHÔNG còn page.tsx ở gốc: `/` chuyển vào (ops) để có
+│   │                          #   cổng. Trang ngoài route-group là trang không cổng nào
 │   ├── src/components/
 │   │   ├── layout/            # sidebar, header, chain-selector, channel-guard,
-│   │   │                      #   nav-config, channel-switcher, role-switcher
+│   │   │                      #   nav-config, app-layout, channel-switcher
+│   │   │                      #   (role-switcher đã gỡ ở FE-20)
 │   │   ├── investor/          # 4 hộp trang tổng quan + nhãn dữ liệu mẫu
 │   │   ├── wallet/            # no-wallet-guide, wrong-chain-banner,
 │   │   │                      #   wallet-status-card (dùng lại ở FE-05/09/11)
 │   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation,
 │   │   │                      #   investor-portfolio, investor-token-detail,
-│   │   │                      #   wallet-connect
+│   │   │                      #   wallet-connect, placeholder (11 trang chỗ trống)
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   ├── e2e/                   # Playwright
@@ -299,11 +338,15 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 - **`import 'server-only'` trong `config/env.ts`.** Đây là hàng rào cứng: nếu Client Component lỡ import, build sẽ fail ngay thay vì rò khóa ra bundle trình duyệt.
 - **`brand.ts` là ngoại lệ hex màu duy nhất.** Logo và modal ví cần màu cố định không đổi theo theme. Ngoài file này, mọi màu phải dùng biến CSS.
 - **`chain-store` không persist, mặc định `null`.** Để lần render đầu khớp server, tránh lỗi hydration mismatch.
-- **Kênh là lựa chọn tường minh, vai suy ra từ kênh.** Không xác định kênh bằng quyền: một quyền đọc thuộc nhiều vai nên không nói được người dùng đang ở kênh nào. `setChannel` đặt **cả hai** cookie (`bidv_channel` + `bidv_role`) trong một lần — hai cookie lệch nhau là người dùng gặp màn từ chối mà không hiểu vì sao.
-- **Quyền vào kênh nhà đầu tư phải là action riêng của INVESTOR.** FE-01 v1 dùng `balance:read`, nằm trong `READ_ONLY` nên cả bốn vai đều có và guard không chặn được ai. Đừng "dọn dẹp" `portfolio:read` vào `READ_ONLY`.
+- **Vai trò là lựa chọn tường minh, khu vực suy ra từ vai.** Không xác định khu vực bằng quyền: một quyền đọc thuộc nhiều vai nên không nói được người dùng đang ở khu vực nào. `setChannel` đặt **cả hai** cookie (`bidv_channel` + `bidv_role`) trong một lần — hai cookie lệch nhau là người dùng gặp màn từ chối mà không hiểu vì sao. FE-20: khu vực ↔ vai là **một-một** (`CHANNEL_ROLE`), nên chỉ còn MỘT ô chọn; bộ chọn vai riêng đã gỡ, vì hai ô cùng đổi được vai chính là đường sinh ra hai cookie lệch nhau.
+- **Cổng của một khu vực phải là action mà ĐÚNG tập vai cần vào mới có.** FE-01 v1 dùng `balance:read`, nằm trong `READ_ONLY` nên cả bốn vai đều có và guard không chặn được ai. Đừng "dọn dẹp" cổng khu vực nào (`portfolio:read`, `seller:read`, `wallet:connect`, `ops:draft:read`, `ops:approve:read`) vào `READ_ONLY`.
+- **Cổng khu vực để ở DỮ LIỆU (`rbac/area-gates.ts`), không viết thẳng vào JSX của layout.** Layout là Server Component nên không unit-test được bằng Vitest, mà "mỗi vai chỉ vào được khu vực của mình" phải kiểm được CẢ HAI chiều. Để trong JSX thì chiều "bị chặn" chỉ kiểm được qua e2e, và trường hợp thêm khu vực mà quên cổng thì không phép kiểm nào bắt. `four-roles-routes.test.ts` còn đọc tệp layout thật để bắt ca bảng đúng mà layout nối sai cổng.
+- **Hai mục lập lệnh và phê duyệt là HAI route-group riêng, không lồng nhau.** Người lập lệnh không được là người duyệt — đó là toàn bộ lý do mô hình lập–duyệt tồn tại. Hai cổng là hai quyền khác nhau nên bảng quyền buộc phải ghi ra, và có phép kiểm riêng cho bất biến "không vai nào giữ cả hai".
+- **Mọi trang phải nằm TRONG một route-group.** Trang ngoài group là trang không cổng nào, mà cũng không có chỗ nào ghi rằng đó là chủ ý. `/` từng nằm ngoài như vậy; FE-20 chuyển nó vào `(ops)`. Có phép kiểm chặn `src/app/page.tsx` quay lại.
+- **Menu tra theo VAI, không theo cookie khu vực.** Vai là thứ `ChannelGuard` dùng để quyết định cho vào hay không; tra theo khu vực thì một cookie đặt tay có thể bày menu Giao dịch viên cho người mang vai nhà đầu tư — menu nói một đằng, guard làm một nẻo. Cùng lý do, `AppLayout` **không** còn prop `nav`: hơn mười chỗ truyền tay là hơn mười chỗ truyền sai được, mà truyền sai thì không có gì báo.
 - **`nav-config.ts` là dữ liệu thuần, `icon` là TÊN dạng chuỗi.** `AppLayout` dùng trong page (Server Component) còn `Sidebar` là `'use client'`, nên `NavSection` đi qua biên server → client. Để `icon` là component gây `Functions cannot be passed directly to Client Components` — đã xảy ra thật ở FE-01 v1. Thêm `'use client'` vào `nav-config.ts` **không** giải quyết: prop vẫn phải tuần tự hóa, và nó biến `AppLayout` thành Client Component.
 - **`AppLayout` đặt trong từng page, không ở `layout.tsx` của route group.** `layout.tsx` chỉ giữ `ChannelGuard`. Đặt cả hai chỗ sẽ lồng layout hai lần.
-- **Điều hướng khi đổi kênh làm bằng `redirect()` trong server action, không bằng `router.push` ở client.** Đổi kênh làm vai mất quyền của trang đang mở, `ChannelGuard` kết xuất màn từ chối mà màn đó không bọc `AppLayout` → `Header` bị unmount và `push` trong transition đã unmount sẽ mất.
+- **Điều hướng khi đổi vai làm bằng `redirect()` trong server action, không bằng `router.push` ở client.** Đổi vai làm mất quyền của trang đang mở, `ChannelGuard` kết xuất màn từ chối mà màn đó không bọc `AppLayout` → `Header` bị unmount và `push` trong transition đã unmount sẽ mất.
 - **`publicConfig()` là async và đọc cookie.** Trước đây trả `role` từ `env.demoRole` nên giao diện hiển thị sai vai sau khi đổi vai (kể cả gate nút trong `mint.tsx`). Hệ quả có chủ ý: root layout thành động, `/` không còn prerender tĩnh.
 - **Nhãn dữ liệu mẫu là một component dùng chung** (`components/investor/mock-badge.tsx`). Nhãn lúc "mock" lúc "demo" lúc không có thì người xem là ngân hàng không biết con số nào tin được.
 - **Trạng thái ví quyết định ở MỘT hàm thuần, `mock` xét trước mọi phép kiểm ví.** `resolveWalletStatus()` trong `lib/wallet/wallet-status.ts` không phụ thuộc React lẫn wagmi nên test được ở vitest môi trường `node`. Thứ tự ưu tiên là phần dễ làm sai nhất — bảng đầy đủ ở 3.9. Đừng thêm điều kiện `if` về ví vào component: đó là lúc bắt đầu có nguồn sự thật thứ hai.
@@ -321,7 +364,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 **Bốn bài học về TEST, học được ở BE-04:**
 
 - **Đổi hằng số cấu hình rồi chạy lại toàn bộ test là phép kiểm rẻ và bắt được nhiều.** Ca 5 của BE-04 (đổi `WPT_ISSUE_PRICE_VND` thành 537.000 rồi thành 7) bắt **5 chỗ** gõ cứng mà đọc mắt không thấy. Ba trong số đó tệ hơn "sai số": chúng dùng một số tuyệt đối làm *"thiếu tiền"*, nên ở giá nhỏ nó thành **dư** tiền — **tình huống mà ca kiểm cần dựng đã bốc hơi**, và test đỏ không phải vì mã sai. Nhớ phục hồi rồi kiểm `git diff` **rỗng**.
-- **`vi.spyOn` trên đối tượng namespace của module KHÔNG chặn được lời gọi nội bộ trong cùng module.** `assertCanConfigure` gọi `isConfigRole` như một tham chiếu lexical, nên vá từ ngoài làm ca kiểm **xanh oan** — nó không kiểm được gì mà vẫn báo đạt. Cách đúng cho một đột biến: sửa **thật** bảng dữ liệu (`CONFIG_ROLES.BANK_ADMIN = false`) rồi trả lại trong `finally`.
+- **`vi.spyOn` trên đối tượng namespace của module KHÔNG chặn được lời gọi nội bộ trong cùng module.** `assertCanConfigure` gọi `isConfigRole` như một tham chiếu lexical, nên vá từ ngoài làm ca kiểm **xanh oan** — nó không kiểm được gì mà vẫn báo đạt. Cách đúng cho một đột biến: sửa **thật** bảng dữ liệu (`CONFIG_ROLES.TELLER = false`) rồi trả lại trong `finally`.
 - **Test trên cơ sở dữ liệu không `TRUNCATE` thì mọi khoá phải duy nhất MỖI LẦN CHẠY.** Một chuỗi cố định sẽ do dòng của lượt trước chiếm giữ, và lượt hai trượt ở lời gọi *thứ nhất* với thông báo trông y như ràng buộc duy nhất đang hỏng. Phát hiện ở BE-04 khi chạy hai lượt trên một Postgres thật.
 - **Đừng dựa vào thứ tự danh sách khi khoá sắp xếp có thể trùng.** Hai lần ghi cùng mốc phần nghìn giây thì thứ tự phá thế bằng uuid ngẫu nhiên, nên `history[0]` đỏ **tuỳ lần chạy**. Tra theo **nội dung**, và ghi giới hạn đó vào doc của cổng để người sau không mắc lại.
 
@@ -707,43 +750,69 @@ giới hạn khoảng block.
 
 | File | Vai trò |
 |---|---|
-| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 24 action |
+| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 29 action |
 | `can.ts` | `can(role, action)` + `assertCan()` + `permissionsOf()` — **điểm kiểm quyền duy nhất** |
 | `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role` |
 | `demo-payment.ts` | Chốt chặn **hai lớp** riêng cho `demo:mint-payment`: `canMintDemoPayment()`, `assertCanMintDemoPayment()`, `DemoPaymentMintDisabledError` |
 | `config-role.ts` | Chốt chặn **hai lớp** cho việc đổi tham số hệ thống (BE-04): `CONFIG_ROLES`, `isConfigRole()`, `assertCanConfigure()`, `NotConfigRoleError`. Thứ tự là **RBAC trước, `isConfig` sau** — ngược `demo-payment.ts`, vì lớp thứ hai ở đây gắn với TỪNG VAI nên phải biết vai nào rồi mới trả lời được |
+| `area-gates.ts` | `AREAS`, `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực giao diện (FE-20). Dữ liệu thuần, **không** nằm trong JSX của layout: layout là Server Component nên không unit-test được, mà DoD đòi kiểm chặn cả hai chiều |
 
-**Ma trận quyền (đủ 24 action, tên đúng như trong `ACTIONS`):**
+**Ma trận quyền (đủ 29 action, tên đúng như trong `ACTIONS`):**
 
-Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho ba luồng) hoặc **BE-02**
-(nghiệp vụ lệnh mua). Action không ghi nguồn là có từ P1.
+Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho ba luồng), **BE-02**
+(nghiệp vụ lệnh mua), **FE-20** (cổng khu vực giao diện). Action không ghi nguồn là có từ P1.
 
-| Action | BANK_ADMIN | COMPLIANCE | INVESTOR | AUDITOR | Nguồn |
+| Action | INVESTOR | SELLER | TELLER | CONTROLLER | Nguồn |
 |---|:--:|:--:|:--:|:--:|:--:|
-| `token:mint` | ✅ | ❌ | ❌ | ❌ | — |
-| `token:burn` | ✅ | ❌ | ❌ | ❌ | — |
-| `token:clawback` | ✅ | ❌ | ❌ | ❌ | — |
-| `token:freeze` | ✅ | ✅ | ❌ | ❌ | — |
-| `investor:whitelist` | ✅ | ✅ | ❌ | ❌ | — |
-| `kyc:approve` | ✅ | ✅ | ❌ | ❌ | — |
-| `token:transfer` | ❌ | ❌ | ✅ | ❌ | — |
-| `order:place` | ❌ | ❌ | ✅ | ❌ | BE-08 |
-| `order:execute` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `order:expire` | ✅ | ❌ | ❌ | ❌ | BE-02 |
-| `distribution:snapshot` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `distribution:execute` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `settlement:initiate` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `settlement:set-nav` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `settlement:confirm` | ❌ | ❌ | ✅ | ❌ | BE-08 |
-| `treasury:manage` | ✅ | ❌ | ❌ | ❌ | BE-08 |
-| `demo:mint-payment` | ✅ **+ cờ** | ❌ | ❌ | ❌ | BE-08 |
-| `portfolio:read` | ❌ | ❌ | ✅ | ❌ | — |
+| `token:mint` | ❌ | ❌ | ✅ | ❌ | — |
+| `token:burn` | ❌ | ❌ | ✅ | ❌ | — |
+| `token:freeze` | ❌ | ❌ | ✅ | ❌ | — |
+| `token:clawback` | ❌ | ❌ | ✅ | ❌ | — |
+| `investor:whitelist` | ❌ | ❌ | ✅ | ❌ | — |
+| `kyc:approve` | ❌ | ❌ | ✅ | ❌ | — |
+| `token:transfer` | ✅ | ❌ | ❌ | ❌ | — |
+| `order:place` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `order:execute` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `order:expire` | ❌ | ❌ | ✅ | ❌ | BE-02 |
+| `distribution:snapshot` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `distribution:execute` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `settlement:initiate` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `settlement:set-nav` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `settlement:confirm` | ✅ | ❌ | ❌ | ❌ | BE-08 |
+| `treasury:manage` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `demo:mint-payment` | ❌ | ❌ | ✅ **+ cờ** | ❌ | BE-08 |
 | `balance:read` | ✅ | ✅ | ✅ | ✅ | — |
 | `txn:read` | ✅ | ✅ | ✅ | ✅ | — |
-| `audit:read` | ✅ | ✅ | ❌ | ✅ | — |
+| `audit:read` | ❌ | ❌ | ✅ | ✅ | — |
 | `order:read` | ✅ | ✅ | ✅ | ✅ | BE-02 |
-| `order:read:all` | ✅ | ✅ | ❌ | ✅ | BE-02 |
-| `reconcile:read` | ✅ | ✅ | ❌ | ✅ | BE-08 |
+| `order:read:all` | ❌ | ❌ | ✅ | ✅ | BE-02 |
+| `reconcile:read` | ❌ | ❌ | ✅ | ✅ | BE-08 |
+| `portfolio:read` | ✅ | ❌ | ❌ | ❌ | — |
+| `seller:read` | ❌ | ✅ | ❌ | ❌ | FE-20 |
+| `wallet:connect` | ✅ | ✅ | ❌ | ❌ | FE-20 |
+| `ops:read` | ❌ | ❌ | ✅ | ✅ | FE-20 |
+| `ops:draft:read` | ❌ | ❌ | ✅ | ❌ | FE-20 |
+| `ops:approve:read` | ❌ | ❌ | ❌ | ✅ | FE-20 |
+
+**5 cổng khu vực FE-20 thêm vào** — `seller:read`, `wallet:connect`, `ops:read`,
+`ops:draft:read`, `ops:approve:read` — là **quyền HIỂN THỊ**, mỗi cái trả lời đúng một câu: "vai
+này có được MỞ khu vực đó không". Hậu tố `:read` là cố ý, để khi BE-12 khai quyền nghiệp vụ thật
+(`order:draft`, `order:approve`) thì không trùng tên và không ai nhầm hai thứ với nhau.
+
+⚠️ `ops:draft:read` và `ops:approve:read` **không được cùng ở một vai**. Đó là bất biến của mô
+hình lập–duyệt, và `app/test/four-roles-routes.test.ts` có phép kiểm riêng cho nó — đọc từng dòng
+bảng quyền thì loại lỗi này rất khó thấy.
+
+⚠️ `TELLER` là vai ngân hàng cũ **đổi tên, giữ nguyên bộ quyền**. Đổi tên mà không đổi quyền là có
+chủ ý: bớt quyền của vai này ở FE-20 sẽ làm đỏ toàn bộ `lib/bank` mà **không thay được nghiệp vụ
+nào**, vì chưa có bên nào đi qua bước phê duyệt. Việc tách đặc quyền thuộc BE-12.
+
+⚠️ `CONTROLLER` **không** nhận phần ghi của vai tuân thủ cũ (`investor:whitelist`, `kyc:approve`,
+`token:freeze`) dù vai đó đã gỡ. Kiểm soát viên duyệt việc của Giao dịch viên; cho nó tự làm mấy
+việc đó là gộp người làm với người duyệt vào một chỗ. Ba hành động đó vẫn có chủ ở `TELLER` nên
+không quyền nào thành **vô chủ** — có test riêng cho điều này, vì một hành động vô chủ thì bảng vẫn
+khai, số đếm không giảm nên `verify-arch-rules.sh` vẫn xanh, mà không ai làm được việc đó nữa.
+
 
 **10 hành động BE-08 thêm vào** — `order:place`, `order:execute`, `distribution:snapshot`,
 `distribution:execute`, `settlement:initiate`, `settlement:set-nav`, `settlement:confirm`,
@@ -753,11 +822,11 @@ lệnh / chia lợi nhuận / tất toán. Trong đó **năm** hành động đ�
 `distribution:snapshot` và `distribution:execute` (BE-06, xem 4.5). Năm hành động còn lại —
 `order:expire` (BE-07), ba `settlement:*` (BE-05), `demo:mint-payment` — **chưa có nghiệp vụ gọi**.
 
-⚠️ **`distribution:execute` cố ý KHÔNG cấp cho COMPLIANCE**, dù vai đó xét KYC và freeze: cùng một
+⚠️ **`distribution:execute` cố ý KHÔNG cấp cho `CONTROLLER`**, dù vai đó giám sát dòng tiền: cùng một
 người vừa giám sát vừa chuyển tiền thì lớp kiểm soát thứ hai không còn. `previewDistribution` cũng
 hỏi đúng quyền này chứ không phải một quyền đọc — nó là bản xem trước của chính hành động chi trả,
 nên ai xem trước được thì cũng phải là người được phép chia. Đọc trạng thái kỳ thì khác: đó là
-`reconcile:read`, nên AUDITOR và COMPLIANCE vào được kênh theo dõi mà không chạm được hàm chi trả.
+`reconcile:read`, nên `CONTROLLER` vào được khu vực theo dõi mà không chạm được hàm chi trả.
 
 **BE-03 KHÔNG thêm quyền nào.** Xem trước dùng lại `order:place` — đúng quyền của việc nó xem
 trước. Thêm một `order:preview` riêng sẽ cho phép cấu hình ra một vai xem được điều kiện mua mà
@@ -774,10 +843,10 @@ BE-08 khai hai (`order:place`, `order:execute`), BE-02 khai thêm ba. Bảng tr�
 
 **Vì sao ma trận chia như vậy** — đây là phân định trách nhiệm, không phải cấp quyền cho đủ:
 
-- `order:place` và `settlement:confirm` **cố tình không** cấp cho `BANK_ADMIN`. Hai việc đó là quyết
+- `order:place` và `settlement:confirm` **cố tình không** cấp cho `TELLER`. Hai việc đó là quyết
   định của nhà đầu tư; ngân hàng đặt lệnh hoặc xác nhận hoàn vốn thay thì mất dấu ai đã đồng ý, và
   sổ kiểm toán không còn dùng được để đối chiếu trách nhiệm.
-- `COMPLIANCE` **không** có `order:execute`, `distribution:execute`, `settlement:set-nav`. Tuân thủ
+- `CONTROLLER` **không** có `order:execute`, `distribution:execute`, `settlement:set-nav`. Kiểm soát
   giám sát dòng tiền chứ không tự thực hiện: cùng một người vừa giám sát vừa chuyển tiền là mất lớp
   kiểm soát thứ hai.
 - `settlement:*` chứ không phải `token:redeem`, vì luồng chốt là ngân hàng điều phối và đốt token,
@@ -786,7 +855,7 @@ BE-08 khai hai (`order:place`, `order:execute`), BE-02 khai thêm ba. Bảng tr�
   spread nhóm đó nên tự động không có. Đúng ý định: báo cáo đối soát là dữ liệu toàn hệ.
 
 ⚠️ **`demo:mint-payment` cần HAI lớp, quyền RBAC một mình KHÔNG đủ.** Bảng quyền là mã nguồn, nên
-chỉ cần ai gán nhầm vai `BANK_ADMIN` trên môi trường thật là chức năng tự phát hành tiền mở ra. Lớp
+chỉ cần ai gán nhầm vai `TELLER` trên môi trường thật là chức năng tự phát hành tiền mở ra. Lớp
 thứ hai là cờ `ENABLE_DEMO_PAYMENT_MINT` (mặc định **tắt**, xem 3.6), nằm ở cấu hình triển khai nên
 hai lớp không cùng hỏng vì một sai sót. Điểm kiểm duy nhất là `demo-payment.ts`, thứ tự **cờ trước,
 quyền sau** — cờ tắt thì từ chối luôn, không đọc vai, nhờ vậy thông báo nói đúng nguyên nhân và
@@ -796,11 +865,11 @@ không có đường nào để vai trò "bù" cho cờ. Đừng gọi `can(role
 dùng `can()` để ẩn/hiện nút), còn file này `server-only` vì phải đọc env. Đưa vào barrel là làm mọi
 component `import ... from '@/lib/rbac'` fail build.
 
-**Lưu ý:** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; role lạ **quy về AUDITOR** (quyền thấp nhất), không cho qua. Đây là nguyên tắc đóng, giữ nguyên khi mở rộng.
+**Lưu ý:** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; role lạ **quy về `FALLBACK_ROLE`** = `SELLER` (bộ quyền nhỏ nhất), không cho qua. Đây là nguyên tắc đóng, giữ nguyên khi mở rộng. FE-20 đổi từ vai kiểm toán cũ sang `SELLER` vì đó là vai duy nhất vừa sạch quyền ghi vừa **không** đọc được dữ liệu toàn hệ; quy một cookie gõ sai về `CONTROLLER` là biến một lỗi chính tả thành quyền xem sổ kiểm toán.
 
 ⚠️ **`READ_ONLY` là bẫy.** Hằng private
 `READ_ONLY = ['balance:read','txn:read','audit:read','order:read','order:read:all','reconcile:read']`
-được spread vào BANK_ADMIN, COMPLIANCE và AUDITOR. Quyền nào đặt vào đó thì **ba vai ngân hàng tự
+được spread vào `TELLER` và `CONTROLLER`. Quyền nào đặt vào đó thì **cả hai vai vận hành tự
 động có**, nên không dùng làm cổng vào kênh nhà đầu tư được. `portfolio:read` cố tình khai riêng cho
 INVESTOR, và có test chốt lại điều này (`app/test/rbac.test.ts`).
 
@@ -1532,6 +1601,55 @@ buộc mọi người gọi phải nhớ đọc thêm một trường nữa mớ
 4. **Thêm kênh nhận diện người gọi khác** (chữ ký HMAC, mTLS) → thêm hàm cạnh `keeperSecretMatches`
    trong `env.ts`. Giá trị bí mật vẫn chỉ đọc ở một tệp đó.
 
+## 3.15. Khung bốn vai trò (FE-20)
+
+Task **chỉ dựng khung**, không làm nghiệp vụ. Bảng vai trò và bảng khu vực ở 1.1; ma trận quyền ở
+3.3. Phần này nói những tệp mới và những quyết định không đọc ra được từ hai bảng đó.
+
+| Tệp | Vai trò |
+|---|---|
+| `lib/rbac/area-gates.ts` | `AREAS` (7), `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực, **dữ liệu thuần** |
+| `lib/session/channel.ts` | 4 khu vực + `CHANNEL_HOME` + `CHANNEL_ROLE` + `ROLE_CHANNEL` (suy ra) + `homeForRole()` |
+| `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số việc đang chờ, hiện trả 0. Điểm cắm `@pending BE-12` |
+| `components/layout/nav-config.ts` | `NAV_BY_ROLE` — 4 menu, mỗi menu là **danh sách nhóm** |
+| `components/pages/placeholder.tsx` | `PlaceholderPage` — khuôn trang chỗ trống, dùng ở 11 trang |
+| `test/four-roles-shell.test.ts` | Menu khớp tài liệu yêu cầu, khu vực ↔ vai, số việc chờ |
+| `test/four-roles-routes.test.ts` | Đọc **cây route thật** trên đĩa rồi đối chiếu với bảng khu vực |
+
+**`NavSection` là danh sách nhóm, không phải hai nhóm cố định.** Kiểm soát viên cần **ba** nhóm
+theo tài liệu yêu cầu (Vận hành, Kiểm soát, Tài khoản); hình dạng cũ (`main` + một `moduleLabel` +
+`modules`) chỉ chứa được hai, nên nhồi nhóm thứ ba vào đó là bày sai cấu trúc đã chốt.
+
+**Số việc đang chờ: mục menu mang KHOÁ, không mang con số.** `nav-config.ts` là dữ liệu tĩnh bị
+`sidebar.tsx` (`'use client'`) nhập vào, còn con số phải đọc lúc chạy. Để con số ở đó thì nó bị
+đóng băng vào module. Nguồn số nằm ở tệp riêng vì BE-12 sẽ biến nó thành `server-only` — đặt chung
+thì lần đó làm vỡ build của mọi component nhập `nav-config`, và triệu chứng hiện ra rất xa nguyên nhân.
+
+⚠️ **Số 0 ở đây là khẳng định ĐÚNG, không phải chỗ trống.** Chưa có nghiệp vụ lập lệnh nên thật sự
+không có việc nào chờ. Khác trang tổng quan nhà đầu tư, nơi số 0 lúc chưa kết nối ví là khẳng định
+SAI và phải thay bằng lời mời kết nối (FE-01 R5.3).
+
+**Trang chỗ trống là trang THẬT, không phải mục menu mờ.** Mỗi trang nói ba thứ theo thứ tự người
+đọc cần: màn này sẽ làm gì, task nào thay thế, và khung đã sẵn gì (để task đó không dựng lại đường
+dẫn, guard, menu). Mục menu mờ (`NavItem.disabled`) bấm không ra trang nào nên không có chỗ ghi ba
+thứ đó — người dùng chỉ thấy một mục xám, người nhận task sau không có gì để đọc.
+
+**Năm màn có từ trước tài liệu yêu cầu vẫn còn mã nhưng KHÔNG trong menu:** `/mint`, `/kyc`,
+`/assets`, `/reconciliation`, `/audit`. Menu phải khớp tài liệu, mà tài liệu không có chúng; xoá mã
+thì mất màn đang chạy. Trang `/draft` ghi lại việc này cho FE-22 quyết định màn nào gộp vào Lập
+lệnh. Có phép kiểm chốt **cả hai chiều**: mã còn, và menu không có.
+
+### Cách mở rộng
+
+| Muốn | Đụng vào đâu |
+|---|---|
+| Thêm vai thứ năm | `ROLES` → `ROLE_PERMISSIONS` → `CONFIG_ROLES` → `CHANNELS` + `CHANNEL_ROLE` + `CHANNEL_HOME` → `NAV_BY_ROLE`. Bốn bảng đầu là `Record` đủ khoá nên quên chỗ nào là **lỗi biên dịch** |
+| Thêm khu vực | `AREAS` + `AREA_GATES` + `AREA_LABELS`, rồi một route-group cùng tên trong `AREA_DIR` của `four-roles-routes.test.ts`. Cổng phải là quyền mà đúng tập vai đó có |
+| Nối số việc chờ thật | Thay thân `pendingWorkCounts()`. Hàm đã `async` sẵn nên không phải sửa `AppLayout` |
+| Thêm mục mang số việc chờ | Thêm khoá vào `PendingWorkKey`; `PendingWorkCounts` là `Record` đủ khoá nên quên nguồn số là lỗi biên dịch |
+| Thay một trang chỗ trống | Sửa đúng `page.tsx` đó và **xoá marker** `@pending` trên khai báo |
+
+
 ---
 
 # PHẦN 4. BẢN ĐỒ LUỒNG
@@ -1676,7 +1794,7 @@ không vào sổ lệnh nữa. Hai hệ quả:
 | Bước | File / hàm | Việc |
 |---|---|---|
 | 1 | `getOrderStore() :: findOrder()` + `purchase.state.ts :: EXECUTABLE_ORDER_STATUSES` | Lệnh phải ở `PLACED` hoặc `CHECKING`, và đúng chain đã đặt |
-| 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **BANK_ADMIN**, tách khỏi `order:place` |
+| 2 | `bank/authorize.ts` | `authorize('order:execute')` — quyền của **TELLER**, tách khỏi `order:place` |
 | 3 | `orderStore :: transitionOrder(PLACED → CHECKING)` | Đã ở `CHECKING` thì giữ nguyên (tiến trình trước chết, chưa gửi gì) |
 | 4 | `purchase.service :: runPurchaseChecks()` | Kiểm giá (QĐ-3) rồi **bốn phép đọc** — xem bảng dưới. Lấy phép trượt **đầu tiên** trong danh sách trả về |
 | 5 | `orderStore :: transitionOrder(CHECKING → EXECUTING)` | **Cập nhật có điều kiện.** `null` = tiến trình khác đã chiếm → **dừng, không gửi** |
@@ -1730,7 +1848,7 @@ Ai viết đường kiểm thứ hai thì ba ca đó đỏ.
 | Hàm | Quyền | Ghi chú |
 |---|---|---|
 | `listOrders()` | `order:read`; bỏ trống bộ lọc ví cần thêm `order:read:all` | Vai không có `order:read:all` mà thiếu ví → **lỗi validate**, không phải trả toàn bộ sổ lệnh |
-| `expireStaleOrders()` | `order:expire` (BANK_ADMIN) | Chỉ nhắm `PLACED`. **Không** dựng lịch ở đây — việc gọi định kỳ thuộc BE-07, và cố ý **không** mở điểm vào HTTP |
+| `expireStaleOrders()` | `order:expire` (TELLER) | Chỉ nhắm `PLACED`. **Không** dựng lịch ở đây — việc gọi định kỳ thuộc BE-07, và cố ý **không** mở điểm vào HTTP |
 
 ⚠️ **`expireStaleOrders` có ĐÚNG MỘT đường vào: BE-07 gọi thẳng service.** Từ MC-01 Bước 6 điều
 này đúng trong mã, không chỉ trên giấy: `expireStaleOrdersAction` đã bị **xóa** theo quyết định
@@ -1816,7 +1934,7 @@ luồng này chưa chạy; trên `mock` đã chạy đầu cuối. Xem bảng đ
 **Đường đi dự kiến:**
 
 ```
-components/pages/redeem.tsx  (kênh (client))
+components/pages/redeem.tsx  (khu vực (investor))
    └─ redeemAction() ──→ app/actions/bank.ts
          └───────────────→ lib/bank/redeem.service.ts :: redeemTokens()
 ```
@@ -1824,7 +1942,7 @@ components/pages/redeem.tsx  (kênh (client))
 | Bước | File / hàm cần tạo hoặc dùng | Việc |
 |---|---|---|
 | 1 | `bank/schemas.ts` → thêm `redeemSchema` | Validate `wptAmount` |
-| 2 | `rbac/permissions.ts` — quyền **đã có sẵn** từ BE-08: `settlement:confirm` (INVESTOR), `settlement:initiate` + `settlement:set-nav` (BANK_ADMIN) | **KHÔNG** thêm `token:redeem`: BE-08 đã chốt tiền tố `settlement:*` vì luồng chốt là ngân hàng điều phối và đốt, không phải nhà đầu tư tự đổi |
+| 2 | `rbac/permissions.ts` — quyền **đã có sẵn** từ BE-08: `settlement:confirm` (INVESTOR), `settlement:initiate` + `settlement:set-nav` (TELLER) | **KHÔNG** thêm `token:redeem`: BE-08 đã chốt tiền tố `settlement:*` vì luồng chốt là ngân hàng điều phối và đốt, không phải nhà đầu tư tự đổi |
 | 3 | `rbac/can.ts :: assertCan()` | Kiểm quyền + audit |
 | 4 | `ledger/ledger.port.ts` → **bổ sung** `quoteRedeem()`, `redeem()`, `approve()` | Mở rộng hợp đồng port |
 | 5 | `ledger/evm.adapter.ts` | Nối `Redemption.sol` qua ABI ở `packages/shared/generated/Redemption.abi.json` |
@@ -1841,7 +1959,7 @@ components/pages/redeem.tsx  (kênh (client))
 
 **Việc của ngân hàng trước đó:** gọi `fund()` nạp thanh khoản VNDB, `setRate()` đặt tỷ giá (đều cần `MANAGER_ROLE`).
 
-**Lưu ý mở rộng:** nên thêm màn hình quản trị thanh khoản ở kênh `(admin)` (xem quỹ, nạp thêm, tạm dừng) — vì `redeem` sẽ fail hàng loạt nếu hết VNDB.
+**Lưu ý mở rộng:** nên thêm màn hình quản trị thanh khoản ở khu vực `(ops)` (xem quỹ, nạp thêm, tạm dừng) — vì `redeem` sẽ fail hàng loạt nếu hết VNDB.
 
 ---
 
