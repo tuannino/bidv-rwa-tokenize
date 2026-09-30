@@ -712,12 +712,12 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
     it('ghi giá trị mới kèm MỘT dòng lịch sử, giữ được giá trị cũ', async () => {
       const key = `test.gia.${randomUUID()}`;
 
-      await store.config.setConfig({ key, value: '100', type: 'bigint', changedBy: 'BANK_ADMIN' });
+      await store.config.setConfig({ key, value: '100', type: 'bigint', changedBy: 'TELLER' });
       await store.config.setConfig({
         key,
         value: '250',
         type: 'bigint',
-        changedBy: 'BANK_ADMIN',
+        changedBy: 'TELLER',
         reason: 'điều chỉnh đợt hai',
       });
 
@@ -746,7 +746,7 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       const key = `test.kieu.${randomUUID()}`;
       await expect(
         // @ts-expect-error — giá trị ngoài CONFIG_VALUE_TYPES.
-        store.config.setConfig({ key, value: '1', type: 'chuoi', changedBy: 'BANK_ADMIN' }),
+        store.config.setConfig({ key, value: '1', type: 'chuoi', changedBy: 'TELLER' }),
       ).rejects.toBeInstanceOf(InvalidStatusError);
 
       expect(await store.config.getConfig(key)).toBeNull();

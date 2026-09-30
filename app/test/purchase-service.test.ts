@@ -177,7 +177,7 @@ async function placeAsInvestor(wptAmount: string, investor = ALICE): Promise<str
   const placed = await placeOrder({ chain: CHAIN, investorWallet: investor, wptAmount });
   expect(placed.ok, `đặt lệnh phải thành công: ${placed.ok ? '' : placed.error}`).toBe(true);
   if (!placed.ok) throw new Error('không đặt được lệnh');
-  actAs('BANK_ADMIN');
+  actAs('TELLER');
   return placed.data.id;
 }
 
@@ -256,7 +256,7 @@ describe('placeOrder', () => {
   });
 
   it('vai không có order:place bị chặn, có bản ghi kiểm toán DENIED', async () => {
-    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['SELLER', 'TELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
       expect(result.ok, `${role} không được đặt lệnh`).toBe(false);
@@ -477,7 +477,7 @@ describe('previewPurchase', () => {
         investorWallet: ALICE,
         wptAmount: '3',
       });
-      actAs('BANK_ADMIN');
+      actAs('TELLER');
       const executed = await executeOrder({ chain: CHAIN, orderId });
 
       expect(preview.ok).toBe(true);
@@ -498,7 +498,7 @@ describe('previewPurchase', () => {
   it('vai không có order:place không xem trước được', async () => {
     await seedReadyToBuy();
 
-    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['SELLER', 'TELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await previewPurchase({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
       expect(result.ok, `${role} không được xem trước`).toBe(false);
@@ -665,11 +665,11 @@ describe('7.5 — khớp lệnh thành công', () => {
     expect(purchase?.status).toBe('CONFIRMED');
     expect(purchase?.amount).toBe('2');
     // Vai GỬI giao dịch, không phải vai đã đặt lệnh.
-    expect(purchase?.actorRole).toBe('BANK_ADMIN');
+    expect(purchase?.actorRole).toBe('TELLER');
 
     const audit = await getStore().listAudit({ limit: 30 });
     const success = audit.find((e) => e.action === 'order:execute' && e.outcome === 'SUCCESS');
-    expect(success?.actorRole).toBe('BANK_ADMIN');
+    expect(success?.actorRole).toBe('TELLER');
     expect(success?.detail).toMatch(/khớp 2 WPT/);
   });
 });
@@ -848,7 +848,7 @@ describe('7.8 — listOrders lọc theo ví ở tầng nghiệp vụ', () => {
 
   it('vai ngân hàng xem được toàn bộ lệnh và lọc được theo trạng thái', async () => {
     await seedTwoInvestors();
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
 
     const all = await listOrders({ chain: CHAIN });
     expect(all.ok).toBe(true);
@@ -877,7 +877,7 @@ describe('7.8 — listOrders lọc theo ví ở tầng nghiệp vụ', () => {
   });
 
   it('trạng thái lạ bị chặn ở validate', async () => {
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     const result = await listOrders({ chain: CHAIN, status: 'PAID' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -894,7 +894,7 @@ describe('7.9 — cổng quyền order:execute', () => {
     const orderId = await placeAsInvestor('3');
     const before = await snapshotBalances();
 
-    for (const role of ['INVESTOR', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['INVESTOR', 'SELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await executeOrder({ chain: CHAIN, orderId });
 
@@ -909,7 +909,7 @@ describe('7.9 — cổng quyền order:execute', () => {
     const audit = await getStore().listAudit({ limit: 30 });
     const denied = audit.filter((e) => e.action === 'order:execute' && e.outcome === 'DENIED');
     expect(denied.length, 'cả ba lần bị chặn đều phải có bản ghi').toBe(3);
-    expect(denied.map((e) => e.actorRole).sort()).toEqual(['AUDITOR', 'COMPLIANCE', 'INVESTOR']);
+    expect(denied.map((e) => e.actorRole).sort()).toEqual(['CONTROLLER', 'INVESTOR', 'SELLER']);
   });
 
   it('bị chặn KHÔNG làm đổi trạng thái lệnh', async () => {
@@ -943,7 +943,7 @@ describe('expireStaleOrders', () => {
     // trình. Cách này chỉ hỏng khi `memory.store.ts` đổi cấu trúc, và lúc đó test đỏ đúng chỗ.
     makeOrderStale(0, new Date(Date.now() - 60 * 60_000).toISOString());
 
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     const result = await expireStaleOrders({ olderThanMinutes: 30 });
 
     expect(result.ok).toBe(true);
@@ -959,7 +959,7 @@ describe('expireStaleOrders', () => {
     await seedReadyToBuy();
     const orderId = await placeAsInvestor('1');
 
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     const result = await expireStaleOrders({ olderThanMinutes: 30 });
 
     expect(result.ok).toBe(true);
@@ -969,7 +969,7 @@ describe('expireStaleOrders', () => {
   });
 
   it('olderThanMinutes = 0 bị chặn ở validate', async () => {
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     // Cho 0 đi qua sẽ hết hạn cả lệnh vừa đặt xong, tức giết luồng mua bằng một tham số nhầm.
     const result = await expireStaleOrders({ olderThanMinutes: 0 });
     expect(result.ok).toBe(false);
@@ -978,7 +978,7 @@ describe('expireStaleOrders', () => {
   });
 
   it('vai không có order:expire bị chặn', async () => {
-    for (const role of ['INVESTOR', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['INVESTOR', 'SELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await expireStaleOrders({ olderThanMinutes: 30 });
       expect(result.ok, `${role} không được dọn lệnh`).toBe(false);

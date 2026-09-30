@@ -114,7 +114,7 @@ const envSchema = z.object({
    *
    * Mặc định TẮT, và đây là mặc định duy nhất đúng: bật trên môi trường thật là cho phép
    * tự phát hành tiền. Cờ này là LỚP CHẶN THỨ HAI, độc lập với bảng quyền RBAC — bảng quyền
-   * nằm trong mã nguồn, ai gán nhầm vai `BANK_ADMIN` là chức năng mở ra ngay; cờ thì nằm
+   * nằm trong mã nguồn, ai gán nhầm vai `TELLER` là chức năng mở ra ngay; cờ thì nằm
    * ở cấu hình triển khai nên hai lớp không cùng hỏng vì một sai sót.
    *
    * Điểm kiểm duy nhất: `lib/rbac/demo-payment.ts`. Đừng đọc cờ này ở chỗ khác.
@@ -134,7 +134,7 @@ const envSchema = z.object({
   demoRole: z
     .string()
     .optional()
-    .transform((value) => (value && value.trim() !== '' ? value.trim().toUpperCase() : 'BANK_ADMIN')),
+    .transform((value) => (value && value.trim() !== '' ? value.trim().toUpperCase() : 'TELLER')),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;

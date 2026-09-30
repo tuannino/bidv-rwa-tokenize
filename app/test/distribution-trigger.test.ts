@@ -147,7 +147,7 @@ function holderWallets(count: number): string[] {
 }
 
 async function setConfigValue(key: string, value: string, type: 'bigint' | 'number' | 'string') {
-  await getConfigStore().setConfig({ key, value, type, changedBy: 'BANK_ADMIN' });
+  await getConfigStore().setConfig({ key, value, type, changedBy: 'TELLER' });
 }
 
 /** Mốc số dư đã xử lý, đọc thẳng từ bảng tham số — nguồn mà tiến trình thật cũng đọc. */
@@ -233,7 +233,7 @@ beforeEach(() => {
   resetMemoryStore();
   resetStoreCache();
   process.env.USE_MOCK_DB = 'true';
-  actAs('BANK_ADMIN');
+  actAs('TELLER');
 });
 
 afterEach(() => {
@@ -613,7 +613,7 @@ describe('ca 7 — kỳ chưa xong sau số vòng cấu hình thì có cảnh b�
 //  CA 8 — quyền của hàm kích hoạt tay
 // ===========================================================================
 describe('ca 8 — vai không có distribution:execute bị chặn', () => {
-  it.each(['AUDITOR', 'COMPLIANCE', 'INVESTOR'])('vai %s bị từ chối', async (role) => {
+  it.each(['CONTROLLER', 'SELLER', 'INVESTOR'])('vai %s bị từ chối', async (role) => {
     await seedHolder(holderWallets(1)[0], 10n);
     setProfitPool(1_000_000n);
     actAs(role);
@@ -629,12 +629,12 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
 
   it('lần bị chặn vẫn để lại vết trong sổ kiểm toán', async () => {
     setProfitPool(1_000_000n);
-    actAs('AUDITOR');
+    actAs('CONTROLLER');
 
     await runDistributionCycle({ chain: CHAIN });
 
     const audit = await distributionAudit();
-    expect(audit.some((row) => row.outcome === 'DENIED' && row.actorRole === 'AUDITOR')).toBe(true);
+    expect(audit.some((row) => row.outcome === 'DENIED' && row.actorRole === 'CONTROLLER')).toBe(true);
   });
 
   it('chain sai dạng bị chặn ở validate', async () => {
@@ -978,7 +978,7 @@ describe('ca 9 — route handler chỉ chạy khi có khoá bí mật đúng', (
     await seedReadyToDistribute();
     process.env.KEEPER_SECRET = SECRET;
     // `actAs` tự nạp lại env, nên đặt khoá TRƯỚC rồi đổi vai là đủ — cả hai cùng một lần nạp.
-    actAs('AUDITOR');
+    actAs('CONTROLLER');
 
     const response = await callKeeper(SECRET);
 

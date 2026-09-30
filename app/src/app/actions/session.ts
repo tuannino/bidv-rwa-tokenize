@@ -23,7 +23,15 @@ const COOKIE_OPTIONS = {
   path: '/',
 } as const;
 
-/** Đổi vai trò đang giả lập (chỉ dùng trong kênh Admin console). */
+/**
+ * Đổi vai trò đang giả lập, KHÔNG đổi khu vực đang xem.
+ *
+ * FE-20 gỡ bộ chọn vai khỏi giao diện (chọn vai giờ là việc của `setChannel`), nên hàm này
+ * hiện không có người gọi. Giữ lại vì nó là cách duy nhất đặt vai mà không điều hướng, thứ
+ * mà phần đăng nhập thật của AU-01 cần khi dựng phiên xong rồi trả người dùng về đúng trang
+ * họ đang mở.
+ */
+// @pending AU-01 | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở
 export async function setDemoRole(role: string): Promise<void> {
   if (!isRole(role)) return;
 
@@ -64,7 +72,7 @@ export async function setChannel(channel: string): Promise<void> {
     // nên đưa về vai ngân hàng mặc định. Vai ngân hàng khác thì tôn trọng lựa chọn cũ.
     const current = store.get(ROLE_COOKIE)?.value;
     if (!isRole(current) || current === 'INVESTOR') {
-      store.set(ROLE_COOKIE, 'BANK_ADMIN' satisfies Role, COOKIE_OPTIONS);
+      store.set(ROLE_COOKIE, 'TELLER' satisfies Role, COOKIE_OPTIONS);
     }
   }
 

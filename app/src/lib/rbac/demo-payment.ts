@@ -8,7 +8,7 @@ import { FALLBACK_ROLE, isRole, type Role } from './permissions';
  * Chốt chặn HAI LỚP cho `demo:mint-payment` — chức năng phát hành VNDB của môi trường thử.
  *
  * Vì sao không dùng `can(role, 'demo:mint-payment')` trực tiếp: quyền RBAC một mình
- * KHÔNG đủ. Bảng quyền là mã nguồn, nên chỉ cần ai gán nhầm vai `BANK_ADMIN` trên môi
+ * KHÔNG đủ. Bảng quyền là mã nguồn, nên chỉ cần ai gán nhầm vai `TELLER` trên môi
  * trường thật là chức năng tự phát hành tiền mở ra. Cờ `ENABLE_DEMO_PAYMENT_MINT` là lớp
  * thứ hai, nằm ở cấu hình triển khai chứ không ở mã nguồn, nên hai lớp không cùng hỏng
  * vì một sai sót.
@@ -38,7 +38,7 @@ export class DemoPaymentMintDisabledError extends ForbiddenError {
   }
 }
 
-/** Vai trò lạ quy về `AUDITOR` — cùng nguyên tắc đóng với `can()`. */
+/** Vai trò lạ quy về `FALLBACK_ROLE` — cùng nguyên tắc đóng với `can()`. */
 const resolveRole = (role: unknown): Role => (isRole(role) ? role : FALLBACK_ROLE);
 
 /**

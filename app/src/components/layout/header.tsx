@@ -4,17 +4,14 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useIsMounted } from "@/lib/hooks/use-is-mounted";
-import { usePublicConfig } from "@/lib/config/config-context";
 import { ChainSelector } from "./chain-selector";
 import { ChannelSwitcher } from "./channel-switcher";
-import { RoleSwitcher } from "./role-switcher";
 
 interface HeaderProps {
   breadcrumbs?: { label: string; href?: string }[];
 }
 
 export function Header({ breadcrumbs = [] }: HeaderProps) {
-  const config = usePublicConfig();
   const { resolvedTheme, setTheme } = useTheme();
   // `resolvedTheme` chỉ có ở client -> chờ hydrate xong mới render nút, tránh mismatch.
   const mounted = useIsMounted();
@@ -46,14 +43,15 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
         {/* Chọn chain: hardhat-local | mock | evm | stellar (KHÔNG Polygon) */}
         <ChainSelector />
 
-        {/* Chọn kênh — hiện ở CẢ HAI kênh để luôn quay lại được (R1.5) */}
-        <ChannelSwitcher />
-
         {/*
-          Đổi vai chỉ có nghĩa trong Admin console: ở kênh nhà đầu tư vai luôn là INVESTOR,
-          bày ra ô chọn vai chỉ mời người dùng tự đưa mình vào màn từ chối.
+          Chọn VAI TRÒ — hiện ở mọi khu vực để luôn quay lại được (R1.5).
+
+          FE-20 gỡ bộ chọn vai riêng: từ nay chọn vai CHÍNH LÀ chọn khu vực, nên hai ô chọn
+          nhập thành một. Để hai ô cùng đổi được vai là mở đường cho hai cookie lệch nhau —
+          vai `CONTROLLER` trong khu vực nhà đầu tư thì mọi trang đều ra màn từ chối, và người
+          dùng không có cách nào hiểu vì sao.
         */}
-        {config.channel === 'admin' && <RoleSwitcher />}
+        <ChannelSwitcher />
 
         <div className="h-6 w-px bg-border" aria-hidden="true" />
         {/* Dark/Light toggle */}

@@ -64,7 +64,7 @@ beforeEach(() => {
   resetMemoryStore();
   resetStoreCache();
   process.env.USE_MOCK_DB = 'true';
-  actAs('BANK_ADMIN');
+  actAs('TELLER');
 });
 
 afterEach(() => {
@@ -144,7 +144,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({
       newValue: NEAR_PRICE,
-      changedBy: 'BANK_ADMIN',
+      changedBy: 'TELLER',
       reason: 'điều chỉnh đợt hai',
     });
     expect(history[0].oldValue).toBe(String(WPT_ISSUE_PRICE_VND));
@@ -263,7 +263,7 @@ describe('ca 3 — lệnh đã đặt giữ nguyên số VNDB đã chốt', () =
     expect(placed.data.vndAmount).toBe((10n * priceAtOrder).toString());
 
     // Ngân hàng đổi giá SAU khi lệnh đã được đặt.
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     const changed = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE_2 });
     expect(changed.ok, changed.ok ? '' : changed.error).toBe(true);
 
@@ -339,20 +339,20 @@ describe('đột biến 1 — đẩy giá xuống ledger thất bại thì cơ s
 //  ĐỘT BIẾN 2 — tắt isConfig thì bị từ chối DÙ CÓ treasury:manage
 // ===========================================================================
 describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị chặn', () => {
-  it('BANK_ADMIN có treasury:manage và isConfig nên đổi được', async () => {
+  it('TELLER có treasury:manage và isConfig nên đổi được', async () => {
     const { can } = await import('@/lib/rbac');
     const { isConfigRole } = await import('@/lib/rbac/config-role');
     const { setIssuePrice } = await services();
 
-    expect(can('BANK_ADMIN', 'treasury:manage')).toBe(true);
-    expect(isConfigRole('BANK_ADMIN')).toBe(true);
+    expect(can('TELLER', 'treasury:manage')).toBe(true);
+    expect(isConfigRole('TELLER')).toBe(true);
 
     const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
   });
 
   /**
-   * ĐỘT BIẾN: tắt `isConfig` của BANK_ADMIN trong khi vai đó VẪN có `treasury:manage`.
+   * ĐỘT BIẾN: tắt `isConfig` của TELLER trong khi vai đó VẪN có `treasury:manage`.
    *
    * Nếu `assertCanConfigure` chỉ gọi `assertCan(role, 'treasury:manage')` rồi bỏ lớp thứ hai thì
    * ca này xanh oan. Đây là phép kiểm duy nhất chứng minh lớp `isConfig` thật sự được hỏi.
@@ -371,11 +371,11 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
      * chính bảng `CONFIG_ROLES` mới là tắt `isConfig` thật, và nó cũng đúng nghĩa đột biến mà
      * spec yêu cầu.
      */
-    CONFIG_ROLES.BANK_ADMIN = false;
+    CONFIG_ROLES.TELLER = false;
     try {
-      expect(isConfigRole('BANK_ADMIN')).toBe(false);
+      expect(isConfigRole('TELLER')).toBe(false);
       // Quyền RBAC KHÔNG bị chạm — đó là điểm của đột biến này.
-      expect(can('BANK_ADMIN', 'treasury:manage')).toBe(true);
+      expect(can('TELLER', 'treasury:manage')).toBe(true);
 
       const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
 
@@ -390,11 +390,11 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
     } finally {
       // `finally` chứ không đặt ở cuối thân hàm: ca kiểm trượt giữa đường vẫn phải trả bảng về
       // nguyên trạng, nếu không thì mọi ca sau đỏ theo và triệu chứng che mất lỗi thật.
-      CONFIG_ROLES.BANK_ADMIN = true;
+      CONFIG_ROLES.TELLER = true;
     }
   });
 
-  it.each([['COMPLIANCE'], ['INVESTOR'], ['AUDITOR']])(
+  it.each([['INVESTOR'], ['SELLER'], ['CONTROLLER']])(
     'vai %s bị từ chối và lần bị chặn được ghi vào sổ kiểm toán',
     async (role) => {
       const { setIssuePrice } = await services();

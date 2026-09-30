@@ -53,7 +53,7 @@ describe('getPortfolio — cổng quyền', () => {
   });
 
   it('ba vai ngân hàng đều bị từ chối, kèm mã FORBIDDEN', async () => {
-    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['SELLER', 'TELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await getPortfolio({ chain: CHAIN, wallet: ALICE });
 
@@ -64,7 +64,7 @@ describe('getPortfolio — cổng quyền', () => {
   });
 
   it('lần bị từ chối vẫn được ghi vào sổ kiểm toán', async () => {
-    actAs('BANK_ADMIN');
+    actAs('TELLER');
     await getPortfolio({ chain: CHAIN, wallet: ALICE });
 
     const audit = await getStore().listAudit({ limit: 10 });
@@ -72,7 +72,7 @@ describe('getPortfolio — cổng quyền', () => {
       (entry) => entry.action === 'portfolio:read' && entry.outcome === 'DENIED',
     );
     expect(denied, 'phải có bản ghi DENIED để kênh (audit) thấy được').toBeDefined();
-    expect(denied?.actorRole).toBe('BANK_ADMIN');
+    expect(denied?.actorRole).toBe('TELLER');
   });
 
   it('ví sai định dạng bị chặn ở validate, không đi tới chain', async () => {
@@ -138,7 +138,7 @@ describe('getWalletTransactions — lọc theo ví', () => {
       toWallet: ALICE,
       amount: '100',
       reason: null,
-      actorRole: 'BANK_ADMIN',
+      actorRole: 'TELLER',
       actorAddress: null,
     });
     await store.saveTxn({
@@ -150,7 +150,7 @@ describe('getWalletTransactions — lọc theo ví', () => {
       toWallet: BOB,
       amount: '999',
       reason: null,
-      actorRole: 'BANK_ADMIN',
+      actorRole: 'TELLER',
       actorAddress: null,
     });
   }
@@ -193,7 +193,7 @@ describe('getWalletTransactions — lọc theo ví', () => {
   it('ba vai ngân hàng đều bị từ chối', async () => {
     await seedTwoWallets();
 
-    for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
+    for (const role of ['SELLER', 'TELLER', 'CONTROLLER']) {
       actAs(role);
       const result = await getWalletTransactions({ chain: CHAIN, wallet: ALICE });
 
