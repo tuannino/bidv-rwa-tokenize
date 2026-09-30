@@ -8,7 +8,6 @@ import {
   ROLE_CHANNEL,
   homeForRole,
   isChannel,
-  type Channel,
 } from '@/lib/session/channel';
 import { NAV_BY_ROLE, type NavItem } from '@/components/layout/nav-config';
 import { NO_PENDING_WORK, pendingWorkCounts } from '@/lib/nav/pending-work';

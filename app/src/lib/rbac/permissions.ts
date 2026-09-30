@@ -132,6 +132,17 @@ export const ACTIONS = [
    */
   /** Vào khu vực Người bán. Chỉ SELLER — nên nó cũng là thứ chặn ba vai kia. */
   'seller:read',
+  /**
+   * Mở trang Kết nối ví. Nhà đầu tư và Người bán — hai vai thao tác bằng ví trình duyệt.
+   *
+   * ⚠️ KHÔNG cấp cho hai vai vận hành, và đây không phải chuyện gọn gàng. Thao tác đặc quyền
+   * của ngân hàng ký bằng khóa phía máy chủ qua `ISigner` (FE-02 R7.2), nên bày trang kết nối
+   * ví cho Giao dịch viên là mời họ ký việc của ngân hàng bằng ví cá nhân — đúng ngược thiết kế.
+   *
+   * Phải là quyền RIÊNG chứ không dùng `balance:read`: cả bốn vai đều có `balance:read`
+   * (nó nằm trong `READ_ONLY`), nên dùng nó làm cổng thì không chặn được ai.
+   */
+  'wallet:connect',
   /** Vào khu vực Vận hành (bảng điều khiển, giao dịch, chia lợi nhuận). TELLER + CONTROLLER. */
   'ops:read',
   /** Mở mục Lập lệnh. CHỈ TELLER — Kiểm soát viên không tự lập lệnh mình sẽ duyệt. */
@@ -197,6 +208,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'order:read',
     'settlement:confirm',
     'portfolio:read',
+    'wallet:connect',
     'balance:read',
     'txn:read',
   ],
@@ -209,7 +221,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    *
    * Nghiệp vụ tạo lệnh rút của Người bán thuộc BE-12; ở đây chưa cấp quyền ghi nào cho nó.
    */
-  SELLER: ['seller:read', 'balance:read', 'txn:read', 'order:read'],
+  SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read'],
   /**
    * Giao dịch viên — `BANK_ADMIN` cũ đổi tên, GIỮ NGUYÊN bộ quyền, cộng cổng khu vực.
    *

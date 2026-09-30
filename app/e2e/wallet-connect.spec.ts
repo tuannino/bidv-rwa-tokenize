@@ -9,8 +9,8 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
  * xem bảng trong `docs/CHECKPOINT_FE02.md`. Logic quyết định của cả tám trạng thái đã có
  * unit test ở `test/wallet-status.test.ts`.
  *
- * Máy chủ e2e chạy `NEXT_PUBLIC_DEFAULT_CHAIN=mock` và `DEMO_ROLE=BANK_ADMIN` (xem
- * `playwright.config.ts`), nên phải đặt cookie mới vào được kênh nhà đầu tư.
+ * Máy chủ e2e chạy `NEXT_PUBLIC_DEFAULT_CHAIN=mock` và `DEMO_ROLE=TELLER` (xem
+ * `playwright.config.ts`), nên phải đặt cookie mới vào được khu vực nhà đầu tư.
  */
 
 /** Đặt cả hai cookie, giống hệt việc `setChannel` làm ở server. */
@@ -195,24 +195,39 @@ test.describe('Trang Ví của tôi', () => {
   });
 
   /**
-   * Trang mới nằm trong route-group `(client)` nên phải được `ChannelGuard` bảo vệ sẵn.
-   * Kiểm để chắc là guard ở layout group thật sự phủ trang thêm sau, không phải chỉ trên giấy.
+   * FE-20: `/wallet` chuyển sang route-group `(wallet)` với cổng `wallet:connect`.
+   *
+   * Hai vai vận hành vẫn bị chặn — thao tác đặc quyền của ngân hàng ký bằng khóa phía máy chủ
+   * qua `ISigner` (R7.2), nên bày trang kết nối ví cho họ là ngược thiết kế.
+   *
+   * Người bán thì NGƯỢC LẠI: tài liệu yêu cầu cho vai đó mục Kết nối ví, nên nó phải vào được.
+   * Đó là lý do `/wallet` không còn nằm trong khu vực Nhà đầu tư.
    */
-  for (const role of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
-    test(`vai ${role} KHÔNG vào được trang ví của nhà đầu tư`, async ({
-      page,
-      context,
-      baseURL,
-    }) => {
+  for (const [channel, role] of [
+    ['teller', 'TELLER'],
+    ['controller', 'CONTROLLER'],
+  ]) {
+    test(`vai ${role} KHÔNG vào được trang kết nối ví`, async ({ page, context, baseURL }) => {
       await context.addCookies([
-        { name: 'bidv_channel', value: 'admin', url: baseURL! },
+        { name: 'bidv_channel', value: channel, url: baseURL! },
         { name: 'bidv_role', value: role, url: baseURL! },
       ]);
-
       await page.goto('/wallet');
       await expect(
-        page.getByRole('heading', { name: /Không có quyền vào kênh Nhà đầu tư/i }),
+        page.getByRole('heading', { name: /Không có quyền vào kênh Kết nối ví/i }),
       ).toBeVisible();
     });
   }
+
+  test('vai Người bán VÀO ĐƯỢC trang kết nối ví', async ({ page, context, baseURL }) => {
+    await context.addCookies([
+      { name: 'bidv_channel', value: 'seller', url: baseURL! },
+      { name: 'bidv_role', value: 'SELLER', url: baseURL! },
+    ]);
+    await page.goto('/wallet');
+    // Tiêu đề trang là "Ví của tôi" (FE-02, giữ nguyên); "Kết nối ví" là nhãn MỤC MENU.
+    await expect(page.getByRole('heading', { name: 'Ví của tôi', level: 1 })).toBeVisible();
+    // Và menu của vai này có mục đó.
+    await expect(page.getByRole('complementary')).toContainText('Kết nối ví');
+  });
 });

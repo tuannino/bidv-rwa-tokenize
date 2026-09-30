@@ -332,6 +332,11 @@ const FE20_AREA_GATES: ReadonlyArray<{ action: Action; allowed: readonly Role[];
     allowed: ['CONTROLLER'],
     why: 'chỉ Kiểm soát viên duyệt; Giao dịch viên không duyệt lệnh mình lập (ca 4)',
   },
+  {
+    action: 'wallet:connect',
+    allowed: ['INVESTOR', 'SELLER'],
+    why: 'chỉ hai vai khách hàng ký bằng ví trình duyệt; thao tác ngân hàng ký bằng khóa máy chủ',
+  },
 ];
 
 /** Mọi hành động GHI — không vai chỉ-đọc nào được có, kể cả vai trò lạ. */
