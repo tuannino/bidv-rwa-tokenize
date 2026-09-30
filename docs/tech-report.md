@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 2.4 |
-| Cập nhật lần cuối | 2026-09-27 |
-| Nhánh / commit | `feat/distribution-trigger`, nền `dev` @ `6f7ee7b` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE07.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3) |
-| Đang chờ nghiệm thu | **BE-07** (tiến trình tự động chia lợi nhuận — xem 3.14 và 4.5, checkpoint `docs/CHECKPOINT_BE07.md`) |
+| Phiên bản tài liệu | 2.5 |
+| Cập nhật lần cuối | 2026-09-29 |
+| Nhánh / commit | `op/01-ci`, nền `dev` @ `0f5dd8e` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_OP01.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4) |
+| Đang chờ nghiệm thu | **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — xem 2.6 và 2.7, checkpoint `docs/CHECKPOINT_OP01.md`) |
 | Phase kế tiếp | BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer (đổi nguồn tín hiệu của BE-07 từ hỏi định kỳ sang sự kiện on-chain) |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
@@ -65,6 +65,22 @@ bốn khoá tham số hệ thống mới, một biến môi trường mới. **K
 3. **Biến môi trường `KEEPER_SECRET` là bắt buộc để tiến trình định kỳ chạy được.** Để trống thì
    route từ chối mọi yêu cầu (401) — không phải lỗi cấu hình im lặng, mà là mặc định đóng có chủ
    đích. Khoá ngắn hơn 32 ký tự làm app **không nạp được cấu hình**.
+
+**2.4 → 2.5 (OP-01).** Một cổng quy trình (tích hợp liên tục), một tệp cấu hình mới, một route
+handler mới, một tập lệnh mới. Vẫn `+0.1`: **không** thêm method nào vào `ILedgerPort` (vẫn 29),
+**không** thêm bảng dữ liệu, **không** thêm tầng, **không** thêm quyền RBAC, **không** thêm phụ
+thuộc. Ba đổi hành vi cần đọc kỹ:
+
+1. **`scripts/run-local-all.sh` nhận tham số phần** (`--list` để xem). Chạy **không tham số thì
+   hành vi giữ nguyên** như trước OP-01. `.github/workflows/ci.yml` gọi lại đúng các phần đó, nên
+   thêm việc cần kiểm thì sửa script, **không** sửa tệp YAML — xem 2.7.
+2. **`verify-arch-rules.sh` có thêm một phép kiểm có thể ĐỎ:** bảng quyền không được teo lại so
+   với nền. Một yêu cầu hợp nhất cố ý bỏ một hành động RBAC nay phải ghi DEVIATION trong
+   checkpoint. ⚠️ Trong CI dùng biến `RBAC_BASE_REF`, **không** dùng `BASE_REF` — `BASE_REF` bật
+   phép kiểm "contract không được sửa" và sẽ chặn mọi task hợp đồng.
+3. **Phần Soroban không còn trong khâu kiểm chứng.** `run-local-all.sh` không gọi `cargo`, và bộ
+   công cụ Rust không còn là thứ phải có trong môi trường làm việc. Mã nguồn Stellar **giữ
+   nguyên** — xem 2.6 để biết chỗ nào được gỡ, chỗ nào phải để yên.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -134,6 +150,9 @@ Hạ tầng (chain EVM/Stellar/mock, Postgres/memory)
 
 ```
 bidv-rwa-tokenize/
+├── .github/workflows/
+│   └── ci.yml                 # ★ Quy trình tự động: 3 việc, GỌI LẠI các phần của
+│                              #   run-local-all.sh (không chép danh sách lệnh) — xem 2.7
 ├── .kiro/
 │   ├── steering/              # Quy tắc Kiro nạp mỗi phiên (always)
 │   │   ├── workflow.md        # Vòng lặp Kiro ↔ Supervisor, quy tắc chống "kẹt"
@@ -158,7 +177,8 @@ bidv-rwa-tokenize/
 │   │   ├── actions/           # Server Actions (bank.ts, session.ts, portfolio.ts,
 │   │   │                      #   purchase.ts, config.ts, distribution.ts)
 │   │   ├── api/               # REST: mint, balance, investors, token, txns,
-│   │   │                      #   purchase, keeper/distribution (BE-07, có khoá bí mật)
+│   │   │                      #   purchase, keeper/distribution (BE-07, có khoá bí mật),
+│   │   │                      #   version (OP-01, không cần xác thực — xem 2.7)
 │   │   ├── layout.tsx, page.tsx, globals.css
 │   ├── src/components/
 │   │   ├── layout/            # sidebar, header, chain-selector, channel-guard,
@@ -192,20 +212,24 @@ bidv-rwa-tokenize/
 │   │   ├── test/              # full-cycle, oracle-cycle (13 test)
 │   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (54 test)
 │   │   └── trex/              # ERC-3643 thật — TOOLCHAIN RIÊNG, KHÔNG trộn
-│   ├── contracts-stellar/     # Soroban (Rust) — phase 7
+│   ├── contracts-stellar/     # Soroban (Rust) — TẠM DỪNG, giữ mã (xem 2.6)
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
 │
-├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20 / bash, không phụ thuộc ngoài)
-│   ├── run-local-all.sh       # Chạy toàn bộ kiểm chứng cục bộ — 8 mục
+├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20+ / bash, không phụ thuộc ngoài)
+│   ├── run-local-all.sh       # ★ NGUỒN DUY NHẤT của danh sách việc cần kiểm — 7 phần gọi
+│   │                          #   riêng được (`--list`). Không tham số = bộ mặc định 5 phần
 │   ├── verify-arch-rules.sh   # Lớp 3: 3 luật kiến trúc + cấu trúc repo + ký hiệu token
+│   │                          #   + bảng quyền không teo lại so với nền (OP-01)
 │   ├── scan-pending.mjs       # ★ Quét marker; --check, --json, --write-report, --check-report
 │   ├── gen-flow-diagram.mjs   # ★ Sinh docs/flows/<luồng>.md (Mermaid) từ marker @flow
 │   ├── check-checkpoint.mjs   # ★ Kiểm khuôn checkpoint; --in-progress (MC-02)
+│   ├── smoke-test.mjs         # ★ Kiểm khói bản đã triển khai (OP-01) — chạy TAY
 │   └── demo-mint.mjs          # Kịch bản demo luồng mint
 │
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
     ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
+    ├── BRANCH_PROTECTION.md   # ★ Hướng dẫn Owner bật bảo vệ nhánh `dev` (OP-01)
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
         ├── purchase.md        #   Luồng mua WPT, 12 bước
@@ -397,7 +421,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | OpenZeppelin Contracts | AccessControl, SafeERC20, ReentrancyGuard | 5.6.1 | 5.6.1 | MIT |
 | T-REX (ERC-3643) | Khung token chứng khoán tuân thủ — production sau | 4.1.6 | 4.1.6 | ⚠️ Riêng |
 | ONCHAINID | Danh tính on-chain đi kèm ERC-3643 | 2.2.1 | 2.2.1 | ISC |
-| Soroban SDK | Contract Stellar (phase 7) | 26 | 27.0.6 | Apache-2.0 |
+| Soroban SDK | Contract Stellar — **TẠM DỪNG, không thuộc khâu kiểm chứng** (xem 2.6) | 26 | 27.0.6 | Apache-2.0 |
 
 ## 2.4. Dữ liệu và trạng thái
 
@@ -418,12 +442,160 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 
 | Công nghệ | Mục đích | Bản dùng | Mới nhất | License |
 |---|---|---|---|---|
-| Vitest | Unit test — **309 test / 13 tệp** (`cd app && npm test`) | 3.2.4 | 5.0.0 | MIT |
+| Vitest | Unit test — **517 test / 19 tệp** (`cd app && npm test`) | 3.2.4 | 5.0.0 | MIT |
 | Playwright | E2E — **30 test / 4 tệp** (`cd app && npx playwright test --list`) | 1.63.0 | 1.63.0 | Apache-2.0 |
 | ESLint | Kiểm tra mã nguồn | 9.x | 10.10.0 | MIT |
 | Docker / Compose | 3 service: chain, db, web | — | 29.7.1 | Apache-2.0 |
 | @opennextjs/cloudflare | Đưa Next.js lên Workers | 1.14.0 | 1.20.6 | MIT |
 | Wrangler | CLI triển khai Workers | đi kèm | 4.129.1 | MIT/Apache-2.0 |
+| GitHub Actions | Tích hợp liên tục — 3 việc, cổng bảo vệ `dev` (xem 2.7) | `checkout@v7`, `setup-node@v7`, `cache@v6`, `upload-artifact@v7` | cùng bản | MIT |
+
+## 2.6. Stellar tạm dừng ở khâu kiểm chứng (OP-01)
+
+**Mã nguồn Stellar giữ nguyên. Chỉ khâu kiểm chứng và khâu chuẩn bị môi trường bỏ nó ra.**
+
+| Giữ nguyên trong repo | Đã gỡ khỏi khâu kiểm chứng |
+|---|---|
+| `packages/contracts-stellar/` (8 tệp Rust) | Nhánh gọi `cargo test` trong `scripts/run-local-all.sh` |
+| `app/src/lib/ledger/stellar.adapter.ts` | Phép kiểm `@stellar/stellar-sdk` trong `scripts/verify-arch-rules.sh` |
+| Giá trị `stellar` trong `packages/shared/src/chains.ts`, trong kiểu dữ liệu và sổ đăng ký chuỗi | Ba mục spec `p4-mint-stellar` / `p7-profit-distribution-stellar` / `p12-redemption-stellar` trong phần kiểm cấu trúc của cùng tệp đó |
+| Trạng thái `unsupported-chain` ở màn kết nối ví (xem 3.9) và kiểm thử của nó | Yêu cầu bắt buộc cài Rust trong steering |
+
+**Không ai phải cài Rust để làm việc trên dự án này.** `bash scripts/run-local-all.sh` in một dòng
+thông báo phần Soroban đang tạm dừng; dòng đó **không** tính vào PASS/FAIL và không đổi mã thoát.
+Có dòng đó để người chạy biết phần Soroban vắng mặt là chủ đích, không phải script quên gọi.
+
+**Vì sao giữ mã thay vì xoá.** Kiến trúc đa chuỗi là thứ ba luật bất di bảo vệ (xem 1.2). Gỡ
+`stellar` khỏi danh sách chuỗi và khỏi kiểu dữ liệu là bỏ đúng phần mà `ILedgerPort` tồn tại để
+bảo vệ: ngày nối lại, việc phải làm sẽ là *thêm một adapter*, không phải *dựng lại khả năng đa
+chuỗi*. Cái giá của việc giữ: mỗi method mới thêm vào `ILedgerPort` vẫn phải hiện thực ở
+`stellar.adapter.ts` — ném `LedgerNotImplementedError` kèm gợi ý nêu đúng thứ đang thiếu.
+
+**Hai phép kiểm CÒN LẠI nhắc Stellar, đừng gỡ nhầm:**
+
+| Phép kiểm | Vì sao giữ |
+|---|---|
+| Contract ID Stellar (`C...` 56 ký tự) hardcode trong `app/src` | Đây là luật "một nguồn sự thật", không phải phép kiểm chuỗi Stellar. Nó vẫn phát biểu được điều đúng ngay hôm nay |
+| `packages/contracts-stellar/contracts/**/*.rs` trong phép so contract với `BASE_REF` | Đây chính là thứ **bảo vệ** mã nguồn Stellar khỏi bị sửa. Gỡ nó đi là mở đường cho việc mà mục này cấm |
+
+**Nối lại khi nào.** Owner quyết. Lúc đó: thêm lại nhánh `cargo test` vào `run-local-all.sh`,
+thêm lại phép kiểm `@stellar/stellar-sdk` (cùng khuôn với phép kiểm viem/ethers), thêm lại ba mục
+spec, và bỏ ghi chú tạm dừng ở `.kiro/steering/tech.md` + `structure.md`. Trong lúc chưa nối:
+**không mở task Stellar mới.**
+
+## 2.7. Tích hợp liên tục và cổng bảo vệ nhánh `dev` (OP-01)
+
+### Một nguồn danh sách việc, hai nơi chạy
+
+`scripts/run-local-all.sh` là **nguồn duy nhất** của danh sách việc cần kiểm. Nó chia thành các
+phần gọi riêng được, và `.github/workflows/ci.yml` **gọi lại đúng các phần đó**:
+
+```bash
+bash scripts/run-local-all.sh --list        # in danh sách phần, dấu * = thuộc bộ mặc định
+```
+
+| Phần | Nội dung | Ở việc CI nào |
+|---|---|---|
+| `arch` | 3 luật kiến trúc, cấu trúc repo, ký hiệu token, **bảng quyền không teo lại** | A |
+| `markers` | `scan-pending.mjs --check` | A |
+| `checkpoint` | `check-checkpoint.mjs --in-progress` | A |
+| `contracts` | `npx hardhat test` | B |
+| `app` | typecheck, ESLint, Vitest | A |
+| `build` | `npm run build` — **cần mạng** (`next/font/google`) | C |
+| `e2e` | `npx playwright test` | C |
+
+Bộ mặc định (chạy `bash scripts/run-local-all.sh` không tham số) = `arch markers checkpoint
+contracts app`, tức **giữ nguyên** hành vi có từ trước OP-01. `build` và `e2e` cố ý ở ngoài: cả
+hai nặng, và `build` không chạy được ở nơi bị chặn ra ngoài.
+
+**Vì sao không chép danh sách lệnh vào tệp YAML.** Chép là tạo ra hai danh sách phải tự tay giữ
+khớp nhau, và chúng sẽ lệch. Lúc đó nơi chạy tự động và nơi chạy tay kiểm hai thứ khác nhau, mà
+không ai biết cho tới khi một lỗi lọt qua đúng khe đó.
+
+### Ba việc, và việc nào là cổng
+
+| Việc | Tên trong `ci.yml` | Là cổng bắt buộc? |
+|---|---|---|
+| A — ứng dụng | `A - ung dung (cong bat buoc)` | **Có** |
+| B — hợp đồng EVM | `B - hop dong EVM (cong bat buoc)` | **Có** |
+| C — phần nặng | `C - phan nang (KHONG chan hop nhat)` | Chưa — xem dưới |
+
+Kích hoạt khi **đẩy lên `dev`** và khi **mở yêu cầu hợp nhất vào `dev`**. Ba việc chạy song song.
+Không dùng secret nào, `permissions: contents: read`.
+
+⚠️ **Tên việc viết KHÔNG DẤU có chủ đích.** Tên đó là **khoá** trong danh sách phép kiểm bắt buộc
+của bảo vệ nhánh. Lệch một ký tự thì GitHub nhận nó như một phép kiểm chưa từng báo về, và mọi
+yêu cầu hợp nhất treo vĩnh viễn ở "Expected — Waiting for status to be reported". Đổi tên việc thì
+phải cập nhật cấu hình bảo vệ nhánh trong cùng lần.
+
+**Việc C không chặn hợp nhất, nhưng KHÔNG dùng `continue-on-error`.** Nó hiện đỏ đúng như thật;
+việc "không chặn" thực hiện bằng cách chỉ đưa A và B vào danh sách phép kiểm bắt buộc. Lý do chọn
+cách này: `continue-on-error` biến việc C thành dấu XANH trong khi nó vừa đỏ, và một cổng nói dối
+còn tệ hơn không có cổng. Điều kiện siết và cách bật: `docs/BRANCH_PROTECTION.md`.
+
+### Bảng quyền không được teo lại
+
+Phép kiểm ở `verify-arch-rules.sh` mục LUẬT 3: số hành động trong `ACTIONS` **không được ít hơn**
+bản trên nền, và **không hành động nào của bản nền được biến mất** (bắt cả trường hợp đổi tên, vốn
+giữ nguyên số đếm nhưng vẫn làm mất một quyền).
+
+| | |
+|---|---|
+| Nền để so | `RBAC_BASE_REF`; không đặt thì lấy `origin/dev` rồi `dev` |
+| Nền trong CI | Yêu cầu hợp nhất: nhánh đích. Đẩy thẳng lên `dev`: **commit trước lần đẩy** — `origin/dev` sau lần đẩy chính là commit đang kiểm, tự so với chính mình thì luôn xanh |
+| Không tìm được nền | WARN, **không đỏ**: đỏ ở đó là đỏ vì cách lấy mã nguồn, không vì mã nguồn |
+| Đếm bằng gì | `node` nhúng trong script, không phải `grep -c`: khối `ACTIONS` có chú thích khối chứa dấu ngoặc và tên hành động trong dấu nháy ngược |
+
+**Vì sao cần.** Dự án đã mất toàn bộ phần quyền của BE-08 khỏi `dev` một lần, và **không phép kiểm
+nào hiện có bắt được**: mã vẫn biên dịch, mọi test vẫn xanh — một bảng quyền thiếu hành động chỉ
+nghĩa là ít người được làm việc hơn, và không test nào phát biểu "phải có đúng N hành động".
+
+⚠️ **Trong CI dùng tên biến `RBAC_BASE_REF`, KHÔNG dùng `BASE_REF`.** `BASE_REF` là biến bật phép
+kiểm "contract không được sửa so với nền" ở cùng tệp; đặt nó trong CI sẽ làm **đỏ mọi yêu cầu hợp
+nhất có sửa contract**, tức chặn đúng các task SC-0x.
+
+### Đường dẫn đọc phiên bản và kiểm khói
+
+| | |
+|---|---|
+| `GET /api/version` | Trả `{ ok, data: { commit, branch, buildTime, source } }`. **Không cần xác thực** có chủ đích: đây là thứ phải trả lời được TRƯỚC khi đăng nhập được. Chỉ đọc ba biến môi trường; không chạm cơ sở dữ liệu, chuỗi, hay biến bí mật |
+| `app/src/lib/config/build-info.ts` | Nơi DUY NHẤT đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME`. Tách khỏi `env.ts` vì `serverEnv()` **ném lỗi** khi cấu hình sai, còn `/api/version` phải trả lời được **kể cả lúc** cấu hình đang sai |
+| Trường `source` | Nói từng trường là `env` hay `fallback`. Cần vì `commit: "local"` một mình không phân biệt được "đang chạy cục bộ" với "quy trình triển khai quên truyền biến" — hai chuyện xử lý khác nhau hoàn toàn |
+| `export const dynamic = 'force-dynamic'` | Tường minh. Một `/api/version` bị đóng băng vào bản dựng vẫn trả 200 kèm mã commit CŨ, tức kiểm khói báo xanh cho đúng thứ nó phải phát hiện |
+| `scripts/smoke-test.mjs <địa-chỉ>` | Gọi `/api/version` và `/api/token?chain=mock`. **Chạy tay, chưa gắn vào triển khai.** Mã thoát: `0` đạt · `1` có phép kiểm đỏ · `2` gọi sai |
+
+Vì sao kiểm khói cần **hai** phép kiểm: `/api/version` không chạm gì ngoài `process.env` nên nó
+vẫn xanh khi tầng nghiệp vụ hỏng hoàn toàn; `/api/token` đi qua service và cổng ledger. Mặc định
+`chain=mock` để phép kiểm đỏ thì đỏ vì **ứng dụng**, không vì hạ tầng chưa lên. Chỉ gọi `GET`:
+kiểm khói chạy trên môi trường thật, một phép kiểm có ghi sẽ để lại dữ liệu rác trong sổ sách mỗi
+lần triển khai.
+
+### Lưu ý khi phát triển
+
+- **Thêm việc cần kiểm thì sửa `run-local-all.sh`, không sửa `ci.yml`.** Thêm hàm `part_<tên>` và
+  thêm tên vào `ALL_PARTS`; thuộc cổng bắt buộc thì thêm cả vào `DEFAULT_PARTS`. `ci.yml` chỉ đổi
+  khi **danh sách phần của một việc** đổi.
+- **Tên phần sai thì script thoát `2`, không phải `1`.** Phân biệt "gọi sai" với "có mục đỏ": gõ
+  sai tên phần mà trả `0` thì CI xanh oan, mà trả `1` thì bị đọc là test đỏ.
+- **Năm chỗ lưu đệm** (phụ thuộc `app`, phụ thuộc `contracts-evm`, trình biên dịch Solidity, trình
+  duyệt Playwright, `.next/cache`). Lượt chạy có đệm trình duyệt vẫn cần bước `playwright
+  install-deps` riêng: đệm giữ **thư mục** trình duyệt chứ không giữ gói `.deb`, thiếu bước đó thì
+  trình duyệt đủ file mà không khởi động được.
+- **Không nội suy `${{ }}` vào thân `run:`.** Truyền qua `env:` của bước. Nội suy thẳng vào shell
+  là một lỗ chèn lệnh, kể cả khi giá trị hiện tại vô hại.
+- **`NODE_VERSION` đang là `22`.** `.kiro/steering/tech.md` ghi "Node pinning: `.nvmrc` = 20" nhưng
+  repo **không có** `.nvmrc` và không có `engines.node`, nên con số 20 chưa từng có hiệu lực. Đo
+  thật: `vite`, `@vitejs/plugin-react`, `yargs` đòi `^20.19.0 || >=22.12.0`. Chọn 22 để nơi chạy
+  tự động giống nơi đã đo toàn bộ bằng chứng. Việc chốt con số là **câu hỏi mở gửi Owner**.
+
+### Cách mở rộng
+
+| Muốn | Đụng vào đâu |
+|---|---|
+| Thêm một loại kiểm mới vào cổng | `run-local-all.sh`: hàm `part_*` + `ALL_PARTS` + `DEFAULT_PARTS`. Rồi thêm tên phần vào dòng lệnh của việc tương ứng trong `ci.yml` |
+| Siết việc C thành cổng bắt buộc | Chỉ là cấu hình kho mã — thêm tên việc vào danh sách phép kiểm bắt buộc, và đổi tên việc trong `ci.yml` cho khỏi nói sai. `docs/BRANCH_PROTECTION.md` mục 5 |
+| Gắn kiểm khói vào một bước triển khai | Gọi `node scripts/smoke-test.mjs <địa-chỉ> --expect-commit=$(git rev-parse HEAD)` sau khi triển khai xong. Task này **không** dựng bước triển khai |
+| Thêm trường vào `/api/version` | `build-info.ts` (nơi duy nhất đọc env), rồi `app/test/build-info.test.ts`. Route handler không tự đọc `process.env` |
 
 ---
 
@@ -801,7 +973,8 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 
 | File | Vai trò | Lưu ý |
 |---|---|---|
-| `config/env.ts` | **Nơi duy nhất đọc `process.env` ở server**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng |
+| `config/env.ts` | Nơi duy nhất đọc `process.env` **của cấu hình nghiệp vụ**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng. `serverEnv()` **ném lỗi** khi cấu hình không hợp lệ |
+| `config/build-info.ts` | Nơi duy nhất đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME` (OP-01) | Tách khỏi `env.ts` **có chủ đích**: `/api/version` là nơi đầu tiên người ta gọi khi nghi bản triển khai có vấn đề, nên nó phải trả lời được **kể cả lúc** `serverEnv()` đang ném lỗi. Ba biến này không có giá trị nào không hợp lệ nên không có gì để validate. Xem 2.7 |
 | `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` tính bằng đúng hàm mà server dùng để chặn |
 | `config/issue-terms.ts` | **Nguồn duy nhất của điều khoản phát hành** và của **mặc định mọi tham số hệ thống**: `WPT_ISSUE_PRICE_VND`, `WPT_TOTAL_SUPPLY`, `WPT_PRICE_CHANGE_THRESHOLD`, `DISTRIBUTION_BATCH_SIZE`, `DISTRIBUTION_MAX_BATCHES_PER_RUN`, `DISTRIBUTION_MIN_NEW_BALANCE`, `DISTRIBUTION_STUCK_AFTER_RUNS`, `CONFIG_KEYS`, `WPT_TOKEN_SYMBOL` | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. ⚠️ Từ BE-04 ba hằng số này là **giá trị MẶC ĐỊNH KHI CHƯA CẤU HÌNH**, không còn là giá trị đang có hiệu lực: đọc giá đang dùng bằng `readIssuePriceVnd()` (3.12) |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
@@ -974,6 +1147,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `scripts/scan-pending.mjs` | Quét marker, in bảng, `--check`, `--json`, và sinh mục dưới đây | Node 20, ESM thuần, **không phụ thuộc gói ngoài**. Cú pháp khai ở đây và **chỉ** ở đây |
 | `scripts/gen-flow-diagram.mjs` | Sinh `docs/flows/<luồng>.md` (Mermaid) từ marker `@flow` | Nhập `scan()` từ script trên, **không quét lại mã nguồn** |
 | `app/test/pending-markers.test.ts` | 20 ca chốt cơ chế: marker không lạc hậu, sơ đồ khớp marker, mục dưới đây khớp marker | Tầng 2 dựng **repo giả trong thư mục tạm** để chứng minh phép kiểm có răng, không chạm repo thật |
+| `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01) | Không thuộc cơ chế marker; liệt kê ở đây vì cùng ở `scripts/`. Chạy **tay** — xem 2.7 |
 
 **Lưu ý khi phát triển:**
 - **Còn điểm cắm là bình thường, không làm đỏ bất cứ thứ gì.** Điểm cắm là trạng thái công
@@ -1874,12 +2048,13 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | BE-04 giá phát hành cấu hình được + phát hành nguồn cung một lần (xem 3.12, 4.3) | ✅ Xong — PR #25 |
 | — | BE-06 nghiệp vụ chia lợi nhuận: chốt quyền, xem trước, chia theo lô, chạy lại (xem 4.5) | ✅ Xong — PR #26 |
 | — | BE-07 tự động chia khi ví lợi nhuận nhận tiền: phát hiện, chống chạy trùng, chia nhiều lượt, cảnh báo kỳ treo, điểm vào cho cron (xem 3.14, 4.5 giai đoạn 4) | 🔶 Mã xong trên nhánh `feat/distribution-trigger`, **chưa nghiệm thu, chưa merge vào `dev`** |
+| — | OP-01 tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng (xem 2.6, 2.7) | 🔶 Mã xong trên nhánh `op/01-ci`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | P2 | **REDEEM** (`Redemption.sol`) — BE-05 tất toán | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** trên chuỗi thật: `evm.adapter.distributeBatch` + `EnergyOracle` | ⏳ Tầng BE đã xong ở BE-06; còn chờ SC-03 và `providers/oracle/` |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
 | P5 | Fireblocks thay khóa server; freeze/clawback trên UI | ⏳ |
 | P6 | EVM testnet | ⏳ |
-| P7 | Stellar (Soroban) | ⏳ |
+| P7 | Stellar (Soroban) | ⏸ **TẠM DỪNG** từ OP-01 — mã nguồn giữ nguyên, không thuộc khâu kiểm chứng (xem 2.6) |
 
 ---
 
@@ -1912,4 +2087,17 @@ cd packages/contracts-evm && npx hardhat test
 
 # Hoặc chạy cả bộ (đã bao gồm mọi lệnh trên trừ e2e)
 bash scripts/run-local-all.sh
+
+# Chạy riêng từng phần — ĐÚNG các phần mà .github/workflows/ci.yml gọi (xem 2.7)
+bash scripts/run-local-all.sh --list                              # danh sách phần
+bash scripts/run-local-all.sh arch markers checkpoint app         # việc A
+bash scripts/run-local-all.sh contracts                           # việc B
+bash scripts/run-local-all.sh build e2e                           # việc C (cần mạng)
+
+# Bảng quyền có teo lại so với nền hay không (mặc định nền là origin/dev)
+RBAC_BASE_REF=origin/dev bash scripts/verify-arch-rules.sh
+
+# Kiểm khói một bản đang chạy (chạy TAY, chưa gắn vào triển khai)
+node scripts/smoke-test.mjs http://localhost:3000
+node scripts/smoke-test.mjs https://<địa-chỉ> --expect-commit=$(git rev-parse HEAD)
 ```

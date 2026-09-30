@@ -15,11 +15,24 @@ app/                      # Next.js 16 full-stack (retheme ĐIỆN GIÓ)
   src/lib/config/         # env + feature flags
 packages/contracts-evm/   # ProjectToken, VNDToken, ProfitDistributor, EnergyOracle, Redemption
   trex/                   # ERC-3643 thật — production sau (ĐỪNG trộn toolchain)
-packages/contracts-stellar/  # Soroban — phase Stellar
+packages/contracts-stellar/  # Soroban (Rust) — phần mở rộng tương lai, TẠM DỪNG (xem ghi chú dưới)
 packages/shared/          # ABI (generated), addresses.json, chain config, types — MỘT nguồn sự thật
 docs/                     # SPEC, ARCHITECTURE, WORKING_PROTOCOL, templates
 .kiro/                    # steering + specs
 ```
+
+## Stellar: phần mở rộng tương lai, đang TẠM DỪNG (OP-01)
+`packages/contracts-stellar/` và `app/src/lib/ledger/stellar.adapter.ts` **giữ nguyên trong
+repo** — kiến trúc đa chuỗi là thứ ba luật bảo vệ, gỡ mã đi là tự bỏ khả năng đó. Nhưng phần
+Soroban **không** thuộc khâu kiểm chứng nữa: `scripts/run-local-all.sh` không gọi `cargo`, và
+**không ai phải cài Rust để làm việc trên dự án này**.
+
+Hệ quả cần biết:
+- Giá trị `stellar` trong `packages/shared/src/chains.ts`, trong kiểu dữ liệu và trong sổ đăng
+  ký chuỗi **ở nguyên**. Đừng "dọn" nó.
+- Thêm method vào `ILedgerPort` thì `stellar.adapter.ts` vẫn phải hiện thực — ném
+  `LedgerNotImplementedError` kèm gợi ý nêu đúng thứ đang thiếu, đó là cách đúng.
+- Không mở task Stellar mới cho tới khi Owner bỏ trạng thái tạm dừng.
 
 ## Quy ước
 - ABI & địa chỉ contract CHỈ nằm ở `packages/shared` (đừng copy rải rác).

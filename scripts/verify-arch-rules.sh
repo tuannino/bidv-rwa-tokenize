@@ -40,13 +40,12 @@ else
   bad "viem/ethers bị import ngoài app/src/lib:"; echo "$HITS" | sed 's/^/        /'
 fi
 
-# Stellar SDK cũng phải bị giới hạn trong lib (áp dụng khi làm spec Stellar)
-HITS=$(grep -rn "@stellar/stellar-sdk" app/src/ 2>/dev/null | grep -v "app/src/lib/" || true)
-if [ -z "$HITS" ]; then
-  ok "@stellar/stellar-sdk không xuất hiện ngoài app/src/lib"
-else
-  bad "@stellar/stellar-sdk bị import ngoài app/src/lib:"; echo "$HITS" | sed 's/^/        /'
-fi
+# KHÔNG có phép kiểm thư viện Stellar ở đây, và đó là chủ đích (OP-01). Chuỗi Stellar là
+# phần mở rộng tương lai, đang TẠM DỪNG: `@stellar/stellar-sdk` chưa nằm trong
+# app/package.json nên phép kiểm chỉ quét được một thư viện không tồn tại — nó luôn xanh,
+# tức là một dòng PASS không phát biểu điều gì. Khi nối lại chuỗi Stellar thì thêm lại,
+# cùng khuôn với phép kiểm viem/ethers phía trên. Mã nguồn Stellar vẫn giữ nguyên:
+# `app/src/lib/ledger/stellar.adapter.ts` và `packages/contracts-stellar/`.
 
 # Component không được gọi trực tiếp contract
 HITS=$(grep -rnE "writeContract|readContract|simulateContract|new Contract\(" \
@@ -116,6 +115,81 @@ fi
 if [ -f app/src/app/actions/bank.ts ]; then
   N_ACTION=$(grep -cE "^export async function" app/src/app/actions/bank.ts 2>/dev/null || echo 0)
   ok "actions/bank.ts có $N_ACTION server action (guard nằm ở tầng service, xem lớp 1)"
+fi
+
+# --- Bảng quyền không được teo lại so với nền `dev` (OP-01) -------------------
+#
+# VÌ SAO CÓ PHÉP KIỂM NÀY. Dự án đã MẤT toàn bộ phần quyền của BE-08 khỏi `dev` một lần
+# rồi: mẫu "hoàn tác rồi hợp nhất lại" xoá nội dung mà lịch sử vẫn ghi là đã hợp nhất,
+# nên nhìn nhật ký không thấy bất thường. Không một phép kiểm nào hiện có bắt được: mã
+# vẫn biên dịch, mọi test vẫn xanh — một bảng quyền thiếu hành động thì chỉ nghĩa là ít
+# người được làm việc hơn, và không có test nào phát biểu "phải có đúng N hành động".
+#
+# Phép kiểm này phát biểu điều đó theo cách không phải bảo trì tay: số hành động trong
+# `ACTIONS` KHÔNG ĐƯỢC ÍT HƠN bản trên nhánh nền, và không hành động nào của bản nền
+# được biến mất. Thêm quyền thì xanh; mất quyền thì đỏ kèm tên hành động đã mất.
+#
+# Đếm bằng node chứ không bằng grep: khối `ACTIONS` có chú thích khối dài chứa dấu ngoặc
+# và tên hành động trong dấu nháy ngược, nên `grep -c` đếm lẫn cả chú thích.
+read -r -d '' RBAC_COUNT_JS <<'JSEOF'
+let src = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { src += chunk; });
+process.stdin.on('end', () => {
+  const block = src.match(/export const ACTIONS = \[([\s\S]*?)\] as const;/);
+  if (!block) { process.stderr.write('KHONG_TIM_THAY_ACTIONS\n'); process.exit(3); }
+  const body = block[1]
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // chú thích khối (chứa `order:place` trong nháy ngược)
+    .replace(/\/\/.*$/gm, '');          // chú thích dòng
+  // \x27 = dấu nháy đơn. Viết bằng mã ký tự để chương trình này lồng được vào chuỗi bash.
+  for (const m of body.match(/\x27[^\x27]+\x27/g) || []) process.stdout.write(m.slice(1, -1) + '\n');
+});
+JSEOF
+
+rbac_actions() { node -e "$RBAC_COUNT_JS"; }  # stdin: nội dung permissions.ts -> stdout: mỗi dòng một hành động
+
+RBAC_FILE=app/src/lib/rbac/permissions.ts
+# Nền để so: đặt tường minh bằng RBAC_BASE_REF, không thì lấy origin/dev rồi dev.
+# `origin/dev` trước `dev`: nhánh `dev` cục bộ có thể cũ hơn remote nhiều ngày.
+RBAC_BASE_REF="${RBAC_BASE_REF:-}"
+if [ -z "$RBAC_BASE_REF" ]; then
+  for candidate in origin/dev dev; do
+    if git rev-parse --verify --quiet "$candidate^{commit}" >/dev/null 2>&1; then
+      RBAC_BASE_REF="$candidate"; break
+    fi
+  done
+fi
+
+if [ ! -f "$RBAC_FILE" ]; then
+  bad "Thiếu $RBAC_FILE - không có bảng quyền để kiểm"
+elif [ -z "$RBAC_BASE_REF" ]; then
+  # Clone không có nhánh dev (vd `--depth 1 --branch <nhánh khác>`) thì bỏ qua, KHÔNG đỏ:
+  # đỏ ở đây là đỏ vì cách lấy mã nguồn, không vì mã nguồn.
+  warn "Không tìm thấy nền để so bảng quyền (origin/dev, dev). Dùng: RBAC_BASE_REF=<ref> bash $0"
+else
+  RBAC_CUR=$(rbac_actions < "$RBAC_FILE")
+  RBAC_BASE=$(git show "$RBAC_BASE_REF:$RBAC_FILE" 2>/dev/null | rbac_actions)
+  N_CUR=$(printf '%s\n' "$RBAC_CUR" | grep -c . || true)
+  N_BASE=$(printf '%s\n' "$RBAC_BASE" | grep -c . || true)
+
+  if [ "$N_CUR" = "0" ]; then
+    bad "Không đọc được hành động nào từ $RBAC_FILE (khối ACTIONS đổi hình dạng?)"
+  elif [ "$N_BASE" = "0" ]; then
+    warn "Không đọc được bảng quyền ở $RBAC_BASE_REF nên bỏ qua phép so (nền chưa có tệp này?)"
+  else
+    # Hành động có ở nền mà nay không còn. Bắt cả trường hợp ĐỔI TÊN, vốn giữ nguyên số
+    # đếm nhưng vẫn làm mất một quyền - cùng một loại thiệt hại.
+    MISSING=$(comm -23 <(printf '%s\n' "$RBAC_BASE" | sort -u) <(printf '%s\n' "$RBAC_CUR" | sort -u))
+    if [ -n "$MISSING" ]; then
+      bad "Bảng quyền MẤT hành động so với $RBAC_BASE_REF ($N_BASE -> $N_CUR). Đã mất:"
+      printf '%s\n' "$MISSING" | sed 's/^/        /'
+      echo "        Mất quyền khỏi dev đã xảy ra thật (BE-08). Phục hồi rồi chạy lại; cố ý bỏ thì phải có DEVIATION trong checkpoint."
+    elif [ "$N_CUR" -lt "$N_BASE" ]; then
+      bad "Số hành động trong bảng quyền GIẢM so với $RBAC_BASE_REF: $N_BASE -> $N_CUR"
+    else
+      ok "Bảng quyền không teo lại so với $RBAC_BASE_REF ($N_BASE -> $N_CUR hành động)"
+    fi
+  fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -231,8 +305,12 @@ for d in .kiro/steering .kiro/specs docs; do
   if [ -d "$d" ]; then ok "Có $d"; else bad "Thiếu $d"; fi
 done
 
-for s in p4-mint-testnet p7-profit-distribution p12-redemption \
-         p4-mint-stellar p7-profit-distribution-stellar p12-redemption-stellar; do
+# Ba spec Stellar (`p4-mint-stellar`, `p7-profit-distribution-stellar`,
+# `p12-redemption-stellar`) đã được GỠ khỏi danh sách này (OP-01). Chuỗi Stellar là phần mở
+# rộng tương lai, đang tạm dừng, nên ba mục đó sinh ra ba dòng WARN vĩnh viễn cho việc
+# không ai sắp làm. Cảnh báo không bao giờ tắt được thì người đọc học cách bỏ qua cả cột
+# WARN, và lúc có cảnh báo thật thì nó lẫn vào đó. Nối lại chuỗi Stellar thì thêm lại.
+for s in p4-mint-testnet p7-profit-distribution p12-redemption; do
   if [ -d ".kiro/specs/$s" ]; then
     MISS=""
     for f in requirements.md design.md tasks.md; do
