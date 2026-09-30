@@ -1,5 +1,4 @@
 import { AppLayout } from '@/components/layout/app-layout';
-import { INVESTOR_NAV } from '@/components/layout/nav-config';
 import { WalletConnectPage } from '@/components/pages/wallet-connect';
 
 /**
@@ -14,7 +13,7 @@ import { WalletConnectPage } from '@/components/pages/wallet-connect';
  */
 export default function WalletPage() {
   return (
-    <AppLayout nav={INVESTOR_NAV} breadcrumbs={[{ label: 'Nhà đầu tư' }, { label: 'Ví của tôi' }]}>
+    <AppLayout breadcrumbs={[{ label: 'Nhà đầu tư' }, { label: 'Ví của tôi' }]}>
       <WalletConnectPage />
     </AppLayout>
   );

@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
 import { AppLayout } from '@/components/layout/app-layout';
-import { INVESTOR_NAV } from '@/components/layout/nav-config';
 import { InvestorTokenDetailPage } from '@/components/pages/investor-token-detail';
 import { findProjectBySymbol } from '@/lib/mock-data';
 
@@ -25,7 +24,6 @@ export default async function TokenDetailRoute({
 
   return (
     <AppLayout
-      nav={INVESTOR_NAV}
       breadcrumbs={[
         { label: 'Nhà đầu tư' },
         { label: 'Tổng quan', href: '/portfolio' },
