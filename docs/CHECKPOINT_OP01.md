@@ -436,16 +436,7 @@ Cú pháp bash của **mọi** đoạn `run:` đã kiểm bằng `bash -n`:
 
 ```
 $ <trích từng đoạn run: trong ci.yml rồi bash -n>
-  OK  app / Chọn nền để so bảng quyền
-  OK  app / Cài phụ thuộc của app
-  OK  app / Ba luật kiến trúc, điểm cắm, khuôn checkpoint, kiểu, chuẩn mã, kiểm thử đơn vị
-  OK  contracts / Cài phụ thuộc của contracts-evm
-  OK  contracts / Spec test contract EVM
-  OK  heavy / Cài phụ thuộc của app
-  OK  heavy / Tải trình duyệt Playwright (chỉ khi chưa có trong đệm)
-  OK  heavy / Cài thư viện hệ thống cho trình duyệt đã có trong đệm
-  OK  heavy / Dựng bản phát hành rồi chạy kiểm thử đầu cuối
-số đoạn lỗi: 0
+9 đoạn: 9 OK · số đoạn lỗi: 0
 ```
 
 **Năm chỗ lưu đệm (việc 9):**
@@ -461,8 +452,16 @@ số đoạn lỗi: 0
 Chỗ dễ sai ở #4, đã xử lý: đệm giữ **thư mục** trình duyệt chứ **không** giữ gói `.deb` mà nó cần.
 Nên có hai bước loại trừ nhau — `playwright install --with-deps` khi đệm trượt,
 `playwright install-deps` khi đệm khớp. Thiếu bước thứ hai thì lượt chạy **có đệm** hỏng theo kiểu
-khó đoán: trình duyệt đủ file mà không khởi động được. Lượt chạy ở 3.10 là lượt đệm trượt
-(bước `install-deps` báo `skipped`), nên vế đệm khớp còn chờ lượt sau xác nhận.
+khó đoán: trình duyệt đủ file mà không khởi động được.
+
+**Cả hai nhánh đã chạy thật**, mỗi nhánh một lượt (chi tiết ở 3.10):
+
+| Lượt | Nhánh đi qua | Bước bị bỏ qua |
+|---|---|---|
+| 1 (`a3f6211`) | đệm **trượt** → `install --with-deps` | `Cài thư viện hệ thống cho trình duyệt đã có trong đệm` |
+| 2 (`d4f9f8e`) | đệm **khớp** → `install-deps` | `Tải trình duyệt Playwright (chỉ khi chưa có trong đệm)` |
+
+Đệm có tác dụng đo được ở việc B: **26 s → 19 s** (trình biên dịch Solidity không phải tải lại).
 
 **Việc C không chặn hợp nhất (việc 13)** — thực hiện bằng cách nào:
 
@@ -534,6 +533,22 @@ B - hop dong EVM (cong bat buoc) => success | 26s
 Tổng thời gian lượt chạy ≈ 196 s (thời gian việc dài nhất), không phải 304 s (tổng ba việc) →
 xác nhận ba việc chạy **song song**.
 
+**Lượt chạy thứ hai** — commit `d4f9f8e` (báo cáo này + `task-status.json`), lượt `36660290248`:
+
+| Việc | Kết luận | Thời gian | So lượt 1 |
+|---|---|---|---|
+| `A - ung dung (cong bat buoc)` | ✅ success | 93 s | +11 s |
+| `B - hop dong EVM (cong bat buoc)` | ✅ success | **19 s** | **−7 s** (đệm solc khớp) |
+| `C - phan nang (KHONG chan hop nhat)` | ✅ success | 200 s | +4 s |
+
+Lượt này đi qua **nhánh còn lại** của đệm trình duyệt: bước `Tải trình duyệt Playwright (chỉ khi
+chưa có trong đệm)` báo `skipped`, tức đệm khớp và bước `install-deps` đã chạy. Đây là bằng chứng
+cho CH-3, vốn còn để mở sau lượt 1.
+
+> Lượt chạy của **commit cuối cùng** (commit thêm chính đoạn này) không có trong báo cáo, và không
+> thể có: ghi kết quả của một lượt vào tệp rồi commit tệp đó sẽ sinh một lượt mới. Cắt ở đây và nói
+> rõ, thay vì chạy vòng thêm một lần nữa. Supervisor xem trạng thái mới nhất ở PR #28.
+
 ### 3.11 Điều kiện 13 — `run-local-all.sh` xanh
 
 ```
@@ -603,12 +618,16 @@ cp /tmp/perm.bak app/src/lib/rbac/permissions.ts && rm /tmp/perm.bak
 cd app && npx vitest run test/build-info.test.ts && npm run build
 BUILD_COMMIT_SHA=abc1234 BUILD_BRANCH=thu BUILD_TIME=2026-09-29T09:00:00.000Z \
   NEXT_PUBLIC_DEFAULT_CHAIN=mock USE_MOCK_DB=true npx next start --port 3210 &
-cd .. && node scripts/smoke-test.mjs http://localhost:3210                 # mong đợi exit 0
-node scripts/smoke-test.mjs http://localhost:3999 --timeout=3000           # mong đợi exit 1
+cd .. && node scripts/smoke-test.mjs http://localhost:3210        # mong đợi exit 0
+node scripts/smoke-test.mjs http://localhost:3999 --timeout=3000  # mong đợi exit 1
 
 # Khuôn báo cáo bàn giao
 node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP01.md docs/op-01-ci/requirements.md
 ```
+
+Tệp này đang **792/800 dòng**, tức gần ngưỡng phải tách. Vòng review sau cần thêm chỗ thì tách phần
+chi tiết ra `docs/CHECKPOINT_OP01_DETAIL.md` theo `.kiro/steering/checkpoint.md` mục 3, **đừng cắt
+bằng chứng** cho vừa hạn mức.
 
 > ⚠️ Máy có `http_proxy`/`https_proxy` thì thêm `no_proxy='*'` cho hai lệnh kiểm khói, không thì
 > yêu cầu đi qua proxy và không bao giờ tới được `localhost`.
@@ -709,12 +728,17 @@ trong cùng lượt chạy, hay một lượt chạy riêng theo lịch? Không 
 `smoke-test.mjs` có cần thêm cơ chế thử lại hay không (bản triển khai vừa lên thường chưa phục vụ
 ngay ở yêu cầu đầu).
 
-### CH-3 — Bước `playwright install-deps` chưa từng chạy
+### CH-3 — Bước `playwright install-deps` chưa từng chạy → **ĐÃ ĐÓNG**
 
-Nhánh "đệm trình duyệt **khớp**" ở việc C chưa có lượt chạy nào đi qua (lượt đầu luôn trượt đệm).
-Lượt chạy thứ hai trên nhánh này sẽ xác nhận. Nêu ra vì đây là chỗ đúng loại "xanh ở lượt đầu, đỏ ở
-lượt sau" — nếu lượt kế tiếp đỏ ở bước đó thì nguyên nhân đã được ghi sẵn ở mục 3.9, không phải đi
-tìm lại.
+Nêu ra sau lượt chạy 1 vì đây là chỗ đúng loại "xanh ở lượt đầu, đỏ ở lượt sau": nhánh "đệm trình
+duyệt **khớp**" chưa có lượt nào đi qua, mà lượt đầu thì **luôn** trượt đệm.
+
+**Đã đóng bằng lượt chạy 2** (`36660290248`, commit `d4f9f8e`): bước `Tải trình duyệt Playwright`
+báo `skipped` → đệm khớp → `install-deps` chạy, và việc C vẫn xanh (200 s). Cả hai nhánh của cặp
+bước loại trừ nhau nay đều có bằng chứng — bảng ở mục 3.9.
+
+Giữ mục này lại thay vì xoá, để lần sau ai sửa hai bước đó biết chúng **đã** được kiểm cả hai
+nhánh, và kiểm bằng cách nào.
 
 ---
 
