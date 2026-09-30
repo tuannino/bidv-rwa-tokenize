@@ -15,13 +15,16 @@
     "BE-07",
     "OP-01"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "FE-20"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
     "BE-05",
     "BE-10",
     "BE-11",
+    "BE-12",
     "FE-04",
     "FE-05",
     "FE-06",
@@ -30,11 +33,23 @@
     "FE-09",
     "FE-10",
     "FE-11",
+    "FE-21",
+    "FE-22",
+    "FE-23",
+    "FE-24",
     "IN-01",
     "IN-02",
     "SC-02",
     "SC-03",
     "SC-04",
     "SC-05"
-  ]
+  ],
+  "_reservedByFE20": {
+    "_why": "FE-20 phải ghi 'màn nào chờ task nào' lên từng trang chỗ trống, nhưng lộ trình chưa có mã cho năm việc dưới đây. Đặt trước ở đây để marker hợp lệ; Owner đổi tên thì grep đúng mã là xong. Xem docs/CHECKPOINT_FE20.md mục câu hỏi mở.",
+    "BE-12": "nghiệp vụ lập lệnh + phê duyệt (maker-checker) và số việc đang chờ thật",
+    "FE-21": "kênh Người bán: Tổng quan, Danh sách giao dịch, Tạo lệnh rút",
+    "FE-22": "màn Lập lệnh (Giao dịch viên) và Phê duyệt lệnh (Kiểm soát viên)",
+    "FE-23": "màn Rút VNDB của Nhà đầu tư",
+    "FE-24": "màn Thông tin tài khoản dùng chung bốn vai"
+  }
 }
