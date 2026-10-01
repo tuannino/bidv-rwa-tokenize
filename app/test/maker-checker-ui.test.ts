@@ -8,6 +8,9 @@ import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { TOKEN_REQUEST_STATUSES } from '@/lib/store/token-request.store.port';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
+import { NAV_BY_ROLE } from '@/components/layout/nav-config';
+import { AREA_GATES } from '@/lib/rbac/area-gates';
+import { can } from '@/lib/rbac';
 import {
   STATUS_LABELS,
   burnSourceEffect,
@@ -562,5 +565,66 @@ describe('ca 10 — không còn nơi nào tạo token ngoài lập–duyệt, tr
       expect(allowed.ok, allowed.ok ? '' : allowed.error).toBe(true);
       expect((await (await ledger()).tokenInfo()).totalSupply).toBe(10n);
     });
+  });
+});
+
+// ===========================================================================
+//  Bước 5 — guard hai chiều giữa hai vai (ca 7)
+// ===========================================================================
+
+describe('ca 7 — guard hai chiều giữa hai vai vẫn đúng sau khi thay trang chỗ trống', () => {
+  const APP = path.resolve(__dirname, '../src/app');
+
+  it('ba màn FE-22 nằm đúng hai khu vực có cổng: Lập lệnh ở (ops-draft), Phê duyệt và chi tiết ở (control)', () => {
+    expect(statSync(path.join(APP, '(ops-draft)/draft/page.tsx')).isFile()).toBe(true);
+    expect(statSync(path.join(APP, '(control)/approvals/page.tsx')).isFile()).toBe(true);
+    expect(statSync(path.join(APP, '(control)/approvals/[id]/page.tsx')).isFile()).toBe(true);
+    const gateOf = (area: 'draft' | 'approval') => (role: 'TELLER' | 'CONTROLLER') =>
+      AREA_GATES[area].some((action) => can(role, action));
+    expect([gateOf('draft')('TELLER'), gateOf('draft')('CONTROLLER')]).toEqual([true, false]);
+    expect([gateOf('approval')('TELLER'), gateOf('approval')('CONTROLLER')]).toEqual([false, true]);
+  });
+
+  it('menu: Giao dịch viên không thấy Phê duyệt lệnh, Kiểm soát viên không thấy Lập lệnh', () => {
+    const hrefs = (role: 'TELLER' | 'CONTROLLER') =>
+      NAV_BY_ROLE[role].groups.flatMap((group) => group.items.map((item) => item.href));
+    expect(hrefs('TELLER')).toContain('/draft');
+    expect(hrefs('TELLER')).not.toContain('/approvals');
+    expect(hrefs('CONTROLLER')).toContain('/approvals');
+    expect(hrefs('CONTROLLER')).not.toContain('/draft');
+  });
+
+  it('phép đọc số liệu của mỗi màn cũng chặn vai kia — gõ thẳng server action không lách được', async () => {
+    const { getApprovalStats, getDraftStats } = await service();
+    teller();
+    const tellerApproval = await getApprovalStats();
+    expect(tellerApproval.ok).toBe(false);
+    if (!tellerApproval.ok) expect(tellerApproval.code).toBe('FORBIDDEN');
+    controller();
+    const controllerDraft = await getDraftStats();
+    expect(controllerDraft.ok).toBe(false);
+    if (!controllerDraft.ok) expect(controllerDraft.code).toBe('FORBIDDEN');
+  });
+});
+
+describe('việc 18 — số việc đang chờ cạnh menu lấy số thật, điểm cắm FE-20 đã gỡ', () => {
+  it('không còn marker nào chờ FE-22 trong mã nguồn', () => {
+    const waiting = sourceFiles().filter((file) =>
+      /@(pending|blocked) FE-22\b/.test(readFileSync(path.join(SRC, file), 'utf8')),
+    );
+    expect(waiting).toEqual([]);
+  });
+
+  it('số cạnh menu của Kiểm soát viên đúng bằng thẻ "đang chờ duyệt" của màn Phê duyệt', async () => {
+    const { pendingWorkCounts } = await import('@/lib/nav/pending-work');
+    const { getApprovalStats } = await service();
+    await issueViaApproval(1000n);
+    await draft(burnInput(10n, 'UNDISTRIBUTED'));
+    await draft(mintInput(10n));
+
+    controller();
+    const stats = await getApprovalStats();
+    expect(stats.ok && stats.data.pending).toBe(2);
+    expect((await pendingWorkCounts()).approval).toBe(2);
   });
 });
