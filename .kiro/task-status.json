@@ -16,11 +16,10 @@
     "OP-01",
     "FE-20",
     "BE-12",
-    "FE-21"
-  ],
-  "inProgress": [
+    "FE-21",
     "FE-22"
   ],
+  "inProgress": [],
   "planned": [
     "AU-01",
     "AU-02",
