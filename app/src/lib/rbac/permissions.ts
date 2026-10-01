@@ -18,10 +18,10 @@
  * | `TELLER` | Giao dịch viên |
  * | `CONTROLLER` | Kiểm soát viên |
  *
- * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN, giữ nguyên bộ quyền: FE-20 chỉ dựng khung, còn
- * việc tách đặc quyền của Giao dịch viên theo mô hình lập–duyệt thuộc BE-12. Đổi tên mà
- * không đổi quyền là có chủ ý — bớt quyền của vai này ở đây sẽ làm đỏ toàn bộ `lib/bank`
- * mà không thay được nghiệp vụ nào, vì chưa có bên nào đi qua bước phê duyệt.
+ * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN, giữ nguyên bộ quyền. BE-12 THÊM quyền lập yêu cầu
+ * (`order:draft`) nhưng KHÔNG gỡ `token:mint` / `token:burn` trực tiếp: gỡ là đổi hành vi của
+ * màn `/mint` và luồng phát hành FE-07 đang chờ, ngoài phạm vi BE-12. Có nên bắt mọi lần
+ * Mint/Burn đi qua lập–duyệt hay không là câu hỏi mở trong `docs/CHECKPOINT_BE12.md`.
  *
  * Hai vai cũ — tuân thủ và kiểm toán — **không còn trong tài liệu yêu cầu** nên đã gỡ.
  * `CONTROLLER` nhận phần CHỈ ĐỌC của chúng; phần ghi của vai tuân thủ
@@ -240,7 +240,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * mình, xem lệnh của ví mình. KHÔNG một hành động ghi nào, và KHÔNG spread `READ_ONLY`
    * nên tự động không có dữ liệu toàn hệ (`audit:read`, `order:read:all`, `reconcile:read`).
    *
-   * Nghiệp vụ tạo lệnh rút của Người bán thuộc BE-12; ở đây chưa cấp quyền ghi nào cho nó.
+   * Nghiệp vụ tạo lệnh rút của Người bán chưa có ở backend (BE-12 chỉ làm Mint/Burn), nên chưa
+   * cấp quyền ghi nào cho nó.
    */
   SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read'],
   /**

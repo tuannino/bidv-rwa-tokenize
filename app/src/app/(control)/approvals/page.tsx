@@ -11,11 +11,11 @@ export default function ApprovalsPage() {
         task="FE-22"
         ready={[
           'Khu vực riêng với cổng ops:approve:read — Giao dịch viên bị chặn ở đây (ca 4).',
-          'Mục menu "Phê duyệt lệnh" đã mang số việc đang chờ, đọc từ pendingWorkCounts().',
+          'Mục menu "Phê duyệt lệnh" đã mang số việc đang chờ: số yêu cầu người khác lập đang chờ duyệt (pendingWorkCounts).',
+          'Backend duyệt / từ chối đã sẵn ở BE-12: approveTokenRequestAction, rejectTokenRequestAction (quyền order:approve, chặn người lập tự duyệt).',
         ]}
         notes={[
-          'Quyền DUYỆT thật (order:approve) thuộc BE-12; cổng hiện tại chỉ mở màn hình.',
-          'Vai Kiểm soát viên KHÔNG có quyền ghi nào ở FE-20 — nút phê duyệt chỉ chạy được sau khi BE-12 cấp quyền.',
+          'Cổng ops:approve:read chỉ mở màn hình; quyền DUYỆT là order:approve (BE-12), quyền ghi duy nhất của Kiểm soát viên.',
           'Đối xứng với /draft: một vai lập, vai kia duyệt. Đừng cấp cả hai cổng cho một vai.',
         ]}
       />

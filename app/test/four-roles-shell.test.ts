@@ -210,7 +210,7 @@ describe('FE-20 — số việc đang chờ cạnh mục menu', () => {
     expect(withBadge.sort()).toEqual(['CONTROLLER:/approvals:approval', 'TELLER:/draft:draft']);
   });
 
-  it('giai đoạn này cả hai số là 0', async () => {
+  it('chưa có yêu cầu nào thì cả hai số là 0', async () => {
     await expect(pendingWorkCounts()).resolves.toEqual({ draft: 0, approval: 0 });
     expect(NO_PENDING_WORK).toEqual({ draft: 0, approval: 0 });
   });

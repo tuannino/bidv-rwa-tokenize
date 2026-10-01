@@ -19,17 +19,17 @@
 
 ```mermaid
 flowchart TD
-  s1["1 · issueInitialSupplyAction()<br/>app/src/app/actions/bank.ts<br/>nhận yêu cầu phát hành nguồn cung ban đầu từ giao diện, chuyển tiếp sang service"]
-  s2["2 · issueInitialSupply()<br/>app/src/lib/bank/issuance.service.ts<br/>validate, kiểm quyền token:mint, đọc tổng cung từ bảng dự án"]
-  s3["3 · pending()<br/>app/src/lib/bank/issuance.service.ts<br/>gửi giao dịch phát hành toàn bộ nguồn cung vào ví SPV"]
+  s1["1 · issueInitialSupplyAction()<br/>app/src/app/actions/bank.ts<br/>nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service"]
+  s2["2 · issueInitialSupply()<br/>app/src/lib/bank/issuance.service.ts<br/>validate, kiểm quyền token:mint, đọc trần phát hành từ bảng dự án"]
+  s3["3 · pending()<br/>app/src/lib/bank/issuance.service.ts<br/>gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint"]
   s4["4 · saved()<br/>app/src/lib/bank/issuance.service.ts<br/>lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận"]
   s5["5 · receipt()<br/>app/src/lib/bank/issuance.service.ts<br/>đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch"]
-  s6["6 · issuedAt()<br/>app/src/lib/bank/issuance.service.ts<br/>ghi mốc phát hành vào bảng dự án bằng khoá lạc quan"]
-  s7["7 · info()<br/>app/src/lib/bank/issuance.service.ts<br/>đọc lại tổng cung từ chuỗi làm sự thật cuối cùng"]
+  s6["6 · issuedAt()<br/>app/src/lib/bank/issuance.service.ts<br/>lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan"]
+  s7["7 · after()<br/>app/src/lib/bank/issuance.service.ts<br/>đọc lại tổng cung từ chuỗi làm sự thật cuối cùng"]
   s8["8 · issuanceStatusAction()<br/>app/src/app/actions/bank.ts<br/>nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service"]
   s9["9 · getIssuanceStatus()<br/>app/src/lib/bank/issuance.service.ts<br/>đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi"]
-  w1(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở issueInitialSupply: đọc tổng cung từ bảng dự án…"])
-  w2(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở getIssuanceStatus: trả SONG SONG con số dự kiến…"])
+  w1(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở issueInitialSupply: phát hành NHIỀU LẦN trong trần…"])
+  w2(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở getIssuanceStatus: trả SONG SONG trần trong bảng dự…"])
   s1 --> s2
   s2 --> s3
   s3 --> s4
@@ -46,15 +46,15 @@ flowchart TD
 
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
-| 1 | `app/src/app/actions/bank.ts:37` | `issueInitialSupplyAction()` | nhận yêu cầu phát hành nguồn cung ban đầu từ giao diện, chuyển tiếp sang service |
-| 2 | `app/src/lib/bank/issuance.service.ts:71` | `issueInitialSupply()` | validate, kiểm quyền token:mint, đọc tổng cung từ bảng dự án |
-| 3 | `app/src/lib/bank/issuance.service.ts:120` | `pending()` | gửi giao dịch phát hành toàn bộ nguồn cung vào ví SPV |
-| 4 | `app/src/lib/bank/issuance.service.ts:123` | `saved()` | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận |
-| 5 | `app/src/lib/bank/issuance.service.ts:137` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
-| 6 | `app/src/lib/bank/issuance.service.ts:155` | `issuedAt()` | ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
-| 7 | `app/src/lib/bank/issuance.service.ts:183` | `info()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
+| 1 | `app/src/app/actions/bank.ts:37` | `issueInitialSupplyAction()` | nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service |
+| 2 | `app/src/lib/bank/issuance.service.ts:281` | `issueInitialSupply()` | validate, kiểm quyền token:mint, đọc trần phát hành từ bảng dự án |
+| 3 | `app/src/lib/bank/issuance.service.ts:186` | `pending()` | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint |
+| 4 | `app/src/lib/bank/issuance.service.ts:75` | `saved()` | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận |
+| 5 | `app/src/lib/bank/issuance.service.ts:90` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
+| 6 | `app/src/lib/bank/issuance.service.ts:216` | `issuedAt()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
+| 7 | `app/src/lib/bank/issuance.service.ts:247` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
 | 8 | `app/src/app/actions/bank.ts:45` | `issuanceStatusAction()` | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service |
-| 9 | `app/src/lib/bank/issuance.service.ts:231` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
+| 9 | `app/src/lib/bank/issuance.service.ts:342` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
 
 ## Điểm cắm trên đường đi
 
@@ -63,8 +63,8 @@ mũi tên gạch rời — chúng **không** phải bước của luồng.
 
 | Bước | Loại | Task | Nội dung marker |
 |---|---|---|---|
-| 1 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `issueInitialSupply`: đọc tổng cung từ bảng dự án (KHÔNG nhận từ input, nên màn hình không có ô số lượng và không được thêm), kiểm quyền `token:mint`, chặn phát hành lần hai ở CẢ cơ sở dữ liệu lẫn chuỗi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành bằng khoá lạc quan, đọc lại tổng cung từ chuỗi. Màn phát hành chỉ cần ô ví SPV và một nút |
-| 8 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG con số dự kiến trong bảng dự án và tổng cung thật trên chuỗi, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
+| 1 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `issueInitialSupply`: phát hành NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án, KHÔNG nhận từ input; `amount` tuỳ chọn chỉ chọn số lượng trong trần, bỏ trống = phát hành hết phần còn lại), kiểm quyền `token:mint`, lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
+| 8 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
 
 ## Đọc sơ đồ này thế nào
 
