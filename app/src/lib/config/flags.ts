@@ -2,7 +2,7 @@ import 'server-only';
 
 import { CHAIN_ORDER, CHAINS, type ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
-import { canMintDemoPayment } from '@/lib/rbac/demo-payment';
+import { canMintDemoPayment, canMintDemoToken } from '@/lib/rbac/demo-payment';
 import { currentRole } from '@/lib/rbac/session';
 import type { Channel } from '@/lib/session/channel';
 import { currentChannel } from '@/lib/session/current-channel';
@@ -56,6 +56,11 @@ export interface PublicConfig {
    * tiếp, nên service vẫn phải `assertCanMintDemoPayment()`.
    */
   demoPaymentMint: boolean;
+  /**
+   * Có bày nút phát hành WPT TRỰC TIẾP (dữ liệu thử, màn `/mint`) không — FE-22. Cùng nguyên tắc với
+   * `demoPaymentMint`: tính bằng đúng hàm chốt chặn phía server dùng, và chỉ là gợi ý hiển thị.
+   */
+  demoTokenMint: boolean;
 }
 
 function reasonUnavailable(key: ChainKey): string | undefined {
@@ -109,5 +114,6 @@ export async function publicConfig(): Promise<PublicConfig> {
     role,
     channel,
     demoPaymentMint: canMintDemoPayment(role),
+    demoTokenMint: canMintDemoToken(role),
   };
 }

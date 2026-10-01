@@ -18,10 +18,10 @@
  * | `TELLER` | Giao dịch viên |
  * | `CONTROLLER` | Kiểm soát viên |
  *
- * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN, giữ nguyên bộ quyền. BE-12 THÊM quyền lập yêu cầu
- * (`order:draft`) nhưng KHÔNG gỡ `token:mint` / `token:burn` trực tiếp: gỡ là đổi hành vi của
- * màn `/mint` và luồng phát hành FE-07 đang chờ, ngoài phạm vi BE-12. Có nên bắt mọi lần
- * Mint/Burn đi qua lập–duyệt hay không là câu hỏi mở trong `docs/CHECKPOINT_BE12.md`.
+ * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN. BE-12 thêm quyền lập yêu cầu (`order:draft`); FE-22
+ * GỠ `token:mint` / `token:burn` trực tiếp khỏi vai này để lập–duyệt là đường DUY NHẤT tạo và huỷ
+ * token. Đường tạo trực tiếp chỉ còn cho dữ liệu thử, sau hai lớp chặn `demo:mint-token` + cờ
+ * `ENABLE_DEMO_TOKEN_MINT` (xem `demo-payment.ts`).
  *
  * Hai vai cũ — tuân thủ và kiểm toán — **không còn trong tài liệu yêu cầu** nên đã gỡ.
  * `CONTROLLER` nhận phần CHỈ ĐỌC của chúng; phần ghi của vai tuân thủ
@@ -32,9 +32,20 @@ export const ROLES = ['INVESTOR', 'SELLER', 'TELLER', 'CONTROLLER'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ACTIONS = [
-  // đặc quyền ngân hàng
+  /**
+   * Tạo / huỷ token TRỰC TIẾP — FE-22 gỡ khỏi mọi vai, nên hiện KHÔNG vai nào có.
+   *
+   * Giữ hai tên trong danh sách vì hai lý do: chúng là tên hành động trong sổ kiểm toán của lần
+   * thực hiện sau khi duyệt (`issuance.service`, `token-request.service`), và gỡ khỏi `ACTIONS`
+   * là làm bảng quyền "teo lại" mà `verify-arch-rules.sh` chặn. Tạo token chỉ còn hai đường: lập–
+   * duyệt (`order:draft` → `order:approve`) và dữ liệu thử (`demo:mint-token` + cờ).
+   *
+   * ⚠️ Cấp lại một trong hai cho bất kỳ vai nào là mở lại đường đi vòng qua lập–duyệt.
+   * `test/rbac.test.ts` ca 9 của FE-22 đỏ khi điều đó xảy ra.
+   */
   'token:mint',
   'token:burn',
+  // đặc quyền ngân hàng
   'token:freeze',
   'token:clawback',
   'investor:whitelist',
@@ -91,6 +102,16 @@ export const ACTIONS = [
    * gán nhầm vai `TELLER` trên môi trường thật là mở đường tự phát hành tiền.
    */
   'demo:mint-payment',
+
+  /**
+   * CHỈ MÔI TRƯỜNG THỬ: phát hành WPT TRỰC TIẾP, không qua lập–duyệt — để dựng dữ liệu thử
+   * (màn `/mint`, `POST /api/mint`, `issueInitialSupply`).
+   *
+   * ⚠️ Cùng mô hình HAI LỚP với `demo:mint-payment` (BE-08): quyền này một mình KHÔNG đủ, còn phải
+   * bật cờ `ENABLE_DEMO_TOKEN_MINT` (mặc định tắt). Cờ nằm ở cấu hình triển khai, bảng quyền nằm
+   * trong mã nguồn — một sai sót không làm hỏng cả hai cùng lúc.
+   */
+  'demo:mint-token',
 
   // đọc
   'balance:read',
@@ -245,7 +266,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    */
   SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read'],
   /**
-   * Giao dịch viên — `BANK_ADMIN` cũ đổi tên, GIỮ NGUYÊN bộ quyền, cộng cổng khu vực.
+   * Giao dịch viên — `BANK_ADMIN` cũ đổi tên, cộng cổng khu vực.
+   *
+   * ⚠️ FE-22: KHÔNG có `token:mint` / `token:burn`. Giao dịch viên tạo và huỷ token bằng cách LẬP
+   * yêu cầu (`order:draft`) cho Kiểm soát viên duyệt; còn giữ hai quyền đó là còn đường đi vòng
+   * làm mất ý nghĩa của lập–duyệt.
    *
    * ⚠️ CỐ TÌNH KHÔNG có `order:place` và `settlement:confirm`. Hai hành động đó là
    * quyết định của nhà đầu tư; ngân hàng đặt lệnh hoặc xác nhận hoàn vốn thay nhà đầu tư
@@ -254,8 +279,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * ⚠️ `ops:draft:read` ở đây và KHÔNG ở `CONTROLLER`: người lập lệnh không phải người duyệt.
    */
   TELLER: [
-    'token:mint',
-    'token:burn',
     'token:freeze',
     'token:clawback',
     'investor:whitelist',
@@ -270,6 +293,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'treasury:manage',
     // Cần THÊM cờ ENABLE_DEMO_PAYMENT_MINT mới thực sự chạy — xem `demo-payment.ts`.
     'demo:mint-payment',
+    // Cần THÊM cờ ENABLE_DEMO_TOKEN_MINT mới thực sự chạy — xem `demo-payment.ts` (FE-22).
+    'demo:mint-token',
     'ops:draft:read',
     // Lập yêu cầu Mint / Burn (BE-12). KHÔNG có `order:approve`: người lập không phải người duyệt.
     'order:draft',

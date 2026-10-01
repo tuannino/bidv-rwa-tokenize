@@ -37,11 +37,17 @@ export async function authorize(
   action: Action,
   target: string | null,
   chain: ChainKey | null,
+  /**
+   * Phép kiểm thay cho `assertCan` — cho quyền cần THÊM lớp chặn ngoài bảng quyền (FE-22: đường
+   * dữ liệu thử phải qua cả cờ môi trường). Truyền vào đây thay vì kiểm riêng để lần bị chặn vì
+   * cờ cũng vào sổ kiểm toán như mọi lần bị chặn khác.
+   */
+  check: (role: Role, action: Action) => void = assertCan,
 ): Promise<Role> {
   const role = await currentRole();
   const store = getStore();
   try {
-    assertCan(role, action);
+    check(role, action);
   } catch (error) {
     await store.appendAudit({
       actorRole: role,

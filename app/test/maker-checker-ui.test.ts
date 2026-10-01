@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
@@ -449,5 +451,116 @@ describe('việc 13 — hai trạng thái trung gian hiện ra, không bị gi�
     const executing = await getTokenRequestDetail({ requestId: execId });
     expect(executing.ok && executing.data.timeline[1].label).toBe('Chấp nhận, đang xử lý trên chuỗi');
     expect(executing.ok && decisionBlockReason(executing.data)).toMatch(/Đang xử lý/);
+  });
+});
+
+// ===========================================================================
+//  Bước 4 — đóng đường đi vòng (ca 10; ca 9 ở test/rbac.test.ts)
+// ===========================================================================
+
+const SRC = path.resolve(__dirname, '../src');
+
+/** Mọi tệp mã nguồn trong `app/src`, đường dẫn tương đối dạng `lib/bank/x.ts`. */
+function sourceFiles(dir = SRC): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = path.join(dir, name);
+    if (statSync(full).isDirectory()) return sourceFiles(full);
+    return /\.(ts|tsx)$/.test(name) ? [path.relative(SRC, full).split(path.sep).join('/')] : [];
+  });
+}
+
+/** Những tệp có dòng mã (không phải chú thích) khớp mẫu. */
+function filesCalling(pattern: RegExp): string[] {
+  return sourceFiles()
+    .filter((file) =>
+      readFileSync(path.join(SRC, file), 'utf8')
+        .split('\n')
+        .some((line) => !/^\s*(\*|\/\/)/.test(line) && pattern.test(line)),
+    )
+    .sort();
+}
+
+/** Thân một hàm `export async function <tên>` — tới dấu `}` đóng ở đầu dòng. */
+function functionBody(file: string, name: string): string {
+  const source = readFileSync(path.join(SRC, file), 'utf8');
+  const match = source.match(new RegExp(`export async function ${name}\\([\\s\\S]*?\\n}\\n`));
+  if (!match) throw new Error(`không thấy hàm ${name} trong ${file}`);
+  return match[0];
+}
+
+describe('ca 10 — không còn nơi nào tạo token ngoài lập–duyệt, trừ đường dữ liệu thử hai lớp chặn', () => {
+  it('lời gọi mint / mintInitialSupply / burn của sổ cái chỉ nằm ở ba chỗ đã biết', () => {
+    // Ngoài `lib/ledger` (nơi định nghĩa), chỉ: lõi thực hiện sau khi duyệt (Mint, Burn) và đường
+    // dữ liệu thử. Thêm chỗ thứ tư là thêm một đường tạo token không qua Kiểm soát viên.
+    const callers = filesCalling(/\.(mint|mintInitialSupply|burn)\(/).filter(
+      (file) => !file.startsWith('lib/ledger/'),
+    );
+    expect(callers).toEqual([
+      'lib/bank/issuance.service.ts', // executeIssuance
+      'lib/bank/mint.service.ts', // mintToInvestorDirect — dữ liệu thử
+      'lib/bank/token-request.service.ts', // executeBurn, chỉ gọi sau khi duyệt
+    ]);
+  });
+
+  it('lõi phát hành chỉ được gọi từ lần duyệt và từ đường dữ liệu thử; lõi đốt không xuất ra ngoài', () => {
+    expect(filesCalling(/executeIssuance\(\{/)).toEqual([
+      'lib/bank/issuance.service.ts', // issueInitialSupply — dữ liệu thử
+      'lib/bank/token-request.service.ts', // approveTokenRequest
+    ]);
+    const requestService = readFileSync(path.join(SRC, 'lib/bank/token-request.service.ts'), 'utf8');
+    expect(requestService).toMatch(/\nasync function executeBurn\(/);
+    expect(requestService).not.toMatch(/export async function executeBurn/);
+  });
+
+  it('hai đường tạo token trực tiếp đều kiểm HAI lớp chặn ở dòng đầu, không còn token:mint', () => {
+    for (const [file, name] of [
+      ['lib/bank/mint.service.ts', 'mintToInvestorDirect'],
+      ['lib/bank/issuance.service.ts', 'issueInitialSupply'],
+    ] as const) {
+      const body = functionBody(file, name);
+      expect(body, name).toMatch(/authorize\('demo:mint-token', [^)]*, assertCanMintDemoToken\)/);
+      expect(body, name).not.toMatch(/authorize\('token:mint'/);
+    }
+    // Không nơi nào còn kiểm quyền bằng hai quyền đã gỡ.
+    expect(filesCalling(/(authorize|assertCan|can)\([^)]*'token:(mint|burn)'/)).toEqual([]);
+  });
+
+  describe('chạy thật: cờ tắt thì cả hai đường đều bị từ chối, token không đổi', () => {
+    afterEach(() => {
+      delete process.env.ENABLE_DEMO_TOKEN_MINT;
+      resetServerEnvCache();
+    });
+
+    it('cờ tắt (mặc định): Giao dịch viên bị từ chối ở cả hai đường, nói đúng nguyên nhân là cờ', async () => {
+      const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
+      const { mintToInvestorDirect } = await import('@/lib/bank/mint.service');
+      teller();
+
+      const issued = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '10' });
+      const minted = await mintToInvestorDirect({ chain: CHAIN, wallet: SPV, amount: '10' });
+
+      for (const result of [issued, minted]) {
+        expect(result.ok).toBe(false);
+        if (result.ok) continue;
+        expect(result.code).toBe('FORBIDDEN');
+        expect(result.error).toMatch(/ENABLE_DEMO_TOKEN_MINT/);
+      }
+      expect((await (await ledger()).tokenInfo()).totalSupply).toBe(0n);
+    });
+
+    it('cờ bật: chỉ Giao dịch viên đi được đường dữ liệu thử; Kiểm soát viên vẫn bị chặn', async () => {
+      const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
+      process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
+
+      controller();
+      const denied = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '10' });
+      expect(denied.ok).toBe(false);
+      if (!denied.ok) expect(denied.code).toBe('FORBIDDEN');
+
+      teller();
+      const allowed = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '10' });
+      expect(allowed.ok, allowed.ok ? '' : allowed.error).toBe(true);
+      expect((await (await ledger()).tokenInfo()).totalSupply).toBe(10n);
+    });
   });
 });

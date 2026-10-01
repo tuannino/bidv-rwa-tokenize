@@ -46,6 +46,12 @@ beforeEach(() => {
   resetMemoryStore();
   resetStoreCache();
   process.env.USE_MOCK_DB = 'true';
+  /**
+   * FE-22: `issueInitialSupply` / `mintToInvestorDirect` nay là đường DỮ LIỆU THỬ, sau hai lớp chặn
+   * quyền `demo:mint-token` + cờ này. Tệp này kiểm lõi phát hành nên bật cờ như môi trường thử;
+   * hai lớp chặn có ca riêng ở `test/maker-checker-ui.test.ts` (ca 10) và `test/rbac.test.ts`.
+   */
+  process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
   actAs('TELLER');
 });
 
@@ -59,6 +65,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.DEMO_ROLE;
   delete process.env.USE_MOCK_DB;
+  delete process.env.ENABLE_DEMO_TOKEN_MINT;
   resetServerEnvCache();
   resetStoreCache();
 });
@@ -377,7 +384,8 @@ describe('ca 4 — điều kiện biên', () => {
 
       const audit = await getStore().listAudit({ limit: 10 });
       const denied = audit.find(
-        (entry) => entry.action === 'token:mint' && entry.outcome === 'DENIED',
+        // FE-22: chốt chặn của đường này là `demo:mint-token`, không còn là `token:mint`.
+        (entry) => entry.action === 'demo:mint-token' && entry.outcome === 'DENIED',
       );
       expect(denied?.actorRole).toBe(role);
     },
@@ -415,7 +423,7 @@ describe('trạng thái phát hành: con số dự kiến đứng cạnh con s�
   });
 });
 
-describe('mintToInvestorDirect — đường nền cho bản trình diễn', () => {
+describe('mintToInvestorDirect — đường dữ liệu thử (trước FE-22 gọi là đường nền cho bản trình diễn)', () => {
   /**
    * Đổi TÊN, không đổi HÀNH VI. Ca này giữ cho việc đổi tên không âm thầm đổi cả luồng mint lẻ
    * mà demo runner và test e2e đang dựa vào.

@@ -41,12 +41,19 @@ async function ledger() {
 
 const supply = async () => (await (await ledger()).tokenInfo()).totalSupply;
 
-/** Phát hành thẳng một phần trần bằng Giao dịch viên — dựng nền "đã có ví SPV trên chuỗi". */
+/**
+ * Phát hành thẳng một phần trần bằng Giao dịch viên — dựng nền "đã có ví SPV trên chuỗi".
+ *
+ * FE-22: đây là đường DỮ LIỆU THỬ, nên bật cờ `ENABLE_DEMO_TOKEN_MINT` đúng trong lúc dựng nền rồi
+ * tắt — các ca bên dưới chạy như môi trường thật, nơi cờ tắt.
+ */
 async function issueDirect(amount: bigint) {
   const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
   const previous = { role: process.env.DEMO_ROLE, actor: process.env.DEMO_ACTOR };
+  process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
   teller();
   const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: String(amount) });
+  delete process.env.ENABLE_DEMO_TOKEN_MINT;
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   actAs(previous.role ?? 'TELLER', previous.actor);
 }

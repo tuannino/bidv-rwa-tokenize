@@ -23,6 +23,9 @@ export async function onboardInvestorAction(input: unknown) {
 }
 
 /**
+ * Phát hành trực tiếp cho nhà đầu tư — ĐƯỜNG DỮ LIỆU THỬ, sau hai lớp chặn `demo:mint-token` + cờ
+ * `ENABLE_DEMO_TOKEN_MINT` (FE-22). Tạo token chính thức: `createTokenRequestAction`.
+ *
  * Giữ TÊN `mintAction` dù service phía dưới đã đổi thành `mintToInvestorDirect`.
  *
  * Đổi cả tên action sẽ buộc sửa mọi component đang gọi, mà những chỗ đó không liên quan gì tới
@@ -35,7 +38,7 @@ export async function mintAction(input: unknown) {
 
 /**
  * @flow issue:1 | nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service
- * @pending FE-07 | đã sẵn đầu cuối ở `issueInitialSupply`: phát hành NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án, KHÔNG nhận từ input; `amount` tuỳ chọn chỉ chọn số lượng trong trần, bỏ trống = phát hành hết phần còn lại), kiểm quyền `token:mint`, lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi
+ * @pending FE-07 | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi
  */
 export async function issueInitialSupplyAction(input: unknown) {
   return issueInitialSupply(input);
