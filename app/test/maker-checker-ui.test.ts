@@ -353,13 +353,14 @@ describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồ
 
     controller();
     const before = await getApprovalStats();
-    expect(before.ok && before.data).toMatchObject({ pending: 1 });
+    if (!before.ok) throw new Error(before.error);
+    expect(before.data).toMatchObject({ pending: 1 });
     expect((await approveTokenRequest({ requestId: id })).ok).toBe(true);
 
     const detail = await getTokenRequestDetail({ requestId: id });
     expect(detail.ok && detail.data.token?.totalSupply).toBe('600');
     const after = await getApprovalStats();
-    expect(after.ok && before.ok && after.data).toEqual({
+    expect(after.ok && after.data).toEqual({
       pending: 0,
       approvedToday: before.data.approvedToday + 1,
       rejectedToday: before.data.rejectedToday,
