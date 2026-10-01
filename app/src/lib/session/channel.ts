@@ -75,6 +75,22 @@ export const ROLE_CHANNEL: Record<Role, Channel> = Object.fromEntries(
   CHANNELS.map((channel) => [CHANNEL_ROLE[channel], channel]),
 ) as Record<Role, Channel>;
 
+/**
+ * Mã tài khoản mẫu của mỗi khu vực, hiển thị cạnh tên vai ở bộ chọn.
+ *
+ * Từ BE-12 đây cũng là MÃ NGƯỜI THỰC HIỆN mặc định của phiên (`currentActorId()`), ghi vào cột
+ * người lập / người duyệt của yêu cầu Mint/Burn. Một nguồn cho cả hai chỗ: bộ chọn hiện
+ * `GDV001` mà sổ ghi một mã khác là demo lập–duyệt nói một đằng, dữ liệu một nẻo.
+ *
+ * Mã thật đến từ phiên đăng nhập của AU-01; ở đây là chuỗi mẫu.
+ */
+export const SAMPLE_ACCOUNTS: Record<Channel, string> = {
+  investor: 'NDT001',
+  seller: 'NB001',
+  teller: 'GDV001',
+  controller: 'KSV001',
+};
+
 /** Trang mặc định của một VAI — dùng khi chỉ biết vai (guard, trang chủ). */
 export function homeForRole(role: Role): string {
   return CHANNEL_HOME[ROLE_CHANNEL[role]];

@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { UserCog } from 'lucide-react';
 import { setChannel } from '@/app/actions/session';
 import { usePublicConfig } from '@/lib/config/config-context';
-import { CHANNELS, type Channel } from '@/lib/session/channel';
+import { CHANNELS, SAMPLE_ACCOUNTS, type Channel } from '@/lib/session/channel';
 
 /**
  * Bộ chọn VAI TRÒ — bốn lựa chọn theo tài liệu yêu cầu, hiện ở mọi khu vực để luôn quay
@@ -25,20 +25,6 @@ const LABELS: Record<Channel, string> = {
   seller: 'Người bán',
   teller: 'Giao dịch viên',
   controller: 'Kiểm soát viên',
-};
-
-/**
- * Mã tài khoản mẫu, hiển thị cạnh tên vai.
- *
- * Có ích thật chứ không phải trang trí: bốn vai đều là "người dùng" nên khi demo hai vai vận
- * hành cạnh nhau (lập lệnh rồi phê duyệt) thì tên vai một mình không nói được đang đứng ở
- * tài khoản nào. Mã tài khoản thật đến từ phiên đăng nhập của AU-01; ở đây là chuỗi mẫu.
- */
-const SAMPLE_ACCOUNTS: Record<Channel, string> = {
-  investor: 'NDT001',
-  seller: 'NB001',
-  teller: 'GDV001',
-  controller: 'KSV001',
 };
 
 export function ChannelSwitcher() {

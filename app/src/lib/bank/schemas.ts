@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { CHAIN_KEYS } from '@bidv/shared';
 import { WPT_TOKEN_SYMBOL } from '@/lib/config/issue-terms';
+import {
+  TOKEN_REQUEST_BURN_SOURCES,
+  TOKEN_REQUEST_STATUSES,
+  TOKEN_REQUEST_TYPES,
+} from '@/lib/store/token-request.store.port';
 import { ORDER_STATUSES } from './purchase.state';
 
 /**
@@ -264,3 +269,65 @@ export const keeperRunQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 export type KeeperRunQueryInput = z.input<typeof keeperRunQuerySchema>;
+
+// =============================================================================
+//  LẬP–DUYỆT YÊU CẦU MINT / BURN (BE-12)
+// =============================================================================
+
+/** Mã yêu cầu: UUID. `.trim()` rồi mới `.pipe(z.uuid())`, cùng lý do với `orderIdSchema`. */
+const tokenRequestIdSchema = z.string().trim().pipe(z.uuid('Mã yêu cầu phải là UUID.'));
+
+/** Trường chữ tuỳ chọn: chuỗi rỗng sau khi cắt coi như không nhập. */
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Tối đa ${max} ký tự.`)
+    .optional()
+    .transform((value) => (value ? value : undefined));
+
+/** Phần chung của hai loại yêu cầu. */
+const tokenRequestBase = {
+  chain: chainSchema,
+  tokenSymbol: z.string().trim().min(1).max(20).default(WPT_TOKEN_SYMBOL),
+  amount: amountSchema,
+  reason: z.string().trim().min(1, 'Phải nêu lý do.').max(500, 'Lý do tối đa 500 ký tự.'),
+  documentRef: optionalText(120),
+  /** Ngày hiệu lực, dạng `YYYY-MM-DD`. */
+  effectiveDate: z.iso.date('Ngày hiệu lực phải có dạng YYYY-MM-DD.').optional(),
+  note: optionalText(1000),
+};
+
+/**
+ * Lập yêu cầu — một schema cho cả hai loại, phân nhánh theo `type`.
+ *
+ * Mint có `wallet` (ví đích); Burn có `burnSource` và KHÔNG có ví: Burn luôn đốt ở ví thanh toán
+ * SPV mà chuỗi đã ghi, nên nhận ví từ input chỉ mở đường đốt token trong ví nhà đầu tư.
+ */
+export const createTokenRequestSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('MINT'), wallet: walletSchema, ...tokenRequestBase }),
+  z.object({
+    type: z.literal('BURN'),
+    burnSource: z.enum(TOKEN_REQUEST_BURN_SOURCES),
+    ...tokenRequestBase,
+  }),
+]);
+export type CreateTokenRequestInput = z.input<typeof createTokenRequestSchema>;
+
+export const approveTokenRequestSchema = z.object({ requestId: tokenRequestIdSchema });
+export type ApproveTokenRequestInput = z.input<typeof approveTokenRequestSchema>;
+
+/** Từ chối BẮT BUỘC có lý do — người lập cần biết phải sửa gì. */
+export const rejectTokenRequestSchema = z.object({
+  requestId: tokenRequestIdSchema,
+  reason: z.string().trim().min(1, 'Từ chối phải nêu lý do.').max(500, 'Lý do tối đa 500 ký tự.'),
+});
+export type RejectTokenRequestInput = z.input<typeof rejectTokenRequestSchema>;
+
+export const tokenRequestQuerySchema = z.object({
+  chain: chainSchema.optional(),
+  type: z.enum(TOKEN_REQUEST_TYPES).optional(),
+  status: z.enum(TOKEN_REQUEST_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export type TokenRequestQueryInput = z.input<typeof tokenRequestQuerySchema>;
