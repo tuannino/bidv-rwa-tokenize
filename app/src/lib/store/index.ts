@@ -22,6 +22,9 @@ import { createPostgresStore } from './postgres.store';
 import type { IProjectStore } from './project.store.port';
 import type { ISettlementStore } from './settlement.store.port';
 import type { ITxnStore } from './store.port';
+import { createMemoryTokenRequestStore } from './memory.token-request.store';
+import { createPostgresTokenRequestStore } from './postgres.token-request.store';
+import type { ITokenRequestStore } from './token-request.store.port';
 
 export {
   type AuditRecord,
@@ -114,6 +117,21 @@ export {
   type ProjectStatus,
 } from './project.store.port';
 
+export {
+  assertTokenRequestStatus,
+  type ITokenRequestStore,
+  type NewTokenRequest,
+  TOKEN_REQUEST_BURN_SOURCES,
+  TOKEN_REQUEST_STATUSES,
+  TOKEN_REQUEST_TRANSITIONS,
+  TOKEN_REQUEST_TYPES,
+  type TokenRequestBurnSource,
+  type TokenRequestRecord,
+  type TokenRequestStatus,
+  type TokenRequestTransition,
+  type TokenRequestType,
+} from './token-request.store.port';
+
 export { resetMemoryStore } from './memory.store';
 
 /**
@@ -137,6 +155,7 @@ const cache: {
   keeper?: IKeeperStore;
   config?: IConfigStore;
   project?: IProjectStore;
+  tokenRequest?: ITokenRequestStore;
 } = {};
 
 const wantsMemoryStore = (): boolean => serverEnv().useMockDb;
@@ -204,6 +223,19 @@ export function getProjectStore(): IProjectStore {
 }
 
 /**
+ * Cổng yêu cầu Mint / Burn (BE-12). `lib/bank/token-request.service.ts` gọi ngay.
+ *
+ * Trọng tài chống hai lần duyệt là `transitionRequest` (câu `UPDATE` có điều kiện trạng thái),
+ * không phải phép đọc trước trong nghiệp vụ.
+ */
+export function getTokenRequestStore(): ITokenRequestStore {
+  cache.tokenRequest ??= wantsMemoryStore()
+    ? createMemoryTokenRequestStore()
+    : createPostgresTokenRequestStore();
+  return cache.tokenRequest;
+}
+
+/**
  * Xoá cache của MỌI cổng.
  *
  * Một hàm cho tất cả, không phải một hàm mỗi cổng: test đổi `USE_MOCK_DB` rồi chỉ xoá cache
@@ -218,4 +250,5 @@ export function resetStoreCache(): void {
   cache.keeper = undefined;
   cache.config = undefined;
   cache.project = undefined;
+  cache.tokenRequest = undefined;
 }

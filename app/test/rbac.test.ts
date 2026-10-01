@@ -339,6 +339,25 @@ const FE20_AREA_GATES: ReadonlyArray<{ action: Action; allowed: readonly Role[];
   },
 ];
 
+/**
+ * Hai quyền nghiệp vụ lập–duyệt do BE-12 khai. Bảng riêng, cùng lý do các bảng trên tách nhau.
+ *
+ * Mỗi quyền đúng MỘT vai, và hai vai khác nhau — ca "không vai nào có cả hai" bên dưới kiểm
+ * chiều đó cho mọi vai, kể cả vai thêm về sau.
+ */
+const BE12_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  {
+    action: 'order:draft',
+    allowed: ['TELLER'],
+    why: 'Giao dịch viên lập yêu cầu Mint/Burn',
+  },
+  {
+    action: 'order:approve',
+    allowed: ['CONTROLLER'],
+    why: 'Kiểm soát viên duyệt hoặc từ chối yêu cầu Mint/Burn',
+  },
+];
+
 /** Mọi hành động GHI — không vai chỉ-đọc nào được có, kể cả vai trò lạ. */
 const ALL_WRITE_ACTIONS: readonly Action[] = [
   'token:mint',
@@ -358,10 +377,12 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'treasury:manage',
   'demo:mint-payment',
   'order:expire',
+  'order:draft',
+  'order:approve',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -379,11 +400,12 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...NEW_ACTIONS.map((row) => row.action),
       ...BE02_ACTIONS.map((row) => row.action),
       ...FE20_AREA_GATES.map((row) => row.action),
+      ...BE12_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
       missing,
-      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS hoặc FE20_AREA_GATES: ${missing.join(', ')}`,
+      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS, FE20_AREA_GATES hoặc BE12_ACTIONS: ${missing.join(', ')}`,
     ).toEqual([]);
   });
 
@@ -422,12 +444,24 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
     expect(can('nguoi-la', 'txn:read')).toBe(true);
   });
 
-  it('hai vai chỉ-đọc không có quyền GHI nào, kể cả các hành động mới', () => {
-    for (const role of ['SELLER', 'CONTROLLER'] as const) {
-      for (const action of ALL_WRITE_ACTIONS) {
-        expect(can(role, action), `${role} không được ${action}`).toBe(false);
-      }
+  it('SELLER không có quyền GHI nào; CONTROLLER chỉ có đúng một là order:approve', () => {
+    for (const action of ALL_WRITE_ACTIONS) {
+      expect(can('SELLER', action), `SELLER không được ${action}`).toBe(false);
     }
+    // Kiểm soát viên duyệt việc của người khác, không tự làm: ngoài quyền duyệt không có
+    // một quyền ghi nào, kể cả `token:mint` mà lần duyệt dẫn tới.
+    const writes = ALL_WRITE_ACTIONS.filter((action) => can('CONTROLLER', action));
+    expect(writes).toEqual(['order:approve']);
+  });
+
+  it('BE-12 việc 4 — không vai nào có cả quyền lập lẫn quyền duyệt', () => {
+    for (const role of ROLES) {
+      const both = can(role, 'order:draft') && can(role, 'order:approve');
+      expect(both, `${role} có cả order:draft và order:approve`).toBe(false);
+    }
+    // Và mỗi quyền có chủ: thiếu chủ thì luồng lập–duyệt chết mà bảng quyền trông vẫn "an toàn".
+    expect(ROLES.filter((role) => can(role, 'order:draft'))).toEqual(['TELLER']);
+    expect(ROLES.filter((role) => can(role, 'order:approve'))).toEqual(['CONTROLLER']);
   });
 
   it('không vai trò nào MẤT quyền đang có trước BE-08 (R4.3)', () => {

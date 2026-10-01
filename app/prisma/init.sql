@@ -199,6 +199,35 @@ CREATE TABLE "Project" (
 );
 
 -- CreateTable
+CREATE TABLE "TokenRequest" (
+    "id" TEXT NOT NULL,
+    "chain" TEXT NOT NULL,
+    "tokenSymbol" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "amount" DECIMAL(78,0) NOT NULL,
+    "burnSource" TEXT,
+    "wallet" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "documentRef" TEXT,
+    "effectiveDate" TIMESTAMPTZ(3),
+    "note" TEXT,
+    "makerId" TEXT NOT NULL,
+    "makerRole" TEXT NOT NULL,
+    "checkerId" TEXT,
+    "checkerRole" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "rejectReason" TEXT,
+    "failureReason" TEXT,
+    "txHash" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "decidedAt" TIMESTAMPTZ(3),
+    "completedAt" TIMESTAMPTZ(3),
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "TokenRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Permission" (
     "id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
@@ -294,6 +323,18 @@ CREATE INDEX "Project_chain_status_idx" ON "Project"("chain", "status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Project_tokenSymbol_chain_key" ON "Project"("tokenSymbol", "chain");
+
+-- CreateIndex
+CREATE INDEX "TokenRequest_chain_tokenSymbol_status_idx" ON "TokenRequest"("chain", "tokenSymbol", "status");
+
+-- CreateIndex
+CREATE INDEX "TokenRequest_status_createdAt_idx" ON "TokenRequest"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "TokenRequest_makerId_status_idx" ON "TokenRequest"("makerId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TokenRequest_txHash_key" ON "TokenRequest"("txHash");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");

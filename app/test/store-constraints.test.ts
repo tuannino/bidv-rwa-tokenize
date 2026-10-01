@@ -11,6 +11,7 @@ import { createMemoryKeeperStore } from '@/lib/store/memory.keeper.store';
 import { createMemoryOrderStore } from '@/lib/store/memory.order.store';
 import { createMemoryProjectStore } from '@/lib/store/memory.project.store';
 import { createMemorySettlementStore } from '@/lib/store/memory.settlement.store';
+import { createMemoryTokenRequestStore } from '@/lib/store/memory.token-request.store';
 import { resetMemoryStores } from '@/lib/store/memory.state';
 import { createPostgresConfigStore } from '@/lib/store/postgres.config.store';
 import { createPostgresDistributionStore } from '@/lib/store/postgres.distribution.store';
@@ -19,12 +20,17 @@ import { createPostgresOrderStore } from '@/lib/store/postgres.order.store';
 import type { PgQuery } from '@/lib/store/postgres.pool';
 import { createPostgresProjectStore } from '@/lib/store/postgres.project.store';
 import { createPostgresSettlementStore } from '@/lib/store/postgres.settlement.store';
+import { createPostgresTokenRequestStore } from '@/lib/store/postgres.token-request.store';
 import type { IConfigStore } from '@/lib/store/config.store.port';
 import type { IDistributionStore } from '@/lib/store/distribution.store.port';
 import type { IKeeperStore } from '@/lib/store/keeper.store.port';
 import type { IOrderStore } from '@/lib/store/order.store.port';
 import type { IProjectStore } from '@/lib/store/project.store.port';
 import type { ISettlementStore } from '@/lib/store/settlement.store.port';
+import type {
+  ITokenRequestStore,
+  NewTokenRequest,
+} from '@/lib/store/token-request.store.port';
 import { CONFIG_KEYS, WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
 import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import {
@@ -258,6 +264,35 @@ describe('lớp 1b — init.sql mang ba bảng BE-04 và cột Role.isConfig', (
   });
 });
 
+// BE-12 — bảng yêu cầu Mint / Burn. Khối riêng, cùng lý do khối BE-04 tách khỏi BE-09.
+describe('lớp 1c — init.sql mang bảng TokenRequest của BE-12', () => {
+  it('bảng được tạo, số lượng là DECIMAL(78,0), mọi cột thời gian là TIMESTAMPTZ(3)', () => {
+    const block = tableBlock('TokenRequest');
+    expect(block).toContain('"amount" DECIMAL(78,0) NOT NULL');
+    expect(block).toContain(`"status" TEXT NOT NULL DEFAULT 'PENDING'`);
+    const timeColumns = [...block.matchAll(/"(\w+)" TIMESTAMPTZ\(3\)/g)].map(([, name]) => name);
+    expect(timeColumns.sort()).toEqual(
+      ['completedAt', 'createdAt', 'decidedAt', 'effectiveDate', 'updatedAt'].sort(),
+    );
+    expect(block).not.toMatch(/TIMESTAMP\(3\)/);
+  });
+
+  it('có chỗ cho người lập, người duyệt, lý do từ chối và mã giao dịch', () => {
+    const block = tableBlock('TokenRequest');
+    for (const column of ['"makerId" TEXT NOT NULL', '"checkerId" TEXT,', '"rejectReason" TEXT,', '"txHash" TEXT,']) {
+      expect(block).toContain(column);
+    }
+  });
+
+  it('mọi chỉ mục duy nhất của TokenRequest đều đã khai trong UNIQUE_CONSTRAINTS', () => {
+    const found = [...INIT_SQL.matchAll(/CREATE UNIQUE INDEX "([^"]+)" ON "TokenRequest"/g)].map(
+      ([, name]) => name,
+    );
+    expect(found).toEqual(['TokenRequest_txHash_key']);
+    expect(Object.keys(UNIQUE_CONSTRAINTS)).toContain('TokenRequest_txHash_key');
+  });
+});
+
 // ===========================================================================
 //  LỚP 2 — HÀNH VI, CHẠY TRÊN MỌI BẢN CÓ SẴN
 // ===========================================================================
@@ -269,6 +304,7 @@ interface Backend {
   keeper: IKeeperStore;
   config: IConfigStore;
   projects: IProjectStore;
+  tokenRequests: ITokenRequestStore;
   /** Dọn trước mỗi ca kiểm. Bản Postgres không xoá dữ liệu, chỉ dùng khoá riêng mỗi ca. */
   reset: () => void;
 }
@@ -281,6 +317,7 @@ function memoryBackend(): Backend {
     keeper: createMemoryKeeperStore(),
     config: createMemoryConfigStore(),
     projects: createMemoryProjectStore(),
+    tokenRequests: createMemoryTokenRequestStore(),
     reset: resetMemoryStores,
   };
 }
@@ -303,6 +340,7 @@ function postgresBackend(): Backend {
     keeper: createPostgresKeeperStore(),
     config: createPostgresConfigStore(),
     projects: createPostgresProjectStore(),
+    tokenRequests: createPostgresTokenRequestStore(),
     // Không TRUNCATE: đây có thể là cơ sở dữ liệu demo của Owner. Mỗi ca kiểm tự dùng
     // khoá riêng (uuid) nên không đụng dữ liệu cũ và chạy lại được nhiều lần.
     reset: () => {},
@@ -1008,6 +1046,109 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       ).rejects.toThrow(/chia lô/i);
     });
   });
+
+  // -------------------------------------------------------------------------
+  //  BE-12 — yêu cầu Mint / Burn
+  // -------------------------------------------------------------------------
+  describe('yêu cầu Mint / Burn', () => {
+    const newRequest = (overrides: Partial<NewTokenRequest> = {}): NewTokenRequest => ({
+      chain: 'mock',
+      tokenSymbol: `T${randomUUID().slice(0, 8)}`,
+      type: 'MINT',
+      amount: '100',
+      wallet: WALLET_A,
+      reason: 'phát hành đợt 2',
+      makerId: `GDV-${randomUUID()}`,
+      makerRole: 'TELLER',
+      ...overrides,
+    });
+
+    it('lập xong ở PENDING, chưa có người duyệt, chưa có mã giao dịch', async () => {
+      const created = await store.tokenRequests.createRequest(newRequest());
+      expect(created.status).toBe('PENDING');
+      expect(created.checkerId).toBeNull();
+      expect(created.txHash).toBeNull();
+      expect(created.decidedAt).toBeNull();
+    });
+
+    it('hai lần chiếm quyền duyệt cùng lúc: đúng một lần thành công', async () => {
+      const created = await store.tokenRequests.createRequest(newRequest());
+      const claim = () =>
+        store.tokenRequests.transitionRequest({
+          id: created.id,
+          from: ['PENDING'],
+          to: 'EXECUTING',
+          checkerId: 'KSV001',
+          checkerRole: 'CONTROLLER',
+        });
+
+      const results = await Promise.all([claim(), claim()]);
+      expect(results.filter((row) => row !== null)).toHaveLength(1);
+      const won = results.find((row) => row !== null);
+      expect(won?.decidedAt).not.toBeNull();
+    });
+
+    it('chuyển ngược chiều bị từ chối TRƯỚC khi chạm dữ liệu', async () => {
+      const created = await store.tokenRequests.createRequest(newRequest());
+      await store.tokenRequests.transitionRequest({ id: created.id, from: ['PENDING'], to: 'REJECTED', rejectReason: 'x' });
+
+      await expect(
+        store.tokenRequests.transitionRequest({ id: created.id, from: ['REJECTED'], to: 'PENDING' }),
+      ).rejects.toBeInstanceOf(StoreUsageError);
+      expect((await store.tokenRequests.findRequest(created.id))?.status).toBe('REJECTED');
+    });
+
+    it('trạng thái nguồn không khớp thì trả null, dòng giữ nguyên', async () => {
+      const created = await store.tokenRequests.createRequest(newRequest());
+      const result = await store.tokenRequests.transitionRequest({
+        id: created.id,
+        from: ['EXECUTING'],
+        to: 'COMPLETED',
+      });
+      expect(result).toBeNull();
+      expect((await store.tokenRequests.findRequest(created.id))?.status).toBe('PENDING');
+    });
+
+    it('một mã giao dịch không gắn cho hai yêu cầu', async () => {
+      const txHash = `0x${randomUUID().replace(/-/g, '')}`;
+      const first = await store.tokenRequests.createRequest(newRequest());
+      const second = await store.tokenRequests.createRequest(newRequest());
+      for (const request of [first, second]) {
+        await store.tokenRequests.transitionRequest({ id: request.id, from: ['PENDING'], to: 'EXECUTING' });
+      }
+      await store.tokenRequests.attachRequestTxHash({ id: first.id, txHash });
+
+      await expect(
+        store.tokenRequests.attachRequestTxHash({ id: second.id, txHash }),
+      ).rejects.toBeInstanceOf(UniqueConstraintError);
+    });
+
+    it('đếm theo trạng thái và người lập, không bị cắt ở giới hạn mặc định', async () => {
+      const maker = `GDV-${randomUUID()}`;
+      const other = `GDV-${randomUUID()}`;
+      await store.tokenRequests.createRequest(newRequest({ makerId: maker }));
+      await store.tokenRequests.createRequest(newRequest({ makerId: maker }));
+      await store.tokenRequests.createRequest(newRequest({ makerId: other }));
+
+      expect(await store.tokenRequests.countRequests({ status: 'PENDING', makerId: maker })).toBe(2);
+      expect(
+        await store.tokenRequests.countRequests({ status: 'PENDING', excludeMakerId: maker }),
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it('loại và nguồn Burn lạ bị từ chối ở cả hai bản', async () => {
+      await expect(
+        // @ts-expect-error — giá trị ngoài TOKEN_REQUEST_TYPES.
+        store.tokenRequests.createRequest(newRequest({ type: 'AIRDROP' })),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
+      await expect(
+        store.tokenRequests.createRequest(
+          // @ts-expect-error — giá trị ngoài TOKEN_REQUEST_BURN_SOURCES.
+          newRequest({ type: 'BURN', burnSource: 'MOT_NUA' }),
+        ),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
+    });
+  });
 });
 
 // ===========================================================================
@@ -1107,6 +1248,36 @@ describe('lớp 3 — bản Postgres quy lỗi ràng buộc về lớp lỗi c�
     expect(sql).toMatch(/WHERE "id" = \$1 AND "status" = ANY\(\$\d+::text\[\]\)/);
     expect(params).toContain('o1');
     expect(params).toContainEqual(['PLACED', 'CHECKING']);
+  });
+
+  it('transitionRequest đặt điều kiện trạng thái TRONG câu UPDATE và tự ghi mốc quyết định', async () => {
+    const spy = recorder({ rows: [] });
+    await createPostgresTokenRequestStore(spy.query).transitionRequest({
+      id: 'q1',
+      from: ['PENDING'],
+      to: 'EXECUTING',
+      checkerId: 'KSV001',
+    });
+
+    expect(spy.calls).toHaveLength(1);
+    const { sql, params } = spy.calls[0];
+    expect(sql).toMatch(/UPDATE "TokenRequest"/);
+    expect(sql).toMatch(/WHERE "id" = \$1 AND "status" = ANY\(\$\d+::text\[\]\)/);
+    expect(sql).toContain('"decidedAt" = CURRENT_TIMESTAMP');
+    expect(sql).not.toContain('completedAt');
+    expect(params).toContainEqual(['PENDING']);
+  });
+
+  it('transitionRequest ngược chiều bị chặn TRƯỚC khi gửi câu lệnh nào', async () => {
+    const spy = recorder({ rows: [] });
+    await expect(
+      createPostgresTokenRequestStore(spy.query).transitionRequest({
+        id: 'q1',
+        from: ['COMPLETED'],
+        to: 'PENDING',
+      }),
+    ).rejects.toBeInstanceOf(StoreUsageError);
+    expect(spy.calls).toHaveLength(0);
   });
 
   it('bản Postgres từ chối trạng thái lạ TRƯỚC khi gửi câu lệnh nào', async () => {
