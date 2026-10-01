@@ -14,8 +14,7 @@ export default function SellerWithdrawPage() {
           'Mục Lập lệnh của Giao dịch viên và mục Phê duyệt lệnh của Kiểm soát viên đã có khung — đây là đầu vào của luồng đó.',
         ]}
         notes={[
-          'Nghiệp vụ rút và mô hình lập–duyệt CHƯA có ở tầng backend (thuộc BE-12): chưa có service, chưa có quyền order:draft / order:approve.',
-          'Lệnh tạo ở đây là thứ làm số việc đang chờ cạnh hai mục kia khác 0.',
+          'Mô hình lập–duyệt đã có ở BE-12 nhưng CHỈ cho yêu cầu Mint/Burn. Nghiệp vụ rút CHƯA có ở tầng backend và chưa có mã task — xem docs/CHECKPOINT_BE12.md.',
         ]}
       />
     </AppLayout>

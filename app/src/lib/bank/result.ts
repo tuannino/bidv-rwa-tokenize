@@ -32,6 +32,13 @@ export type ErrorCode =
   | 'INSUFFICIENT_PROFIT_POOL' // ví chia lợi nhuận không có tiền để chia
   | 'NO_CIRCULATING_SUPPLY' // tổng cung WPT tại ảnh chụp bằng 0, không có quyền nào để chia
   | 'PERIOD_STATE' // kỳ chia không tồn tại / mã kỳ trùng / kỳ đã hoàn tất / quỹ đổi lúc chốt
+  // --- Phát hành nhiều lần và lập–duyệt Mint/Burn (BE-12) ---
+  | 'ISSUANCE_CAP' // số lượng vượt trần còn lại (trần bảng dự án trừ tổng cung trên chuỗi)
+  // Điều kiện lập/duyệt không đạt. `fieldErrors` mang đúng các điều kiện trượt, khoá theo mã
+  // điều kiện, để giao diện tô đúng dòng trong khối kiểm tra.
+  | 'REQUEST_CHECK'
+  | 'REQUEST_STATE' // yêu cầu không còn ở trạng thái cho phép thao tác (đã được xử lý)
+  | 'SELF_APPROVAL' // người lập tự duyệt / tự từ chối yêu cầu của mình
   | 'UNKNOWN';
 
 export type Result<T> =
@@ -73,6 +80,12 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   INSUFFICIENT_PROFIT_POOL: 409,
   NO_CIRCULATING_SUPPLY: 409,
   PERIOD_STATE: 409,
+
+  /** BE-12: ba mã đầu 409 cùng lập luận nhóm lệnh mua; tự duyệt là 403 — sai NGƯỜI, không sai trạng thái. */
+  ISSUANCE_CAP: 409,
+  REQUEST_CHECK: 409,
+  REQUEST_STATE: 409,
+  SELF_APPROVAL: 403,
 
   UNKNOWN: 500,
 };

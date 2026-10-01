@@ -18,10 +18,10 @@
  * | `TELLER` | Giao dịch viên |
  * | `CONTROLLER` | Kiểm soát viên |
  *
- * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN, giữ nguyên bộ quyền: FE-20 chỉ dựng khung, còn
- * việc tách đặc quyền của Giao dịch viên theo mô hình lập–duyệt thuộc BE-12. Đổi tên mà
- * không đổi quyền là có chủ ý — bớt quyền của vai này ở đây sẽ làm đỏ toàn bộ `lib/bank`
- * mà không thay được nghiệp vụ nào, vì chưa có bên nào đi qua bước phê duyệt.
+ * `TELLER` là vai `BANK_ADMIN` cũ ĐỔI TÊN, giữ nguyên bộ quyền. BE-12 THÊM quyền lập yêu cầu
+ * (`order:draft`) nhưng KHÔNG gỡ `token:mint` / `token:burn` trực tiếp: gỡ là đổi hành vi của
+ * màn `/mint` và luồng phát hành FE-07 đang chờ, ngoài phạm vi BE-12. Có nên bắt mọi lần
+ * Mint/Burn đi qua lập–duyệt hay không là câu hỏi mở trong `docs/CHECKPOINT_BE12.md`.
  *
  * Hai vai cũ — tuân thủ và kiểm toán — **không còn trong tài liệu yêu cầu** nên đã gỡ.
  * `CONTROLLER` nhận phần CHỈ ĐỌC của chúng; phần ghi của vai tuân thủ
@@ -149,6 +149,27 @@ export const ACTIONS = [
   'ops:draft:read',
   /** Mở mục Phê duyệt lệnh. CHỈ CONTROLLER — Giao dịch viên không tự duyệt lệnh mình lập. */
   'ops:approve:read',
+
+  /**
+   * ===================== BE-12: lập–duyệt yêu cầu Mint / Burn =====================
+   *
+   * Hai quyền nghiệp vụ mà bốn cổng khu vực của FE-20 đặt chỗ trước. **Không vai nào có cả
+   * hai** — `test/rbac.test.ts` chốt điều này cho mọi vai, không chỉ hai vai vận hành.
+   *
+   * Không quyền nào trong hai quyền này tự tác động token. Lập chỉ ghi một yêu cầu `PENDING`;
+   * duyệt mới gửi giao dịch, và gửi qua đường nội bộ của `lib/bank` chứ KHÔNG đòi người duyệt
+   * có `token:mint` / `token:burn`. Cấp thêm hai quyền đó cho Kiểm soát viên là cho họ tự phát
+   * hành không qua ai.
+   */
+  /** Lập yêu cầu Mint / Burn. CHỈ TELLER. */
+  'order:draft',
+  /**
+   * Duyệt hoặc từ chối yêu cầu Mint / Burn. CHỈ CONTROLLER.
+   *
+   * Có quyền vẫn chưa đủ: người lập KHÔNG duyệt được yêu cầu của chính mình — phép kiểm đó
+   * theo mã tài khoản, nằm ở `token-request.service.ts`, vì bảng quyền chỉ biết vai.
+   */
+  'order:approve',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -219,7 +240,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * mình, xem lệnh của ví mình. KHÔNG một hành động ghi nào, và KHÔNG spread `READ_ONLY`
    * nên tự động không có dữ liệu toàn hệ (`audit:read`, `order:read:all`, `reconcile:read`).
    *
-   * Nghiệp vụ tạo lệnh rút của Người bán thuộc BE-12; ở đây chưa cấp quyền ghi nào cho nó.
+   * Nghiệp vụ tạo lệnh rút của Người bán chưa có ở backend (BE-12 chỉ làm Mint/Burn), nên chưa
+   * cấp quyền ghi nào cho nó.
    */
   SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read'],
   /**
@@ -249,11 +271,13 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     // Cần THÊM cờ ENABLE_DEMO_PAYMENT_MINT mới thực sự chạy — xem `demo-payment.ts`.
     'demo:mint-payment',
     'ops:draft:read',
+    // Lập yêu cầu Mint / Burn (BE-12). KHÔNG có `order:approve`: người lập không phải người duyệt.
+    'order:draft',
     ...READ_ONLY,
   ],
   /**
    * Kiểm soát viên — vai MỚI của FE-20. Nhận phần CHỈ ĐỌC của hai vai đã gỡ, cộng cổng
-   * mục Phê duyệt lệnh. Không một hành động ghi nào.
+   * mục Phê duyệt lệnh, cộng ĐÚNG MỘT quyền ghi từ BE-12: `order:approve`.
    *
    * ⚠️ KHÔNG nhận phần ghi của vai tuân thủ cũ (`investor:whitelist`, `kyc:approve`,
    * `token:freeze`) dù vai đó đã gỡ. Kiểm soát viên duyệt việc của Giao dịch viên; cho nó
@@ -261,8 +285,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * soát thứ hai mà vai này tồn tại để tạo ra. Ba hành động đó vẫn có chủ ở `TELLER` nên
    * không quyền nào thành vô chủ.
    *
-   * ⚠️ `ops:approve:read` ở đây và KHÔNG ở `TELLER`: người duyệt không phải người lập.
-   * Quyền DUYỆT thật (`order:approve`) thuộc BE-12, chưa khai ở FE-20.
+   * ⚠️ `ops:approve:read` và `order:approve` ở đây và KHÔNG ở `TELLER`: người duyệt không
+   * phải người lập. KHÔNG có `order:draft`: Kiểm soát viên không tự lập lệnh mình sẽ duyệt.
    */
-  CONTROLLER: ['ops:approve:read', ...READ_ONLY],
+  CONTROLLER: ['ops:approve:read', 'order:approve', ...READ_ONLY],
 };

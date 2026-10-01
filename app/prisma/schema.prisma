@@ -440,6 +440,57 @@ model Project {
   @@index([chain, status])
 }
 
+/// Yêu cầu Mint / Burn theo mô hình lập–duyệt (BE-12): Giao dịch viên lập, Kiểm soát viên duyệt.
+///
+/// Yêu cầu đang chờ KHÔNG tác động token. Chỉ lần duyệt mới gửi giao dịch, và lần duyệt chiếm
+/// quyền bằng một câu `UPDATE ... WHERE "status" = 'PENDING'` để hai người duyệt cùng lúc thì
+/// chỉ một lần tác động token.
+model TokenRequest {
+  id            String    @id @default(uuid())
+  /// ChainKey: hardhat-local | evm | stellar | mock
+  chain         String
+  /// Mã token, khớp `Project.tokenSymbol` trên cùng chuỗi.
+  tokenSymbol   String
+  /// Giá trị hợp lệ: TOKEN_REQUEST_TYPES ở lib/store/token-request.store.port.ts
+  type          String
+  /// Số lượng token. Decimal thay vì BigInt: uint256 vượt tầm int8.
+  amount        Decimal   @db.Decimal(78, 0)
+  /// Chỉ Burn: phần chưa phân phối hoặc toàn bộ nguồn cung. Mint để NULL.
+  /// Giá trị hợp lệ: TOKEN_REQUEST_BURN_SOURCES ở lib/store/token-request.store.port.ts
+  burnSource    String?
+  /// Ví thanh toán của người bán (ví SPV) mà lần duyệt sẽ tác động.
+  wallet        String
+  reason        String
+  /// Số hiệu chứng từ đi kèm.
+  documentRef   String?
+  effectiveDate DateTime? @db.Timestamptz(3)
+  note          String?
+  /// Người lập: mã tài khoản + vai tại lúc lập.
+  makerId       String
+  makerRole     String
+  /// Người duyệt hoặc từ chối; NULL khi còn chờ.
+  checkerId     String?
+  checkerRole   String?
+  /// Giá trị hợp lệ: TOKEN_REQUEST_STATUSES ở lib/store/token-request.store.port.ts
+  status        String    @default("PENDING")
+  rejectReason  String?
+  /// Lý do giao dịch thất bại on-chain (trạng thái FAILED).
+  failureReason String?
+  txHash        String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  /// Mốc duyệt hoặc từ chối.
+  decidedAt     DateTime? @db.Timestamptz(3)
+  /// Mốc có kết cục on-chain (hoàn tất hoặc thất bại).
+  completedAt   DateTime? @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  /// Một mã giao dịch không gắn cho hai yêu cầu.
+  @@unique([txHash])
+  @@index([chain, tokenSymbol, status])
+  @@index([status, createdAt])
+  @@index([makerId, status])
+}
+
 model Permission {
   id     String           @id @default(uuid())
   /// vd token:mint

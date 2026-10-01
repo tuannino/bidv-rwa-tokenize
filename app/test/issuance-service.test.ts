@@ -6,7 +6,7 @@ import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import { getProjectStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 
 /**
- * BE-04 CA 4 — PHÁT HÀNH ĐÚNG TỔNG CUNG TỪ BẢNG DỰ ÁN, LẦN HAI BỊ TỪ CHỐI.
+ * BE-04 CA 4 — PHÁT HÀNH ĐÚNG TRẦN TỪ BẢNG DỰ ÁN; BE-12 CA 7 — NHIỀU LẦN TỚI KHI CHẠM TRẦN.
  *
  * Hai phát biểu, và phát biểu thứ hai là thứ đắt nhất nếu sai: nguồn cung phình thêm sau khi đã
  * công bố là lỗi không sửa được — token đã ở trong ví người khác.
@@ -81,26 +81,27 @@ describe('ca 4 — phát hành đúng tổng cung lấy từ bảng dự án', (
   });
 
   /**
-   * Chốt chặn cho việc "tổng cung không đến từ input".
+   * Chốt chặn cho việc "TRẦN không đến từ input".
    *
-   * Nếu ai thêm một trường số lượng vào schema thì ca này đỏ: giá trị lạ truyền vào bị bỏ qua, và
-   * hệ thống vẫn phát hành đúng con số trong bảng dự án.
+   * Từ BE-12 input được chọn số lượng LẦN NÀY (`amount`), nhưng trần vẫn chỉ đọc từ bảng dự án:
+   * truyền `totalSupply` vào không đổi được trần, và `amount` vượt trần bị chặn.
    */
-  it('số lượng truyền thêm vào input bị BỎ QUA, không đặt được quy mô phát hành', async () => {
+  it('trần lấy từ bảng dự án: totalSupply truyền vào bị BỎ QUA, amount vượt trần bị chặn', async () => {
     const { issueInitialSupply } = await services();
     await whitelistSpv();
 
-    const result = await issueInitialSupply({
+    const over = await issueInitialSupply({
       chain: CHAIN,
       spvWallet: SPV,
+      amount: String(BigInt(WPT_TOTAL_SUPPLY) + 1n),
       // Không có trong schema — phải không có tác dụng gì.
-      amount: '999',
-      totalSupply: '1',
+      totalSupply: String(BigInt(WPT_TOTAL_SUPPLY) * 2n),
     });
 
-    expect(result.ok, result.ok ? '' : result.error).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.amount).toBe(String(WPT_TOTAL_SUPPLY));
+    expect(over.ok).toBe(false);
+    if (over.ok) return;
+    expect(over.code).toBe('ISSUANCE_CAP');
+    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(0n);
   });
 
   it('đổi tổng cung trong bảng dự án thì phát hành theo con số mới', async () => {
@@ -164,7 +165,7 @@ describe('ca 4 — phát hành đúng tổng cung lấy từ bảng dự án', (
   });
 });
 
-describe('ca 4 — phát hành lần hai bị từ chối', () => {
+describe('ca 4 — đã chạm trần thì lần sau bị từ chối', () => {
   it('lần hai bị từ chối và KHÔNG làm phình tổng cung', async () => {
     const { issueInitialSupply } = await services();
     await whitelistSpv();
@@ -176,7 +177,7 @@ describe('ca 4 — phát hành lần hai bị từ chối', () => {
 
     expect(second.ok).toBe(false);
     if (second.ok) return;
-    expect(second.code).toBe('ORDER_STATE');
+    expect(second.code).toBe('ISSUANCE_CAP');
 
     // Đây là phát biểu quan trọng nhất của cả tệp: tổng cung không đổi.
     const info = await (await mockLedger()).tokenInfo();
@@ -233,6 +234,83 @@ describe('ca 4 — phát hành lần hai bị từ chối', () => {
     expect(result.error).toMatch(/đối soát/i);
     // Tổng cung vẫn là con số của lần phát hành thẳng, không cộng thêm.
     expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(500n);
+  });
+});
+
+/**
+ * BE-12 CA 7 — PHÁT HÀNH NHIỀU LẦN TỚI KHI CHẠM TRẦN, LẦN VƯỢT TRẦN BỊ CHẶN.
+ *
+ * Trần đọc từ bảng dự án (`WPT_TOTAL_SUPPLY` là giá trị khởi tạo của dòng đó), không gõ lại số.
+ */
+describe('ca 7 — phát hành nhiều lần theo trần còn lại', () => {
+  const CAP = BigInt(WPT_TOTAL_SUPPLY);
+  const QUARTER = CAP / 4n;
+
+  it('bốn lần một phần tư thì chạm đúng trần; lần thứ năm dù chỉ 1 token cũng bị chặn', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+
+    for (let round = 1n; round <= 4n; round += 1n) {
+      const result = await issueInitialSupply({
+        chain: CHAIN,
+        spvWallet: SPV,
+        amount: String(QUARTER),
+      });
+      expect(result.ok, result.ok ? '' : result.error).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.totalSupplyOnChain).toBe(String(QUARTER * round));
+      expect(result.data.remainingCap).toBe(String(CAP - QUARTER * round));
+    }
+
+    const over = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '1' });
+    expect(over.ok).toBe(false);
+    if (over.ok) return;
+    expect(over.code).toBe('ISSUANCE_CAP');
+    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(CAP);
+  });
+
+  it('lần vượt trần còn lại bị chặn TRƯỚC khi gửi giao dịch, sổ giao dịch không thêm dòng', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+
+    await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: String(CAP - 10n) });
+    const over = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '11' });
+
+    expect(over.ok).toBe(false);
+    const txns = await getStore().listTxns({ chain: CHAIN });
+    expect(txns.filter((txn) => txn.operation === 'mint')).toHaveLength(0);
+    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(CAP - 10n);
+  });
+
+  it('lần đầu qua mintInitialSupply, các lần sau qua mint — và mốc phát hành là mốc lần đầu', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+
+    const first = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '100' });
+    const second = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '200' });
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+
+    const operations = (await getStore().listTxns({ chain: CHAIN }))
+      .map((txn) => txn.operation)
+      .filter((op) => op === 'mint' || op === 'mintInitialSupply')
+      .sort();
+    expect(operations).toEqual(['mint', 'mintInitialSupply']);
+    expect(second.data.issuedAt).toBe(first.data.issuedAt);
+  });
+
+  it('các lần sau chỉ vào đúng ví SPV chuỗi đã ghi', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+    await (await mockLedger()).whitelist(INVESTOR);
+
+    await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '100' });
+    const elsewhere = await issueInitialSupply({ chain: CHAIN, spvWallet: INVESTOR, amount: '1' });
+
+    expect(elsewhere.ok).toBe(false);
+    if (elsewhere.ok) return;
+    expect(elsewhere.code).toBe('VALIDATION');
+    expect(await (await mockLedger()).balanceOf(INVESTOR)).toBe(0n);
   });
 });
 
@@ -316,6 +394,7 @@ describe('trạng thái phát hành: con số dự kiến đứng cạnh con s�
     if (!result.ok) return;
     expect(result.data.plannedTotalSupply).toBe(String(WPT_TOTAL_SUPPLY));
     expect(result.data.totalSupplyOnChain).toBe('0');
+    expect(result.data.remainingCap).toBe(String(WPT_TOTAL_SUPPLY));
     expect(result.data.issuedAt).toBeNull();
     expect(result.data.spvWallet).toBeNull();
   });
@@ -330,6 +409,7 @@ describe('trạng thái phát hành: con số dự kiến đứng cạnh con s�
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.totalSupplyOnChain).toBe(result.data.plannedTotalSupply);
+    expect(result.data.remainingCap).toBe('0');
     expect(result.data.issuedAt).not.toBeNull();
     expect(result.data.spvWallet?.toLowerCase()).toBe(SPV.toLowerCase());
   });

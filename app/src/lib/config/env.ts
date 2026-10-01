@@ -135,6 +135,15 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => (value && value.trim() !== '' ? value.trim().toUpperCase() : 'TELLER')),
+
+  /**
+   * Mã tài khoản giả lập cho PoC (BE-12) — AU-01 thay bằng tài khoản của phiên đăng nhập.
+   * Trống thì `currentActorId()` lấy mã tài khoản mẫu của vai đang có hiệu lực.
+   */
+  demoActor: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim() !== '' ? value.trim() : undefined)),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;
@@ -162,6 +171,7 @@ function load(): ServerEnv {
     // browser thì mọi người xem trang đều đọc được.
     keeperSecret: process.env.KEEPER_SECRET,
     demoRole: process.env.DEMO_ROLE ?? process.env.NEXT_PUBLIC_DEMO_ROLE,
+    demoActor: process.env.DEMO_ACTOR,
   });
 
   if (!parsed.success) {
