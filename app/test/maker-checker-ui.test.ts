@@ -6,7 +6,12 @@ import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { TOKEN_REQUEST_STATUSES } from '@/lib/store/token-request.store.port';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
-import { STATUS_LABELS } from '@/components/maker-checker/gates';
+import {
+  STATUS_LABELS,
+  burnSourceEffect,
+  submitBlockReason,
+  type PreviewState,
+} from '@/components/maker-checker/gates';
 
 /**
  * FE-22 — màn Lập lệnh và Phê duyệt lệnh.
@@ -180,5 +185,120 @@ describe('ca 1 — nhập ký hiệu token thì khối thông tin token tự đ�
     const result = await getTokenInfo({ chain: CHAIN, tokenSymbol: WPT_TOKEN_SYMBOL });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe('FORBIDDEN');
+  });
+});
+
+// ===========================================================================
+//  Bước 2 — màn Lập lệnh
+// ===========================================================================
+
+/** Khối kiểm tra đúng như màn hình nhận: gọi đúng hàm xem trước mà server action bọc. */
+async function previewState(input: Record<string, unknown>): Promise<PreviewState> {
+  const { previewTokenRequest } = await service();
+  const result = await previewTokenRequest(input);
+  if (!result.ok) throw new Error(result.error);
+  return { kind: 'checked', checks: result.data.checks, allPassed: result.data.allPassed };
+}
+
+describe('ca 2 — số lượng vượt trần còn lại thì nút gửi bị khoá, hiện đúng lý do', () => {
+  it('khối kiểm tra máy chủ trả "cap" trượt; nút gửi khoá và lý do nêu đúng trần còn lại', async () => {
+    await issueViaApproval(CAP - 100n);
+
+    const preview = await previewState(mintInput(101n));
+    const reason = submitBlockReason(preview);
+
+    expect(reason).not.toBeNull();
+    expect(reason).toMatch(/Không vượt trần còn lại/);
+    expect(reason).toMatch(/trần còn lại 100/);
+    // Chỉ điều kiện trần trượt — lý do không lẫn điều kiện đạt.
+    expect(reason).not.toMatch(/Ví đích hợp lệ/);
+  });
+
+  it('đúng bằng trần còn lại thì mọi điều kiện đạt và nút gửi mở', async () => {
+    await issueViaApproval(CAP - 100n);
+    expect(submitBlockReason(await previewState(mintInput(100n)))).toBeNull();
+  });
+
+  it('chưa có kết quả kiểm tra thì nút gửi khoá — không mở trước khi máy chủ trả lời', () => {
+    expect(submitBlockReason({ kind: 'idle' })).not.toBeNull();
+    expect(submitBlockReason({ kind: 'loading' })).toMatch(/Đang kiểm tra/);
+    expect(submitBlockReason({ kind: 'invalid', message: 'Lý do: Phải nêu lý do.' })).toMatch(/lý do/);
+  });
+});
+
+describe('ca 3 — gửi xong thì yêu cầu chờ duyệt, số việc chờ của Kiểm soát viên tăng', () => {
+  it('lập yêu cầu: trạng thái PENDING, số liệu cả hai màn và số cạnh menu đều tăng', async () => {
+    const { countPendingWork, getApprovalStats, getDraftStats, listTokenRequests } = await service();
+    await issueViaApproval(1000n);
+
+    controller();
+    const before = await getApprovalStats();
+    expect(before.ok).toBe(true);
+    if (!before.ok) return;
+
+    const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+
+    const mine = await listTokenRequests({ mine: true, type: 'BURN' });
+    expect(mine.ok && mine.data.map((r) => [r.id, r.status])).toEqual([[id, 'PENDING']]);
+    const drafted = await getDraftStats();
+    expect(drafted.ok && drafted.data).toEqual({ pendingMint: 0, pendingBurn: 1 });
+
+    controller();
+    const after = await getApprovalStats();
+    expect(after.ok && after.data.pending).toBe(before.data.pending + 1);
+    expect(await countPendingWork('CONTROLLER', SAMPLE_ACCOUNTS.controller)).toEqual({
+      draft: 0,
+      approval: before.data.pending + 1,
+    });
+  });
+
+  it('bảng "yêu cầu đã lập" chỉ chứa yêu cầu của chính người lập', async () => {
+    const { listTokenRequests } = await service();
+    await issueViaApproval(1000n);
+    const own = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+    actAs('TELLER', 'GDV002');
+    const { createTokenRequest } = await service();
+    const other = await createTokenRequest(burnInput(20n, 'UNDISTRIBUTED'));
+    expect(other.ok).toBe(true);
+
+    teller();
+    const mine = await listTokenRequests({ mine: true });
+    expect(mine.ok && mine.data.map((r) => r.id)).toEqual(
+      expect.arrayContaining([own]),
+    );
+    expect(mine.ok && mine.data.every((r) => r.makerId === SAMPLE_ACCOUNTS.teller)).toBe(true);
+    // Không có cờ thì vẫn thấy toàn bộ (hàng chờ của Kiểm soát viên dùng đường này).
+    const all = await listTokenRequests({ type: 'BURN' });
+    expect(all.ok && all.data).toHaveLength(2);
+  });
+});
+
+describe('ca 4 — chọn nguồn toàn bộ nguồn cung thì có cảnh báo xác nhận lại', () => {
+  it('tự điền số lượng bằng tổng cung máy chủ trả, kèm cảnh báo và đòi xác nhận', async () => {
+    const { getTokenInfo } = await service();
+    await issueViaApproval(1000n);
+    const info = await getTokenInfo({ chain: CHAIN, tokenSymbol: WPT_TOKEN_SYMBOL });
+    expect(info.ok).toBe(true);
+    if (!info.ok) return;
+
+    const effect = burnSourceEffect('TOTAL_SUPPLY', info.data.totalSupply);
+
+    expect(effect.amount).toBe('1000');
+    expect(effect.needsConfirmation).toBe(true);
+    expect(effect.warning).toMatch(/TOÀN BỘ nguồn cung \(1\.000 token\)/);
+    expect(burnSourceEffect('UNDISTRIBUTED', info.data.totalSupply)).toEqual({
+      amount: null,
+      needsConfirmation: false,
+      warning: null,
+    });
+  });
+
+  it('mọi điều kiện đạt nhưng chưa xác nhận lại thì nút gửi vẫn khoá', async () => {
+    await issueViaApproval(1000n);
+    const preview = await previewState(burnInput(1000n, 'TOTAL_SUPPLY'));
+    expect(preview.kind === 'checked' && preview.allPassed).toBe(true);
+
+    expect(submitBlockReason(preview, true)).toMatch(/xác nhận lại/);
+    expect(submitBlockReason(preview, false)).toBeNull();
   });
 });

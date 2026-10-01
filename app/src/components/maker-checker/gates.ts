@@ -29,13 +29,28 @@ export type PreviewState =
   | { kind: 'checked'; checks: RequestCheck[]; allPassed: boolean }
   | { kind: 'invalid'; message: string; fieldErrors?: Record<string, string[]> };
 
+/** Tên trường của schema lập yêu cầu, đọc được với người dùng. */
+const FIELD_LABELS: Record<string, string> = {
+  chain: 'Chuỗi',
+  tokenSymbol: 'Token',
+  amount: 'Số lượng',
+  wallet: 'Ví đích',
+  burnSource: 'Nguồn',
+  reason: 'Lý do',
+  documentRef: 'Chứng từ',
+  effectiveDate: 'Ngày hiệu lực',
+  note: 'Ghi chú',
+};
+
 /** Mô tả lỗi dữ liệu vào của máy chủ thành một câu đọc được. */
 export function describeInvalid(
   message: string,
   fieldErrors: Record<string, string[] | undefined> | undefined,
 ): string {
   const details = Object.entries(fieldErrors ?? {})
-    .flatMap(([field, errors]) => (errors ?? []).map((error) => `${field}: ${error}`))
+    .flatMap(([field, errors]) =>
+      (errors ?? []).map((error) => `${FIELD_LABELS[field] ?? field}: ${error}`),
+    )
     .join('; ');
   return details ? `${message} ${details}` : message;
 }
