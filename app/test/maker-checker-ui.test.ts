@@ -9,6 +9,8 @@ import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
 import {
   STATUS_LABELS,
   burnSourceEffect,
+  decisionBlockReason,
+  rejectBlockReason,
   submitBlockReason,
   type PreviewState,
 } from '@/components/maker-checker/gates';
@@ -300,5 +302,151 @@ describe('ca 4 — chọn nguồn toàn bộ nguồn cung thì có cảnh báo x
 
     expect(submitBlockReason(preview, true)).toMatch(/xác nhận lại/);
     expect(submitBlockReason(preview, false)).toBeNull();
+  });
+});
+
+// ===========================================================================
+//  Bước 3 — màn Phê duyệt lệnh
+// ===========================================================================
+
+describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồn cung đổi, nhật ký thêm một dòng', () => {
+  it('Mint: COMPLETED, tổng cung và số còn được phát hành đổi theo, nhật ký 1 → 2 dòng', async () => {
+    const { approveTokenRequest, getTokenRequestDetail } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(mintInput(500n));
+
+    controller();
+    const before = await getTokenRequestDetail({ requestId: id });
+    expect(before.ok).toBe(true);
+    if (!before.ok) return;
+    expect(before.data.request.status).toBe('PENDING');
+    expect(before.data.timeline).toHaveLength(1);
+    expect(before.data.token?.totalSupply).toBe('1000');
+    expect(decisionBlockReason(before.data)).toBeNull();
+
+    const approved = await approveTokenRequest({ requestId: id });
+    expect(approved.ok, approved.ok ? '' : approved.error).toBe(true);
+
+    const after = await getTokenRequestDetail({ requestId: id });
+    expect(after.ok).toBe(true);
+    if (!after.ok) return;
+    expect(after.data.request.status).toBe('COMPLETED');
+    expect(after.data.token).toMatchObject({
+      totalSupply: '1500',
+      remaining: (CAP - 1500n).toString(),
+      undistributed: '1500',
+    });
+    expect(after.data.timeline).toHaveLength(2);
+    expect(after.data.timeline[1]).toMatchObject({
+      actor: SAMPLE_ACCOUNTS.controller,
+      label: 'Chấp nhận, hoàn tất trên chuỗi',
+      detail: after.data.request.txHash,
+    });
+    // Đã xử lý thì nút bị khoá kèm trạng thái, không cho bấm lần nữa.
+    expect(decisionBlockReason(after.data)).toMatch(/Hoàn tất/);
+  });
+
+  it('Burn: tổng cung giảm; thẻ "đã duyệt hôm nay" tăng', async () => {
+    const { approveTokenRequest, getApprovalStats, getTokenRequestDetail } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(burnInput(400n, 'UNDISTRIBUTED'));
+
+    controller();
+    const before = await getApprovalStats();
+    expect(before.ok && before.data).toMatchObject({ pending: 1 });
+    expect((await approveTokenRequest({ requestId: id })).ok).toBe(true);
+
+    const detail = await getTokenRequestDetail({ requestId: id });
+    expect(detail.ok && detail.data.token?.totalSupply).toBe('600');
+    const after = await getApprovalStats();
+    expect(after.ok && before.ok && after.data).toEqual({
+      pending: 0,
+      approvedToday: before.data.approvedToday + 1,
+      rejectedToday: before.data.rejectedToday,
+    });
+  });
+});
+
+describe('ca 6 — từ chối không nhập lý do thì nút bị khoá', () => {
+  it('lý do rỗng hoặc toàn khoảng trắng thì khoá; có lý do thì mở', () => {
+    expect(rejectBlockReason('')).toMatch(/Phải nhập lý do/);
+    expect(rejectBlockReason('   ')).toMatch(/Phải nhập lý do/);
+    expect(rejectBlockReason('sai chứng từ')).toBeNull();
+  });
+
+  it('từ chối có lý do: REJECTED, nhật ký thêm dòng kèm lý do, thẻ "đã từ chối hôm nay" tăng', async () => {
+    const { getApprovalStats, getTokenRequestDetail, rejectTokenRequest } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+
+    controller();
+    const before = await getApprovalStats();
+    if (!before.ok) throw new Error(before.error);
+    // Máy chủ cũng chặn — giao diện khoá trước để người dùng không phải bấm rồi mới thấy lỗi.
+    expect((await rejectTokenRequest({ requestId: id, reason: '  ' })).ok).toBe(false);
+    expect((await rejectTokenRequest({ requestId: id, reason: 'sai chứng từ' })).ok).toBe(true);
+
+    const detail = await getTokenRequestDetail({ requestId: id });
+    expect(detail.ok && detail.data.timeline.map((e) => e.label)).toEqual([
+      'Lập yêu cầu, chờ duyệt',
+      'Từ chối',
+    ]);
+    expect(detail.ok && detail.data.timeline[1].detail).toBe('sai chứng từ');
+    const after = await getApprovalStats();
+    expect(after.ok && after.data.rejectedToday).toBe(before.data.rejectedToday + 1);
+  });
+});
+
+describe('ca 8 — yêu cầu do chính mình lập thì nút duyệt bị khoá kèm lý do', () => {
+  it('người xem là người lập: máy chủ trả lý do, nút chấp nhận và từ chối cùng khoá', async () => {
+    const { approveTokenRequest, getTokenRequestDetail } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+
+    // Cùng mã tài khoản người lập, mang vai Kiểm soát viên.
+    controller(SAMPLE_ACCOUNTS.teller);
+    const detail = await getTokenRequestDetail({ requestId: id });
+    expect(detail.ok).toBe(true);
+    if (!detail.ok) return;
+    expect(detail.data.selfApprovalReason).toMatch(new RegExp(`${SAMPLE_ACCOUNTS.teller}.*đã lập yêu cầu này`));
+    expect(decisionBlockReason(detail.data)).toBe(detail.data.selfApprovalReason);
+
+    // Lý do giao diện báo trước khớp với điều máy chủ thật sự làm.
+    const forced = await approveTokenRequest({ requestId: id });
+    expect(forced.ok).toBe(false);
+    if (!forced.ok) expect(forced.code).toBe('SELF_APPROVAL');
+  });
+
+  it('người xem khác người lập: không có lý do khoá', async () => {
+    const { getTokenRequestDetail } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+    controller();
+    const detail = await getTokenRequestDetail({ requestId: id });
+    expect(detail.ok && detail.data.selfApprovalReason).toBeNull();
+  });
+});
+
+describe('việc 13 — hai trạng thái trung gian hiện ra, không bị giấu', () => {
+  it('FAILED: nhật ký nêu thất bại kèm lý do; EXECUTING: nêu đang xử lý', async () => {
+    const { getTokenRequestDetail } = await service();
+    const { getTokenRequestStore } = await import('@/lib/store');
+    await issueViaApproval(1000n);
+    const failedId = await draft(burnInput(10n, 'UNDISTRIBUTED'));
+    const store = getTokenRequestStore();
+    await store.transitionRequest({ id: failedId, from: ['PENDING'], to: 'EXECUTING', checkerId: 'KSV001', checkerRole: 'CONTROLLER' });
+    await store.transitionRequest({ id: failedId, from: ['EXECUTING'], to: 'FAILED', failureReason: 'chuỗi từ chối' });
+    const execId = await draft(mintInput(10n));
+    await store.transitionRequest({ id: execId, from: ['PENDING'], to: 'EXECUTING', checkerId: 'KSV001', checkerRole: 'CONTROLLER' });
+
+    controller();
+    const failed = await getTokenRequestDetail({ requestId: failedId });
+    expect(failed.ok && failed.data.timeline[1]).toMatchObject({
+      label: 'Chấp nhận, thất bại khi thực hiện',
+      detail: 'chuỗi từ chối',
+    });
+    const executing = await getTokenRequestDetail({ requestId: execId });
+    expect(executing.ok && executing.data.timeline[1].label).toBe('Chấp nhận, đang xử lý trên chuỗi');
+    expect(executing.ok && decisionBlockReason(executing.data)).toMatch(/Đang xử lý/);
   });
 });

@@ -852,7 +852,12 @@ export interface TokenRequestDetailView {
   timeline: TimelineEntry[];
 }
 
-/** Nhật ký dựng từ các mốc đã lưu trên chính yêu cầu — không có dòng nào suy đoán. */
+/**
+ * Nhật ký dựng từ các mốc đã lưu trên chính yêu cầu — không có dòng nào suy đoán.
+ *
+ * Mỗi quyết định là MỘT dòng, nhãn theo kết cục hiện tại: chấp nhận rồi hoàn tất là một việc của
+ * Kiểm soát viên, tách hai dòng thì nhật ký trông như có hai người làm hai việc.
+ */
 function timelineOf(request: TokenRequestRecord): TimelineEntry[] {
   const entries: TimelineEntry[] = [
     {
@@ -862,42 +867,30 @@ function timelineOf(request: TokenRequestRecord): TimelineEntry[] {
       detail: request.reason,
     },
   ];
-  if (request.decidedAt) {
-    entries.push(
-      request.status === 'REJECTED'
-        ? {
-            at: request.decidedAt,
-            actor: request.checkerId,
-            label: 'Từ chối',
-            detail: request.rejectReason,
-          }
-        : {
-            at: request.decidedAt,
-            actor: request.checkerId,
-            label: 'Chấp nhận, bắt đầu thực hiện trên chuỗi',
-            detail: null,
-          },
-    );
-  }
-  if (request.status === 'EXECUTING' && request.txHash) {
-    entries.push({
-      at: request.updatedAt,
-      actor: null,
-      label: 'Đã gửi giao dịch, chưa biết kết cục — cần đối soát',
-      detail: request.txHash,
-    });
-  }
-  if (request.completedAt) {
-    entries.push(
-      request.status === 'COMPLETED'
-        ? { at: request.completedAt, actor: null, label: 'Hoàn tất trên chuỗi', detail: request.txHash }
-        : {
-            at: request.completedAt,
-            actor: null,
-            label: 'Thất bại khi thực hiện',
-            detail: request.failureReason,
-          },
-    );
+  if (!request.decidedAt) return entries;
+
+  const decided = { at: request.completedAt ?? request.decidedAt, actor: request.checkerId };
+  switch (request.status) {
+    case 'REJECTED':
+      entries.push({ ...decided, label: 'Từ chối', detail: request.rejectReason });
+      break;
+    case 'COMPLETED':
+      entries.push({ ...decided, label: 'Chấp nhận, hoàn tất trên chuỗi', detail: request.txHash });
+      break;
+    case 'FAILED':
+      entries.push({ ...decided, label: 'Chấp nhận, thất bại khi thực hiện', detail: request.failureReason });
+      break;
+    case 'EXECUTING':
+      entries.push({
+        ...decided,
+        label: 'Chấp nhận, đang xử lý trên chuỗi',
+        detail: request.txHash
+          ? `Đã gửi giao dịch ${request.txHash}, chưa biết kết cục — cần đối soát.`
+          : null,
+      });
+      break;
+    case 'PENDING':
+      break;
   }
   return entries;
 }
