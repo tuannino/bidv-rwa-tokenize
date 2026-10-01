@@ -1290,7 +1290,7 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**34 điểm cắm · 12 điểm chặn**, nhóm theo task đang chờ.
+**29 điểm cắm · 12 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
@@ -1320,11 +1320,6 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-22` | cắm | `app/src/app/(control)/approvals/page.tsx:4` | đường dẫn /approvals, cổng ops:approve:read (chặn Giao dịch viên) và mục menu "Phê duyệt lệnh" kèm số việc chờ đã chạy — FE-22 chỉ thay phần thân |
 | `FE-22` | cắm | `app/src/app/(ops-draft)/draft/page.tsx:4` | đường dẫn /draft, cổng ops:draft:read (chặn Kiểm soát viên) và mục menu "Lập lệnh" kèm số việc chờ đã chạy — FE-22 chỉ thay phần thân |
-| `FE-22` | cắm | `app/src/app/actions/token-request.ts:19` | previewTokenRequestAction đã sẵn: trả khối kiểm tra đủ mọi điều kiện (quyền lập, dự án, trần còn lại, ví đích, yêu cầu đang chờ; Burn: phần chưa phân phối, token lưu hành) kèm trạng thái từng dòng, không ghi gì — màn Lập lệnh chỉ cần hiển thị |
-| `FE-22` | cắm | `app/src/app/actions/token-request.ts:24` | createTokenRequestAction đã sẵn: validate Zod, kiểm quyền order:draft, kiểm lại điều kiện, ghi yêu cầu PENDING (chưa tác động token) và sổ kiểm toán; trượt thì trả REQUEST_CHECK với fieldErrors khoá theo mã điều kiện |
-| `FE-22` | cắm | `app/src/app/actions/token-request.ts:29` | approveTokenRequestAction đã sẵn: kiểm quyền order:approve, chặn người lập tự duyệt, kiểm lại toàn bộ điều kiện lúc duyệt, chiếm quyền bằng UPDATE có điều kiện rồi thực hiện trên ví SPV và ghi mã giao dịch |
-| `FE-22` | cắm | `app/src/app/actions/token-request.ts:34` | rejectTokenRequestAction đã sẵn: bắt buộc lý do, kiểm quyền order:approve, chặn tự từ chối, chuyển REJECTED không tác động token, ghi sổ kể cả lần bị chặn |
-| `FE-22` | cắm | `app/src/app/actions/token-request.ts:39` | listTokenRequestsAction đã sẵn: lọc theo chuỗi, loại, trạng thái, mới nhất trước; mở cho hai vai vận hành qua ops:read |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `FE-24` | cắm | `app/src/app/(account)/account/page.tsx:4` | đường dẫn /account, cổng balance:read (cả bốn vai) và mục menu "Thông tin tài khoản" của cả bốn vai đã chạy — FE-24 chỉ thay phần thân trang này |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:344` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `profitPoolBalance` rồi so với mốc `distribution.last_settled_balance`, có chặn ngưỡng tối thiểu và có phát hiện số dư giảm. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào ví lợi nhuận do Indexer đọc được, giữ nguyên bốn nhánh quyết định và nguyên phần chia ở `runDistributionCycle`. Đổi được vì mốc số dư vẫn là thứ chốt "đã xử lý tới đâu", sự kiện chỉ thay việc hỏi định kỳ |
