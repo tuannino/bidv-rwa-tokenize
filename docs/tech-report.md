@@ -1286,12 +1286,13 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**36 điểm cắm · 12 điểm chặn**, nhóm theo task đang chờ.
+**34 điểm cắm · 12 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
 | `BE-05` | cắm | `app/src/lib/store/index.ts:189` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-13` | cắm | `app/src/components/pages/seller-withdraw.tsx:73` | biểu mẫu, hạn mức đọc từ cấu hình, khoá nút khi vượt hạn mức, hộp mã một lần và bảng yêu cầu đã chạy trên dữ liệu tạm — BE-13 chỉ thay thân hàm này bằng lời gọi server action tạo lệnh, kiểm mã và đọc yêu cầu rút |
 | `FE-05` | cắm | `app/src/app/(investor)/trade/page.tsx:4` | đường dẫn /trade, cổng portfolio:read và mục menu "Giao dịch token" đã chạy; previewPurchaseAction và placeOrderAction cũng đã xong đầu cuối — FE-05 chỉ thay phần thân trang này |
 | `FE-05` | cắm | `app/src/app/actions/purchase.ts:33` | đã sẵn đầu cuối ở `previewPurchase`: kiểm quyền `order:place`, báo giá, chạy ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy, trả `canPlaceOrder` + `blockers` + `howToFix` cho từng phép kiểm. Màn mua WPT chỉ cần gọi và hiển thị. FE-05 PHẢI chống gọi dồn: hàm này gọi được sau mỗi ký tự người dùng gõ vào ô số lượng, nên màn hình phải hoãn lời gọi và bỏ phản hồi đã cũ — service KHÔNG có bộ nhớ đệm, và cũng không nên có |
 | `FE-05` | cắm | `app/src/app/actions/purchase.ts:41` | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), kiểm điều kiện trước khi tạo bản ghi, CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result` |
@@ -1313,9 +1314,6 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-08` | cắm | `app/src/app/actions/distribution.ts:86` | vỏ mỏng quanh `listDistributionRuns` đã sẵn: kiểm quyền `reconcile:read`, trả lịch chạy mới nhất trước, đã tách khoá ghép thành `periodKey` + `runNo`. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán nên màn theo dõi gọi lại theo chu kỳ được |
 | `FE-08` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:739` | đã sẵn đầu cuối: kiểm quyền `reconcile:read`, đọc bảng `KeeperRun` của công việc chia tự động, tách khoá ghép thành `periodKey` + `runNo` nên màn hình không phải tự bóc chuỗi. FE-08 chỉ cần gọi rồi dựng bảng lịch chạy; `status` `FAILED` kèm `error` khác null là dòng cần người xem, và nhiều dòng cùng `periodKey` với `runNo` tăng dần là một kỳ đang chia nhiều vòng |
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
-| `FE-21` | cắm | `app/src/app/(seller)/seller/page.tsx:4` | đường dẫn /seller, cổng seller:read và toàn bộ menu Người bán đã chạy; đây là trang mặc định của vai khi đổi sang Người bán — FE-21 chỉ thay phần thân |
-| `FE-21` | cắm | `app/src/app/(seller)/seller/transactions/page.tsx:4` | đường dẫn /seller/transactions, cổng seller:read và mục menu "Danh sách giao dịch" đã chạy — FE-21 chỉ thay phần thân |
-| `FE-21` | cắm | `app/src/app/(seller)/seller/withdraw/page.tsx:4` | đường dẫn /seller/withdraw, cổng seller:read và mục menu "Tạo lệnh rút" đã chạy — FE-21 chỉ thay phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `FE-22` | cắm | `app/src/app/(control)/approvals/page.tsx:4` | đường dẫn /approvals, cổng ops:approve:read (chặn Giao dịch viên) và mục menu "Phê duyệt lệnh" kèm số việc chờ đã chạy — FE-22 chỉ thay phần thân |
 | `FE-22` | cắm | `app/src/app/(ops-draft)/draft/page.tsx:4` | đường dẫn /draft, cổng ops:draft:read (chặn Kiểm soát viên) và mục menu "Lập lệnh" kèm số việc chờ đã chạy — FE-22 chỉ thay phần thân |
 | `FE-22` | cắm | `app/src/app/actions/token-request.ts:19` | previewTokenRequestAction đã sẵn: trả khối kiểm tra đủ mọi điều kiện (quyền lập, dự án, trần còn lại, ví đích, yêu cầu đang chờ; Burn: phần chưa phân phối, token lưu hành) kèm trạng thái từng dòng, không ghi gì — màn Lập lệnh chỉ cần hiển thị |
