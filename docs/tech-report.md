@@ -9,12 +9,12 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 2.6 |
-| Cập nhật lần cuối | 2026-09-30 |
-| Nhánh / commit | `feat/four-roles-shell`, nền `dev` @ `a9a60c6` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_FE20.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7) |
-| Đang chờ nghiệm thu | **FE-20** (khung bốn vai trò theo tài liệu yêu cầu — xem 1.1 và 3.3, checkpoint `docs/CHECKPOINT_FE20.md`) |
-| Phase kế tiếp | BE-12 nghiệp vụ lập–duyệt (maker-checker) + số việc đang chờ thật → FE-21/FE-22 màn Người bán và cặp lập–duyệt → BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer |
+| Phiên bản tài liệu | 2.7 |
+| Cập nhật lần cuối | 2026-10-01 |
+| Nhánh / commit | `feat/maker-checker`, nền `dev` @ `ae7e248` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE12.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15) |
+| Đang chờ nghiệm thu | **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần theo trần còn lại — xem 3.3, 3.4 và 4.3, checkpoint `docs/CHECKPOINT_BE12.md`) |
+| Phase kế tiếp | FE-21/FE-22 màn Người bán và cặp lập–duyệt → BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer |
 | Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
@@ -81,6 +81,20 @@ thuộc. Ba đổi hành vi cần đọc kỹ:
 3. **Phần Soroban không còn trong khâu kiểm chứng.** `run-local-all.sh` không gọi `cargo`, và bộ
    công cụ Rust không còn là thứ phải có trong môi trường làm việc. Mã nguồn Stellar **giữ
    nguyên** — xem 2.6 để biết chỗ nào được gỡ, chỗ nào phải để yên.
+
+**2.6 → 2.7 (BE-12).** Một bảng dữ liệu mới (`TokenRequest`), một cổng lưu trữ mới (tám cổng), hai
+quyền RBAC mới (31 action), một service nghiệp vụ mới, năm server action mới, bốn mã lỗi mới.
+**Không** thêm method nào vào `ILedgerPort` (vẫn 29), **không** thêm tầng, ba luật không bị chạm.
+Ba đổi hành vi cần đọc kỹ:
+
+1. **Phát hành không còn là MỘT LẦN.** `issueInitialSupply` nhận `amount` tuỳ chọn và chặn mọi lần
+   vượt **trần còn lại** = `Project.totalSupply` − tổng cung trên chuỗi (mã `ISSUANCE_CAP`). Bỏ
+   trống `amount` thì phát hành hết phần còn lại — lần gọi đầu như vậy cho đúng kết quả cũ. Lần
+   thứ hai sau khi chạm trần nay trả `ISSUANCE_CAP`, không còn là `ORDER_STATE`. Xem 4.3.
+2. **`CONTROLLER` có quyền ghi đầu tiên: `order:approve`.** Lần duyệt tác động token qua đường nội
+   bộ của `lib/bank`, **không** qua `token:mint` — Kiểm soát viên vẫn không tự phát hành được.
+3. **`pendingWorkCounts()` đọc cơ sở dữ liệu và thành `server-only`.** Đọc lỗi thì trả 0 kèm log,
+   không ném, vì `AppLayout` gọi nó trên mọi trang.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -750,17 +764,17 @@ giới hạn khoảng block.
 
 | File | Vai trò |
 |---|---|
-| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 29 action |
+| `permissions.ts` | Bảng dữ liệu thuần: 4 role × 31 action |
 | `can.ts` | `can(role, action)` + `assertCan()` + `permissionsOf()` — **điểm kiểm quyền duy nhất** |
-| `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role` |
+| `session.ts` | `currentRole()` — đọc vai trò hiện tại từ cookie `bidv_role`; `currentActorId(role)` (BE-12) — mã tài khoản người thao tác, `DEMO_ACTOR` hoặc mã mẫu của vai (`SAMPLE_ACCOUNTS`), AU-01 sẽ thay bằng phiên đăng nhập |
 | `demo-payment.ts` | Chốt chặn **hai lớp** riêng cho `demo:mint-payment`: `canMintDemoPayment()`, `assertCanMintDemoPayment()`, `DemoPaymentMintDisabledError` |
 | `config-role.ts` | Chốt chặn **hai lớp** cho việc đổi tham số hệ thống (BE-04): `CONFIG_ROLES`, `isConfigRole()`, `assertCanConfigure()`, `NotConfigRoleError`. Thứ tự là **RBAC trước, `isConfig` sau** — ngược `demo-payment.ts`, vì lớp thứ hai ở đây gắn với TỪNG VAI nên phải biết vai nào rồi mới trả lời được |
 | `area-gates.ts` | `AREAS`, `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực giao diện (FE-20). Dữ liệu thuần, **không** nằm trong JSX của layout: layout là Server Component nên không unit-test được, mà DoD đòi kiểm chặn cả hai chiều |
 
-**Ma trận quyền (đủ 29 action, tên đúng như trong `ACTIONS`):**
+**Ma trận quyền (đủ 31 action, tên đúng như trong `ACTIONS`):**
 
 Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho ba luồng), **BE-02**
-(nghiệp vụ lệnh mua), **FE-20** (cổng khu vực giao diện). Action không ghi nguồn là có từ P1.
+(nghiệp vụ lệnh mua), **FE-20** (cổng khu vực giao diện), **BE-12** (lập–duyệt). Action không ghi nguồn là có từ P1.
 
 | Action | INVESTOR | SELLER | TELLER | CONTROLLER | Nguồn |
 |---|:--:|:--:|:--:|:--:|:--:|
@@ -793,6 +807,8 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 | `ops:read` | ❌ | ❌ | ✅ | ✅ | FE-20 |
 | `ops:draft:read` | ❌ | ❌ | ✅ | ❌ | FE-20 |
 | `ops:approve:read` | ❌ | ❌ | ❌ | ✅ | FE-20 |
+| `order:draft` | ❌ | ❌ | ✅ | ❌ | BE-12 |
+| `order:approve` | ❌ | ❌ | ❌ | ✅ | BE-12 |
 
 **5 cổng khu vực FE-20 thêm vào** — `seller:read`, `wallet:connect`, `ops:read`,
 `ops:draft:read`, `ops:approve:read` — là **quyền HIỂN THỊ**, mỗi cái trả lời đúng một câu: "vai
@@ -803,9 +819,14 @@ này có được MỞ khu vực đó không". Hậu tố `:read` là cố ý, �
 hình lập–duyệt, và `app/test/four-roles-routes.test.ts` có phép kiểm riêng cho nó — đọc từng dòng
 bảng quyền thì loại lỗi này rất khó thấy.
 
-⚠️ `TELLER` là vai ngân hàng cũ **đổi tên, giữ nguyên bộ quyền**. Đổi tên mà không đổi quyền là có
-chủ ý: bớt quyền của vai này ở FE-20 sẽ làm đỏ toàn bộ `lib/bank` mà **không thay được nghiệp vụ
-nào**, vì chưa có bên nào đi qua bước phê duyệt. Việc tách đặc quyền thuộc BE-12.
+⚠️ `order:draft` và `order:approve` (BE-12) **không vai nào có cả hai** — `rbac.test.ts` kiểm cho
+mọi vai. Có quyền duyệt vẫn chưa đủ: người lập không duyệt được yêu cầu của chính mình, phép so
+theo **mã tài khoản** nằm trong `token-request.service.ts`, vì bảng quyền chỉ biết vai.
+
+⚠️ `TELLER` là vai ngân hàng cũ **đổi tên, giữ nguyên bộ quyền**. BE-12 **thêm** `order:draft` nhưng
+**không gỡ** `token:mint` / `token:burn` trực tiếp — gỡ là đổi hành vi màn `/mint` và luồng FE-07,
+ngoài phạm vi BE-12. Có bắt mọi lần Mint/Burn đi qua lập–duyệt hay không là câu hỏi mở cho Owner
+(`docs/CHECKPOINT_BE12.md`).
 
 ⚠️ `CONTROLLER` **không** nhận phần ghi của vai tuân thủ cũ (`investor:whitelist`, `kyc:approve`,
 `token:freeze`) dù vai đó đã gỡ. Kiểm soát viên duyệt việc của Giao dịch viên; cho nó tự làm mấy
@@ -890,7 +911,8 @@ quyền của vai nào.
 |---|---|---|
 | `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ** | `authorize()`, `toResult()` |
 | `mint.service.ts` | KYC/whitelist + mint LẺ. ⚠️ `mintToInvestorDirect` (BE-04 đổi tên từ `mintTokens`) là **đường nền cho bản trình diễn**, không phải luồng phát hành chính: nó mint thẳng cho từng ví nên làm **phình tổng cung** mỗi lần gọi. Luồng chính là `issuance.service.ts` | `onboardInvestor()`, `mintToInvestorDirect()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
-| `issuance.service.ts` | **Phát hành MỘT LẦN** toàn bộ nguồn cung vào ví SPV (BE-04). Tổng cung đọc từ bảng `Project`, **không** nhận từ input | `issueInitialSupply()`, `getIssuanceStatus()` |
+| `issuance.service.ts` | **Phát hành NHIỀU LẦN** vào ví SPV, mỗi lần không vượt **trần còn lại** (BE-04, nhiều lần từ BE-12). Trần đọc từ bảng `Project`, tổng cung đọc từ chuỗi. `executeIssuance` là lõi KHÔNG kiểm quyền, dùng chung cho phát hành trực tiếp và lần duyệt yêu cầu Mint; `trackTxn` là thứ tự "lưu giao dịch chờ → đợi biên nhận" dùng chung với Burn | `issueInitialSupply()`, `getIssuanceStatus()`, `executeIssuance()`, `remainingIssuanceCap()`, `trackTxn()` |
+| `token-request.service.ts` | **Lập–duyệt yêu cầu Mint/Burn** (BE-12). Lập chỉ ghi `PENDING`; duyệt kiểm lại toàn bộ điều kiện, chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện rồi mới gửi giao dịch; chặn người lập tự duyệt/từ chối — xem 4.3 | `previewTokenRequest()`, `createTokenRequest()`, `approveTokenRequest()`, `rejectTokenRequest()`, `listTokenRequests()`, `countPendingWork()` |
 | `config.service.ts` | Tham số hệ thống: đổi giá phát hành (BE-04). Thứ tự **đẩy xuống ledger trước, ghi cơ sở dữ liệu sau** — xem 3.12 | `getIssuePrice()`, `setIssuePrice()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) + xem trước điều kiện (BE-03) | `previewPurchase()`, `placeOrder()`, `executeOrder()`, `listOrders()`, `expireStaleOrders()` |
@@ -900,7 +922,7 @@ quyền của vai nào.
 | `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không giữ hằng số giá**: re-export `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6). ⚠️ BE-04 đổi chữ ký thành `wptToVnd(amount, issuePriceVnd)` — nhận giá làm **tham số** để tệp này giữ được tính thuần và **không** phải thành `server-only` | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `issueInitialSupplySchema` (BE-04 — **cố ý không có trường số lượng**), `openPeriodSchema` / `distributionPeriodSchema` / `distributionPeriodQuerySchema` (BE-06 — **cố ý không có trường kích thước lô**), `distributionCycleSchema` / `keeperRunQuerySchema` (BE-07 — `distributionCycleSchema` **chỉ có `chain`**: tiến trình tự phát hiện phải làm gì, nhận mã kỳ từ input là quay về luồng bấm tay), `amountSchema`, `walletSchema` |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `issueInitialSupplySchema` (BE-04; BE-12 thêm `amount` tuỳ chọn — số lượng LẦN NÀY, trần vẫn chỉ đọc từ bảng dự án), `createTokenRequestSchema` / `approveTokenRequestSchema` / `rejectTokenRequestSchema` / `tokenRequestQuerySchema` (BE-12 — Burn **cố ý không có trường ví**: luôn đốt ở ví SPV chuỗi đã ghi), `openPeriodSchema` / `distributionPeriodSchema` / `distributionPeriodQuerySchema` (BE-06 — **cố ý không có trường kích thước lô**), `distributionCycleSchema` / `keeperRunQuerySchema` (BE-07 — `distributionCycleSchema` **chỉ có `chain`**: tiến trình tự phát hiện phải làm gì, nhận mã kỳ từ input là quay về luồng bấm tay), `amountSchema`, `walletSchema` |
 
 ### Mô hình trạng thái lệnh mua (`purchase.state.ts`)
 
@@ -956,7 +978,7 @@ công mà phản hồi bị mất).
 
 ## 3.5. `app/src/lib/store/` và `providers/`
 
-**Bảy cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09 năm cổng, BE-04 thêm hai). Hai hiện thực cho
+**Tám cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09 năm cổng, BE-04 thêm hai, BE-12 thêm một). Hai hiện thực cho
 mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 
 | File | Cổng / vai trò | Hàm chính |
@@ -968,14 +990,15 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
 | `store/config.store.port.ts` | `IConfigStore` — tham số hệ thống **và** lịch sử đổi tham số (BE-04). MỘT cổng cho HAI bảng: mọi lần ghi giá PHẢI kèm một dòng lịch sử, nên tách hai cổng là mở đường gọi một mà quên cái kia | `getConfig`, `setConfig`, `listConfigHistory` |
 | `store/project.store.port.ts` | `IProjectStore` — dự án đã token hoá; giữ **tổng cung** của đợt phát hành (BE-04) | `createProject`, `findProject`, `markIssued`, `listProjects` |
+| `store/token-request.store.port.ts` | `ITokenRequestStore` — yêu cầu Mint/Burn (BE-12). Năm trạng thái `PENDING → EXECUTING → COMPLETED \| FAILED`, `PENDING → REJECTED`; bảng `TOKEN_REQUEST_TRANSITIONS` chặn chuyển ngược chiều ở **cả hai bản** trước khi chạm dữ liệu. Tự ghi `decidedAt` / `completedAt` | `createRequest`, `findRequest`, `transitionRequest`, `attachRequestTxHash`, `listRequests`, `countRequests` |
 | `store/seed-data.ts` | **MỘT nguồn dữ liệu khởi tạo cho CẢ HAI bản lưu trữ** (BE-04). Không con số nào gõ tay ở đây: giá/tổng cung/ngưỡng nhập từ `lib/config/issue-terms.ts`, danh sách vai được đổi cấu hình suy từ `lib/rbac/config-role.ts` | `SEED_CONFIG_ROWS`, `SEED_PROJECTS`, `SEED_PROJECT_CHAINS`, `SEED_ROLE_ROWS` |
 | `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. Đặt ở tầng lưu trữ vì có HAI người đọc ở hai tầng: `lib/bank` và **factory `getLedger`** — để ở `lib/bank` thì tầng cổng phải nhập tầng nghiệp vụ, tức ngược chiều phụ thuộc. Bảng khoá đầy đủ ở 3.13 | `readIssuePriceVnd`, `readPriceChangeThreshold`, `readDistributionBatchSize`, `readDistributionDustWallet` |
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
 | `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
-| `store/memory.{store,order,distribution,settlement,keeper,config,project}.store.ts` | Bản RAM cho free-tier. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
+| `store/memory.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản RAM cho free-tier. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
 | `store/postgres.pool.ts` | Pool `pg` + `ensureSchema` + **nạp dữ liệu khởi tạo** (BE-04, `ON CONFLICT DO NOTHING` nên chạy lại không ghi đè giá ngân hàng đã đặt) | `pgQuery`, `pgTransaction` |
-| `store/postgres.{store,order,distribution,settlement,keeper,config,project}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
-| `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `resetStoreCache`, `resetMemoryStore` |
+| `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
+| `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
 
 **Bảng dữ liệu và ràng buộc duy nhất** (`app/prisma/schema.prisma` là nguồn sự thật; `init.sql`
@@ -989,6 +1012,7 @@ sinh ra từ nó bằng `npm run db:sql`):
 | `SettlementCase` | `(roundId, holderWallet)` | **chi trả hoặc đốt trùng** cho một ví trong cùng đợt |
 | `KeeperRun` | `(jobName, periodKey)` | tiến trình hẹn giờ chạy trùng |
 | `Project` | `(tokenSymbol, chain)` | hai dự án cùng mã token trên cùng một chuỗi |
+| `TokenRequest` | `txHash` | một mã giao dịch gắn cho hai yêu cầu Mint/Burn. Chống hai lần duyệt **không** dựa vào ràng buộc này mà vào `UPDATE ... WHERE status = 'PENDING'` |
 | `SettlementRound` | — | (hồ sơ từng ví mới là chỗ cần chặn) |
 | `SystemConfig` | `key` là khoá chính | hai dòng cùng một tham số |
 | `SystemConfigHistory` | — | (bảng chỉ ghi thêm, không có gì phải chặn trùng) |
@@ -1058,6 +1082,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | `USE_MOCK_KYC`, `USE_MOCK_ORACLE`, `USE_MOCK_COREBANK` | `true` | Dùng provider mock để mint chạy ngay, không cần tích hợp thật |
 | `USE_MOCK_DB` | `true` | `true` = Txn/audit trong RAM (free-tier); `false` = Postgres qua `DATABASE_URL` |
 | `ENABLE_DEMO_PAYMENT_MINT` | **`false`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định — **chỉ môi trường thử** |
+| `DEMO_ACTOR` (BE-12) | trống | Mã tài khoản giả lập ghi vào người lập / người duyệt. Trống = mã mẫu của vai (`SAMPLE_ACCOUNTS` ở `lib/session/channel.ts`). **Không phải xác thực** — AU-01 thay |
 
 **Bí mật trong `env.ts` (không phải cờ):**
 
@@ -1614,7 +1639,7 @@ Task **chỉ dựng khung**, không làm nghiệp vụ. Bảng vai trò và bả
 |---|---|
 | `lib/rbac/area-gates.ts` | `AREAS` (7), `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực, **dữ liệu thuần** |
 | `lib/session/channel.ts` | 4 khu vực + `CHANNEL_HOME` + `CHANNEL_ROLE` + `ROLE_CHANNEL` (suy ra) + `homeForRole()` |
-| `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số việc đang chờ, hiện trả 0. Điểm cắm `@pending BE-12` |
+| `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số việc đang chờ, đếm thật từ BE-12 qua `countPendingWork()`; `server-only` |
 | `components/layout/nav-config.ts` | `NAV_BY_ROLE` — 4 menu, mỗi menu là **danh sách nhóm** |
 | `components/pages/placeholder.tsx` | `PlaceholderPage` — khuôn trang chỗ trống, dùng ở 11 trang |
 | `test/four-roles-shell.test.ts` | Menu khớp tài liệu yêu cầu, khu vực ↔ vai, số việc chờ |
@@ -1629,8 +1654,9 @@ theo tài liệu yêu cầu (Vận hành, Kiểm soát, Tài khoản); hình d�
 đóng băng vào module. Nguồn số nằm ở tệp riêng vì BE-12 sẽ biến nó thành `server-only` — đặt chung
 thì lần đó làm vỡ build của mọi component nhập `nav-config`, và triệu chứng hiện ra rất xa nguyên nhân.
 
-⚠️ **Số 0 ở đây là khẳng định ĐÚNG, không phải chỗ trống.** Chưa có nghiệp vụ lập lệnh nên thật sự
-không có việc nào chờ. Khác trang tổng quan nhà đầu tư, nơi số 0 lúc chưa kết nối ví là khẳng định
+⚠️ **Số 0 ở đây là khẳng định ĐÚNG, không phải chỗ trống.** Từ BE-12: `draft` = yêu cầu người này
+đã lập đang chờ duyệt, `approval` = yêu cầu NGƯỜI KHÁC lập đang chờ — yêu cầu của chính mình không
+phải việc chờ mình duyệt. Khác trang tổng quan nhà đầu tư, nơi số 0 lúc chưa kết nối ví là khẳng định
 SAI và phải thay bằng lời mời kết nối (FE-01 R5.3).
 
 **Trang chỗ trống là trang THẬT, không phải mục menu mờ.** Mỗi trang nói ba thứ theo thứ tự người
@@ -1880,52 +1906,71 @@ nhau vì **thời gian**. Đó là giới hạn thật của mọi màn hình xe
 
 ---
 
-## 4.3. Luồng PHÁT HÀNH NGUỒN CUNG (đã hoàn thành — BE-04)
+## 4.3. Luồng PHÁT HÀNH (đã hoàn thành — BE-04, nhiều lần + lập–duyệt từ BE-12)
 
 > **Sơ đồ sinh tự động từ marker `@flow`: `docs/flows/issue.md` (9 bước).** Đừng sửa tay tệp đó —
 > sửa marker trong mã rồi chạy `node scripts/gen-flow-diagram.mjs issue`.
 
-**Nghiệp vụ:** phát hành **MỘT LẦN** toàn bộ nguồn cung WPT vào **ví thanh toán SPV**. Sau lần này,
-WPT đến tay nhà đầu tư qua `executeOrder` (chuyển từ ví SPV) — **không mint thêm**.
+**Nghiệp vụ:** phát hành WPT vào **ví thanh toán SPV**, **nhiều lần**, mỗi lần không vượt **trần còn
+lại** = `Project.totalSupply` − tổng cung hiện tại trên chuỗi. WPT đến tay nhà đầu tư qua
+`executeOrder` (chuyển từ ví SPV). Hai đường vào, cùng một lõi:
 
 ```
-app/actions/bank.ts :: issueInitialSupplyAction()        ← điểm cắm, chờ FE-07
-   └──→ lib/bank/issuance.service.ts :: issueInitialSupply()
+app/actions/bank.ts :: issueInitialSupplyAction()          ← điểm cắm FE-07, quyền token:mint
+   └──→ issuance.service.ts :: issueInitialSupply() ──┐
+app/actions/token-request.ts :: approveTokenRequestAction()  ← điểm cắm FE-22, quyền order:approve
+   └──→ token-request.service.ts :: approveTokenRequest() ─┤
+                                                           └──→ executeIssuance()  (không kiểm quyền)
 ```
 
-**Bên trong `issueInitialSupply()`:**
+**Bên trong `executeIssuance()`:**
 
 | Bước | Việc | Chặn ở đâu |
 |---|---|---|
-| 1 | `issueInitialSupplySchema.safeParse` | Ví SPV sai dạng → `VALIDATION`. **Không có trường số lượng** trong schema |
-| 2 | `authorize('token:mint', ...)` | Vai không có quyền → `FORBIDDEN`, ghi audit `DENIED` |
-| 3 | `projectStore.findProject({tokenSymbol, chain})` | Chưa có dự án trên chuỗi đang chọn → `VALIDATION` |
-| 4 | `project.issuedAt !== null` | Đã phát hành → `ORDER_STATE`, **không gửi giao dịch** |
-| 5 | `ledger.isInitialSupplyMinted()` | Chuỗi đã phát hành mà bảng chưa ghi mốc → `ORDER_STATE`, **đòi đối soát** |
-| 6 | `ledger.mintInitialSupply(spvWallet, amount)` | `amount` = `project.totalSupply` |
-| 7 | `store.saveTxn(...)` trạng thái chờ | **Trước** khi đợi biên nhận |
-| 8 | `ledger.waitReceipt(...)` + `updateTxnStatus` | `FAILED` → `LEDGER`, **không** ghi `issuedAt` |
-| 9 | `projectStore.markIssued(...)` | Khoá lạc quan; trả `null` → `ORDER_STATE` + audit `FAILURE` |
-| 10 | `ledger.tokenInfo()` | Đọc lại tổng cung **từ chuỗi** làm sự thật cuối cùng |
+| 1 | `ledger.isInitialSupplyMinted()` + `project.issuedAt` | Chuỗi đã phát hành mà bảng chưa ghi mốc → `ORDER_STATE`, **đòi đối soát** |
+| 2 | `remainingIssuanceCap()` | `amount` > trần còn lại → `ISSUANCE_CAP`, **không gửi giao dịch** |
+| 3 | `ledger.spvWallet()` (lần sau lần đầu) | Ví nhận khác ví SPV chuỗi đã ghi → `VALIDATION` |
+| 4 | Lần đầu `ledger.mintInitialSupply()`, các lần sau `ledger.mint()` | Lần đầu là lần chuỗi ghi ví SPV, luồng mua đọc ví đó |
+| 5 | `trackTxn()`: `saveTxn` chờ → `onSubmitted` → `waitReceipt` | Lưu **trước** khi đợi; `onSubmitted` là chỗ lần duyệt gắn mã giao dịch vào yêu cầu |
+| 6 | Lần đầu: `projectStore.markIssued()` | Khoá lạc quan; trả `null` → `ORDER_STATE` + audit `FAILURE` |
+| 7 | Đọc lại tổng cung **từ chuỗi** | Sự thật cuối cùng, trả kèm `remainingCap` |
 
-**Ai ký:** ví ngân hàng (`getBankSigner(chain)`). Trên chuỗi `mock` không có gì để ký, nên
-`actorAddress` của dòng giao dịch để `null` thay vì làm cả lượt phát hành thất bại — địa chỉ đó là
-**dữ liệu đối soát**, không phải đầu vào của phép kiểm quyền nào.
+**Ai ký:** ví ngân hàng (`getBankSigner(chain)`), ở cả hai đường. Trên chuỗi `mock` `actorAddress`
+để `null` — địa chỉ đó là **dữ liệu đối soát**, không phải đầu vào của phép kiểm quyền nào.
 
-**Hai chốt chặn quan trọng nhất:**
+**Trần KHÔNG đến từ input.** Input chỉ chọn số lượng LẦN NÀY; trần đọc từ bảng dự án, tổng cung đọc
+từ chuỗi. **Không** cộng dồn "đã phát hành" trong cơ sở dữ liệu: Burn làm giảm tổng cung, một bộ đếm
+riêng sẽ lệch chuỗi ngay lần Burn đầu tiên.
 
-1. **Tổng cung KHÔNG đến từ input.** `issueInitialSupplySchema` cố ý không có trường số lượng; nhận
-   nó từ input nghĩa là ai gọi được server action cũng đặt được quy mô phát hành của cả dự án. Ca
-   kiểm: `test/issuance-service.test.ts` — truyền thêm `amount: '999'` phải bị **bỏ qua**.
-2. **Chống phát hành hai lần bằng khoá lạc quan, không bằng "đọc rồi ghi".** Điều kiện
-   `status = 'DRAFT' AND issuedAt IS NULL` nằm **trong** câu `UPDATE` của `markIssued`. Đọc `issuedAt`
-   rồi mới ghi thì hai lời gọi đồng thời đều thấy `null`, đều kết luận "chưa phát hành", rồi cùng gửi
-   giao dịch mint — **nguồn cung ra gấp đôi con số đã công bố**, và không sửa được vì token đã ở trong
-   ví người khác.
+### Lập–duyệt yêu cầu Mint / Burn (BE-12)
 
-**Nợ đã biết của luồng này:** `evm.adapter` chưa nối được ba method `mintInitialSupply`,
-`isInitialSupplyMinted`, `spvWallet` — chờ **SC-02** (contract phát hành một lần). Trên chuỗi thật
-luồng này chưa chạy; trên `mock` đã chạy đầu cuối. Xem bảng điểm cắm ở 3.10.
+```
+PENDING ──► EXECUTING ──► COMPLETED
+   │            └──► FAILED
+   └──► REJECTED
+```
+
+| Bước | Hàm | Điều kiện / chặn |
+|---|---|---|
+| Xem trước | `previewTokenRequest()` | Trả **mọi** điều kiện kèm trạng thái, không ghi gì: quyền lập, dự án, trần còn lại, ví đích, không có Mint khác đang chờ cùng token; Burn: có ví SPV, không vượt phần chưa phân phối, `TOTAL_SUPPLY` chỉ khi không còn token lưu hành |
+| Lập | `createTokenRequest()` | `order:draft`; trượt điều kiện → `REQUEST_CHECK`, `fieldErrors` khoá theo mã điều kiện. Đạt → dòng `PENDING`, **chưa tác động token** |
+| Duyệt | `approveTokenRequest()` | `order:approve`; người lập = người duyệt (so **mã tài khoản**) → `SELF_APPROVAL`; **kiểm lại toàn bộ điều kiện**, đổi → `REQUEST_CHECK`, yêu cầu **giữ `PENDING`**; chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện, `null` → `REQUEST_STATE`; rồi `executeIssuance` / đốt ở ví SPV |
+| Từ chối | `rejectTokenRequest()` | Bắt buộc lý do (thiếu → `VALIDATION` + audit `FAILURE`); chặn tự từ chối; `PENDING → REJECTED`, không tác động token |
+| Đếm việc chờ | `countPendingWork(role, actorId)` | Theo **quyền**: `order:draft` đếm yêu cầu mình lập đang chờ; `order:approve` đếm yêu cầu người khác lập đang chờ |
+
+**Vì sao năm trạng thái, không phải ba.** `EXECUTING` là đích của lần chiếm quyền — không có nó thì
+phải đánh `COMPLETED` **trước** khi gửi giao dịch, và tiến trình chết giữa chừng để lại một yêu cầu
+trông như xong mà token chưa đổi. `FAILED` tách "chuỗi không thực hiện được" khỏi "Kiểm soát viên
+không đồng ý". Lỗi **sau** khi đã gửi giao dịch thì yêu cầu **ở nguyên `EXECUTING`** kèm mã giao
+dịch cho người đối soát — không biết kết cục thì không được nói "chưa tác động".
+
+**Sổ kiểm toán:** mọi bước ghi một dòng `order:draft` / `order:approve` (`SUCCESS`, `FAILURE` khi
+điều kiện chặn, `DENIED` khi thiếu quyền hoặc tự duyệt); tác động token ghi thêm `token:mint` /
+`token:burn` kèm mã yêu cầu, người lập, người duyệt.
+
+**Nợ đã biết của luồng này:** `evm.adapter` chưa nối `mintInitialSupply`, `isInitialSupplyMinted`,
+`spvWallet` — chờ **SC-02**. Trên chuỗi thật luồng này chưa chạy; trên `mock` đã chạy đầu cuối, cả
+hai đường vào. Xem bảng điểm cắm ở 3.10.
 
 ---
 
@@ -2184,6 +2229,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | BE-06 nghiệp vụ chia lợi nhuận: chốt quyền, xem trước, chia theo lô, chạy lại (xem 4.5) | ✅ Xong — PR #26 |
 | — | BE-07 tự động chia khi ví lợi nhuận nhận tiền: phát hiện, chống chạy trùng, chia nhiều lượt, cảnh báo kỳ treo, điểm vào cho cron (xem 3.14, 4.5 giai đoạn 4) | 🔶 Mã xong trên nhánh `feat/distribution-trigger`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | — | OP-01 tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng (xem 2.6, 2.7) | 🔶 Mã xong trên nhánh `op/01-ci`, **chưa nghiệm thu, chưa merge vào `dev`** |
+| — | BE-12 lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần theo trần còn lại + số việc đang chờ thật (xem 4.3) | 🔶 Mã xong trên nhánh `feat/maker-checker`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | P2 | **REDEEM** (`Redemption.sol`) — BE-05 tất toán | ⏳ Kế tiếp |
 | P3 | **DISTRIBUTION** trên chuỗi thật: `evm.adapter.distributeBatch` + `EnergyOracle` | ⏳ Tầng BE đã xong ở BE-06; còn chờ SC-03 và `providers/oracle/` |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
