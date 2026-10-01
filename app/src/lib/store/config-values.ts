@@ -11,6 +11,7 @@ import {
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
 } from '@/lib/config/issue-terms';
+import type { WithdrawPolicy } from '@/lib/bank/withdraw-limit';
 import { getConfigStore } from './index';
 
 /**
@@ -162,4 +163,41 @@ export async function readDistributionSettledBalance(): Promise<bigint> {
   // dư là tiền mới, tức là chia thừa một lần (contract chặn bằng cờ đã-nhận của ảnh chụp).
   // Lùi về một mốc cao hơn thực tế thì tiền nằm lại trong ví vĩnh viễn và không ai biết.
   return value && /^\d+$/.test(value) ? BigInt(value) : 0n;
+}
+
+// =============================================================================
+//  FE-21 — HẠN MỨC RÚT CỦA NGƯỜI BÁN
+// =============================================================================
+
+const UINT = /^\d+$/;
+
+/**
+ * Chính sách khoá số dư khi Người bán rút. `null` = chưa cấu hình hoặc giá trị hỏng.
+ *
+ * KHÁC các tham số phía trên: KHÔNG lùi về mặc định trong mã. Hạn mức là con số quyết định bao
+ * nhiêu tiền rời ví, nên một mặc định ở đây là một hạn mức không ai chọn. Thiếu hay hỏng thì
+ * màn rút báo "chưa cấu hình" và khoá nút — trạng thái duy nhất không cần ai quyết.
+ */
+export async function readSellerWithdrawPolicy(): Promise<WithdrawPolicy | null> {
+  const store = getConfigStore();
+  const [mode, value] = await Promise.all([
+    store.getConfig(CONFIG_KEYS.sellerWithdrawLimitMode),
+    store.getConfig(CONFIG_KEYS.sellerWithdrawLimitValue),
+  ]);
+  const raw = value?.value.trim();
+  if (!raw || !UINT.test(raw)) return null;
+
+  const amount = BigInt(raw);
+  if (mode?.value.trim() === 'FIXED') return { mode: 'FIXED', lockedVnd: amount.toString() };
+  if (mode?.value.trim() === 'PERCENT' && amount <= 100n) {
+    return { mode: 'PERCENT', lockedPercent: Number(amount) };
+  }
+  return null;
+}
+
+/** Phí một lần rút, VNDB. `null` = chưa cấu hình — cùng lập luận, không có mặc định. */
+export async function readSellerWithdrawFee(): Promise<bigint | null> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.sellerWithdrawFeeVnd);
+  const value = row?.value.trim();
+  return value && UINT.test(value) ? BigInt(value) : null;
 }
