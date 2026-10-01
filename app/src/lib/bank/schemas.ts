@@ -61,21 +61,20 @@ export const mintSchema = z.object({
 export type MintInput = z.input<typeof mintSchema>;
 
 /**
- * Phát hành nguồn cung ban đầu (BE-04).
+ * Phát hành vào ví thanh toán SPV (BE-04, nhiều lần từ BE-12).
  *
- * ⚠️ KHÔNG có trường số lượng, và đó là chốt chặn chính của schema này. Tổng cung đọc từ
- * `Project.totalSupply`; nhận nó từ input nghĩa là ai gọi được server action cũng đặt được quy mô
- * phát hành của cả dự án. Một `amount` optional ở đây cũng không được: optional thì vẫn có đường
- * truyền vào.
+ * `amount` là số lượng LẦN NÀY, không phải quy mô phát hành: TRẦN đọc từ `Project.totalSupply`
+ * và nghiệp vụ chặn mọi lần vượt trần còn lại, nên input không đặt được quy mô của cả dự án.
+ * Bỏ trống thì phát hành toàn bộ trần còn lại.
  *
- * `tokenSymbol` mặc định là token duy nhất của PoC, để lời gọi thường không phải truyền. Nhận
- * tham số để về sau có dự án thứ hai thì không phải đổi chữ ký.
+ * `tokenSymbol` mặc định là token duy nhất của PoC, để lời gọi thường không phải truyền.
  */
 export const issueInitialSupplySchema = z.object({
   chain: chainSchema,
-  /** Ví thanh toán SPV — nơi giữ toàn bộ WPT chưa bán. */
+  /** Ví thanh toán SPV — nơi giữ WPT chưa bán. */
   spvWallet: walletSchema,
   tokenSymbol: z.string().trim().min(1).max(20).default(WPT_TOKEN_SYMBOL),
+  amount: amountSchema.optional(),
 });
 export type IssueInitialSupplyInput = z.input<typeof issueInitialSupplySchema>;
 
