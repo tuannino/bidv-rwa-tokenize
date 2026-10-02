@@ -163,4 +163,26 @@ còn 4 trang chỗ trống), 3.4 (`trade.service.ts`), mục mới 3.18, 4.2 (s�
 
 ## 7. Kết quả `run-local-all.sh`
 
-KẾT_QUẢ_CHẠY
+Chạy **đúng một** lần, cuối task: **mã thoát 1, 6 PASS / 1 FAIL**.
+
+```
+$ bash scripts/run-local-all.sh
+  => PASS có cảnh báo: luật kiến trúc   (3 cảnh báo có từ trước: SIGNER_KIND, địa chỉ mẫu ở mint.tsx, thiếu BASE_REF)
+                                        Bảng quyền không teo lại so với origin/dev (32 -> 32 hành động)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)    21 điểm cắm, 13 điểm chặn, 35 bước luồng
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT     mục 0: 30/60 dòng, 8 dòng / 8 điều kiện
+  => FAIL: LỚP 1 - SPEC TEST CONTRACT EVM
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+  => PASS: APP - VITEST                 Test Files 25 passed, Tests 713 passed
+```
+
+Lỗi duy nhất, nguyên văn:
+
+```
+Caused by: Error: Failed to download https://binaries.soliditylang.org/linux-amd64/list.json - 403 received.
+Host not in allowlist: binaries.soliditylang.org.
+```
+
+Chính sách mạng của môi trường chạy, không phải lỗi mã: `git diff --name-only origin/dev...HEAD --
+packages/ | wc -l` cho `0`.
