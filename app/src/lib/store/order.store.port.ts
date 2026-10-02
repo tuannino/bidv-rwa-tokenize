@@ -3,7 +3,7 @@ import type { Role } from '@/lib/rbac';
 import { assertStatus, type StoreKind } from './store.errors';
 
 /**
- * Cổng lưu trữ LỆNH MUA WPT (bảng `PurchaseOrder`).
+ * Cổng lưu trữ LỆNH MUA VÀ BÁN WPT (bảng `PurchaseOrder`, cột `side` phân biệt chiều — BE-14).
  *
  * Tách khỏi `ITxnStore` chứ không nhồi thêm vào (BE-09 QĐ-1): `ITxnStore` đang có 5 hàm,
  * dồn cả bốn nhóm bảng mới vào sẽ thành interface ~20 hàm, và mỗi lần thêm nghiệp vụ lại
@@ -48,10 +48,47 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const assertOrderStatus = (value: string): OrderStatus =>
   assertStatus('PurchaseOrder', ORDER_STATUSES, value);
 
+/**
+ * Chiều lệnh (BE-14). Lệnh mua và lệnh bán dùng CHUNG một bảng và CHUNG bảy trạng thái ở
+ * trên: tách hai bảng thì mọi truy vấn, mọi phép đối soát phải viết hai lần.
+ *
+ *   `BUY`  nhà đầu tư trả VNDB, nhận WPT từ ví thanh toán người bán (SPV).
+ *   `SELL` nhà đầu tư trả WPT về ví thanh toán người bán, nhận VNDB.
+ *
+ * Mặc định `BUY` ở cả hai bản lưu trữ và ở cột Postgres: mọi lệnh có trước BE-14 là lệnh mua.
+ */
+export const ORDER_SIDES = ['BUY', 'SELL'] as const;
+export type OrderSide = (typeof ORDER_SIDES)[number];
+
+/** Cột `side` cũng là `String`, nên cùng một chốt chặn như cột `status`. */
+export const assertOrderSide = (value: string): OrderSide =>
+  assertStatus('PurchaseOrder', ORDER_SIDES, value);
+
+/**
+ * Cột mốc thời gian của năm bước quyết toán (BE-14), GHI CÙNG câu lệnh chuyển trạng thái.
+ *
+ * Đây là hợp đồng LƯU TRỮ, không phải ánh xạ hiển thị: nó chỉ nói "chuyển sang trạng thái X thì
+ * ghi giờ vào cột Y", để mốc và trạng thái không bao giờ lệch nhau (ghi hai lần thì tiến trình
+ * chết ở giữa sẽ để lại trạng thái mới mà không có mốc). Trạng thái nào thuộc bước hiển thị nào
+ * là việc của `lib/bank/settlement-steps.ts`.
+ *
+ * `settlingAt` KHÔNG có ở đây: nó ghi khi gắn mã giao dịch (`attachOrderTxHash`), không phải
+ * khi đổi trạng thái. Trạng thái kết thúc khác (`REJECTED`, `FAILED`, `EXPIRED`) cũng không
+ * có cột riêng: thời điểm của chúng là `updatedAt`, vì sau đó dòng không đổi nữa.
+ */
+export const ORDER_STATUS_STAMPS: Partial<
+  Record<OrderStatus, 'checkingAt' | 'reconciledAt' | 'completedAt'>
+> = {
+  CHECKING: 'checkingAt',
+  EXECUTING: 'reconciledAt',
+  COMPLETED: 'completedAt',
+};
+
 export interface OrderRecord {
   id: string;
   chain: ChainKey;
   investorWallet: string;
+  side: OrderSide;
   /**
    * Số WPT muốn mua và số VNDB phải trả, lưu dạng CHUỖI.
    *
@@ -70,6 +107,11 @@ export interface OrderRecord {
   reason: string | null;
   /** Vai đã đặt lệnh — phục vụ đối soát trách nhiệm. */
   actorRole: Role;
+  /** Mốc bốn bước sau bước "tạo lệnh" (BE-14); `null` = chưa tới. Xem `ORDER_STATUS_STAMPS`. */
+  checkingAt: string | null;
+  reconciledAt: string | null;
+  settlingAt: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +119,8 @@ export interface OrderRecord {
 export interface NewOrder {
   chain: ChainKey;
   investorWallet: string;
+  /** Mặc định `BUY` — giữ nguyên mọi chỗ gọi có trước BE-14. */
+  side?: OrderSide;
   wptAmount: string;
   vndAmount: string;
   actorRole: Role;
@@ -97,6 +141,29 @@ export interface OrderTransition {
   /** Chỉ ghi khi khác `undefined` — `null` nghĩa là XOÁ giá trị cũ, có ý nghĩa riêng. */
   txHash?: string | null;
   reason?: string | null;
+}
+
+/** Bộ lọc danh sách lệnh. Mọi trường tuỳ chọn; vắng mặt = không lọc theo trường đó. */
+export interface OrderListOptions {
+  chain?: ChainKey;
+  investorWallet?: string;
+  status?: OrderStatus;
+  /** BE-14. */
+  side?: OrderSide;
+  /** BE-14 — đúng một mã lệnh. */
+  id?: string;
+  /** BE-14 — `createdAt >= createdFrom` (bao gồm). Mốc ISO-8601. */
+  createdFrom?: string;
+  /** BE-14 — `createdAt < createdTo` (KHÔNG bao gồm), để hai khoảng liền nhau không đếm trùng. */
+  createdTo?: string;
+  limit?: number;
+}
+
+/** Số lệnh và tổng số lượng của một chiều. Số lượng là CHUỖI thập phân như mọi nơi khác. */
+export interface CompletedSummary {
+  count: number;
+  wptAmount: string;
+  vndAmount: string;
 }
 
 export interface IOrderStore {
@@ -128,15 +195,26 @@ export interface IOrderStore {
    *
    * Chỉ nhắm `EXECUTING`: lệnh chưa chiếm quyền gửi thì không thể có mã giao dịch, lệnh
    * đã đóng thì không được sửa nữa.
+   *
+   * BE-14: ghi luôn `settlingAt` (bước "quyết toán") trong cùng câu lệnh — có mã giao dịch
+   * nghĩa là giao dịch quyết toán đã được gửi.
    */
   attachOrderTxHash(input: { id: string; txHash: string }): Promise<OrderRecord | null>;
 
-  listOrders(options?: {
+  listOrders(options?: OrderListOptions): Promise<OrderRecord[]>;
+
+  /**
+   * Tổng hợp lệnh `COMPLETED` có `completedAt` trong `[from, to)`, theo TỪNG CHIỀU (BE-14).
+   *
+   * Luôn trả đủ hai chiều, chiều không có lệnh nào mang số 0 — người gọi không phải đoán
+   * "vắng mặt" nghĩa là 0 hay là lỗi. Cộng ở tầng lưu trữ (`SUM` của Postgres) để không phải
+   * kéo cả sổ lệnh trong ngày về bộ nhớ chỉ để cộng.
+   */
+  summarizeCompleted(input: {
     chain?: ChainKey;
-    investorWallet?: string;
-    status?: OrderStatus;
-    limit?: number;
-  }): Promise<OrderRecord[]>;
+    from: string;
+    to: string;
+  }): Promise<Record<OrderSide, CompletedSummary>>;
 
   /**
    * Lệnh còn ở `PLACED` mà tạo trước `createdBefore` thì chuyển sang `EXPIRED`.

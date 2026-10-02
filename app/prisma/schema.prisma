@@ -101,14 +101,21 @@ model AuditLog {
 ///
 /// KHÔNG có cột số dư WPT: số dư luôn đọc từ chuỗi. Ghi vào đây là tạo nguồn sự thật thứ
 /// hai, và nó lệch ngay lần đầu có giao dịch không đi qua hệ thống này.
+///
+/// BE-14: bảng chứa CẢ lệnh mua lẫn lệnh bán, phân biệt bằng cột `side`, dùng chung bảy trạng
+/// thái. Giữ tên `PurchaseOrder` để không đổi tên bảng trên cơ sở dữ liệu đang chạy; tách hai
+/// bảng thì mọi truy vấn và đối soát phải làm hai lần.
 model PurchaseOrder {
   id             String   @id @default(uuid())
   /// ChainKey: hardhat-local | evm | stellar | mock
   chain          String
   investorWallet String
+  /// Chiều lệnh (BE-14). Giá trị hợp lệ: ORDER_SIDES ở lib/store/order.store.port.ts.
+  /// Mặc định `BUY`: mọi lệnh có trước BE-14 là lệnh mua, nên dòng cũ tự mang đúng chiều.
+  side           String   @default("BUY")
   /// Decimal thay vì BigInt: uint256 vượt tầm int8 của Postgres.
   wptAmount      Decimal  @db.Decimal(78, 0)
-  /// Số VNDB phải trả, chốt tại thời điểm đặt lệnh.
+  /// Số VNDB, chốt tại thời điểm đặt lệnh: lệnh mua là số phải trả, lệnh bán là số nhận về.
   vndAmount      Decimal  @db.Decimal(78, 0)
   status         String   @default("PLACED")
   /// R1.4 — DUY NHẤT là ràng buộc chống một giao dịch bị gắn cho hai lệnh khác nhau.
@@ -118,6 +125,13 @@ model PurchaseOrder {
   reason         String?
   /// Vai đã đặt lệnh — phục vụ đối soát trách nhiệm.
   actorRole      String
+  /// Mốc NĂM BƯỚC QUYẾT TOÁN (BE-14). Bước 1 "tạo lệnh" dùng `createdAt`; bốn cột dưới là
+  /// bốn bước còn lại, ghi CÙNG câu lệnh chuyển trạng thái nên không lệch với `status`.
+  /// `null` = chưa tới bước đó. Ánh xạ trạng thái -> bước nằm ở lib/bank/settlement-steps.ts.
+  checkingAt     DateTime? @db.Timestamptz(3)
+  reconciledAt   DateTime? @db.Timestamptz(3)
+  settlingAt     DateTime? @db.Timestamptz(3)
+  completedAt    DateTime? @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
@@ -125,6 +139,8 @@ model PurchaseOrder {
   @@index([investorWallet, createdAt])
   /// R1.3 — ngân hàng lọc theo trạng thái; cũng là chỉ mục cho việc dọn lệnh quá hạn.
   @@index([status, createdAt])
+  /// BE-14 — số liệu khớp lệnh trong ngày theo từng chiều: lọc chiều + trạng thái + mốc hoàn tất.
+  @@index([side, status, completedAt])
 }
 
 // =============================================================================
