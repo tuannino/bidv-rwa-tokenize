@@ -476,7 +476,7 @@ export function createMockLedger(
     },
 
     // =========================================================================
-    //  KHỚP LỆNH MUA
+    //  KHỚP LỆNH MUA / BÁN
     // =========================================================================
     async quotePurchase(wptAmount) {
       assertPositiveAmount(chain, 'quotePurchase', wptAmount);
@@ -573,6 +573,60 @@ export function createMockLedger(
       s.paymentAllowances.set(addressKey(buyer), allowance(buyer) - cost);
       setBalance(spv, balance(spv) - wptAmount);
       setBalance(buyer, balance(buyer) + wptAmount);
+      return confirmed();
+    },
+
+    /**
+     * Khớp lệnh BÁN nguyên tử (BE-14): WPT nhà đầu tư -> ví SPV, VNDB ví SPV -> nhà đầu tư.
+     *
+     * Cùng kỷ luật với `executePurchase`: MỌI kiểm tra chạy TRƯỚC mọi thay đổi trạng thái, nên
+     * ví SPV thiếu VNDB thì token của nhà đầu tư chưa hề rời ví. Cùng nguồn giá với
+     * `quotePurchase`, nên số VNDB đã báo lúc đặt lệnh và số thật sự trả là một.
+     *
+     * KHÔNG kiểm uỷ quyền WPT: hợp đồng khớp lệnh thật (SC-03) sẽ cần nhà đầu tư cấp quyền
+     * chuyển WPT, nhưng `ILedgerPort` chưa có hàm đọc uỷ quyền WPT và spec BE-14 không yêu cầu.
+     * Đã ghi câu hỏi mở trong checkpoint BE-14.
+     */
+    async executeSale(investor, wptAmount) {
+      assertPositiveAmount(chain, 'executeSale', wptAmount);
+      requireNotSettling('executeSale');
+      // Nạp giá TRƯỚC khối kiểm tra — cùng lý do như `executePurchase`.
+      const price = await currentPrice();
+      const s = state();
+
+      if (!s.initialSupplyMinted || !s.spvWallet) {
+        reject(
+          'executeSale',
+          'Chưa phát hành nguồn cung ban đầu — chưa có ví thanh toán người bán để nhận lại WPT.',
+        );
+      }
+      const spv = s.spvWallet;
+      const seller = normalizeEvmAddress(investor);
+
+      requireNotFrozen('executeSale', seller, 'Nhà đầu tư');
+      requireNotFrozen('executeSale', spv, 'Ví thanh toán SPV');
+      requireWhitelisted('executeSale', seller, 'Nhà đầu tư');
+      requireWhitelisted('executeSale', spv, 'Ví thanh toán SPV');
+
+      const proceeds = wptAmount * price;
+      if (balance(seller) < wptAmount) {
+        reject(
+          'executeSale',
+          `Số dư WPT không đủ: cần ${wptAmount}, ví ${seller} chỉ có ${balance(seller)}.`,
+        );
+      }
+      if (paymentBalance(spv) < proceeds) {
+        reject(
+          'executeSale',
+          `Ví thanh toán SPV không đủ VNDB: cần ${proceeds}, chỉ còn ${paymentBalance(spv)}.`,
+        );
+      }
+
+      // --- Từ đây trở xuống không còn nhánh từ chối nào: bốn bút toán nguyên khối.
+      setBalance(seller, balance(seller) - wptAmount);
+      setBalance(spv, balance(spv) + wptAmount);
+      setPaymentBalance(spv, paymentBalance(spv) - proceeds);
+      setPaymentBalance(seller, paymentBalance(seller) + proceeds);
       return confirmed();
     },
 

@@ -441,6 +441,12 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return pendingContract('executePurchase', 'hợp đồng khớp lệnh (SC-03)');
     },
 
+    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) */
+    async executeSale(investor, wptAmount) {
+      assertPositiveAmount(chain, 'executeSale', wptAmount);
+      return pendingContract('executeSale', 'hợp đồng khớp lệnh (SC-03)');
+    },
+
     // =========================================================================
     //  CHỐT QUYỀN
     // =========================================================================
