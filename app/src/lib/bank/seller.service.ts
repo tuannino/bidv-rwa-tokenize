@@ -13,6 +13,7 @@ import { ORDER_STATUSES, type OrderRecord, type OrderStatus } from '@/lib/store/
 import type { ProjectStatus } from '@/lib/store/project.store.port';
 import { authorize, toResult } from './authorize';
 import { readSupplyMetrics, type SupplyMetrics } from './issuance.service';
+import { orderDailyStats } from './purchase.service';
 import { err, ok, type Result } from './result';
 import { chainSchema } from './schemas';
 import { computeWithdrawLimit, type WithdrawPolicy } from './withdraw-limit';
@@ -20,7 +21,7 @@ import { computeWithdrawLimit, type WithdrawPolicy } from './withdraw-limit';
 /**
  * Nghiệp vụ KÊNH NGƯỜI BÁN (FE-21) — CHỈ ĐỌC.
  *
- * Người bán là bên vận hành ví thanh toán SPV: mọi lệnh mua WPT đều khớp với ví đó, nên "dữ liệu
+ * Người bán là bên vận hành ví thanh toán SPV: mọi lệnh mua và bán WPT đều khớp với ví đó, nên "dữ liệu
  * của mình" là sổ lệnh và số dư của ví SPV trên chuỗi đang chọn. Cổng là `seller:read`, chỉ vai
  * `SELLER` có — ba vai kia gọi thẳng server action cũng bị chặn ở đây, không chỉ ở layout.
  *
@@ -51,12 +52,15 @@ export interface SellerOverviewView {
   chain: ChainKey;
   /** Ví thanh toán SPV theo chuỗi; `null` khi chưa phát hành lần nào. */
   spvWallet: string | null;
-  /** Lệnh khớp trong ngày (giờ Việt Nam). Bán: `null` — hệ thống chưa có lệnh bán lại. */
+  /**
+   * Lệnh khớp trong ngày (giờ Việt Nam), tách hai chiều từ BE-14. Lấy từ `orderDailyStats` — một
+   * chỗ đếm duy nhất cho Tổng quan Người bán và bảng điều khiển vận hành.
+   */
   today: {
     buyCount: number;
     buyWpt: string;
     buyVnd: string;
-    sell: null;
+    sell: { count: number; wpt: string; vnd: string };
   };
   tokens: SellerTokenRow[];
   wallet: {
@@ -85,7 +89,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
     await authorize('seller:read', null, chain);
 
     const ledger = getLedger(chain);
-    const [spvWallet, projects, issuePrice, tradingPaused, profitPool, policy, fee, completed] =
+    const [spvWallet, projects, issuePrice, tradingPaused, profitPool, policy, fee, daily] =
       await Promise.all([
         ledger.spvWallet(),
         getProjectStore().listProjects({ chain }),
@@ -94,8 +98,9 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
         ledger.profitPoolBalance(),
         readSellerWithdrawPolicy(),
         readSellerWithdrawFee(),
-        getOrderStore().listOrders({ chain, status: 'COMPLETED', limit: ORDER_SCAN_LIMIT }),
+        orderDailyStats({ chain }),
       ]);
+    if (!daily.ok) return daily;
 
     const tokens = await Promise.all(
       projects.map(async (project) => ({
@@ -108,9 +113,6 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
       })),
     );
 
-    const today = vnDate(new Date());
-    const matched = completed.filter((order) => vnDate(order.updatedAt) === today);
-
     const paymentVnd = spvWallet ? (await ledger.paymentBalanceOf(spvWallet)).toString() : null;
     const limit = paymentVnd !== null && policy ? computeWithdrawLimit(paymentVnd, policy) : null;
 
@@ -118,10 +120,14 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
       chain,
       spvWallet,
       today: {
-        buyCount: matched.length,
-        buyWpt: matched.reduce((sum, o) => sum + BigInt(o.wptAmount), 0n).toString(),
-        buyVnd: matched.reduce((sum, o) => sum + BigInt(o.vndAmount), 0n).toString(),
-        sell: null,
+        buyCount: daily.data.bySide.BUY.count,
+        buyWpt: daily.data.bySide.BUY.wptAmount,
+        buyVnd: daily.data.bySide.BUY.vndAmount,
+        sell: {
+          count: daily.data.bySide.SELL.count,
+          wpt: daily.data.bySide.SELL.wptAmount,
+          vnd: daily.data.bySide.SELL.vndAmount,
+        },
       },
       tokens,
       wallet: {
@@ -138,8 +144,8 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
   }
 }
 
-/** Loại giao dịch. Hệ thống mới có lệnh MUA WPT; loại khác thêm vào đây khi có nghiệp vụ. */
-export const SELLER_TXN_TYPES = ['BUY'] as const;
+/** Loại giao dịch = chiều lệnh (BE-14 thêm `SELL`). Loại khác (rút) thêm vào đây khi có nghiệp vụ. */
+export const SELLER_TXN_TYPES = ['BUY', 'SELL'] as const;
 
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày dạng YYYY-MM-DD.');
 
@@ -179,25 +185,25 @@ export async function listSellerTransactions(input: unknown): Promise<Result<Sel
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, q, status, from, to, page, pageSize } = parsed.data;
+  const { chain, q, type, status, from, to, page, pageSize } = parsed.data;
 
   try {
     await authorize('seller:read', null, chain);
 
-    const orders = await getOrderStore().listOrders({ chain, status, limit: ORDER_SCAN_LIMIT });
+    const orders = await getOrderStore().listOrders({ chain, status, side: type, limit: ORDER_SCAN_LIMIT });
     const needle = q?.toLowerCase();
     const matches = (o: OrderRecord) =>
       (!needle || o.id.toLowerCase().includes(needle) || o.investorWallet.toLowerCase().includes(needle)) &&
       (!from || vnDate(o.createdAt) >= from) &&
       (!to || vnDate(o.createdAt) <= to);
-    // `type` chỉ có BUY và mọi lệnh hiện có đều là BUY, nên lọc theo loại không loại dòng nào.
+    // Lọc loại đã đẩy xuống cổng lưu trữ (`side`), cùng lần đọc với lọc trạng thái.
     const filtered = orders.filter(matches);
 
     return ok({
       rows: filtered.slice((page - 1) * pageSize, page * pageSize).map((o) => ({
         id: o.id,
         investorWallet: o.investorWallet,
-        type: 'BUY' as const,
+        type: o.side,
         wptAmount: o.wptAmount,
         vndAmount: o.vndAmount,
         status: o.status,

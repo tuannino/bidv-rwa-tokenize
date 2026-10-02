@@ -3,7 +3,6 @@
 import {
   executeOrder,
   listOrders,
-  orderDailyStats,
   placeOrder,
   previewPurchase,
 } from '@/lib/bank/purchase.service';
@@ -23,7 +22,12 @@ import {
  * `input: unknown` là cố ý: validate bằng Zod ở trong service, một schema dùng chung cho
  * form và server. Khai kiểu hẹp ở đây sẽ tạo cảm giác đã kiểm dữ liệu trong khi chưa.
  *
- * ⚠️ Service có SÁU hàm, tệp này chỉ có NĂM action — thiếu `expireStaleOrders`, và đó là chủ
+ * BE-14: `orderDailyStats` cũng không có action riêng — `seller.service` gọi nó ngay trong tầng
+ * nghiệp vụ cho Tổng quan Người bán; thêm action khi có màn thứ hai cần gọi thẳng (bảng điều khiển
+ * vận hành, chưa có mã task).
+ *
+ * ⚠️ Service có SÁU hàm, tệp này chỉ có BỐN action — thiếu `expireStaleOrders` (và `orderDailyStats`,
+ * lý do ở trên), và đó là chủ
  * đích chứ không phải bỏ sót. Dọn lệnh treo chỉ có MỘT đường vào: tiến trình theo lịch của
  * BE-07 gọi thẳng service. Server action cũng là một điểm vào HTTP, nên mở nó ở đây sẽ phá
  * đúng chủ đích đã ghi ở `app/src/app/api/purchase/route.ts` — mời gọi việc gọi tay giữa
@@ -60,11 +64,4 @@ export async function executeOrderAction(input: unknown) {
  */
 export async function listOrdersAction(input: unknown) {
   return listOrders(input);
-}
-
-/**
- * @pending FE-21 | đã sẵn đầu cuối ở `orderDailyStats`: kiểm quyền `order:read:all` (Người bán và hai vai vận hành), đếm lệnh COMPLETED trong ngày theo giờ Việt Nam cho cả hai chiều, trả đúng bốn ô `tiles` (số lệnh mua, giá trị mua, số lệnh bán, giá trị bán) — màn Tổng quan Người bán và bảng điều khiển vận hành chỉ vẽ, không tự cộng
- */
-export async function orderDailyStatsAction(input: unknown) {
-  return orderDailyStats(input);
 }

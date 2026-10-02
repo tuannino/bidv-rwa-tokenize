@@ -108,6 +108,7 @@ export function SellerTransactionsPage() {
             <select aria-label="Loại" value={filters.type} onChange={set('type')} className={FIELD}>
               <option value="">Mọi loại</option>
               <option value="BUY">Mua</option>
+              <option value="SELL">Bán</option>
             </select>
             <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={FIELD}>
               <option value="">Mọi trạng thái</option>
@@ -155,7 +156,7 @@ export function SellerTransactionsPage() {
                       <TableCell className="font-mono text-xs" title={row.investorWallet}>
                         {shortWallet(row.investorWallet)}
                       </TableCell>
-                      <TableCell>Mua</TableCell>
+                      <TableCell>{row.type === 'SELL' ? 'Bán' : 'Mua'}</TableCell>
                       <TableCell className="text-right font-mono">{nf(row.wptAmount)}</TableCell>
                       <TableCell className="text-right font-mono">{nf(row.vndAmount)}</TableCell>
                       <TableCell>{STEP_LABELS[row.status]}</TableCell>

@@ -79,6 +79,8 @@ export function createMemoryOrderStore(): IOrderStore {
     async createOrder(order: NewOrder): Promise<OrderRecord> {
       // Mọi phép kiểm chạy TRƯỚC mọi thay đổi trạng thái: thất bại giữa chừng sẽ để lại
       // dữ liệu nửa vời mà không lời gọi nào sau đó biết là nửa vời.
+      const status = assertOrderStatus(order.status ?? 'PLACED');
+      const now = new Date().toISOString();
       const record: OrderRecord = {
         id: randomUUID(),
         chain: order.chain,
@@ -86,7 +88,7 @@ export function createMemoryOrderStore(): IOrderStore {
         side: assertOrderSide(order.side ?? 'BUY'),
         wptAmount: assertAmount('wptAmount', order.wptAmount),
         vndAmount: assertAmount('vndAmount', order.vndAmount),
-        status: assertOrderStatus(order.status ?? 'PLACED'),
+        status,
         txHash: null,
         reason: null,
         actorRole: order.actorRole,
@@ -94,9 +96,13 @@ export function createMemoryOrderStore(): IOrderStore {
         reconciledAt: null,
         settlingAt: null,
         completedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
+      // Tạo thẳng ở một trạng thái có mốc (đường dựng dữ liệu thử) thì ghi mốc của trạng thái đó,
+      // cùng quy tắc "mốc ghi cùng lần đặt trạng thái" với `transitionOrder` và bản Postgres.
+      const stamp = ORDER_STATUS_STAMPS[status];
+      if (stamp) record[stamp] = now;
       state().orders.push(record);
       return { ...record };
     },

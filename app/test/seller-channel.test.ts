@@ -49,10 +49,17 @@ async function setConfig(key: string, value: string) {
   await getConfigStore().setConfig({ key, value, type: 'string', changedBy: 'TELLER' });
 }
 
-async function order(status: 'COMPLETED' | 'PLACED' | 'REJECTED', wpt: string, vnd: string, wallet = INVESTOR) {
+async function order(
+  status: 'COMPLETED' | 'PLACED' | 'REJECTED',
+  wpt: string,
+  vnd: string,
+  wallet = INVESTOR,
+  side: 'BUY' | 'SELL' = 'BUY',
+) {
   return getOrderStore().createOrder({
     chain: CHAIN,
     investorWallet: wallet,
+    side,
     wptAmount: wpt,
     vndAmount: vnd,
     actorRole: 'INVESTOR',
@@ -92,7 +99,13 @@ describe('ca 1 — Tổng quan đủ sáu khối, số liệu lấy từ nghiệ
     const view = result.data;
 
     // khối 1 — khớp trong ngày: chỉ lệnh COMPLETED
-    expect(view.today).toEqual({ buyCount: 2, buyWpt: '15', buyVnd: '1500', sell: null });
+    // BE-14: `sell` hết là `null` — chưa có lệnh bán nào nên ba số 0.
+    expect(view.today).toEqual({
+      buyCount: 2,
+      buyWpt: '15',
+      buyVnd: '1500',
+      sell: { count: 0, wpt: '0', vnd: '0' },
+    });
 
     // khối 2, 3, 4 — nguồn cung, thông tin token, tồn kho
     expect(view.tokens).toHaveLength(1);
@@ -152,6 +165,37 @@ describe('ca 2 — Danh sách giao dịch lọc theo từng tiêu chí và phân
     const page2 = await list({ pageSize: 2, page: 2 });
     expect([page1.rows.length, page2.rows.length, page1.total]).toEqual([2, 1, 3]);
     expect(new Set([...page1.rows, ...page2.rows].map((r) => r.id)).size).toBe(3);
+  });
+});
+
+describe('BE-14 — lệnh bán tách khỏi lệnh mua ở kênh Người bán', () => {
+  it('Tổng quan đếm lệnh bán vào ô bán, không cộng vào ô mua', async () => {
+    await issueAndDistribute(1_000n, 300n);
+    await order('COMPLETED', '10', '1000');
+    await order('COMPLETED', '4', '400', INVESTOR, 'SELL');
+    await order('PLACED', '7', '700', INVESTOR, 'SELL');
+
+    const { getSellerOverview } = await service();
+    const result = await getSellerOverview({ chain: CHAIN });
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.today).toEqual({
+      buyCount: 1,
+      buyWpt: '10',
+      buyVnd: '1000',
+      sell: { count: 1, wpt: '4', vnd: '400' },
+    });
+  });
+
+  it('Danh sách giao dịch mang đúng loại và lọc được theo loại', async () => {
+    await order('COMPLETED', '1', '100');
+    const sale = await order('COMPLETED', '2', '200', INVESTOR, 'SELL');
+
+    const { listSellerTransactions } = await service();
+    const sells = await listSellerTransactions({ chain: CHAIN, type: 'SELL' });
+    expect(sells.ok && sells.data.rows.map((r) => [r.id, r.type])).toEqual([[sale.id, 'SELL']]);
+    const buys = await listSellerTransactions({ chain: CHAIN, type: 'BUY' });
+    expect(buys.ok && buys.data.rows.map((r) => r.type)).toEqual(['BUY']);
   });
 });
 

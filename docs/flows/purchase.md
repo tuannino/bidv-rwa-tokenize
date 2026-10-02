@@ -59,17 +59,17 @@ flowchart TD
 
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
-| 1 | `app/src/app/actions/purchase.ts:34` | `previewPurchaseAction()` | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào |
+| 1 | `app/src/app/actions/purchase.ts:38` | `previewPurchaseAction()` | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào |
 | 2 | `app/src/lib/bank/purchase.service.ts:148` | `previewPurchase()` | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu |
-| 3 | `app/src/app/actions/purchase.ts:42` | `placeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase |
+| 3 | `app/src/app/actions/purchase.ts:46` | `placeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase |
 | 4 | `app/src/lib/bank/purchase.service.ts:197` | `placeOrder()` | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán |
 | 5 | `app/src/lib/ledger/ledger.port.ts:115` | `quotePurchase()` | chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh |
-| 6 | `app/src/app/actions/purchase.ts:50` | `executeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId |
+| 6 | `app/src/app/actions/purchase.ts:54` | `executeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId |
 | 7 | `app/src/lib/bank/purchase.service.ts:654` | `executeOrder()` | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần |
 | 8 | `app/src/lib/bank/purchase.service.ts:407` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên |
 | 9 | `app/src/lib/bank/purchase.service.ts:767` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
 | 10 | `app/src/lib/ledger/ledger.port.ts:151` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
-| 11 | `app/src/app/actions/purchase.ts:58` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
+| 11 | `app/src/app/actions/purchase.ts:62` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
 | 12 | `app/src/lib/bank/purchase.service.ts:905` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
 
 ## Điểm cắm trên đường đi

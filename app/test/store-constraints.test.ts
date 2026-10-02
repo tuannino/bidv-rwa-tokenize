@@ -800,6 +800,12 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       expect(done?.reconciledAt).toBe(executing?.reconciledAt);
     });
 
+    it('tạo thẳng ở trạng thái có mốc thì ghi mốc đó ngay khi tạo', async () => {
+      const done = await store.orders.createOrder({ ...order(freshWallet(), 'SELL'), status: 'COMPLETED' });
+      expect(done.completedAt).not.toBeNull();
+      expect([done.checkingAt, done.reconciledAt, done.settlingAt]).toEqual([null, null, null]);
+    });
+
     it('lọc theo chiều, theo mã lệnh và theo khoảng ngày tạo', async () => {
       const wallet = freshWallet();
       const buy = await store.orders.createOrder(order(wallet, 'BUY'));

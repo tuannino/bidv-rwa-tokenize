@@ -75,18 +75,22 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
     kind: 'prisma',
 
     async createOrder(order: NewOrder): Promise<OrderRecord> {
+      const status = assertOrderStatus(order.status ?? 'PLACED');
+      // Tạo thẳng ở một trạng thái có mốc (đường dựng dữ liệu thử) thì ghi mốc của trạng thái đó
+      // trong chính câu INSERT. Tên cột lấy từ hằng số `ORDER_STATUS_STAMPS`, không từ input.
+      const stamp = ORDER_STATUS_STAMPS[status];
       const rows = await mapPgConstraintError(() =>
         query<OrderRow>(
           `INSERT INTO "PurchaseOrder"
-             ("id","chain","investorWallet","wptAmount","vndAmount","status","actorRole","side","updatedAt")
-           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,CURRENT_TIMESTAMP)
+             ("id","chain","investorWallet","wptAmount","vndAmount","status","actorRole","side","updatedAt"${stamp ? `,"${stamp}"` : ''})
+           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,CURRENT_TIMESTAMP${stamp ? ',CURRENT_TIMESTAMP' : ''})
            RETURNING *`,
           [
             order.chain,
             order.investorWallet,
             assertAmount('wptAmount', order.wptAmount),
             assertAmount('vndAmount', order.vndAmount),
-            assertOrderStatus(order.status ?? 'PLACED'),
+            status,
             order.actorRole,
             assertOrderSide(order.side ?? 'BUY'),
           ],
