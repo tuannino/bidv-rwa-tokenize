@@ -6,7 +6,7 @@ import {
   TOKEN_REQUEST_STATUSES,
   TOKEN_REQUEST_TYPES,
 } from '@/lib/store/token-request.store.port';
-import { ORDER_STATUSES } from './purchase.state';
+import { ORDER_SIDES, ORDER_STATUSES } from './purchase.state';
 
 /**
  * MỘT schema dùng chung cho form (client) và server action/route (server).
@@ -106,6 +106,12 @@ export const placeOrderSchema = z.object({
   chain: chainSchema,
   investorWallet: walletSchema,
   wptAmount: amountSchema,
+  /**
+   * Chiều lệnh (BE-14). Mặc định `BUY` để mọi chỗ gọi có trước BE-14 giữ nguyên hành vi.
+   *
+   * KHÔNG có trường giá: giá lấy từ cấu hình ở cả hai chiều, nhà đầu tư không nhập giá.
+   */
+  side: z.enum(ORDER_SIDES).default('BUY'),
 });
 /** `z.input` để form gửi `wptAmount` dạng chuỗi; server nhận `bigint` sau parse. */
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
@@ -133,7 +139,7 @@ export type PreviewPurchaseInput = z.input<typeof previewPurchaseSchema>;
  * dạng TRƯỚC khi cắt khoảng trắng, nên một id dán từ log có xuống dòng ở cuối bị coi là
  * sai dạng. `z.string().uuid()` đã `@deprecated` ở Zod 4 nên không dùng.
  *
- * KHÔNG `export`: chỉ `executeOrderSchema` trong cùng tệp dùng tới.
+ * KHÔNG `export`: chỉ `executeOrderSchema` và `orderQuerySchema` trong cùng tệp dùng tới.
  */
 const orderIdSchema = z
   .string()
@@ -154,13 +160,35 @@ export type ExecuteOrderInput = z.input<typeof executeOrderSchema>;
  * tại đây thì vai ngân hàng mất khả năng xem toàn hệ (R5.2); để nghiệp vụ quyết định
  * theo quyền là cách duy nhất phục vụ được cả R5.1 và R5.2 bằng một schema.
  */
-export const orderQuerySchema = z.object({
-  chain: chainSchema.optional(),
-  investorWallet: walletSchema.optional(),
-  status: z.enum(ORDER_STATUSES).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-});
+export const orderQuerySchema = z
+  .object({
+    chain: chainSchema.optional(),
+    investorWallet: walletSchema.optional(),
+    status: z.enum(ORDER_STATUSES).optional(),
+    /** BE-14 — bốn bộ lọc mới: chiều, mã lệnh, khoảng ngày tạo. */
+    side: z.enum(ORDER_SIDES).optional(),
+    orderId: orderIdSchema.optional(),
+    /** Ngày đầu, GỒM CẢ ngày đó, theo giờ Việt Nam. */
+    fromDate: z.iso.date('Ngày bắt đầu phải có dạng YYYY-MM-DD.').optional(),
+    /** Ngày cuối, GỒM CẢ ngày đó, theo giờ Việt Nam. */
+    toDate: z.iso.date('Ngày kết thúc phải có dạng YYYY-MM-DD.').optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+  })
+  // Dạng `YYYY-MM-DD` so chuỗi đúng thứ tự thời gian, không cần đổi sang Date.
+  .refine((q) => !q.fromDate || !q.toDate || q.fromDate <= q.toDate, {
+    message: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.',
+    path: ['toDate'],
+  });
 export type OrderQueryInput = z.input<typeof orderQuerySchema>;
+
+/**
+ * Số liệu khớp lệnh trong ngày (BE-14). `date` vắng mặt = hôm nay theo giờ Việt Nam.
+ */
+export const orderDailyStatsSchema = z.object({
+  chain: chainSchema.optional(),
+  date: z.iso.date('Ngày phải có dạng YYYY-MM-DD.').optional(),
+});
+export type OrderDailyStatsInput = z.input<typeof orderDailyStatsSchema>;
 
 /**
  * Hết hạn lệnh treo. Chặn dưới 1 phút là có chủ ý: gọi với 0 sẽ hết hạn ngay cả lệnh

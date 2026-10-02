@@ -134,14 +134,13 @@ describe('RBAC — can(role, action)', () => {
   });
 
   it('order:read:all là thứ phân biệt R5.1 với R5.2, không phải if role', () => {
-    // Cả bốn vai đọc được sổ lệnh, nhưng chỉ hai vai vận hành được bỏ trống bộ lọc ví.
+    // Cả bốn vai đọc được sổ lệnh, nhưng chỉ nhà đầu tư bị buộc lọc theo ví mình.
+    // BE-14 việc 12: Người bán xem toàn bộ như hai vai vận hành.
     for (const role of ROLES) {
       expect(can(role, 'order:read'), `${role} phải đọc được lệnh`).toBe(true);
     }
-    for (const role of ['INVESTOR', 'SELLER'] as const) {
-      expect(can(role, 'order:read:all'), `${role} chỉ xem lệnh của ví mình`).toBe(false);
-    }
-    for (const role of ['TELLER', 'CONTROLLER'] as const) {
+    expect(can('INVESTOR', 'order:read:all'), 'INVESTOR chỉ xem lệnh của ví mình').toBe(false);
+    for (const role of ['SELLER', 'TELLER', 'CONTROLLER'] as const) {
       expect(can(role, 'order:read:all'), `${role} xem được toàn hệ`).toBe(true);
     }
   });
@@ -186,7 +185,12 @@ describe('RBAC — can(role, action)', () => {
  * dữ liệu toàn hệ.
  */
 describe('RBAC — FALLBACK_ROLE (FE-20)', () => {
-  const SYSTEM_WIDE_READS = ['audit:read', 'order:read:all', 'reconcile:read'] as const;
+  /**
+   * BE-14: `order:read:all` RA KHỎI danh sách này. Người bán xem toàn bộ sổ lệnh (spec việc 12)
+   * và Owner chọn giữ fallback là `SELLER`, nên vai lạ đọc được sổ lệnh — vẫn không đọc được sổ
+   * kiểm toán, báo cáo đối soát, và không có quyền ghi nào. Xem `docs/CHECKPOINT_BE14.md`.
+   */
+  const SYSTEM_WIDE_READS = ['audit:read', 'reconcile:read'] as const;
 
   it('FALLBACK_ROLE là SELLER', () => {
     expect(FALLBACK_ROLE).toBe('SELLER');
@@ -315,8 +319,8 @@ const BE02_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   },
   {
     action: 'order:read:all',
-    allowed: ['TELLER', 'CONTROLLER'],
-    why: 'bỏ trống bộ lọc ví là đặc quyền hai vai vận hành',
+    allowed: ['SELLER', 'TELLER', 'CONTROLLER'],
+    why: 'bỏ trống bộ lọc ví: hai vai vận hành và Người bán (BE-14); nhà đầu tư chỉ xem ví mình',
   },
 ];
 

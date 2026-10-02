@@ -12,11 +12,18 @@ import { err, ok, type ErrorCode, type Result } from './result';
 import {
   executeOrderSchema,
   expireOrdersSchema,
+  orderDailyStatsSchema,
   orderQuerySchema,
   placeOrderSchema,
   previewPurchaseSchema,
 } from './schemas';
-import { EXECUTABLE_ORDER_STATUSES, type OrderStatus } from './purchase.state';
+import { EXECUTABLE_ORDER_STATUSES, type OrderSide, type OrderStatus } from './purchase.state';
+import {
+  toSettlementSteps,
+  toSettlementView,
+  type SettlementStepView,
+  type SettlementView,
+} from './settlement-steps';
 
 /**
  * Nghiệp vụ LỆNH MUA WPT.
@@ -39,24 +46,34 @@ import { EXECUTABLE_ORDER_STATUSES, type OrderStatus } from './purchase.state';
  * nhóm này nằm chung một interface hợp nhất; tách ra để mỗi nghiệp vụ chỉ cầm đúng cổng nó
  * cần, và thêm nghiệp vụ mới không phải sửa chữ ký của cổng đang dùng. Nghiệp vụ ở file
  * này KHÔNG đổi — chỉ đổi đường lấy cổng.
+ *
+ * BE-14 — CHIỀU BÁN. Cùng tệp, cùng bảng lệnh, cùng bảy trạng thái, cùng bộ kiểm: nhà đầu tư
+ * trả WPT về ví thanh toán người bán (SPV) và nhận VNDB, cũng trong CÙNG MỘT giao dịch. Mọi
+ * hàm dưới đây nhận `side`; vắng mặt là `BUY`, nên hành vi chiều mua không đổi.
  */
 
 export interface OrderView {
   id: string;
   chain: ChainKey;
   investorWallet: string;
+  /** Chiều lệnh (BE-14). */
+  side: OrderSide;
   /**
    * Chuỗi thập phân, KHÔNG phải `bigint` và KHÔNG phải `number`:
    * `bigint` không qua được biên server -> client, `number` mất chính xác từ 2^53.
    */
   wptAmount: string;
-  /** Số VNDB phải trả, CHỐT tại thời điểm đặt lệnh (QĐ-3). */
+  /** Số VNDB CHỐT tại thời điểm đặt lệnh (QĐ-3): lệnh mua là số phải trả, lệnh bán là số nhận. */
   vndAmount: string;
   status: OrderStatus;
   txHash: string | null;
   reason: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Năm bước quyết toán kèm mốc thời gian, ánh xạ ở tầng này (BE-14). Giao diện chỉ vẽ. */
+  steps: SettlementStepView[];
+  /** Bốn bút toán của bước quyết toán, nguyên tắc tất cả hoặc không gì (BE-14). */
+  settlement: SettlementView;
 }
 
 export interface OrderExecutionView extends OrderView {
@@ -65,6 +82,8 @@ export interface OrderExecutionView extends OrderView {
   txStatus: TxStatus;
   /** Số dư WPT của nhà đầu tư, ĐỌC LẠI TỪ CHUỖI sau khi khớp — không tin biên nhận (R3.4). */
   balanceAfter: string;
+  /** Số dư VNDB của nhà đầu tư, đọc lại từ chuỗi sau khi khớp (BE-14 — chiều bán nhận VNDB). */
+  paymentBalanceAfter: string;
 }
 
 /** Ánh xạ bản ghi lưu trữ sang khung nhìn — một chỗ duy nhất, dùng cho mọi hàm trả lệnh. */
@@ -73,6 +92,7 @@ function toView(order: OrderRecord): OrderView {
     id: order.id,
     chain: order.chain,
     investorWallet: order.investorWallet,
+    side: order.side,
     wptAmount: order.wptAmount,
     vndAmount: order.vndAmount,
     status: order.status,
@@ -80,6 +100,8 @@ function toView(order: OrderRecord): OrderView {
     reason: order.reason,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    steps: toSettlementSteps(order),
+    settlement: toSettlementView(order),
   };
 }
 
@@ -94,15 +116,17 @@ function toView(order: OrderRecord): OrderView {
 export interface PurchasePreviewView {
   chain: ChainKey;
   investorWallet: string;
+  /** Chiều lệnh đang xem trước (BE-14), trả lại nguyên văn như ba trường kia. */
+  side: OrderSide;
   wptAmount: string;
-  /** Số VNDB phải trả theo báo giá HIỆN TẠI. Chưa chốt: chốt là việc của `placeOrder`. */
+  /** Số VNDB theo báo giá HIỆN TẠI (mua: phải trả; bán: nhận về). Chốt là việc của `placeOrder`. */
   vndAmount: string;
   /** Đủ điều kiện đặt lệnh hay chưa — suy ra từ `blockers`, không phải một cờ riêng. */
   canPlaceOrder: boolean;
   /** Mã các phép kiểm đang chặn, theo thứ tự nên sửa. Rỗng nghĩa là không có gì chặn. */
-  blockers: PurchaseCheckId[];
-  /** Từng phép kiểm đã chạy. Xem `PurchaseChecks.results` về việc vắng mặt nghĩa là gì. */
-  checks: PurchaseCheckResult[];
+  blockers: OrderCheckId[];
+  /** Từng phép kiểm đã chạy. Xem `OrderChecks.results` về việc vắng mặt nghĩa là gì. */
+  checks: OrderCheckResult[];
 }
 
 /**
@@ -129,18 +153,19 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, investorWallet, wptAmount } = parsed.data;
+  const { chain, investorWallet, wptAmount, side } = parsed.data;
 
   try {
     assertCan(await currentRole(), 'order:place');
 
     // KHÔNG truyền `quotedVndAmount`: chưa có lệnh nào nên không có giá cũ để so.
-    const checks = await runPurchaseChecks(getLedger(chain), { investorWallet, wptAmount });
+    const checks = await runOrderChecks(getLedger(chain), { side, investorWallet, wptAmount });
     const blockers = checks.results.filter((r) => !r.ok).map((r) => r.id);
 
     return ok({
       chain,
       investorWallet,
+      side,
       wptAmount: wptAmount.toString(),
       vndAmount: checks.vndAmount.toString(),
       canPlaceOrder: blockers.length === 0,
@@ -169,14 +194,15 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
  * thiếu gì sau khi đã đặt lệnh. `executeOrder` VẪN kiểm lại — điều kiện đổi được giữa hai
  * thời điểm, nên kiểm ở đây không thay thế được kiểm ở đó.
  *
- * @flow purchase:4 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED
+ * @flow purchase:4 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán
  */
 export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   const parsed = placeOrderSchema.safeParse(input);
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, investorWallet, wptAmount } = parsed.data;
+  const { chain, investorWallet, wptAmount, side } = parsed.data;
+  const sidePrefix = SIDE_PREFIX[side];
 
   try {
     // `authorize` ghi audit cho CẢ hai kết cục (ALLOWED và DENIED) rồi mới ném — R1.4.
@@ -190,7 +216,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     // MỘT lần — gọi `quotePurchase` thêm lần nữa là mở cửa cho hai giá khác nhau.
     //
     // KHÔNG truyền `quotedVndAmount`: lệnh chưa tồn tại nên không có giá cũ để so.
-    const checks = await runPurchaseChecks(ledger, { investorWallet, wptAmount });
+    const checks = await runOrderChecks(ledger, { side, investorWallet, wptAmount });
     const blocker = firstFailure(checks.results);
     if (blocker) {
       // KHÔNG tạo bản ghi. Nhưng VẪN ghi sổ kiểm toán: một lần đặt lệnh bị từ chối là
@@ -200,7 +226,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
         action: 'order:place',
         target: investorWallet,
         outcome: 'FAILURE',
-        detail: `từ chối đặt lệnh ${wptAmount} WPT trước khi tạo bản ghi — ${blocker.reason}`,
+        detail: `từ chối đặt lệnh ${sidePrefix}${wptAmount} WPT trước khi tạo bản ghi — ${blocker.reason}`,
         chain,
       });
       return err(blocker.code, blocker.reason);
@@ -210,6 +236,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     const order = await getOrderStore().createOrder({
       chain,
       investorWallet,
+      side,
       wptAmount: wptAmount.toString(),
       vndAmount: vndAmount.toString(),
       actorRole: role,
@@ -220,7 +247,10 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       action: 'order:place',
       target: investorWallet,
       outcome: 'SUCCESS',
-      detail: `đặt lệnh ${order.id}: ${wptAmount} WPT, phải trả ${vndAmount} VNDB`,
+      detail:
+        side === 'BUY'
+          ? `đặt lệnh ${order.id}: ${wptAmount} WPT, phải trả ${vndAmount} VNDB`
+          : `đặt lệnh bán ${order.id}: ${wptAmount} WPT, nhận ${vndAmount} VNDB`,
       chain,
     });
 
@@ -234,14 +264,23 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
  * Mã của từng phép kiểm. Giao diện khoá theo MÃ, không theo câu chữ: đổi câu chữ là việc
  * thường xuyên, còn mã thì chỉ đổi khi phép kiểm đó thật sự khác đi.
  */
-export const PURCHASE_CHECK_IDS = [
+export const ORDER_CHECK_IDS = [
   'price',
   'paymentBalance',
   'allowance',
   'supply',
+  // BE-14 — hai phép riêng của chiều bán.
+  'holding',
+  'sellerLiquidity',
   'transferable',
 ] as const;
-export type PurchaseCheckId = (typeof PURCHASE_CHECK_IDS)[number];
+export type OrderCheckId = (typeof ORDER_CHECK_IDS)[number];
+
+/**
+ * Tiền tố chiều trong câu chữ sổ kiểm toán. Chiều MUA để trống: câu chữ của lệnh mua giữ nguyên
+ * từng chữ như trước BE-14, vì sổ kiểm toán cũ và các bộ lọc đối soát đang đọc đúng câu đó.
+ */
+const SIDE_PREFIX: Record<OrderSide, string> = { BUY: '', SELL: 'bán ' };
 
 /**
  * Kết quả MỘT phép kiểm. Union tường minh, không phải `{ ok: boolean; reason: string | null }`:
@@ -254,10 +293,10 @@ export type PurchaseCheckId = (typeof PURCHASE_CHECK_IDS)[number];
  * `actual`/`required` là CHUỖI thập phân, chỉ có ở phép kiểm số dư và ủy quyền: hai phép đó
  * so hai con số nên giao diện hiện được "đang có / cần có", còn ba phép còn lại không so số.
  */
-export type PurchaseCheckResult =
-  | { id: PurchaseCheckId; ok: true }
+export type OrderCheckResult =
+  | { id: OrderCheckId; ok: true }
   | {
-      id: PurchaseCheckId;
+      id: OrderCheckId;
       ok: false;
       code: ErrorCode;
       reason: string;
@@ -268,7 +307,7 @@ export type PurchaseCheckResult =
     };
 
 /** Kết quả cả bộ kiểm. */
-interface PurchaseChecks {
+interface OrderChecks {
   /**
    * Số VNDB phải trả theo BÁO GIÁ HIỆN TẠI. Trả ra đây để người gọi dùng lại thay vì gọi
    * `quotePurchase` lần thứ hai — hai lời gọi cách nhau có thể nhận hai giá khác nhau, và
@@ -283,18 +322,18 @@ interface PurchaseChecks {
    * không phải một đối tượng có đủ năm khoá: đối tượng đủ khoá buộc phải điền một giá trị
    * cho phép kiểm chưa chạy, và mọi giá trị điền vào đó đều là nói sai.
    */
-  results: PurchaseCheckResult[];
+  results: OrderCheckResult[];
 }
 
-const passed = (id: PurchaseCheckId): PurchaseCheckResult => ({ id, ok: true });
+const passed = (id: OrderCheckId): OrderCheckResult => ({ id, ok: true });
 
 const failed = (
-  id: PurchaseCheckId,
+  id: OrderCheckId,
   code: ErrorCode,
   reason: string,
   howToFix: string,
   amounts?: { actual: bigint; required: bigint },
-): PurchaseCheckResult => ({
+): OrderCheckResult => ({
   id,
   ok: false,
   code,
@@ -307,8 +346,8 @@ const failed = (
 
 /** Phép kiểm trượt ĐẦU TIÊN, `null` khi đạt hết. */
 function firstFailure(
-  results: readonly PurchaseCheckResult[],
-): Extract<PurchaseCheckResult, { ok: false }> | null {
+  results: readonly OrderCheckResult[],
+): Extract<OrderCheckResult, { ok: false }> | null {
   for (const r of results) if (!r.ok) return r;
   return null;
 }
@@ -321,10 +360,15 @@ function firstFailure(
  * gọi cùng dùng một bộ kiểm: xem trước (chưa có lệnh), đặt lệnh (đang tạo lệnh), khớp
  * lệnh (đã có lệnh).
  */
-export interface PurchaseCheckInput {
-  /** Ví nhà đầu tư sẽ trả VNDB và nhận WPT. */
+export interface OrderCheckInput {
+  /**
+   * Chiều lệnh (BE-14). Quyết định nhóm phép kiểm số dư và chiều của phép kiểm chuyển nhượng;
+   * phép kiểm giá thì chung. Một hàm cho cả hai chiều, không có bản thứ hai.
+   */
+  side: OrderSide;
+  /** Ví nhà đầu tư: lệnh mua trả VNDB nhận WPT, lệnh bán trả WPT nhận VNDB. */
   investorWallet: string;
-  /** Số WPT muốn mua. */
+  /** Số WPT muốn mua hoặc bán. */
   wptAmount: bigint;
   /**
    * Số VNDB ĐÃ CHỐT của một lệnh có sẵn (QĐ-3). Có thì kiểm thêm "giá đã đổi chưa".
@@ -338,7 +382,15 @@ export interface PurchaseCheckInput {
 }
 
 /**
- * BỐN PHÉP KIỂM TRƯỚC KHI GỬI GIAO DỊCH (QĐ-2), dừng ở lần trượt đầu tiên.
+ * BỘ PHÉP KIỂM TRƯỚC KHI GỬI GIAO DỊCH (QĐ-2), dừng ở lần trượt đầu tiên — DÙNG CHUNG cho hai
+ * chiều (BE-14). Phép kiểm giá chạy chung; sau đó tách theo `side`:
+ *
+ *   - Mua (bốn phép, giữ nguyên từ BE-02): số dư VNDB -> ủy quyền VNDB -> tồn WPT ví SPV ->
+ *     chuyển nhượng chiều SPV -> nhà đầu tư.
+ *   - Bán (ba phép): số WPT nhà đầu tư đang giữ -> thanh khoản VNDB của ví thanh toán người bán
+ *     -> chuyển nhượng chiều nhà đầu tư -> SPV.
+ *
+ * Phần mô tả bốn phép mua dưới đây giữ nguyên từ BE-02.
  *
  * Cả bốn đều là hàm ĐỌC, không tốn phí. Hợp đồng cũng kiểm lại, nhưng kiểm ở đây có hai
  * giá trị mà hợp đồng không cho được: thông báo nêu đúng điều kiện nào thiếu và thiếu bao
@@ -350,16 +402,16 @@ export interface PurchaseCheckInput {
  *
  * Phép kiểm giá (QĐ-3) chạy TRƯỚC bốn phép này vì cả bốn đều so với `vndAmount` đã chốt;
  * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu. Nó CHỈ chạy khi người gọi
- * đưa `quotedVndAmount` — lý do ở `PurchaseCheckInput`.
+ * đưa `quotedVndAmount` — lý do ở `OrderCheckInput`.
  *
- * @flow purchase:8 | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên
+ * @flow purchase:8 | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên
  */
-async function runPurchaseChecks(
+async function runOrderChecks(
   ledger: ILedgerPort,
-  input: PurchaseCheckInput,
-): Promise<PurchaseChecks> {
-  const { investorWallet, wptAmount, quotedVndAmount } = input;
-  const results: PurchaseCheckResult[] = [];
+  input: OrderCheckInput,
+): Promise<OrderChecks> {
+  const { side, investorWallet, wptAmount, quotedVndAmount } = input;
+  const results: OrderCheckResult[] = [];
 
   // --- QĐ-3: giá đổi giữa lúc đặt và lúc khớp -------------------------------------
   // So khớp CHÍNH XÁC, không có biên dung sai. Giá bán WPT là tham số do ngân hàng ấn
@@ -389,6 +441,11 @@ async function runPurchaseChecks(
   // Qua được phép kiểm trên thì `quotedVndAmount` (nếu có) BẰNG `quotedNow`, nên dùng
   // `quotedNow` làm mốc cho cả ba đường gọi — không cần nhánh riêng cho từng đường.
   const vndAmount = quotedNow;
+
+  if (side === 'SELL') {
+    results.push(...(await runSaleBalanceChecks(ledger, investorWallet, wptAmount, vndAmount)));
+    return { vndAmount, results };
+  }
 
   // --- 1. Số dư VNDB của nhà đầu tư ------------------------------------------------
   const paymentBalance = await ledger.paymentBalanceOf(investorWallet);
@@ -474,6 +531,79 @@ async function runPurchaseChecks(
   results.push(passed('transferable'));
 
   return { vndAmount, results };
+}
+
+/**
+ * Ba phép kiểm riêng của CHIỀU BÁN (BE-14), chạy SAU phép kiểm giá chung của `runOrderChecks`.
+ * Trả danh sách đã chạy, dừng ở phép trượt đầu tiên — cùng quy ước với chiều mua.
+ *
+ * Thứ tự là thứ tự ai sửa được: nhà đầu tư có đủ token không -> người bán có đủ tiền trả không
+ * -> chuyển được không.
+ */
+async function runSaleBalanceChecks(
+  ledger: ILedgerPort,
+  investorWallet: string,
+  wptAmount: bigint,
+  vndAmount: bigint,
+): Promise<OrderCheckResult[]> {
+  // --- 1. Số WPT nhà đầu tư đang giữ ----------------------------------------------
+  const held = await ledger.balanceOf(investorWallet);
+  if (held < wptAmount) {
+    return [
+      failed(
+        'holding',
+        'INSUFFICIENT_HOLDING',
+        `Số WPT đang giữ không đủ để bán: cần ${wptAmount}, ví ${investorWallet} chỉ có ${held}.`,
+        `Giảm số lượng bán xuống tối đa ${held} WPT.`,
+        { actual: held, required: wptAmount },
+      ),
+    ];
+  }
+
+  // --- 2. Thanh khoản VNDB của ví thanh toán người bán -----------------------------
+  const spv = await ledger.spvWallet();
+  if (!spv) {
+    return [
+      passed('holding'),
+      failed(
+        'sellerLiquidity',
+        'INSUFFICIENT_SELLER_LIQUIDITY',
+        'Chưa phát hành nguồn cung ban đầu — chưa có ví thanh toán người bán để nhận lại WPT.',
+        'Đây là việc của ngân hàng: phát hành nguồn cung vào ví thanh toán SPV trước khi mở mua lại.',
+      ),
+    ];
+  }
+  const liquidity = await ledger.paymentBalanceOf(spv);
+  if (liquidity < vndAmount) {
+    return [
+      passed('holding'),
+      failed(
+        'sellerLiquidity',
+        'INSUFFICIENT_SELLER_LIQUIDITY',
+        `Ví thanh toán người bán không đủ VNDB để mua lại: cần ${vndAmount}, chỉ còn ${liquidity}.`,
+        'Giảm số lượng bán, hoặc chờ người bán bổ sung VNDB vào ví thanh toán.',
+        { actual: liquidity, required: vndAmount },
+      ),
+    ];
+  }
+
+  // --- 3. Khả năng chuyển nhượng, chiều nhà đầu tư -> SPV ---------------------------
+  // Đúng chiều mà `executeSale` sẽ chuyển WPT.
+  const transferable = await ledger.canTransfer(investorWallet, spv, wptAmount);
+  if (!transferable.allowed) {
+    return [
+      passed('holding'),
+      passed('sellerLiquidity'),
+      failed(
+        'transferable',
+        'LEDGER',
+        transferable.reason,
+        'Xử lý đúng nguyên nhân nêu ở lý do trên cùng bộ phận tuân thủ: hồ sơ KYC của ví, ' +
+          'trạng thái đóng băng, hoặc dự án đang trong giai đoạn tất toán.',
+      ),
+    ];
+  }
+  return [passed('holding'), passed('sellerLiquidity'), passed('transferable')];
 }
 
 /**
@@ -578,7 +708,8 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
     // Truyền `vndAmount` ĐÃ CHỐT ở lệnh, nên đường này — và chỉ đường này — kiểm thêm
     // "giá đã đổi chưa". Xem trước và đặt lệnh không có giá cũ để so.
-    const checks = await runPurchaseChecks(ledger, {
+    const checks = await runOrderChecks(ledger, {
+      side: checking.side,
       investorWallet: checking.investorWallet,
       wptAmount: BigInt(checking.wptAmount),
       quotedVndAmount: BigInt(checking.vndAmount),
@@ -633,7 +764,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
  * giao dịch, `txnStore` ghi sổ giao dịch và sổ kiểm toán. Truyền vào thay vì gọi factory
  * bên trong để hàm vẫn test được trực tiếp mà không phải đổi cờ môi trường.
  *
- * @flow purchase:9 | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED
+ * @flow purchase:9 | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED
  */
 async function sendAndSettle(
   txnStore: ITxnStore,
@@ -648,7 +779,11 @@ async function sendAndSettle(
   let pending: TxResult;
   try {
     // --- 6. Khớp lệnh: VNDB và WPT trong CÙNG một giao dịch ----------------------
-    pending = await ledger.executePurchase(investorWallet, wptAmount);
+    // Hai chiều, hai hàm cổng, CÙNG một luồng trạng thái và CÙNG một cách xử lý lỗi.
+    pending =
+      order.side === 'SELL'
+        ? await ledger.executeSale(investorWallet, wptAmount)
+        : await ledger.executePurchase(investorWallet, wptAmount);
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi giao dịch.';
     await orderStore.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
@@ -668,13 +803,13 @@ async function sendAndSettle(
   await orderStore.attachOrderTxHash({ id, txHash: pending.txHash });
   const savedTxn = await txnStore.saveTxn({
     chain,
-    operation: 'purchase',
+    operation: order.side === 'SELL' ? 'sale' : 'purchase',
     txHash: pending.txHash,
     status: pending.status,
-    // Chiều chuyển WPT: từ ví thanh toán SPV sang nhà đầu tư. `null` vì địa chỉ ví SPV
-    // là chuyện của tầng chain; sổ giao dịch ở đây ghi bên nhận, giống luồng mint.
-    fromWallet: null,
-    toWallet: investorWallet,
+    // Chiều chuyển WPT. Mua: SPV -> nhà đầu tư; bán: nhà đầu tư -> SPV. Phía ví SPV để `null`
+    // vì địa chỉ ví SPV là chuyện của tầng chain, giống luồng mint.
+    fromWallet: order.side === 'SELL' ? investorWallet : null,
+    toWallet: order.side === 'SELL' ? null : investorWallet,
     amount: order.wptAmount,
     reason: null,
     // Vai GỬI giao dịch, không phải vai đã đặt lệnh — cùng lý do như `auditExecution`.
@@ -711,11 +846,12 @@ async function sendAndSettle(
     order,
     executorRole,
     'SUCCESS',
-    `khớp ${order.wptAmount} WPT / ${order.vndAmount} VNDB; tx ${receipt.txHash} ${receipt.status}`,
+    `khớp ${SIDE_PREFIX[order.side]}${order.wptAmount} WPT / ${order.vndAmount} VNDB; tx ${receipt.txHash} ${receipt.status}`,
   );
 
-  // --- 10. Đọc lại số dư WPT TỪ CHUỖI -----------------------------------------
+  // --- 10. Đọc lại số dư WPT và VNDB TỪ CHUỖI ---------------------------------
   const balanceAfter = await ledger.balanceOf(investorWallet);
+  const paymentBalanceAfter = await ledger.paymentBalanceOf(investorWallet);
 
   // --- 11. Trả Result ---------------------------------------------------------
   // `completed` có thể là `null` nếu một tiến trình khác vừa đổi trạng thái; lấy bản ghi
@@ -727,6 +863,7 @@ async function sendAndSettle(
     status: finalOrder.status,
     txStatus: receipt.status,
     balanceAfter: balanceAfter.toString(),
+    paymentBalanceAfter: paymentBalanceAfter.toString(),
   });
 }
 
@@ -762,14 +899,17 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
  * đầu tư chủ động truyền ví của người khác vào. Ràng buộc ví ↔ phiên là việc của AU-01;
  * đã ghi thành câu hỏi mở trong checkpoint.
  *
- * @flow purchase:12 | kiểm order:read và order:read:all, lọc theo ví ở tầng service
+ * BE-14: lọc thêm theo chiều, mã lệnh và khoảng ngày tạo (gồm cả hai đầu, theo giờ Việt Nam).
+ * Người bán có `order:read:all` như hai vai vận hành, nên xem được toàn bộ sổ lệnh.
+ *
+ * @flow purchase:12 | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày
  */
 export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
   const parsed = orderQuerySchema.safeParse(input);
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, investorWallet, status, limit } = parsed.data;
+  const { chain, investorWallet, status, side, orderId, fromDate, toDate, limit } = parsed.data;
 
   try {
     const role = await authorize('order:read', investorWallet ?? null, chain ?? null);
@@ -786,8 +926,112 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
       );
     }
 
-    const rows = await getOrderStore().listOrders({ chain, investorWallet, status, limit });
+    // Lọc theo ví ĐI CÙNG mọi bộ lọc khác, kể cả lọc theo mã lệnh: nhà đầu tư dò đúng mã lệnh
+    // của ví khác vẫn nhận danh sách rỗng, không nhận lệnh đó.
+    const rows = await getOrderStore().listOrders({
+      chain,
+      investorWallet,
+      status,
+      side,
+      id: orderId,
+      createdFrom: fromDate ? startOfBusinessDay(fromDate) : undefined,
+      createdTo: toDate ? startOfBusinessDay(nextDay(toDate)) : undefined,
+      limit,
+    });
     return ok(rows.map(toView));
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Múi giờ nghiệp vụ: "trong ngày" là ngày theo giờ Việt Nam, không phải ngày UTC. Lệnh khớp lúc
+ * 06:30 sáng giờ Việt Nam là 23:30 hôm trước theo UTC — đếm theo UTC sẽ dồn nó về hôm qua.
+ */
+const BUSINESS_UTC_OFFSET = '+07:00';
+const BUSINESS_UTC_OFFSET_MS = 7 * 3_600_000;
+
+/** Mốc 00:00 giờ Việt Nam của ngày `YYYY-MM-DD`, dạng ISO-8601. */
+const startOfBusinessDay = (date: string): string =>
+  new Date(`${date}T00:00:00${BUSINESS_UTC_OFFSET}`).toISOString();
+
+/** Ngày kế tiếp của `YYYY-MM-DD`. Tính trên UTC trưa để không vướng chuyển giờ. */
+const nextDay = (date: string): string =>
+  new Date(Date.parse(`${date}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** Hôm nay theo giờ Việt Nam, dạng `YYYY-MM-DD`. */
+const businessToday = (): string =>
+  new Date(Date.now() + BUSINESS_UTC_OFFSET_MS).toISOString().slice(0, 10);
+
+/** Số lệnh và tổng số lượng của một chiều đã khớp trong ngày. */
+export interface DailySideStats {
+  count: number;
+  wptAmount: string;
+  vndAmount: string;
+}
+
+/**
+ * Số liệu khớp lệnh trong ngày (BE-14 việc 13).
+ *
+ * `tiles` là ĐÚNG BỐN ô theo thứ tự hiển thị: số lệnh mua, giá trị mua, số lệnh bán, giá trị
+ * bán. Màn tổng quan Người bán và bảng điều khiển vận hành chỉ vẽ, không tự cộng.
+ */
+export interface OrderDailyStatsView {
+  /** Ngày đang thống kê, `YYYY-MM-DD` theo giờ Việt Nam. */
+  date: string;
+  /** Khoảng `[from, to)` thực sự đã đếm, ISO-8601 — để đối soát được con số. */
+  from: string;
+  to: string;
+  bySide: Record<OrderSide, DailySideStats>;
+  tiles: Array<{
+    id: 'buyCount' | 'buyValue' | 'sellCount' | 'sellValue';
+    label: string;
+    /** Số lệnh hoặc số VNDB, CHUỖI thập phân. */
+    value: string;
+    unit: 'lệnh' | 'VNDB';
+  }>;
+}
+
+/**
+ * SỐ LIỆU KHỚP LỆNH TRONG NGÀY, theo cả hai chiều (BE-14).
+ *
+ * "Khớp" = lệnh `COMPLETED` có mốc hoàn tất trong ngày. Lệnh từ chối, thất bại, hết hạn không
+ * được đếm: chúng không chuyển đồng nào.
+ *
+ * Quyền `order:read:all` (Người bán + hai vai vận hành): đây là số liệu toàn hệ. Kiểm bằng
+ * `assertCan`, KHÔNG `authorize`, cùng lý do như `previewPurchase`: màn tổng quan gọi hàm này mỗi
+ * lần mở, ghi sổ kiểm toán mỗi lần đọc sẽ nhấn chìm sổ bằng bản ghi vô nghĩa.
+ *
+ * Lệnh hoàn tất TRƯỚC BE-14 không có `completedAt` nên không vào số liệu theo ngày; xem câu hỏi
+ * mở trong checkpoint BE-14.
+ */
+export async function orderDailyStats(input: unknown): Promise<Result<OrderDailyStatsView>> {
+  const parsed = orderDailyStatsSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain } = parsed.data;
+  const date = parsed.data.date ?? businessToday();
+
+  try {
+    assertCan(await currentRole(), 'order:read:all');
+
+    const from = startOfBusinessDay(date);
+    const to = startOfBusinessDay(nextDay(date));
+    const bySide = await getOrderStore().summarizeCompleted({ chain, from, to });
+
+    return ok({
+      date,
+      from,
+      to,
+      bySide,
+      tiles: [
+        { id: 'buyCount', label: 'Lệnh mua đã khớp', value: String(bySide.BUY.count), unit: 'lệnh' },
+        { id: 'buyValue', label: 'Giá trị mua đã khớp', value: bySide.BUY.vndAmount, unit: 'VNDB' },
+        { id: 'sellCount', label: 'Lệnh bán đã khớp', value: String(bySide.SELL.count), unit: 'lệnh' },
+        { id: 'sellValue', label: 'Giá trị bán đã khớp', value: bySide.SELL.vndAmount, unit: 'VNDB' },
+      ],
+    });
   } catch (error) {
     return toResult(error);
   }

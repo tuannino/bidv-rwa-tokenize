@@ -120,7 +120,7 @@ export const ACTIONS = [
   /** Xem lệnh mua. Nhà đầu tư có, nhưng chỉ xem được lệnh của ví mình (R5.1). */
   'order:read',
   /**
-   * Xem lệnh của MỌI ví, lọc theo trạng thái (R5.2). Chỉ ba vai ngân hàng.
+   * Xem lệnh của MỌI ví, lọc theo trạng thái (R5.2). Hai vai vận hành và Người bán (BE-14).
    *
    * Đây là thứ phân biệt R5.1 với R5.2 mà KHÔNG cần `if (role === 'INVESTOR')`:
    * `listOrders` hỏi `can(role, 'order:read:all')` rồi mới quyết định có được phép
@@ -202,10 +202,15 @@ export function isRole(value: unknown): value is Role {
  * Vai trò dùng khi không xác định được (nguyên tắc đóng: quyền thấp nhất).
  *
  * FE-20 đổi sang `SELLER`; vai kiểm toán cũ vốn giữ chỗ này đã gỡ. Trong bốn vai mới, `SELLER`
- * có bộ quyền NHỎ NHẤT: không một hành động ghi nào, và không một quyền đọc toàn hệ nào
- * (`audit:read`, `order:read:all`, `reconcile:read` đều không có). `CONTROLLER` cũng sạch
- * quyền ghi nhưng đọc được dữ liệu toàn hệ, nên chọn nó làm nơi quy về sẽ biến một cookie
- * gõ sai thành quyền xem sổ kiểm toán — đúng thứ nguyên tắc đóng phải tránh.
+ * có bộ quyền NHỎ NHẤT: không một hành động ghi nào, và không đọc sổ kiểm toán hay báo cáo đối
+ * soát (`audit:read`, `reconcile:read`). `CONTROLLER` cũng sạch quyền ghi nhưng đọc được hai thứ
+ * đó, nên chọn nó làm nơi quy về sẽ biến một cookie gõ sai thành quyền xem sổ kiểm toán.
+ *
+ * BE-14: `SELLER` nhận thêm `order:read:all` (spec việc 12: Người bán xem toàn bộ lệnh — họ là
+ * bên đối ứng của mọi lệnh). Owner đã chọn GIỮ fallback là `SELLER`, chấp nhận vai lạ đọc được
+ * sổ lệnh toàn hệ, vẫn KHÔNG có quyền ghi nào. Lý do chấp nhận: bộ đổi vai hiện chưa phải xác
+ * thực (ai cũng tự đặt cookie vai khác được), nên lớp này chỉ chặn lỗi gõ cho tới AU-01. Xem
+ * `docs/CHECKPOINT_BE14.md`.
  *
  * ⚠️ Đây là quyết định FE-20 phải tự ra vì `requirements.md` không nói tới; đã ghi vào
  * mục câu hỏi mở của `docs/CHECKPOINT_FE20.md`.
@@ -258,13 +263,13 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * Người bán — vai MỚI của FE-20, và là `FALLBACK_ROLE`.
    *
    * Bộ quyền nhỏ nhất trong bốn vai: xem khu vực của mình, xem số dư và giao dịch của ví
-   * mình, xem lệnh của ví mình. KHÔNG một hành động ghi nào, và KHÔNG spread `READ_ONLY`
-   * nên tự động không có dữ liệu toàn hệ (`audit:read`, `order:read:all`, `reconcile:read`).
+   * mình, xem TOÀN BỘ sổ lệnh (BE-14 — bên đối ứng của mọi lệnh mua và bán). KHÔNG một hành
+   * động ghi nào, và KHÔNG spread `READ_ONLY` nên không có `audit:read`, `reconcile:read`.
    *
    * Nghiệp vụ tạo lệnh rút của Người bán chưa có ở backend (BE-12 chỉ làm Mint/Burn), nên chưa
    * cấp quyền ghi nào cho nó.
    */
-  SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read'],
+  SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read', 'order:read:all'],
   /**
    * Giao dịch viên — `BANK_ADMIN` cũ đổi tên, cộng cổng khu vực.
    *
