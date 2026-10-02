@@ -45,7 +45,7 @@ import {
  * mới; khi Giao dịch viên khớp thì hiện mã giao dịch và số dư mới.
  */
 
-/** Hoãn lời gọi kiểm tra sau khi người dùng ngừng gõ — service không có bộ nhớ đệm. */
+/** Hoãn lời gọi kiểm tra sau khi người dùng ngừng gõ: service không có bộ nhớ đệm. */
 const PREVIEW_DEBOUNCE_MS = 400;
 /** Nhịp làm mới tiến trình lệnh vừa gửi. */
 const TRACK_INTERVAL_MS = 3_000;
@@ -224,7 +224,7 @@ export function InvestorTradePage() {
 
               <div className="flex items-baseline justify-between border-t border-border pt-3">
                 <span className="text-sm text-muted-foreground">Tổng giá trị dự kiến</span>
-                <span className="font-mono text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : '—'}</span>
+                <span className="font-mono text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
               </div>
 
               <TradeCheckBlock preview={preview} />
@@ -257,8 +257,8 @@ export function InvestorTradePage() {
           <dl className="grid gap-2 text-sm">
             <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
             <Row label="Số lượng" mono>{formatAmount(amount)}</Row>
-            <Row label="Giá" mono>{ctx ? `${formatAmount(ctx.priceVnd)} VNDB` : '—'}</Row>
-            <Row label="Tổng giá trị" mono>{total ? `${formatAmount(total)} VNDB` : '—'}</Row>
+            <Row label="Giá" mono>{ctx ? `${formatAmount(ctx.priceVnd)} VNDB` : 'Chưa có'}</Row>
+            <Row label="Tổng giá trị" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
           </dl>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
@@ -309,7 +309,7 @@ function OrderSummary({
           <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
           <Row label="Số lượng" mono>{formatAmount(quantity)}</Row>
           <Row label="Giá" mono>{formatAmount(priceVnd)} VNDB</Row>
-          <Row label="Tổng giá trị dự kiến" mono>{total ? `${formatAmount(total)} VNDB` : '—'}</Row>
+          <Row label="Tổng giá trị dự kiến" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
           <Row label="Token đang giữ" mono>{formatAmount(balances.wpt)}</Row>
           <Row label="Số dư VNDB" mono>{formatAmount(balances.vndb)}</Row>
         </dl>

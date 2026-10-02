@@ -23,7 +23,7 @@ import {
 } from '@/components/trading/gates';
 
 /**
- * FE-25 — màn Giao dịch token và Quản lý lệnh của Nhà đầu tư.
+ * FE-25: màn Giao dịch token và Quản lý lệnh của Nhà đầu tư.
  *
  * Vitest chạy môi trường `node`, không dựng DOM. Mỗi ca kiểm ở hai tầng mà màn hình đứng lên, cùng
  * cách FE-22: (1) phép đọc / ghi của máy chủ màn hình gọi (`trade.service`, `purchase.service`), (2)
@@ -134,14 +134,14 @@ afterEach(() => {
   resetStoreCache();
 });
 
-describe('việc 14 — số lượng và số tiền có phân cách hàng nghìn', () => {
+describe('việc 14: số lượng và số tiền có phân cách hàng nghìn', () => {
   it('dùng chung formatAmount', () => {
     expect(formatAmount('1234567')).toBe('1.234.567');
     expect(formatAmount((12n * PRICE).toString())).toBe((12n * PRICE).toLocaleString('vi-VN'));
   });
 });
 
-describe('ca 1 — nhập quá trần mua thì ô số lượng tự chặn và hiện lý do', () => {
+describe('ca 1: nhập quá trần mua thì ô số lượng tự chặn và hiện lý do', () => {
   it('trần do số dư chia giá: vượt 1 token bị chặn, bằng trần thì qua', async () => {
     await seed(1_000n, 5n * PRICE);
     const ctx = await context();
@@ -162,7 +162,7 @@ describe('ca 1 — nhập quá trần mua thì ô số lượng tự chặn và 
   });
 });
 
-describe('ca 2 — nhập quá số token đang giữ ở thẻ bán thì bị chặn', () => {
+describe('ca 2: nhập quá số token đang giữ ở thẻ bán thì bị chặn', () => {
   it('trần bán bằng số đang giữ, đọc từ chuỗi sau khi mua', async () => {
     await seed(1_000n, 10n * PRICE);
     const order = await place('4');
@@ -176,7 +176,7 @@ describe('ca 2 — nhập quá số token đang giữ ở thẻ bán thì bị c
   });
 });
 
-describe('ca 3 — một điều kiện trước lệnh không đạt thì nút xác nhận bị khoá', () => {
+describe('ca 3: một điều kiện trước lệnh không đạt thì nút xác nhận bị khoá', () => {
   it('đủ năm điều kiện thì nút mở', async () => {
     await seed(1_000n, 10n * PRICE);
     const ctx = await context();
@@ -223,7 +223,7 @@ describe('ca 3 — một điều kiện trước lệnh không đạt thì nút 
   });
 });
 
-describe('ca 4 — gửi lệnh xong thì số dư và danh sách lệnh cập nhật', () => {
+describe('ca 4: gửi lệnh xong thì số dư và danh sách lệnh cập nhật', () => {
   it('danh sách có lệnh ngay sau khi gửi; ngân hàng khớp xong thì số dư đổi', async () => {
     await seed(1_000n, 10n * PRICE);
     const before = await context();
@@ -256,7 +256,7 @@ describe('ca 4 — gửi lệnh xong thì số dư và danh sách lệnh cập n
   });
 });
 
-describe('ca 5 — màn chi tiết hiện đủ năm bước kèm mốc thời gian', () => {
+describe('ca 5: màn chi tiết hiện đủ năm bước kèm mốc thời gian', () => {
   it('lệnh đã khớp: năm bước xong, mỗi bước có mốc; có nhật ký đặt và khớp; nêu rõ quyết toán một bước', async () => {
     await seed(1_000n, 10n * PRICE);
     const order = await place('2');
@@ -276,7 +276,7 @@ describe('ca 5 — màn chi tiết hiện đủ năm bước kèm mốc thời g
   });
 });
 
-describe('ca 6 — bộ lọc hoạt động theo từng tiêu chí; mọi cột sắp xếp được', () => {
+describe('ca 6: bộ lọc hoạt động theo từng tiêu chí; mọi cột sắp xếp được', () => {
   async function threeOrders() {
     await seed(1_000n, 20n * PRICE);
     const buy1 = await place('5');
@@ -331,7 +331,7 @@ describe('ca 6 — bộ lọc hoạt động theo từng tiêu chí; mọi cột
   });
 });
 
-describe('ca 7 — nhà đầu tư không thấy lệnh của ví khác', () => {
+describe('ca 7: nhà đầu tư không thấy lệnh của ví khác', () => {
   it('danh sách và màn chi tiết đều không lộ lệnh của BOB cho ALICE', async () => {
     await seed(1_000n, 10n * PRICE, [ALICE, BOB]);
     await place('1', 'BUY', ALICE);
@@ -349,7 +349,7 @@ describe('ca 7 — nhà đầu tư không thấy lệnh của ví khác', () => 
   });
 });
 
-describe('ca 8 — vai khác vào hai màn này bị chặn', () => {
+describe('ca 8: vai khác vào hai màn này bị chặn', () => {
   const INVESTOR_DIR = path.resolve(__dirname, '../src/app/(investor)');
 
   it('ba trang nằm trong khu vực Nhà đầu tư, chỉ vai INVESTOR qua cổng', () => {

@@ -3,7 +3,7 @@
 import { getOrderDetail, getTradeContext, previewTrade } from '@/lib/bank/trade.service';
 
 /**
- * Server actions cho hai màn của Nhà đầu tư (FE-25) — vỏ mỏng quanh `trade.service`.
+ * Server actions cho hai màn của Nhà đầu tư (FE-25): vỏ mỏng quanh `trade.service`.
  *
  * Không kiểm quyền ở đây: server action gọi được bằng POST trực tiếp, nên quyền và lọc theo ví nằm
  * TRONG service, cùng lý do ghi ở `app/actions/purchase.ts`. Đặt lệnh và danh sách lệnh dùng lại

@@ -28,10 +28,10 @@ import { chainSchema, previewPurchaseSchema, walletSchema } from './schemas';
  * quyết toán qua `listOrders`. Tệp này chỉ ghép và thêm bốn điều kiện tài liệu yêu cầu.
  *
  * Kiểm quyền bằng `assertCan`, KHÔNG `authorize`: cả ba hàm là hàm ĐỌC mà màn hình gọi liên tục
- * (mở trang, gõ số lượng, làm mới tiến trình); ghi sổ kiểm toán mỗi lần đọc sẽ nhấn chìm sổ — cùng
+ * (mở trang, gõ số lượng, làm mới tiến trình); ghi sổ kiểm toán mỗi lần đọc sẽ nhấn chìm sổ: cùng
  * lý do với `previewPurchase`.
  *
- * LUẬT #1 chain qua `getLedger()` · LUẬT #3 quyền qua `assertCan()` / `can()`.
+ * LUẬT #1 chain qua `getLedger()`; LUẬT #3 quyền qua `assertCan()` / `can()`.
  */
 
 // =============================================================================
@@ -92,7 +92,7 @@ export interface TradeContextView {
     /** VNDB ví đang có. */
     vndb: string;
   };
-  /** Giá dùng để khớp lệnh — cùng nguồn với số VNDB chốt khi đặt lệnh. */
+  /** Giá dùng để khớp lệnh: cùng nguồn với số VNDB chốt khi đặt lệnh. */
   priceVnd: string;
   caps: Record<OrderSide, QuantityCap>;
 }
@@ -210,10 +210,10 @@ export interface TradeCondition {
 export interface TradePreviewView {
   side: OrderSide;
   wptAmount: string;
-  /** Tổng giá trị dự kiến (VNDB) theo giá hiện hành — chưa chốt, chốt khi đặt lệnh. */
+  /** Tổng giá trị dự kiến (VNDB) theo giá hiện hành: chưa chốt, chốt khi đặt lệnh. */
   vndAmount: string;
   conditions: TradeCondition[];
-  /** Mọi điều kiện đạt — nút xác nhận chỉ mở khi `true`. */
+  /** Mọi điều kiện đạt: nút xác nhận chỉ mở khi `true`. */
   canConfirm: boolean;
 }
 
@@ -352,7 +352,7 @@ function tokenCondition(
 
 const orderDetailSchema = z.object({
   chain: chainSchema,
-  /** Bắt buộc với vai không có `order:read:all` — `listOrders` quyết định, không phải ở đây. */
+  /** Bắt buộc với vai không có `order:read:all`: `listOrders` quyết định, không phải ở đây. */
   investorWallet: walletSchema.optional(),
   orderId: z.string().trim().pipe(z.uuid('Mã lệnh phải là UUID.')),
 });
@@ -370,7 +370,7 @@ export interface OrderDetailView {
   audit: OrderAuditEntry[];
 }
 
-/** Số dòng sổ kiểm toán quét để tìm nhật ký của một lệnh — bằng giới hạn giữ dòng của bản bộ nhớ. */
+/** Số dòng sổ kiểm toán quét để tìm nhật ký của một lệnh: bằng giới hạn giữ dòng của bản bộ nhớ. */
 // ponytail: sổ kiểm toán chưa có cột mã lệnh nên lọc theo chuỗi chi tiết trong 500 dòng mới nhất; lệnh cũ hơn thì nhật ký rỗng, cần cột `orderId` ở AuditLog khi sổ lớn
 const AUDIT_SCAN_LIMIT = 500;
 

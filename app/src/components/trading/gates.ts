@@ -4,7 +4,7 @@ import type { QuantityCap, TradeCondition } from '@/lib/bank/trade.service';
 import type { OrderSide, OrderStatus } from '@/lib/store/order.store.port';
 
 /**
- * Hai màn của Nhà đầu tư (FE-25) — LOGIC THUẦN, không React.
+ * Hai màn của Nhà đầu tư (FE-25): LOGIC THUẦN, không React.
  *
  * Tách khỏi component để kiểm được bằng Vitest (môi trường `node`, không dựng DOM), cùng cách FE-22
  * làm ở `components/maker-checker/gates.ts`.
@@ -14,7 +14,7 @@ import type { OrderSide, OrderStatus } from '@/lib/store/order.store.port';
  * `steps` của `listOrders`. Ở đây chỉ so số người dùng gõ với trần đã có và quyết định nút nào khoá.
  */
 
-/** Nhãn hai chiều — `Record` đủ khoá nên thêm chiều mà quên nhãn là lỗi biên dịch. */
+/** Nhãn hai chiều: `Record` đủ khoá nên thêm chiều mà quên nhãn là lỗi biên dịch. */
 export const SIDE_LABELS: Record<OrderSide, string> = { BUY: 'Mua', SELL: 'Bán' };
 
 /** Nhãn đủ bảy trạng thái lưu trữ, dùng cho cột trạng thái và bộ lọc. */
@@ -184,5 +184,5 @@ export function sortOrders(rows: readonly OrderView[], column: OrderColumn, dire
   return [...rows].sort((a, b) => sign * compareBy(column, a, b) || a.id.localeCompare(b.id));
 }
 
-/** Lệnh đã có kết cục chưa — đọc `settlement.outcome` của máy chủ, không tự suy từ trạng thái. */
+/** Lệnh đã có kết cục chưa: đọc `settlement.outcome` của máy chủ, không tự suy từ trạng thái. */
 export const isSettled = (order: Pick<OrderView, 'settlement'>) => order.settlement.outcome !== 'PENDING';
