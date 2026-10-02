@@ -88,6 +88,32 @@ async function migrateTimestampColumns(client: import('pg').PoolClient): Promise
 }
 
 /**
+ * Cột THÊM VÀO bảng đã có từ trước (BE-14): chiều lệnh và bốn mốc bước quyết toán.
+ *
+ * Vì sao cần: `init.sql` do `prisma migrate diff --from-empty` sinh ra chỉ có `CREATE TABLE`, nên
+ * một volume dựng trước BE-14 giữ nguyên bảng `PurchaseOrder` cũ, thiếu cột — và câu
+ * `CREATE INDEX ... ("side", ...)` trong chính `init.sql` sẽ nổ `undefined_column`.
+ *
+ * Chạy TRƯỚC `applyInitSql` vì lý do đó. `ALTER TABLE IF EXISTS` để DB rỗng (chưa có bảng) đi
+ * qua không lỗi, rồi `init.sql` tạo bảng đủ cột. `DEFAULT 'BUY'` làm mọi dòng cũ thành lệnh mua
+ * — đúng sự thật, vì trước BE-14 chỉ có chiều mua.
+ *
+ * Cùng tinh thần `migrateTimestampColumns`: đúng một việc, chạy xong là no-op, không dựng
+ * framework migration. Câu lệnh là hằng số trong tệp này, không có phần nào từ input.
+ */
+const ADDED_COLUMNS: readonly string[] = [
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "side" TEXT NOT NULL DEFAULT 'BUY'`,
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "checkingAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "reconciledAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "settlingAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMPTZ(3)`,
+];
+
+async function addMissingColumns(client: import('pg').PoolClient): Promise<void> {
+  for (const statement of ADDED_COLUMNS) await client.query(statement);
+}
+
+/**
  * Mã lỗi Postgres nghĩa là "thứ này đã có rồi" — bỏ qua được khi áp lại `init.sql`.
  *
  * KHÔNG bỏ qua mã nào khác: một `ALTER` thất bại vì lý do thật thì phải nổ ra ngay, chứ
@@ -211,6 +237,7 @@ async function ensureSchema(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(918273645)');
+    await addMissingColumns(client);
     await applyInitSql(client, sql);
     await migrateTimestampColumns(client);
     await seedInitialData(client);

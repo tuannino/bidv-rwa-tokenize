@@ -23,18 +23,18 @@ flowchart TD
   s1["1 · previewPurchaseAction()<br/>app/src/app/actions/purchase.ts<br/>nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào"]
   s2["2 · previewPurchase()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu"]
   s3["3 · placeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase"]
-  s4["4 · placeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED"]
+  s4["4 · placeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán"]
   s5["5 · quotePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh"]
   s6["6 · executeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có…"]
   s7["7 · executeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần"]
-  s8["8 · runPurchaseChecks()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên"]
-  s9["9 · sendAndSettle()<br/>app/src/lib/bank/purchase.service.ts<br/>gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED"]
+  s8["8 · runOrderChecks()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên"]
+  s9["9 · sendAndSettle()<br/>app/src/lib/bank/purchase.service.ts<br/>gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED"]
   s10["10 · executePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chuyển VNDB và WPT trong cùng một giao dịch"]
   s11["11 · listOrdersAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase"]
-  s12["12 · listOrders()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm order:read và order:read:all, lọc theo ví ở tầng service"]
-  w1(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối ở previewPurchase: kiểm quyền order:place, báo giá,…"])
+  s12["12 · listOrders()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng…"]
+  w1(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối ở previewPurchase, cho CẢ hai chiều qua side…"])
   w2(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối: validate Zod dùng chung schema với đặt lệnh, kiểm…"])
-  w3(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối ở placeOrder: validate Zod, kiểm quyền order:place…"])
+  w3(["điểm cắm, chờ FE-05<br/>đã sẵn đầu cuối ở placeOrder, cho CẢ hai chiều qua side (BE-14):…"])
   w4(["điểm cắm, chờ FE-06<br/>đã sẵn đầu cuối ở executeOrder: kiểm quyền order:execute (vai…"])
   w5(["điểm cắm, chờ FE-06<br/>đã sẵn đầu cuối ở listOrders: phân biệt order:read với…"])
   s1 --> s2
@@ -59,18 +59,18 @@ flowchart TD
 
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
-| 1 | `app/src/app/actions/purchase.ts:32` | `previewPurchaseAction()` | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào |
-| 2 | `app/src/lib/bank/purchase.service.ts:124` | `previewPurchase()` | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu |
-| 3 | `app/src/app/actions/purchase.ts:40` | `placeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase |
-| 4 | `app/src/lib/bank/purchase.service.ts:172` | `placeOrder()` | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED |
+| 1 | `app/src/app/actions/purchase.ts:38` | `previewPurchaseAction()` | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào |
+| 2 | `app/src/lib/bank/purchase.service.ts:148` | `previewPurchase()` | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu |
+| 3 | `app/src/app/actions/purchase.ts:46` | `placeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase |
+| 4 | `app/src/lib/bank/purchase.service.ts:197` | `placeOrder()` | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán |
 | 5 | `app/src/lib/ledger/ledger.port.ts:115` | `quotePurchase()` | chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh |
-| 6 | `app/src/app/actions/purchase.ts:48` | `executeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId |
-| 7 | `app/src/lib/bank/purchase.service.ts:524` | `executeOrder()` | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần |
-| 8 | `app/src/lib/bank/purchase.service.ts:355` | `runPurchaseChecks()` | kiểm giá đã chốt rồi bốn phép đọc, dừng ở lần trượt đầu tiên |
-| 9 | `app/src/lib/bank/purchase.service.ts:636` | `sendAndSettle()` | gửi giao dịch, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
+| 6 | `app/src/app/actions/purchase.ts:54` | `executeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId |
+| 7 | `app/src/lib/bank/purchase.service.ts:654` | `executeOrder()` | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần |
+| 8 | `app/src/lib/bank/purchase.service.ts:407` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên |
+| 9 | `app/src/lib/bank/purchase.service.ts:767` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
 | 10 | `app/src/lib/ledger/ledger.port.ts:151` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
-| 11 | `app/src/app/actions/purchase.ts:56` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
-| 12 | `app/src/lib/bank/purchase.service.ts:765` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service |
+| 11 | `app/src/app/actions/purchase.ts:62` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
+| 12 | `app/src/lib/bank/purchase.service.ts:905` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
 
 ## Điểm cắm trên đường đi
 
@@ -79,11 +79,11 @@ mũi tên gạch rời — chúng **không** phải bước của luồng.
 
 | Bước | Loại | Task | Nội dung marker |
 |---|---|---|---|
-| 1 | điểm cắm | `FE-05` | đã sẵn đầu cuối ở `previewPurchase`: kiểm quyền `order:place`, báo giá, chạy ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy, trả `canPlaceOrder` + `blockers` + `howToFix` cho từng phép kiểm. Màn mua WPT chỉ cần gọi và hiển thị. FE-05 PHẢI chống gọi dồn: hàm này gọi được sau mỗi ký tự người dùng gõ vào ô số lượng, nên màn hình phải hoãn lời gọi và bỏ phản hồi đã cũ — service KHÔNG có bộ nhớ đệm, và cũng không nên có |
+| 1 | điểm cắm | `FE-05` | đã sẵn đầu cuối ở `previewPurchase`, cho CẢ hai chiều qua `side` (BE-14): kiểm quyền `order:place`, báo giá, chạy ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy, trả `canPlaceOrder` + `blockers` + `howToFix` cho từng phép kiểm. Màn mua WPT chỉ cần gọi và hiển thị. FE-05 PHẢI chống gọi dồn: hàm này gọi được sau mỗi ký tự người dùng gõ vào ô số lượng, nên màn hình phải hoãn lời gọi và bỏ phản hồi đã cũ — service KHÔNG có bộ nhớ đệm, và cũng không nên có |
 | 2 | điểm cắm | `FE-05` | đã sẵn đầu cuối: validate Zod dùng chung schema với đặt lệnh, kiểm quyền qua RBAC, báo giá qua ILedgerPort, và ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy. FE-05 chỉ cần gọi rồi hiển thị `blockers` và `howToFix`, KHÔNG viết lại phép kiểm nào ở client, và PHẢI chống gọi dồn khi người dùng gõ số lượng vì mỗi ký tự là một lời gọi |
-| 3 | điểm cắm | `FE-05` | đã sẵn đầu cuối ở `placeOrder`: validate Zod, kiểm quyền `order:place` (vai INVESTOR), kiểm điều kiện trước khi tạo bản ghi, CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result` |
+| 3 | điểm cắm | `FE-05` | đã sẵn đầu cuối ở `placeOrder`, cho CẢ hai chiều qua `side` (BE-14): validate Zod, kiểm quyền `order:place` (vai INVESTOR), kiểm điều kiện trước khi tạo bản ghi, CHỐT số VNDB tại thời điểm đặt, lưu lệnh `PLACED`, ghi sổ kiểm toán. Màn mua WPT chỉ cần gọi và hiển thị `Result` |
 | 6 | điểm cắm | `FE-06` | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai TELLER), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận |
-| 11 | điểm cắm | `FE-06` | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình |
+| 11 | điểm cắm | `FE-06` | đã sẵn đầu cuối ở `listOrders`: phân biệt `order:read` với `order:read:all`, nên "vai nào xem được sổ lệnh nào" là việc của RBAC chứ không phải của màn hình; BE-14 thêm lọc theo chiều, mã lệnh, khoảng ngày, và mỗi lệnh mang sẵn năm bước quyết toán kèm mốc thời gian |
 
 ## Đọc sơ đồ này thế nào
 

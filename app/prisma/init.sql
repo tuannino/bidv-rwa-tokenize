@@ -44,12 +44,17 @@ CREATE TABLE "PurchaseOrder" (
     "id" TEXT NOT NULL,
     "chain" TEXT NOT NULL,
     "investorWallet" TEXT NOT NULL,
+    "side" TEXT NOT NULL DEFAULT 'BUY',
     "wptAmount" DECIMAL(78,0) NOT NULL,
     "vndAmount" DECIMAL(78,0) NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PLACED',
     "txHash" TEXT,
     "reason" TEXT,
     "actorRole" TEXT NOT NULL,
+    "checkingAt" TIMESTAMPTZ(3),
+    "reconciledAt" TIMESTAMPTZ(3),
+    "settlingAt" TIMESTAMPTZ(3),
+    "completedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
@@ -266,6 +271,9 @@ CREATE INDEX "PurchaseOrder_investorWallet_createdAt_idx" ON "PurchaseOrder"("in
 
 -- CreateIndex
 CREATE INDEX "PurchaseOrder_status_createdAt_idx" ON "PurchaseOrder"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "PurchaseOrder_side_status_completedAt_idx" ON "PurchaseOrder"("side", "status", "completedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "DistributionPeriod_periodKey_key" ON "DistributionPeriod"("periodKey");

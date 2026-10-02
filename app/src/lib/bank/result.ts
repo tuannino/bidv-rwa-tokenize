@@ -22,6 +22,8 @@ export type ErrorCode =
   | 'INSUFFICIENT_PAYMENT_BALANCE' // nhà đầu tư không đủ VNDB
   | 'INSUFFICIENT_ALLOWANCE' // chưa cấp đủ ủy quyền VNDB
   | 'INSUFFICIENT_SUPPLY' // ví thanh toán SPV không còn đủ WPT
+  | 'INSUFFICIENT_HOLDING' // BE-14 chiều bán: nhà đầu tư không giữ đủ WPT để bán
+  | 'INSUFFICIENT_SELLER_LIQUIDITY' // BE-14 chiều bán: ví thanh toán người bán không đủ VNDB
   | 'ORDER_STATE' // chuyển trạng thái không hợp lệ, hoặc lệnh đã được xử lý
   | 'PRICE_CHANGED' // giá đổi so với lúc đặt lệnh
   // --- Chia lợi nhuận (BE-06) ---
@@ -73,6 +75,8 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   INSUFFICIENT_PAYMENT_BALANCE: 409,
   INSUFFICIENT_ALLOWANCE: 409,
   INSUFFICIENT_SUPPLY: 409,
+  INSUFFICIENT_HOLDING: 409,
+  INSUFFICIENT_SELLER_LIQUIDITY: 409,
   ORDER_STATE: 409,
   PRICE_CHANGED: 409,
 

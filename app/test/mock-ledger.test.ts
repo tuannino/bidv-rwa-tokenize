@@ -392,6 +392,66 @@ describe('R2 — khớp lệnh mua', () => {
   });
 });
 
+/**
+ * BE-14 — khớp lệnh BÁN: chiều ngược của `executePurchase`, cùng kỷ luật nguyên khối.
+ *
+ * Nhà đầu tư có WPT bằng cách MUA trước (không có hàm nạp WPT): đúng đường đi ngoài đời.
+ */
+describe('BE-14 — executeSale: WPT về ví SPV, VNDB về nhà đầu tư, cùng một lần gọi', () => {
+  beforeEach(() => resetMockLedger());
+
+  /** Nhà đầu tư mua `held` WPT, ví SPV có VNDB từ lần mua đó. */
+  async function investorHolding(held: bigint) {
+    const ledger = await issuedLedger(1_000n);
+    const cost = held * PRICE;
+    seedMockLedger({ paymentBalances: { [INVESTOR]: cost }, paymentAllowances: { [INVESTOR]: cost } });
+    await ledger.executePurchase(INVESTOR, held);
+    return ledger;
+  }
+
+  const balances = async (ledger: Awaited<ReturnType<typeof issuedLedger>>) => ({
+    wptInvestor: await ledger.balanceOf(INVESTOR),
+    wptSpv: await ledger.balanceOf(SPV),
+    vndInvestor: await ledger.paymentBalanceOf(INVESTOR),
+    vndSpv: await ledger.paymentBalanceOf(SPV),
+    totalSupply: (await ledger.tokenInfo()).totalSupply,
+  });
+
+  it('bốn bút toán đúng số, tổng cung giữ nguyên', async () => {
+    const ledger = await investorHolding(10n);
+    const before = await balances(ledger);
+
+    await ledger.executeSale(INVESTOR, 4n);
+
+    const proceeds = 4n * PRICE;
+    expect(await balances(ledger)).toEqual({
+      wptInvestor: before.wptInvestor - 4n,
+      wptSpv: before.wptSpv + 4n,
+      vndInvestor: before.vndInvestor + proceeds,
+      vndSpv: before.vndSpv - proceeds,
+      totalSupply: before.totalSupply,
+    });
+  });
+
+  it('CHẶN khi nhà đầu tư thiếu WPT, KHÔNG bên nào đổi số dư', async () => {
+    const ledger = await investorHolding(3n);
+    const before = await balances(ledger);
+
+    await expect(ledger.executeSale(INVESTOR, 4n)).rejects.toThrow(/Số dư WPT không đủ/);
+    expect(await balances(ledger)).toEqual(before);
+  });
+
+  it('CHẶN khi ví SPV thiếu VNDB, KHÔNG bên nào đổi số dư', async () => {
+    const ledger = await investorHolding(10n);
+    // Ví SPV chỉ còn đủ trả cho 1 WPT.
+    seedMockLedger({ paymentBalances: { [SPV]: PRICE } });
+    const before = await balances(ledger);
+
+    await expect(ledger.executeSale(INVESTOR, 2n)).rejects.toThrow(/SPV không đủ VNDB/);
+    expect(await balances(ledger)).toEqual(before);
+  });
+});
+
 describe('R3 — canTransfer: kiểm trước, có lý do đọc được', () => {
   beforeEach(() => resetMockLedger());
 

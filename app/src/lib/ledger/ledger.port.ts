@@ -103,7 +103,7 @@ export interface ILedgerIssuance {
 }
 
 // =============================================================================
-//  3. KHỚP LỆNH MUA — nhà đầu tư trả VNDB, nhận WPT từ ví SPV
+//  3. KHỚP LỆNH — mua: nhà đầu tư trả VNDB, nhận WPT từ ví SPV; bán (BE-14): chiều ngược lại
 // =============================================================================
 export interface ILedgerPurchase {
   /**
@@ -151,6 +151,20 @@ export interface ILedgerPurchase {
    * @flow purchase:10 | chuyển VNDB và WPT trong cùng một giao dịch
    */
   executePurchase(investor: string, wptAmount: bigint): Promise<TxResult>;
+
+  /**
+   * Khớp lệnh BÁN (BE-14): chuyển WPT (nhà đầu tư -> ví SPV) và chuyển VNDB (ví SPV -> nhà
+   * đầu tư) trong CÙNG MỘT giao dịch — bốn bút toán cùng thành công hoặc cùng huỷ.
+   *
+   * Số VNDB nhận = `wptAmount` nhân CÙNG giá mà `quotePurchase` đọc: giá do ngân hàng cấu hình,
+   * một nguồn duy nhất cho cả hai chiều. Thêm một hàm báo giá bán riêng là thêm nguồn giá thứ
+   * hai, và hai nguồn sẽ lệch nhau — nên tầng nghiệp vụ dùng lại `quotePurchase` để chốt số
+   * VNDB lúc đặt lệnh bán.
+   *
+   * Nhà đầu tư thiếu WPT, ví SPV thiếu VNDB, hoặc một bên không chuyển nhượng được thì thất bại
+   * và KHÔNG để lại trạng thái nửa vời (cùng ràng buộc với `executePurchase`).
+   */
+  executeSale(investor: string, wptAmount: bigint): Promise<TxResult>;
 }
 
 // =============================================================================

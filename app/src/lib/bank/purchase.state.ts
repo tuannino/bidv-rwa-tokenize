@@ -33,9 +33,15 @@
  * chốt máy kiểm để lần sau ai thêm trạng thái như vậy thì test đỏ ngay.
  */
 
-import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
+import {
+  ORDER_SIDES,
+  ORDER_STATUSES,
+  type OrderSide,
+  type OrderStatus,
+} from '@/lib/store/order.store.port';
 
-export { ORDER_STATUSES, type OrderStatus };
+// BE-14: lệnh bán dùng CHUNG bảy trạng thái và bảng chuyển tiếp dưới đây — không có bản thứ hai.
+export { ORDER_SIDES, ORDER_STATUSES, type OrderSide, type OrderStatus };
 
 /**
  * Bảng chuyển tiếp hợp lệ. Trạng thái kết thúc có danh sách RỖNG, không phải thiếu

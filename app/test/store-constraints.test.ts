@@ -294,6 +294,26 @@ describe('lớp 1c — init.sql mang bảng TokenRequest của BE-12', () => {
 });
 
 // ===========================================================================
+//  LỚP 1d — BE-14: chiều lệnh và mốc năm bước quyết toán trên bảng lệnh
+// ===========================================================================
+describe('lớp 1d — init.sql mang cột chiều lệnh và mốc bước quyết toán (BE-14)', () => {
+  it('cột side mặc định BUY — lệnh có trước BE-14 tự là lệnh mua', () => {
+    expect(tableBlock('PurchaseOrder')).toContain(`"side" TEXT NOT NULL DEFAULT 'BUY'`);
+  });
+
+  it('bốn mốc bước quyết toán là TIMESTAMPTZ(3) cho phép NULL', () => {
+    const block = tableBlock('PurchaseOrder');
+    for (const column of ['checkingAt', 'reconciledAt', 'settlingAt', 'completedAt']) {
+      expect(block).toContain(`"${column}" TIMESTAMPTZ(3),`);
+    }
+  });
+
+  it('có chỉ mục cho số liệu khớp lệnh trong ngày theo chiều', () => {
+    expect(INIT_SQL).toContain('ON "PurchaseOrder"("side", "status", "completedAt")');
+  });
+});
+
+// ===========================================================================
 //  LỚP 2 — HÀNH VI, CHẠY TRÊN MỌI BẢN CÓ SẴN
 // ===========================================================================
 
@@ -720,6 +740,128 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
 
       expect(first?.status).toBe('CHECKING');
       expect(second).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  //  BE-14 — chiều lệnh, mốc năm bước, bộ lọc, số liệu trong ngày
+  // -------------------------------------------------------------------------
+  describe('lệnh mua và bán (BE-14)', () => {
+    /**
+     * Ví RIÊNG mỗi ca: bản Postgres không xoá dữ liệu cũ, nên lọc theo ví dùng chung sẽ đếm cả
+     * dòng của lần chạy trước.
+     */
+    const freshWallet = () => `0x${randomUUID().replace(/-/g, '').padEnd(40, '0').slice(0, 40)}`;
+    const order = (investorWallet: string, side?: 'BUY' | 'SELL') => ({
+      chain: 'mock' as const,
+      investorWallet,
+      wptAmount: '4',
+      vndAmount: '400000',
+      actorRole: 'INVESTOR' as const,
+      ...(side ? { side } : {}),
+    });
+
+    it('không truyền chiều thì là BUY; SELL được lưu đúng', async () => {
+      const wallet = freshWallet();
+      const buy = await store.orders.createOrder(order(wallet));
+      const sell = await store.orders.createOrder(order(wallet, 'SELL'));
+      expect(buy.side).toBe('BUY');
+      expect((await store.orders.findOrder(sell.id))?.side).toBe('SELL');
+    });
+
+    it('chiều lạ bị chặn ở cả hai bản', async () => {
+      await expect(
+        // @ts-expect-error — giá trị ngoài ORDER_SIDES.
+        store.orders.createOrder(order(freshWallet(), 'SWAP')),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
+    });
+
+    it('mốc bước quyết toán ghi cùng lần chuyển trạng thái, lệnh mới chưa có mốc nào', async () => {
+      const created = await store.orders.createOrder(order(freshWallet(), 'SELL'));
+      expect([created.checkingAt, created.reconciledAt, created.settlingAt, created.completedAt])
+        .toEqual([null, null, null, null]);
+
+      const checking = await store.orders.transitionOrder({ id: created.id, from: ['PLACED'], to: 'CHECKING' });
+      expect(checking?.checkingAt).not.toBeNull();
+      expect(checking?.reconciledAt).toBeNull();
+
+      const executing = await store.orders.transitionOrder({ id: created.id, from: ['CHECKING'], to: 'EXECUTING' });
+      expect(executing?.reconciledAt).not.toBeNull();
+      expect(executing?.settlingAt).toBeNull();
+
+      const sent = await store.orders.attachOrderTxHash({ id: created.id, txHash: `0xmoc-${randomUUID()}` });
+      expect(sent?.settlingAt).not.toBeNull();
+      expect(sent?.completedAt).toBeNull();
+
+      const done = await store.orders.transitionOrder({ id: created.id, from: ['EXECUTING'], to: 'COMPLETED' });
+      expect(done?.completedAt).not.toBeNull();
+      // Mốc trước KHÔNG bị ghi đè bởi lần chuyển sau.
+      expect(done?.checkingAt).toBe(checking?.checkingAt);
+      expect(done?.reconciledAt).toBe(executing?.reconciledAt);
+    });
+
+    it('tạo thẳng ở trạng thái có mốc thì ghi mốc đó ngay khi tạo', async () => {
+      const done = await store.orders.createOrder({ ...order(freshWallet(), 'SELL'), status: 'COMPLETED' });
+      expect(done.completedAt).not.toBeNull();
+      expect([done.checkingAt, done.reconciledAt, done.settlingAt]).toEqual([null, null, null]);
+    });
+
+    it('lọc theo chiều, theo mã lệnh và theo khoảng ngày tạo', async () => {
+      const wallet = freshWallet();
+      const buy = await store.orders.createOrder(order(wallet, 'BUY'));
+      const sell = await store.orders.createOrder(order(wallet, 'SELL'));
+
+      const sells = await store.orders.listOrders({ investorWallet: wallet, side: 'SELL' });
+      expect(sells.map((o) => o.id)).toEqual([sell.id]);
+
+      const byId = await store.orders.listOrders({ id: buy.id });
+      expect(byId.map((o) => o.id)).toEqual([buy.id]);
+
+      const hour = 3_600_000;
+      const now = Date.now();
+      const inRange = await store.orders.listOrders({
+        investorWallet: wallet,
+        createdFrom: new Date(now - hour).toISOString(),
+        createdTo: new Date(now + hour).toISOString(),
+      });
+      expect(inRange).toHaveLength(2);
+      const future = await store.orders.listOrders({
+        investorWallet: wallet,
+        createdFrom: new Date(now + hour).toISOString(),
+      });
+      expect(future).toHaveLength(0);
+      const past = await store.orders.listOrders({
+        investorWallet: wallet,
+        createdTo: new Date(now - hour).toISOString(),
+      });
+      expect(past).toHaveLength(0);
+    });
+
+    it('số liệu lệnh hoàn tất trả đủ hai chiều, chỉ đếm COMPLETED trong khoảng', async () => {
+      const from = new Date(Date.now() - 1).toISOString();
+      const wallet = freshWallet();
+      const complete = async (side: 'BUY' | 'SELL', wptAmount: string, vndAmount: string) => {
+        const o = await store.orders.createOrder({ ...order(wallet, side), wptAmount, vndAmount });
+        await store.orders.transitionOrder({ id: o.id, from: ['PLACED'], to: 'CHECKING' });
+        await store.orders.transitionOrder({ id: o.id, from: ['CHECKING'], to: 'EXECUTING' });
+        await store.orders.transitionOrder({ id: o.id, from: ['EXECUTING'], to: 'COMPLETED' });
+      };
+      await complete('BUY', '2', '200');
+      await complete('BUY', '3', '300');
+      await complete('SELL', '1', '100');
+      // Lệnh chưa hoàn tất không được đếm.
+      await store.orders.createOrder(order(wallet, 'SELL'));
+      const to = new Date(Date.now() + 60_000).toISOString();
+
+      const summary = await store.orders.summarizeCompleted({ chain: 'mock', from, to });
+      expect(summary.BUY).toEqual({ count: 2, wptAmount: '5', vndAmount: '500' });
+      expect(summary.SELL).toEqual({ count: 1, wptAmount: '1', vndAmount: '100' });
+
+      const empty = await store.orders.summarizeCompleted({ chain: 'mock', from: to, to });
+      expect(empty).toEqual({
+        BUY: { count: 0, wptAmount: '0', vndAmount: '0' },
+        SELL: { count: 0, wptAmount: '0', vndAmount: '0' },
+      });
     });
   });
 
@@ -1231,6 +1373,17 @@ describe('lớp 3 — bản Postgres quy lỗi ràng buộc về lớp lỗi c�
     expect(spy.calls).toHaveLength(1);
     expect(spy.calls[0].sql).toMatch(/^\s*INSERT INTO "KeeperRun"/);
     expect(spy.calls[0].sql).not.toMatch(/SELECT/i);
+  });
+
+  it('BE-14 — mốc bước quyết toán nằm TRONG cùng câu UPDATE với trạng thái', async () => {
+    const spy = recorder({ rows: [] });
+    await createPostgresOrderStore(spy.query).transitionOrder({
+      id: 'o1',
+      from: ['CHECKING'],
+      to: 'EXECUTING',
+    });
+    expect(spy.calls).toHaveLength(1);
+    expect(spy.calls[0].sql).toMatch(/"reconciledAt" = CURRENT_TIMESTAMP/);
   });
 
   it('transitionOrder đặt điều kiện trạng thái TRONG câu UPDATE', async () => {
