@@ -18,7 +18,8 @@
     "BE-12",
     "FE-21",
     "FE-22",
-    "BE-14"
+    "BE-14",
+    "FE-25"
   ],
   "inProgress": [],
   "planned": [
@@ -43,8 +44,7 @@
     "SC-02",
     "SC-03",
     "SC-04",
-    "SC-05",
-    "FE-25"
+    "SC-05"
   ],
   "_reservedByFE20": {
     "_why": "FE-20 phải ghi 'màn nào chờ task nào' lên từng trang chỗ trống, nhưng lộ trình chưa có mã cho năm việc dưới đây. Đặt trước ở đây để marker hợp lệ; Owner đổi tên thì grep đúng mã là xong. Xem docs/CHECKPOINT_FE20.md mục câu hỏi mở.",
