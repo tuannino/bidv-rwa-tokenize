@@ -112,6 +112,17 @@ export const CONFIG_KEYS = {
   distributionMinNewBalance: 'distribution.min_new_balance',
   /** Số vòng chạy tối đa cho một kỳ trước khi coi là treo. Xem `DISTRIBUTION_STUCK_AFTER_RUNS`. */
   distributionStuckAfterRuns: 'distribution.stuck_after_runs',
+
+  // --- FE-21: hạn mức rút của Người bán ------------------------------------------
+  /**
+   * Chế độ khoá: `FIXED` khoá một số VNDB cố định, `PERCENT` khoá một phần trăm số dư tại lúc rút.
+   * Hai chế độ theo chốt của chủ dự án. KHÔNG có mặc định trong mã: chưa cấu hình thì không rút được.
+   */
+  sellerWithdrawLimitMode: 'seller.withdraw_limit_mode',
+  /** Tham số của chế độ: số VNDB (`FIXED`) hoặc số phần trăm nguyên 0–100 (`PERCENT`). */
+  sellerWithdrawLimitValue: 'seller.withdraw_limit_value',
+  /** Phí một lần rút, đơn vị VNDB. */
+  sellerWithdrawFeeVnd: 'seller.withdraw_fee_vnd',
 } as const;
 
 /**

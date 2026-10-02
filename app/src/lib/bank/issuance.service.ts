@@ -108,6 +108,43 @@ export async function remainingIssuanceCap(
   return { cap, supply, remaining: supply >= cap ? 0n : cap - supply };
 }
 
+/** Năm chỉ tiêu nguồn cung của một token. Chuỗi vì `bigint` không qua được biên. */
+export interface SupplyMetrics {
+  /** Trần phát hành theo bảng dự án. */
+  cap: string;
+  /** Số còn được phát hành: trần − tổng cung, không âm. */
+  remaining: string;
+  /** Tổng cung hiện tại, đọc từ chuỗi. */
+  totalSupply: string;
+  /** Chưa phân phối: WPT còn trong ví thanh toán SPV. 0 khi chưa phát hành. */
+  undistributed: string;
+  /** Đang lưu hành: tổng cung − chưa phân phối, tức WPT đã ra tay nhà đầu tư. */
+  circulating: string;
+}
+
+/**
+ * Năm chỉ tiêu nguồn cung, tính MỘT chỗ ở máy chủ (FE-21 yêu cầu 16).
+ *
+ * Màn Người bán và màn Giao dịch viên phải ra cùng con số ở cùng thời điểm, nên cả hai đọc qua
+ * hàm này; giao diện chỉ hiển thị. Cùng công thức với khối kiểm tra Burn của
+ * `token-request.service.ts` (chưa phân phối = số dư ví SPV, lưu hành = tổng cung − phần đó).
+ */
+export async function readSupplyMetrics(chain: ChainKey, project: ProjectRecord): Promise<SupplyMetrics> {
+  const ledger = getLedger(chain);
+  const [{ cap, supply, remaining }, spv] = await Promise.all([
+    remainingIssuanceCap(chain, project),
+    ledger.spvWallet(),
+  ]);
+  const undistributed = spv ? await ledger.balanceOf(spv) : 0n;
+  return {
+    cap: cap.toString(),
+    remaining: remaining.toString(),
+    totalSupply: supply.toString(),
+    undistributed: undistributed.toString(),
+    circulating: (supply - undistributed).toString(),
+  };
+}
+
 export interface IssueInitialSupplyView {
   chain: ChainKey;
   tokenSymbol: string;

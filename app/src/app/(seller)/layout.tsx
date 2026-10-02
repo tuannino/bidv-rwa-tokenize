@@ -5,7 +5,7 @@ import { AREA_GATES, AREA_LABELS } from '@/lib/rbac/area-gates';
  * Khu vực Người bán — vai MỚI của FE-20.
  *
  * Cổng là `seller:read`, quyền chỉ `SELLER` có, nên nó vừa cho Người bán vào vừa chặn ba vai
- * kia. Khu vực này chưa có nghiệp vụ nào: cả ba trang là chỗ trống chờ FE-21.
+ * kia. Ba màn do FE-21 dựng; service phía dưới kiểm lại `seller:read` lần nữa.
  */
 export default function SellerLayout({ children }: { children: React.ReactNode }) {
   return (

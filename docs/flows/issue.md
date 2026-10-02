@@ -47,14 +47,14 @@ flowchart TD
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
 | 1 | `app/src/app/actions/bank.ts:37` | `issueInitialSupplyAction()` | nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service |
-| 2 | `app/src/lib/bank/issuance.service.ts:281` | `issueInitialSupply()` | validate, kiểm quyền token:mint, đọc trần phát hành từ bảng dự án |
-| 3 | `app/src/lib/bank/issuance.service.ts:186` | `pending()` | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint |
+| 2 | `app/src/lib/bank/issuance.service.ts:318` | `issueInitialSupply()` | validate, kiểm quyền token:mint, đọc trần phát hành từ bảng dự án |
+| 3 | `app/src/lib/bank/issuance.service.ts:223` | `pending()` | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint |
 | 4 | `app/src/lib/bank/issuance.service.ts:75` | `saved()` | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận |
 | 5 | `app/src/lib/bank/issuance.service.ts:90` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
-| 6 | `app/src/lib/bank/issuance.service.ts:216` | `issuedAt()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
-| 7 | `app/src/lib/bank/issuance.service.ts:247` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
+| 6 | `app/src/lib/bank/issuance.service.ts:253` | `issuedAt()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
+| 7 | `app/src/lib/bank/issuance.service.ts:284` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
 | 8 | `app/src/app/actions/bank.ts:45` | `issuanceStatusAction()` | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service |
-| 9 | `app/src/lib/bank/issuance.service.ts:342` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
+| 9 | `app/src/lib/bank/issuance.service.ts:379` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
 
 ## Điểm cắm trên đường đi
 
