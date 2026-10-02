@@ -14,7 +14,12 @@ import {
   type TokenRequestStatus,
 } from '@/lib/store';
 import { authorize, toResult } from './authorize';
-import { executeIssuance, remainingIssuanceCap, trackTxn } from './issuance.service';
+import {
+  executeIssuance,
+  readSupplyMetrics,
+  remainingIssuanceCap,
+  trackTxn,
+} from './issuance.service';
 import { err, ok, type Result } from './result';
 import {
   approveTokenRequestSchema,
@@ -198,7 +203,10 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
   );
   if (!spv) return { checks, project, wallet: null };
 
-  const { undistributed, circulating } = await supplyBreakdown(chain, spv);
+  // Cùng hàm với khối thông tin token và màn Người bán (FE-21): ba nơi không thể nói khác nhau.
+  const metrics = await readSupplyMetrics(chain, project);
+  const undistributed = BigInt(metrics.undistributed);
+  const circulating = BigInt(metrics.circulating);
 
   checks.push(
     check(
@@ -221,24 +229,6 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
     );
   }
   return { checks, project, wallet: spv };
-}
-
-/**
- * Tổng cung tách hai phần: CHƯA PHÂN PHỐI (còn trong ví SPV) và ĐANG LƯU HÀNH (ngoài ví SPV).
- *
- * Một chỗ tính cho cả điều kiện Burn lẫn khối thông tin token của FE-22: hai chỗ tự tính riêng thì
- * khối thông tin có thể nói "còn 0 lưu hành" trong khi điều kiện Burn nói ngược lại.
- */
-async function supplyBreakdown(
-  chain: ChainKey,
-  spv: string | null,
-): Promise<{ totalSupply: bigint; undistributed: bigint; circulating: bigint }> {
-  const ledger = getLedger(chain);
-  const [undistributed, { totalSupply }] = await Promise.all([
-    spv ? ledger.balanceOf(spv) : Promise.resolve(0n),
-    ledger.tokenInfo(),
-  ]);
-  return { totalSupply, undistributed, circulating: totalSupply - undistributed };
 }
 
 const draftOf = (request: TokenRequestRecord): RequestDraft => ({
@@ -736,21 +726,18 @@ async function readTokenInfo(chain: ChainKey, tokenSymbol: string): Promise<Toke
   if (!project) {
     throw new TokenInfoNotFoundError(`Chưa có dự án "${tokenSymbol}" trên chuỗi "${chain}".`);
   }
-  const spv = await getLedger(chain).spvWallet();
-  const [{ cap, remaining }, supply] = await Promise.all([
-    remainingIssuanceCap(chain, project),
-    supplyBreakdown(chain, spv),
+  // Năm chỉ tiêu nguồn cung đọc qua `readSupplyMetrics` (FE-21) — một chỗ tính cho màn Người bán,
+  // khối kiểm tra Burn và khối này, nên ba nơi không thể ra hai con số khác nhau.
+  const [metrics, spv] = await Promise.all([
+    readSupplyMetrics(chain, project),
+    getLedger(chain).spvWallet(),
   ]);
   return {
     chain,
     tokenSymbol: project.tokenSymbol,
     projectName: project.name,
     contractAddress: project.contractAddress,
-    cap: cap.toString(),
-    remaining: remaining.toString(),
-    totalSupply: supply.totalSupply.toString(),
-    undistributed: supply.undistributed.toString(),
-    circulating: supply.circulating.toString(),
+    ...metrics,
     sellerCode: SAMPLE_ACCOUNTS.seller,
     spvWallet: spv,
     issuedAt: project.issuedAt,

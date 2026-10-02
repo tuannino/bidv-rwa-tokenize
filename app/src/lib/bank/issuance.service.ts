@@ -127,8 +127,8 @@ export interface SupplyMetrics {
  * Năm chỉ tiêu nguồn cung, tính MỘT chỗ ở máy chủ (FE-21 yêu cầu 16).
  *
  * Màn Người bán và màn Giao dịch viên phải ra cùng con số ở cùng thời điểm, nên cả hai đọc qua
- * hàm này; giao diện chỉ hiển thị. Cùng công thức với khối kiểm tra Burn của
- * `token-request.service.ts` (chưa phân phối = số dư ví SPV, lưu hành = tổng cung − phần đó).
+ * hàm này; giao diện chỉ hiển thị. Từ FE-22 khối kiểm tra Burn và khối thông tin token của
+ * `token-request.service.ts` cũng gọi thẳng hàm này, không còn công thức thứ hai.
  */
 export async function readSupplyMetrics(chain: ChainKey, project: ProjectRecord): Promise<SupplyMetrics> {
   const ledger = getLedger(chain);

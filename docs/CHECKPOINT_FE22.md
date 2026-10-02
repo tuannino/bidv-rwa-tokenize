@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Mã task | FE-22 |
-| Nhánh | `feat/maker-checker-ui`, tạo **từ `dev`** (`6f32d0a`, sau khi BE-12 merge — PR #30) |
+| Nhánh | `feat/maker-checker-ui`, tạo **từ `dev`** (`6f32d0a`, sau khi BE-12 merge — PR #30); **rebase lên `dev` @ `7d062db`** sau khi FE-21 merge (PR #31), xem mục 8 |
 | Spec | `docs/fe-22-maker-checker-ui/{requirements,tasks}.md` — không có `design.md` |
 | Tiến độ | Bước 5/5 xong. Chờ Supervisor nghiệm thu — Kiro **không** merge vào `dev` |
 
@@ -50,14 +50,15 @@
 
 | Commit | Mục tiêu |
 |---|---|
-| `dd1afa5` | Spec vào repo; FE-22 sang `inProgress` |
-| `1499c00` | Bước 1: khối thông tin token, khối kiểm tra, nhãn năm trạng thái, `lib/format.ts`; bốn phép đọc ở `token-request.service`; `countRequests` lọc theo loại và mốc quyết định |
-| `d0d26ce` | Bước 2: màn Lập lệnh (việc 1–7) |
-| `8d9a2e8` | Bước 3: màn Phê duyệt lệnh + màn chi tiết `/approvals/[id]` (việc 8–13) |
-| `10ab852` | Sửa kiểu trong một ca test của bước 3 (Vitest xanh nhưng `tsc` đỏ — bài học mới, mục 6) |
-| `798aaa5` | Bước 4: gỡ `token:mint` / `token:burn` khỏi TELLER, quyền `demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT`, chuyển màn `/mint` |
-| `6028d8f` | Bước 5: ca 7, việc 18, e2e `maker-checker.spec.ts` |
-| (cuối) | Báo cáo công nghệ 2.8, bài học, FE-22 sang `done`, checkpoint này |
+| `e89d6a4` | Spec vào repo; FE-22 sang `inProgress` |
+| `8c16d3e` | Bước 1: khối thông tin token, khối kiểm tra, nhãn năm trạng thái, `lib/format.ts`; bốn phép đọc ở `token-request.service`; `countRequests` lọc theo loại và mốc quyết định |
+| `c7eb70d` | Bước 2: màn Lập lệnh (việc 1–7) |
+| `bf427d4` | Bước 3: màn Phê duyệt lệnh + màn chi tiết `/approvals/[id]` (việc 8–13) |
+| `832861a` | Sửa kiểu trong một ca test của bước 3 (Vitest xanh nhưng `tsc` đỏ — bài học mới, mục 6) |
+| `a577dfc` | Bước 4: gỡ `token:mint` / `token:burn` khỏi TELLER, quyền `demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT`, chuyển màn `/mint` |
+| `9632f24` | Bước 5: ca 7, việc 18, e2e `maker-checker.spec.ts` |
+| `52416f3` | Báo cáo công nghệ (sau rebase là 2.9), bài học, FE-22 sang `done`, checkpoint này |
+| (sau rebase) | Gộp tính nguồn cung về `readSupplyMetrics` của FE-21, sửa test FE-21 theo hai lớp chặn, cập nhật checkpoint — mục 8 |
 
 ```
 $ git diff --stat dev...HEAD | tail -1     # đo trước commit cuối
@@ -75,7 +76,7 @@ việc 17 yêu cầu giữ.
 
 | Bước | DoD | Đạt? | Ghi chú |
 |---|---|---|---|
-| 0 | FE-22 đang làm, `dev` có BE-12, `scan-pending --check` xanh | ✅ | `dd1afa5`; `dev` @ `6f32d0a` là merge PR #30 |
+| 0 | FE-22 đang làm, `dev` có BE-12, `scan-pending --check` xanh | ✅ | `e89d6a4`; `dev` @ `6f32d0a` là merge PR #30 |
 | 1 | Hai thành phần dùng chung | ✅ | mục 3.1 |
 | 2 | Việc 1–7, ca 1–4 | ✅ | mục 3.2 |
 | 3 | Việc 8–13, ca 5, 6, 8 | ✅ | mục 3.3 |
@@ -219,10 +220,10 @@ Supervisor theo dõi trên CI.
   `role ===` nào. Khoá nút ở giao diện chỉ đọc kết quả máy chủ
 
 Bài học mới (đã thêm vào `lessons.md` và 1.6.D báo cáo công nghệ): Vitest xanh không có nghĩa typecheck
-xanh — commit `8d9a2e8` lọt một lỗi kiểu trong test, sửa ở `10ab852`.
+xanh — commit `bf427d4` lọt một lỗi kiểu trong test, sửa ở `832861a`.
 
-Báo cáo công nghệ 2.7 → 2.8: metadata, ghi chú phiên bản, 1.4, 1.5, 1.6.D, 3.3, 3.4, 3.5, 3.6, 3.15,
-**3.16 mới**, 4.1, 4.3, 4.7; mục 3.10 và `docs/flows/issue.md` sinh lại bằng script.
+Báo cáo công nghệ 2.8 → 2.9 (FE-21 đã dùng 2.8 và mục 3.16): metadata, ghi chú phiên bản, 1.4, 1.5, 1.6.D, 3.3, 3.4, 3.5, 3.6, 3.15,
+**3.17 mới**, 4.1, 4.3, 4.7; mục 3.10 và `docs/flows/issue.md` sinh lại bằng script.
 
 ## 7. Kết quả `run-local-all.sh`
 
@@ -251,3 +252,37 @@ Ba cảnh báo: `process.env` ở `lib/signer/index.ts`, địa chỉ mẫu tron
 contract. Cả ba có ở checkpoint BE-12.
 
 Kiểm thử đầu cuối không thuộc bộ mặc định; đã chạy riêng, xem 3.7.
+
+## 8. Rebase lên `dev` sau khi FE-21 merge (PR #31)
+
+PR #32 báo xung đột vì FE-21 merge vào `dev` sau khi nhánh này tạo. Đồng bộ bằng **rebase** theo
+`branching.md` §7. Trước khi rebase đã kiểm nhánh trên GitHub không có commit nào của người khác
+(`origin/feat/maker-checker-ui` = `2173462`, đúng commit cuối của Kiro), nên đẩy lại bằng
+`--force-with-lease`.
+
+| Tệp xung đột | Cách xử lý |
+|---|---|
+| `.kiro/task-status.json` | Giữ cả hai: FE-21 ở `done`, FE-22 theo từng commit (`inProgress` rồi `done`); không còn mã nào trong `planned` |
+| `docs/tech-report.md` mục 3.10 (vùng sinh tự động) | **Không sửa tay**: sinh lại bằng `node scripts/scan-pending.mjs --write-report` ở mỗi commit |
+| `docs/flows/issue.md` (sinh tự động) | Sinh lại bằng `node scripts/gen-flow-diagram.mjs issue` |
+| `docs/tech-report.md` phần viết tay | FE-21 đã dùng bản **2.8** và mục **3.16**, nên FE-22 lùi thành **2.9** và **3.17**; giữ nguyên toàn bộ chữ của FE-21; số trang chỗ trống đo lại: `grep -rl "PlaceholderPage" app/src/app \| wc -l` → `6`; FE-21 chuyển sang ✅ PR #31 ở 4.7 |
+
+Hai xung đột **ngữ nghĩa** git không báo, phát hiện khi chạy lại kiểm thử:
+
+1. `test/seller-channel.test.ts` (FE-21) dựng dữ liệu bằng `issueInitialSupply` dưới vai Giao dịch
+   viên, mà FE-22 đã đặt đường này sau hai lớp chặn: **2 ca đỏ** với thông báo `ENABLE_DEMO_TOKEN_MINT=false`.
+   Sửa đúng cách đã làm ở `token-request.test.ts`: bật cờ trong lúc dựng nền rồi tắt.
+2. FE-21 thêm `readSupplyMetrics()` tính năm chỉ tiêu nguồn cung, trùng phép tính `supplyBreakdown`
+   của FE-22. Gộp: khối kiểm tra Burn và khối thông tin token nay gọi thẳng `readSupplyMetrics`, xoá
+   `supplyBreakdown`. Ba nơi (màn Người bán, khối kiểm tra, khối thông tin) không thể ra hai con số khác nhau.
+
+```
+$ cd app && npx tsc --noEmit -p . | grep -v "^.next/" | wc -l
+0
+$ npx vitest run
+ Tests  656 passed (656)
+```
+
+`USE_LOCAL_SOLC=1 bash scripts/run-local-all.sh` sau rebase: **mã thoát 0**, 7 PASS / 0 FAIL, Vitest
+656/656, hardhat 67 passing, bảng quyền 31 → 32 hành động. E2E cả bộ (cấu hình tạm trỏ Chromium của
+máy phiên, không commit): **43 passed (43)**.

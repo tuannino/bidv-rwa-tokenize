@@ -26,11 +26,18 @@ async function ledger() {
   return getLedger(CHAIN);
 }
 
-/** Phát hành bằng Giao dịch viên, chuyển `out` WPT ra ví nhà đầu tư, rồi quay về Người bán. */
+/**
+ * Phát hành bằng Giao dịch viên, chuyển `out` WPT ra ví nhà đầu tư, rồi quay về Người bán.
+ *
+ * FE-22: phát hành trực tiếp là đường DỮ LIỆU THỬ, sau hai lớp chặn `demo:mint-token` + cờ
+ * `ENABLE_DEMO_TOKEN_MINT`. Bật cờ đúng trong lúc dựng nền rồi tắt, cùng cách `token-request.test.ts`.
+ */
 async function issueAndDistribute(amount: bigint, out: bigint) {
   const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
+  process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
   actAs('TELLER');
   const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: String(amount) });
+  delete process.env.ENABLE_DEMO_TOKEN_MINT;
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   const l = await ledger();
   await l.whitelist(INVESTOR);
