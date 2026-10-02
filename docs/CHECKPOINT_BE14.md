@@ -210,30 +210,31 @@ sinh lại bằng `gen-flow-diagram.mjs purchase`.
 
 ## 7. Kết quả `run-local-all.sh`
 
-Chạy **đúng một** lần, cuối task: **mã thoát 1 — 6 PASS / 1 FAIL.**
+Chạy **hai** lần, nói rõ lý do: lần 1 trước rebase; lần 2 sau khi rebase lên `8af5bb7`, vì nền mã đã
+đổi (FE-21, FE-22) nên kết quả lần 1 không còn là bằng chứng cho mã đang nộp. Cả hai lần cùng một
+kết cục: **mã thoát 1 — 6 PASS / 1 FAIL**, FAIL duy nhất là phần hợp đồng vì mạng.
 
 ```
-$ bash scripts/run-local-all.sh
+$ bash scripts/run-local-all.sh        # lần 2, sau rebase
   => PASS có cảnh báo: luật kiến trúc   (3 cảnh báo có từ trước: SIGNER_KIND, địa chỉ mẫu ở mint.tsx, thiếu BASE_REF)
-  => PASS: LỚP 3 - ĐIỂM CẮM (marker)    37 điểm cắm, 13 điểm chặn, 35 bước luồng
-  => PASS: LỚP 3 - KHUÔN CHECKPOINT     mục 0: 30/60 dòng · 9 dòng / 9 điều kiện
+                                        Bảng quyền không teo lại so với origin/dev (32 -> 32 hành động)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)    27 điểm cắm, 13 điểm chặn, 35 bước luồng
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT     mục 0: 34/60 dòng · 9 dòng / 9 điều kiện
   => FAIL: LỚP 1 - SPEC TEST CONTRACT EVM
   => PASS: APP - TYPECHECK
   => PASS: APP - LINT
-  => PASS: APP - VITEST                 Test Files 22 passed · Tests 646 passed
+  => PASS: APP - VITEST                 Test Files 24 passed · Tests 694 passed
 ```
 
 Lỗi duy nhất, nguyên văn dòng gốc:
 
 ```
-Error HH502: Couldn't download compiler version list.
 Caused by: Error: Failed to download https://binaries.soliditylang.org/linux-amd64/list.json - 403 received.
 Host not in allowlist: binaries.soliditylang.org.
 ```
 
-Đây là chính sách mạng của môi trường chạy, không phải lỗi mã: `git diff --name-only dev...HEAD --
-packages/ | wc -l` → `0`, và `packages/contracts-evm/node_modules` đã cài bằng `npm ci` trước lần
-chạy. Bảng quyền: "không teo lại so với origin/dev (31 -> 31 hành động)".
+Đây là chính sách mạng của môi trường chạy, không phải lỗi mã: `git diff --name-only origin/dev...HEAD
+-- packages/ | wc -l` → `0`, và `packages/contracts-evm/node_modules` đã cài bằng `npm ci` trước khi chạy.
 
 ## 8. Rebase lên `dev` `8af5bb7` và khớp với FE-21
 
