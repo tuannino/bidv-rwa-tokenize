@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Mã task | BE-14 |
-| Nhánh | `feat/sell-side`, tạo **từ `dev`** (`6f32d0a`, sau khi BE-12 merge — PR #30) |
+| Nhánh | `feat/sell-side`, tạo từ `dev` `6f32d0a`, **rebase lên `dev` `8af5bb7`** (sau FE-21 PR #31 và FE-22 PR #32) — mục 8 |
 | Spec | `docs/be-14-sell-side/{requirements,tasks}.md` — không có `design.md` |
 | Tiến độ | Bước 5/5 xong. Chờ Supervisor nghiệm thu — Kiro **không** merge vào `dev` |
 
@@ -24,7 +24,7 @@
 | 4 | Số chưa phân phối và số đang lưu hành đổi đúng sau khi bán | ✅ | mục 3.2 ca 4 |
 | 5 | Năm bước quyết toán có mốc thời gian, ánh xạ ở tầng nghiệp vụ | ✅ | mục 3.2 ca 5 |
 | 6 | Nhà đầu tư chỉ xem được lệnh của mình | ✅ | mục 3.2 ca 6 · 3.3 đột biến 2 |
-| 7 | Số liệu khớp lệnh trong ngày đủ bốn ô | ✅ | mục 3.2 ca 7 · mục 4 DV-3 |
+| 7 | Số liệu khớp lệnh trong ngày đủ bốn ô | ✅ | mục 3.2 ca 7 · mục 8 |
 | 8 | Kiểm thử chiều mua xanh nguyên | ✅ | mục 3.4 |
 | 9 | `run-local-all.sh` xanh | 🔶 | mục 7 (6 PASS, 1 FAIL do mạng chặn tải trình biên dịch Solidity) |
 
@@ -43,8 +43,9 @@
   `wptAllowanceOf` và một phép kiểm vào `runSaleBalanceChecks`. Mục 5.
 - **CH-3 — Nhánh làm việc.** Phiên được cấu hình làm trên `dev`; Owner chọn `feat/sell-side`
   theo spec và `branching.md`. Không commit nào lên `dev`.
-- **CH-4 — Spec ghi "từ `dev` sau khi FE-22 đã merge"; FE-22 vẫn `planned`.** BE-14 không dùng
-  mã nào của FE-22 nên đã làm trên `dev` hiện tại. Mục 4 DV-5.
+- **CH-4 — Sửa chạm sang màn của FE-21 (2 dòng hiển thị).** Spec ghi "Không làm giao diện", nhưng
+  `seller-transactions.tsx` gán cứng chữ "Mua" cho mọi dòng; giữ nguyên thì lệnh bán hiện là "Mua".
+  Em sửa nhãn theo dữ liệu và thêm lựa chọn lọc "Bán". Owner không đồng ý thì revert 2 dòng đó. Mục 8.
 
 ---
 
@@ -52,16 +53,18 @@
 
 | Commit | Mục tiêu |
 |---|---|
-| `b8d23b2` | Spec vào repo; BE-14 sang `inProgress`; đặt mã FE-25 vào `planned` (DV-4) |
-| `e2203b9` | Cột `side` + bốn mốc bước, `init.sql` sinh bằng `npm run db:sql`; nâng bảng cũ; lọc theo chiều/mã/ngày; `summarizeCompleted` |
-| `43b842e` | `ILedgerPort.executeSale`: mock nguyên khối, evm/stellar `@blocked SC-03` |
-| `2973bfe` | `runOrderChecks` dùng chung hai chiều; `settlement-steps.ts`; `orderDailyStats`; `SELLER` nhận `order:read:all` |
-| `1890c98` | Báo cáo công nghệ 2.8, sơ đồ `purchase` sinh lại, bảng điểm cắm sinh lại, checkpoint này |
-| (cuối) | Kết quả `run-local-all.sh` vào mục 7, BE-14 sang `done` |
+| `d840d4d` | Spec vào repo; BE-14 sang `inProgress`; đặt mã FE-25 vào `planned` (DV-4) |
+| `25cbe94` | Cột `side` + bốn mốc bước, `init.sql` sinh bằng `npm run db:sql`; nâng bảng cũ; lọc theo chiều/mã/ngày; `summarizeCompleted` |
+| `727dd44` | `ILedgerPort.executeSale`: mock nguyên khối, evm/stellar `@blocked SC-03` |
+| `1ae9986` | `runOrderChecks` dùng chung hai chiều; `settlement-steps.ts`; `orderDailyStats`; `SELLER` nhận `order:read:all` |
+| `7f89ddc` | Báo cáo công nghệ (nay 3.0 sau rebase), sơ đồ `purchase`, bảng điểm cắm, checkpoint này |
+| `227d188` | Kết quả `run-local-all.sh` lần 1 (trước rebase) vào checkpoint |
+| `979090f` | Khớp với FE-21 sau rebase — mục 8 |
+| (cuối) | Kết quả `run-local-all.sh` sau rebase vào mục 7, BE-14 sang `done` |
 
 ```
-$ git diff --stat dev...HEAD | tail -1     # đo trước commit cuối
- 27 files changed, 1990 insertions(+), 172 deletions(-)
+$ git diff --stat origin/dev...HEAD | tail -1     # đo trước commit cuối, sau rebase
+ 30 files changed, 2108 insertions(+), 197 deletions(-)
 ```
 
 ## 2. Đối chiếu DoD theo `tasks.md`
@@ -83,9 +86,9 @@ Chạy từ `app/`. Mức kiểm chứng **Cao**: đủ tám ca, đột biến *
 
 ```
 $ npx vitest run test/store-constraints.test.ts
- Tests  112 passed (112)                      # bộ nhớ; 9 ca mới (lớp 1d, lớp 2 "lệnh mua và bán", lớp 3)
+ Tests  113 passed (113)                      # bộ nhớ; 10 ca mới (lớp 1d, lớp 2 "lệnh mua và bán", lớp 3)
 $ TEST_DATABASE_URL=postgresql://bidv@127.0.0.1:55432/bidv_test npx vitest run test/store-constraints.test.ts
- Tests  174 passed (174)                      # + bản Postgres thật; chạy hai lượt liền, đều xanh
+ Tests  176 passed (176)                      # + bản Postgres thật, chạy lại sau rebase
 ```
 
 Postgres 16 dựng một lần ở cổng 55432 (không có docker daemon nên dùng `initdb` của gói hệ
@@ -121,7 +124,7 @@ Cổng chuỗi: `describe('BE-14 — executeSale ...')` (3 test) ở `mock-ledge
 | 1. Khớp lệnh bán thất bại giữa chừng: ghi hai bút toán WPT **trước** phép kiểm VNDB của ví SPV | `mock.adapter.ts :: executeSale` | **1 failed / 124 passed** — `CHẶN khi ví SPV thiếu VNDB, KHÔNG bên nào đổi số dư` |
 | 2. Bỏ lọc theo ví ở tầng nghiệp vụ (bỏ `investorWallet` khỏi lời gọi `listOrders` của cổng) | `purchase.service.ts :: listOrders` | **3 failed / 65 passed** — gồm `BE-14 ca 6 > ... kể cả khi dò đúng mã lệnh của BOB` và hai ca 7.8 cũ |
 
-Trả mã về (chép lại từ bản sao) rồi chạy lại: 125/125. Ca `BE-14 đột biến 1` ở mức service (lỗi
+Chạy lại cả hai **sau rebase**, kết quả giống hệt. Trả mã về (chép lại từ bản sao) rồi chạy lại: 125/125. Ca `BE-14 đột biến 1` ở mức service (lỗi
 khi gửi → `FAILED`, số dư và phần lưu hành giữ, bước 4 `failed`, `NONE_APPLIED`) là ca chức năng
 luôn chạy, không phải đột biến thứ ba.
 
@@ -133,9 +136,9 @@ SUCCESS`) vì câu chữ sổ kiểm toán bị đổi thành "khớp mua ..."; 
 mua giữ nguyên từng chữ, không sửa test.
 
 ```
-$ npx vitest run                              # bước 4, sau khi sinh lại sơ đồ và bảng điểm cắm
- Test Files  22 passed (22)
-      Tests  646 passed (646)
+$ npx vitest run                              # sau rebase và commit 979090f
+ Test Files  24 passed (24)
+      Tests  694 passed (694)
 ```
 
 ### 3.5 Quyền
@@ -157,14 +160,18 @@ phân biệt R5.1/R5.2" chỉ còn `INVESTOR` bị buộc lọc ví; `SYSTEM_WID
 - **DV-2 — Không thêm hàm báo giá bán.** Số VNDB nhận khi bán dùng `quotePurchase`: cùng giá cấu
   hình như chiều mua (ràng buộc "Giá lấy từ cấu hình, như chiều mua"). Thêm `quoteSale` là nguồn
   giá thứ hai.
-- **DV-3 — "Bốn ô thay vì hai ô như hiện nay": số đo khác.** Hiện **không** có ô khớp lệnh nào:
-  `grep -rn "orderStats\|dailyStats" app/src` → 0; màn `/seller` là trang chỗ trống, bảng điều
-  khiển vận hành dùng `MOCK_WIND_STATS`. Đã làm theo đích của spec: `orderDailyStats` trả đúng bốn
-  ô (`buyCount`, `buyValue`, `sellCount`, `sellValue`), gắn `@pending FE-21`.
+- **DV-3 — Bốn ô số liệu trong ngày.** Trước rebase em đo được 0 ô (màn `/seller` còn là trang
+  chỗ trống); sau rebase FE-21 đã có đúng **hai** ô mua, khớp chữ "hai ô như hiện nay" của spec.
+  `orderDailyStats` trả bốn ô và `getSellerOverview().today` nay mang đủ hai chiều. Server action
+  `orderDailyStatsAction` đã **gỡ** vì marker của nó chờ FE-21 (đã xong); bảng điều khiển vận hành
+  chưa có mã task nên chưa mở action. Mục 8.
 - **DV-4 — Đặt mã FE-25 vào `planned`.** Spec FE-25 nằm cùng gói; mã có trong tập hợp lệ thì task
   sau dùng được ngay. Chưa có marker nào chờ FE-25.
-- **DV-5 — Nền nhánh.** Spec ghi "sau khi FE-22 đã merge"; FE-22 chưa làm. BE-14 không phụ thuộc mã
-  FE-22, nền là `dev` mới nhất (`6f32d0a`).
+- **DV-5 — Nền nhánh.** Làm trên `dev` `6f32d0a` (lúc đó FE-22 chưa merge), rồi rebase lên
+  `8af5bb7` đã có FE-21 và FE-22 — nay đúng điều kiện "sau khi FE-22 đã merge" của spec.
+- **DV-8 — `createOrder` tạo thẳng ở trạng thái có mốc thì ghi mốc đó** (hai bản lưu trữ). Test FE-21
+  dựng lệnh `COMPLETED` bằng `createOrder({ status })`; không ghi `completedAt` thì số liệu theo ngày
+  bỏ sót chúng.
 - **DV-6 — Thêm bước nâng bảng cũ ở `ensureSchema`** (`addMissingColumns`). Không có thì volume
   Postgres dựng trước BE-14 nổ `undefined_column` ngay ở câu `CREATE INDEX` mới của `init.sql`, và
   việc 1 "lệnh cũ coi là mua" không thành sự thật trên dữ liệu đang chạy.
@@ -183,6 +190,8 @@ phân biệt R5.1/R5.2" chỉ còn `INVESTOR` bị buộc lọc ví; `SYSTEM_WID
   chia lợi nhuận kế tiếp; BE-14 không sửa vì ngoài phạm vi.
 - **CH-6 — `GET /api/purchase` chưa nhận bốn bộ lọc mới.** Spec không liệt kê route này; server
   action đã đủ cho FE-25.
+- **CH-8 — `STEP_LABELS` ở `seller-transactions.tsx` tự suy bước từ trạng thái** (có từ FE-21). Nên
+  chuyển sang đọc `steps` từ nghiệp vụ ở task giao diện kế tiếp. Mục 8.
 - **CH-7 — Lệnh hoàn tất trước BE-14 không có `completedAt`** nên không vào số liệu theo ngày.
   Không suy mốc từ `updatedAt` để khỏi ghi một dữ kiện không chắc chắn.
 
@@ -193,7 +202,7 @@ phân biệt R5.1/R5.2" chỉ còn `INVESTOR` bị buộc lọc ví; `SYSTEM_WID
 - [x] Mọi kiểm quyền qua RBAC — `authorize()` / `assertCan()`; không `role ===` nào. Người bán xem
   toàn bộ vì có `order:read:all`, không vì tên vai
 
-Báo cáo công nghệ 2.8 đã cập nhật: metadata, đoạn "2.7 → 2.8", 3.1 (30 method, bảng adapter, số
+Báo cáo công nghệ 3.0 đã cập nhật (sau rebase; 2.8, 2.9 do FE-21, FE-22 dùng): metadata, đoạn "2.9 → 3.0", 3.16 (kênh Người bán hai chiều), 3.1 (30 method, bảng adapter, số
 dòng), 3.3 (ma trận + ghi chú fallback), 3.4 (`settlement-steps.ts`, `purchase.service.ts`,
 `schemas.ts`), 3.5 (`order.store.port.ts`, `postgres.pool.ts`), 3.10 (sinh bằng
 `scan-pending.mjs --write-report`), 4.2 (chiều bán, năm bước). Sơ đồ `docs/flows/purchase.md`
@@ -225,3 +234,28 @@ Host not in allowlist: binaries.soliditylang.org.
 Đây là chính sách mạng của môi trường chạy, không phải lỗi mã: `git diff --name-only dev...HEAD --
 packages/ | wc -l` → `0`, và `packages/contracts-evm/node_modules` đã cài bằng `npm ci` trước lần
 chạy. Bảng quyền: "không teo lại so với origin/dev (31 -> 31 hành động)".
+
+## 8. Rebase lên `dev` `8af5bb7` và khớp với FE-21
+
+`dev` nhận FE-21 (PR #31) và FE-22 (PR #32) sau khi nhánh này được đẩy lên, nên GitHub báo
+"Can't automatically merge". Rebase theo `branching.md` §7 (nhánh chỉ một người dùng):
+
+| Tệp | Xung đột | Cách giải |
+|---|---|---|
+| `docs/tech-report.md` | metadata + đoạn đổi phiên bản (FE-22 đã lấy 2.9) | lấy bản `dev`, áp lại phần BE-14 thành **2.9 → 3.0**; mục 3.10 **sinh lại** bằng `scan-pending.mjs --write-report` |
+| `.kiro/task-status.json` | danh sách `done`/`planned` | lấy bản `dev` (FE-21, FE-22 `done`, BE-13 `planned`), thêm BE-14 và FE-25 |
+
+Mã nguồn tự gộp được nhưng có ba chỗ **sai về nghĩa** nếu để nguyên, đã sửa ở `979090f`:
+
+1. `getSellerOverview().today` đếm **mọi** lệnh `COMPLETED` là lệnh mua (`sell: null`) — lệnh bán sẽ
+   bị cộng vào ô mua. Nay lấy từ `orderDailyStats`: ô mua chỉ lệnh mua, `sell` có `{count, wpt, vnd}`,
+   mốc "trong ngày" là `completedAt`. Test FE-21 chốt `sell: null` đổi thành ba số 0.
+2. `listSellerTransactions` gán cứng `type: 'BUY'`. Nay `type = side`, `SELLER_TXN_TYPES` thêm `SELL`,
+   lọc loại đẩy xuống cổng. Màn `seller-transactions.tsx` sửa 2 dòng nhãn (CH-4).
+3. `@pending FE-21` trên `orderDailyStatsAction` thành marker lạc hậu (`scan-pending --check` báo
+   `STALE_TASK`) — gỡ action, xem DV-3.
+
+Ca mới `test/seller-channel.test.ts > BE-14 — lệnh bán tách khỏi lệnh mua ở kênh Người bán` (2 test).
+FE-21 có bảng tên bước riêng ở giao diện (`STEP_LABELS` trong `seller-transactions.tsx`), tự suy từ
+trạng thái — trái nguyên tắc việc 9; để nguyên vì là giao diện, đề xuất màn đó đọc `steps` của
+`listOrders` ở task giao diện kế tiếp (CH-8).
