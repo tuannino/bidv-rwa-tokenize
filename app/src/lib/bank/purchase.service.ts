@@ -146,7 +146,6 @@ export interface PurchasePreviewView {
  * không đổi gì, nên hiện tại chấp nhận được; đã ghi câu hỏi mở trong checkpoint BE-03.
  *
  * @flow purchase:2 | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu
- * @pending FE-05 | đã sẵn đầu cuối: validate Zod dùng chung schema với đặt lệnh, kiểm quyền qua RBAC, báo giá qua ILedgerPort, và ĐÚNG bộ kiểm mà khớp lệnh sẽ chạy. FE-05 chỉ cần gọi rồi hiển thị `blockers` và `howToFix`, KHÔNG viết lại phép kiểm nào ở client, và PHẢI chống gọi dồn khi người dùng gõ số lượng vì mỗi ký tự là một lời gọi
  */
 export async function previewPurchase(input: unknown): Promise<Result<PurchasePreviewView>> {
   const parsed = previewPurchaseSchema.safeParse(input);
