@@ -39,13 +39,13 @@
     "FE-11",
     "FE-23",
     "FE-24",
-    "FE-25",
     "IN-01",
     "IN-02",
     "SC-02",
     "SC-03",
     "SC-04",
-    "SC-05"
+    "SC-05",
+    "FE-25"
   ],
   "_reservedByFE20": {
     "_why": "FE-20 phải ghi 'màn nào chờ task nào' lên từng trang chỗ trống, nhưng lộ trình chưa có mã cho năm việc dưới đây. Đặt trước ở đây để marker hợp lệ; Owner đổi tên thì grep đúng mã là xong. Xem docs/CHECKPOINT_FE20.md mục câu hỏi mở.",

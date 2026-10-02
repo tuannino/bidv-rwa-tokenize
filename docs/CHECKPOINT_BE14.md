@@ -26,12 +26,15 @@
 | 6 | Nhà đầu tư chỉ xem được lệnh của mình | ✅ | mục 3.2 ca 6 · 3.3 đột biến 2 |
 | 7 | Số liệu khớp lệnh trong ngày đủ bốn ô | ✅ | mục 3.2 ca 7 · mục 4 DV-3 |
 | 8 | Kiểm thử chiều mua xanh nguyên | ✅ | mục 3.4 |
-| 9 | `run-local-all.sh` xanh | ✅ | mục 7 |
+| 9 | `run-local-all.sh` xanh | 🔶 | mục 7 (6 PASS, 1 FAIL do mạng chặn tải trình biên dịch Solidity) |
 
-**Kết luận:** 9 ✅ · 0 🔶 · 0 ❌
+**Kết luận:** 8 ✅ · 1 🔶 · 0 ❌
 
 ### 0.2 Việc cần Owner quyết
 
+- **CH-0 — Mở mạng cho `binaries.soliditylang.org` rồi chạy lại phần hợp đồng.** Phần
+  `contracts` đỏ vì Hardhat không tải được solc 0.8.28 (403, host ngoài danh sách cho phép của môi
+  trường). BE-14 không sửa tệp nào trong `packages/`. Sau khi mở: `bash scripts/run-local-all.sh contracts`.
 - **CH-1 — ĐÃ QUYẾT trong phiên, ghi lại để Supervisor biết.** Việc 12 cấp `order:read:all` cho
   `SELLER`, mà `SELLER` là `FALLBACK_ROLE`. Owner chọn: cấp, **giữ** fallback `SELLER`. Hệ quả:
   vai lạ đọc được sổ lệnh toàn hệ (vẫn không có quyền ghi nào). Xem lại khi có AU-01. Mục 5.
@@ -53,11 +56,12 @@
 | `e2203b9` | Cột `side` + bốn mốc bước, `init.sql` sinh bằng `npm run db:sql`; nâng bảng cũ; lọc theo chiều/mã/ngày; `summarizeCompleted` |
 | `43b842e` | `ILedgerPort.executeSale`: mock nguyên khối, evm/stellar `@blocked SC-03` |
 | `2973bfe` | `runOrderChecks` dùng chung hai chiều; `settlement-steps.ts`; `orderDailyStats`; `SELLER` nhận `order:read:all` |
-| (cuối) | Báo cáo công nghệ 2.8, sơ đồ `purchase` sinh lại, BE-14 sang `done`, checkpoint này |
+| `1890c98` | Báo cáo công nghệ 2.8, sơ đồ `purchase` sinh lại, bảng điểm cắm sinh lại, checkpoint này |
+| (cuối) | Kết quả `run-local-all.sh` vào mục 7, BE-14 sang `done` |
 
 ```
 $ git diff --stat dev...HEAD | tail -1     # đo trước commit cuối
- 24 files changed, 1644 insertions(+), 102 deletions(-)
+ 27 files changed, 1990 insertions(+), 172 deletions(-)
 ```
 
 ## 2. Đối chiếu DoD theo `tasks.md`
@@ -197,4 +201,27 @@ sinh lại bằng `gen-flow-diagram.mjs purchase`.
 
 ## 7. Kết quả `run-local-all.sh`
 
-KẾT_QUẢ_CHẠY
+Chạy **đúng một** lần, cuối task: **mã thoát 1 — 6 PASS / 1 FAIL.**
+
+```
+$ bash scripts/run-local-all.sh
+  => PASS có cảnh báo: luật kiến trúc   (3 cảnh báo có từ trước: SIGNER_KIND, địa chỉ mẫu ở mint.tsx, thiếu BASE_REF)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)    37 điểm cắm, 13 điểm chặn, 35 bước luồng
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT     mục 0: 30/60 dòng · 9 dòng / 9 điều kiện
+  => FAIL: LỚP 1 - SPEC TEST CONTRACT EVM
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+  => PASS: APP - VITEST                 Test Files 22 passed · Tests 646 passed
+```
+
+Lỗi duy nhất, nguyên văn dòng gốc:
+
+```
+Error HH502: Couldn't download compiler version list.
+Caused by: Error: Failed to download https://binaries.soliditylang.org/linux-amd64/list.json - 403 received.
+Host not in allowlist: binaries.soliditylang.org.
+```
+
+Đây là chính sách mạng của môi trường chạy, không phải lỗi mã: `git diff --name-only dev...HEAD --
+packages/ | wc -l` → `0`, và `packages/contracts-evm/node_modules` đã cài bằng `npm ci` trước lần
+chạy. Bảng quyền: "không teo lại so với origin/dev (31 -> 31 hành động)".
