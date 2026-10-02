@@ -2,22 +2,31 @@ import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
-import { can, type Role } from '@/lib/rbac';
+import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
+import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
 import {
   getProjectStore,
   getStore,
   getTokenRequestStore,
   type ProjectRecord,
   type TokenRequestRecord,
+  type TokenRequestStatus,
 } from '@/lib/store';
 import { authorize, toResult } from './authorize';
-import { executeIssuance, remainingIssuanceCap, trackTxn } from './issuance.service';
+import {
+  executeIssuance,
+  readSupplyMetrics,
+  remainingIssuanceCap,
+  trackTxn,
+} from './issuance.service';
 import { err, ok, type Result } from './result';
 import {
   approveTokenRequestSchema,
   createTokenRequestSchema,
   rejectTokenRequestSchema,
+  tokenInfoQuerySchema,
+  tokenRequestDetailSchema,
   tokenRequestQuerySchema,
 } from './schemas';
 
@@ -194,11 +203,10 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
   );
   if (!spv) return { checks, project, wallet: null };
 
-  const [undistributed, { totalSupply }] = await Promise.all([
-    ledger.balanceOf(spv),
-    ledger.tokenInfo(),
-  ]);
-  const circulating = totalSupply - undistributed;
+  // Cùng hàm với khối thông tin token và màn Người bán (FE-21): ba nơi không thể nói khác nhau.
+  const metrics = await readSupplyMetrics(chain, project);
+  const undistributed = BigInt(metrics.undistributed);
+  const circulating = BigInt(metrics.circulating);
 
   checks.push(
     check(
@@ -628,8 +636,10 @@ export async function listTokenRequests(input: unknown): Promise<Result<TokenReq
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
   try {
-    await authorize('ops:read', null, parsed.data.chain ?? null);
-    return ok(await getTokenRequestStore().listRequests(parsed.data));
+    const role = await authorize('ops:read', null, parsed.data.chain ?? null);
+    const { mine, ...filters } = parsed.data;
+    const makerId = mine ? await currentActorId(role) : undefined;
+    return ok(await getTokenRequestStore().listRequests({ ...filters, makerId }));
   } catch (error) {
     return toResult(error);
   }
@@ -653,4 +663,262 @@ export async function countPendingWork(role: Role, actorId: string): Promise<Pen
       : Promise.resolve(0),
   ]);
   return { draft, approval };
+}
+
+// ===========================================================================
+//  FE-22 — các phép ĐỌC cho hai màn Lập lệnh và Phê duyệt lệnh
+//
+//  Giao diện chỉ hiển thị; mọi con số tính ở đây. Kiểm quyền bằng `assertCan` KHÔNG ghi sổ, cùng
+//  cách `listAuditLog`: đây là phép đọc chạy mỗi lần mở trang, ghi sổ từng lần thì sổ kiểm toán
+//  ngập dòng "ALLOWED" và những thao tác thật khó tìm.
+// ===========================================================================
+
+/** Khối thông tin token — mọi số là CHUỖI vì `bigint` không qua được biên máy chủ sang trình duyệt. */
+export interface TokenInfoView {
+  chain: ChainKey;
+  tokenSymbol: string;
+  projectName: string;
+  /** Địa chỉ hợp đồng ghi trong bảng dự án; `null` khi bảng chưa ghi. */
+  contractAddress: string | null;
+  /** Trần phát hành theo bảng dự án. */
+  cap: string;
+  /** Số còn được phát hành: trần trừ tổng cung trên chuỗi. */
+  remaining: string;
+  totalSupply: string;
+  /** Phần chưa phân phối: số dư ví thanh toán SPV. */
+  undistributed: string;
+  /** Đang lưu hành: tổng cung trừ phần chưa phân phối. */
+  circulating: string;
+  /**
+   * Mã người bán của dự án. Bảng dự án CHƯA có cột người bán (PoC một người bán), nên lấy mã tài
+   * khoản mẫu của vai Người bán — cùng nguồn với bộ chọn vai. Khi có cột thật thì đổi ở đây.
+   */
+  sellerCode: string;
+  /** Ví thanh toán SPV theo chuỗi; `null` khi chưa phát hành lần nào. */
+  spvWallet: string | null;
+  issuedAt: string | null;
+}
+
+/** Không có dự án cho ký hiệu đã gõ — quy về `VALIDATION`, không phải lỗi hệ thống. */
+class TokenInfoNotFoundError extends Error {}
+
+const tokenInfoResult = (error: unknown): Result<never> =>
+  error instanceof TokenInfoNotFoundError ? err('VALIDATION', error.message) : toResult(error);
+
+/** Tra khối thông tin token theo ký hiệu. */
+export async function getTokenInfo(input: unknown): Promise<Result<TokenInfoView>> {
+  const parsed = tokenInfoQuerySchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, tokenSymbol } = parsed.data;
+  try {
+    assertCan(await currentRole(), 'ops:read');
+    return ok(await readTokenInfo(chain, tokenSymbol));
+  } catch (error) {
+    return tokenInfoResult(error);
+  }
+}
+
+/** Phần đọc của `getTokenInfo`, không kiểm quyền — dùng lại cho màn chi tiết. */
+async function readTokenInfo(chain: ChainKey, tokenSymbol: string): Promise<TokenInfoView> {
+  const project = await getProjectStore().findProject({ tokenSymbol, chain });
+  if (!project) {
+    throw new TokenInfoNotFoundError(`Chưa có dự án "${tokenSymbol}" trên chuỗi "${chain}".`);
+  }
+  // Năm chỉ tiêu nguồn cung đọc qua `readSupplyMetrics` (FE-21) — một chỗ tính cho màn Người bán,
+  // khối kiểm tra Burn và khối này, nên ba nơi không thể ra hai con số khác nhau.
+  const [metrics, spv] = await Promise.all([
+    readSupplyMetrics(chain, project),
+    getLedger(chain).spvWallet(),
+  ]);
+  return {
+    chain,
+    tokenSymbol: project.tokenSymbol,
+    projectName: project.name,
+    contractAddress: project.contractAddress,
+    ...metrics,
+    sellerCode: SAMPLE_ACCOUNTS.seller,
+    spvWallet: spv,
+    issuedAt: project.issuedAt,
+  };
+}
+
+/** Bốn thẻ số liệu của màn Lập lệnh: yêu cầu tạo / huỷ token do CHÍNH người này lập, đang chờ duyệt. */
+export interface DraftStatsView {
+  pendingMint: number;
+  pendingBurn: number;
+}
+
+export async function getDraftStats(): Promise<Result<DraftStatsView>> {
+  try {
+    const role = await currentRole();
+    assertCan(role, 'order:draft');
+    const makerId = await currentActorId(role);
+    const store = getTokenRequestStore();
+    const [pendingMint, pendingBurn] = await Promise.all(
+      (['MINT', 'BURN'] as const).map((type) =>
+        store.countRequests({ status: 'PENDING', makerId, type }),
+      ),
+    );
+    return ok({ pendingMint, pendingBurn });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/** Ba thẻ số liệu của màn Phê duyệt lệnh. */
+export interface ApprovalStatsView {
+  /** Yêu cầu NGƯỜI KHÁC lập đang chờ — đúng con số cạnh mục menu. */
+  pending: number;
+  /** Đã duyệt hôm nay: quyết định duyệt từ đầu ngày, bất kể kết cục sau đó trên chuỗi. */
+  approvedToday: number;
+  rejectedToday: number;
+}
+
+/**
+ * Giờ Việt Nam lệch UTC cố định +7, không có giờ mùa hè — nên một hằng số là đủ, không cần thư
+ * viện múi giờ. "Hôm nay" tính theo giờ Việt Nam: máy chủ chạy UTC thì nửa đêm UTC là 7 giờ sáng ở
+ * Hà Nội, và thẻ "hôm nay" sẽ xoá số lúc giữa buổi sáng.
+ */
+const VIETNAM_UTC_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Mốc 00:00 hôm nay theo giờ Việt Nam, dạng ISO (UTC). */
+export function startOfVietnamDay(now: Date = new Date()): string {
+  const local = new Date(now.getTime() + VIETNAM_UTC_OFFSET_MS);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - VIETNAM_UTC_OFFSET_MS).toISOString();
+}
+
+/** Trạng thái mà một yêu cầu ĐÃ ĐƯỢC DUYỆT có thể đang ở: đang xử lý, hoàn tất hoặc thất bại. */
+const APPROVED_STATUSES: readonly TokenRequestStatus[] = ['EXECUTING', 'COMPLETED', 'FAILED'];
+
+export async function getApprovalStats(): Promise<Result<ApprovalStatsView>> {
+  try {
+    const role = await currentRole();
+    assertCan(role, 'order:approve');
+    const actorId = await currentActorId(role);
+    const decidedFrom = startOfVietnamDay();
+    const store = getTokenRequestStore();
+    const [work, approved, rejectedToday] = await Promise.all([
+      countPendingWork(role, actorId),
+      Promise.all(
+        APPROVED_STATUSES.map((status) => store.countRequests({ status, decidedFrom })),
+      ),
+      store.countRequests({ status: 'REJECTED', decidedFrom }),
+    ]);
+    return ok({
+      pending: work.approval,
+      approvedToday: approved.reduce((sum, n) => sum + n, 0),
+      rejectedToday,
+    });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/** Một dòng nhật ký của yêu cầu. */
+export interface TimelineEntry {
+  at: string;
+  actor: string | null;
+  label: string;
+  detail: string | null;
+}
+
+export interface TokenRequestDetailView {
+  request: TokenRequestRecord;
+  /** `null` khi không đọc được (dự án đã bị gỡ, chuỗi lỗi) — kèm lý do ở `tokenError`. */
+  token: TokenInfoView | null;
+  tokenError: string | null;
+  /**
+   * Lý do người đang xem KHÔNG được duyệt / từ chối yêu cầu này vì chính họ đã lập; `null` khi
+   * không phải. Cùng phép so mà `loadForDecision` chặn ở lúc duyệt — giao diện báo trước, không
+   * bắt người dùng bấm rồi mới thấy lỗi.
+   */
+  selfApprovalReason: string | null;
+  timeline: TimelineEntry[];
+}
+
+/**
+ * Nhật ký dựng từ các mốc đã lưu trên chính yêu cầu — không có dòng nào suy đoán.
+ *
+ * Mỗi quyết định là MỘT dòng, nhãn theo kết cục hiện tại: chấp nhận rồi hoàn tất là một việc của
+ * Kiểm soát viên, tách hai dòng thì nhật ký trông như có hai người làm hai việc.
+ */
+function timelineOf(request: TokenRequestRecord): TimelineEntry[] {
+  const entries: TimelineEntry[] = [
+    {
+      at: request.createdAt,
+      actor: request.makerId,
+      label: 'Lập yêu cầu, chờ duyệt',
+      detail: request.reason,
+    },
+  ];
+  if (!request.decidedAt) return entries;
+
+  const decided = { at: request.completedAt ?? request.decidedAt, actor: request.checkerId };
+  switch (request.status) {
+    case 'REJECTED':
+      entries.push({ ...decided, label: 'Từ chối', detail: request.rejectReason });
+      break;
+    case 'COMPLETED':
+      entries.push({ ...decided, label: 'Chấp nhận, hoàn tất trên chuỗi', detail: request.txHash });
+      break;
+    case 'FAILED':
+      entries.push({ ...decided, label: 'Chấp nhận, thất bại khi thực hiện', detail: request.failureReason });
+      break;
+    case 'EXECUTING':
+      entries.push({
+        ...decided,
+        label: 'Chấp nhận, đang xử lý trên chuỗi',
+        detail: request.txHash
+          ? `Đã gửi giao dịch ${request.txHash}, chưa biết kết cục — cần đối soát.`
+          : null,
+      });
+      break;
+    case 'PENDING':
+      break;
+  }
+  return entries;
+}
+
+/** Chi tiết một yêu cầu cho màn chi tiết của Kiểm soát viên. */
+export async function getTokenRequestDetail(
+  input: unknown,
+): Promise<Result<TokenRequestDetailView>> {
+  const parsed = tokenRequestDetailSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  try {
+    const role = await currentRole();
+    assertCan(role, 'ops:read');
+    const request = await getTokenRequestStore().findRequest(parsed.data.requestId);
+    if (!request) {
+      return err('VALIDATION', `Không có yêu cầu ${parsed.data.requestId}.`);
+    }
+    const actorId = await currentActorId(role);
+
+    let token: TokenInfoView | null = null;
+    let tokenError: string | null = null;
+    try {
+      token = await readTokenInfo(request.chain, request.tokenSymbol);
+    } catch (error) {
+      const failed = tokenInfoResult(error);
+      tokenError = failed.ok ? null : failed.error;
+    }
+
+    return ok({
+      request,
+      token,
+      tokenError,
+      selfApprovalReason:
+        request.makerId === actorId
+          ? `Bạn (${actorId}) đã lập yêu cầu này nên không được duyệt hay từ chối nó, kể cả khi có quyền.`
+          : null,
+      timeline: timelineOf(request),
+    });
+  } catch (error) {
+    return toResult(error);
+  }
 }

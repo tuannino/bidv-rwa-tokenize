@@ -328,6 +328,31 @@ export const tokenRequestQuerySchema = z.object({
   chain: chainSchema.optional(),
   type: z.enum(TOKEN_REQUEST_TYPES).optional(),
   status: z.enum(TOKEN_REQUEST_STATUSES).optional(),
+  /**
+   * FE-22: chỉ yêu cầu do CHÍNH người đang đăng nhập lập. Cờ chứ không nhận mã người lập từ
+   * input: mã người thực hiện do máy chủ quyết định (`currentActorId`), giao diện không biết và
+   * không được tự khai.
+   */
+  mine: z.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 export type TokenRequestQueryInput = z.input<typeof tokenRequestQuerySchema>;
+
+/**
+ * Tra khối thông tin token cho màn Lập lệnh (FE-22): người dùng gõ ký hiệu, máy chủ đổ số liệu.
+ *
+ * Viết hoa ở đây vì ký hiệu niêm yết chỉ có một cách viết (`WPT`), còn người gõ thì không.
+ */
+export const tokenInfoQuerySchema = z.object({
+  chain: chainSchema,
+  tokenSymbol: z
+    .string()
+    .trim()
+    .min(1, 'Nhập mã hoặc ký hiệu token.')
+    .max(20)
+    .transform((value) => value.toUpperCase()),
+});
+export type TokenInfoQueryInput = z.input<typeof tokenInfoQuerySchema>;
+
+/** Xem chi tiết một yêu cầu (FE-22, màn chi tiết của Kiểm soát viên). */
+export const tokenRequestDetailSchema = z.object({ requestId: tokenRequestIdSchema });

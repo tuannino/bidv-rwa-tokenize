@@ -56,6 +56,9 @@ export default defineConfig({
           USE_MOCK_KYC: 'true',
           USE_MOCK_DB: 'true',
           DEMO_ROLE: 'TELLER',
+          // Máy chủ e2e là môi trường THỬ: bật đường phát hành trực tiếp cho dữ liệu thử (màn
+          // `/mint`, `POST /api/mint`). Môi trường thật để cờ này tắt — xem `.env.example`.
+          ENABLE_DEMO_TOKEN_MINT: 'true',
           // Không cần khóa thật ở chế độ mock, nhưng đặt sẵn để đổi sang hardhat-local là chạy.
           SERVER_SIGNER_PRIVATE_KEY:
             '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

@@ -189,13 +189,21 @@ export function createPostgresTokenRequestStore(query: PgQuery = pgQuery): IToke
       return rows.map(toRequest);
     },
 
-    async countRequests({ status, makerId, excludeMakerId }) {
+    async countRequests({ status, makerId, excludeMakerId, type, decidedFrom }) {
       const rows = await query<{ count: string }>(
         `SELECT COUNT(*)::text AS "count" FROM "TokenRequest"
           WHERE "status" = $1
             AND ($2::text IS NULL OR "makerId" = $2)
-            AND ($3::text IS NULL OR "makerId" <> $3)`,
-        [assertTokenRequestStatus(status), makerId ?? null, excludeMakerId ?? null],
+            AND ($3::text IS NULL OR "makerId" <> $3)
+            AND ($4::text IS NULL OR "type" = $4)
+            AND ($5::timestamptz IS NULL OR "decidedAt" >= $5::timestamptz)`,
+        [
+          assertTokenRequestStatus(status),
+          makerId ?? null,
+          excludeMakerId ?? null,
+          type ?? null,
+          decidedFrom ?? null,
+        ],
       );
       return Number(rows[0]?.count ?? 0);
     },

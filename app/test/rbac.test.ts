@@ -14,8 +14,11 @@ import {
 import { resetServerEnvCache } from '@/lib/config/env';
 import {
   DemoPaymentMintDisabledError,
+  DemoTokenMintDisabledError,
   assertCanMintDemoPayment,
+  assertCanMintDemoToken,
   canMintDemoPayment,
+  canMintDemoToken,
 } from '@/lib/rbac/demo-payment';
 
 /**
@@ -46,9 +49,23 @@ describe('RBAC — bốn vai trò theo tài liệu yêu cầu (FE-20 ca 1)', () 
 });
 
 describe('RBAC — can(role, action)', () => {
-  it('TELLER phát hành được, CONTROLLER thì không', () => {
-    expect(can('TELLER', 'token:mint')).toBe(true);
-    expect(can('CONTROLLER', 'token:mint')).toBe(false);
+  /**
+   * FE-22 ca 9 — đóng đường đi vòng qua lập–duyệt.
+   *
+   * Trước FE-22 Giao dịch viên có `token:mint` / `token:burn`, tức tự tạo và huỷ token được mà
+   * không qua Kiểm soát viên — BE-12 thành hình thức. Đột biến "trả lại `token:mint` cho TELLER"
+   * phải làm ca này đỏ.
+   */
+  it('FE-22 ca 9 — Giao dịch viên không còn quyền tạo và huỷ token trực tiếp', () => {
+    expect(can('TELLER', 'token:mint')).toBe(false);
+    expect(can('TELLER', 'token:burn')).toBe(false);
+    // Và không vai nào khác nhận thay: đường duy nhất là lập (TELLER) rồi duyệt (CONTROLLER).
+    for (const role of ROLES) {
+      expect(can(role, 'token:mint'), `${role} × token:mint`).toBe(false);
+      expect(can(role, 'token:burn'), `${role} × token:burn`).toBe(false);
+    }
+    expect(can('TELLER', 'order:draft')).toBe(true);
+    expect(can('CONTROLLER', 'order:approve')).toBe(true);
   });
 
   it('CONTROLLER chỉ đọc: không một quyền ghi nào, kể cả việc của vai tuân thủ cũ', () => {
@@ -155,7 +172,8 @@ describe('RBAC — can(role, action)', () => {
       expect((error as ForbiddenError).role).toBe('INVESTOR');
       expect((error as ForbiddenError).action).toBe('token:mint');
     }
-    expect(() => assertCan('TELLER', 'token:mint')).not.toThrow();
+    expect(() => assertCan('TELLER', 'token:mint')).toThrow(ForbiddenError);
+    expect(() => assertCan('TELLER', 'order:draft')).not.toThrow();
   });
 });
 
@@ -358,6 +376,31 @@ const BE12_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   },
 ];
 
+/**
+ * FE-22: hai quyền tạo / huỷ token TRỰC TIẾP không còn chủ, và quyền dữ liệu thử thay chỗ của chúng.
+ *
+ * `allowed: []` là CỐ Ý — ma trận chạy vòng qua `ROLES`, nên dòng này nói "mọi vai đều bị chặn",
+ * kể cả vai thêm về sau.
+ */
+const FE22_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  { action: 'token:mint', allowed: [], why: 'tạo token chỉ qua lập–duyệt hoặc đường dữ liệu thử' },
+  { action: 'token:burn', allowed: [], why: 'huỷ token chỉ qua lập–duyệt' },
+  {
+    action: 'demo:mint-token',
+    allowed: ['TELLER'],
+    why: 'dữ liệu thử, và còn cần cờ ENABLE_DEMO_TOKEN_MINT',
+  },
+];
+
+/**
+ * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
+ * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
+ */
+const INTENTIONALLY_REMOVED: Partial<Record<Role, readonly Action[]>> = {
+  // FE-22 việc 14: đóng đường đi vòng qua lập–duyệt.
+  TELLER: ['token:mint', 'token:burn'],
+};
+
 /** Mọi hành động GHI — không vai chỉ-đọc nào được có, kể cả vai trò lạ. */
 const ALL_WRITE_ACTIONS: readonly Action[] = [
   'token:mint',
@@ -379,10 +422,11 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'order:expire',
   'order:draft',
   'order:approve',
+  'demo:mint-token',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -401,11 +445,12 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...BE02_ACTIONS.map((row) => row.action),
       ...FE20_AREA_GATES.map((row) => row.action),
       ...BE12_ACTIONS.map((row) => row.action),
+      ...FE22_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
       missing,
-      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS, FE20_AREA_GATES hoặc BE12_ACTIONS: ${missing.join(', ')}`,
+      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS, FE20_AREA_GATES, BE12_ACTIONS hoặc FE22_ACTIONS: ${missing.join(', ')}`,
     ).toEqual([]);
   });
 
@@ -464,11 +509,17 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
     expect(ROLES.filter((role) => can(role, 'order:approve'))).toEqual(['CONTROLLER']);
   });
 
-  it('không vai trò nào MẤT quyền đang có trước BE-08 (R4.3)', () => {
+  it('không vai trò nào MẤT quyền đang có trước BE-08 (R4.3), trừ các cặp gỡ có chủ ý', () => {
     for (const role of ROLES) {
       const now = permissionsOf(role);
+      const removed = INTENTIONALLY_REMOVED[role] ?? [];
       for (const action of PERMISSIONS_BEFORE_BE08[role]) {
-        expect(now, `${role} vẫn phải có ${action}`).toContain(action);
+        if (removed.includes(action)) {
+          // Ngoại lệ phải ĐÚNG là đã gỡ — không để danh sách ngoại lệ thành chỗ giấu quyền còn sót.
+          expect(now, `${role} phải đã gỡ ${action}`).not.toContain(action);
+        } else {
+          expect(now, `${role} vẫn phải có ${action}`).toContain(action);
+        }
       }
     }
   });
@@ -484,7 +535,16 @@ const setFlag = (value: string | undefined) => {
   resetServerEnvCache();
 };
 
-afterEach(() => setFlag(undefined));
+const setTokenFlag = (value: string | undefined) => {
+  if (value === undefined) delete process.env.ENABLE_DEMO_TOKEN_MINT;
+  else process.env.ENABLE_DEMO_TOKEN_MINT = value;
+  resetServerEnvCache();
+};
+
+afterEach(() => {
+  setFlag(undefined);
+  setTokenFlag(undefined);
+});
 
 describe('demo:mint-payment — cờ trước, quyền sau', () => {
   it('KHÔNG đặt cờ thì mặc định TẮT, TELLER cũng bị từ chối (R3.2, R3.3)', () => {
@@ -545,5 +605,44 @@ describe('demo:mint-payment — cờ trước, quyền sau', () => {
       setFlag(off);
       expect(canMintDemoPayment('TELLER'), `"${off}" phải là tắt`).toBe(false);
     }
+  });
+});
+
+// ===========================================================================
+//  FE-22 việc 17 — đường tạo token trực tiếp cho dữ liệu thử: HAI LỚP chặn
+// ===========================================================================
+
+describe('demo:mint-token — cờ trước, quyền sau (cùng khuôn demo:mint-payment)', () => {
+  /**
+   * Đột biến 2 của FE-22 ("bật cờ ở môi trường thật") làm ca này đỏ: môi trường thật là nơi không
+   * ai đặt cờ, nên mặc định phải là TẮT.
+   */
+  it('KHÔNG đặt cờ thì mặc định TẮT: Giao dịch viên bị từ chối dù có quyền', () => {
+    setTokenFlag(undefined);
+    expect(can('TELLER', 'demo:mint-token')).toBe(true);
+    expect(canMintDemoToken('TELLER')).toBe(false);
+    expect(() => assertCanMintDemoToken('TELLER')).toThrow(DemoTokenMintDisabledError);
+    expect(() => assertCanMintDemoToken('TELLER')).toThrow(/ENABLE_DEMO_TOKEN_MINT/);
+  });
+
+  it('cờ bật thì CHỈ Giao dịch viên — cờ không tự cấp quyền cho vai khác', () => {
+    setTokenFlag('true');
+    expect(canMintDemoToken('TELLER')).toBe(true);
+    for (const role of ['INVESTOR', 'SELLER', 'CONTROLLER', 'nguoi-la'] as const) {
+      expect(canMintDemoToken(role), `${role} không được dù cờ đã bật`).toBe(false);
+    }
+    expect(() => assertCanMintDemoToken('CONTROLLER')).toThrow(ForbiddenError);
+    expect(() => assertCanMintDemoToken('CONTROLLER')).not.toThrow(DemoTokenMintDisabledError);
+  });
+
+  it('hai cờ độc lập: bật cờ VNDB không mở đường tạo WPT, và ngược lại', () => {
+    setFlag('true');
+    setTokenFlag(undefined);
+    expect(canMintDemoPayment('TELLER')).toBe(true);
+    expect(canMintDemoToken('TELLER')).toBe(false);
+    setFlag(undefined);
+    setTokenFlag('true');
+    expect(canMintDemoPayment('TELLER')).toBe(false);
+    expect(canMintDemoToken('TELLER')).toBe(true);
   });
 });

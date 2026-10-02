@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { CheckCircle2, Coins, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
 import { Badge } from '@/components/ui/badge';
@@ -19,11 +20,15 @@ import {
 import type { TxnView } from '@/lib/bank/mint.service';
 
 /**
- * Trang PHÁT HÀNH (mint) — kênh cán bộ ngân hàng.
+ * Trang KYC + PHÁT HÀNH DỮ LIỆU THỬ — kênh cán bộ ngân hàng.
+ *
+ * FE-22: phát hành CHÍNH THỨC đã chuyển sang màn Lập lệnh (`/draft`) + Kiểm soát viên duyệt. Nút
+ * phát hành ở đây chỉ còn là đường dữ liệu thử, sau hai lớp chặn `demo:mint-token` + cờ
+ * `ENABLE_DEMO_TOKEN_MINT`. Phần KYC + whitelist giữ nguyên vì màn Lập lệnh không thay nó.
  *
  * Component này KHÔNG gọi chain: mọi thứ đi qua server action -> `mint.service` -> `ILedgerPort`.
- * `can()` ở đây chỉ để ẩn/hiện nút cho đỡ khó hiểu; chốt chặn thật nằm ở server
- * (server action gọi được bằng POST trực tiếp, không thể tin UI).
+ * `can()` / `config.demoTokenMint` ở đây chỉ để ẩn/hiện nút cho đỡ khó hiểu; chốt chặn thật nằm ở
+ * server (server action gọi được bằng POST trực tiếp, không thể tin UI).
  */
 
 interface Feedback {
@@ -48,7 +53,8 @@ export function MintPage() {
   const [txns, setTxns] = useState<TxnView[]>([]);
   const [pending, startTransition] = useTransition();
 
-  const mayMint = can(config.role, 'token:mint');
+  // Cùng hàm với chốt chặn phía server (`canMintDemoToken`), tính sẵn trong cấu hình công khai.
+  const mayMint = config.demoTokenMint;
   const mayWhitelist = can(config.role, 'investor:whitelist');
 
   /**
@@ -147,11 +153,19 @@ export function MintPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Phát hành token dự án điện gió</h1>
+        <h1 className="text-xl font-semibold">Phát hành token dự án điện gió (dữ liệu thử)</h1>
         <p className="text-sm text-muted-foreground">
-          KYC (mock auto-approve) → whitelist on-chain → phát hành WPT. Chain đang dùng:{' '}
+          KYC (mock auto-approve) → whitelist on-chain → phát hành WPT trực tiếp. Chain đang dùng:{' '}
           <span className="font-mono text-foreground">{chain}</span>
           {config.mocks.kyc && ' · KYC ở chế độ mock'}
+        </p>
+        <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+          Phát hành chính thức đi qua màn{' '}
+          <Link href="/draft" className="font-medium text-primary hover:underline">
+            Lập lệnh
+          </Link>{' '}
+          và Kiểm soát viên duyệt. Nút phát hành ở đây chỉ dành cho dữ liệu thử: cần quyền
+          demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT bật trên máy chủ.
         </p>
       </header>
 
@@ -209,10 +223,14 @@ export function MintPage() {
                 type="button"
                 onClick={handleMint}
                 disabled={pending || !wallet || !mayMint}
-                title={mayMint ? undefined : `Vai trò ${config.role} không có quyền phát hành`}
+                title={
+                  mayMint
+                    ? undefined
+                    : `Vai trò ${config.role} không có quyền phát hành dữ liệu thử (cần quyền demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT bật)`
+                }
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
-                2 · Phát hành
+                2 · Phát hành dữ liệu thử
               </Button>
             </div>
 

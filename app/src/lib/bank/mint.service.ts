@@ -3,6 +3,7 @@ import 'server-only';
 import type { ChainKey, TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import { getKycProvider } from '@/lib/providers/kyc';
+import { assertCanMintDemoToken } from '@/lib/rbac/demo-payment';
 import { getBankSigner } from '@/lib/signer';
 import { getStore } from '@/lib/store';
 import { authorize, toResult } from './authorize';
@@ -135,7 +136,9 @@ export async function onboardInvestor(input: unknown): Promise<Result<OnboardRes
 /**
  * Phát hành WPT TRỰC TIẾP cho một nhà đầu tư đã whitelist.
  *
- * ⚠️ ĐÂY LÀ ĐƯỜNG NỀN CHO BẢN TRÌNH DIỄN, KHÔNG PHẢI LUỒNG NGHIỆP VỤ CHÍNH.
+ * ⚠️ ĐÂY LÀ ĐƯỜNG DỮ LIỆU THỬ, KHÔNG PHẢI LUỒNG NGHIỆP VỤ CHÍNH. Từ FE-22 nó nằm sau HAI LỚP CHẶN:
+ * quyền `demo:mint-token` VÀ cờ `ENABLE_DEMO_TOKEN_MINT` (mặc định tắt) — xem `rbac/demo-payment.ts`.
+ * Tạo token chính thức đi qua lập–duyệt (`token-request.service`).
  *
  * Mô hình đã chốt là phát hành MỘT LẦN toàn bộ nguồn cung vào ví thanh toán SPV
  * (`issuance.service.ts`), rồi nhà đầu tư mua từ ví đó qua `executeOrder`. Hàm này mint thẳng
@@ -156,7 +159,7 @@ export async function mintToInvestorDirect(input: unknown): Promise<Result<MintR
   const { chain, wallet, amount } = parsed.data;
 
   try {
-    const role = await authorize('token:mint', wallet, chain);
+    const role = await authorize('demo:mint-token', wallet, chain, assertCanMintDemoToken);
 
     const ledger = getLedger(chain);
     const signer = getBankSigner(chain);

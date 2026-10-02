@@ -5,6 +5,7 @@ import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
 import { getBankSigner } from '@/lib/signer';
 import { getProjectStore, getStore, type ProjectRecord } from '@/lib/store';
+import { assertCanMintDemoToken } from '@/lib/rbac/demo-payment';
 import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
 import { issueInitialSupplySchema } from './schemas';
@@ -126,8 +127,8 @@ export interface SupplyMetrics {
  * Năm chỉ tiêu nguồn cung, tính MỘT chỗ ở máy chủ (FE-21 yêu cầu 16).
  *
  * Màn Người bán và màn Giao dịch viên phải ra cùng con số ở cùng thời điểm, nên cả hai đọc qua
- * hàm này; giao diện chỉ hiển thị. Cùng công thức với khối kiểm tra Burn của
- * `token-request.service.ts` (chưa phân phối = số dư ví SPV, lưu hành = tổng cung − phần đó).
+ * hàm này; giao diện chỉ hiển thị. Từ FE-22 khối kiểm tra Burn và khối thông tin token của
+ * `token-request.service.ts` cũng gọi thẳng hàm này, không còn công thức thứ hai.
  */
 export async function readSupplyMetrics(chain: ChainKey, project: ProjectRecord): Promise<SupplyMetrics> {
   const ledger = getLedger(chain);
@@ -165,10 +166,13 @@ export interface IssueInitialSupplyView {
 /**
  * Phát hành `amount` vào ví SPV, KHÔNG kiểm quyền — người gọi đã kiểm.
  *
- * Tách khỏi `issueInitialSupply` vì có hai đường vào với hai quyền khác nhau: Giao dịch viên phát
- * hành trực tiếp bằng `token:mint`, còn lần duyệt yêu cầu Mint chạy bằng `order:approve` của Kiểm
- * soát viên. Bắt lần duyệt đi qua `authorize('token:mint')` thì phải cấp `token:mint` cho Kiểm soát
- * viên — tức cho họ tự phát hành không qua ai.
+ * Tách khỏi `issueInitialSupply` vì có hai đường vào với hai chốt chặn khác nhau: lần duyệt yêu cầu
+ * Mint chạy bằng `order:approve` của Kiểm soát viên (đường chính thức), còn `issueInitialSupply` là
+ * đường dữ liệu thử sau hai lớp chặn `demo:mint-token` + cờ (FE-22). Bắt lần duyệt đi qua một quyền
+ * tạo token trực tiếp thì phải cấp quyền đó cho Kiểm soát viên — tức cho họ tự phát hành không qua ai.
+ *
+ * ⚠️ Chỉ hai nơi được gọi hàm này: `approveTokenRequest` và `issueInitialSupply`.
+ * `test/maker-checker-ui.test.ts` ca 10 quét mã nguồn để giữ điều đó.
  *
  * Trần còn lại được kiểm LẠI ở đây, ngay trước khi gửi, dù người gọi đã kiểm: đây là chốt cuối
  * cùng trước khi token ra đời, và nó không được phụ thuộc vào việc mọi người gọi đều nhớ kiểm.
@@ -309,13 +313,17 @@ export async function executeIssuance(input: {
 }
 
 /**
- * Phát hành trực tiếp vào ví thanh toán SPV, trong trần còn lại.
+ * Phát hành trực tiếp vào ví thanh toán SPV, trong trần còn lại — ĐƯỜNG DỮ LIỆU THỬ (FE-22).
  *
  * Tên giữ từ BE-04 để không đổi chữ ký server action FE-07 đang chờ; hành vi nay là NHIỀU LẦN.
  * Không truyền `amount` thì phát hành TOÀN BỘ trần còn lại — lần gọi đầu như vậy cho đúng kết
  * quả của bản một lần trước đây.
  *
- * @flow issue:2 | validate, kiểm quyền token:mint, đọc trần phát hành từ bảng dự án
+ * ⚠️ Từ FE-22 hàm này nằm sau HAI LỚP CHẶN: quyền `demo:mint-token` VÀ cờ `ENABLE_DEMO_TOKEN_MINT`
+ * (mặc định tắt). Phát hành chính thức là lập yêu cầu Mint rồi Kiểm soát viên duyệt
+ * (`token-request.service`), và lần duyệt gọi thẳng `executeIssuance`, không qua đây.
+ *
+ * @flow issue:2 | validate, kiểm hai lớp chặn dữ liệu thử (quyền demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT), đọc trần phát hành từ bảng dự án
  */
 export async function issueInitialSupply(
   input: unknown,
@@ -327,7 +335,7 @@ export async function issueInitialSupply(
   const { chain, spvWallet, tokenSymbol } = parsed.data;
 
   try {
-    const role = await authorize('token:mint', spvWallet, chain);
+    const role = await authorize('demo:mint-token', spvWallet, chain, assertCanMintDemoToken);
 
     const project = await getProjectStore().findProject({ tokenSymbol, chain });
     if (!project) {

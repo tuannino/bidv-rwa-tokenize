@@ -188,5 +188,12 @@ export interface ITokenRequestStore {
     status: TokenRequestStatus;
     makerId?: string;
     excludeMakerId?: string;
+    /** FE-22: thẻ số liệu tách yêu cầu tạo và yêu cầu huỷ token. */
+    type?: TokenRequestType;
+    /**
+     * FE-22: chỉ đếm yêu cầu có mốc quyết định (`decidedAt`) từ thời điểm này (ISO) trở đi — cho
+     * thẻ "đã duyệt hôm nay" / "đã từ chối hôm nay". Yêu cầu chưa có quyết định không bao giờ khớp.
+     */
+    decidedFrom?: string;
   }): Promise<number>;
 }

@@ -122,6 +122,15 @@ const envSchema = z.object({
   enableDemoPaymentMint: boolFlag(false),
 
   /**
+   * Cho phép phát hành WPT TRỰC TIẾP, không qua lập–duyệt — CHỈ MÔI TRƯỜNG THỬ, để dựng dữ liệu thử
+   * (FE-22). Mặc định TẮT, cùng lý do và cùng mô hình hai lớp với cờ ở trên: bật trên môi trường
+   * thật là mở lại đường đi vòng qua Kiểm soát viên.
+   *
+   * Điểm kiểm duy nhất: `lib/rbac/demo-payment.ts`. Đừng đọc cờ này ở chỗ khác.
+   */
+  enableDemoTokenMint: boolFlag(false),
+
+  /**
    * Khoá bí mật cho `POST /api/keeper/distribution` (BE-07).
    *
    * Điểm vào đó chạy một vòng chia lợi nhuận, tức là nó CHUYỂN TIỀN. Không có khoá thì bất kỳ
@@ -167,6 +176,8 @@ function load(): ServerEnv {
     // KHÔNG có biến thể NEXT_PUBLIC_: cờ phải do người triển khai đặt ở server, không
     // để lộ ra bundle browser như một thứ có thể bật được từ phía client.
     enableDemoPaymentMint: process.env.ENABLE_DEMO_PAYMENT_MINT,
+    // Cùng lý do: không có biến thể NEXT_PUBLIC_.
+    enableDemoTokenMint: process.env.ENABLE_DEMO_TOKEN_MINT,
     // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle
     // browser thì mọi người xem trang đều đọc được.
     keeperSecret: process.env.KEEPER_SECRET,
