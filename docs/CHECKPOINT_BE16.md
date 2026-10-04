@@ -26,9 +26,9 @@
 | 7 | Giao dịch nạp vào bảng giao dịch, lịch sử thấy được | 🔶 | mục 3.2 ca 1 · 3.4 · 5 CH-3 |
 | 8 | Cờ tắt thì mục menu ẩn và đường dẫn bị chặn | ✅ | mục 3.2 ca 7 · 3.4 |
 | 9 | Sau khi nạp, luồng mua chạy được đầu cuối | ✅ | mục 3.2 ca 8 · 3.4 · 4 DV-4 |
-| 10 | `run-local-all.sh` xanh | 🔶 | mục 7 |
+| 10 | `run-local-all.sh` xanh | ✅ | mục 7 |
 
-**Kết luận:** 8 ✅ · 2 🔶 · 0 ❌
+**Kết luận:** 9 ✅ · 1 🔶 · 0 ❌
 
 ### 0.2 Việc cần Owner quyết
 
@@ -41,7 +41,6 @@
 - **CH-3 — Màn đối soát chưa đọc bảng `Txn`.** `/reconciliation` là dữ liệu mẫu tĩnh
   (`MOCK_PROJECTS`), nên giao dịch nạp chỉ thấy ở bảng lịch sử màn nạp và lịch sử giao dịch chung ở
   `/mint`. Nối màn đối soát với dữ liệu thật là việc của task khác; Owner chọn task.
-- **CH-4 — `run-local-all.sh` phần hợp đồng** — xem mục 7.
 
 ---
 
@@ -179,4 +178,18 @@ Báo cáo công nghệ 3.2: metadata, đoạn "3.1 sang 3.2", cây 1.4, 3.1 (b�
 
 ## 7. Kết quả `run-local-all.sh`
 
-(điền sau lần chạy duy nhất)
+Chạy **đúng một** lần, cuối task, trước commit chuyển `done`: **mã thoát 0, cả năm phần PASS**.
+
+```
+$ bash scripts/run-local-all.sh
+  => PASS có cảnh báo: luật kiến trúc   (PASS 20, WARN 3 — cả ba có từ trước: SIGNER_KIND ở
+                                        signer/index.ts, địa chỉ mẫu ở mint.tsx, thiếu BASE_REF)
+                                        Bảng quyền không teo lại so với origin/dev (32 -> 32 hành động)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)    21 điểm cắm, 13 điểm chặn, 35 bước luồng
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT     mục 0: 31/60 dòng, 10 dòng / 10 điều kiện
+  => PASS: LỚP 1 - SPEC TEST CONTRACT EVM   67 passing
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+  => PASS: APP - VITEST                 26 tệp, 739 test
+  => ĐẠT các phần đã chạy: arch markers checkpoint contracts app
+```
