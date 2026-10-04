@@ -515,6 +515,23 @@ export function createMockLedger(
     },
 
     /**
+     * Như `VNDToken.mint`: cộng số dư, KHÔNG kiểm KYC / đóng băng (contract không kiểm). Vai
+     * `MINTER_ROLE` không mô phỏng được vì mock không có người ký.
+     *
+     * ⚠️ LỆCH CONTRACT CÓ CHỦ Ý (Owner chốt ở BE-16): cộng luôn MỨC ỦY QUYỀN cho hợp đồng khớp lệnh
+     * bằng đúng số vừa nạp. `VNDToken.mint` không làm việc này; trên chuỗi thật nhà đầu tư tự
+     * `approve` bằng ví của mình. Mock không có đường nào để nhà đầu tư approve, nên không cộng thì
+     * sau khi nạp lệnh mua vẫn chết ở phép kiểm ủy quyền. Gỡ khi có đường approve thật (SC-03).
+     */
+    async mintPayment(to, amount) {
+      assertPositiveAmount(chain, 'mintPayment', amount);
+      const receiver = normalizeEvmAddress(to);
+      setPaymentBalance(receiver, paymentBalance(receiver) + amount);
+      state().paymentAllowances.set(addressKey(receiver), allowance(receiver) + amount);
+      return confirmed();
+    },
+
+    /**
      * Khớp lệnh nguyên tử: VNDB nhà đầu tư -> ví SPV, WPT ví SPV -> nhà đầu tư.
      *
      * MỌI kiểm tra chạy TRƯỚC mọi thay đổi trạng thái. Đó là cách duy nhất giữ

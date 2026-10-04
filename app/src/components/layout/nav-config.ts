@@ -203,6 +203,28 @@ export const CONTROLLER_NAV: NavSection = {
 };
 
 /**
+ * Mục Nạp VNDB mô phỏng (BE-16). KHÔNG nằm trong menu tĩnh của vai nào: nó chỉ xuất hiện khi chốt
+ * chặn phía máy chủ cho phép (cờ `ENABLE_DEMO_PAYMENT_MINT` bật VÀ vai có `demo:mint-payment`), và
+ * menu theo tài liệu yêu cầu không có mục này.
+ */
+export const DEMO_PAYMENT_NAV_ITEM: NavItem = {
+  href: '/demo-payment',
+  label: 'Nạp VNDB (trình diễn)',
+  icon: 'Coins',
+  shortcut: 'N',
+};
+
+/**
+ * Ghép mục Nạp VNDB vào cuối nhóm đầu tiên khi `show`. `show` PHẢI là `canMintDemoPayment(role)`
+ * tính ở máy chủ (`AppLayout`), để menu và chốt chặn đọc cùng một hàm.
+ */
+export function withDemoPayment(nav: NavSection, show: boolean): NavSection {
+  if (!show) return nav;
+  const [first, ...rest] = nav.groups;
+  return { groups: [{ ...first, items: [...first.items, DEMO_PAYMENT_NAV_ITEM] }, ...rest] };
+}
+
+/**
  * Menu theo vai — `Record` đủ bốn vai nên thêm vai mà quên menu là lỗi biên dịch.
  *
  * Tra theo VAI chứ không theo cookie khu vực là có chủ ý: vai là thứ `ChannelGuard` dùng để

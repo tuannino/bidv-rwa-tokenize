@@ -141,7 +141,6 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   };
 
   const addressOf = (contract: ContractName): Hex => getContractAddress(chain, contract) as Hex;
-  const tokenAddress = (): Hex => addressOf('ProjectToken');
 
   /**
    * Trả về CẢ object `Account`, không chỉ địa chỉ.
@@ -219,27 +218,37 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     args: readonly unknown[],
   ): Promise<T> => readOn<T>(operation, 'ProjectToken', projectTokenAbi, functionName, args);
 
-  /** simulate -> write -> trả PENDING. Người gọi tự `waitReceipt` để kiểm soát timeout. */
-  const write = async (
+  /**
+   * simulate -> write -> trả PENDING, trên một contract bất kỳ trong `packages/shared`. Người gọi tự
+   * `waitReceipt` để kiểm soát timeout. `onError` cho method cần câu lỗi riêng trước khi rơi về `fail`.
+   */
+  const writeOn = async (
     operation: string,
+    contract: ContractName,
+    abi: Abi | readonly unknown[],
     functionName: string,
     args: readonly unknown[],
+    onError: (error: unknown) => Promise<void> = async () => {},
   ): Promise<TxResult> => {
     try {
       const { client, account } = await writer();
       const { request } = await reader().simulateContract({
         account,
-        address: tokenAddress(),
-        abi: projectTokenAbi,
+        address: addressOf(contract),
+        abi: abi as Abi,
         functionName: functionName as never,
         args: args as never,
       });
       const txHash = await client.writeContract(request as never);
       return { txHash, status: 'PENDING' };
     } catch (error) {
+      await onError(error);
       return fail(operation, error);
     }
   };
+
+  const write = (operation: string, functionName: string, args: readonly unknown[]) =>
+    writeOn(operation, 'ProjectToken', projectTokenAbi, functionName, args);
 
   /**
    * Guard cục bộ cho mã snapshot: chặn trước khi tốn một lượt gọi RPC.
@@ -433,6 +442,39 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
      */
     async paymentAllowanceOf() {
       return pendingContract('paymentAllowanceOf', 'địa chỉ hợp đồng khớp lệnh (SC-03)');
+    },
+
+    /**
+     * `VNDToken.mint` đã có, chỉ đòi ví ký có `MINTER_ROLE`. Thiếu vai thì câu chung "thiếu role"
+     * của bảng dịch không đủ: người vận hành cần biết ví nào, thiếu vai gì, trên hợp đồng nào.
+     */
+    async mintPayment(to, amount) {
+      assertPositiveAmount(chain, 'mintPayment', amount);
+      return writeOn(
+        'mintPayment',
+        'VNDToken',
+        vndTokenAbi,
+        'mint',
+        [normalizeEvmAddress(to), amount],
+        async (error) => {
+          const reverted =
+            error instanceof BaseError
+              ? error.walk((e) => e instanceof ContractFunctionRevertedError)
+              : null;
+          if (
+            reverted instanceof ContractFunctionRevertedError &&
+            reverted.data?.errorName === 'AccessControlUnauthorizedAccount'
+          ) {
+            throw new LedgerError(
+              chain,
+              'mintPayment',
+              `Ví vận hành ${await signer.getAddress()} thiếu vai MINTER_ROLE trên hợp đồng VNDToken ` +
+                `(${addressOf('VNDToken')}). Cấp bằng VNDToken.grantRole(MINTER_ROLE, <ví vận hành>) từ ví quản trị.`,
+              { cause: error },
+            );
+          }
+        },
+      );
     },
 
     /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch */

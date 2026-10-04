@@ -2,6 +2,7 @@ import 'server-only';
 
 import {
   CONFIG_KEYS,
+  DEMO_PAYMENT_MINT_MAX_VND,
   DISTRIBUTION_BATCH_SIZE,
   DISTRIBUTION_BATCH_SIZE_MAX,
   DISTRIBUTION_MAX_BATCHES_PER_RUN,
@@ -200,4 +201,18 @@ export async function readSellerWithdrawFee(): Promise<bigint | null> {
   const row = await getConfigStore().getConfig(CONFIG_KEYS.sellerWithdrawFeeVnd);
   const value = row?.value.trim();
   return value && UINT.test(value) ? BigInt(value) : null;
+}
+
+/**
+ * Trần một lần nạp VNDB mô phỏng (BE-16), đơn vị VNDB.
+ *
+ * Giá trị lạ hoặc 0 -> lùi về mặc định, cùng lập luận với `readDistributionMinNewBalance`: trần là
+ * lớp BẢO VỆ, một dòng hỏng không được làm mất nó (lùi về 0 thì chặn mọi lần nạp, bỏ trần thì mở
+ * cửa cho số gõ nhầm).
+ */
+export async function readDemoPaymentMintMax(): Promise<bigint> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.demoPaymentMintMaxVnd);
+  const value = row?.value.trim();
+  const parsed = value && UINT.test(value) ? BigInt(value) : 0n;
+  return parsed > 0n ? parsed : BigInt(DEMO_PAYMENT_MINT_MAX_VND);
 }

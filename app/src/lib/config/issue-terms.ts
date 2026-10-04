@@ -123,6 +123,13 @@ export const CONFIG_KEYS = {
   sellerWithdrawLimitValue: 'seller.withdraw_limit_value',
   /** Phí một lần rút, đơn vị VNDB. */
   sellerWithdrawFeeVnd: 'seller.withdraw_fee_vnd',
+
+  // --- BE-16: nạp VNDB mô phỏng cho bản trình diễn ------------------------------
+  /**
+   * Số VNDB tối đa MỘT lần nạp. Chặn gõ nhầm số không, KHÔNG phải lớp chặn bật/tắt: bật/tắt chỉ
+   * bằng biến môi trường `ENABLE_DEMO_PAYMENT_MINT`, để người đổi được cấu hình cũng không tự bật.
+   */
+  demoPaymentMintMaxVnd: 'demo.payment_mint_max_vnd',
 } as const;
 
 /**
@@ -196,6 +203,22 @@ export const DISTRIBUTION_MIN_NEW_BALANCE = 1_000;
  * bị bỏ qua — lúc đó nó không còn báo được gì.
  */
 export const DISTRIBUTION_STUCK_AFTER_RUNS = 3;
+
+/**
+ * Trần mặc định một lần nạp VNDB mô phỏng (BE-16), đơn vị VNDB: 1 tỷ, gấp đôi mức gợi ý cho nhà đầu
+ * tư mẫu. Đủ cho một lần trình diễn, còn gõ thừa một số không là bị chặn.
+ */
+export const DEMO_PAYMENT_MINT_MAX_VND = 1_000_000_000;
+
+/**
+ * Gợi ý nhanh trên màn nạp VNDB (BE-16), đơn vị VNDB. 500 triệu cho nhà đầu tư mẫu theo tài liệu
+ * yêu cầu; mức trần cho ví người bán, để chiều bán có thanh khoản. Chỉ là gợi ý hiển thị: mức nào
+ * vượt trần đang cấu hình thì nghiệp vụ lọc bỏ trước khi đưa ra màn.
+ */
+export const DEMO_PAYMENT_QUICK_AMOUNTS = [
+  { label: 'Nhà đầu tư mẫu', amountVnd: 500_000_000 },
+  { label: 'Ví người bán', amountVnd: DEMO_PAYMENT_MINT_MAX_VND },
+] as const;
 
 /** Mã token của dự án điện gió duy nhất trong PoC. */
 export const WPT_TOKEN_SYMBOL = 'WPT';

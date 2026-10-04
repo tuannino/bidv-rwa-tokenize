@@ -41,6 +41,7 @@ export type ErrorCode =
   | 'REQUEST_CHECK'
   | 'REQUEST_STATE' // yêu cầu không còn ở trạng thái cho phép thao tác (đã được xử lý)
   | 'SELF_APPROVAL' // người lập tự duyệt / tự từ chối yêu cầu của mình
+  | 'PAYMENT_MINT_LIMIT' // BE-16: số VNDB một lần nạp vượt trần cấu hình
   | 'UNKNOWN';
 
 export type Result<T> =
@@ -90,6 +91,8 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   REQUEST_CHECK: 409,
   REQUEST_STATE: 409,
   SELF_APPROVAL: 403,
+  /** BE-16: 409 cùng lập luận nhóm lệnh mua — dữ liệu hợp lệ nhưng vượt trần đang cấu hình. */
+  PAYMENT_MINT_LIMIT: 409,
 
   UNKNOWN: 500,
 };
