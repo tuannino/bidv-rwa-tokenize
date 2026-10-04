@@ -1,6 +1,7 @@
 import { DEFAULT_CHAIN, type ChainKey } from '@bidv/shared';
 import {
   CONFIG_KEYS,
+  DEMO_PAYMENT_MINT_MAX_VND,
   DISTRIBUTION_BATCH_SIZE,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
@@ -38,7 +39,7 @@ export interface SeedConfigRow {
 }
 
 /**
- * Ba tham số nạp sẵn vào `SystemConfig`.
+ * Bốn tham số nạp sẵn vào `SystemConfig` (BE-16 thêm trần một lần nạp VNDB mô phỏng).
  *
  * Nạp sẵn thay vì để bảng trống và dựa vào giá trị mặc định trong mã: có dòng thật thì màn hình
  * cấu hình của FE-07 hiện được "ai đặt, lúc nào" ngay từ đầu, và đường đọc cơ sở dữ liệu được
@@ -66,6 +67,12 @@ export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
     // `number` vì đây là số đếm ví trong một lô, không phải số tiền.
     value: String(DISTRIBUTION_BATCH_SIZE),
     type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.demoPaymentMintMaxVnd,
+    // `bigint`: số tiền VNDB, đi thẳng vào phép so với số tiền nạp dạng uint256.
+    value: String(DEMO_PAYMENT_MINT_MAX_VND),
+    type: 'bigint',
   },
 ];
 

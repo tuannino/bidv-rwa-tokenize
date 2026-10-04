@@ -42,7 +42,7 @@ import { issueInitialSupplySchema } from './schemas';
  * ⚠️ KHÔNG mở rộng cách này sang chuỗi thật: ở đó thiếu signer nghĩa là giao dịch sẽ thất bại ngay
  * ở bước gửi, trước khi tới đây.
  */
-async function signerAddressOrNull(chain: ChainKey): Promise<string | null> {
+export async function signerAddressOrNull(chain: ChainKey): Promise<string | null> {
   try {
     return await getBankSigner(chain).getAddress();
   } catch {
