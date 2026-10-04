@@ -515,6 +515,18 @@ export function createMockLedger(
     },
 
     /**
+     * Giống `VNDToken.mint`: chỉ cộng số dư, KHÔNG kiểm KYC / đóng băng — contract không kiểm, nên
+     * mock kiểm thêm là mock khó tính hơn chain thật theo chiều ngược lại. Vai `MINTER_ROLE` không
+     * mô phỏng được vì mock không có người ký.
+     */
+    async mintPayment(to, amount) {
+      assertPositiveAmount(chain, 'mintPayment', amount);
+      const receiver = normalizeEvmAddress(to);
+      setPaymentBalance(receiver, paymentBalance(receiver) + amount);
+      return confirmed();
+    },
+
+    /**
      * Khớp lệnh nguyên tử: VNDB nhà đầu tư -> ví SPV, WPT ví SPV -> nhà đầu tư.
      *
      * MỌI kiểm tra chạy TRƯỚC mọi thay đổi trạng thái. Đó là cách duy nhất giữ

@@ -142,6 +142,17 @@ export interface ILedgerPurchase {
   /** Mức ủy quyền VNDB mà `owner` đã cấp cho hợp đồng khớp lệnh. */
   paymentAllowanceOf(owner: string): Promise<bigint>;
   /**
+   * Phát hành `amount` VNDB vào ví `to` (BE-16) — CHỈ cho chức năng nạp VNDB của bản trình diễn.
+   *
+   * Chain thật gọi `VNDToken.mint`, đòi ví ký có vai `MINTER_ROLE`; thiếu vai thì lỗi phải NÊU
+   * ĐÚNG vai và hợp đồng, không được chỉ là "thiếu role". Không kiểm KYC ở đây vì `VNDToken.mint`
+   * không kiểm — "chỉ nạp cho ví nhà đầu tư hoặc ví người bán" là quy tắc nghiệp vụ, nằm ở
+   * `lib/bank/demo-payment.service.ts` cùng hai lớp chặn quyền + cờ.
+   *
+   * ⚠️ Đừng gọi từ nghiệp vụ nào khác: đây là đường tạo ra tiền.
+   */
+  mintPayment(to: string, amount: bigint): Promise<TxResult>;
+  /**
    * Khớp lệnh: chuyển VNDB (nhà đầu tư -> ví SPV) và chuyển WPT (ví SPV -> nhà
    * đầu tư) trong CÙNG MỘT giao dịch (BE-01 R2.4).
    *

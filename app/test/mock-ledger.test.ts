@@ -1,8 +1,23 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ContractFunctionRevertedError, encodeErrorResult, keccak256, toHex } from 'viem';
+import { getContractAddress, vndTokenAbi } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
-import { LedgerError } from '@/lib/ledger/ledger.port';
+import { createEvmLedger } from '@/lib/ledger/evm.adapter';
+import { LedgerError, LedgerNotImplementedError } from '@/lib/ledger/ledger.port';
+import { createStellarLedger } from '@/lib/ledger/stellar.adapter';
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { InvalidAddressError } from '@/lib/ledger/address';
+
+/**
+ * BE-16: thay `simulateContract` của viem để dựng đúng lần revert "thiếu vai" của `VNDToken.mint`
+ * mà không cần node. Chỉ hai hàm dựng client bị thay; mock adapter không dùng tới chúng.
+ */
+const simulateContract = vi.fn();
+vi.mock('viem', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('viem')>()),
+  createPublicClient: () => ({ simulateContract }),
+  createWalletClient: () => ({ writeContract: vi.fn() }),
+}));
 
 /**
  * Mock ledger phải NGHIÊM NGẶT NGANG contract thật.
@@ -752,5 +767,63 @@ describe('R6 — tất toán', () => {
     await ledger.setSettlementMode(false);
     await ledger.transfer(INVESTOR, OTHER, 10n);
     expect(await ledger.balanceOf(OTHER)).toBe(10n);
+  });
+});
+
+describe('BE-16 — mintPayment: nạp VNDB vào ví chỉ định', () => {
+  beforeEach(() => resetMockLedger());
+
+  it('mock: cộng đúng số dư VNDB của ví đích, KHÔNG đụng WPT hay tổng cung', async () => {
+    const ledger = createMockLedger();
+    seedMockLedger({ paymentBalances: { [INVESTOR]: 5n } });
+
+    const result = await ledger.mintPayment(INVESTOR, 500n);
+
+    expect(result.status).toBe('CONFIRMED');
+    expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(505n);
+    expect(await ledger.paymentBalanceOf(OTHER)).toBe(0n);
+    expect(await ledger.balanceOf(INVESTOR)).toBe(0n);
+    expect((await ledger.tokenInfo()).totalSupply).toBe(0n);
+  });
+
+  it('mock: số tiền <= 0 bị từ chối, số dư giữ nguyên', async () => {
+    const ledger = createMockLedger();
+    await expect(ledger.mintPayment(INVESTOR, 0n)).rejects.toThrow(/lớn hơn 0/);
+    await expect(ledger.mintPayment(INVESTOR, -1n)).rejects.toThrow(/lớn hơn 0/);
+    expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
+  });
+
+  it('Stellar: ném LedgerNotImplementedError nêu đúng thứ còn thiếu', async () => {
+    await expect(createStellarLedger().mintPayment(INVESTOR, 1n)).rejects.toThrow(
+      LedgerNotImplementedError,
+    );
+    await expect(createStellarLedger().mintPayment(INVESTOR, 1n)).rejects.toThrow(/VNDB/);
+  });
+
+  it('chain thật: ví vận hành thiếu MINTER_ROLE thì lỗi nêu rõ ví, vai và hợp đồng', async () => {
+    const SIGNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const minterRole = keccak256(toHex('MINTER_ROLE'));
+    simulateContract.mockRejectedValueOnce(
+      new ContractFunctionRevertedError({
+        abi: vndTokenAbi,
+        functionName: 'mint',
+        data: encodeErrorResult({
+          abi: vndTokenAbi,
+          errorName: 'AccessControlUnauthorizedAccount',
+          args: [SIGNER, minterRole],
+        }),
+      }),
+    );
+    const signer = {
+      getAddress: async () => SIGNER,
+      getAccount: async () => ({ address: SIGNER, type: 'json-rpc' }),
+    } as never;
+
+    const failure = createEvmLedger('hardhat-local', signer).mintPayment(INVESTOR, 1n);
+
+    await expect(failure).rejects.toThrow(LedgerError);
+    await expect(failure).rejects.toThrow(
+      new RegExp(`${SIGNER} thiếu vai MINTER_ROLE trên hợp đồng VNDToken \\(${getContractAddress('hardhat-local', 'VNDToken')}\\)`),
+    );
   });
 });
