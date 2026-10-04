@@ -228,3 +228,50 @@ describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đườ
     expect(layout).toContain('withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role))');
   });
 });
+
+describe('ca 8 — sau khi nạp, nhà đầu tư đặt được lệnh mua và lệnh khớp', () => {
+  const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+
+  it('trần mua từ 0 lên đúng số dư mới / giá; đặt lệnh, khớp lệnh, số dư đổi đúng', async () => {
+    const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
+    const { getTradeContext } = await import('@/lib/bank/trade.service');
+    const { placeOrder, executeOrder } = await import('@/lib/bank/purchase.service');
+    const { readIssuePriceVnd } = await import('@/lib/store/config-values');
+
+    // Người bán đã phát hành nguồn cung (đường dữ liệu thử, cờ token bật riêng cho bước dựng này).
+    await (await ledger()).whitelist(SPV);
+    process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
+    const issued = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV });
+    delete process.env.ENABLE_DEMO_TOKEN_MINT;
+    expect(issued.ok, issued.ok ? '' : issued.error).toBe(true);
+
+    const buyCap = async () => {
+      actAs('INVESTOR');
+      const context = await getTradeContext({ chain: CHAIN, wallet: INVESTOR });
+      if (!context.ok) throw new Error(context.error);
+      return BigInt(context.data.caps.BUY.max);
+    };
+    expect(await buyCap(), 'chưa nạp: trần mua 0').toBe(0n);
+
+    actAs('TELLER');
+    expect((await mint(INVESTOR, SAMPLE)).ok).toBe(true);
+
+    const price = await readIssuePriceVnd();
+    const cap = await buyCap();
+    expect(cap).toBe(SAMPLE / price);
+
+    actAs('INVESTOR');
+    const order = await placeOrder({ chain: CHAIN, investorWallet: INVESTOR, wptAmount: cap.toString(), side: 'BUY' });
+    expect(order.ok, order.ok ? '' : order.error).toBe(true);
+    if (!order.ok) return;
+
+    actAs('TELLER');
+    const executed = await executeOrder({ chain: CHAIN, orderId: order.data.id });
+    expect(executed.ok, executed.ok ? '' : executed.error).toBe(true);
+
+    const l = await ledger();
+    expect(await l.balanceOf(INVESTOR)).toBe(cap);
+    expect(await vndb(INVESTOR)).toBe(SAMPLE - cap * price);
+    expect(await vndb(SPV)).toBe(cap * price);
+  });
+});
