@@ -125,6 +125,19 @@ describe('ca 2 — cờ tắt thì từ chối, KỂ CẢ vai có quyền', () =
   });
 });
 
+describe('ca 3, 4 — Người bán, Nhà đầu tư, Kiểm soát viên không nạp được dù cờ bật', () => {
+  it.each(['SELLER', 'INVESTOR', 'CONTROLLER'])('%s bị từ chối, số dư và bảng Txn giữ nguyên, có bản ghi DENIED', async (role) => {
+    actAs(role);
+
+    const result = await mint(INVESTOR, SAMPLE);
+
+    expect(result.ok === false && result.code).toBe('FORBIDDEN');
+    expect(await vndb(INVESTOR)).toBe(0n);
+    expect(await payments()).toEqual([]);
+    expect(await audit()).toMatchObject([{ outcome: 'DENIED', actorRole: role, target: INVESTOR }]);
+  });
+});
+
 describe('ca 5 — vượt trần một lần nạp thì từ chối', () => {
   it('trần mặc định: MAX đi qua, MAX + 1 bị chặn trước khi gửi giao dịch', async () => {
     const over = await mint(INVESTOR, MAX + 1n);

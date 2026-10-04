@@ -650,3 +650,27 @@ describe('demo:mint-token — cờ trước, quyền sau (cùng khuôn demo:mint
     expect(canMintDemoToken('TELLER')).toBe(true);
   });
 });
+
+// ===========================================================================
+//  BE-16 ca 3, 4 — chỉ Giao dịch viên giữ hai quyền tạo ra tiền / token mô phỏng
+// ===========================================================================
+
+describe('BE-16 — Người bán, Nhà đầu tư, Kiểm soát viên KHÔNG có quyền nạp mô phỏng', () => {
+  it.each(['demo:mint-payment', 'demo:mint-token'] as const)(
+    '%s: đúng một vai TELLER trong bảng quyền, Người bán KHÔNG có',
+    (action) => {
+      expect(ROLES.filter((role) => can(role, action))).toEqual(['TELLER']);
+      expect(can('SELLER', action), 'Người bán là pháp nhân ngoài ngân hàng').toBe(false);
+    },
+  );
+
+  it('cờ bật vẫn không mở cho ba vai còn lại', () => {
+    setFlag('true');
+    setTokenFlag('true');
+    for (const role of ['SELLER', 'INVESTOR', 'CONTROLLER'] as const) {
+      expect(canMintDemoPayment(role), role).toBe(false);
+      expect(canMintDemoToken(role), role).toBe(false);
+      expect(() => assertCanMintDemoPayment(role), role).toThrow(ForbiddenError);
+    }
+  });
+});
