@@ -3,6 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { ChainKey, TxStatus } from '@bidv/shared';
 import { DEMO_PAYMENT_QUICK_AMOUNTS } from '@/lib/config/issue-terms';
+import { formatAmount } from '@/lib/format';
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import { assertCanMintDemoPayment } from '@/lib/rbac/demo-payment';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -100,7 +101,7 @@ export async function mintDemoPayment(input: unknown): Promise<Result<DemoPaymen
 
     const max = await readDemoPaymentMintMax();
     if (amount > max) {
-      return blocked('PAYMENT_MINT_LIMIT', `Số tiền vượt trần một lần nạp ${max} VNDB (cấu hình).`);
+      return blocked('PAYMENT_MINT_LIMIT', `Số tiền vượt trần một lần nạp ${formatAmount(max)} VNDB (cấu hình).`);
     }
 
     // Danh sách nhà đầu tư = ví đã KYC/whitelist trên chuỗi; ngoại lệ duy nhất là ví người bán.

@@ -1,4 +1,9 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { NAV_BY_ROLE, withDemoPayment } from '@/components/layout/nav-config';
+import { ROLES } from '@/lib/rbac';
+import { canMintDemoPayment } from '@/lib/rbac/demo-payment';
 import { CONFIG_KEYS, DEMO_PAYMENT_MINT_MAX_VND } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
@@ -191,5 +196,35 @@ describe('ca 6 — mọi lần nạp và mọi lần bị chặn đều có bả
     expect(failures.map((r) => r.target).sort()).toEqual([INVESTOR, STRANGER].sort());
     expect(failures.find((r) => r.target === INVESTOR)?.detail).toContain(`nạp ${MAX + 1n} VNDB vào ví ${INVESTOR}`);
     expect(failures.find((r) => r.target === STRANGER)?.detail).toContain(`nạp 5 VNDB vào ví ${STRANGER}`);
+  });
+});
+
+describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đường dẫn bị chặn', () => {
+  const SRC = path.resolve(__dirname, '../src');
+  const hrefs = (role: (typeof ROLES)[number]) =>
+    withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role)).groups.flatMap((g) =>
+      g.items.map((i) => i.href),
+    );
+
+  it('cờ tắt: không vai nào thấy mục Nạp VNDB', () => {
+    setFlag('false');
+    for (const role of ROLES) expect(hrefs(role), role).not.toContain('/demo-payment');
+  });
+
+  it('cờ bật: chỉ Giao dịch viên thấy, ở nhóm Vận hành', () => {
+    for (const role of ROLES) {
+      expect(hrefs(role).includes('/demo-payment'), role).toBe(role === 'TELLER');
+    }
+    const ops = withDemoPayment(NAV_BY_ROLE.TELLER, true).groups[0];
+    expect(ops.label).toBe('Vận hành');
+    expect(ops.items.at(-1)?.href).toBe('/demo-payment');
+  });
+
+  it('menu và trang dùng ĐÚNG hàm hai lớp của nghiệp vụ; trang nằm trong khu vực vận hành', () => {
+    // Đọc tệp thật: trang có mà quên chặn thì vào bằng đường dẫn vẫn mở, và không hằng số nào bắt được.
+    const page = readFileSync(path.join(SRC, 'app/(ops)/demo-payment/page.tsx'), 'utf8');
+    expect(page).toMatch(/canMintDemoPayment\(role\) \?\s*\(?\s*<DemoPaymentPage/);
+    const layout = readFileSync(path.join(SRC, 'components/layout/app-layout.tsx'), 'utf8');
+    expect(layout).toContain('withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role))');
   });
 });
