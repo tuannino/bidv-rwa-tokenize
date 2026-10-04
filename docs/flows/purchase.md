@@ -32,7 +32,6 @@ flowchart TD
   s10["10 · executePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chuyển VNDB và WPT trong cùng một giao dịch"]
   s11["11 · listOrdersAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase"]
   s12["12 · listOrders()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng…"]
-  w1(["điểm cắm, chờ FE-06<br/>đã sẵn đầu cuối ở executeOrder: kiểm quyền order:execute (vai…"])
   s1 --> s2
   s2 --> s3
   s3 --> s4
@@ -44,7 +43,6 @@ flowchart TD
   s9 --> s10
   s10 --> s11
   s11 --> s12
-  w1 -.-> s6
 ```
 
 ## Bảng bước
@@ -61,17 +59,12 @@ flowchart TD
 | 8 | `app/src/lib/bank/purchase.service.ts:406` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên |
 | 9 | `app/src/lib/bank/purchase.service.ts:766` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
 | 10 | `app/src/lib/ledger/ledger.port.ts:165` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
-| 11 | `app/src/app/actions/purchase.ts:60` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
+| 11 | `app/src/app/actions/purchase.ts:59` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
 | 12 | `app/src/lib/bank/purchase.service.ts:904` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
 
 ## Điểm cắm trên đường đi
 
-Các bước dưới đây có marker chờ task khác. Trong sơ đồ chúng là ô bầu dục nối bằng
-mũi tên gạch rời — chúng **không** phải bước của luồng.
-
-| Bước | Loại | Task | Nội dung marker |
-|---|---|---|---|
-| 6 | điểm cắm | `FE-06` | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai TELLER), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận |
+Không bước nào của luồng này còn marker `@pending` / `@blocked`.
 
 ## Đọc sơ đồ này thế nào
 

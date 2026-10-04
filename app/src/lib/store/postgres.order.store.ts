@@ -154,7 +154,7 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
     },
 
     async listOrders(options = {}) {
-      const { chain, investorWallet, status, side, id, createdFrom, createdTo, limit = 50 } =
+      const { chain, investorWallet, status, side, id, search, createdFrom, createdTo, limit = 50, offset = 0 } =
         options;
       const rows = await query<OrderRow>(
         `SELECT * FROM "PurchaseOrder"
@@ -165,8 +165,11 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
             AND ($6::text IS NULL OR "id" = $6)
             AND ($7::timestamptz IS NULL OR "createdAt" >= $7::timestamptz)
             AND ($8::timestamptz IS NULL OR "createdAt" < $8::timestamptz)
+            AND ($9::text IS NULL
+              OR position(lower($9) in lower("id")) > 0
+              OR position(lower($9) in lower("investorWallet")) > 0)
           ORDER BY "createdAt" DESC, "id" DESC
-          LIMIT $4`,
+          LIMIT $4 OFFSET $10`,
         [
           chain ?? null,
           investorWallet ?? null,
@@ -176,9 +179,49 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
           id ?? null,
           createdFrom ?? null,
           createdTo ?? null,
+          search?.trim() || null,
+          offset,
         ],
       );
       return rows.map(toOrder);
+    },
+
+    async countOrders(options = {}) {
+      const { chain, investorWallet, status, side, id, search, createdFrom, createdTo } = options;
+      const rows = await query<{ count: string }>(
+        `SELECT COUNT(*)::text AS "count" FROM "PurchaseOrder"
+          WHERE ($1::text IS NULL OR "chain" = $1)
+            AND ($2::text IS NULL OR lower("investorWallet") = lower($2))
+            AND ($3::text IS NULL OR "status" = $3)
+            AND ($4::text IS NULL OR "side" = $4)
+            AND ($5::text IS NULL OR "id" = $5)
+            AND ($6::timestamptz IS NULL OR "createdAt" >= $6::timestamptz)
+            AND ($7::timestamptz IS NULL OR "createdAt" < $7::timestamptz)
+            AND ($8::text IS NULL
+              OR position(lower($8) in lower("id")) > 0
+              OR position(lower($8) in lower("investorWallet")) > 0)`,
+        [
+          chain ?? null,
+          investorWallet ?? null,
+          status ?? null,
+          side === undefined ? null : assertOrderSide(side),
+          id ?? null,
+          createdFrom ?? null,
+          createdTo ?? null,
+          search?.trim() || null,
+        ],
+      );
+      return Number(rows[0]?.count ?? 0);
+    },
+
+    async listOrderInvestors({ chain } = {}) {
+      const rows = await query<{ investorWallet: string }>(
+        `SELECT DISTINCT ON (lower("investorWallet")) "investorWallet" FROM "PurchaseOrder"
+          WHERE ($1::text IS NULL OR "chain" = $1)
+          ORDER BY lower("investorWallet"), "investorWallet"`,
+        [chain ?? null],
+      );
+      return rows.map((row) => row.investorWallet);
     },
 
     async summarizeCompleted({ chain, from, to }) {

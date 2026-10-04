@@ -11,6 +11,7 @@ import {
   type IOrderStore,
   type NewOrder,
   type OrderRecord,
+  type OrderListOptions,
   type OrderSide,
   type OrderTransition,
 } from './order.store.port';
@@ -39,6 +40,28 @@ const newestFirst = (a: OrderRecord, b: OrderRecord) =>
   b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
 
 const sameWallet = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** Cùng một bộ lọc cho danh sách và phép đếm — tránh tổng số khác các dòng đang hiện. */
+function filteredOrders(options: Omit<OrderListOptions, 'limit' | 'offset'>): OrderRecord[] {
+  const { chain, investorWallet, status, side, id, search, createdFrom, createdTo } = options;
+  const from = createdFrom === undefined ? null : parseInstant('createdFrom', createdFrom);
+  const to = createdTo === undefined ? null : parseInstant('createdTo', createdTo);
+  const kind = side === undefined ? undefined : assertOrderSide(side);
+  const needle = search?.trim().toLowerCase();
+  return state()
+    .orders.filter((order) => (chain ? order.chain === chain : true))
+    .filter((order) => (investorWallet ? sameWallet(order.investorWallet, investorWallet) : true))
+    .filter((order) => (status ? order.status === status : true))
+    .filter((order) => (kind ? order.side === kind : true))
+    .filter((order) => (id ? order.id === id : true))
+    .filter((order) =>
+      needle
+        ? order.id.toLowerCase().includes(needle) || order.investorWallet.toLowerCase().includes(needle)
+        : true,
+    )
+    .filter((order) => (from === null ? true : Date.parse(order.createdAt) >= from))
+    .filter((order) => (to === null ? true : Date.parse(order.createdAt) < to));
+}
 
 /**
  * So sánh mốc thời gian theo GIÁ TRỊ, không so chuỗi.
@@ -148,25 +171,26 @@ export function createMemoryOrderStore(): IOrderStore {
     },
 
     async listOrders(options = {}) {
-      const { chain, investorWallet, status, side, id, createdFrom, createdTo, limit = 50 } =
-        options;
-      // Đọc mốc TRƯỚC khi lọc: mốc sai dạng phải thành lỗi, không thành "không có dòng nào".
-      const from = createdFrom === undefined ? null : parseInstant('createdFrom', createdFrom);
-      const to = createdTo === undefined ? null : parseInstant('createdTo', createdTo);
-      const kind = side === undefined ? undefined : assertOrderSide(side);
-      return state()
-        .orders.filter((order) => (chain ? order.chain === chain : true))
-        .filter((order) =>
-          investorWallet ? sameWallet(order.investorWallet, investorWallet) : true,
-        )
-        .filter((order) => (status ? order.status === status : true))
-        .filter((order) => (kind ? order.side === kind : true))
-        .filter((order) => (id ? order.id === id : true))
-        .filter((order) => (from === null ? true : Date.parse(order.createdAt) >= from))
-        .filter((order) => (to === null ? true : Date.parse(order.createdAt) < to))
+      const { limit = 50, offset = 0, ...filters } = options;
+      return filteredOrders(filters)
         .sort(newestFirst)
-        .slice(0, limit)
+        .slice(offset, offset + limit)
         .map((order) => ({ ...order }));
+    },
+
+    async countOrders(options = {}) {
+      return filteredOrders(options).length;
+    },
+
+    async listOrderInvestors({ chain } = {}) {
+      const wallets = new Map<string, string>();
+      for (const order of state().orders) {
+        if (!chain || order.chain === chain) {
+          const key = order.investorWallet.toLowerCase();
+          if (!wallets.has(key)) wallets.set(key, order.investorWallet);
+        }
+      }
+      return [...wallets.values()].sort((a, b) => a.localeCompare(b));
     },
 
     async summarizeCompleted({ chain, from, to }) {

@@ -152,11 +152,15 @@ export interface OrderListOptions {
   side?: OrderSide;
   /** BE-14 — đúng một mã lệnh. */
   id?: string;
+  /** FE-06 — tìm một phần mã lệnh hoặc ví nhà đầu tư, không phân biệt hoa thường. */
+  search?: string;
   /** BE-14 — `createdAt >= createdFrom` (bao gồm). Mốc ISO-8601. */
   createdFrom?: string;
   /** BE-14 — `createdAt < createdTo` (KHÔNG bao gồm), để hai khoảng liền nhau không đếm trùng. */
   createdTo?: string;
   limit?: number;
+  /** FE-06 — số dòng bỏ qua sau khi lọc và sắp xếp, dùng cho phân trang thật. */
+  offset?: number;
 }
 
 /** Số lệnh và tổng số lượng của một chiều. Số lượng là CHUỖI thập phân như mọi nơi khác. */
@@ -202,6 +206,12 @@ export interface IOrderStore {
   attachOrderTxHash(input: { id: string; txHash: string }): Promise<OrderRecord | null>;
 
   listOrders(options?: OrderListOptions): Promise<OrderRecord[]>;
+
+  /** Tổng số lệnh khớp cùng bộ lọc của `listOrders`, không chịu `limit` / `offset`. */
+  countOrders(options?: Omit<OrderListOptions, 'limit' | 'offset'>): Promise<number>;
+
+  /** Danh sách ví từng đặt lệnh, dùng cho bộ chọn nhà đầu tư của FE-06. */
+  listOrderInvestors(options?: { chain?: ChainKey }): Promise<string[]>;
 
   /**
    * Tổng hợp lệnh `COMPLETED` có `completedAt` trong `[from, to)`, theo TỪNG CHIỀU (BE-14).
