@@ -149,6 +149,9 @@ export interface ILedgerPurchase {
    * không kiểm — "chỉ nạp cho ví nhà đầu tư hoặc ví người bán" là quy tắc nghiệp vụ, nằm ở
    * `lib/bank/demo-payment.service.ts` cùng hai lớp chặn quyền + cờ.
    *
+   * Bản mock cộng KÈM mức ủy quyền bằng số vừa nạp (lệch contract có chủ ý, Owner chốt ở BE-16,
+   * xem `mock.adapter.ts`); chain thật thì nhà đầu tư tự `approve`.
+   *
    * ⚠️ Đừng gọi từ nghiệp vụ nào khác: đây là đường tạo ra tiền.
    */
   mintPayment(to: string, amount: bigint): Promise<TxResult>;

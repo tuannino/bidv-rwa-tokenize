@@ -773,7 +773,7 @@ describe('R6 — tất toán', () => {
 describe('BE-16 — mintPayment: nạp VNDB vào ví chỉ định', () => {
   beforeEach(() => resetMockLedger());
 
-  it('mock: cộng đúng số dư VNDB của ví đích, KHÔNG đụng WPT hay tổng cung', async () => {
+  it('mock: cộng đúng số dư VNDB (kèm ủy quyền) của ví đích, KHÔNG đụng WPT hay tổng cung', async () => {
     const ledger = createMockLedger();
     seedMockLedger({ paymentBalances: { [INVESTOR]: 5n } });
 
@@ -781,6 +781,8 @@ describe('BE-16 — mintPayment: nạp VNDB vào ví chỉ định', () => {
 
     expect(result.status).toBe('CONFIRMED');
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(505n);
+    // Lệch contract có chủ ý (Owner chốt): mock cộng luôn ủy quyền bằng số vừa nạp.
+    expect(await ledger.paymentAllowanceOf(INVESTOR)).toBe(500n);
     expect(await ledger.paymentBalanceOf(OTHER)).toBe(0n);
     expect(await ledger.balanceOf(INVESTOR)).toBe(0n);
     expect((await ledger.tokenInfo()).totalSupply).toBe(0n);
@@ -791,6 +793,7 @@ describe('BE-16 — mintPayment: nạp VNDB vào ví chỉ định', () => {
     await expect(ledger.mintPayment(INVESTOR, 0n)).rejects.toThrow(/lớn hơn 0/);
     await expect(ledger.mintPayment(INVESTOR, -1n)).rejects.toThrow(/lớn hơn 0/);
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
+    expect(await ledger.paymentAllowanceOf(INVESTOR)).toBe(0n);
   });
 
   it('Stellar: ném LedgerNotImplementedError nêu đúng thứ còn thiếu', async () => {
