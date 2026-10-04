@@ -21,7 +21,9 @@
     "BE-14",
     "FE-25"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "BE-16"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
