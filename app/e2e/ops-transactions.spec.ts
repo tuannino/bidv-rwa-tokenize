@@ -43,18 +43,22 @@ test('FE-06 — Giao dịch viên xử lý, Kiểm soát viên chỉ xem, hai va
   // Tạo thêm nguồn cung qua đúng luồng lập–duyệt, để ca chạy độc lập với các tệp e2e khác.
   await page.goto('/draft');
   const mint = page.getByLabel('Thẻ tạo token');
+  const mintReason = `Nguồn cung e2e FE-06 ${Date.now()}`;
   await mint.getByLabel('Mã hoặc ký hiệu token').fill('WPT');
   const target = mint.getByLabel(/Ví đích/);
   if (await target.isEditable()) await target.fill(SPV);
   await mint.getByLabel('Số lượng').fill('100');
-  await mint.getByLabel('Lý do').fill('Nguồn cung e2e FE-06');
+  await mint.getByLabel('Lý do').fill(mintReason);
   await mint.getByRole('button', { name: /Gửi yêu cầu tạo token/ }).click();
   await expect(mint.getByRole('status')).toContainText(/chờ Kiểm soát viên duyệt/);
-  const requestId = await page
+  // Các tệp E2E dùng chung mock ledger. Không lấy `.first()` vì đó có thể là yêu cầu cũ
+  // đã hoàn tất do maker-checker tạo trước; nhận diện đúng dòng vừa gửi bằng lý do duy nhất.
+  const requestRow = page
     .getByRole('table', { name: 'Yêu cầu tạo token đã lập' })
     .locator('tbody tr')
-    .first()
-    .getAttribute('data-request-id');
+    .filter({ hasText: mintReason });
+  await expect(requestRow).toHaveCount(1);
+  const requestId = await requestRow.getAttribute('data-request-id');
   expect(requestId).toBeTruthy();
 
   await actAs(context, baseURL!, 'CONTROLLER');

@@ -204,15 +204,22 @@ test.describe('Điều hướng theo vai trò', () => {
     await expect(sidebar.getByRole('link')).toHaveCount(7);
   });
 
-  test('bấm mục chỗ trống thì ra trang ghi rõ task sẽ thay', async ({ page, context, baseURL }) => {
+  test('bấm mục Giao dịch token thì mở đúng màn và mời kết nối ví', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
     await enterInvestorChannel(context, baseURL!);
     await page.goto('/portfolio');
 
     await page.getByRole('complementary').getByRole('link', { name: /Giao dịch token/i }).click();
 
     await expect(page).toHaveURL(/\/trade$/);
-    await expect(page.getByRole('heading', { name: 'Giao dịch token' })).toBeVisible();
-    await expect(page.getByText('chờ FE-05')).toBeVisible();
+    // Chưa có ví trình duyệt trong Playwright nên màn thật dừng ở cổng kết nối, không render
+    // biểu mẫu Đặt lệnh. Đây là hành vi FE-25, không còn là trang chỗ trống của FE-20.
+    const main = page.getByRole('main');
+    await expect(main.getByText('Chưa kết nối ví')).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Ví của tôi' })).toHaveAttribute('href', '/wallet');
   });
 
   test('số việc đang chờ hiện cạnh hai mục tài liệu chỉ định', async ({
