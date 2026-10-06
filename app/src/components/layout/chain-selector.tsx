@@ -6,7 +6,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
 
 /**
- * Dropdown chọn chain: hardhat-local (mặc định) · mock · evm · stellar. **KHÔNG Polygon**.
+ * Dropdown chọn chain: mock (mặc định) · hardhat-local · evm · stellar. **KHÔNG Polygon**.
  *
  * Dùng `<select>` gốc: nhận bàn phím/screen-reader đúng chuẩn sẵn, và `disabled`
  * trên `<option>` diễn đạt được "chain có nhưng chưa dùng được" mà vẫn cho người xem thấy.

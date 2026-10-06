@@ -18,7 +18,7 @@ test('dropdown chain có đúng các chain đã chốt, KHÔNG có Polygon', asy
   const values = await selector.locator('option').evaluateAll((options) =>
     options.map((option) => (option as HTMLOptionElement).value),
   );
-  expect(values).toEqual(['hardhat-local', 'mock', 'evm', 'stellar']);
+  expect(values).toEqual(['mock', 'hardhat-local', 'evm', 'stellar']);
 
   const text = (await selector.textContent())?.toLowerCase() ?? '';
   expect(text).not.toContain('polygon');

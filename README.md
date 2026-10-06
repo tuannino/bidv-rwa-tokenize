@@ -52,7 +52,7 @@ cd app && E2E_CHAIN=hardhat-local npm run test:e2e   # e2e trên chain thật (c
 
 ## Chọn chain & chế độ mock
 
-Dropdown chain ở header: **Hardhat Local** (mặc định) · **Mock** · **EVM Testnet** · **Stellar** (stub, disable).
+Dropdown chain ở header: **Mock** (mặc định) · **Hardhat Local** · **EVM Testnet** · **Stellar** (stub, disable).
 **Không có Polygon** — đã loại khỏi dự án.
 
 Bên cạnh là bộ đổi **vai trò** (BANK_ADMIN / COMPLIANCE / INVESTOR / AUDITOR) để thử RBAC.

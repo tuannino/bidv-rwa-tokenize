@@ -2,7 +2,7 @@
  * Dữ liệu chain (thuần data, không phụ thuộc viem/ethers) — dùng được ở cả server và client.
  * Registry hành vi nằm ở `app/src/lib/chains`; ở đây chỉ là sự thật về chain.
  *
- * Thứ tự ưu tiên theo SPEC §1: hardhat-local (mặc định) -> evm -> stellar.
+ * Thứ tự ưu tiên theo SPEC §1: mock (mặc định) -> hardhat-local -> evm -> stellar.
  * KHÔNG có Polygon.
  */
 import type { ChainFamily, ChainKey } from './types';
@@ -30,7 +30,7 @@ export interface ChainInfo {
   hint: string;
 }
 
-export const DEFAULT_CHAIN: ChainKey = 'hardhat-local';
+export const DEFAULT_CHAIN: ChainKey = 'mock';
 
 export const CHAINS: Record<ChainKey, ChainInfo> = {
   'hardhat-local': {
@@ -85,7 +85,7 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
 };
 
 /** Thứ tự hiển thị trên dropdown. */
-export const CHAIN_ORDER: ChainKey[] = ['hardhat-local', 'mock', 'evm', 'stellar'];
+export const CHAIN_ORDER: ChainKey[] = ['mock', 'hardhat-local', 'evm', 'stellar'];
 
 /**
  * URL xem giao dịch trên explorer của chain, hoặc `null` nếu chain không có explorer.

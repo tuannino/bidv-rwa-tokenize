@@ -1,4 +1,4 @@
-import { DEFAULT_CHAIN, type ChainKey } from '@bidv/shared';
+import type { ChainKey } from '@bidv/shared';
 import {
   CONFIG_KEYS,
   DEMO_PAYMENT_MINT_MAX_VND,
@@ -110,18 +110,17 @@ const SEED_PROJECT_NAME = 'Dự án điện gió Bạc Liêu';
  *
  * HAI chuỗi, không phải một, và đây là điểm dễ làm sai nhất của dữ liệu khởi tạo. Bảng `Project`
  * duy nhất theo `(tokenSymbol, chain)` vì mỗi chuỗi có trạng thái phát hành riêng, nên một dòng
- * duy nhất trên `DEFAULT_CHAIN` sẽ làm `issueInitialSupply` từ chối với lý do "chưa có dự án" ở
+ * duy nhất trên chain mặc định sẽ làm `issueInitialSupply` từ chối với lý do "chưa có dự án" ở
  * MỌI chuỗi khác — trong khi dự án rõ ràng có.
  *
- * Hệ quả cụ thể nếu chỉ nạp `DEFAULT_CHAIN` (= `hardhat-local`): bản demo free-tier chạy ở `mock`
- * không phát hành được gì, tức là luồng chính của BE-04 chết ở đúng chế độ triển khai mặc định của
- * demo công khai — và chỉ chạy được khi có một hardhat node thường trú, thứ steering đòi tránh.
+ * Nạp cả `mock` và `hardhat-local`: bản demo mặc định chạy ngay không cần node, còn luồng kiểm chứng
+ * EVM cục bộ vẫn có dự án riêng khi bật Hardhat.
  *
  * `evm` KHÔNG nằm trong danh sách: đó là testnet công khai, nơi dự án phải được deploy thật kèm
  * địa chỉ hợp đồng. Nạp sẵn một dòng `DRAFT` ở đó là mời gọi phát hành lên testnet bằng dữ liệu
  * dựng sẵn mà chưa ai kiểm.
  */
-export const SEED_PROJECT_CHAINS: readonly ChainKey[] = ['mock', DEFAULT_CHAIN];
+export const SEED_PROJECT_CHAINS: readonly ChainKey[] = ['mock', 'hardhat-local'];
 
 /**
  * Dự án điện gió của PoC trên từng chuỗi được nạp sẵn, trạng thái `DRAFT` (chưa phát hành).
