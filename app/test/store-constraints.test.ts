@@ -837,6 +837,28 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       expect(past).toHaveLength(0);
     });
 
+    it('tìm gần đúng, đếm, phân trang và liệt kê nhà đầu tư dùng cùng phạm vi dữ liệu', async () => {
+      const wallet = freshWallet();
+      await store.orders.createOrder(order(wallet, 'BUY'));
+      await store.orders.createOrder(order(wallet, 'SELL'));
+      await store.orders.createOrder(order(wallet, 'BUY'));
+
+      const all = await store.orders.listOrders({ search: wallet.toUpperCase(), limit: 10 });
+      expect(all).toHaveLength(3);
+      await expect(store.orders.countOrders({ search: wallet.toUpperCase() })).resolves.toBe(3);
+
+      const second = await store.orders.listOrders({ search: wallet, offset: 1, limit: 1 });
+      expect(second.map((row) => row.id)).toEqual([all[1]?.id]);
+
+      const byPartialId = await store.orders.listOrders({ search: all[0]!.id.slice(4, 16) });
+      expect(byPartialId.map((row) => row.id)).toContain(all[0]!.id);
+
+      // Cùng một địa chỉ viết khác hoa/thường không được thành hai lựa chọn trong dropdown.
+      await store.orders.createOrder(order(wallet.toUpperCase(), 'BUY'));
+      const investors = await store.orders.listOrderInvestors({ chain: 'mock' });
+      expect(investors.filter((value) => value.toLowerCase() === wallet.toLowerCase())).toHaveLength(1);
+    });
+
     it('số liệu lệnh hoàn tất trả đủ hai chiều, chỉ đếm COMPLETED trong khoảng', async () => {
       const from = new Date(Date.now() - 1).toISOString();
       const wallet = freshWallet();

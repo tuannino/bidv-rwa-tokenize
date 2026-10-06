@@ -37,7 +37,11 @@ test.describe('Trang Ví của tôi', () => {
     await enterInvestorChannel(context, baseURL!);
 
     await page.goto('/portfolio');
-    const link = page.getByRole('link', { name: /Ví của tôi/ }).first();
+    // FE-20 đổi nhãn mục menu thành "Kết nối ví"; bó locator trong sidebar để ca này
+    // thực sự kiểm tra menu, không vô tình bắt liên kết "Ví của tôi" trong nội dung portfolio.
+    const link = page
+      .getByRole('complementary')
+      .getByRole('link', { name: /Kết nối ví/ });
     await expect(link).toBeVisible();
 
     await link.click();

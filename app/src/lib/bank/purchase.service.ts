@@ -87,7 +87,7 @@ export interface OrderExecutionView extends OrderView {
 }
 
 /** Ánh xạ bản ghi lưu trữ sang khung nhìn — một chỗ duy nhất, dùng cho mọi hàm trả lệnh. */
-function toView(order: OrderRecord): OrderView {
+export function toOrderView(order: OrderRecord): OrderView {
   return {
     id: order.id,
     chain: order.chain,
@@ -253,7 +253,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       chain,
     });
 
-    return ok(toView(order));
+    return ok(toOrderView(order));
   } catch (error) {
     return toResult(error);
   }
@@ -857,7 +857,7 @@ async function sendAndSettle(
   // hiện tại làm nguồn thay vì dựng số liệu từ biến cũ.
   const finalOrder = completed ?? (await orderStore.findOrder(id)) ?? order;
   return ok({
-    ...toView(finalOrder),
+    ...toOrderView(finalOrder),
     txHash: receipt.txHash,
     status: finalOrder.status,
     txStatus: receipt.status,
@@ -933,11 +933,10 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
       status,
       side,
       id: orderId,
-      createdFrom: fromDate ? startOfBusinessDay(fromDate) : undefined,
-      createdTo: toDate ? startOfBusinessDay(nextDay(toDate)) : undefined,
+      ...orderCreatedRange(fromDate, toDate),
       limit,
     });
-    return ok(rows.map(toView));
+    return ok(rows.map(toOrderView));
   } catch (error) {
     return toResult(error);
   }
@@ -957,6 +956,14 @@ const startOfBusinessDay = (date: string): string =>
 /** Ngày kế tiếp của `YYYY-MM-DD`. Tính trên UTC trưa để không vướng chuyển giờ. */
 const nextDay = (date: string): string =>
   new Date(Date.parse(`${date}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/** Đổi khoảng ngày người dùng chọn sang khoảng mốc `[from, to)` theo giờ nghiệp vụ Việt Nam. */
+export function orderCreatedRange(fromDate?: string, toDate?: string) {
+  return {
+    createdFrom: fromDate ? startOfBusinessDay(fromDate) : undefined,
+    createdTo: toDate ? startOfBusinessDay(nextDay(toDate)) : undefined,
+  };
+}
 
 /** Hôm nay theo giờ Việt Nam, dạng `YYYY-MM-DD`. */
 const businessToday = (): string =>

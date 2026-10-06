@@ -9,13 +9,13 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 3.2 |
+| Phiên bản tài liệu | 3.3 |
 | Cập nhật lần cuối | 2026-10-04 |
-| Nhánh / commit | `feat/demo-payment-mint`, nền `dev` @ `bfb01b3` — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách commit đầy đủ ở `docs/CHECKPOINT_BE16.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18) |
-| Đang chờ nghiệm thu | **BE-16** (nạp VNDB mô phỏng cho bản trình diễn, xem 3.1, 3.3, 3.4, 3.13 và 3.19, checkpoint `docs/CHECKPOINT_BE16.md`) |
-| Phase kế tiếp | FE-06 màn khớp lệnh của ngân hàng (để lệnh từ FE-25 có người khớp trên giao diện) → BE-13 nghiệp vụ rút của Người bán → BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer |
-| Người cập nhật | Kiro (thực thi) — Supervisor rà soát |
+| Nhánh / commit | `feat/ops-transactions`, nền `dev` @ `1fb5ba6` (đã có BE-16) — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách thay đổi ở `docs/CHECKPOINT_FE06.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19) |
+| Đang chờ nghiệm thu | **FE-06** (màn Giao dịch toàn hệ thống cho GDV/KSV, xem 3.20, checkpoint `docs/CHECKPOINT_FE06.md`) |
+| Phase kế tiếp | BE-13 nghiệp vụ rút của Người bán → BE-05 tất toán → FE-08/FE-09 giao diện chia lợi nhuận → IN-01/IN-02 Indexer |
+| Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
 lớn", nhưng đây chỉ là phép cộng: `tech-report-maintenance.md` §3 bước 5 để `+0.1` cho thay đổi
@@ -134,8 +134,8 @@ thay hai trang chỗ trống, một service đọc mới (`trade.service.ts`), b
 (vẫn 32), **không** thêm bảng, ba luật không bị chạm. Hai điều cần đọc kỹ:
 
 1. **Khớp lệnh vẫn là việc của ngân hàng.** Gửi lệnh từ `/trade` chỉ tạo lệnh `PLACED`; màn hình theo
-   dõi tới khi Giao dịch viên khớp (`order:execute`) rồi mới hiện mã giao dịch và số dư mới. Màn khớp
-   lệnh của ngân hàng là FE-06, chưa làm; trong lúc chờ, khớp qua `POST /api/purchase` có `orderId`.
+   dõi tới khi Giao dịch viên khớp (`order:execute`) rồi mới hiện mã giao dịch và số dư mới. FE-06
+   đã nối thao tác này vào màn `/transactions`; đường `POST /api/purchase` có `orderId` vẫn dành cho demo/e2e.
 2. **Ba chỉ tiêu token chưa có nguồn** (tuổi thọ còn lại, lợi tức, phí giao dịch): service trả `null`
    kèm lý do, màn hiện "Chưa có dữ liệu". Điều kiện "rủi ro" đọc từ bộ kiểm số dư BE-14, chưa có hồ sơ
    khẩu vị rủi ro. Cả hai theo quyết định Owner, xem 3.18.
@@ -150,6 +150,12 @@ không bị chạm. Hai điều cần đọc kỹ:
    chính hàm hai lớp đó cho phép. Xem 3.19.
 2. **Bản mock của `mintPayment` cộng kèm mức ủy quyền** bằng số vừa nạp — lệch `VNDToken.mint` có
    chủ ý, Owner chốt, để lệnh mua sau khi nạp qua được phép kiểm ủy quyền. Xem 3.1.
+
+**3.2 sang 3.3 (FE-06).** Thay trang chỗ trống `/transactions` bằng một màn dùng chung cho hai vai
+vận hành, thêm chi tiết `/transactions/[id]`, phép đọc phân trang thật ở store và service
+`ops-transactions.service.ts`. **Không** thêm method `ILedgerPort`, action RBAC hay bảng dữ liệu; ba
+luật không bị chạm. Bước nghiệp vụ lấy nguyên từ ánh xạ năm bước BE-14. `TELLER` thấy hành động khớp
+cho `PLACED`/`CHECKING`; `CONTROLLER` chỉ xem; `INVESTOR` và `SELLER` bị chặn ở cả layout lẫn service.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -298,7 +304,7 @@ bidv-rwa-tokenize/
 │   │   ├── investor/          # 4 hộp trang tổng quan + nhãn dữ liệu mẫu
 │   │   ├── wallet/            # no-wallet-guide, wrong-chain-banner,
 │   │   │                      #   wallet-status-card (dùng lại ở FE-05/09/11)
-│   │   ├── trading/           # FE-25: tiến trình năm bước, khối năm điều kiện, gates.ts (xem 3.18)
+│   │   ├── trading/           # FE-25/FE-06: tiến trình, nội dung chi tiết dùng chung, gates.ts
 │   │   ├── maker-checker/     # FE-22: khối thông tin token, khối kiểm tra, bảng yêu cầu,
 │   │   │                      #   nhãn trạng thái, thẻ số liệu, gates.ts (logic thuần) — 3.17
 │   │   ├── pages/             # mint, kyc, assets, dashboard, reconciliation,
@@ -307,7 +313,7 @@ bidv-rwa-tokenize/
 │   │   │                      #   seller-withdraw (FE-21), draft, approvals,
 │   │   │                      #   approval-detail (FE-22), investor-trade, investor-orders,
 │   │   │                      #   investor-order-detail (FE-25), demo-payment (BE-16),
-│   │   │                      #   placeholder (4 trang chỗ trống)
+│   │   │                      #   ops-transactions + ops-order-detail (FE-06), placeholder (3 trang)
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   ├── e2e/                   # Playwright
@@ -1023,6 +1029,7 @@ quyền của vai nào.
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) + xem trước điều kiện (BE-03) + **chiều bán, lọc lệnh, số liệu trong ngày** (BE-14). Hai chiều đi chung một bộ kiểm `runOrderChecks` — xem 4.2 | `previewPurchase()`, `placeOrder()`, `executeOrder()`, `listOrders()`, `orderDailyStats()`, `expireStaleOrders()` |
 | `settlement-steps.ts` | **Năm bước quyết toán** (BE-14): ánh xạ bảy trạng thái sang năm bước hiển thị kèm mốc thời gian, và bốn bút toán của bước quyết toán (tất cả hoặc không gì). Hàm thuần, không `server-only` — xem 4.2 | `toSettlementSteps()`, `toSettlementView()`, `SETTLEMENT_STEP_IDS`, `SETTLEMENT_RULE` |
 | `trade.service.ts` | **Phép đọc cho hai màn Nhà đầu tư** (FE-25), chỉ đọc, `assertCan`: bối cảnh giao dịch (token, số dư, giá, trần mua và bán), năm điều kiện trước lệnh (bốn điều kiện mới + "rủi ro" lấy từ `previewPurchase`), chi tiết lệnh kèm nhật ký kiểm toán (phạm vi xem qua `listOrders`), xem 3.18 | `getTradeContext()`, `previewTrade()`, `getOrderDetail()`, `TRADE_CONDITION_KEYS` |
+| `ops-transactions.service.ts` | **Phép đọc màn Giao dịch vận hành** (FE-06): guard `ops:read`, lọc + đếm + phân trang ở store, bước hiện tại từ `OrderView.steps`, quyền khớp từ `can`, nguồn cung từ `readSupplyMetrics`; chi tiết đi qua guard vận hành rồi dùng lại view-model FE-25 | `listOpsOrders()`, `getOpsOrderDetail()` |
 | `demo-payment.service.ts` | **Nạp VNDB mô phỏng** (BE-16) — đường TẠO RA TIỀN cho bản trình diễn. Hai lớp chặn qua `authorize(..., assertCanMintDemoPayment)` (cờ trước, quyền sau, lần bị chặn ghi `DENIED`); trần một lần nạp đọc từ cấu hình; chỉ nạp cho ví đã KYC/whitelist hoặc ví người bán; ghi `Txn` (`payment-mint`) và sổ kiểm toán cả lần bị chặn. Xem 3.19 | `mintDemoPayment()`, `demoPaymentContext()`, `DEMO_PAYMENT_OPERATION` |
 | `distribution.service.ts` | **Chia lợi nhuận** theo tỷ lệ nắm giữ tại ảnh chụp (BE-06). Danh sách người nhận dựng từ **cơ sở dữ liệu**, không từ chuỗi — xem 4.5. ⚠️ BE-07: `distributePeriod` nay dừng sau `distribution.max_batches_per_run` lô, nên **`outstanding` khác 0 là kết cục bình thường** và người gọi phải gọi lại | `openPeriod()`, `previewDistribution()`, `distributePeriod()`, `getDistributionPeriod()` |
 | `distribution-trigger.service.ts` | **Tiến trình tự động chia** (BE-07): phát hiện ví lợi nhuận nhận tiền rồi chia, không cần người bấm. Gọi lại nghiệp vụ của `distribution.service.ts`, **không** tự chia — xem 3.14 | `runDistributionCycle()`, `listDistributionRuns()`, hằng `DISTRIBUTION_JOB_NAME` |
@@ -1096,7 +1103,7 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | File | Cổng / vai trò | Hàm chính |
 |---|---|---|
 | `store/store.port.ts` | `ITxnStore` — giao dịch + audit log | `saveTxn`, `updateTxnStatus`, `listTxns`, `appendAudit`, `listAudit` |
-| `store/order.store.port.ts` | `IOrderStore` — lệnh mua và bán WPT (BE-14: cột `side`, bốn mốc bước quyết toán ghi CÙNG câu lệnh đổi trạng thái theo `ORDER_STATUS_STAMPS`, `settlingAt` ghi khi gắn mã giao dịch; `listOrders` lọc thêm chiều, mã, khoảng ngày) | `createOrder`, `findOrder`, `transitionOrder`, `attachOrderTxHash`, `listOrders`, `summarizeCompleted` (BE-14), `expireOrders` |
+| `store/order.store.port.ts` | `IOrderStore` — lệnh mua và bán WPT (BE-14: chiều + mốc bước; FE-06: tìm gần đúng, offset, đếm cùng bộ lọc và danh sách ví nhà đầu tư cho phân trang thật) | `createOrder`, `findOrder`, `transitionOrder`, `attachOrderTxHash`, `listOrders`, `countOrders`, `listOrderInvestors`, `summarizeCompleted`, `expireOrders` |
 | `store/distribution.store.port.ts` | `IDistributionStore` — kỳ chia + hồ sơ chia. **Đã có nghiệp vụ dùng thật** từ BE-06 (`lib/bank/distribution.service.ts`, xem 4.5) | `openPeriod`, `findPeriod`, `findPeriodByKey`, `listPeriods`, `setPeriodStatus`, `createPayouts`, `markPayout`, `listPayouts` |
 | `store/settlement.store.port.ts` | `ISettlementStore` — đợt tất toán + hồ sơ người nắm giữ | `openRound`, `findRound`, `listRounds`, `setRoundStatus`, `createCases`, `markCase`, `listCases` |
 | `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
@@ -1400,7 +1407,7 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**21 điểm cắm · 13 điểm chặn**, nhóm theo task đang chờ.
+**19 điểm cắm · 13 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
@@ -1408,8 +1415,6 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `BE-05` | cắm | `app/src/lib/store/index.ts:189` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
 | `BE-13` | cắm | `app/src/components/pages/seller-withdraw.tsx:75` | biểu mẫu, hạn mức đọc từ cấu hình, khoá nút khi vượt hạn mức, hộp mã một lần và bảng yêu cầu đã chạy trên dữ liệu tạm — BE-13 chỉ thay thân hàm này bằng lời gọi server action tạo lệnh, kiểm mã và đọc yêu cầu rút |
 | `FE-05` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
-| `FE-06` | cắm | `app/src/app/(ops)/transactions/page.tsx:4` | đường dẫn /transactions, cổng ops:read (cả hai vai vận hành) và mục menu "Giao dịch" đã chạy; executeOrderAction và listOrdersAction cũng đã xong đầu cuối — FE-06 chỉ thay phần thân |
-| `FE-06` | cắm | `app/src/app/actions/purchase.ts:53` | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai TELLER), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:41` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:49` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
 | `FE-07` | cắm | `app/src/app/actions/config.ts:18` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
@@ -1873,7 +1878,8 @@ số lượng, năm điều kiện, tổng giá trị, năm bước quyết toá
 |---|---|
 | `components/pages/investor-trade.tsx` | **Giao dịch token** (`/trade`): ô chọn token, hai thẻ Mua/Bán, ô số lượng kèm dòng nhắc trần, giá chỉ để xem, tổng giá trị dự kiến, khối năm điều kiện, tóm tắt lệnh, thông tin token, hộp thoại đối chiếu lần cuối, theo dõi lệnh vừa gửi |
 | `components/pages/investor-orders.tsx` | **Quản lý lệnh** (`/orders`): bộ lọc mã lệnh, chiều, trạng thái, khoảng ngày (lọc ở máy chủ); bảng tám cột sắp xếp được |
-| `components/pages/investor-order-detail.tsx` | **Chi tiết lệnh** (`/orders/[id]`): thông tin lệnh, tiến trình năm bước, nhật ký kiểm toán của lệnh |
+| `components/pages/investor-order-detail.tsx` | **Chi tiết lệnh** (`/orders/[id]`): lấy dữ liệu trong phạm vi ví rồi dùng `OrderDetailContent` chung với FE-06 |
+| `components/trading/order-detail-content.tsx` | Nội dung chi tiết dùng chung: thông tin, tiến trình năm bước, bốn bút toán và nhật ký kiểm toán |
 | `components/trading/settlement-progress.tsx` | Vẽ `steps` + `settlement` của BE-14, nêu rõ quyết toán là một bước, bốn bút toán |
 | `components/trading/trade-check-block.tsx` | Vẽ năm điều kiện đúng như `previewTrade` trả |
 | `components/trading/gates.ts` | **Logic thuần**: `quantityBlockReason()` (so số gõ với `caps` máy chủ trả), `confirmBlockReason()`, `orderQueryOf()`, `sortOrders()`, `unitPriceOf()`, `isSettled()` (đọc `settlement.outcome`), nhãn đủ bảy trạng thái |
@@ -1943,6 +1949,32 @@ chuyển sang mạng thử (số dư thật nằm trên chuỗi), còn chức n�
 
 ---
 
+## 3.20. Màn Giao dịch của hai vai vận hành (FE-06)
+
+Một màn `/transactions` dùng chung cho GDV và KSV, theo quyền chứ không so tên vai. Header/sidebar
+giữ nguyên khung FE-20; phần nội dung theo IV.3.3/IV.4.3: tiêu đề, bộ lọc một hàng khi đủ rộng, bảng
+toàn hệ thống và phân trang. GDV có nút khớp ở lệnh `PLACED` hoặc `CHECKING`; KSV có thông báo chỉ xem
+và không kết xuất cột hành động.
+
+| Tệp | Vai trò |
+|---|---|
+| `components/pages/ops-transactions.tsx` | Bộ lọc mã/ví/chiều/trạng thái/khoảng ngày, bảng, phân trang, số liệu nguồn cung và hành động khớp; sau khớp tải lại cả bảng lẫn nguồn cung |
+| `lib/bank/ops-transactions.service.ts` + `app/actions/ops.ts` | Guard `ops:read`; lọc, đếm, phân trang; chọn bước hiện tại từ `steps`; cấp cờ hành động từ quyền; chi tiết dùng lại hợp đồng dữ liệu FE-25 |
+| `components/pages/ops-order-detail.tsx` + `components/trading/order-detail-content.tsx` | Route `/transactions/[id]` có guard khu vực riêng nhưng dùng chung toàn bộ phần trình bày chi tiết với `/orders/[id]` |
+| `store/{memory,postgres}.order.store.ts` | Hai bản cùng hỗ trợ tìm gần đúng, `offset`, `countOrders` và `listOrderInvestors`; tổng số và dòng hiện tại không lệch bộ lọc |
+
+**Lưu ý khi phát triển:**
+
+- Giao diện **không suy bước từ `status`**. `toOrderView()` tạo đủ năm bước; service chọn bước hiện tại
+  từ chính mảng đó và trả `currentStep`.
+- Cổng khu vực chưa đủ cho server action: service kiểm lại `ops:read`, `order:read`,
+  `order:read:all`. Vì Người bán có `order:read:all`, thiếu `ops:read` sẽ làm lộ màn vận hành qua POST.
+- Phân trang nằm ở store (`COUNT`, `LIMIT`, `OFFSET`), không lấy một mảng có trần rồi cắt ở component.
+- Hai màn chi tiết dùng chung **phần trình bày**, không dùng chung guard: nhà đầu tư vẫn bị lọc theo ví,
+  hai vai vận hành phải qua `ops:read`.
+
+---
+
 # PHẦN 4. BẢN ĐỒ LUỒNG
 
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
@@ -2000,7 +2032,7 @@ ví của họ, ngoài phạm vi BE-02.
 thể bị bỏ sót — **không** có kiểm quyền nào ở hai tệp transport.
 
 ```
-(FE-25 màn /trade, /orders; FE-06 màn khớp lệnh, chưa xây)
+(FE-25 màn /trade, /orders; FE-06 màn /transactions và /transactions/[id])
    └─ previewTradeAction(), gọi previewPurchase() ──→ app/actions/trade.ts
    └─ placeOrderAction() / executeOrderAction() ──→ app/actions/purchase.ts
                                                      (hoặc app/api/purchase/route.ts)

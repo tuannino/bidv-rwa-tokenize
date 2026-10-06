@@ -50,7 +50,6 @@ export async function placeOrderAction(input: unknown) {
 
 /**
  * @flow purchase:6 | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId
- * @pending FE-06 | đã sẵn đầu cuối ở `executeOrder`: kiểm quyền `order:execute` (vai TELLER), bốn phép đọc trước khi gửi, khoá lạc quan chống gửi hai lần, đọc lại số dư từ chuỗi sau biên nhận
  */
 export async function executeOrderAction(input: unknown) {
   return executeOrder(input);
