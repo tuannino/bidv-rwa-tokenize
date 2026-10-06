@@ -1407,7 +1407,7 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**19 điểm cắm · 13 điểm chặn**, nhóm theo task đang chờ.
+**18 điểm cắm · 13 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
@@ -1428,7 +1428,6 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-08` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:739` | đã sẵn đầu cuối: kiểm quyền `reconcile:read`, đọc bảng `KeeperRun` của công việc chia tự động, tách khoá ghép thành `periodKey` + `runNo` nên màn hình không phải tự bóc chuỗi. FE-08 chỉ cần gọi rồi dựng bảng lịch chạy; `status` `FAILED` kèm `error` khác null là dòng cần người xem, và nhiều dòng cùng `periodKey` với `runNo` tăng dần là một kỳ đang chia nhiều vòng |
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
-| `FE-24` | cắm | `app/src/app/(account)/account/page.tsx:4` | đường dẫn /account, cổng balance:read (cả bốn vai) và mục menu "Thông tin tài khoản" của cả bốn vai đã chạy — FE-24 chỉ thay phần thân trang này |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:344` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `profitPoolBalance` rồi so với mốc `distribution.last_settled_balance`, có chặn ngưỡng tối thiểu và có phát hiện số dư giảm. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào ví lợi nhuận do Indexer đọc được, giữ nguyên bốn nhánh quyết định và nguyên phần chia ở `runDistributionCycle`. Đổi được vì mốc số dư vẫn là thứ chốt "đã xử lý tới đâu", sự kiện chỉ thay việc hỏi định kỳ |
 | `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:384` | thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu" |
 | `SC-02` | chặn | `app/src/lib/ledger/evm.adapter.ts:390` | thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật |
