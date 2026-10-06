@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, can } from '@/lib/rbac';
-import { currentRole } from '@/lib/rbac/session';
+import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
 import { readIssuePriceVnd, readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
 import { formatAmount } from '@/lib/format';
@@ -16,6 +16,11 @@ import { readSupplyMetrics } from './issuance.service';
 import { listOrders, previewPurchase, type OrderView, type PurchasePreviewView } from './purchase.service';
 import { err, ok, type Result } from './result';
 import { chainSchema, previewPurchaseSchema, walletSchema } from './schemas';
+import {
+  findInvestorProfileByWallet,
+  findOwnAccountProfile,
+  type CustomerAccountProfile,
+} from './account-profile.service';
 
 /**
  * PHÉP ĐỌC PHÍA MÁY CHỦ cho hai màn của Nhà đầu tư (FE-25): Giao dịch token và Quản lý lệnh.
@@ -217,20 +222,49 @@ const condition = (
   howToFix: string | null = null,
 ): TradeCondition => ({ key, label: LABELS[key], passed, detail, howToFix: passed ? null : howToFix });
 
-/**
- * Điều kiện "rủi ro" ĐỌC TỪ bộ kiểm số dư của BE-14, không phải hồ sơ khẩu vị rủi ro (hệ thống
- * chưa có). Owner chọn cách này: nó chặn được thật lệnh hỏng (thiếu VNDB, thiếu uỷ quyền, người
- * bán hết hàng hoặc hết tiền mua lại), và cùng một bộ kiểm với lúc đặt và lúc khớp lệnh.
- */
-function riskCondition(preview: PurchasePreviewView): TradeCondition {
+const RISK_LABELS: Record<CustomerAccountProfile['riskRating'], string> = {
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+};
+
+/** Hồ sơ phải còn hiệu lực, AML sạch và không ở hạng rủi ro cao mới được đặt lệnh. */
+function riskCondition(
+  profile: CustomerAccountProfile | null,
+  preview: PurchasePreviewView,
+): TradeCondition {
+  if (!profile) {
+    return condition(
+      'risk',
+      false,
+      'Không tìm thấy hồ sơ rủi ro của ví trong tài khoản đang đăng nhập.',
+      'Liên hệ ngân hàng để liên kết ví với hồ sơ nhà đầu tư.',
+    );
+  }
+  if (profile.amlStatus !== 'CLEARED') {
+    return condition(
+      'risk',
+      false,
+      'Hồ sơ phòng chống rửa tiền đang cần rà soát.',
+      'Hoàn tất rà soát phòng chống rửa tiền tại ngân hàng.',
+    );
+  }
+  if (profile.riskRating === 'HIGH') {
+    return condition(
+      'risk',
+      false,
+      'Hồ sơ đang được xếp hạng rủi ro cao.',
+      'Liên hệ ngân hàng để đánh giá lại hồ sơ rủi ro.',
+    );
+  }
+
   const failed = preview.checks.find((check) => !check.ok);
   if (!failed || failed.ok) {
-    // Bộ kiểm dừng ở phép trượt đầu tiên; không có phép trượt nghĩa là đạt tất cả.
     return condition(
       'risk',
       true,
-      `Đạt ${preview.checks.length} phép kiểm số dư và thanh khoản của lệnh ${preview.side === 'BUY' ? 'mua' : 'bán'}. ` +
-        'Chưa có hồ sơ khẩu vị rủi ro nhà đầu tư nên chưa đối chiếu hồ sơ.',
+      `Hồ sơ rủi ro ${RISK_LABELS[profile.riskRating].toLowerCase()}, AML đạt; ` +
+        `đồng thời đạt ${preview.checks.length} phép kiểm số dư và thanh khoản của lệnh ${preview.side === 'BUY' ? 'mua' : 'bán'}.`,
     );
   }
   return condition('risk', false, failed.reason, failed.howToFix);
@@ -257,8 +291,12 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
     if (!preview.ok) return preview;
 
     const ledger = getLedger(chain);
-    const [role, whitelisted, frozen, settling, spv, projects] = await Promise.all([
-      currentRole(),
+    const role = await currentRole();
+    const actorId = await currentActorId(role);
+    const ownProfile = findOwnAccountProfile(role, actorId);
+    const investorProfile = findInvestorProfileByWallet(investorWallet);
+    const profileBelongsToSession = ownProfile === investorProfile;
+    const [whitelisted, frozen, settling, spv, projects] = await Promise.all([
       ledger.isWhitelisted(investorWallet),
       ledger.isFrozen(investorWallet),
       ledger.isSettlementMode(),
@@ -276,10 +314,14 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
       ),
       condition(
         'identity',
-        whitelisted,
-        whitelisted
-          ? `Ví ${investorWallet} đã định danh (KYC) và nằm trong danh sách được phép.`
-          : `Ví ${investorWallet} chưa định danh (KYC).`,
+        profileBelongsToSession && investorProfile?.identityStatus === 'APPROVED' && whitelisted,
+        !profileBelongsToSession
+          ? 'Ví không thuộc hồ sơ nhà đầu tư đang đăng nhập.'
+          : investorProfile?.identityStatus !== 'APPROVED'
+            ? 'Hồ sơ nhà đầu tư chưa hoàn tất định danh (KYC).'
+            : whitelisted
+              ? `Hồ sơ đã định danh và ví ${investorWallet} nằm trong danh sách được phép.`
+              : `Hồ sơ đã định danh nhưng ví ${investorWallet} chưa nằm trong danh sách được phép.`,
         'Hoàn tất định danh tại ngân hàng để ví được đưa vào danh sách được phép.',
       ),
       condition(
@@ -289,7 +331,7 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
         'Liên hệ ngân hàng để xử lý trạng thái đóng băng của ví.',
       ),
       tokenCondition(project, spv, settling),
-      riskCondition(preview.data),
+      riskCondition(profileBelongsToSession ? investorProfile : null, preview.data),
     ];
 
     return ok({

@@ -216,13 +216,20 @@ describe('ca 3: một điều kiện trước lệnh không đạt thì nút xá
     expect(data.canConfirm).toBe(false);
   });
 
-  it('rủi ro đọc từ bộ kiểm số dư: thiếu uỷ quyền VNDB thì trượt kèm việc cần làm', async () => {
+  it('rủi ro đọc hồ sơ rồi kiểm số dư: thiếu uỷ quyền VNDB thì trượt kèm việc cần làm', async () => {
     await seed(1_000n, 10n * PRICE);
     seedMockLedger({ paymentAllowances: { [ALICE]: 0n } });
     const risk = (await preview('2')).conditions.find((c) => c.key === 'risk');
     expect(risk?.passed).toBe(false);
     expect(risk?.detail).toMatch(/Ủy quyền VNDB không đủ/);
     expect(risk?.howToFix).toBeTruthy();
+  });
+
+  it('rủi ro đạt nêu đúng hạng hồ sơ và trạng thái AML', async () => {
+    await seed(1_000n, 10n * PRICE);
+    const risk = (await preview('2')).conditions.find((c) => c.key === 'risk');
+    expect(risk?.passed).toBe(true);
+    expect(risk?.detail).toMatch(/Hồ sơ rủi ro thấp, AML đạt/);
   });
 
   it('phản hồi kiểm tra của số lượng cũ không mở nút cho số lượng mới', async () => {
