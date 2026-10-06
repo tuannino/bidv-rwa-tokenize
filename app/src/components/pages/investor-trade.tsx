@@ -346,23 +346,19 @@ function TokenInfoCard({ token }: { token: InvestorTokenInfo | null }) {
               </Badge>
             </Row>
             <Row label="Số chưa phân phối" mono>{formatAmount(token.undistributed)}</Row>
-            <Missing label="Tuổi thọ còn lại" reason={token.lifetimeRemaining.reason} />
-            <Missing label="Lợi tức" reason={token.yield.reason} />
-            <Missing label="Phí giao dịch" reason={token.tradingFee.reason} />
+            <Row label="Tuổi thọ còn lại">{token.terms.remainingLifetimeYears} năm</Row>
+            <Row label="Lợi tức mục tiêu">
+              {token.terms.annualYieldPercent.toLocaleString('vi-VN')}%/năm
+            </Row>
+            <Row label="Phí giao dịch">
+              {token.terms.tradingFeePercent === 0
+                ? 'Không tính'
+                : `${token.terms.tradingFeePercent.toLocaleString('vi-VN')}%`}
+            </Row>
           </dl>
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function Missing({ label, reason }: { label: string; reason: string }) {
-  return (
-    <Row label={label}>
-      <span className="text-muted-foreground" title={reason}>
-        Chưa có dữ liệu
-      </span>
-    </Row>
   );
 }
 

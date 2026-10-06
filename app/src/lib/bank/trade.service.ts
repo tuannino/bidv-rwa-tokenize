@@ -6,7 +6,7 @@ import { getLedger } from '@/lib/ledger';
 import { assertCan, can } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
-import { readIssuePriceVnd } from '@/lib/store/config-values';
+import { readIssuePriceVnd, readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
 import { formatAmount } from '@/lib/format';
 import type { OrderSide } from '@/lib/store/order.store.port';
 import type { AuditRecord } from '@/lib/store';
@@ -43,18 +43,6 @@ const tradeContextSchema = z.object({
   wallet: walletSchema,
 });
 
-/**
- * Lý do ba chỉ tiêu chưa có dữ liệu. Owner chọn hiện "Chưa có dữ liệu" thay vì bịa số hoặc thêm
- * tham số nghiệp vụ (xem `docs/CHECKPOINT_FE25.md`).
- */
-const NO_SOURCE = 'Hệ thống chưa có nguồn dữ liệu cho chỉ tiêu này.';
-
-/** Một chỉ tiêu chưa có nguồn: giá trị `null` kèm lý do, để màn hình không phải tự viết câu. */
-export interface MissingTerm {
-  value: null;
-  reason: string;
-}
-
 export interface InvestorTokenInfo {
   tokenSymbol: string;
   projectName: string;
@@ -68,9 +56,7 @@ export interface InvestorTokenInfo {
   tradingOpen: boolean;
   /** Số chưa phân phối (còn trong ví thanh toán người bán). */
   undistributed: string;
-  lifetimeRemaining: MissingTerm;
-  yield: MissingTerm;
-  tradingFee: MissingTerm;
+  terms: TokenTerms;
 }
 
 /** Trần số lượng của một chiều, kèm câu nói rõ giới hạn nào đang ràng buộc. */
@@ -139,18 +125,19 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     assertCan(await currentRole(), 'order:place');
 
     const ledger = getLedger(chain);
-    const [projects, held, vndb, price, issuePrice, settling] = await Promise.all([
+    const [projects, held, vndb, price, issuePrice, terms, settling] = await Promise.all([
       getProjectStore().listProjects({ chain }),
       ledger.balanceOf(wallet),
       ledger.paymentBalanceOf(wallet),
       // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`).
       ledger.quotePurchase(1n),
       readIssuePriceVnd(),
+      readTokenTerms(),
       ledger.isSettlementMode(),
     ]);
 
     const project = projects[0] ?? null;
-    const token = project ? await tokenInfoOf(chain, project, issuePrice, !settling) : null;
+    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, !settling) : null;
     const undistributed = token ? BigInt(token.undistributed) : 0n;
 
     return ok({
@@ -171,10 +158,10 @@ async function tokenInfoOf(
   chain: ChainKey,
   project: ProjectRecord,
   issuePrice: bigint,
+  terms: TokenTerms,
   tradingOpen: boolean,
 ): Promise<InvestorTokenInfo> {
   const metrics = await readSupplyMetrics(chain, project);
-  const missing: MissingTerm = { value: null, reason: NO_SOURCE };
   return {
     tokenSymbol: project.tokenSymbol,
     projectName: project.name,
@@ -183,9 +170,7 @@ async function tokenInfoOf(
     tokenStatus: project.status,
     tradingOpen,
     undistributed: metrics.undistributed,
-    lifetimeRemaining: missing,
-    yield: missing,
-    tradingFee: missing,
+    terms,
   };
 }
 

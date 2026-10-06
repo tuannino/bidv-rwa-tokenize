@@ -3,10 +3,13 @@ import {
   CONFIG_KEYS,
   DEMO_PAYMENT_MINT_MAX_VND,
   DISTRIBUTION_BATCH_SIZE,
+  WPT_ANNUAL_YIELD_PERCENT,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
+  WPT_REMAINING_LIFETIME_YEARS,
   WPT_TOKEN_SYMBOL,
   WPT_TOTAL_SUPPLY,
+  WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import { CONFIG_ROLES, CONFIG_ROLE_NAMES } from '@/lib/rbac/config-role';
 import { ROLES, type Role } from '@/lib/rbac';
@@ -39,7 +42,7 @@ export interface SeedConfigRow {
 }
 
 /**
- * Bốn tham số nạp sẵn vào `SystemConfig` (BE-16 thêm trần một lần nạp VNDB mô phỏng).
+ * Bảy tham số nạp sẵn vào `SystemConfig` (FE-24 thêm ba điều khoản token).
  *
  * Nạp sẵn thay vì để bảng trống và dựa vào giá trị mặc định trong mã: có dòng thật thì màn hình
  * cấu hình của FE-07 hiện được "ai đặt, lúc nào" ngay từ đầu, và đường đọc cơ sở dữ liệu được
@@ -60,6 +63,21 @@ export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
     key: CONFIG_KEYS.priceChangeThreshold,
     // `number` vì đây là hệ số so sánh, không phải số tiền — không cần dải uint256.
     value: String(WPT_PRICE_CHANGE_THRESHOLD),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.remainingLifetimeYears,
+    value: String(WPT_REMAINING_LIFETIME_YEARS),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.annualYieldPercent,
+    value: String(WPT_ANNUAL_YIELD_PERCENT),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.tradingFeePercent,
+    value: String(WPT_TRADING_FEE_PERCENT),
     type: 'number',
   },
   {

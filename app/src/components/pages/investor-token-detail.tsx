@@ -15,6 +15,7 @@ import {
   type WindProject,
 } from '@/lib/mock-data';
 import { MockBadge, OnChainBadge } from '@/components/investor/mock-badge';
+import type { TokenTerms } from '@/lib/store/config-values';
 
 /**
  * Trang CHI TIẾT DỰ ÁN TOKEN.
@@ -37,7 +38,7 @@ const nfBig = (value: string) => {
   }
 };
 
-export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
+export function InvestorTokenDetailPage({ project, terms }: { project: WindProject; terms: TokenTerms }) {
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
 
@@ -166,6 +167,13 @@ export function InvestorTokenDetailPage({ project }: { project: WindProject }) {
             <dl className="space-y-2.5 text-sm">
               <Row label="Ký hiệu">
                 <span className="font-mono font-semibold">{project.tokenSymbol}</span>
+              </Row>
+              <Row label="Tuổi thọ còn lại">{terms.remainingLifetimeYears} năm</Row>
+              <Row label="Lợi tức mục tiêu">{nfNum(terms.annualYieldPercent, 1)}%/năm</Row>
+              <Row label="Phí giao dịch">
+                {terms.tradingFeePercent === 0
+                  ? 'Không tính'
+                  : `${nfNum(terms.tradingFeePercent, 2)}%`}
               </Row>
 
               {project.onChain && fresh?.data ? (

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CONFIG_KEYS } from '@/lib/config/issue-terms';
+import {
+  CONFIG_KEYS,
+  WPT_ANNUAL_YIELD_PERCENT,
+  WPT_REMAINING_LIFETIME_YEARS,
+  WPT_TRADING_FEE_PERCENT,
+} from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { computeWithdrawLimit, quoteWithdraw } from '@/lib/bank/withdraw-limit';
@@ -122,6 +127,11 @@ describe('ca 1 — Tổng quan đủ sáu khối, số liệu lấy từ nghiệ
     expect(token.circulating).toBe('300');
     expect(token.tradingOpen).toBe(true);
     expect(token.tokenStatus).toBe('ISSUED');
+    expect(token.terms).toEqual({
+      remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
+      annualYieldPercent: WPT_ANNUAL_YIELD_PERCENT,
+      tradingFeePercent: WPT_TRADING_FEE_PERCENT,
+    });
 
     // khối 5, 6 — ví: chưa cấu hình hạn mức thì không tự đặt
     expect(view.spvWallet?.toLowerCase()).toBe(SPV.toLowerCase());

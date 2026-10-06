@@ -8,6 +8,8 @@ import {
   readIssuePriceVnd,
   readSellerWithdrawFee,
   readSellerWithdrawPolicy,
+  readTokenTerms,
+  type TokenTerms,
 } from '@/lib/store/config-values';
 import { ORDER_STATUSES, type OrderRecord, type OrderStatus } from '@/lib/store/order.store.port';
 import type { ProjectStatus } from '@/lib/store/project.store.port';
@@ -46,6 +48,7 @@ export interface SellerTokenRow extends SupplyMetrics {
   tokenStatus: ProjectStatus;
   /** `false` khi chuỗi đang ở chế độ tất toán: ngừng bán. */
   tradingOpen: boolean;
+  terms: TokenTerms;
 }
 
 export interface SellerOverviewView {
@@ -89,11 +92,12 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
     await authorize('seller:read', null, chain);
 
     const ledger = getLedger(chain);
-    const [spvWallet, projects, issuePrice, tradingPaused, profitPool, policy, fee, daily] =
+    const [spvWallet, projects, issuePrice, terms, tradingPaused, profitPool, policy, fee, daily] =
       await Promise.all([
         ledger.spvWallet(),
         getProjectStore().listProjects({ chain }),
         readIssuePriceVnd(),
+        readTokenTerms(),
         ledger.isSettlementMode(),
         ledger.profitPoolBalance(),
         readSellerWithdrawPolicy(),
@@ -109,6 +113,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
         issuePriceVnd: issuePrice.toString(),
         tokenStatus: project.status,
         tradingOpen: !tradingPaused,
+        terms,
         ...(await readSupplyMetrics(chain, project)),
       })),
     );

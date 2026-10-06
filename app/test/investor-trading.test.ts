@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
+import {
+  WPT_ANNUAL_YIELD_PERCENT,
+  WPT_ISSUE_PRICE_VND,
+  WPT_REMAINING_LIFETIME_YEARS,
+  WPT_TRADING_FEE_PERCENT,
+} from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { formatAmount } from '@/lib/format';
 import { resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
@@ -148,6 +153,11 @@ describe('ca 1: nhập quá trần mua thì ô số lượng tự chặn và hi�
     expect(ctx.caps.BUY.max).toBe('5');
     expect(ctx.caps.BUY.reason).toMatch(/số dư/);
     expect(ctx.priceVnd).toBe(PRICE.toString());
+    expect(ctx.token?.terms).toEqual({
+      remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
+      annualYieldPercent: WPT_ANNUAL_YIELD_PERCENT,
+      tradingFeePercent: WPT_TRADING_FEE_PERCENT,
+    });
 
     expect(quantityBlockReason('6', 'BUY', ctx.caps)).toMatch(/Vượt trần.*số dư/);
     expect(quantityBlockReason('5', 'BUY', ctx.caps)).toBeNull();
