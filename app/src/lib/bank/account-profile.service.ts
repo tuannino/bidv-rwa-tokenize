@@ -108,23 +108,29 @@ const SAMPLE_ACCOUNT_PROFILES: readonly AccountProfileView[] = [
   },
 ];
 
+const profileSessionKey = (role: Role, actorId: string) => `${role}:${actorId}`;
+
+const PROFILES_BY_SESSION = new Map(
+  SAMPLE_ACCOUNT_PROFILES.map((profile) => [
+    profileSessionKey(profile.role, profile.actorId),
+    profile,
+  ]),
+);
+
+const INVESTOR_PROFILES = SAMPLE_ACCOUNT_PROFILES.filter(
+  (profile): profile is CustomerAccountProfile =>
+    profile.kind === 'CUSTOMER' && profile.customerType === 'INDIVIDUAL',
+);
+
 /** Chỉ khớp khi CẢ mã người dùng và vai trong phiên cùng thuộc một hồ sơ. */
 export function findOwnAccountProfile(role: Role, actorId: string): AccountProfileView | null {
-  return SAMPLE_ACCOUNT_PROFILES.find(
-    (profile) => profile.role === role && profile.actorId === actorId,
-  ) ?? null;
+  return PROFILES_BY_SESSION.get(profileSessionKey(role, actorId)) ?? null;
 }
 
 /** Tra hồ sơ nhà đầu tư theo ví để khối kiểm tra trước lệnh đọc KYC và khẩu vị rủi ro. */
 export function findInvestorProfileByWallet(wallet: string): CustomerAccountProfile | null {
   const normalized = wallet.toLowerCase();
-  const profile = SAMPLE_ACCOUNT_PROFILES.find(
-    (candidate) =>
-      candidate.kind === 'CUSTOMER' &&
-      candidate.role === 'INVESTOR' &&
-      candidate.wallet.toLowerCase() === normalized,
-  );
-  return profile?.kind === 'CUSTOMER' ? profile : null;
+  return INVESTOR_PROFILES.find((profile) => profile.wallet.toLowerCase() === normalized) ?? null;
 }
 
 /**

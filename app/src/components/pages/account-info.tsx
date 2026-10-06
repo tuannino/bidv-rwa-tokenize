@@ -90,7 +90,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
                   {IDENTITY_LABELS[customer.identityStatus]}
                 </Badge>
               </Field>
-              <Field label={customer.role === 'SELLER' ? 'Ví thanh toán' : 'Địa chỉ ví'} wide>
+              <Field label={customer.customerType === 'ORGANIZATION' ? 'Ví thanh toán' : 'Địa chỉ ví'} wide>
                 <span className="break-all font-mono text-xs">{customer.wallet}</span>
               </Field>
             </Section>
