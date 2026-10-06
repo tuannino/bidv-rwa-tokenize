@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CONFIG_KEYS, WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
+import {
+  CONFIG_KEYS,
+  WPT_ANNUAL_YIELD_PERCENT,
+  WPT_ISSUE_PRICE_VND,
+  WPT_REMAINING_LIFETIME_YEARS,
+  WPT_TRADING_FEE_PERCENT,
+} from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getConfigStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
@@ -480,5 +486,73 @@ describe('ledger mô phỏng nạp giá từ cấu hình', () => {
     expect(view.priceVnd).toBe(String(WPT_ISSUE_PRICE_VND));
     expect(view.updatedBy).toBeNull();
     expect(view.updatedAt).toBeNull();
+  });
+});
+
+// ===========================================================================
+//  FE-24 — ba điều khoản token dùng chung
+// ===========================================================================
+describe('FE-24 — ba điều khoản token đọc từ một nguồn cấu hình', () => {
+  it('dữ liệu khởi tạo khớp các mặc định đã chốt', async () => {
+    const { readTokenTerms } = await import('@/lib/store/config-values');
+
+    await expect(readTokenTerms()).resolves.toEqual({
+      remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
+      annualYieldPercent: WPT_ANNUAL_YIELD_PERCENT,
+      tradingFeePercent: WPT_TRADING_FEE_PERCENT,
+    });
+  });
+
+  it('đổi ba khóa cấu hình thì lần đọc tiếp theo nhận đủ ba giá trị mới', async () => {
+    const store = getConfigStore();
+    await Promise.all([
+      store.setConfig({
+        key: CONFIG_KEYS.remainingLifetimeYears,
+        value: '9',
+        type: 'number',
+        changedBy: 'TELLER',
+      }),
+      store.setConfig({
+        key: CONFIG_KEYS.annualYieldPercent,
+        value: '7.25',
+        type: 'number',
+        changedBy: 'TELLER',
+      }),
+      store.setConfig({
+        key: CONFIG_KEYS.tradingFeePercent,
+        value: '0.75',
+        type: 'number',
+        changedBy: 'TELLER',
+      }),
+    ]);
+
+    const { readTokenTerms } = await import('@/lib/store/config-values');
+    await expect(readTokenTerms()).resolves.toEqual({
+      remainingLifetimeYears: 9,
+      annualYieldPercent: 7.25,
+      tradingFeePercent: 0.75,
+    });
+  });
+
+  it('một giá trị hỏng chỉ lùi riêng chỉ tiêu đó về mặc định', async () => {
+    const store = getConfigStore();
+    await store.setConfig({
+      key: CONFIG_KEYS.remainingLifetimeYears,
+      value: '0',
+      type: 'number',
+      changedBy: 'TELLER',
+    });
+    await store.setConfig({
+      key: CONFIG_KEYS.annualYieldPercent,
+      value: '6.4',
+      type: 'number',
+      changedBy: 'TELLER',
+    });
+
+    const { readTokenTerms } = await import('@/lib/store/config-values');
+    await expect(readTokenTerms()).resolves.toMatchObject({
+      remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
+      annualYieldPercent: 6.4,
+    });
   });
 });

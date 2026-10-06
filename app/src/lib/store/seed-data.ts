@@ -1,12 +1,15 @@
-import { DEFAULT_CHAIN, type ChainKey } from '@bidv/shared';
+import type { ChainKey } from '@bidv/shared';
 import {
   CONFIG_KEYS,
   DEMO_PAYMENT_MINT_MAX_VND,
   DISTRIBUTION_BATCH_SIZE,
+  WPT_ANNUAL_YIELD_PERCENT,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
+  WPT_REMAINING_LIFETIME_YEARS,
   WPT_TOKEN_SYMBOL,
   WPT_TOTAL_SUPPLY,
+  WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import { CONFIG_ROLES, CONFIG_ROLE_NAMES } from '@/lib/rbac/config-role';
 import { ROLES, type Role } from '@/lib/rbac';
@@ -39,7 +42,7 @@ export interface SeedConfigRow {
 }
 
 /**
- * Bốn tham số nạp sẵn vào `SystemConfig` (BE-16 thêm trần một lần nạp VNDB mô phỏng).
+ * Bảy tham số nạp sẵn vào `SystemConfig` (FE-24 thêm ba điều khoản token).
  *
  * Nạp sẵn thay vì để bảng trống và dựa vào giá trị mặc định trong mã: có dòng thật thì màn hình
  * cấu hình của FE-07 hiện được "ai đặt, lúc nào" ngay từ đầu, và đường đọc cơ sở dữ liệu được
@@ -60,6 +63,21 @@ export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
     key: CONFIG_KEYS.priceChangeThreshold,
     // `number` vì đây là hệ số so sánh, không phải số tiền — không cần dải uint256.
     value: String(WPT_PRICE_CHANGE_THRESHOLD),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.remainingLifetimeYears,
+    value: String(WPT_REMAINING_LIFETIME_YEARS),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.annualYieldPercent,
+    value: String(WPT_ANNUAL_YIELD_PERCENT),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.tradingFeePercent,
+    value: String(WPT_TRADING_FEE_PERCENT),
     type: 'number',
   },
   {
@@ -92,18 +110,17 @@ const SEED_PROJECT_NAME = 'Dự án điện gió Bạc Liêu';
  *
  * HAI chuỗi, không phải một, và đây là điểm dễ làm sai nhất của dữ liệu khởi tạo. Bảng `Project`
  * duy nhất theo `(tokenSymbol, chain)` vì mỗi chuỗi có trạng thái phát hành riêng, nên một dòng
- * duy nhất trên `DEFAULT_CHAIN` sẽ làm `issueInitialSupply` từ chối với lý do "chưa có dự án" ở
+ * duy nhất trên chain mặc định sẽ làm `issueInitialSupply` từ chối với lý do "chưa có dự án" ở
  * MỌI chuỗi khác — trong khi dự án rõ ràng có.
  *
- * Hệ quả cụ thể nếu chỉ nạp `DEFAULT_CHAIN` (= `hardhat-local`): bản demo free-tier chạy ở `mock`
- * không phát hành được gì, tức là luồng chính của BE-04 chết ở đúng chế độ triển khai mặc định của
- * demo công khai — và chỉ chạy được khi có một hardhat node thường trú, thứ steering đòi tránh.
+ * Nạp cả `mock` và `hardhat-local`: bản demo mặc định chạy ngay không cần node, còn luồng kiểm chứng
+ * EVM cục bộ vẫn có dự án riêng khi bật Hardhat.
  *
  * `evm` KHÔNG nằm trong danh sách: đó là testnet công khai, nơi dự án phải được deploy thật kèm
  * địa chỉ hợp đồng. Nạp sẵn một dòng `DRAFT` ở đó là mời gọi phát hành lên testnet bằng dữ liệu
  * dựng sẵn mà chưa ai kiểm.
  */
-export const SEED_PROJECT_CHAINS: readonly ChainKey[] = ['mock', DEFAULT_CHAIN];
+export const SEED_PROJECT_CHAINS: readonly ChainKey[] = ['mock', 'hardhat-local'];
 
 /**
  * Dự án điện gió của PoC trên từng chuỗi được nạp sẵn, trạng thái `DRAFT` (chưa phát hành).

@@ -78,6 +78,15 @@ export const WPT_TOTAL_SUPPLY = 20_000_000;
  */
 export const WPT_PRICE_CHANGE_THRESHOLD = 2;
 
+/** Tuổi thọ kinh tế còn lại của dự án tại thời điểm phát hành, đơn vị năm. */
+export const WPT_REMAINING_LIFETIME_YEARS = 15;
+
+/** Lợi tức mục tiêu theo năm, đơn vị phần trăm. Đây là điều khoản, không phải cam kết lợi nhuận. */
+export const WPT_ANNUAL_YIELD_PERCENT = 5.8;
+
+/** Phí giao dịch WPT, đơn vị phần trăm giá trị lệnh. Bản trình diễn hiện không thu phí. */
+export const WPT_TRADING_FEE_PERCENT = 0;
+
 /**
  * Khoá của từng tham số trong bảng `SystemConfig`.
  *
@@ -88,6 +97,9 @@ export const WPT_PRICE_CHANGE_THRESHOLD = 2;
 export const CONFIG_KEYS = {
   issuePriceVnd: 'wpt.issue_price_vnd',
   priceChangeThreshold: 'wpt.price_change_threshold',
+  remainingLifetimeYears: 'wpt.remaining_lifetime_years',
+  annualYieldPercent: 'wpt.annual_yield_percent',
+  tradingFeePercent: 'wpt.trading_fee_percent',
   distributionBatchSize: 'distribution.batch_size',
   distributionDustWallet: 'distribution.dust_wallet',
 

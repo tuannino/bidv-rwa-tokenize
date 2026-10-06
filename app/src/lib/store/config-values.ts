@@ -9,8 +9,11 @@ import {
   DISTRIBUTION_MAX_BATCHES_PER_RUN_MAX,
   DISTRIBUTION_MIN_NEW_BALANCE,
   DISTRIBUTION_STUCK_AFTER_RUNS,
+  WPT_ANNUAL_YIELD_PERCENT,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
+  WPT_REMAINING_LIFETIME_YEARS,
+  WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import type { WithdrawPolicy } from '@/lib/bank/withdraw-limit';
 import { getConfigStore } from './index';
@@ -49,6 +52,40 @@ export async function readPriceChangeThreshold(): Promise<number> {
   // dữ liệu hỏng không được làm sập cả chức năng đổi giá, nhưng cũng không được làm mất lớp bảo
   // vệ (`NaN` trong phép so sánh luôn cho `false`, tức là ngưỡng biến mất mà không ai thấy).
   return Number.isFinite(parsed) && parsed > 1 ? parsed : WPT_PRICE_CHANGE_THRESHOLD;
+}
+
+export interface TokenTerms {
+  remainingLifetimeYears: number;
+  annualYieldPercent: number;
+  tradingFeePercent: number;
+}
+
+/**
+ * Ba điều khoản token dùng chung cho màn giao dịch, tổng quan Người bán và chi tiết token.
+ * Mỗi giá trị hỏng lùi riêng về mặc định để một dòng cấu hình lỗi không làm mất hai dòng đúng.
+ */
+export async function readTokenTerms(): Promise<TokenTerms> {
+  const store = getConfigStore();
+  const [lifetime, annualYield, tradingFee] = await Promise.all([
+    store.getConfig(CONFIG_KEYS.remainingLifetimeYears),
+    store.getConfig(CONFIG_KEYS.annualYieldPercent),
+    store.getConfig(CONFIG_KEYS.tradingFeePercent),
+  ]);
+
+  const lifetimeValue = Number(lifetime?.value);
+  const yieldValue = Number(annualYield?.value);
+  const feeValue = Number(tradingFee?.value);
+
+  return {
+    remainingLifetimeYears:
+      Number.isInteger(lifetimeValue) && lifetimeValue > 0
+        ? lifetimeValue
+        : WPT_REMAINING_LIFETIME_YEARS,
+    annualYieldPercent:
+      Number.isFinite(yieldValue) && yieldValue >= 0 ? yieldValue : WPT_ANNUAL_YIELD_PERCENT,
+    tradingFeePercent:
+      Number.isFinite(feeValue) && feeValue >= 0 ? feeValue : WPT_TRADING_FEE_PERCENT,
+  };
 }
 
 /**

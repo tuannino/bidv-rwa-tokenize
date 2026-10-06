@@ -40,7 +40,7 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
 
       {/* Right side */}
       <div className="flex items-center gap-3">
-        {/* Chọn chain: hardhat-local | mock | evm | stellar (KHÔNG Polygon) */}
+        {/* Chọn chain: mock | hardhat-local | evm | stellar (KHÔNG Polygon) */}
         <ChainSelector />
 
         {/*

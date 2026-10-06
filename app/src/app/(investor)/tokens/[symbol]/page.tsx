@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { AppLayout } from '@/components/layout/app-layout';
 import { InvestorTokenDetailPage } from '@/components/pages/investor-token-detail';
 import { findProjectBySymbol } from '@/lib/mock-data';
+import { readTokenTerms } from '@/lib/store/config-values';
 
 /**
  * `/tokens/[symbol]` — chi tiết một dự án đã token hoá.
@@ -21,6 +22,7 @@ export default async function TokenDetailRoute({
 
   // Mã không tồn tại -> trang không tìm thấy của Next, không để lỗi kỹ thuật lộ ra.
   if (!project) notFound();
+  const terms = await readTokenTerms();
 
   return (
     <AppLayout
@@ -30,7 +32,7 @@ export default async function TokenDetailRoute({
         { label: project.tokenSymbol },
       ]}
     >
-      <InvestorTokenDetailPage project={project} />
+      <InvestorTokenDetailPage project={project} terms={terms} />
     </AppLayout>
   );
 }

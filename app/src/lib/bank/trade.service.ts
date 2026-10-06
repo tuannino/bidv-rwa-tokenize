@@ -4,9 +4,9 @@ import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, can } from '@/lib/rbac';
-import { currentRole } from '@/lib/rbac/session';
+import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
-import { readIssuePriceVnd } from '@/lib/store/config-values';
+import { readIssuePriceVnd, readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
 import { formatAmount } from '@/lib/format';
 import type { OrderSide } from '@/lib/store/order.store.port';
 import type { AuditRecord } from '@/lib/store';
@@ -16,6 +16,11 @@ import { readSupplyMetrics } from './issuance.service';
 import { listOrders, previewPurchase, type OrderView, type PurchasePreviewView } from './purchase.service';
 import { err, ok, type Result } from './result';
 import { chainSchema, previewPurchaseSchema, walletSchema } from './schemas';
+import {
+  findInvestorProfileByWallet,
+  findOwnAccountProfile,
+  type CustomerAccountProfile,
+} from './account-profile.service';
 
 /**
  * PHÉP ĐỌC PHÍA MÁY CHỦ cho hai màn của Nhà đầu tư (FE-25): Giao dịch token và Quản lý lệnh.
@@ -43,18 +48,6 @@ const tradeContextSchema = z.object({
   wallet: walletSchema,
 });
 
-/**
- * Lý do ba chỉ tiêu chưa có dữ liệu. Owner chọn hiện "Chưa có dữ liệu" thay vì bịa số hoặc thêm
- * tham số nghiệp vụ (xem `docs/CHECKPOINT_FE25.md`).
- */
-const NO_SOURCE = 'Hệ thống chưa có nguồn dữ liệu cho chỉ tiêu này.';
-
-/** Một chỉ tiêu chưa có nguồn: giá trị `null` kèm lý do, để màn hình không phải tự viết câu. */
-export interface MissingTerm {
-  value: null;
-  reason: string;
-}
-
 export interface InvestorTokenInfo {
   tokenSymbol: string;
   projectName: string;
@@ -68,9 +61,7 @@ export interface InvestorTokenInfo {
   tradingOpen: boolean;
   /** Số chưa phân phối (còn trong ví thanh toán người bán). */
   undistributed: string;
-  lifetimeRemaining: MissingTerm;
-  yield: MissingTerm;
-  tradingFee: MissingTerm;
+  terms: TokenTerms;
 }
 
 /** Trần số lượng của một chiều, kèm câu nói rõ giới hạn nào đang ràng buộc. */
@@ -139,18 +130,19 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     assertCan(await currentRole(), 'order:place');
 
     const ledger = getLedger(chain);
-    const [projects, held, vndb, price, issuePrice, settling] = await Promise.all([
+    const [projects, held, vndb, price, issuePrice, terms, settling] = await Promise.all([
       getProjectStore().listProjects({ chain }),
       ledger.balanceOf(wallet),
       ledger.paymentBalanceOf(wallet),
       // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`).
       ledger.quotePurchase(1n),
       readIssuePriceVnd(),
+      readTokenTerms(),
       ledger.isSettlementMode(),
     ]);
 
     const project = projects[0] ?? null;
-    const token = project ? await tokenInfoOf(chain, project, issuePrice, !settling) : null;
+    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, !settling) : null;
     const undistributed = token ? BigInt(token.undistributed) : 0n;
 
     return ok({
@@ -171,10 +163,10 @@ async function tokenInfoOf(
   chain: ChainKey,
   project: ProjectRecord,
   issuePrice: bigint,
+  terms: TokenTerms,
   tradingOpen: boolean,
 ): Promise<InvestorTokenInfo> {
   const metrics = await readSupplyMetrics(chain, project);
-  const missing: MissingTerm = { value: null, reason: NO_SOURCE };
   return {
     tokenSymbol: project.tokenSymbol,
     projectName: project.name,
@@ -183,9 +175,7 @@ async function tokenInfoOf(
     tokenStatus: project.status,
     tradingOpen,
     undistributed: metrics.undistributed,
-    lifetimeRemaining: missing,
-    yield: missing,
-    tradingFee: missing,
+    terms,
   };
 }
 
@@ -232,20 +222,49 @@ const condition = (
   howToFix: string | null = null,
 ): TradeCondition => ({ key, label: LABELS[key], passed, detail, howToFix: passed ? null : howToFix });
 
-/**
- * Điều kiện "rủi ro" ĐỌC TỪ bộ kiểm số dư của BE-14, không phải hồ sơ khẩu vị rủi ro (hệ thống
- * chưa có). Owner chọn cách này: nó chặn được thật lệnh hỏng (thiếu VNDB, thiếu uỷ quyền, người
- * bán hết hàng hoặc hết tiền mua lại), và cùng một bộ kiểm với lúc đặt và lúc khớp lệnh.
- */
-function riskCondition(preview: PurchasePreviewView): TradeCondition {
+const RISK_LABELS: Record<CustomerAccountProfile['riskRating'], string> = {
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+};
+
+/** Hồ sơ phải còn hiệu lực, AML sạch và không ở hạng rủi ro cao mới được đặt lệnh. */
+function riskCondition(
+  profile: CustomerAccountProfile | null,
+  preview: PurchasePreviewView,
+): TradeCondition {
+  if (!profile) {
+    return condition(
+      'risk',
+      false,
+      'Không tìm thấy hồ sơ rủi ro của ví trong tài khoản đang đăng nhập.',
+      'Liên hệ ngân hàng để liên kết ví với hồ sơ nhà đầu tư.',
+    );
+  }
+  if (profile.amlStatus !== 'CLEARED') {
+    return condition(
+      'risk',
+      false,
+      'Hồ sơ phòng chống rửa tiền đang cần rà soát.',
+      'Hoàn tất rà soát phòng chống rửa tiền tại ngân hàng.',
+    );
+  }
+  if (profile.riskRating === 'HIGH') {
+    return condition(
+      'risk',
+      false,
+      'Hồ sơ đang được xếp hạng rủi ro cao.',
+      'Liên hệ ngân hàng để đánh giá lại hồ sơ rủi ro.',
+    );
+  }
+
   const failed = preview.checks.find((check) => !check.ok);
   if (!failed || failed.ok) {
-    // Bộ kiểm dừng ở phép trượt đầu tiên; không có phép trượt nghĩa là đạt tất cả.
     return condition(
       'risk',
       true,
-      `Đạt ${preview.checks.length} phép kiểm số dư và thanh khoản của lệnh ${preview.side === 'BUY' ? 'mua' : 'bán'}. ` +
-        'Chưa có hồ sơ khẩu vị rủi ro nhà đầu tư nên chưa đối chiếu hồ sơ.',
+      `Hồ sơ rủi ro ${RISK_LABELS[profile.riskRating].toLowerCase()}, AML đạt; ` +
+        `đồng thời đạt ${preview.checks.length} phép kiểm số dư và thanh khoản của lệnh ${preview.side === 'BUY' ? 'mua' : 'bán'}.`,
     );
   }
   return condition('risk', false, failed.reason, failed.howToFix);
@@ -272,8 +291,12 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
     if (!preview.ok) return preview;
 
     const ledger = getLedger(chain);
-    const [role, whitelisted, frozen, settling, spv, projects] = await Promise.all([
-      currentRole(),
+    const role = await currentRole();
+    const actorId = await currentActorId(role);
+    const ownProfile = findOwnAccountProfile(role, actorId);
+    const investorProfile = findInvestorProfileByWallet(investorWallet);
+    const profileBelongsToSession = ownProfile === investorProfile;
+    const [whitelisted, frozen, settling, spv, projects] = await Promise.all([
       ledger.isWhitelisted(investorWallet),
       ledger.isFrozen(investorWallet),
       ledger.isSettlementMode(),
@@ -291,10 +314,14 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
       ),
       condition(
         'identity',
-        whitelisted,
-        whitelisted
-          ? `Ví ${investorWallet} đã định danh (KYC) và nằm trong danh sách được phép.`
-          : `Ví ${investorWallet} chưa định danh (KYC).`,
+        profileBelongsToSession && investorProfile?.identityStatus === 'APPROVED' && whitelisted,
+        !profileBelongsToSession
+          ? 'Ví không thuộc hồ sơ nhà đầu tư đang đăng nhập.'
+          : investorProfile?.identityStatus !== 'APPROVED'
+            ? 'Hồ sơ nhà đầu tư chưa hoàn tất định danh (KYC).'
+            : whitelisted
+              ? `Hồ sơ đã định danh và ví ${investorWallet} nằm trong danh sách được phép.`
+              : `Hồ sơ đã định danh nhưng ví ${investorWallet} chưa nằm trong danh sách được phép.`,
         'Hoàn tất định danh tại ngân hàng để ví được đưa vào danh sách được phép.',
       ),
       condition(
@@ -304,7 +331,7 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
         'Liên hệ ngân hàng để xử lý trạng thái đóng băng của ví.',
       ),
       tokenCondition(project, spv, settling),
-      riskCondition(preview.data),
+      riskCondition(profileBelongsToSession ? investorProfile : null, preview.data),
     ];
 
     return ok({

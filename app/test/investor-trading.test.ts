@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
+import {
+  WPT_ANNUAL_YIELD_PERCENT,
+  WPT_ISSUE_PRICE_VND,
+  WPT_REMAINING_LIFETIME_YEARS,
+  WPT_TRADING_FEE_PERCENT,
+} from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { formatAmount } from '@/lib/format';
 import { resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
@@ -148,6 +153,11 @@ describe('ca 1: nhập quá trần mua thì ô số lượng tự chặn và hi�
     expect(ctx.caps.BUY.max).toBe('5');
     expect(ctx.caps.BUY.reason).toMatch(/số dư/);
     expect(ctx.priceVnd).toBe(PRICE.toString());
+    expect(ctx.token?.terms).toEqual({
+      remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
+      annualYieldPercent: WPT_ANNUAL_YIELD_PERCENT,
+      tradingFeePercent: WPT_TRADING_FEE_PERCENT,
+    });
 
     expect(quantityBlockReason('6', 'BUY', ctx.caps)).toMatch(/Vượt trần.*số dư/);
     expect(quantityBlockReason('5', 'BUY', ctx.caps)).toBeNull();
@@ -206,13 +216,20 @@ describe('ca 3: một điều kiện trước lệnh không đạt thì nút xá
     expect(data.canConfirm).toBe(false);
   });
 
-  it('rủi ro đọc từ bộ kiểm số dư: thiếu uỷ quyền VNDB thì trượt kèm việc cần làm', async () => {
+  it('rủi ro đọc hồ sơ rồi kiểm số dư: thiếu uỷ quyền VNDB thì trượt kèm việc cần làm', async () => {
     await seed(1_000n, 10n * PRICE);
     seedMockLedger({ paymentAllowances: { [ALICE]: 0n } });
     const risk = (await preview('2')).conditions.find((c) => c.key === 'risk');
     expect(risk?.passed).toBe(false);
     expect(risk?.detail).toMatch(/Ủy quyền VNDB không đủ/);
     expect(risk?.howToFix).toBeTruthy();
+  });
+
+  it('rủi ro đạt nêu đúng hạng hồ sơ và trạng thái AML', async () => {
+    await seed(1_000n, 10n * PRICE);
+    const risk = (await preview('2')).conditions.find((c) => c.key === 'risk');
+    expect(risk?.passed).toBe(true);
+    expect(risk?.detail).toMatch(/Hồ sơ rủi ro thấp, AML đạt/);
   });
 
   it('phản hồi kiểm tra của số lượng cũ không mở nút cho số lượng mới', async () => {

@@ -178,6 +178,16 @@ export function SellerOverviewPage() {
                   <dd className="font-mono">{nf(token.cap)}</dd>
                   <dt className="text-muted-foreground">Giá phát hành</dt>
                   <dd className="font-mono">{nf(token.issuePriceVnd)} VNDB</dd>
+                  <dt className="text-muted-foreground">Tuổi thọ còn lại</dt>
+                  <dd>{token.terms.remainingLifetimeYears} năm</dd>
+                  <dt className="text-muted-foreground">Lợi tức mục tiêu</dt>
+                  <dd>{token.terms.annualYieldPercent.toLocaleString('vi-VN')}%/năm</dd>
+                  <dt className="text-muted-foreground">Phí giao dịch</dt>
+                  <dd>
+                    {token.terms.tradingFeePercent === 0
+                      ? 'Không tính'
+                      : `${token.terms.tradingFeePercent.toLocaleString('vi-VN')}%`}
+                  </dd>
                   <dt className="text-muted-foreground">Trạng thái token</dt>
                   <dd>{TOKEN_STATUS_LABELS[token.tokenStatus]}</dd>
                   <dt className="text-muted-foreground">Trạng thái giao dịch</dt>

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Phiên bản | 2.0 (bám repo thực tế `tuannino/bidv-rwa-tokenize`) |
-| Ngày | 2026-09-06 |
+| Phiên bản | 2.1 (bám repo thực tế `tuannino/bidv-rwa-tokenize`) |
+| Ngày | 2026-10-06 |
 | Owner | Sếp (BIDV) · Executor | Kiro · Supervisor | Claude |
 | **Ưu tiên tuyệt đối** | Ra được **demo luồng MINT** sớm nhất, trên codebase hiện có |
 
@@ -11,7 +11,7 @@
 
 ## 1. Quyết định đã chốt (locked)
 1. **Chủ đề tài sản = RWA ĐIỆN GIÓ**, đồng bộ toàn repo theo bộ contract đã có (`ProjectToken`/WPT, `VNDToken`/VNDB, `ProfitDistributor`, `EnergyOracle`, `Redemption`). Bỏ khung vàng/BĐS/carbon ở frontend cũ.
-2. **Chọn chain trên giao diện** (dropdown), thứ tự ưu tiên: **`hardhat-local` (mặc định) → `evm` (testnet EVM, vd Sepolia) → `stellar` (sau)**. **BỎ Polygon** hoàn toàn.
+2. **Chọn chain trên giao diện** (dropdown), thứ tự ưu tiên: **`mock` (mặc định) → `hardhat-local` → `evm` (testnet EVM, vd Sepolia) → `stellar` (sau)**. **BỎ Polygon** hoàn toàn.
 3. **Mọi tích hợp có toggle mock|real** (KYC, Oracle, Core Bank, thậm chí cả ledger có `mock`), mặc định bật mock để **không phải setup kỹ thuật nhiều ở lần đầu** → mục tiêu mint sớm.
 4. **Token cho demo = `ProjectToken`** (bản rút gọn, đã pass test). Kit **T-REX** để dành cho bản production sau.
 5. **Backend = Next.js full-stack** (API routes / server actions), KHÔNG dựng NestJS riêng. Triển khai bằng **Docker Compose**.
