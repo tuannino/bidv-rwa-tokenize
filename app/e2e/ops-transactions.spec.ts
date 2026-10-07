@@ -21,7 +21,7 @@ async function post(page: Page, path: string, body: object) {
   return result;
 }
 
-test('FE-06 — Giao dịch viên xử lý, Kiểm soát viên chỉ xem, hai vai khách hàng bị chặn', async ({
+test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không cần ví', async ({
   page,
   context,
   baseURL,
@@ -125,6 +125,19 @@ test('FE-06 — Giao dịch viên xử lý, Kiểm soát viên chỉ xem, hai va
   const ownRow = page.getByRole('row').filter({ hasText: orderId!.slice(0, 8) });
   await expect(ownRow).toContainText('Hoàn tất');
 
+  // OP-02 ca 6: link Chi tiết dùng đúng ví hồ sơ trên Mock, không cần extension.
+  await ownRow.getByRole('link', { name: 'Chi tiết' }).click();
+  await expect(page.getByRole('heading', { name: `Lệnh mua ${orderId!.slice(0, 8)}` })).toBeVisible();
+  await expect(page.getByText(ALICE, { exact: true })).toBeVisible();
+  await expect(page.getByText('Kết cục: cả bốn bút toán đã ghi.')).toBeVisible();
+  await expect(page.getByText('Chưa kết nối ví', { exact: true })).toHaveCount(0);
+
+  // OP-02 ca 7: số dư đã đọc qua service, không chỉ render tiêu đề thẻ vị thế.
+  await page.goto('/tokens/WPT');
+  await expect(page.getByText('Đang giữ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Giá trị theo giá phát hành', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Kết nối ví ở góc trên phải/)).toHaveCount(0);
+
   // Chiều bán đi qua cùng UI: Nhà đầu tư bán 1 WPT, GDV khớp, số chưa phân phối tăng lại 1.
   await page.goto('/trade');
   await page.getByRole('tab', { name: 'Bán' }).click();
@@ -195,4 +208,20 @@ test('FE-06 — Giao dịch viên xử lý, Kiểm soát viên chỉ xem, hai va
   await actAs(context, baseURL!, 'SELLER');
   await page.goto('/transactions');
   await expect(page.getByRole('heading', { name: /Không có quyền vào kênh/ })).toBeVisible();
+});
+
+test('OP-02 — hai màn chi tiết vẫn mời kết nối ví trên chain thật', async ({ page, context, baseURL }) => {
+  await actAs(context, baseURL!, 'INVESTOR');
+  for (const path of ['/orders/00000000-0000-0000-0000-000000000001', '/tokens/WPT']) {
+    await page.goto(path);
+    // Chờ hydration trước khi đổi chain, giống khuôn các test chọn kênh.
+    await expect(page.locator('button[title^="Chuyển sang"]')).toBeVisible();
+    await page.locator('#chain-selector').selectOption('hardhat-local');
+    if (path.startsWith('/orders/')) {
+      await expect(page.getByText('Chưa kết nối ví', { exact: true })).toBeVisible();
+    } else {
+      await expect(page.getByText(/Kết nối ví ở góc trên phải/)).toBeVisible();
+      await expect(page.getByText('Đang giữ', { exact: true })).toHaveCount(0);
+    }
+  }
 });

@@ -38,11 +38,12 @@ const nfBig = (value: string) => {
   }
 };
 
-export function InvestorTokenDetailPage({ project, terms }: { project: WindProject; terms: TokenTerms }) {
+export function InvestorTokenDetailPage({ project, terms, mockWallet }: { project: WindProject; terms: TokenTerms; mockWallet: string | null }) {
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
+  const wallet = chain === 'mock' ? mockWallet : address;
 
-  const requestKey = `${chain}|${address ?? ''}`;
+  const requestKey = `${chain}|${wallet ?? ''}`;
   const [loaded, setLoaded] = useState<{
     key: string;
     data: PortfolioView | null;
@@ -51,11 +52,11 @@ export function InvestorTokenDetailPage({ project, terms }: { project: WindProje
 
   useEffect(() => {
     // Chỉ đọc chain cho dự án đã triển khai token; dự án mẫu không có gì để đọc.
-    if (!project.onChain || !address) return;
+    if (!project.onChain || !wallet) return;
 
     let cancelled = false;
 
-    void getPortfolioAction({ chain, wallet: address }).then((result) => {
+    void getPortfolioAction({ chain, wallet }).then((result) => {
       if (cancelled) return;
       setLoaded(
         result.ok
@@ -67,7 +68,7 @@ export function InvestorTokenDetailPage({ project, terms }: { project: WindProje
     return () => {
       cancelled = true;
     };
-  }, [requestKey, address, chain, project.onChain]);
+  }, [requestKey, wallet, chain, project.onChain]);
 
   const fresh = loaded?.key === requestKey ? loaded : null;
 
@@ -219,7 +220,7 @@ export function InvestorTokenDetailPage({ project, terms }: { project: WindProje
                 Chưa có token trên chuỗi nên chưa có vị thế. Phần này sẽ có số liệu khi dự án
                 được phát hành.
               </p>
-            ) : !isConnected || !address ? (
+            ) : !wallet || (chain !== 'mock' && !isConnected) ? (
               <p className="py-6 text-sm text-muted-foreground">
                 Kết nối ví ở góc trên phải để xem số lượng {project.tokenSymbol} bạn đang giữ.
               </p>

@@ -15,16 +15,17 @@ import { OrderDetailContent } from '@/components/trading/order-detail-content';
  * Phạm vi xem do `getOrderDetailAction` quyết định (đi qua `listOrders`, lọc theo ví ở máy chủ): dò
  * mã lệnh của ví khác nhận "không tìm thấy", không nhận lệnh đó.
  */
-export function InvestorOrderDetailPage({ orderId }: { orderId: string }) {
+export function InvestorOrderDetailPage({ orderId, mockWallet }: { orderId: string; mockWallet: string | null }) {
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
+  const wallet = chain === 'mock' ? mockWallet : address;
   const [loaded, setLoaded] = useState<{ key: string; data: OrderDetailView | null; error: string | null } | null>(null);
 
-  const requestKey = address ? `${chain}|${address}|${orderId}` : null;
+  const requestKey = wallet ? `${chain}|${wallet}|${orderId}` : null;
   useEffect(() => {
-    if (!requestKey || !address) return;
+    if (!requestKey || !wallet) return;
     let cancelled = false;
-    void getOrderDetailAction({ chain, investorWallet: address, orderId }).then((result) => {
+    void getOrderDetailAction({ chain, investorWallet: wallet, orderId }).then((result) => {
       if (cancelled) return;
       setLoaded(
         result.ok
@@ -35,9 +36,9 @@ export function InvestorOrderDetailPage({ orderId }: { orderId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [requestKey, chain, address, orderId]);
+  }, [requestKey, chain, wallet, orderId]);
 
-  if (!isConnected || !address) {
+  if (!wallet || (chain !== 'mock' && !isConnected)) {
     return (
       <div className="flex flex-col items-center gap-2 py-16 text-center">
         <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
