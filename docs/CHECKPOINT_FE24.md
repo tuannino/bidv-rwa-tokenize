@@ -44,7 +44,12 @@ vào checkpoint/đề xuất task tiếp theo, không kéo FE-08 hay FE-23 vào 
 | `7b9c9f4` | Thêm hồ sơ bốn vai, nối KYC/rủi ro vào pre-trade |
 | `2d1b9c8` | Thay placeholder `/account` bằng màn chỉ đọc bốn vai |
 | `5ef399b` | Thêm E2E tài khoản bốn vai |
-| (cuối) | Báo cáo công nghệ 3.4, checkpoint, trạng thái và kết quả kiểm cuối |
+| `a08bdd4` | Báo cáo công nghệ 3.4, checkpoint, trạng thái và kết quả kiểm FE-24 |
+| `f169eaa` | Đổi thứ tự chain thành Mock → Hardhat → EVM → Stellar |
+| `bcb56a6` | Đồng bộ mặc định PoC, vai phiên và cờ nạp VNDB |
+| `d45b596` | Hoàn thiện demo mock không cần ví, E2E và `docs/guide.md` |
+| `8ac53a3` | Khóa bằng test việc nạp VNDB được bật khi không khai báo cờ PoC |
+| (bổ sung cuối) | Hai spec SC-02/SC-03, checkpoint và kết quả kiểm cuối |
 
 ```
 $ git diff --stat origin/dev...HEAD | tail -1   # trước commit cuối
@@ -217,3 +222,110 @@ Cổng kiến trúc còn các cảnh báo không chặn:
 
 Không có thay đổi hành vi source sau lượt đầy đủ cuối; chỉ cập nhật checkpoint, báo cáo và trạng thái
 task. Playwright đầy đủ đã chạy riêng ngay trước đó: **52/52 ca xanh trong 39,1 giây**.
+
+## 8. Bổ sung bàn giao demo theo chỉ đạo Owner ngày 2026-10-07
+
+### 8.1 Mục tiêu và quyết định
+
+Owner yêu cầu giữ luồng demo làm mặc định trên mọi cách chạy local/deploy, sửa trình duyệt sạch bị
+rơi về `SELLER`, viết guide thao tác đã kiểm chứng và đề xuất hai task kế tiếp. Đây là bổ sung trên
+chính nhánh `feat/account-info` theo chỉ đạo tường minh của Owner; không mở nhánh mới dù quy ước
+thông thường là mỗi task một nhánh.
+
+Mặc định sau bổ sung:
+
+| Thành phần | Mặc định PoC | Production phải đặt |
+|---|---|---|
+| Chain | `mock` | chain/RPC theo triển khai |
+| DB | memory (`USE_MOCK_DB=true`) | Postgres và `USE_MOCK_DB=false` |
+| Phiên sạch / env vai cũ không hợp lệ | `TELLER` / `GDV001` | AU-01/session xác thực |
+| Nạp VNDB demo | bật | `ENABLE_DEMO_PAYMENT_MINT=false` |
+| Mint WPT trực tiếp | tắt | tiếp tục tắt |
+
+`FALLBACK_ROLE=SELLER` của bảng quyền **không đổi**: `can()` nhận vai lạ vẫn fail-closed. Chỉ phép
+chọn vai của phiên PoC lùi về vai của `DEFAULT_CHANNEL=teller`, nên một biến cũ như
+`DEMO_ROLE=BANK_ADMIN` không còn biến trình duyệt sạch thành SELLER. Cookie vai hợp lệ do người dùng
+đã chọn vẫn được tôn trọng.
+
+### 8.2 Luồng mock không cần extension ví
+
+Trước bổ sung, `/wallet` nói chain mock không cần ví thật nhưng `/trade` và `/orders` vẫn dừng ở
+“Chưa kết nối ví”. Hai route server nay đọc ví từ hồ sơ của chính phiên NDT001 rồi truyền xuống
+component khi chain là `mock`. Với `hardhat-local` và `evm`, địa chỉ vẫn chỉ lấy từ `useAccount()`;
+không có đường dùng ví mẫu để né connector trên chain thật.
+
+E2E `ops-transactions.spec.ts` nay chạy bằng UI thật thay vì gọi API để đặt lệnh, và bao phủ:
+
+1. whitelist SPV/Nhà đầu tư;
+2. Mint qua maker–checker khi còn trần;
+3. nạp VNDB;
+4. Nhà đầu tư đặt BUY, GDV khớp, KSV chỉ xem, Nhà đầu tư đối chiếu;
+5. Nhà đầu tư đặt SELL, GDV khớp;
+6. Burn phần chưa phân phối qua maker–checker;
+7. hai vai khách hàng bị chặn khỏi màn giao dịch toàn hệ thống.
+
+Ca setup đọc trần còn lại: còn trần thì mint tối đa 100 WPT, đã chạm trần thì dùng nguồn cung sẵn.
+Nhờ vậy test chạy được cả trong full suite sạch và trên server demo đã có dữ liệu.
+
+### 8.3 Hướng dẫn vận hành
+
+`docs/guide.md` là runbook demo chính thức, gồm chạy local, reset memory, hai ví mẫu, whitelist,
+Mint toàn bộ, nạp VNDB, BUY, SELL, Burn, kết quả số dư dự kiến, lỗi thường gặp và cổng production.
+README đã bỏ quảng bá script mint trực tiếp làm luồng chính.
+
+Bằng chứng kiểm trực tiếp trên server local cổng 3000:
+
+```text
+GET / → 200; nội dung có Giao dịch viên/TELLER, không có màn từ chối quyền.
+investor-channel.spec.ts + ops-transactions.spec.ts: 23 ca, phần liên quan guide xanh.
+ops-transactions.spec.ts sau khi mở rộng BUY/SELL/Burn UI: 1 passed (7,6s).
+typecheck + lint: xanh.
+4 tệp Vitest đích: 120/120 test xanh.
+```
+
+### 8.4 Hai spec kế tiếp
+
+- `docs/sc-02-evm-issuance/`: nối ba marker phát hành EVM, ghi SPV/cờ lần đầu trong ProjectToken,
+  khóa mọi Mint chính thức về cùng SPV và nghiệm thu Mint/Burn maker–checker trên Hardhat.
+- `docs/sc-03-evm-order-settlement/`: thêm OrderSettlement nguyên tử cho BUY/SELL, truyền giá đã
+  chốt xuống contract, kiểm đủ allowance và không dùng đặc quyền clawback thay consent.
+
+Cả hai vẫn ở `planned`; spec không tự mở task. Thứ tự đề xuất là **SC-02 → SC-03**. SC-03 ghi rõ
+AU-01/chữ ký lệnh là cổng trước production công khai, không đánh đồng “atomic contract xong” với
+“xác thực người đặt lệnh đã xong”.
+
+### 8.5 Tệp ngoài phạm vi
+
+Hai tệp HTML không theo dõi có sẵn trong worktree vẫn là tài sản của Owner, không bị sửa hay thêm
+vào bất kỳ commit nào:
+
+- `docs/20260922_Z1_luoc_do_code.html`
+- `docs/20260922_Z2_bang_cong_nghe.html`
+
+### 8.6 Kiểm chứng cuối
+
+Sau khi bổ sung mặc định demo và guide, bộ mặc định được chạy lại đầy đủ và có mã thoát 0:
+
+```text
+Đạt: 7
+  PASS  luật kiến trúc (có cảnh báo đã ghi ở mục 7)
+  PASS  marker
+  PASS  checkpoint
+  PASS  contract EVM (67 passing)
+  PASS  typecheck
+  PASS  lint
+  PASS  Vitest (29 tệp, 767 test)
+Không đạt: 0
+```
+
+Để không dừng server cổng 3000 mà Owner đang kiểm tra, build và E2E cuối được chạy trên bản sao sạch
+của đúng `HEAD`, dùng cổng Playwright 3100 và kho memory mới:
+
+```text
+PASS  APP - BUILD BẢN PHÁT HÀNH
+PASS  APP - E2E (PLAYWRIGHT): 53/53 ca, 1,0 phút
+```
+
+E2E cuối bao gồm trình duyệt sạch mặc định vào vai TELLER, thứ tự chain, hồ sơ bốn vai, menu/guard,
+wallet, Mint trực tiếp dành cho dữ liệu thử và luồng vận hành đầy đủ ở mục 8.2. Server cổng 3000 không
+bị dừng hay reset trong quá trình kiểm chứng.

@@ -369,6 +369,8 @@ bidv-rwa-tokenize/
     ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
     ├── guide.md               # ★ Hướng dẫn demo trọn luồng Mint/Burn + mua/bán trên mock
+    ├── sc-02-evm-issuance/    # Spec đề xuất: nối Mint/Burn maker-checker xuống EVM
+    ├── sc-03-evm-order-settlement/ # Spec đề xuất: mua/bán nguyên tử trên EVM
     ├── BRANCH_PROTECTION.md   # ★ Hướng dẫn Owner bật bảo vệ nhánh `dev` (OP-01)
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
