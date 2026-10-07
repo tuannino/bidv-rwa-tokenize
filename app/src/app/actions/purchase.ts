@@ -48,9 +48,6 @@ export async function placeOrderAction(input: unknown) {
   return placeOrder(input);
 }
 
-/**
- * @flow purchase:6 | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId
- */
 export async function executeOrderAction(input: unknown) {
   return executeOrder(input);
 }

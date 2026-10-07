@@ -23,10 +23,10 @@ flowchart TD
   s1["1 · previewPurchaseAction()<br/>app/src/app/actions/purchase.ts<br/>nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào"]
   s2["2 · previewPurchase()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu"]
   s3["3 · placeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase"]
-  s4["4 · placeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán"]
+  s4["4 · placeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu đúng một lệnh rồi tự quyết toán chính…"]
   s5["5 · quotePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh"]
-  s6["6 · executeOrderAction()<br/>app/src/app/actions/purchase.ts<br/>một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có…"]
-  s7["7 · executeOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần"]
+  s6["6 · autoSettleCreatedOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>hệ thống nhận đúng bản ghi vừa tạo và tự quyết toán, không nhận orderId tùy ý"]
+  s7["7 · settleStoredOrder()<br/>app/src/lib/bank/purchase.service.ts<br/>PLACED sang CHECKING, chạy lại bộ kiểm và chiếm EXECUTING chống gửi hai lần"]
   s8["8 · runOrderChecks()<br/>app/src/lib/bank/purchase.service.ts<br/>kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên"]
   s9["9 · sendAndSettle()<br/>app/src/lib/bank/purchase.service.ts<br/>gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED"]
   s10["10 · executePurchase()<br/>app/src/lib/ledger/ledger.port.ts<br/>chuyển VNDB và WPT trong cùng một giao dịch"]
@@ -50,17 +50,17 @@ flowchart TD
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
 | 1 | `app/src/app/actions/purchase.ts:38` | `previewPurchaseAction()` | nhận yêu cầu xem trước điều kiện mua, trước khi có lệnh nào |
-| 2 | `app/src/lib/bank/purchase.service.ts:148` | `previewPurchase()` | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu |
+| 2 | `app/src/lib/bank/purchase.service.ts:152` | `previewPurchase()` | kiểm quyền order:place, báo giá, chạy bộ kiểm, KHÔNG ghi gì vào cơ sở dữ liệu |
 | 3 | `app/src/app/actions/purchase.ts:45` | `placeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu đặt lệnh; đường kia là POST /api/purchase |
-| 4 | `app/src/lib/bank/purchase.service.ts:196` | `placeOrder()` | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán |
+| 4 | `app/src/lib/bank/purchase.service.ts:201` | `placeOrder()` | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu đúng một lệnh rồi tự quyết toán chính lệnh vừa tạo |
 | 5 | `app/src/lib/ledger/ledger.port.ts:115` | `quotePurchase()` | chốt số VNDB phải trả, tính một lần tại lúc đặt lệnh |
-| 6 | `app/src/app/actions/purchase.ts:52` | `executeOrderAction()` | một trong hai đường vận chuyển: nhận yêu cầu khớp lệnh; đường kia là POST /api/purchase có orderId |
-| 7 | `app/src/lib/bank/purchase.service.ts:653` | `executeOrder()` | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần |
-| 8 | `app/src/lib/bank/purchase.service.ts:406` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên |
-| 9 | `app/src/lib/bank/purchase.service.ts:766` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
+| 6 | `app/src/lib/bank/purchase.service.ts:293` | `autoSettleCreatedOrder()` | hệ thống nhận đúng bản ghi vừa tạo và tự quyết toán, không nhận orderId tùy ý |
+| 7 | `app/src/lib/bank/purchase.service.ts:789` | `settleStoredOrder()` | PLACED sang CHECKING, chạy lại bộ kiểm và chiếm EXECUTING chống gửi hai lần |
+| 8 | `app/src/lib/bank/purchase.service.ts:480` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên |
+| 9 | `app/src/lib/bank/purchase.service.ts:960` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
 | 10 | `app/src/lib/ledger/ledger.port.ts:165` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
-| 11 | `app/src/app/actions/purchase.ts:59` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
-| 12 | `app/src/lib/bank/purchase.service.ts:904` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
+| 11 | `app/src/app/actions/purchase.ts:56` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
+| 12 | `app/src/lib/bank/purchase.service.ts:1102` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
 
 ## Điểm cắm trên đường đi
 

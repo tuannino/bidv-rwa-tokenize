@@ -289,6 +289,8 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
  * do của nó là sự thật cần trả cho nhà đầu tư cũng như giữ lại cho vận hành can thiệp. Vì thế
  * mọi kết quả lỗi của thân quyết toán được đổi thành kết quả thành công chứa ảnh chụp mới nhất
  * của lệnh; lỗi nghiệp vụ vẫn nhìn thấy ở `status` và `reason`.
+ *
+ * @flow purchase:6 | hệ thống nhận đúng bản ghi vừa tạo và tự quyết toán, không nhận orderId tùy ý
  */
 async function autoSettleCreatedOrder(
   order: OrderRecord,
@@ -867,7 +869,6 @@ async function settleStoredOrder(
  * Txn thường đã tồn tại; nếu tiến trình cũ chết giữa lúc gắn mã vào lệnh và ghi sổ Txn thì
  * đường can thiệp dựng lại dấu vết từ chính mã đó.
  *
- * @flow purchase:9 | can thiệp lệnh EXECUTING có mã: chỉ chờ biên nhận và chốt, không phát lại
  */
 async function reconcileExecutingOrder(
   order: OrderRecord,

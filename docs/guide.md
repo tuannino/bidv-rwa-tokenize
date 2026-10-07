@@ -1,8 +1,9 @@
 # Hướng dẫn demo trọn luồng BIDV RWA Tokenize
 
 Tài liệu này dùng cho bản PoC hiện tại, với cấu hình mặc định **Mock → Giao dịch viên → memory
-DB**. Luồng chính thức luôn đi qua **Giao dịch viên lập lệnh → Kiểm soát viên duyệt**; không dùng
-nút phát hành WPT trực tiếp hay `scripts/demo-mint.mjs`.
+DB**. Luồng Mint/Burn chính thức luôn đi qua **Giao dịch viên lập lệnh → Kiểm soát viên duyệt**;
+không dùng nút phát hành WPT trực tiếp hay `scripts/demo-mint.mjs`. Lệnh mua/bán của Nhà đầu tư
+được hệ thống tự quyết toán; Giao dịch viên chỉ can thiệp khi lệnh bị kẹt.
 
 ## 1. Chạy bản demo
 
@@ -97,7 +98,7 @@ GDV không vào được màn phê duyệt và KSV không vào được màn l�
 Trên chain mock, lần nạp này đồng thời chuẩn bị mức ủy quyền cần cho lệnh mua. Đây là tiền mô phỏng,
 không có tiền gửi thật đứng sau. Production bắt buộc đặt `ENABLE_DEMO_PAYMENT_MINT=false`.
 
-## 5. Nhà đầu tư đặt mua và GDV khớp lệnh
+## 5. Nhà đầu tư đặt mua và hệ thống tự quyết toán
 
 ### 5.1 Nhà đầu tư đặt lệnh mua
 
@@ -107,20 +108,29 @@ không có tiền gửi thật đứng sau. Production bắt buộc đặt `ENAB
 3. Chọn tab **Mua**, nhập **Số lượng** `2`.
 4. Chờ năm điều kiện trong **Kiểm tra trước lệnh** đều đạt. Tổng dự kiến phải là `200.000 VNDB`.
 5. Bấm **Xác nhận lệnh mua**, đối chiếu hộp **Đối chiếu lệnh lần cuối**, rồi bấm **Gửi lệnh**.
-6. Ở khối **Lệnh mua vừa gửi**, ghi lại mã lệnh (có thể bấm **Xem chi tiết**). Trạng thái lúc này
-   là **Đã đặt** và đang chờ ngân hàng khớp.
+6. Ở khối **Lệnh mua vừa gửi**, ghi lại mã lệnh (có thể bấm **Xem chi tiết**). Trên Mock, kết quả
+   đúng xuất hiện ngay trong chính lần gửi: **Hoàn tất**, có **Mã giao dịch mô phỏng** và đủ năm
+   bước quyết toán. Không cần đổi vai hay bấm thêm nút nào.
 
-### 5.2 Giao dịch viên khớp lệnh mua
+### 5.2 Giao dịch viên theo dõi và chỉ can thiệp lệnh kẹt
 
 1. Đổi về **Giao dịch viên · GDV001** → mở **Giao dịch** (`/transactions`).
 2. Tìm theo tám ký tự đầu mã lệnh hoặc chọn Nhà đầu tư tương ứng.
-3. Kiểm tra chiều **Mua**, `2 WPT`, `200.000 VNDB`, trạng thái **Đã đặt**.
-4. Bấm **Khớp lệnh** và chờ thông báo thành công; dòng chuyển sang **Hoàn tất**.
-5. Bấm mã lệnh để xem **Tiến trình quyết toán** năm bước và mã giao dịch mô phỏng.
+3. Kiểm tra chiều **Mua**, `2 WPT`, `200.000 VNDB`, trạng thái **Hoàn tất**. Dòng hoàn tất không
+   có nút hành động.
+4. Bấm mã lệnh để xem **Tiến trình quyết toán** năm bước và mã giao dịch mô phỏng.
 
-Sau khi khớp: NDT001 có `2 WPT` và `800.000 VNDB`; số WPT chưa phân phối giảm còn `19.999.998`.
+Sau khi tự quyết toán: NDT001 có `2 WPT` và `800.000 VNDB`; số WPT chưa phân phối giảm còn
+`19.999.998`.
 Đổi sang **Kiểm soát viên** và mở cùng trang để trình diễn chế độ chỉ đọc: KSV thấy toàn bộ lệnh
-nhưng không có nút **Khớp lệnh**.
+nhưng không có hành động can thiệp.
+
+Chỉ khi tiến trình bị gián đoạn, cột **Hành động** mới đổi theo tình trạng an toàn:
+
+- **Đang kiểm tra**: nút **Tiếp tục quyết toán** chạy lại bộ kiểm rồi mới được phát giao dịch.
+- **Đang xử lý** và đã có mã giao dịch: nút **Đối soát giao dịch** chỉ đọc biên nhận, không phát lại.
+- **Đang xử lý** nhưng chưa có mã giao dịch: hiện **Cần đối soát tay** và không có nút phát lại,
+  vì giao dịch có thể đã lên chuỗi trước khi tiến trình mất kết nối.
 
 ### 5.3 Nhà đầu tư đối chiếu lệnh của mình
 
@@ -134,9 +144,10 @@ nhưng không có nút **Khớp lệnh**.
 1. Vẫn ở **Nhà đầu tư**, mở **Giao dịch token** và chọn tab **Bán**.
 2. Nhập `1`. Khối kiểm tra phải đạt vì Nhà đầu tư đang giữ `2 WPT` và ví SPV đã nhận `200.000 VNDB`
    từ lệnh mua.
-3. Bấm **Xác nhận lệnh bán** → **Gửi lệnh**; ghi mã lệnh mới.
-4. Đổi sang **Giao dịch viên**, mở **Giao dịch**, tìm mã và bấm **Khớp lệnh**.
-5. Đổi lại **Nhà đầu tư**, mở **Quản lý lệnh** và xác nhận lệnh bán **Hoàn tất**.
+3. Bấm **Xác nhận lệnh bán** → **Gửi lệnh**; ghi mã lệnh mới. Khối lệnh vừa gửi phải hiện
+   **Hoàn tất** và mã giao dịch ngay, giống chiều mua.
+4. Mở **Quản lý lệnh** và xác nhận lệnh bán **Hoàn tất**. Có thể đổi sang Giao dịch viên để đối
+   chiếu cùng lệnh ở màn **Giao dịch**, nhưng không cần bấm hành động nào.
 
 Sau hai lệnh: NDT001 có `1 WPT` và `900.000 VNDB`; chưa phân phối là `19.999.999 WPT`. Số VNDB
 còn lại ở SPV là `100.000`, đủ phản ánh dòng tiền ròng của một WPT còn lưu hành.
@@ -172,6 +183,7 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | Không thấy **Nạp VNDB (trình diễn)** | Server production-like đã đặt `ENABLE_DEMO_PAYMENT_MINT=false`, hoặc vai không phải TELLER. Bản PoC từ `.env.example` đặt `true`. |
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
+| Lệnh ở **Đang xử lý** nhưng không có mã giao dịch | Không bấm hay gọi lại đường phát giao dịch. Giao dịch có thể đã lên chuỗi; màn Vận hành sẽ hiện **Cần đối soát tay**. |
 | Hai trình duyệt thấy dữ liệu khác nhau sau deploy serverless | Memory DB/mock ledger gắn với từng tiến trình. Demo nhiều người ổn định phải dùng một instance hoặc Postgres/chain dùng chung. |
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
