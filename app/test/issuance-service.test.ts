@@ -462,11 +462,10 @@ describe('mintToInvestorDirect — đường dữ liệu thử (trước FE-22 g
   /**
    * Phát hành nguồn cung thì KHÔNG đòi khoá ký trên chuỗi `mock`.
    *
-   * Khác ca trên là có chủ đích: `mock` không ký gì cả, nên `actorAddress` để `null` thay vì làm cả
-   * lượt phát hành thất bại. Ca này giữ cho ai đó không "dọn" nhánh bắt lỗi ở `signerAddressOrNull`
-   * và vô tình làm luồng chính chết ở chế độ demo mặc định.
+   * OP-02: `mock` không ký gì cả; signer trả địa chỉ cố định làm nhãn audit thay vì thiếu khóa
+   * rồi để `actorAddress` null. Luồng phát hành vẫn chạy mà không cần private key.
    */
-  it('phát hành nguồn cung không cần khoá ký trên mock, actorAddress để null', async () => {
+  it('phát hành nguồn cung không cần khoá ký trên mock, actorAddress là nhãn mô phỏng', async () => {
     const { issueInitialSupply } = await services();
     await whitelistSpv();
 
@@ -475,7 +474,7 @@ describe('mintToInvestorDirect — đường dữ liệu thử (trước FE-22 g
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
     const txns = await getStore().listTxns({ chain: CHAIN });
     const issued = txns.find((txn) => txn.operation === 'mintInitialSupply');
-    expect(issued?.actorAddress).toBeNull();
+    expect(issued?.actorAddress).toBe('0x0000000000000000000000000000000000000001');
   });
 
   it('`mintTokens` không còn là một export — tên cũ đã được đổi hẳn', async () => {

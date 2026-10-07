@@ -107,7 +107,7 @@ không có tiền gửi thật đứng sau. Production bắt buộc đặt `ENAB
 3. Chọn tab **Mua**, nhập **Số lượng** `2`.
 4. Chờ năm điều kiện trong **Kiểm tra trước lệnh** đều đạt. Tổng dự kiến phải là `200.000 VNDB`.
 5. Bấm **Xác nhận lệnh mua**, đối chiếu hộp **Đối chiếu lệnh lần cuối**, rồi bấm **Gửi lệnh**.
-6. Ở khối **Lệnh mua vừa gửi**, ghi lại mã lệnh (có thể bấm **Xem chi tiết**). Trạng thái lúc này
+6. Ở khối **Lệnh mua vừa gửi**, ghi lại mã lệnh. Trạng thái lúc này
    là **Đã đặt** và đang chờ ngân hàng khớp.
 
 ### 5.2 Giao dịch viên khớp lệnh mua
@@ -126,7 +126,12 @@ nhưng không có nút **Khớp lệnh**.
 
 1. Đổi sang **Nhà đầu tư · NDT001** → **Quản lý lệnh** (`/orders`).
 2. Dòng vừa tạo phải có chiều **Mua** và trạng thái **Hoàn tất**.
-3. Bấm **Chi tiết** để đối chiếu tiến trình, mã giao dịch và số dư sau giao dịch.
+3. Mở lại **Giao dịch token** để đối chiếu số dư `2 WPT` và `800.000 VNDB` ở khối **Tóm tắt lệnh**.
+
+**Hạn chế hiện tại ở Mock:** nút **Chi tiết** trong Quản lý lệnh và **Xem chi tiết** sau khi gửi
+lệnh vẫn mở màn đòi kết nối ví trình duyệt, chưa dùng ví hồ sơ NDT001. Khi demo không có MetaMask,
+đối chiếu tiến trình và mã giao dịch bằng vai Giao dịch viên ở mục 5.2, số dư bằng mục 5.3 bước 3.
+Đây là lỗi màn hình có sẵn được ghi nhận trong checkpoint OP-02, chưa sửa trong phạm vi task này.
 
 ## 6. Luồng bán WPT ngược lại cho SPV
 
@@ -172,7 +177,6 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Hai trình duyệt thấy dữ liệu khác nhau sau deploy serverless | Memory DB/mock ledger gắn với từng tiến trình. Demo nhiều người ổn định phải dùng một instance hoặc Postgres/chain dùng chung. |
-
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
 ## 9. Chuyển sang môi trường thật

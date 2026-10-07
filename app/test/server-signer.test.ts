@@ -32,6 +32,7 @@ describe('OP-02 — chỉ mock được chạy khi không có khóa ký', () => 
     const signer = getBankSigner('mock');
     const account = await signer.getAccount();
     expect(account.type).toBe('json-rpc');
+    expect(account.address).toBe('0x0000000000000000000000000000000000000001');
     expect(await signer.getAddress()).toBe(account.address);
     expect(await getBankSigner('mock').getAccount()).toEqual(account);
   });
