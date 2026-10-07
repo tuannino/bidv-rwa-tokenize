@@ -551,9 +551,9 @@ afterEach(() => {
 });
 
 describe('demo:mint-payment — cờ trước, quyền sau', () => {
-  it('KHÔNG đặt cờ thì mặc định TẮT, TELLER cũng bị từ chối (R3.2, R3.3)', () => {
+  it('KHÔNG đặt cờ thì bản PoC mặc định BẬT cho TELLER', () => {
     setFlag(undefined);
-    expect(canMintDemoPayment('TELLER')).toBe(false);
+    expect(canMintDemoPayment('TELLER')).toBe(true);
   });
 
   it('cờ đặt false thì TELLER bị từ chối dù CÓ quyền RBAC', () => {
@@ -600,12 +600,12 @@ describe('demo:mint-payment — cờ trước, quyền sau', () => {
     expect(() => assertCanMintDemoPayment('TELLER')).not.toThrow();
   });
 
-  it('nhận các cách viết "bật" thường gặp, còn lại coi là tắt', () => {
-    for (const on of ['true', '1', 'yes', 'on', 'TRUE', ' true ']) {
+  it('nhận các cách viết "bật" thường gặp; rỗng dùng mặc định demo, giá trị khác là tắt', () => {
+    for (const on of ['true', '1', 'yes', 'on', 'TRUE', ' true ', '']) {
       setFlag(on);
       expect(canMintDemoPayment('TELLER'), `"${on}" phải là bật`).toBe(true);
     }
-    for (const off of ['false', '0', 'no', '', 'bat']) {
+    for (const off of ['false', '0', 'no', 'bat']) {
       setFlag(off);
       expect(canMintDemoPayment('TELLER'), `"${off}" phải là tắt`).toBe(false);
     }
@@ -644,7 +644,7 @@ describe('demo:mint-token — cờ trước, quyền sau (cùng khuôn demo:mint
     setTokenFlag(undefined);
     expect(canMintDemoPayment('TELLER')).toBe(true);
     expect(canMintDemoToken('TELLER')).toBe(false);
-    setFlag(undefined);
+    setFlag('false');
     setTokenFlag('true');
     expect(canMintDemoPayment('TELLER')).toBe(false);
     expect(canMintDemoToken('TELLER')).toBe(true);

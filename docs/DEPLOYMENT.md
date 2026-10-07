@@ -58,14 +58,10 @@ KHÔNG được áp dụng trên Workers Builds (log fail không có dòng `[fla
 
 ### Biến môi trường
 
-**BẮT BUỘC cho demo public: `NEXT_PUBLIC_DEFAULT_CHAIN=mock` (đặt ở Build variables).**
-
-Thiếu biến này thì default là `hardhat-local`. `publicConfig()` vẫn coi chain đó
-"chọn được" vì `CHAINS['hardhat-local']` có `defaultRpcUrl`, nên KHÔNG tự lùi về `mock`.
-Kết quả: trang render 200 bình thường nhưng mọi lời gọi ledger trả 502
-`{"ok":false,"code":"LEDGER","error":"HTTP request failed."}` — free-tier không chạy
-hardhat node. Đã kiểm bằng workerd: `/api/token?chain=mock` trả 200,
-`?chain=hardhat-local` trả 502.
+Demo public không cần đặt `NEXT_PUBLIC_DEFAULT_CHAIN`: source mặc định là `mock`. Có thể đặt
+tường minh `NEXT_PUBLIC_DEFAULT_CHAIN=mock` ở Build variables để cấu hình tự mô tả. Chỉ chọn
+`hardhat-local` khi deploy có node Hardhat đi kèm; free-tier không có node đó nên mọi lời gọi ledger
+sẽ trả lỗi kết nối.
 
 Các `USE_MOCK_*` còn lại mặc định `true` nên không cần đặt.
 
@@ -74,11 +70,16 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 | Loại | Đặt ở | Vì sao |
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
-| `USE_MOCK_*`, `DEMO_ROLE`, `RPC_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
+| `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*`, `RPC_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
 | `DATABASE_URL`, `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
 
 Muốn dùng Postgres thật (Supabase/Neon) thì đặt `USE_MOCK_DB=false` + `DATABASE_URL`;
 để nguyên mặc định thì Txn/audit lưu trong bộ nhớ, đủ cho demo theo lượt.
+
+Bản PoC mặc định `DEMO_ROLE=TELLER` và `ENABLE_DEMO_PAYMENT_MINT=true`, nên trình duyệt sạch mở
+thẳng khu vực Vận hành và chạy được luồng nạp VNDB. Trước khi dùng cùng codebase ở production,
+**bắt buộc** đặt `ENABLE_DEMO_PAYMENT_MINT=false` và `ENABLE_DEMO_TOKEN_MINT=false`; vai thật sẽ do
+AU-01/session xác thực thay cho `DEMO_ROLE`.
 
 ### Kiểm trước khi đẩy lên dashboard
 ```bash

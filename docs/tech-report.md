@@ -9,12 +9,12 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 3.4 |
-| Cập nhật lần cuối | 2026-10-06 |
+| Phiên bản tài liệu | 3.5 |
+| Cập nhật lần cuối | 2026-10-07 |
 | Nhánh / commit | `feat/account-info`, nền `dev` @ `08b8e55` (đã có FE-06 qua PR #36) — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách thay đổi ở `docs/CHECKPOINT_FE24.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20) |
-| Đang chờ nghiệm thu | **FE-24** (màn Thông tin tài khoản bốn vai + chỉ tiêu token + hồ sơ rủi ro, xem 3.21, checkpoint `docs/CHECKPOINT_FE24.md`) |
-| Phase kế tiếp | Đề xuất **SC-02 sau khi tái đặc tả theo phát hành nhiều lần của BE-12** để nối Mint/Burn xuống EVM thật; sau đó BE-13 → BE-05 → FE-08/FE-09 → IN-01/IN-02 |
+| Đang chờ nghiệm thu | **FE-24** + bổ sung cấu hình/guide demo trọn luồng (checkpoint `docs/CHECKPOINT_FE24.md`) |
+| Phase kế tiếp | Hai spec đề xuất: **SC-02** nối Mint/Burn maker–checker xuống EVM thật, sau đó **SC-03** nối mua/bán và quyết toán nguyên tử; xem `docs/sc-02-evm-issuance/` và `docs/sc-03-evm-trading/` |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
@@ -162,6 +162,13 @@ nguồn hồ sơ mẫu cho đúng tài khoản phiên, ba khoá cấu hình toke
 kiểm tra trước lệnh. **Không** thêm method `ILedgerPort`, action RBAC, bảng dữ liệu hay phụ thuộc; ba
 luật không bị chạm. Hồ sơ hiện là nguồn mẫu server-only cho PoC; AU-01 thay thân nguồn bằng phiên và
 kho người dùng thật mà giữ nguyên view-model. Xem 3.18 và 3.21.
+
+**3.4 sang 3.5 (bổ sung bàn giao demo).** Đồng bộ mặc định mọi cách chạy về `mock`, vai `TELLER`,
+memory DB và bật nạp VNDB demo; trình duyệt sạch không còn rơi về `SELLER` khi gặp `DEMO_ROLE` cũ
+không hợp lệ. Quy tắc RBAC fail-closed vẫn giữ nguyên: `FALLBACK_ROLE=SELLER` tiếp tục áp dụng cho
+mọi phép `can()` nhận vai lạ; chỉ lựa chọn vai của **phiên PoC** lùi về vai của
+`DEFAULT_CHANNEL=teller`. Đường mint WPT trực tiếp vẫn mặc định tắt để luồng chính luôn đi qua
+Giao dịch viên lập → Kiểm soát viên duyệt. Production phải ghi đè cờ nạp VNDB thành `false`.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -382,11 +389,11 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 
 Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, các cờ `USE_MOCK_*=true`.
 
-Cả hai chế độ đều để `ENABLE_DEMO_PAYMENT_MINT` **tắt**; chỉ bật trên môi trường thử của người phát
-triển. `ENABLE_DEMO_TOKEN_MINT` (FE-22) cũng **tắt** ở free-tier; riêng `docker-compose.yml` đặt
-**bật** vì bản dựng cục bộ đó là môi trường thử (chuỗi hardhat, khoá công khai) và `npm run demo:mint`
-đi đường phát hành trực tiếp. Máy chủ e2e (`playwright.config.ts`) cũng bật, cùng lý do. Danh sách
-đầy đủ các cờ ở **3.6**.
+Bản PoC mặc định `mock` + memory DB + vai `TELLER` và bật `ENABLE_DEMO_PAYMENT_MINT`, nên một bản
+clone/deploy không có biến môi trường vẫn demo được trọn luồng maker–checker và mua token.
+`ENABLE_DEMO_TOKEN_MINT` luôn mặc định **tắt** vì đường này bỏ qua bước duyệt; Docker Compose cũng
+giữ tắt. Máy chủ e2e bật riêng cờ đó để kiểm đường dữ liệu thử. Production bắt buộc ghi đè
+`ENABLE_DEMO_PAYMENT_MINT=false` và thay vai giả lập bằng phiên xác thực. Danh sách đầy đủ ở **3.6**.
 
 **Tiến trình định kỳ (BE-07) không thuộc chế độ chạy nào — nó ở HẠ TẦNG.** Ứng dụng chỉ cung cấp
 `POST /api/keeper/distribution`; việc gọi định kỳ do cron của ngân hàng, Cloudflare Cron Trigger
@@ -993,8 +1000,9 @@ BE-08 khai hai (`order:place`, `order:execute`), BE-02 khai thêm ba. Bảng tr�
 
 ⚠️ **`demo:mint-payment` cần HAI lớp, quyền RBAC một mình KHÔNG đủ.** Bảng quyền là mã nguồn, nên
 chỉ cần ai gán nhầm vai `TELLER` trên môi trường thật là chức năng tự phát hành tiền mở ra. Lớp
-thứ hai là cờ `ENABLE_DEMO_PAYMENT_MINT` (mặc định **tắt**, xem 3.6), nằm ở cấu hình triển khai nên
-hai lớp không cùng hỏng vì một sai sót. Điểm kiểm duy nhất là `demo-payment.ts`, thứ tự **cờ trước,
+thứ hai là cờ `ENABLE_DEMO_PAYMENT_MINT` (bản PoC mặc định **bật**, production phải đặt `false`,
+xem 3.6), nằm ở cấu hình triển khai nên có thể đóng độc lập với bảng quyền. Điểm kiểm duy nhất là
+`demo-payment.ts`, thứ tự **cờ trước,
 quyền sau** — cờ tắt thì từ chối luôn, không đọc vai, nhờ vậy thông báo nói đúng nguyên nhân và
 không có đường nào để vai trò "bù" cho cờ. Đừng gọi `can(role, 'demo:mint-payment')` trực tiếp.
 
@@ -1208,7 +1216,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 |---|:--:|---|
 | `USE_MOCK_KYC`, `USE_MOCK_ORACLE`, `USE_MOCK_COREBANK` | `true` | Dùng provider mock để mint chạy ngay, không cần tích hợp thật |
 | `USE_MOCK_DB` | `true` | `true` = Txn/audit trong RAM (free-tier); `false` = Postgres qua `DATABASE_URL` |
-| `ENABLE_DEMO_PAYMENT_MINT` | **`false`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định — **chỉ môi trường thử** |
+| `ENABLE_DEMO_PAYMENT_MINT` | **`true`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định để demo trọn luồng. Production **bắt buộc** ghi đè `false` |
 | `ENABLE_DEMO_TOKEN_MINT` (FE-22) | **`false`** | Cho phát hành WPT **trực tiếp**, không qua lập–duyệt (màn `/mint`, `POST /api/mint`, `issueInitialSupply`) — **chỉ môi trường thử**. Bật trên môi trường thật là mở lại đường đi vòng qua Kiểm soát viên |
 | `DEMO_ACTOR` (BE-12) | trống | Mã tài khoản giả lập ghi vào người lập / người duyệt. Trống = mã mẫu của vai (`SAMPLE_ACCOUNTS` ở `lib/session/channel.ts`). **Không phải xác thực** — AU-01 thay |
 
@@ -1226,12 +1234,13 @@ với `signerPrivateKeyFor` — nên route handler không bao giờ cầm chuỗ
 bất cẩn ở tầng vận chuyển không in được nó ra nhật ký. Phép so sánh đi hết độ dài chuỗi, không thoát
 ra ở ký tự khác đầu tiên: thời gian trả lời mà phụ thuộc nội dung thì dò dần được cả khoá.
 
-⚠️ **`ENABLE_DEMO_PAYMENT_MINT` mặc định tắt và đó là mặc định duy nhất đúng.** Bật trên môi trường
-thật là cho phép cán bộ ngân hàng tự phát hành tiền, không đối soát nào bắt được. Cờ này **không có**
-biến thể `NEXT_PUBLIC_`: nó phải do người triển khai đặt ở server, không để lộ ra bundle browser như
-một thứ bật được từ phía client. Nó là **lớp chặn thứ hai** bên cạnh quyền `demo:mint-payment`; đọc
-cờ ở đúng một chỗ là `lib/rbac/demo-payment.ts` (xem 3.3), đừng đọc rải rác. Từ BE-16 cờ này mở
-màn **Nạp VNDB** (`/demo-payment`) và mục menu của nó, xem 3.19.
+⚠️ **`ENABLE_DEMO_PAYMENT_MINT` mặc định bật chỉ vì codebase hiện là bản PoC demo.** Bật trên môi
+trường thật là cho phép cán bộ ngân hàng tự phát hành tiền, không đối soát nào bắt được; production
+phải ghi đè `false`. Cờ này **không có** biến thể `NEXT_PUBLIC_`: nó phải do người triển khai đặt ở
+server, không để lộ ra bundle browser như một thứ bật được từ phía client. Nó là **lớp chặn thứ
+hai** bên cạnh quyền `demo:mint-payment`; đọc cờ ở đúng một chỗ là `lib/rbac/demo-payment.ts` (xem
+3.3), đừng đọc rải rác. Từ BE-16 cờ này mở màn **Nạp VNDB** (`/demo-payment`) và mục menu của nó,
+xem 3.19.
 
 Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 

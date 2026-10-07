@@ -70,9 +70,10 @@ services:
       # Chế độ VPS có Postgres thật -> lưu Txn/audit vào DB.
       USE_MOCK_DB: "false"
       DEMO_ROLE: TELLER
-      # Bản dựng cục bộ này là MÔI TRƯỜNG THỬ (chuỗi hardhat, khoá công khai), nên bật đường phát
-      # hành trực tiếp cho dữ liệu thử để `npm run demo:mint` chạy được. Môi trường thật: để false.
-      ENABLE_DEMO_TOKEN_MINT: "true"
+      # Bản PoC bật nạp VNDB để demo mua token; production bắt buộc ghi đè false.
+      ENABLE_DEMO_PAYMENT_MINT: "true"
+      # Mint WPT chính thức phải qua luồng Giao dịch viên lập → Kiểm soát viên duyệt.
+      ENABLE_DEMO_TOKEN_MINT: "false"
     ports:
       - "3000:3000"
 
