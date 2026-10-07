@@ -10,6 +10,7 @@
 const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { deploySpecFixture, whitelist } = require("./helpers/spec-fixture");
+const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("SPEC P4 - Phát hành WPT", function () {
   describe("Whitelist (điều kiện tuân thủ trước khi phát hành)", function () {
@@ -42,69 +43,73 @@ describe("SPEC P4 - Phát hành WPT", function () {
   });
 
   describe("Mint", function () {
-    it("P4-4: mint cho ví đã whitelist làm tăng số dư và tổng cung", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
-      await whitelist(project, admin, [investorA]);
+    it("P4-4: phát hành lần đầu vào SPV đã whitelist làm tăng số dư và tổng cung", async function () {
+      const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
+      await whitelist(project, admin, [spv]);
 
-      await project.connect(admin).mint(investorA.address, 1000);
+      await project.connect(admin).mintInitialSupply(spv.address, 1000);
 
-      expect(await project.balanceOf(investorA.address)).to.equal(1000n);
+      expect(await project.balanceOf(spv.address)).to.equal(1000n);
       expect(await project.totalSupply()).to.equal(1000n);
     });
 
-    it("P4-5: mint cho ví CHƯA whitelist bị chặn (không tạo token)", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
+    it("P4-5: phát hành lần đầu vào SPV CHƯA whitelist bị chặn", async function () {
+      const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
 
       await expect(
-        project.connect(admin).mint(investorA.address, 1000)
+        project.connect(admin).mintInitialSupply(spv.address, 1000)
       ).to.be.revertedWith("phat hanh cho vi chua KYC");
 
       expect(await project.totalSupply()).to.equal(0n);
+      expect(await project.initialSupplyMinted()).to.equal(false);
     });
 
     it("P4-6: ví KHÔNG có MINTER_ROLE không mint được", async function () {
-      const { project, admin, investorA, outsider } = await loadFixture(deploySpecFixture);
-      await whitelist(project, admin, [investorA]);
+      const { project, admin, investorA: spv, outsider } = await loadFixture(deploySpecFixture);
+      await whitelist(project, admin, [spv]);
 
       await expect(
-        project.connect(outsider).mint(investorA.address, 1000)
+        project.connect(outsider).mintInitialSupply(spv.address, 1000)
       ).to.be.reverted;
     });
 
-    it("P4-7: mint 0 không làm đổi tổng cung", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
-      await whitelist(project, admin, [investorA]);
+    it("P4-7: mint 0 sau lần đầu không làm đổi tổng cung", async function () {
+      const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
+      await whitelist(project, admin, [spv]);
+      await project.connect(admin).mintInitialSupply(spv.address, 1000);
 
-      await project.connect(admin).mint(investorA.address, 0);
-      expect(await project.totalSupply()).to.equal(0n);
+      await project.connect(admin).mint(spv.address, 0);
+      expect(await project.totalSupply()).to.equal(1000n);
     });
   });
 
   describe("Đóng băng và tạm dừng (ràng buộc tuân thủ)", function () {
     it("P4-8: ví bị đóng băng không nhận được token phát hành", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
-      await whitelist(project, admin, [investorA]);
-      await project.connect(admin).setFrozen(investorA.address, true);
+      const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
+      await whitelist(project, admin, [spv]);
+      await project.connect(admin).setFrozen(spv.address, true);
 
       await expect(
-        project.connect(admin).mint(investorA.address, 100)
+        project.connect(admin).mintInitialSupply(spv.address, 100)
       ).to.be.revertedWith("ben nhan bi bang");
+      expect(await project.initialSupplyMinted()).to.equal(false);
     });
 
     it("P4-9: khi tạm dừng toàn hệ thì không phát hành được", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
-      await whitelist(project, admin, [investorA]);
+      const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
+      await whitelist(project, admin, [spv]);
       await project.connect(admin).setPaused(true);
 
       await expect(
-        project.connect(admin).mint(investorA.address, 100)
+        project.connect(admin).mintInitialSupply(spv.address, 100)
       ).to.be.revertedWith("token dang tam dung");
+      expect(await project.initialSupplyMinted()).to.equal(false);
     });
 
     it("P4-10: chuyển nhượng đòi CẢ HAI đầu đã whitelist", async function () {
       const { project, admin, investorA, investorB } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA]);
-      await project.connect(admin).mint(investorA.address, 500);
+      await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 500n }]);
 
       // investorB chưa whitelist
       await expect(
@@ -121,7 +126,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
     it("P4-11: AGENT đốt cưỡng chế làm giảm tổng cung", async function () {
       const { project, admin, investorA } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA]);
-      await project.connect(admin).mint(investorA.address, 1000);
+      await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 1000n }]);
 
       await project.connect(admin).agentBurn(investorA.address, 400);
 
@@ -132,7 +137,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
     it("P4-12: forcedTransfer chuyển được kể cả khi bên gửi bị đóng băng", async function () {
       const { project, admin, investorA, investorB } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA, investorB]);
-      await project.connect(admin).mint(investorA.address, 1000);
+      await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 1000n }]);
       await project.connect(admin).setFrozen(investorA.address, true);
 
       await project.connect(admin).forcedTransfer(investorA.address, investorB.address, 300);
@@ -144,7 +149,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
     it("P4-13: forcedTransfer sang ví chưa KYC bị chặn", async function () {
       const { project, admin, investorA, outsider } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA]);
-      await project.connect(admin).mint(investorA.address, 1000);
+      await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 1000n }]);
 
       await expect(
         project.connect(admin).forcedTransfer(investorA.address, outsider.address, 100)

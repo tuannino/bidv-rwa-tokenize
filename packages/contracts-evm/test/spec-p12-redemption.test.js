@@ -10,6 +10,7 @@
 const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { deploySpecFixture, whitelist } = require("./helpers/spec-fixture");
+const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 /** A giữ 100 WPT, kho VNDB của Redemption đã nạp 2.000.000, tỷ giá 10.000. */
 async function readyToRedeem() {
@@ -17,7 +18,7 @@ async function readyToRedeem() {
   const { project, payout, admin, investorA, redemption } = f;
 
   await whitelist(project, admin, [investorA]);
-  await project.connect(admin).mint(investorA.address, 100);
+  await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 100n }]);
 
   // Ngân hàng nạp kho VNDB qua fund() (cần approve trước vì fund dùng transferFrom).
   await payout.connect(admin).mint(admin.address, 2_000_000);
@@ -128,7 +129,7 @@ describe("SPEC P12 - Tất toán WPT sang VNDB", function () {
     it("P12-12: kho VNDB thiếu thì từ chối và KHÔNG đốt WPT", async function () {
       const { redemption, project, payout, admin, investorA } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA]);
-      await project.connect(admin).mint(investorA.address, 100);
+      await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 100n }]);
 
       // Chỉ nạp kho 1.000 VNDB, không đủ cho 100 WPT * 10.000.
       await payout.connect(admin).mint(admin.address, 1_000);
