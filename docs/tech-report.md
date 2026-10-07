@@ -368,6 +368,7 @@ bidv-rwa-tokenize/
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
     ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
+    ├── guide.md               # ★ Hướng dẫn demo trọn luồng Mint/Burn + mua/bán trên mock
     ├── BRANCH_PROTECTION.md   # ★ Hướng dẫn Owner bật bảo vệ nhánh `dev` (OP-01)
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
@@ -1917,8 +1918,10 @@ số lượng, năm điều kiện, tổng giá trị, năm bước quyết toá
   không mở được nút cho số lượng mới. Lời gọi kiểm tra hoãn 400 ms (`PREVIEW_DEBOUNCE_MS`).
 - **Nhật ký kiểm toán của lệnh lọc theo chuỗi chi tiết** trong 500 dòng mới nhất vì `AuditLog` chưa
   có cột mã lệnh (chú thích `ponytail:` ở `trade.service.ts`).
-- **Màn cần ví đã kết nối** (`useAccount`), cùng cách các hộp ở trang Tổng quan nhà đầu tư; ví chỉ có
-  ở client, máy chủ nhận địa chỉ qua tham số và lọc theo ví ở tầng nghiệp vụ.
+- **Chain thật cần ví đã kết nối** (`useAccount`). Riêng chain `mock`, route server đọc ví từ hồ sơ
+  của chính phiên rồi truyền xuống hai màn; vì mock không ký giao dịch nên bản demo mặc định không
+  cần extension. Tầng nghiệp vụ vẫn đối chiếu địa chỉ đó với hồ sơ NDT001 và lọc lệnh theo ví —
+  client không được tự gửi một ví mẫu bất kỳ để vượt phạm vi tài khoản.
 
 **Cách mở rộng:**
 

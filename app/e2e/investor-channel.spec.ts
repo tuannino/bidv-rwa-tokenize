@@ -204,7 +204,7 @@ test.describe('Điều hướng theo vai trò', () => {
     await expect(sidebar.getByRole('link')).toHaveCount(7);
   });
 
-  test('bấm mục Giao dịch token thì mở đúng màn và mời kết nối ví', async ({
+  test('bấm mục Giao dịch token ở mock thì dùng ví hồ sơ, không đòi kết nối ví', async ({
     page,
     context,
     baseURL,
@@ -215,11 +215,25 @@ test.describe('Điều hướng theo vai trò', () => {
     await page.getByRole('complementary').getByRole('link', { name: /Giao dịch token/i }).click();
 
     await expect(page).toHaveURL(/\/trade$/);
-    // Chưa có ví trình duyệt trong Playwright nên màn thật dừng ở cổng kết nối, không render
-    // biểu mẫu Đặt lệnh. Đây là hành vi FE-25, không còn là trang chỗ trống của FE-20.
+    // Chain mock không ký giao dịch nên lấy ví từ đúng hồ sơ NDT001; đây là luồng demo mặc định.
     const main = page.getByRole('main');
-    await expect(main.getByText('Chưa kết nối ví')).toBeVisible();
-    await expect(main.getByRole('link', { name: 'Ví của tôi' })).toHaveAttribute('href', '/wallet');
+    await expect(main.getByText('Đặt lệnh', { exact: true })).toBeVisible();
+    await expect(main.getByRole('note')).toContainText(/Không cần kết nối ví trình duyệt/);
+    await expect(main.getByText('Chưa kết nối ví')).toHaveCount(0);
+  });
+
+  test('Quản lý lệnh ở mock cũng dùng ví hồ sơ mà không cần extension', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await enterInvestorChannel(context, baseURL!);
+    await page.goto('/orders');
+
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { name: 'Quản lý lệnh' })).toBeVisible();
+    await expect(main.getByRole('note')).toContainText(/Không cần kết nối ví trình duyệt/);
+    await expect(main.getByText('Chưa kết nối ví')).toHaveCount(0);
   });
 
   test('số việc đang chờ hiện cạnh hai mục tài liệu chỉ định', async ({

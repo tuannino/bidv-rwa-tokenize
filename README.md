@@ -8,37 +8,31 @@ Nền tảng token hóa dự án điện gió theo góc ngân hàng (BIDV): phá
 
 ```bash
 docker compose up            # chain (hardhat) + db (postgres) + web (Next.js)
-# web   → http://localhost:3000/mint
+# web   → http://localhost:3000
 # chain → http://localhost:8545
 ```
 
 Chain container tự deploy `ProjectToken`/`VNDToken` rồi ghi địa chỉ + ABI sang `packages/shared`.
-Mặc định: chain `hardhat-local`, KYC/Oracle/Core Bank ở chế độ **mock**, Txn/audit lưu **Postgres**.
+Mặc định giao diện: chain `mock`, KYC/Oracle/Core Bank ở chế độ **mock**, Txn/audit lưu **Postgres**.
+Node Hardhat vẫn được dựng để có thể đổi chain từ header khi cần.
 
 ## Chạy nhanh — cách 2: local, không Docker
 
 ```bash
 cp .env.example app/.env.local
 
-# T1: chain
-cd packages/contracts-evm && npm install && npx hardhat node
-# T2: deploy (một lần cho mỗi lần khởi động lại node)
-cd packages/contracts-evm && npx hardhat run scripts/deploy.js --network localhost
-# T3: web
+# Web — mặc định Mock, không cần chain hay Postgres
 cd app && npm install && npm run dev
 ```
 
-Muốn khỏi dựng chain: chọn **Mock** ở dropdown chain trên header (hoặc `NEXT_PUBLIC_DEFAULT_CHAIN=mock`).
+Mở <http://localhost:3000>. Hướng dẫn thao tác trọn luồng Mint/Burn + mua/bán:
+[`docs/guide.md`](docs/guide.md).
 
-## Demo MINT bằng một lệnh
+## Demo chính thức
 
-```bash
-node scripts/demo-mint.mjs                       # chain hardhat-local
-node scripts/demo-mint.mjs --chain mock          # KHÔNG cần chain
-node scripts/demo-mint.mjs --chain mock --amount 250 --wallet 0x...
-```
-
-In ra: KYC → whitelist → mint → **BALANCE**, rồi tự kiểm nghiệm thu (tx CONFIRMED, số dư tăng đúng).
+Mint/Burn chính thức đi qua Giao dịch viên lập lệnh → Kiểm soát viên duyệt. Đường
+`scripts/demo-mint.mjs` chỉ còn để dựng dữ liệu thử và mặc định bị khóa. Dùng
+[`docs/guide.md`](docs/guide.md) để chạy đúng luồng nghiệp vụ.
 
 ## Kiểm thử
 
@@ -55,7 +49,7 @@ cd app && E2E_CHAIN=hardhat-local npm run test:e2e   # e2e trên chain thật (c
 Dropdown chain ở header: **Mock** (mặc định) · **Hardhat Local** · **EVM Testnet** · **Stellar** (stub, disable).
 **Không có Polygon** — đã loại khỏi dự án.
 
-Bên cạnh là bộ đổi **vai trò** (BANK_ADMIN / COMPLIANCE / INVESTOR / AUDITOR) để thử RBAC.
+Bên cạnh là bộ đổi **vai trò** (TELLER / CONTROLLER / INVESTOR / SELLER) để thử RBAC.
 ⚠️ Bộ đổi vai trò KHÔNG phải xác thực — chỉ để demo, Phase 4 thay bằng SIWE.
 
 ## Ba trục abstraction (LUẬT bất di)
