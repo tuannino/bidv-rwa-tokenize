@@ -236,13 +236,13 @@ describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đườ
   });
 });
 
-describe('ca 8 — sau khi nạp, nhà đầu tư đặt được lệnh mua và lệnh khớp', () => {
+describe('ca 8 — sau khi nạp, lệnh mua tự khớp', () => {
   const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
 
   it('trần mua từ 0 lên đúng số dư mới / giá; đặt lệnh, khớp lệnh, số dư đổi đúng', async () => {
     const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
     const { getTradeContext } = await import('@/lib/bank/trade.service');
-    const { placeOrder, executeOrder } = await import('@/lib/bank/purchase.service');
+    const { placeOrder } = await import('@/lib/bank/purchase.service');
     const { readIssuePriceVnd } = await import('@/lib/store/config-values');
 
     // Người bán đã phát hành nguồn cung (đường dữ liệu thử, cờ token bật riêng cho bước dựng này).
@@ -268,13 +268,17 @@ describe('ca 8 — sau khi nạp, nhà đầu tư đặt được lệnh mua và
     expect(cap).toBe(SAMPLE / price);
 
     actAs('INVESTOR');
-    const order = await placeOrder({ chain: CHAIN, investorWallet: INVESTOR, wptAmount: cap.toString(), side: 'BUY' });
+    const order = await placeOrder({
+      chain: CHAIN,
+      investorWallet: INVESTOR,
+      wptAmount: cap.toString(),
+      side: 'BUY',
+      clientRequestId: crypto.randomUUID(),
+    });
     expect(order.ok, order.ok ? '' : order.error).toBe(true);
     if (!order.ok) return;
-
-    actAs('TELLER');
-    const executed = await executeOrder({ chain: CHAIN, orderId: order.data.id });
-    expect(executed.ok, executed.ok ? '' : executed.error).toBe(true);
+    expect(order.data.status).toBe('COMPLETED');
+    expect(order.data.txHash).toMatch(/^0x/);
 
     const l = await ledger();
     expect(await l.balanceOf(INVESTOR)).toBe(cap);

@@ -8,7 +8,6 @@ import { ORDER_SIDES } from '@/lib/store/order.store.port';
 import { toResult } from './authorize';
 import { readSupplyMetrics, type SupplyMetrics } from './issuance.service';
 import { orderCreatedRange, toOrderView, type OrderView } from './purchase.service';
-import { EXECUTABLE_ORDER_STATUSES } from './purchase.state';
 import { err, ok, type Result } from './result';
 import type { SettlementStepView } from './settlement-steps';
 import { getOrderDetail, type OrderDetailView } from './trade.service';
@@ -58,6 +57,17 @@ export interface OpsOrderRow extends OrderView {
   currentStep: SettlementStepView;
   /** Quyền vai + trạng thái nghiệp vụ đều cho phép khớp. */
   canExecute: boolean;
+  /** Loại can thiệp suy ra từ trạng thái + txHash; không thêm trạng thái lệnh mới. */
+  intervention: 'CONTINUE' | 'RECONCILE' | 'MANUAL_RECONCILIATION' | null;
+}
+
+function interventionOf(
+  order: OrderView,
+): OpsOrderRow['intervention'] {
+  if (order.status === 'CHECKING') return 'CONTINUE';
+  if (order.status === 'EXECUTING' && order.txHash) return 'RECONCILE';
+  if (order.status === 'EXECUTING') return 'MANUAL_RECONCILIATION';
+  return null;
 }
 
 function currentStepOf(order: OrderView): SettlementStepView {
@@ -112,10 +122,13 @@ export async function listOpsOrders(input: unknown): Promise<Result<OpsOrderPage
     return ok({
       rows: records.map((record) => {
         const order = toOrderView(record);
+        const intervention = interventionOf(order);
         return {
           ...order,
           currentStep: currentStepOf(order),
-          canExecute: mayExecute && EXECUTABLE_ORDER_STATUSES.includes(order.status),
+          canExecute:
+            mayExecute && (intervention === 'CONTINUE' || intervention === 'RECONCILE'),
+          intervention,
         };
       }),
       total,

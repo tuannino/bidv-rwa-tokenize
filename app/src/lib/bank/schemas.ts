@@ -102,7 +102,7 @@ export const txnQuerySchema = z.object({
  * Đặt lệnh. `wptAmount` nhận CHUỖI rồi chuyển sang `bigint` qua `amountSchema` —
  * cùng một schema với mint, không viết lại quy tắc "số nguyên dương" lần thứ hai.
  */
-export const placeOrderSchema = z.object({
+const orderIntentSchema = z.object({
   chain: chainSchema,
   investorWallet: walletSchema,
   wptAmount: amountSchema,
@@ -112,6 +112,10 @@ export const placeOrderSchema = z.object({
    * KHÔNG có trường giá: giá lấy từ cấu hình ở cả hai chiều, nhà đầu tư không nhập giá.
    */
   side: z.enum(ORDER_SIDES).default('BUY'),
+});
+export const placeOrderSchema = orderIntentSchema.extend({
+  /** BE-17 — sinh một lần khi người dùng xác nhận, giữ nguyên qua mọi lần gửi lại. */
+  clientRequestId: z.uuid('Mã chống trùng phải là UUID.'),
 });
 /** `z.input` để form gửi `wptAmount` dạng chuỗi; server nhận `bigint` sau parse. */
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
@@ -125,7 +129,7 @@ export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
  * dữ liệu mà đặt lệnh từ chối vì sai dạng. Bút danh riêng ở đây chỉ để chỗ gọi đọc ra đúng
  * việc nó đang làm.
  */
-export const previewPurchaseSchema = placeOrderSchema;
+export const previewPurchaseSchema = orderIntentSchema;
 export type PreviewPurchaseInput = z.input<typeof previewPurchaseSchema>;
 
 /**

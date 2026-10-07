@@ -144,6 +144,15 @@ export function assertTransitionOrder(from: OrderStatus, to: OrderStatus): void 
 export const EXECUTABLE_ORDER_STATUSES: readonly OrderStatus[] = ['PLACED', 'CHECKING'];
 
 /**
+ * Trạng thái được phép mở đường CAN THIỆP của Giao dịch viên (BE-17).
+ *
+ * `PLACED` không còn thuộc đường tay: lệnh mới được hệ thống nhận xử lý ngay. `EXECUTING`
+ * có mặt để đối soát giao dịch đã có mã; việc có được gửi hay không còn phụ thuộc `txHash`
+ * và được tách thành ba nhánh tường minh trong `executeOrder`.
+ */
+export const INTERVENTION_ORDER_STATUSES: readonly OrderStatus[] = ['CHECKING', 'EXECUTING'];
+
+/**
  * Mẫu tên bị cấm cho trạng thái mới (R4.2).
  *
  * Chốt bằng máy thay vì bằng lời nhắc trong tài liệu: lời nhắc thì người thêm trạng

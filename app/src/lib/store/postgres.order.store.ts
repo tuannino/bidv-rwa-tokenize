@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { randomUUID } from 'node:crypto';
 import type { ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import {
@@ -29,6 +30,7 @@ interface OrderRow {
   id: string;
   chain: string;
   investorWallet: string;
+  clientRequestId: string;
   side: string;
   /** `pg` trả `numeric` về dạng chuỗi — đúng thứ ta cần, không phải chuyển đổi gì. */
   wptAmount: string;
@@ -51,6 +53,7 @@ const toOrder = (row: OrderRow): OrderRecord => ({
   id: row.id,
   chain: row.chain as ChainKey,
   investorWallet: row.investorWallet,
+  clientRequestId: row.clientRequestId,
   side: row.side as OrderSide,
   wptAmount: row.wptAmount,
   vndAmount: row.vndAmount,
@@ -76,18 +79,20 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
 
     async createOrder(order: NewOrder): Promise<OrderRecord> {
       const status = assertOrderStatus(order.status ?? 'PLACED');
+      const clientRequestId = order.clientRequestId ?? randomUUID();
       // Tạo thẳng ở một trạng thái có mốc (đường dựng dữ liệu thử) thì ghi mốc của trạng thái đó
       // trong chính câu INSERT. Tên cột lấy từ hằng số `ORDER_STATUS_STAMPS`, không từ input.
       const stamp = ORDER_STATUS_STAMPS[status];
       const rows = await mapPgConstraintError(() =>
         query<OrderRow>(
           `INSERT INTO "PurchaseOrder"
-             ("id","chain","investorWallet","wptAmount","vndAmount","status","actorRole","side","updatedAt"${stamp ? `,"${stamp}"` : ''})
-           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,CURRENT_TIMESTAMP${stamp ? ',CURRENT_TIMESTAMP' : ''})
+             ("id","chain","investorWallet","clientRequestId","wptAmount","vndAmount","status","actorRole","side","updatedAt"${stamp ? `,"${stamp}"` : ''})
+           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP${stamp ? ',CURRENT_TIMESTAMP' : ''})
            RETURNING *`,
           [
             order.chain,
             order.investorWallet,
+            clientRequestId,
             assertAmount('wptAmount', order.wptAmount),
             assertAmount('vndAmount', order.vndAmount),
             status,
@@ -101,6 +106,15 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
 
     async findOrder(id) {
       const rows = await query<OrderRow>(`SELECT * FROM "PurchaseOrder" WHERE "id" = $1`, [id]);
+      return rows[0] ? toOrder(rows[0]) : null;
+    },
+
+    async findOrderByClientRequest({ investorWallet, clientRequestId }) {
+      const rows = await query<OrderRow>(
+        `SELECT * FROM "PurchaseOrder"
+          WHERE "investorWallet" = $1 AND "clientRequestId" = $2`,
+        [investorWallet, clientRequestId],
+      );
       return rows[0] ? toOrder(rows[0]) : null;
     },
 

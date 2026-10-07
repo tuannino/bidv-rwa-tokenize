@@ -57,6 +57,7 @@ async function seedExecutableOrder() {
     chain: CHAIN,
     investorWallet: ALICE,
     wptAmount: '2',
+    clientRequestId: crypto.randomUUID(),
   });
   expect(placed.ok, placed.ok ? '' : placed.error).toBe(true);
   if (!placed.ok) throw new Error(placed.error);
@@ -126,19 +127,33 @@ describe('FE-06 — sổ lệnh vận hành', () => {
     expect(listed.data.rows[0]?.canExecute).toBe(true);
   });
 
-  it('Giao dịch viên khớp lệnh rồi danh sách và nguồn cung phản ánh trạng thái mới', async () => {
+  it('chỉ cho bấm can thiệp ở CHECKING hoặc EXECUTING có mã giao dịch', async () => {
+    const checking = await createOrder(ALICE, { status: 'CHECKING' });
+    const reconcilable = await createOrder(ALICE, { status: 'EXECUTING' });
+    await getOrderStore().attachOrderTxHash({
+      id: reconcilable.id,
+      txHash: `0x${'a'.repeat(64)}`,
+    });
+    const manualOnly = await createOrder(BOB, { status: 'EXECUTING' });
+    const completed = await createOrder(BOB, { status: 'COMPLETED' });
+
+    const result = await (await ops()).listOpsOrders({ chain: CHAIN, pageSize: 20 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rows = new Map(result.data.rows.map((row) => [row.id, row]));
+    expect(rows.get(checking.id)).toMatchObject({ intervention: 'CONTINUE', canExecute: true });
+    expect(rows.get(reconcilable.id)).toMatchObject({ intervention: 'RECONCILE', canExecute: true });
+    expect(rows.get(manualOnly.id)).toMatchObject({
+      intervention: 'MANUAL_RECONCILIATION',
+      canExecute: false,
+    });
+    expect(rows.get(completed.id)).toMatchObject({ intervention: null, canExecute: false });
+  });
+
+  it('lệnh tự khớp và danh sách vận hành phản ánh ngay trạng thái cùng nguồn cung mới', async () => {
     const orderId = await seedExecutableOrder();
-    const { executeOrder } = await purchase();
     const { listOpsOrders } = await ops();
     actAs('TELLER');
-
-    const before = await listOpsOrders({ chain: CHAIN, q: orderId });
-    expect(before.ok && before.data.rows[0]?.status).toBe('PLACED');
-    expect(before.ok && before.data.rows[0]?.canExecute).toBe(true);
-    expect(before.ok && before.data.supply?.undistributed).toBe('1000');
-
-    const executed = await executeOrder({ chain: CHAIN, orderId });
-    expect(executed.ok, executed.ok ? '' : executed.error).toBe(true);
 
     const after = await listOpsOrders({ chain: CHAIN, q: orderId });
     expect(after.ok && after.data.rows[0]?.status).toBe('COMPLETED');

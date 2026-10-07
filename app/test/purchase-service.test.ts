@@ -24,9 +24,10 @@ import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
 
 const fault = vi.hoisted(() => ({
   /** `throw`: ném lỗi ledger khi gửi. `receipt-failed`: gửi được nhưng biên nhận FAILED. */
-  mode: null as null | 'throw' | 'receipt-failed',
+  mode: null as null | 'throw' | 'receipt-failed' | 'balance-drops-before-auto-settle',
   /** Đếm số lần `executePurchase` thực sự được gọi — chốt của ca 7.7. */
   sendCount: 0,
+  paymentBalanceReads: 0,
 }));
 
 vi.mock('@/lib/ledger', async (importOriginal) => {
@@ -37,6 +38,12 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
       const real = actual.getLedger(...args);
       return {
         ...real,
+        async paymentBalanceOf(wallet: string): Promise<bigint> {
+          const balance = await real.paymentBalanceOf(wallet);
+          if (fault.mode !== 'balance-drops-before-auto-settle') return balance;
+          fault.paymentBalanceReads += 1;
+          return fault.paymentBalanceReads === 1 ? balance : 0n;
+        },
         async executePurchase(investor: string, wptAmount: bigint): Promise<TxResult> {
           fault.sendCount += 1;
           if (fault.mode === 'throw') {
@@ -87,9 +94,17 @@ const {
   expireStaleOrders,
   listOrders,
   orderDailyStats,
-  placeOrder,
+  placeOrder: placeOrderService,
   previewPurchase,
 } = await import('@/lib/bank/purchase.service');
+
+/** Giữ các ca lịch sử tập trung vào điều chúng kiểm; ca BE-17 truyền mã cố định riêng. */
+async function placeOrder(input: unknown) {
+  if (typeof input !== 'object' || input === null || 'clientRequestId' in input) {
+    return placeOrderService(input);
+  }
+  return placeOrderService({ ...input, clientRequestId: crypto.randomUUID() });
+}
 
 const ALICE = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const BOB = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
@@ -191,14 +206,30 @@ const DEGRADATIONS = [
   },
 ] as const;
 
-/** Đặt lệnh với vai INVESTOR rồi trả về mã lệnh, đồng thời đổi sang vai ngân hàng. */
-async function placeAsInvestor(wptAmount: string, investor = ALICE): Promise<string> {
-  actAs('INVESTOR');
-  const placed = await placeOrder({ chain: CHAIN, investorWallet: investor, wptAmount });
-  expect(placed.ok, `đặt lệnh phải thành công: ${placed.ok ? '' : placed.error}`).toBe(true);
-  if (!placed.ok) throw new Error('không đặt được lệnh');
+/**
+ * Dựng một lệnh PLACED để kiểm riêng đường can thiệp lịch sử.
+ *
+ * Từ BE-17, API đặt lệnh thật tự quyết toán ngay nên không thể dùng nó để chuẩn bị một lệnh
+ * đang chờ rồi mới thay đổi điều kiện. Store là seam đúng để mô phỏng tiến trình chết ngay sau
+ * lúc tạo bản ghi; các ca của `placeOrder` phía trên vẫn đi qua API thật.
+ */
+async function placeAsInvestor(
+  wptAmount: string,
+  investor = ALICE,
+  status: 'PLACED' | 'CHECKING' = 'CHECKING',
+): Promise<string> {
+  const placed = await getOrderStore().createOrder({
+    chain: CHAIN,
+    investorWallet: investor,
+    clientRequestId: crypto.randomUUID(),
+    side: 'BUY',
+    status,
+    wptAmount,
+    vndAmount: (BigInt(wptAmount) * PRICE).toString(),
+    actorRole: 'INVESTOR',
+  });
   actAs('TELLER');
-  return placed.data.id;
+  return placed.id;
 }
 
 /**
@@ -232,6 +263,7 @@ async function snapshotBalances(investor = ALICE) {
 beforeEach(() => {
   fault.mode = null;
   fault.sendCount = 0;
+  fault.paymentBalanceReads = 0;
   resetMockLedger();
   resetMemoryStore();
   resetStoreCache();
@@ -250,6 +282,102 @@ afterEach(() => {
 //  ĐẶT LỆNH
 // =============================================================================
 describe('placeOrder', () => {
+  it('bắt buộc clientRequestId đúng dạng UUID', async () => {
+    await seedReadyToBuy();
+    const missing = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+    });
+    const malformed = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+      clientRequestId: 'khong-phai-uuid',
+    });
+    expect(missing.ok).toBe(false);
+    expect(malformed.ok).toBe(false);
+    if (!missing.ok) expect(missing.code).toBe('VALIDATION');
+    if (!malformed.ok) expect(malformed.code).toBe('VALIDATION');
+  });
+
+  it('gửi lại cùng mã và cùng nội dung trả đúng lệnh cũ, không tạo hay gửi lần hai', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    const input = { chain: CHAIN, investorWallet: ALICE, wptAmount: '2', clientRequestId };
+
+    const first = await placeOrderService(input);
+    const repeated = await placeOrderService(input);
+
+    expect(first.ok && repeated.ok).toBe(true);
+    if (!first.ok || !repeated.ok) return;
+    expect(repeated.data.id).toBe(first.data.id);
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+    expect(fault.sendCount).toBe(1);
+  });
+
+  it('gửi lại cùng mã nhưng khác nội dung bị từ chối rõ ràng', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '2',
+      clientRequestId,
+    });
+
+    const conflict = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '3',
+      clientRequestId,
+    });
+    expect(conflict.ok).toBe(false);
+    if (!conflict.ok) {
+      expect(conflict.code).toBe('VALIDATION');
+      expect(conflict.error).toMatch(/đã được dùng.*nội dung khác/);
+    }
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+  });
+
+  it('hai lời gọi song song cùng mã tạo đúng một lệnh', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    const input = { chain: CHAIN, investorWallet: ALICE, wptAmount: '2', clientRequestId };
+
+    const [first, second] = await Promise.all([
+      placeOrderService(input),
+      placeOrderService(input),
+    ]);
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(second.data.id).toBe(first.data.id);
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+    expect(fault.sendCount, 'hai request song song chỉ được phát đúng một giao dịch').toBe(1);
+  });
+
+  it('hai ví được dùng cùng mã yêu cầu mà không va chạm', async () => {
+    await seedReadyToBuy();
+    await fundInvestor(BOB);
+    const clientRequestId = crypto.randomUUID();
+    const [alice, bob] = await Promise.all([
+      placeOrderService({
+        chain: CHAIN,
+        investorWallet: ALICE,
+        wptAmount: '1',
+        clientRequestId,
+      }),
+      placeOrderService({
+        chain: CHAIN,
+        investorWallet: BOB,
+        wptAmount: '1',
+        clientRequestId,
+      }),
+    ]);
+    expect(alice.ok && bob.ok).toBe(true);
+    if (alice.ok && bob.ok) expect(alice.data.id).not.toBe(bob.data.id);
+  });
+
   it('tính đúng số VNDB phải trả và lưu vào lệnh', async () => {
     await seedReadyToBuy();
 
@@ -257,22 +385,100 @@ describe('placeOrder', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.status).toBe('PLACED');
+    expect(result.data.status).toBe('COMPLETED');
     expect(result.data.wptAmount).toBe('7');
     expect(result.data.vndAmount).toBe((7n * PRICE).toString());
     // Chuỗi, không phải number: uint256 vượt Number.MAX_SAFE_INTEGER là mất chính xác.
     expect(typeof result.data.vndAmount).toBe('string');
-    expect(result.data.txHash).toBeNull();
+    expect(result.data.txHash).toMatch(/^0x/);
   });
 
-  it('KHÔNG gửi giao dịch nào khi chỉ đặt lệnh', async () => {
+  it('tự gửi đúng một giao dịch và cập nhật đủ bốn số dư ngay khi đặt lệnh', async () => {
     await seedReadyToBuy();
     const before = await snapshotBalances();
 
     await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '5' });
 
+    expect(fault.sendCount).toBe(1);
+    expect(await snapshotBalances()).toEqual({
+      investorWpt: before.investorWpt + 5n,
+      investorVndb: before.investorVndb - 5n * PRICE,
+      spvWpt: before.spvWpt - 5n,
+      spvVndb: before.spvVndb + 5n * PRICE,
+    });
+  });
+
+  it('lệnh bán hợp lệ cũng tự quyết toán trong chính lời gọi đặt lệnh', async () => {
+    await seedReadyToBuy();
+    const bought = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '5' });
+    expect(bought.ok && bought.data.status).toBe('COMPLETED');
+    const beforeSale = await snapshotBalances();
+
+    const sold = await placeOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '2',
+      side: 'SELL',
+    });
+
+    expect(sold.ok).toBe(true);
+    if (!sold.ok) return;
+    expect(sold.data.status).toBe('COMPLETED');
+    expect(sold.data.txHash).toMatch(/^0x/);
+    expect(await snapshotBalances()).toEqual({
+      investorWpt: beforeSale.investorWpt - 2n,
+      investorVndb: beforeSale.investorVndb + 2n * PRICE,
+      spvWpt: beforeSale.spvWpt + 2n,
+      spvVndb: beforeSale.spvVndb - 2n * PRICE,
+    });
+    expect(fault.sendCount).toBe(2);
+  });
+
+  it('đường tự động chỉ quyết toán lệnh vừa tạo, không nhận mã lệnh khác từ dữ liệu vào', async () => {
+    await seedReadyToBuy();
+    const victimId = await placeAsInvestor('2');
+    actAs('INVESTOR');
+
+    const result = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+      clientRequestId: crypto.randomUUID(),
+      orderId: victimId,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.id).not.toBe(victimId);
+    expect(result.data.status).toBe('COMPLETED');
+    expect((await getOrderStore().findOrder(victimId))?.status).toBe('CHECKING');
+    expect(fault.sendCount).toBe(1);
+  });
+
+  it('quyết toán lỗi vẫn trả lệnh đã lưu cùng trạng thái và lý do cuối', async () => {
+    await seedReadyToBuy();
+    fault.mode = 'throw';
+
+    const result = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '2' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('FAILED');
+    expect(result.data.reason).toMatch(/không đủ WPT/);
+    expect((await getOrderStore().findOrder(result.data.id))?.status).toBe('FAILED');
+  });
+
+  it('đường tự động chạy lại bộ kiểm: điều kiện tụt sau lúc tạo thì REJECTED, không phát tx', async () => {
+    await seedReadyToBuy();
+    fault.mode = 'balance-drops-before-auto-settle';
+
+    const result = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '2' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('REJECTED');
+    expect(result.data.reason).toMatch(/Số dư VNDB không đủ/);
     expect(fault.sendCount).toBe(0);
-    expect(await snapshotBalances()).toEqual(before);
   });
 
   it('vai không có order:place bị chặn, có bản ghi kiểm toán DENIED', async () => {
@@ -688,9 +894,9 @@ describe('7.5 — khớp lệnh thành công', () => {
     expect(purchase?.actorRole).toBe('TELLER');
 
     const audit = await getStore().listAudit({ limit: 30 });
-    const success = audit.find((e) => e.action === 'order:execute' && e.outcome === 'SUCCESS');
+    const success = audit.find((e) => e.action === 'order:intervene' && e.outcome === 'SUCCESS');
     expect(success?.actorRole).toBe('TELLER');
-    expect(success?.detail).toMatch(/khớp 2 WPT/);
+    expect(success?.detail).toMatch(/can thiệp tay.*khớp 2 WPT/);
   });
 });
 
@@ -827,6 +1033,89 @@ describe('7.7 — một lệnh chỉ gửi đúng một giao dịch', () => {
 });
 
 // =============================================================================
+//  BE-17 — BA NHÁNH CAN THIỆP VÀ DẤU VẾT KIỂM TOÁN
+// =============================================================================
+describe('BE-17 — can thiệp lệnh kẹt', () => {
+  it('CHECKING được chạy tiếp và phát đúng một giao dịch', async () => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('2');
+
+    const result = await executeOrder({ chain: CHAIN, orderId });
+
+    expect(result.ok).toBe(true);
+    expect(fault.sendCount).toBe(1);
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('COMPLETED');
+  });
+
+  it('EXECUTING có mã chỉ đối soát biên nhận, tuyệt đối không phát lại', async () => {
+    const ledger = await seedReadyToBuy();
+    const order = await getOrderStore().createOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      clientRequestId: crypto.randomUUID(),
+      side: 'BUY',
+      status: 'EXECUTING',
+      wptAmount: '2',
+      vndAmount: (2n * PRICE).toString(),
+      actorRole: 'INVESTOR',
+    });
+    const sent = await ledger.executePurchase(ALICE, 2n);
+    await getOrderStore().attachOrderTxHash({ id: order.id, txHash: sent.txHash });
+    fault.sendCount = 0;
+    actAs('TELLER');
+
+    const result = await executeOrder({ chain: CHAIN, orderId: order.id });
+
+    expect(result.ok).toBe(true);
+    expect(fault.sendCount, 'can thiệp chỉ được hỏi receipt, không phát giao dịch').toBe(0);
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('COMPLETED');
+    expect((await getStore().findTxnByHash(CHAIN, sent.txHash))?.status).toBe('CONFIRMED');
+  });
+
+  it('EXECUTING chưa có mã dừng để đối soát tay và không phát giao dịch', async () => {
+    await seedReadyToBuy();
+    const order = await getOrderStore().createOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      clientRequestId: crypto.randomUUID(),
+      side: 'BUY',
+      status: 'EXECUTING',
+      wptAmount: '2',
+      vndAmount: (2n * PRICE).toString(),
+      actorRole: 'INVESTOR',
+    });
+    actAs('TELLER');
+
+    const result = await executeOrder({ chain: CHAIN, orderId: order.id });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/Cần đối soát tay.*không gửi lại/i);
+    expect(fault.sendCount).toBe(0);
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('EXECUTING');
+    expect((await getOrderStore().findOrder(order.id))?.txHash).toBeNull();
+  });
+
+  it('audit phân biệt rõ tự động và can thiệp tay', async () => {
+    await seedReadyToBuy();
+    actAs('INVESTOR');
+    const automatic = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '1' });
+    expect(automatic.ok).toBe(true);
+    const manualId = await placeAsInvestor('1');
+    await executeOrder({ chain: CHAIN, orderId: manualId });
+
+    const audit = await getStore().listAudit({ limit: 50 });
+    const automaticEntry = audit.find(
+      (entry) => entry.action === 'order:auto-execute' && entry.outcome === 'SUCCESS',
+    );
+    const manualEntry = audit.find(
+      (entry) => entry.action === 'order:intervene' && entry.outcome === 'SUCCESS',
+    );
+    expect(automaticEntry?.detail).toMatch(/tự động/);
+    expect(manualEntry?.detail).toMatch(/can thiệp tay/);
+  });
+});
+
+// =============================================================================
 //  7.8 — NHÀ ĐẦU TƯ KHÔNG XEM ĐƯỢC LỆNH CỦA VÍ KHÁC
 // =============================================================================
 describe('7.8 — listOrders lọc theo ví ở tầng nghiệp vụ', () => {
@@ -875,10 +1164,10 @@ describe('7.8 — listOrders lọc theo ví ở tầng nghiệp vụ', () => {
     if (!all.ok) return;
     expect(all.data).toHaveLength(2);
 
-    const placed = await listOrders({ chain: CHAIN, status: 'PLACED' });
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-    expect(placed.data).toHaveLength(2);
+    const checking = await listOrders({ chain: CHAIN, status: 'CHECKING' });
+    expect(checking.ok).toBe(true);
+    if (!checking.ok) return;
+    expect(checking.data).toHaveLength(2);
 
     const completed = await listOrders({ chain: CHAIN, status: 'COMPLETED' });
     expect(completed.ok).toBe(true);
@@ -939,8 +1228,8 @@ describe('7.9 — cổng quyền order:execute', () => {
     actAs('INVESTOR');
     await executeOrder({ chain: CHAIN, orderId });
 
-    // Vẫn PLACED: một lần bị chặn không được đẩy lệnh sang CHECKING rồi bỏ đó.
-    expect((await getOrderStore().findOrder(orderId))?.status).toBe('PLACED');
+    // Vẫn CHECKING: một lần bị chặn không được đẩy lệnh sang EXECUTING rồi bỏ đó.
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('CHECKING');
   });
 });
 
@@ -950,7 +1239,7 @@ describe('7.9 — cổng quyền order:execute', () => {
 describe('expireStaleOrders', () => {
   it('chuyển lệnh PLACED quá hạn sang EXPIRED và ghi sổ kiểm toán', async () => {
     await seedReadyToBuy();
-    const orderId = await placeAsInvestor('1');
+    const orderId = await placeAsInvestor('1', ALICE, 'PLACED');
 
     const orderStore = getOrderStore();
     expect(await orderStore.listOrders({})).toHaveLength(1);
@@ -977,7 +1266,7 @@ describe('expireStaleOrders', () => {
 
   it('KHÔNG chạm lệnh còn mới', async () => {
     await seedReadyToBuy();
-    const orderId = await placeAsInvestor('1');
+    const orderId = await placeAsInvestor('1', ALICE, 'PLACED');
 
     actAs('TELLER');
     const result = await expireStaleOrders({ olderThanMinutes: 30 });
@@ -1022,15 +1311,20 @@ async function holdWpt(held: string, investor = ALICE) {
   expect(bought.ok, bought.ok ? '' : bought.error).toBe(true);
 }
 
-/** Đặt lệnh BÁN với vai INVESTOR rồi đổi sang vai TELLER, trả mã lệnh. */
+/** Dựng lệnh BÁN ở PLACED để kiểm riêng đường can thiệp tay. */
 async function placeSaleAsInvestor(wptAmount: string, investor = ALICE): Promise<string> {
-  actAs('INVESTOR');
-  const placed = await placeOrder({ chain: CHAIN, investorWallet: investor, wptAmount, side: 'SELL' });
-  expect(placed.ok, `đặt lệnh bán phải thành công: ${placed.ok ? '' : placed.error}`).toBe(true);
-  if (!placed.ok) throw new Error('không đặt được lệnh bán');
-  expect(placed.data.side).toBe('SELL');
+  const placed = await getOrderStore().createOrder({
+    chain: CHAIN,
+    investorWallet: investor,
+    clientRequestId: crypto.randomUUID(),
+    side: 'SELL',
+    status: 'CHECKING',
+    wptAmount,
+    vndAmount: (BigInt(wptAmount) * PRICE).toString(),
+    actorRole: 'INVESTOR',
+  });
   actAs('TELLER');
-  return placed.data.id;
+  return placed.id;
 }
 
 /** Phần chưa phân phối (WPT còn trong ví SPV) và phần đang lưu hành — cùng công thức BE-12. */
@@ -1321,8 +1615,8 @@ describe('BE-14 ca 6 — nhà đầu tư không xem được lệnh của ví kh
     const sells = await listOrders({ chain: CHAIN, side: 'SELL' });
     expect(sells.ok && sells.data.map((o) => o.side)).toEqual(['SELL']);
 
-    const placedBuys = await listOrders({ chain: CHAIN, side: 'BUY', status: 'PLACED' });
-    expect(placedBuys.ok && placedBuys.data.map((o) => o.id)).toEqual([bobOrderId]);
+    const checkingBuys = await listOrders({ chain: CHAIN, side: 'BUY', status: 'CHECKING' });
+    expect(checkingBuys.ok && checkingBuys.data.map((o) => o.id)).toEqual([bobOrderId]);
 
     const byId = await listOrders({ chain: CHAIN, orderId: bobOrderId });
     expect(byId.ok && byId.data.map((o) => o.id)).toEqual([bobOrderId]);

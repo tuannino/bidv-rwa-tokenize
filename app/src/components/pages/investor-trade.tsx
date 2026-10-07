@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { Loader2, Wallet, Wind } from 'lucide-react';
@@ -41,8 +41,9 @@ import {
  * điều kiện và tổng giá trị từ `previewTradeAction`, tiến trình từ `listOrdersAction`. Component không
  * nhập `viem` và không gọi chuỗi (LUẬT #1).
  *
- * Khớp lệnh là việc của ngân hàng (Owner chốt giữ tách quyền): gửi xong màn hiện tiến trình và tự làm
- * mới; khi Giao dịch viên khớp thì hiện mã giao dịch và số dư mới.
+ * Lệnh hợp lệ được hệ thống tự quyết toán bằng ví ngân hàng; quyền `order:execute` vẫn tách riêng
+ * và chỉ dùng khi Giao dịch viên can thiệp lệnh kẹt. Kết quả của lời gọi đặt lệnh đã mang trạng
+ * thái cuối; polling chỉ là lưới an toàn cho trạng thái đang dở.
  */
 
 /** Hoãn lời gọi kiểm tra sau khi người dùng ngừng gõ: service không có bộ nhớ đệm. */
@@ -68,6 +69,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracked, setTracked] = useState<OrderView | null>(null);
+  const requestRef = useRef<{ intent: string; id: string } | null>(null);
 
   // --- Bối cảnh: token, số dư, giá, trần hai chiều -------------------------------
   const contextKey = wallet ? `${chain}|${wallet}|${contextTick}` : null;
@@ -136,9 +138,19 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
   async function submit() {
     if (!wallet || !amount) return;
+    const intent = `${chain}|${wallet.toLowerCase()}|${side}|${amount}`;
+    if (requestRef.current?.intent !== intent) {
+      requestRef.current = { intent, id: crypto.randomUUID() };
+    }
     setSubmitting(true);
     setSubmitError(null);
-    const result = await placeOrderAction({ chain, investorWallet: wallet, wptAmount: amount, side });
+    const result = await placeOrderAction({
+      chain,
+      investorWallet: wallet,
+      wptAmount: amount,
+      side,
+      clientRequestId: requestRef.current.id,
+    });
     setSubmitting(false);
     setConfirmOpen(false);
     if (!result.ok) {
@@ -146,6 +158,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
       return;
     }
     setTracked(result.data);
+    requestRef.current = null;
     setQuantity('');
     setContextTick((tick) => tick + 1);
   }
@@ -387,7 +400,7 @@ function TrackedOrder({ order, chain }: { order: OrderView; chain: string }) {
         {!isSettled(order) && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang xử lý: lệnh chờ ngân hàng khớp, màn hình tự cập nhật.
+            Hệ thống đang tự quyết toán; màn hình sẽ tự cập nhật kết quả.
           </p>
         )}
         {order.txHash && (

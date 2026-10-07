@@ -92,6 +92,8 @@ test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không
   await page.getByRole('dialog').getByRole('button', { name: 'Gửi lệnh' }).click();
   const detailLink = page.getByLabel('Lệnh vừa gửi').getByRole('link', { name: 'Xem chi tiết' });
   await expect(detailLink).toBeVisible();
+  await expect(page.getByLabel('Lệnh vừa gửi')).toContainText('Hoàn tất');
+  await expect(page.getByLabel('Lệnh vừa gửi')).toContainText(/Mã giao dịch/);
   const detailHref = await detailLink.getAttribute('href');
   const orderId = detailHref?.split('/').pop();
   expect(orderId).toMatch(/^[0-9a-f-]{36}$/);
@@ -101,14 +103,9 @@ test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không
   await expect(page.getByRole('heading', { name: 'Giao dịch toàn hệ thống' })).toBeVisible();
   const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: orderId!.slice(0, 8) }) });
   const undistributed = page.getByTestId('supply-undistributed');
-  const beforeSupply = BigInt((await undistributed.innerText()).replace(/\D/g, ''));
-  await expect(row).toContainText('Đã đặt');
-  await row.getByRole('button', { name: 'Khớp lệnh' }).click();
-  await expect(page.getByRole('status')).toContainText(/Đã khớp lệnh/);
   await expect(row).toContainText('Hoàn tất');
-  await expect
-    .poll(async () => BigInt((await undistributed.innerText()).replace(/\D/g, '')))
-    .toBe(beforeSupply - 2n);
+  await expect(row.getByRole('button')).toHaveCount(0);
+  const undistributedAfterBuy = BigInt((await undistributed.innerText()).replace(/\D/g, ''));
 
   await row.getByRole('link', { name: orderId!.slice(0, 8) }).click();
   await expect(page.getByRole('heading', { name: `Lệnh mua ${orderId!.slice(0, 8)}` })).toBeVisible();
@@ -118,7 +115,7 @@ test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không
   await actAs(context, baseURL!, 'CONTROLLER');
   await page.goto('/transactions');
   await expect(page.getByRole('note')).toContainText(/chỉ có quyền xem/);
-  await expect(page.getByRole('button', { name: 'Khớp lệnh' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Tiếp tục quyết toán|Đối soát giao dịch/ })).toHaveCount(0);
 
   await actAs(context, baseURL!, 'INVESTOR');
   await page.goto('/orders');
@@ -138,7 +135,7 @@ test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không
   await expect(page.getByText('Giá trị theo giá phát hành', { exact: true })).toBeVisible();
   await expect(page.getByText(/Kết nối ví ở góc trên phải/)).toHaveCount(0);
 
-  // Chiều bán đi qua cùng UI: Nhà đầu tư bán 1 WPT, GDV khớp, số chưa phân phối tăng lại 1.
+  // Chiều bán đi qua cùng UI và tự khớp; số chưa phân phối tăng lại 1, không cần GDV bấm.
   await page.goto('/trade');
   await page.getByRole('tab', { name: 'Bán' }).click();
   await page.getByLabel('Số lượng').fill('1');
@@ -152,18 +149,18 @@ test('FE-06 / OP-02 — xử lý giao dịch và hai màn chi tiết Mock không
     .getAttribute('href');
   const sellOrderId = sellHref?.split('/').pop();
   expect(sellOrderId).toMatch(/^[0-9a-f-]{36}$/);
+  await expect(page.getByLabel('Lệnh vừa gửi')).toContainText('Hoàn tất');
 
   await actAs(context, baseURL!, 'TELLER');
   await page.goto('/transactions');
   const sellRow = page.getByRole('row').filter({
     has: page.getByRole('link', { name: sellOrderId!.slice(0, 8) }),
   });
-  const beforeSellSupply = BigInt((await page.getByTestId('supply-undistributed').innerText()).replace(/\D/g, ''));
-  await sellRow.getByRole('button', { name: 'Khớp lệnh' }).click();
   await expect(sellRow).toContainText('Hoàn tất');
+  await expect(sellRow.getByRole('button')).toHaveCount(0);
   await expect
     .poll(async () => BigInt((await page.getByTestId('supply-undistributed').innerText()).replace(/\D/g, '')))
-    .toBe(beforeSellSupply + 1n);
+    .toBe(undistributedAfterBuy + 1n);
 
   // Burn phần chưa phân phối cũng đi qua maker-checker và làm tổng cung giảm đúng số duyệt.
   await page.goto('/draft');

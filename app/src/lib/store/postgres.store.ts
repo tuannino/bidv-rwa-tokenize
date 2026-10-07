@@ -94,6 +94,14 @@ export function createPostgresStore(): ITxnStore {
       return toTxn(rows[0]);
     },
 
+    async findTxnByHash(chain, txHash) {
+      const rows = await query<TxnRow>(
+        `SELECT * FROM "Txn" WHERE "chain" = $1 AND "txHash" = $2 LIMIT 1`,
+        [chain, txHash],
+      );
+      return rows[0] ? toTxn(rows[0]) : null;
+    },
+
     async updateTxnStatus(id, status, reason) {
       await query(
         `UPDATE "Txn" SET "status" = $2::"TxStatus", "reason" = COALESCE($3, "reason") WHERE "id" = $1`,

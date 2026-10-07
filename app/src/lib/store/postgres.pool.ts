@@ -88,7 +88,8 @@ async function migrateTimestampColumns(client: import('pg').PoolClient): Promise
 }
 
 /**
- * Cột THÊM VÀO bảng đã có từ trước (BE-14): chiều lệnh và bốn mốc bước quyết toán.
+ * Cột THÊM VÀO bảng đã có từ trước (BE-14/BE-17): chiều lệnh, bốn mốc bước quyết toán
+ * và mã chống trùng do client cấp.
  *
  * Vì sao cần: `init.sql` do `prisma migrate diff --from-empty` sinh ra chỉ có `CREATE TABLE`, nên
  * một volume dựng trước BE-14 giữ nguyên bảng `PurchaseOrder` cũ, thiếu cột — và câu
@@ -102,6 +103,7 @@ async function migrateTimestampColumns(client: import('pg').PoolClient): Promise
  * framework migration. Câu lệnh là hằng số trong tệp này, không có phần nào từ input.
  */
 const ADDED_COLUMNS: readonly string[] = [
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "clientRequestId" TEXT NOT NULL DEFAULT gen_random_uuid()::text`,
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "side" TEXT NOT NULL DEFAULT 'BUY'`,
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "checkingAt" TIMESTAMPTZ(3)`,
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "reconciledAt" TIMESTAMPTZ(3)`,

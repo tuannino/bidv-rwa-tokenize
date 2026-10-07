@@ -262,7 +262,12 @@ describe('ca 3 — lệnh đã đặt giữ nguyên số VNDB đã chốt', () =
     seedMockLedger({ paymentBalances: { [INVESTOR]: cost }, paymentAllowances: { [INVESTOR]: cost } });
 
     actAs('INVESTOR');
-    const placed = await placeOrder({ chain: CHAIN, investorWallet: INVESTOR, wptAmount: '10' });
+    const placed = await placeOrder({
+      chain: CHAIN,
+      investorWallet: INVESTOR,
+      wptAmount: '10',
+      clientRequestId: crypto.randomUUID(),
+    });
     expect(placed.ok, placed.ok ? '' : placed.error).toBe(true);
     if (!placed.ok) return;
 

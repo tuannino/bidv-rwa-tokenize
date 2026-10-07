@@ -88,6 +88,8 @@ export interface OrderRecord {
   id: string;
   chain: ChainKey;
   investorWallet: string;
+  /** Khóa chống gửi lặp do client sinh; duy nhất trong phạm vi một ví. */
+  clientRequestId: string;
   side: OrderSide;
   /**
    * Số WPT muốn mua và số VNDB phải trả, lưu dạng CHUỖI.
@@ -119,6 +121,8 @@ export interface OrderRecord {
 export interface NewOrder {
   chain: ChainKey;
   investorWallet: string;
+  /** Test/seed cũ có thể bỏ trống; store tự sinh UUID. Luồng đặt lệnh thật luôn truyền. */
+  clientRequestId?: string;
   /** Mặc định `BUY` — giữ nguyên mọi chỗ gọi có trước BE-14. */
   side?: OrderSide;
   wptAmount: string;
@@ -175,6 +179,10 @@ export interface IOrderStore {
 
   createOrder(order: NewOrder): Promise<OrderRecord>;
   findOrder(id: string): Promise<OrderRecord | null>;
+  findOrderByClientRequest(input: {
+    investorWallet: string;
+    clientRequestId: string;
+  }): Promise<OrderRecord | null>;
 
   /**
    * KHOÁ LẠC QUAN — chốt chặn chống gửi giao dịch hai lần cho cùng một lệnh (R1.4).

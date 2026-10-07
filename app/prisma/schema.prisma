@@ -110,6 +110,8 @@ model PurchaseOrder {
   /// ChainKey: hardhat-local | evm | stellar | mock
   chain          String
   investorWallet String
+  /// Khóa chống gửi lặp do client sinh một lần cho mỗi lần xác nhận lệnh.
+  clientRequestId String   @default(uuid())
   /// Chiều lệnh (BE-14). Giá trị hợp lệ: ORDER_SIDES ở lib/store/order.store.port.ts.
   /// Mặc định `BUY`: mọi lệnh có trước BE-14 là lệnh mua, nên dòng cũ tự mang đúng chiều.
   side           String   @default("BUY")
@@ -137,6 +139,8 @@ model PurchaseOrder {
 
   /// R1.3 — nhà đầu tư xem lệnh của mình: lọc theo ví, sắp theo thời gian.
   @@index([investorWallet, createdAt])
+  /// BE-17 — cùng một ví gửi lại cùng yêu cầu chỉ được tạo đúng một lệnh.
+  @@unique([investorWallet, clientRequestId])
   /// R1.3 — ngân hàng lọc theo trạng thái; cũng là chỉ mục cho việc dọn lệnh quá hạn.
   @@index([status, createdAt])
   /// BE-14 — số liệu khớp lệnh trong ngày theo từng chiều: lọc chiều + trạng thái + mốc hoàn tất.

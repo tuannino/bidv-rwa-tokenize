@@ -218,6 +218,10 @@ export const UNIQUE_CONSTRAINTS: Readonly<
   Record<string, { table: string; columns: readonly string[] }>
 > = {
   PurchaseOrder_txHash_key: { table: 'PurchaseOrder', columns: ['txHash'] },
+  PurchaseOrder_investorWallet_clientRequestId_key: {
+    table: 'PurchaseOrder',
+    columns: ['investorWallet', 'clientRequestId'],
+  },
   DistributionPeriod_periodKey_key: { table: 'DistributionPeriod', columns: ['periodKey'] },
   DistributionPayout_periodId_investorWallet_key: {
     table: 'DistributionPayout',
