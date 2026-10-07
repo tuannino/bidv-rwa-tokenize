@@ -17,6 +17,13 @@ export function createServerSigner(chain: ChainKey = 'hardhat-local'): ISigner {
 
   const resolve = (): Account => {
     if (account) return account;
+    // Mock ledger không ký/gửi giao dịch thật. Tài khoản json-rpc cố định chỉ làm nhãn
+    // audit mô phỏng; đòi private key ở đây sẽ chặn nhầm demo không cần chain.
+    // Chỉ mock được dùng nhánh này: chain thật vẫn phải có khóa ký bên dưới.
+    if (chain === 'mock') {
+      account = { address: '0x0000000000000000000000000000000000000001', type: 'json-rpc' };
+      return account;
+    }
     // Khóa theo chain: role on-chain gắn với từng chain nên ví ký phải đúng chain.
     const key = signerPrivateKeyFor(chain);
     if (!key) {

@@ -865,7 +865,7 @@ giới hạn khoảng block.
 | File | Vai trò | Lưu ý |
 |---|---|---|
 | `signer.port.ts` | `ISigner`: `getAddress()`, `getAccount()` | Giữ tối giản |
-| `server.signer.ts` | Khóa ngân hàng | **File duy nhất được đọc `SERVER_SIGNER_PRIVATE_KEY`** |
+| `server.signer.ts` | Tài khoản ký ngân hàng | Chain thật đọc khóa qua `config/env.ts` và vẫn ném `SignerUnavailableError` nếu thiếu. OP-02: riêng `mock` trả tài khoản json-rpc cố định làm nhãn audit, không có private key và không ký/gửi giao dịch thật |
 | `wallet.signer.ts` | Ví người dùng qua EIP-1193 | Không phụ thuộc React, nhận provider từ ngoài |
 | `fireblocks.signer.stub.ts` | Chỗ cắm Phase 5 | **Ném lỗi, cấm fallback về khóa server** |
 | `index.ts` | `getBankSigner()` chọn custody theo `SIGNER_KIND`, có cache | |
