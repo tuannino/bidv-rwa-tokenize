@@ -704,6 +704,17 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       expect(first.id).not.toBe(second.id);
     });
 
+    it('mỗi lệnh không truyền mã vẫn được kho sinh mã chống trùng riêng', async () => {
+      const [first, second] = await Promise.all([
+        store.orders.createOrder(newOrder()),
+        store.orders.createOrder(newOrder()),
+      ]);
+
+      expect(first.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(second.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(first.clientRequestId).not.toBe(second.clientRequestId);
+    });
+
     /** Đưa một lệnh tới EXECUTING theo đúng mô hình một chiều của BE-02. */
     const toExecuting = async (id: string) => {
       await store.orders.transitionOrder({ id, from: ['PLACED'], to: 'CHECKING' });
