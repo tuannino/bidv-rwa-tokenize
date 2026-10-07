@@ -30,13 +30,13 @@ Vòng 3   FE-07  (người A)        ||       FE-23  (người B, sau khi BE-13 
 
 | Thứ tự | Mã | Tên | Điểm | Mức kiểm chứng | Nhánh |
 |---|---|---|---|---|---|
-| 1 | **OP-02** | Gỡ chặn bản trình diễn và dọn tài liệu | 3 | Vừa | `ops/02-demo-unblock` |
+| 1 | **OP-02** | Gỡ chặn bản trình diễn và dọn tài liệu | 5 | Vừa | `ops/02-demo-unblock` |
 | 2 | **FE-08** | Màn Chia lợi nhuận và quyền đọc của Kiểm soát viên | 8 | **Cao** | `feat/distribution-ui` |
 | 3 | **BE-13** | Nghiệp vụ rút VNDB | 8 | **Cao** | `feat/withdraw-service` |
 | 4 | **FE-07** | Màn quản trị phát hành và cấu hình giá | 5 | Vừa | `feat/issuance-admin` |
 | 5 | **FE-23** | Màn Rút VNDB của Nhà đầu tư | 5 | Vừa | `feat/investor-withdraw` |
 
-Tổng 29 điểm.
+Tổng 31 điểm. OP-02 lên 5 điểm sau khi bổ sung mục E ngày 07/10.
 
 ## Vì sao thứ tự này
 

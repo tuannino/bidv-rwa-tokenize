@@ -30,6 +30,15 @@ thì mới đánh dấu xong.
 
 Commit: `docs(guide): sửa menu và bổ sung biến bí mật cần cho bản deploy`
 
+## Bước 4b — Vá hai màn chi tiết ở chain mock
+
+Mục E của `requirements.md`, ba việc 14 tới 16. Chép đúng khuôn ở `investor-orders.tsx` dòng 49 tới
+78, **không nghĩ cách mới**: mục đích là làm hai màn giống hai màn kia, không phải thiết kế lại.
+
+Ca 8 quan trọng ngang ca 6 và 7: nới cho `mock` không được làm mất lời mời kết nối ví ở chain thật.
+
+Commit: `fix(investor): hai màn chi tiết chạy được ở chain mock không cần ví`
+
 ## Bước 5 — Dọn tài liệu
 
 Bốn mục 10 tới 13. Xoá thư mục bằng `git rm -r`, không xoá tay.

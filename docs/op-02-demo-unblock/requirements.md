@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Nhánh | `ops/02-demo-unblock`, từ `dev` @ `abd1ceb` |
-| Điểm | 3 |
+| Điểm | 5 |
 | Mức kiểm chứng | **Vừa** |
 | Thứ tự | **việc đầu tiên của đợt 5**, làm trước mọi task khác |
 | Người làm | Codex hoặc Claude Code |
@@ -85,6 +85,40 @@ grep -rn "KYC" app/src/components/layout/nav-config.ts                  # PHẢI
    mục 9 (chuyển sang môi trường thật), và thêm một dòng vào bảng lỗi thường gặp ở mục 8: đổi chain
    trên bản deploy sang Hardhat Local mà báo thiếu khóa ký là **đúng hành vi**, không phải hỏng.
 
+**E. Vá nốt luồng mock không cần ví ở hai màn chi tiết** (bổ sung 07/10 sau phát hiện của người làm)
+
+Đây là **ngoại lệ duy nhất** của luật "không đụng màn hình" trong task này. Phạm vi khoá chặt ở mục
+"Ràng buộc".
+
+Hiện trạng đo được:
+
+```bash
+grep -rln "mockWallet" app/src/components/pages/     # investor-orders.tsx, investor-trade.tsx
+grep -rln "useAccount" app/src/components/pages/     # 4 tệp, thiếu mockWallet ở 2 tệp cuối
+git show --stat d45b596 | grep "investor-"           # chỉ orders và trade
+```
+
+Commit `d45b596` "hoàn thiện luồng mock không cần ví" sửa `/orders` và `/trade`, **không đụng** hai
+màn chi tiết. Cùng commit đó thêm `docs/guide.md`, trong đó mục 5.3 bước 3 bảo người dùng bấm
+**Chi tiết**. Nên hướng dẫn có một bước không chạy được. Đây **không** phải lỗi cũ của FE-25: FE-25
+ra đời trước khi có khái niệm "mock không cần ví".
+
+Hai chỗ phải vá, dùng **đúng khuôn đã có** ở `investor-orders.tsx` dòng 49 tới 78:
+
+| Tệp | Triệu chứng |
+|---|---|
+| `components/pages/investor-order-detail.tsx` | `/orders/<id>` hiện "Chưa kết nối ví" ở chain mock |
+| `components/pages/investor-token-detail.tsx` | `/tokens/<symbol>` khối vị thế hiện "Kết nối ví ở góc trên phải…" ở chain mock |
+
+14. Trang truyền `mockWallet` xuống, lấy từ hồ sơ phiên đúng cách `(investor)/orders/page.tsx` đang
+    làm. Thành phần dùng `const wallet = chain === 'mock' ? mockWallet : address;` và guard
+    `if (!wallet || (chain !== 'mock' && !isConnected))`. **Chép đúng khuôn, không nghĩ cách mới.**
+15. Thêm ca kiểm thử đầu cuối cho cả hai màn ở chain mock, để lần sau không sót nữa.
+16. Thêm một dòng nợ kỹ thuật mức **P2** vào 1.6.C: bốn màn khu vực Nhà đầu tư đang **chép lặp**
+    cùng một đoạn phân giải ví (`chain === 'mock' ? mockWallet : address`). Chính việc chép lặp làm
+    một lần sửa bỏ sót hai màn. Hướng xử lý: gom về một hook dùng chung, làm **khi task nào tiếp theo
+    đụng tới nhóm màn này**, không mở task riêng.
+
 **D. Dọn tài liệu**
 
 10. `docs/tech-report.md` metadata: FE-24 đã merge qua PR #38, không còn "chờ nghiệm thu". Sửa đường
@@ -132,6 +166,10 @@ script mới**.
 ## Ràng buộc
 
 - Không nới đòi hỏi khóa ký cho bất kỳ chain nào ngoài `mock`.
+- Mục E chỉ được đụng **đúng hai thành phần và hai trang** nêu trong bảng, và chỉ để chép khuôn phân
+  giải ví đã có. Không đổi bố cục, không đổi dữ liệu hiển thị, không gom bốn màn về hook dùng chung
+  trong task này (đó là dòng nợ ở việc 16). Thấy lỗi khác ở hai màn đó thì **ghi vào checkpoint**,
+  đừng sửa.
 - Không sửa `mint.service.ts` hay nghiệp vụ nào khác để lách; sửa đúng một chỗ ở tầng `signer`.
 - Không xoá nội dung Supervisor viết trong báo cáo công nghệ ngoài ba dòng nêu ở mục 10 và 12.
 
@@ -139,7 +177,7 @@ script mới**.
 
 | | Tệp |
 |---|---|
-| Sửa | `lib/signer/server.signer.ts`, cấu hình dựng bản Cloudflare, `docs/guide.md`, `docs/tech-report.md`, `.kiro/steering/structure.md`, `.kiro/task-status.json` |
+| Sửa | `lib/signer/server.signer.ts`, `components/pages/investor-order-detail.tsx`, `components/pages/investor-token-detail.tsx` và hai trang tương ứng, cấu hình dựng bản Cloudflare, `docs/guide.md`, `docs/tech-report.md`, `.kiro/steering/structure.md`, `.kiro/task-status.json` |
 | Xoá | `docs/sc-02-evm-issuance/`, `docs/sc-03-evm-order-settlement/` |
 | Mới | kiểm thử cho mục A |
 
@@ -158,6 +196,9 @@ bash scripts/run-local-all.sh                          # cuối task, một lầ
 | 3 | Chain `mock`, không đặt khóa: KYC và whitelist chạy được đầu cuối |
 | 4 | Đặt `BUILD_COMMIT_SHA`: `/api/version` trả đúng mã đó, `source.commit` là `env` |
 | 5 | Mọi nhãn menu trong `guide.md` mục 1 khớp `nav-config.ts` |
+| 6 | Chain `mock`, chưa kết nối ví: `/orders/<id>` hiện **chi tiết lệnh**, không hiện "Chưa kết nối ví" |
+| 7 | Chain `mock`, chưa kết nối ví: `/tokens/<symbol>` hiện **khối vị thế**, không mời kết nối ví |
+| 8 | Chain khác `mock`, chưa kết nối ví: hai màn trên **vẫn** mời kết nối ví |
 
 Đột biến, **một chỗ**: cho chain `evm` dùng chung nhánh trả tài khoản cố định của `mock` — ca 2 phải đỏ.
 
@@ -170,6 +211,8 @@ bash scripts/run-local-all.sh                          # cuối task, một lầ
       đúng rằng `mock` không cần, chain thật thì cần.
 - [ ] Metadata `tech-report.md` đúng; hai thư mục spec SC đã xoá; ba dòng nợ ở 1.6.C đã xử lý.
 - [ ] `.kiro/steering/structure.md` ghi rõ `docs/` là nguồn spec duy nhất.
+- [ ] Hai màn chi tiết chạy được ở chain `mock` mà không cần ví; chain khác giữ nguyên lời mời kết nối.
+- [ ] **Đi lại toàn bộ `docs/guide.md` từ bản sạch, mọi bước bấm được thật**, gồm mục 5.3 bước 3.
 - [ ] `run-local-all.sh` xanh.
 
 ## Không làm
@@ -177,4 +220,4 @@ bash scripts/run-local-all.sh                          # cuối task, một lầ
 - Không đặt biến bí mật trên Cloudflare và không triển khai lại Worker (việc của chủ dự án).
 - Không viết script kiểm khói mới; `scripts/smoke-test.mjs` đã có.
 - Không viết lại spec SC-02 và SC-03 trong task này.
-- Không đụng màn hình hay nghiệp vụ nào.
+- Không đụng màn hình nào ngoài hai màn chi tiết ở mục E, và không đụng nghiệp vụ nào.
