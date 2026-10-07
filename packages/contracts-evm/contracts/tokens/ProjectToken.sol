@@ -31,6 +31,8 @@ contract ProjectToken is ERC20Burnable, ERC20Snapshotable, AccessControl {
     mapping(address => bool) public isWhitelisted; // đã KYC
     mapping(address => bool) public isFrozen; // bị đóng băng
     bool public paused; // tạm dừng toàn bộ chuyển nhượng
+    address public spvWallet; // ví duy nhất nhận mọi WPT phát hành chính thức
+    bool public initialSupplyMinted; // không suy từ totalSupply: Burn hết vẫn giữ cờ
 
     uint8 private immutable _customDecimals;
     bool private _forcedMove; // cờ nội bộ: cho phép clawback/agentBurn bỏ qua kiểm tra tuân thủ
@@ -41,6 +43,17 @@ contract ProjectToken is ERC20Burnable, ERC20Snapshotable, AccessControl {
     event PausedUpdated(bool status);
     event ForcedTransfer(address indexed from, address indexed to, uint256 amount);
     event AgentBurn(address indexed from, uint256 amount);
+    event InitialSupplyMinted(
+        address indexed spvWallet,
+        uint256 amount,
+        address indexed operator
+    );
+
+    error InitialSupplyAlreadyMinted();
+    error InitialSupplyNotMinted();
+    error MintTargetNotSpv(address to, address spv);
+    error ZeroAddress();
+    error ZeroAmount();
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_, address admin)
         ERC20(name_, symbol_)
@@ -90,8 +103,22 @@ contract ProjectToken is ERC20Burnable, ERC20Snapshotable, AccessControl {
     // =========================================================================
     //  PHÁT HÀNH (MINT) & ĐỐT (BURN)
     // =========================================================================
-    /// @notice Ngân hàng phát hành WPT cho nhà đầu tư đã KYC.
+    /// @notice Đăng ký ví SPV và phát hành lần đầu trong cùng một giao dịch nguyên tử.
+    function mintInitialSupply(address spv, uint256 amount) external onlyRole(MINTER_ROLE) {
+        if (spv == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (initialSupplyMinted) revert InitialSupplyAlreadyMinted();
+
+        spvWallet = spv;
+        initialSupplyMinted = true;
+        _mint(spv, amount);
+        emit InitialSupplyMinted(spv, amount, msg.sender);
+    }
+
+    /// @notice Sau lần đầu, chỉ phát hành thêm vào đúng ví SPV đã đăng ký.
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
+        if (!initialSupplyMinted) revert InitialSupplyNotMinted();
+        if (to != spvWallet) revert MintTargetNotSpv(to, spvWallet);
         _mint(to, amount);
     }
 
