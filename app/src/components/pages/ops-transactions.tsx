@@ -106,34 +106,45 @@ export function OpsTransactionsPage() {
       if (key !== 'q') setPage(1);
     };
 
-  const execute = (orderId: string) =>
+  const execute = (
+    orderId: string,
+    intervention: 'CONTINUE' | 'RECONCILE' | 'MANUAL_RECONCILIATION' | null,
+  ) => {
+    if (intervention !== 'CONTINUE' && intervention !== 'RECONCILE') return;
     startExecute(async () => {
       setWorkingId(orderId);
       setFeedback(null);
       const result = await executeOrderAction({ chain, orderId });
       setWorkingId(null);
       if (result.ok) {
-        setFeedback({ tone: 'success', message: `Đã khớp lệnh ${orderId.slice(0, 8)} và cập nhật số liệu nguồn cung.` });
+        setFeedback({
+          tone: 'success',
+          message:
+            intervention === 'RECONCILE'
+              ? `Đã đối soát giao dịch của lệnh ${orderId.slice(0, 8)}; không phát lại giao dịch.`
+              : `Đã tiếp tục quyết toán lệnh ${orderId.slice(0, 8)} và cập nhật số liệu nguồn cung.`,
+        });
         setRevision((value) => value + 1);
       } else {
         setFeedback({ tone: 'error', message: result.error });
         setRevision((value) => value + 1);
       }
     });
+  };
 
   return (
     <div className="space-y-5">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Giao dịch toàn hệ thống</h1>
         <p className="text-sm text-muted-foreground">
-          Mọi lệnh mua và bán của tất cả nhà đầu tư, kèm bước nghiệp vụ hiện tại để theo dõi và xử lý khi cần.
+          Mọi lệnh mua và bán tự quyết toán, kèm bước nghiệp vụ hiện tại để theo dõi và can thiệp khi lệnh bị kẹt.
         </p>
       </header>
 
       {data && !data.mayExecute && (
         <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm" role="note">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>Vai trò Kiểm soát viên chỉ có quyền xem. Màn hình không cung cấp hành động khớp lệnh.</span>
+          <span>Vai trò Kiểm soát viên chỉ có quyền xem. Màn hình không cung cấp hành động can thiệp.</span>
         </div>
       )}
 
@@ -233,11 +244,19 @@ export function OpsTransactionsPage() {
                     <TableCell className="text-xs">{formatDateTime(order.updatedAt)}</TableCell>
                     {data.mayExecute && (
                       <TableCell>
-                        {order.canExecute ? (
-                          <Button size="xs" onClick={() => execute(order.id)} disabled={workingId !== null}>
+                        {order.canExecute && order.intervention !== 'MANUAL_RECONCILIATION' && order.intervention !== null ? (
+                          <Button
+                            size="xs"
+                            onClick={() => execute(order.id, order.intervention)}
+                            disabled={workingId !== null}
+                          >
                             {workingId === order.id && <Loader2 className="animate-spin" aria-hidden="true" />}
-                            Khớp lệnh
+                            {order.intervention === 'RECONCILE' ? 'Đối soát giao dịch' : 'Tiếp tục quyết toán'}
                           </Button>
+                        ) : order.intervention === 'MANUAL_RECONCILIATION' ? (
+                          <span className="text-xs font-medium text-destructive" title="Giao dịch có thể đã được phát nhưng chưa lưu được mã">
+                            Cần đối soát tay
+                          </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
