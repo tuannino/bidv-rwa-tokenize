@@ -31,7 +31,11 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    // Bản build riêng của đầu cuối trên hardhat (OP-03). Khai sẵn để `next build` không tự thêm
+    // và định dạng lại cả tệp này mỗi lần dựng.
+    ".next-hardhat/types/**/*.ts",
+    ".next-hardhat/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

@@ -14,7 +14,8 @@
 #    A. ứng dụng      — cổng BẮT BUỘC (arch, markers, checkpoint, typecheck, lint, vitest)
 #    B. hợp đồng EVM  — cổng BẮT BUỘC (hardhat test). KHÔNG có phần Rust: xem
 #                       docs/tech-report.md mục 2.6 (Stellar tạm dừng ở khâu kiểm chứng).
-#    C. phần nặng     — dựng bản phát hành + kiểm thử đầu cuối. KHÔNG chặn hợp nhất ở
+#    C. phần nặng     — dựng bản phát hành + kiểm thử đầu cuối trên `mock`, rồi đầu cuối
+#                       trên chuỗi hardhat cục bộ (phần `evm`). KHÔNG chặn hợp nhất ở
 #                       giai đoạn này.
 #
 #  ⚠️ VIỆC C KHÔNG CHẶN — bằng cách nào. Nó KHÔNG đặt `continue-on-error`, nên đỏ thì
@@ -26,8 +27,9 @@
 #  kho mã, không phải sửa tệp này.
 #
 #  KHÔNG dùng secret nào. Ba việc dưới đây chỉ đọc mã nguồn và chạy kiểm thử trên bản
-#  `mock`; không có khóa ký, không có chuỗi kết nối cơ sở dữ liệu, nên không có gì để lộ
-#  ra nhật ký chạy. Thêm secret vào đây thì phải xét lại điều đó.
+#  `mock` và trên nút hardhat dựng tại chỗ; khoá ký duy nhất là khoá CÔNG KHAI của tài khoản
+#  mẫu Hardhat, không có chuỗi kết nối cơ sở dữ liệu, nên không có gì để lộ ra nhật ký chạy.
+#  Thêm secret vào đây thì phải xét lại điều đó.
 # =============================================================================
 name: CI
 
@@ -143,20 +145,37 @@ jobs:
   heavy:
     name: C - phan nang (KHONG chan hop nhat)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Hai bản build (`mock` và `hardhat`) cộng hai bộ đầu cuối (OP-03).
+    timeout-minutes: 40
     steps:
       - name: Lấy mã nguồn
         uses: actions/checkout@v7
 
-      - name: Cài Node và lưu đệm phụ thuộc của app
+      - name: Cài Node và lưu đệm phụ thuộc của app và contracts-evm
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: |
+            app/package-lock.json
+            packages/contracts-evm/package-lock.json
 
       - name: Cài phụ thuộc của app
         working-directory: app
+        run: npm ci
+
+      # Phần `evm` dựng nút hardhat và triển khai, nên cần phụ thuộc và trình biên dịch Solidity
+      # như việc B. Cùng khoá đệm solc với việc B.
+      - name: Lưu đệm trình biên dịch Solidity
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/hardhat-nodejs
+          key: solc-${{ runner.os }}-${{ hashFiles('packages/contracts-evm/hardhat.config.js') }}
+          restore-keys: |
+            solc-${{ runner.os }}-
+
+      - name: Cài phụ thuộc của contracts-evm
+        working-directory: packages/contracts-evm
         run: npm ci
 
       - name: Lưu đệm bộ nhớ đệm dựng bản
@@ -205,6 +224,12 @@ jobs:
           BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             bash scripts/run-local-all.sh build e2e
 
+      - name: Kiểm thử đầu cuối trên chuỗi hardhat cục bộ
+        # SAU `build e2e`: bộ `mock` phải chạy khi CHƯA có nút hardhat (chain-selector.spec.ts).
+        # Phần `evm` tự dựng bản build riêng, reset chuỗi, chạy project `hardhat`, rồi dọn nút
+        # và app kể cả khi đỏ. Xem docs/EVM_LOCAL.md.
+        run: bash scripts/run-local-all.sh evm
+
       - name: Giữ vết Playwright khi kiểm thử đầu cuối đỏ
         if: failure()
         uses: actions/upload-artifact@v7
@@ -213,6 +238,7 @@ jobs:
           path: |
             app/test-results/
             app/playwright-report/
+            /tmp/bidv-evm-local-*/node.log
           retention-days: 7
           if-no-files-found: ignore
 
