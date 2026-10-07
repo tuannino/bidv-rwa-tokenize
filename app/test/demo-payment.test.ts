@@ -69,6 +69,13 @@ afterEach(() => {
 });
 
 describe('ca 1 — cờ bật, Giao dịch viên nạp thành công', () => {
+  it('không đặt cờ thì dùng mặc định PoC và vẫn nạp được', async () => {
+    setFlag(undefined);
+    const result = await mint(INVESTOR, 1n);
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    expect(await vndb(INVESTOR)).toBe(1n);
+  });
+
   it('số dư VNDB tăng đúng số nạp, trả số dư sau nạp, giao dịch vào bảng Txn', async () => {
     const result = await mint(INVESTOR, SAMPLE);
 
@@ -109,7 +116,7 @@ describe('ca 1 — cờ bật, Giao dịch viên nạp thành công', () => {
 });
 
 describe('ca 2 — cờ tắt thì từ chối, KỂ CẢ vai có quyền', () => {
-  it.each([undefined, 'false', '0'])('cờ = %s: TELLER bị từ chối, số dư và bảng Txn giữ nguyên', async (flag) => {
+  it.each(['false', '0'])('cờ = %s: TELLER bị từ chối, số dư và bảng Txn giữ nguyên', async (flag) => {
     setFlag(flag);
     actAs('TELLER');
     const { can } = await import('@/lib/rbac');
