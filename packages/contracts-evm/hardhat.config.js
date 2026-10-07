@@ -41,6 +41,8 @@ module.exports = {
   },
   networks: {
     hardhat: {},
+    // Nút cục bộ. Đổi cổng qua LOCAL_RPC_URL (scripts/evm-local.sh đặt khi EVM_LOCAL_PORT khác 8545).
+    localhost: { url: process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545" },
     // Testnet công khai Sepolia. Đặt RPC + khóa trong .env (xem .env.example).
     // Mặc định là endpoint công khai không cần API key; `https://rpc.sepolia.org` cũ đã
     // CHẾT (trả HTTP 404) nên không dùng làm fallback nữa.
