@@ -14,11 +14,13 @@
 #      contracts   Lớp 1 - spec test contract EVM (hardhat)
 #      app         Chất lượng app: typecheck, lint, vitest
 #      build       Dựng bản phát hành của app  (CẦN MẠNG - xem ghi chú dưới)
-#      e2e         Kiểm thử đầu cuối Playwright (tự dựng server theo cấu hình của nó)
+#      e2e         Kiểm thử đầu cuối Playwright trên bản build của phần `build`, chain `mock`
+#      evm         Đầu cuối trên chuỗi hardhat cục bộ: dựng bản build riêng, reset chuỗi, chạy
+#                  project `hardhat`, dọn nút và app kể cả khi đỏ (CẦN MẠNG như `build`)
 #
 #  BỘ MẶC ĐỊNH = arch markers checkpoint contracts app.
-#  `build` và `e2e` CỐ Ý ở ngoài bộ mặc định: cả hai nặng, và `build` cần mạng nên
-#  không chạy được ở nơi bị chặn ra ngoài. Muốn chạy thì gọi tên tường minh.
+#  `build`, `e2e` và `evm` CỐ Ý ở ngoài bộ mặc định: cả ba nặng, và `build`/`evm` cần mạng
+#  nên không chạy được ở nơi bị chặn ra ngoài. Muốn chạy thì gọi tên tường minh.
 #
 #  VÌ SAO TÁCH THÀNH PHẦN (OP-01). Quy trình tự động ở .github/workflows/ci.yml gọi
 #  LẠI ĐÚNG các phần dưới đây, không chép danh sách lệnh sang tệp YAML. Chép sang là
@@ -38,7 +40,7 @@ set -uo pipefail
 
 # Tên phần và thứ tự của bộ mặc định. Thêm phần mới = thêm hàm `part_<tên>` và thêm
 # tên vào ALL_PARTS; nếu phần đó thuộc cổng bắt buộc thì thêm cả vào DEFAULT_PARTS.
-ALL_PARTS=(arch markers checkpoint contracts app build e2e)
+ALL_PARTS=(arch markers checkpoint contracts app build e2e evm)
 DEFAULT_PARTS=(arch markers checkpoint contracts app)
 
 FAILED=()
@@ -125,9 +127,31 @@ part_build() {
 }
 
 part_e2e() {
-  # Playwright TỰ dựng server theo app/playwright.config.ts (mặc định `next dev` cổng 3100,
-  # chain `mock`, lưu trong bộ nhớ). Không cần hardhat node, không cần Postgres.
+  # Playwright TỰ chạy máy chủ theo app/playwright.config.ts: `next start` trên BẢN BUILD mà
+  # phần `build` vừa dựng (không dựng lại), cổng 3100, chain `mock`, lưu trong bộ nhớ. Không
+  # cần hardhat node, không cần Postgres, và PHẢI chạy khi không có node (chain-selector.spec.ts).
+  # Chưa dựng bản thì `next start` báo thiếu bản build: gọi `build e2e`. Gỡ lỗi: E2E_DEV=1.
   run "APP - E2E (PLAYWRIGHT)" app npx playwright test
+}
+
+part_evm() {
+  # Bản build RIÊNG ở `.next-hardhat` (khớp HARDHAT_DIST_DIR trong app/playwright.config.ts):
+  # `NEXT_PUBLIC_DEFAULT_CHAIN` bị nhúng lúc dựng, và không được ghi đè `.next` của phần `e2e`.
+  # Lý do chọn cách này: docs/CHECKPOINT_OP03.md.
+  run "EVM - BUILD BẢN HARDHAT" app \
+      env NEXT_DIST_DIR=.next-hardhat NEXT_PUBLIC_DEFAULT_CHAIN=hardhat-local npm run build
+  case " ${FAILED[*]:-} " in *" EVM - BUILD BẢN HARDHAT "*) return 0;; esac
+
+  # Dọn nút kể cả khi bị ngắt giữa chừng. Kiểm thử đỏ thì `run` đã bắt mã thoát nên vẫn tới
+  # bước dọn bên dưới; còn app do Playwright tự dừng khi chạy xong, đỏ hay xanh.
+  trap 'bash scripts/evm-local.sh down >/dev/null 2>&1' EXIT
+  run "EVM - DỰNG CHUỖI MỚI" . bash scripts/evm-local.sh reset
+  case " ${FAILED[*]:-} " in
+    *" EVM - DỰNG CHUỖI MỚI "*) ;;
+    *) run "EVM - E2E PROJECT HARDHAT" app env E2E_CHAIN=hardhat-local npx playwright test ;;
+  esac
+  bash scripts/evm-local.sh down
+  trap - EXIT
 }
 
 # -----------------------------------------------------------------------------

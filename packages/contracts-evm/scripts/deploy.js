@@ -33,7 +33,13 @@ async function exportAbi(contractName) {
   );
 }
 
-/** Ghi addresses.json, GIỮ LẠI các chain khác đã có trong file. */
+/**
+ * Ghi addresses.json, GIỮ LẠI các chain khác đã có trong file.
+ *
+ * CHỈ ghi khi chainId, người triển khai hoặc địa chỉ đổi (OP-03). Triển khai lại lên nút
+ * hardhat mới cho đúng địa chỉ cũ thì không ghi: chỉ `deployedAt` đổi, mà ghi vì nó là làm
+ * bẩn cây làm việc mỗi lần dựng chuỗi. Trả về true nếu đã ghi.
+ */
 function writeAddresses(chainKey, record) {
   let book = { _comment: "", chains: {} };
   if (fs.existsSync(ADDRESSES_FILE)) {
@@ -43,6 +49,10 @@ function writeAddresses(chainKey, record) {
       /* file hỏng thì ghi lại từ đầu */
     }
   }
+  const { deployedAt: _old, ...previous } = book.chains?.[chainKey] ?? {};
+  const { deployedAt: _new, ...next } = record;
+  if (JSON.stringify(previous) === JSON.stringify(next)) return false;
+
   book._comment =
     "SINH TỰ ĐỘNG bởi packages/contracts-evm/scripts/deploy.js — đừng sửa tay. " +
     "Địa chỉ hardhat-local là tất định (cùng deployer + cùng thứ tự deploy) nên commit được, " +
@@ -50,6 +60,7 @@ function writeAddresses(chainKey, record) {
   book.chains = { ...(book.chains || {}), [chainKey]: record };
   fs.mkdirSync(path.dirname(ADDRESSES_FILE), { recursive: true });
   fs.writeFileSync(ADDRESSES_FILE, `${JSON.stringify(book, null, 2)}\n`, "utf8");
+  return true;
 }
 
 async function main() {
@@ -102,7 +113,7 @@ async function main() {
   };
 
   // 4) Xuất sang packages/shared
-  writeAddresses(chainKey, {
+  const written = writeAddresses(chainKey, {
     chainId: Number(chainId),
     deployer: admin,
     deployedAt: new Date().toISOString(),
@@ -116,7 +127,11 @@ async function main() {
   for (const [name, address] of Object.entries(contracts)) {
     console.log(`${name.padEnd(20)} ${address}`);
   }
-  console.log(`\nĐã ghi: ${path.relative(process.cwd(), ADDRESSES_FILE)}`);
+  console.log(
+    written
+      ? `\nĐã ghi: ${path.relative(process.cwd(), ADDRESSES_FILE)}`
+      : `\nĐịa chỉ không đổi, giữ nguyên ${path.relative(process.cwd(), ADDRESSES_FILE)}`,
+  );
   console.log(`Đã ghi ABI đối chiếu: ${path.relative(process.cwd(), GENERATED_ABI_DIR)}/`);
 }
 

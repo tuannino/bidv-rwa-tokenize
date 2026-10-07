@@ -9,8 +9,9 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
  * xem bảng trong `docs/CHECKPOINT_FE02.md`. Logic quyết định của cả tám trạng thái đã có
  * unit test ở `test/wallet-status.test.ts`.
  *
- * Máy chủ e2e chạy `NEXT_PUBLIC_DEFAULT_CHAIN=mock` và `DEMO_ROLE=TELLER` (xem
- * `playwright.config.ts`), nên phải đặt cookie mới vào được khu vực nhà đầu tư.
+ * Máy chủ e2e chạy `DEMO_ROLE=TELLER` (xem `playwright.config.ts`), nên phải đặt cookie mới
+ * vào được khu vực nhà đầu tư. Chain mặc định là `mock` ở project `mock` và `hardhat-local` ở
+ * project `hardhat`, nên ca nào cần một chain cụ thể thì tự chọn.
  */
 
 /** Đặt cả hai cookie, giống hệt việc `setChannel` làm ở server. */
@@ -63,6 +64,9 @@ test.describe('Trang Ví của tôi', () => {
     await page.goto('/wallet');
     await waitForHydration(page);
 
+    // Chọn tường minh, không giả định chain mặc định: project `hardhat` chạy bản build có mặc
+    // định `hardhat-local` (OP-03).
+    await page.locator('#chain-selector').selectOption('mock');
     await expect(page.locator('#chain-selector')).toHaveValue('mock');
     await expect(page.getByRole('heading', { name: /Đang ở chế độ mô phỏng/ })).toBeVisible();
     await expect(page.getByText(/không cần ví thật/)).toBeVisible();

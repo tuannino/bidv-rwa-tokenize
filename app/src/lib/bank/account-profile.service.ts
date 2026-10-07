@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { SAMPLE_WALLETS } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { err, ok, type Result } from './result';
@@ -64,7 +65,7 @@ const SAMPLE_ACCOUNT_PROFILES: readonly AccountProfileView[] = [
     riskRating: 'LOW',
     amlStatus: 'CLEARED',
     dailyTransactionLimitVnd: '500000000',
-    wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    wallet: SAMPLE_WALLETS.NDT001,
   },
   {
     kind: 'CUSTOMER',
@@ -82,7 +83,7 @@ const SAMPLE_ACCOUNT_PROFILES: readonly AccountProfileView[] = [
     riskRating: 'LOW',
     amlStatus: 'CLEARED',
     dailyTransactionLimitVnd: '5000000000',
-    wallet: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+    wallet: SAMPLE_WALLETS.NB001,
   },
   {
     kind: 'EMPLOYEE',

@@ -9,6 +9,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-hardhat/**", // bản build đầu cuối trên hardhat (OP-03)
     "out/**",
     "build/**",
     "next-env.d.ts",

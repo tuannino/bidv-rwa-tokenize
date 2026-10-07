@@ -299,9 +299,10 @@ async function autoSettleCreatedOrder(
   try {
     const settled = await settleStoredOrder(order, actorRole, 'AUTOMATIC');
     if (settled.ok) return settled;
-  } catch {
+  } catch (error) {
     // Rơi tiếp xuống đọc lại bản ghi. Kể cả lỗi ngoài dự kiến sau khi tạo, biên API đặt lệnh
     // vẫn phải trả lệnh đang tồn tại thay vì nói rằng việc đặt lệnh chưa xảy ra.
+    console.error(`[purchase] tự quyết toán lệnh ${order.id} lỗi ngoài dự kiến:`, error);
   }
 
   const current = await getOrderStore().findOrder(order.id);

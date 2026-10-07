@@ -25,6 +25,9 @@ Mở <http://localhost:3000>. Trạng thái đúng khi mới mở:
 - Trang **Bảng điều khiển** hiện ra, không có thông báo “Không có quyền vào kênh Vận hành”.
 - Menu có **Bảng điều khiển**, **Lập lệnh**, **Giao dịch**, **Chia lợi nhuận**, **Thông tin tài khoản** và **Nạp VNDB (trình diễn)** (khi cờ trình diễn bật).
 
+Chạy app trên chuỗi hardhat cục bộ thay vì `mock`, và chạy kiểm thử đầu cuối trên đó: xem
+[EVM_LOCAL.md](EVM_LOCAL.md).
+
 Nếu cổng 3000 đã bận, Next.js in URL thực tế trong terminal; dùng đúng URL đó. Nếu trình duyệt từng
 chọn một vai khác, cookie của trình duyệt được ưu tiên: chọn lại **Giao dịch viên · GDV001** ở góc
 trên phải. Hai trình duyệt lưu cookie độc lập, nhưng một trình duyệt sạch luôn bắt đầu ở GDV.
