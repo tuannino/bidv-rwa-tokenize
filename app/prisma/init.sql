@@ -44,6 +44,7 @@ CREATE TABLE "PurchaseOrder" (
     "id" TEXT NOT NULL,
     "chain" TEXT NOT NULL,
     "investorWallet" TEXT NOT NULL,
+    "clientRequestId" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
     "side" TEXT NOT NULL DEFAULT 'BUY',
     "wptAmount" DECIMAL(78,0) NOT NULL,
     "vndAmount" DECIMAL(78,0) NOT NULL,
@@ -267,6 +268,9 @@ CREATE INDEX "AuditLog_actorRole_action_idx" ON "AuditLog"("actorRole", "action"
 CREATE UNIQUE INDEX "PurchaseOrder_txHash_key" ON "PurchaseOrder"("txHash");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PurchaseOrder_investorWallet_clientRequestId_key" ON "PurchaseOrder"("investorWallet", "clientRequestId");
+
+-- CreateIndex
 CREATE INDEX "PurchaseOrder_investorWallet_createdAt_idx" ON "PurchaseOrder"("investorWallet", "createdAt");
 
 -- CreateIndex
@@ -358,4 +362,3 @@ ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_roleId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

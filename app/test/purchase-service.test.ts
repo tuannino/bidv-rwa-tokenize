@@ -87,9 +87,17 @@ const {
   expireStaleOrders,
   listOrders,
   orderDailyStats,
-  placeOrder,
+  placeOrder: placeOrderService,
   previewPurchase,
 } = await import('@/lib/bank/purchase.service');
+
+/** Giữ các ca lịch sử tập trung vào điều chúng kiểm; ca BE-17 truyền mã cố định riêng. */
+async function placeOrder(input: unknown) {
+  if (typeof input !== 'object' || input === null || 'clientRequestId' in input) {
+    return placeOrderService(input);
+  }
+  return placeOrderService({ ...input, clientRequestId: crypto.randomUUID() });
+}
 
 const ALICE = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const BOB = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
@@ -250,6 +258,101 @@ afterEach(() => {
 //  ĐẶT LỆNH
 // =============================================================================
 describe('placeOrder', () => {
+  it('bắt buộc clientRequestId đúng dạng UUID', async () => {
+    await seedReadyToBuy();
+    const missing = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+    });
+    const malformed = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+      clientRequestId: 'khong-phai-uuid',
+    });
+    expect(missing.ok).toBe(false);
+    expect(malformed.ok).toBe(false);
+    if (!missing.ok) expect(missing.code).toBe('VALIDATION');
+    if (!malformed.ok) expect(malformed.code).toBe('VALIDATION');
+  });
+
+  it('gửi lại cùng mã và cùng nội dung trả đúng lệnh cũ, không tạo hay gửi lần hai', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    const input = { chain: CHAIN, investorWallet: ALICE, wptAmount: '2', clientRequestId };
+
+    const first = await placeOrderService(input);
+    const repeated = await placeOrderService(input);
+
+    expect(first.ok && repeated.ok).toBe(true);
+    if (!first.ok || !repeated.ok) return;
+    expect(repeated.data.id).toBe(first.data.id);
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+    expect(fault.sendCount).toBe(0);
+  });
+
+  it('gửi lại cùng mã nhưng khác nội dung bị từ chối rõ ràng', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '2',
+      clientRequestId,
+    });
+
+    const conflict = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '3',
+      clientRequestId,
+    });
+    expect(conflict.ok).toBe(false);
+    if (!conflict.ok) {
+      expect(conflict.code).toBe('VALIDATION');
+      expect(conflict.error).toMatch(/đã được dùng.*nội dung khác/);
+    }
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+  });
+
+  it('hai lời gọi song song cùng mã tạo đúng một lệnh', async () => {
+    await seedReadyToBuy();
+    const clientRequestId = crypto.randomUUID();
+    const input = { chain: CHAIN, investorWallet: ALICE, wptAmount: '2', clientRequestId };
+
+    const [first, second] = await Promise.all([
+      placeOrderService(input),
+      placeOrderService(input),
+    ]);
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+    expect(second.data.id).toBe(first.data.id);
+    expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+  });
+
+  it('hai ví được dùng cùng mã yêu cầu mà không va chạm', async () => {
+    await seedReadyToBuy();
+    await fundInvestor(BOB);
+    const clientRequestId = crypto.randomUUID();
+    const [alice, bob] = await Promise.all([
+      placeOrderService({
+        chain: CHAIN,
+        investorWallet: ALICE,
+        wptAmount: '1',
+        clientRequestId,
+      }),
+      placeOrderService({
+        chain: CHAIN,
+        investorWallet: BOB,
+        wptAmount: '1',
+        clientRequestId,
+      }),
+    ]);
+    expect(alice.ok && bob.ok).toBe(true);
+    if (alice.ok && bob.ok) expect(alice.data.id).not.toBe(bob.data.id);
+  });
+
   it('tính đúng số VNDB phải trả và lưu vào lệnh', async () => {
     await seedReadyToBuy();
 

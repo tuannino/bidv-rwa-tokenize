@@ -667,6 +667,43 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       actorRole: 'INVESTOR' as const,
     });
 
+    it('hai lời gọi song song cùng (ví, mã yêu cầu) chỉ tạo đúng một lệnh', async () => {
+      const clientRequestId = randomUUID();
+      const results = await Promise.allSettled([
+        store.orders.createOrder({ ...newOrder(), clientRequestId }),
+        store.orders.createOrder({ ...newOrder(), clientRequestId }),
+      ]);
+
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.find((result) => result.status === 'rejected');
+      expect(rejected).toMatchObject({
+        status: 'rejected',
+        reason: {
+          name: 'UniqueConstraintError',
+          table: 'PurchaseOrder',
+          columns: ['investorWallet', 'clientRequestId'],
+        },
+      });
+      const stored = await store.orders.findOrderByClientRequest({
+        investorWallet: WALLET_A,
+        clientRequestId,
+      });
+      expect(stored?.clientRequestId).toBe(clientRequestId);
+    });
+
+    it('cùng mã yêu cầu nhưng khác ví không va chạm', async () => {
+      const clientRequestId = randomUUID();
+      const [first, second] = await Promise.all([
+        store.orders.createOrder({ ...newOrder(), clientRequestId }),
+        store.orders.createOrder({
+          ...newOrder(),
+          investorWallet: WALLET_B,
+          clientRequestId,
+        }),
+      ]);
+      expect(first.id).not.toBe(second.id);
+    });
+
     /** Đưa một lệnh tới EXECUTING theo đúng mô hình một chiều của BE-02. */
     const toExecuting = async (id: string) => {
       await store.orders.transitionOrder({ id, from: ['PLACED'], to: 'CHECKING' });

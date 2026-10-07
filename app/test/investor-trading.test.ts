@@ -98,7 +98,13 @@ const asState = (data: Awaited<ReturnType<typeof preview>>): TradePreviewState =
 async function place(wptAmount: string, side: 'BUY' | 'SELL' = 'BUY', wallet = ALICE): Promise<OrderView> {
   const { placeOrder } = await purchase();
   actAs('INVESTOR');
-  const result = await placeOrder({ chain: CHAIN, investorWallet: wallet, wptAmount, side });
+  const result = await placeOrder({
+    chain: CHAIN,
+    investorWallet: wallet,
+    wptAmount,
+    side,
+    clientRequestId: crypto.randomUUID(),
+  });
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   if (!result.ok) throw new Error(result.error);
   return result.data;

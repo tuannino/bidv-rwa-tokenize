@@ -57,6 +57,7 @@ async function seedExecutableOrder() {
     chain: CHAIN,
     investorWallet: ALICE,
     wptAmount: '2',
+    clientRequestId: crypto.randomUUID(),
   });
   expect(placed.ok, placed.ok ? '' : placed.error).toBe(true);
   if (!placed.ok) throw new Error(placed.error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { Loader2, Wallet, Wind } from 'lucide-react';
@@ -68,6 +68,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracked, setTracked] = useState<OrderView | null>(null);
+  const requestRef = useRef<{ intent: string; id: string } | null>(null);
 
   // --- Bối cảnh: token, số dư, giá, trần hai chiều -------------------------------
   const contextKey = wallet ? `${chain}|${wallet}|${contextTick}` : null;
@@ -136,9 +137,19 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
   async function submit() {
     if (!wallet || !amount) return;
+    const intent = `${chain}|${wallet.toLowerCase()}|${side}|${amount}`;
+    if (requestRef.current?.intent !== intent) {
+      requestRef.current = { intent, id: crypto.randomUUID() };
+    }
     setSubmitting(true);
     setSubmitError(null);
-    const result = await placeOrderAction({ chain, investorWallet: wallet, wptAmount: amount, side });
+    const result = await placeOrderAction({
+      chain,
+      investorWallet: wallet,
+      wptAmount: amount,
+      side,
+      clientRequestId: requestRef.current.id,
+    });
     setSubmitting(false);
     setConfirmOpen(false);
     if (!result.ok) {
@@ -146,6 +157,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
       return;
     }
     setTracked(result.data);
+    requestRef.current = null;
     setQuantity('');
     setContextTick((tick) => tick + 1);
   }

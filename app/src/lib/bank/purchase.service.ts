@@ -5,7 +5,7 @@ import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@
 import { getBankSigner } from '@/lib/signer';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
-import { getOrderStore, getStore } from '@/lib/store';
+import { getOrderStore, getStore, UniqueConstraintError } from '@/lib/store';
 import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
 import { authorize, toResult } from './authorize';
 import { err, ok, type ErrorCode, type Result } from './result';
@@ -200,12 +200,16 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, investorWallet, wptAmount, side } = parsed.data;
+  const { chain, investorWallet, wptAmount, side, clientRequestId } = parsed.data;
   const sidePrefix = SIDE_PREFIX[side];
 
   try {
     // `authorize` ghi audit cho CẢ hai kết cục (ALLOWED và DENIED) rồi mới ném — R1.4.
     const role = await authorize('order:place', investorWallet, chain);
+    const orderStore = getOrderStore();
+
+    const repeated = await orderStore.findOrderByClientRequest({ investorWallet, clientRequestId });
+    if (repeated) return repeatedOrderResult(repeated, { chain, side, wptAmount });
 
     const ledger = getLedger(chain);
 
@@ -232,14 +236,25 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     }
 
     const vndAmount = checks.vndAmount;
-    const order = await getOrderStore().createOrder({
-      chain,
-      investorWallet,
-      side,
-      wptAmount: wptAmount.toString(),
-      vndAmount: vndAmount.toString(),
-      actorRole: role,
-    });
+    let order: OrderRecord;
+    try {
+      order = await orderStore.createOrder({
+        chain,
+        investorWallet,
+        clientRequestId,
+        side,
+        wptAmount: wptAmount.toString(),
+        vndAmount: vndAmount.toString(),
+        actorRole: role,
+      });
+    } catch (error) {
+      if (!isClientRequestConflict(error)) throw error;
+      // Hai lời gọi song song có thể cùng vượt qua phép đọc phía trên. Ràng buộc duy nhất của
+      // store chọn đúng một bên thắng; bên còn lại đọc bản ghi đã thắng thay vì tạo lần hai.
+      const winner = await orderStore.findOrderByClientRequest({ investorWallet, clientRequestId });
+      if (!winner) throw error;
+      return repeatedOrderResult(winner, { chain, side, wptAmount });
+    }
 
     await getStore().appendAudit({
       actorRole: role,
@@ -257,6 +272,31 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   } catch (error) {
     return toResult(error);
   }
+}
+
+function isClientRequestConflict(error: unknown): error is UniqueConstraintError {
+  return (
+    error instanceof UniqueConstraintError &&
+    error.table === 'PurchaseOrder' &&
+    error.columns.join('|') === 'investorWallet|clientRequestId'
+  );
+}
+
+function repeatedOrderResult(
+  order: OrderRecord,
+  intent: { chain: ChainKey; side: OrderSide; wptAmount: bigint },
+): Result<OrderView> {
+  const same =
+    order.chain === intent.chain &&
+    order.side === intent.side &&
+    order.wptAmount === intent.wptAmount.toString();
+  if (!same) {
+    return err(
+      'VALIDATION',
+      `Mã chống trùng ${order.clientRequestId} đã được dùng cho một lệnh có nội dung khác.`,
+    );
+  }
+  return ok(toOrderView(order));
 }
 
 /**

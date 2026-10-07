@@ -103,11 +103,25 @@ export function createMemoryOrderStore(): IOrderStore {
       // Mọi phép kiểm chạy TRƯỚC mọi thay đổi trạng thái: thất bại giữa chừng sẽ để lại
       // dữ liệu nửa vời mà không lời gọi nào sau đó biết là nửa vời.
       const status = assertOrderStatus(order.status ?? 'PLACED');
+      const clientRequestId = order.clientRequestId ?? randomUUID();
+      const duplicate = state().orders.find(
+        (existing) =>
+          existing.investorWallet === order.investorWallet &&
+          existing.clientRequestId === clientRequestId,
+      );
+      if (duplicate) {
+        throw new UniqueConstraintError(
+          'PurchaseOrder',
+          ['investorWallet', 'clientRequestId'],
+          `Mã yêu cầu đã thuộc lệnh "${duplicate.id}".`,
+        );
+      }
       const now = new Date().toISOString();
       const record: OrderRecord = {
         id: randomUUID(),
         chain: order.chain,
         investorWallet: order.investorWallet,
+        clientRequestId,
         side: assertOrderSide(order.side ?? 'BUY'),
         wptAmount: assertAmount('wptAmount', order.wptAmount),
         vndAmount: assertAmount('vndAmount', order.vndAmount),
@@ -132,6 +146,15 @@ export function createMemoryOrderStore(): IOrderStore {
 
     async findOrder(id) {
       const found = state().orders.find((order) => order.id === id);
+      return found ? { ...found } : null;
+    },
+
+    async findOrderByClientRequest({ investorWallet, clientRequestId }) {
+      const found = state().orders.find(
+        (order) =>
+          order.investorWallet === investorWallet &&
+          order.clientRequestId === clientRequestId,
+      );
       return found ? { ...found } : null;
     },
 

@@ -268,7 +268,13 @@ describe('ca 8 — sau khi nạp, nhà đầu tư đặt được lệnh mua và
     expect(cap).toBe(SAMPLE / price);
 
     actAs('INVESTOR');
-    const order = await placeOrder({ chain: CHAIN, investorWallet: INVESTOR, wptAmount: cap.toString(), side: 'BUY' });
+    const order = await placeOrder({
+      chain: CHAIN,
+      investorWallet: INVESTOR,
+      wptAmount: cap.toString(),
+      side: 'BUY',
+      clientRequestId: crypto.randomUUID(),
+    });
     expect(order.ok, order.ok ? '' : order.error).toBe(true);
     if (!order.ok) return;
 
