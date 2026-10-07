@@ -27,6 +27,20 @@ afterEach(() => {
 });
 
 describe('FE-24 — nguồn hồ sơ bốn vai', () => {
+  it('phiên sạch hoặc DEMO_ROLE cũ không hợp lệ đều về TELLER mặc định', async () => {
+    for (const demoRole of [undefined, 'BANK_ADMIN']) {
+      if (demoRole === undefined) delete process.env.DEMO_ROLE;
+      else process.env.DEMO_ROLE = demoRole;
+      delete process.env.DEMO_ACTOR;
+      resetServerEnvCache();
+
+      const result = await getOwnAccountProfile();
+      expect(result.ok, result.ok ? '' : result.error).toBe(true);
+      if (!result.ok) continue;
+      expect(result.data).toMatchObject({ actorId: 'GDV001', role: 'TELLER' });
+    }
+  });
+
   it.each(Object.entries(ACTORS) as Array<[Role, string]>)('%s chỉ đọc hồ sơ của chính mình', async (role, actorId) => {
     actAs(role, actorId);
     const result = await getOwnAccountProfile();

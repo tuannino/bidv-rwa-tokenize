@@ -112,14 +112,14 @@ const envSchema = z.object({
   /**
    * Cho phép cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định — CHỈ MÔI TRƯỜNG THỬ.
    *
-   * Mặc định TẮT, và đây là mặc định duy nhất đúng: bật trên môi trường thật là cho phép
-   * tự phát hành tiền. Cờ này là LỚP CHẶN THỨ HAI, độc lập với bảng quyền RBAC — bảng quyền
-   * nằm trong mã nguồn, ai gán nhầm vai `TELLER` là chức năng mở ra ngay; cờ thì nằm
-   * ở cấu hình triển khai nên hai lớp không cùng hỏng vì một sai sót.
+   * Bản PoC demo mặc định BẬT để chạy trọn luồng ngay sau khi clone. Môi trường production
+   * BẮT BUỘC ghi đè thành `false`: bật ở đó là cho phép tự phát hành tiền. Cờ này là LỚP CHẶN
+   * THỨ HAI, độc lập với bảng quyền RBAC — production phải cấu hình tường minh thay vì dựa vào
+   * mặc định dành cho bản demo.
    *
    * Điểm kiểm duy nhất: `lib/rbac/demo-payment.ts`. Đừng đọc cờ này ở chỗ khác.
    */
-  enableDemoPaymentMint: boolFlag(false),
+  enableDemoPaymentMint: boolFlag(true),
 
   /**
    * Cho phép phát hành WPT TRỰC TIẾP, không qua lập–duyệt — CHỈ MÔI TRƯỜNG THỬ, để dựng dữ liệu thử

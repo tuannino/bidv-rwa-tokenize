@@ -2,8 +2,13 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 import { serverEnv } from '@/lib/config/env';
-import { ROLE_CHANNEL, SAMPLE_ACCOUNTS } from '@/lib/session/channel';
-import { FALLBACK_ROLE, isRole, type Role } from './permissions';
+import {
+  CHANNEL_ROLE,
+  DEFAULT_CHANNEL,
+  ROLE_CHANNEL,
+  SAMPLE_ACCOUNTS,
+} from '@/lib/session/channel';
+import { isRole, type Role } from './permissions';
 
 export const ROLE_COOKIE = 'bidv_role';
 
@@ -28,7 +33,7 @@ export async function currentRole(): Promise<Role> {
   if (isRole(fromCookie)) return fromCookie;
 
   const fromEnv = serverEnv().demoRole;
-  return isRole(fromEnv) ? fromEnv : FALLBACK_ROLE;
+  return isRole(fromEnv) ? fromEnv : CHANNEL_ROLE[DEFAULT_CHANNEL];
 }
 
 /**

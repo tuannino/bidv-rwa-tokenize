@@ -46,9 +46,10 @@ const COLUMNS: Array<{ key: OrderColumn; label: string; numeric?: boolean }> = [
 const FIELD =
   'rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-export function InvestorOrdersPage() {
+export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }) {
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
+  const wallet = chain === 'mock' ? mockWallet : address;
   const [filters, setFilters] = useState<OrderFilters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<{ column: OrderColumn; direction: SortDirection }>({
     column: 'createdAt',
@@ -56,7 +57,7 @@ export function InvestorOrdersPage() {
   });
   const [loaded, setLoaded] = useState<{ key: string; rows: OrderView[] | null; error: string | null } | null>(null);
 
-  const query = address ? orderQueryOf(chain, address, filters) : null;
+  const query = wallet ? orderQueryOf(chain, wallet, filters) : null;
   const requestKey = query ? JSON.stringify(query) : null;
   useEffect(() => {
     if (!requestKey) return;
@@ -74,7 +75,7 @@ export function InvestorOrdersPage() {
     };
   }, [requestKey]);
 
-  if (!isConnected || !address) {
+  if (!wallet || (chain !== 'mock' && !isConnected)) {
     return (
       <div className="flex flex-col items-center gap-2 py-16 text-center">
         <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
@@ -100,6 +101,13 @@ export function InvestorOrdersPage() {
         <h1 className="text-xl font-semibold text-foreground">Quản lý lệnh</h1>
         <p className="text-sm text-muted-foreground">Lệnh mua và bán của ví đang kết nối.</p>
       </header>
+
+      {chain === 'mock' && (
+        <p className="text-xs text-muted-foreground" role="note">
+          Chế độ mô phỏng đang lọc theo ví trong hồ sơ Nhà đầu tư:{' '}
+          <span className="font-mono">{wallet}</span>. Không cần kết nối ví trình duyệt.
+        </p>
+      )}
 
       <Card>
         <CardHeader>

@@ -20,7 +20,7 @@ import { chainSchema, mintSchema } from './schemas';
  * ví người bán, để luồng mua có tiền mà chạy.
  *
  * ⚠️ Đây là đường TẠO RA TIỀN. Nó nằm sau HAI LỚP CHẶN qua `authorize(..., assertCanMintDemoPayment)`:
- * cờ `ENABLE_DEMO_PAYMENT_MINT` trước (mặc định tắt, chỉ bật bằng biến môi trường), quyền
+ * cờ `ENABLE_DEMO_PAYMENT_MINT` trước (PoC mặc định bật; production bắt buộc đặt false), quyền
  * `demo:mint-payment` sau (chỉ `TELLER`). Bỏ một lớp là cán bộ ngân hàng tự tạo được tiền trên môi
  * trường thật. Lần bị chặn ở cả hai lớp đều vào sổ kiểm toán (`authorize` ghi `DENIED`).
  *

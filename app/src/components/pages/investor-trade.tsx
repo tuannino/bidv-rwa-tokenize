@@ -52,9 +52,12 @@ const TRACK_INTERVAL_MS = 3_000;
 
 type Keyed<T> = { key: string; value: T };
 
-export function InvestorTradePage() {
+export function InvestorTradePage({ mockWallet }: { mockWallet: string | null }) {
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
+  // Chain mock không ký giao dịch: dùng đúng ví trong hồ sơ của phiên để bản demo chạy không cần
+  // extension. Chain thật vẫn chỉ tin địa chỉ do connector ví cung cấp.
+  const wallet = chain === 'mock' ? mockWallet : address;
 
   const [side, setSide] = useState<OrderSide>('BUY');
   const [quantity, setQuantity] = useState('');
@@ -67,11 +70,11 @@ export function InvestorTradePage() {
   const [tracked, setTracked] = useState<OrderView | null>(null);
 
   // --- Bối cảnh: token, số dư, giá, trần hai chiều -------------------------------
-  const contextKey = address ? `${chain}|${address}|${contextTick}` : null;
+  const contextKey = wallet ? `${chain}|${wallet}|${contextTick}` : null;
   useEffect(() => {
-    if (!contextKey || !address) return;
+    if (!contextKey || !wallet) return;
     let cancelled = false;
-    void getTradeContextAction({ chain, wallet: address }).then((result) => {
+    void getTradeContextAction({ chain, wallet }).then((result) => {
       if (cancelled) return;
       setContext({
         key: contextKey,
@@ -81,7 +84,7 @@ export function InvestorTradePage() {
     return () => {
       cancelled = true;
     };
-  }, [contextKey, chain, address]);
+  }, [contextKey, chain, wallet]);
   const freshContext = context?.key === contextKey ? context.value : null;
   const ctx = freshContext?.data ?? null;
 
@@ -89,12 +92,12 @@ export function InvestorTradePage() {
   const caps = ctx?.caps ?? null;
   const quantityReason = quantityBlockReason(quantity, side, caps);
   const amount = quantityReason === null ? parseQuantity(quantity)!.toString() : null;
-  const previewKey = amount && address ? `${chain}|${address}|${side}|${amount}|${contextTick}` : null;
+  const previewKey = amount && wallet ? `${chain}|${wallet}|${side}|${amount}|${contextTick}` : null;
   useEffect(() => {
-    if (!previewKey || !address || !amount) return;
+    if (!previewKey || !wallet || !amount) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      void previewTradeAction({ chain, investorWallet: address, wptAmount: amount, side }).then((result) => {
+      void previewTradeAction({ chain, investorWallet: wallet, wptAmount: amount, side }).then((result) => {
         if (cancelled) return;
         setPreviewResult({
           key: previewKey,
@@ -106,7 +109,7 @@ export function InvestorTradePage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [previewKey, chain, address, amount, side]);
+  }, [previewKey, chain, wallet, amount, side]);
   const preview: TradePreviewState = !previewKey
     ? { kind: 'idle' }
     : previewResult?.key === previewKey
@@ -118,9 +121,9 @@ export function InvestorTradePage() {
   // --- Theo dõi lệnh vừa gửi tới khi có kết cục -------------------------------------
   const trackingId = tracked && !isSettled(tracked) ? tracked.id : null;
   useEffect(() => {
-    if (!trackingId || !address) return;
+    if (!trackingId || !wallet) return;
     const timer = setInterval(() => {
-      void listOrdersAction({ chain, investorWallet: address, orderId: trackingId }).then((result) => {
+      void listOrdersAction({ chain, investorWallet: wallet, orderId: trackingId }).then((result) => {
         const order = result.ok ? result.data[0] : undefined;
         if (!order) return;
         setTracked(order);
@@ -129,13 +132,13 @@ export function InvestorTradePage() {
       });
     }, TRACK_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [trackingId, chain, address]);
+  }, [trackingId, chain, wallet]);
 
   async function submit() {
-    if (!address || !amount) return;
+    if (!wallet || !amount) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await placeOrderAction({ chain, investorWallet: address, wptAmount: amount, side });
+    const result = await placeOrderAction({ chain, investorWallet: wallet, wptAmount: amount, side });
     setSubmitting(false);
     setConfirmOpen(false);
     if (!result.ok) {
@@ -147,7 +150,7 @@ export function InvestorTradePage() {
     setContextTick((tick) => tick + 1);
   }
 
-  if (!isConnected || !address) return <ConnectWalletPrompt />;
+  if (!wallet || (chain !== 'mock' && !isConnected)) return <ConnectWalletPrompt />;
 
   return (
     <div className="space-y-6">
@@ -157,6 +160,13 @@ export function InvestorTradePage() {
           Mua token từ người bán hoặc bán lại cho người bán, theo giá phát hành do ngân hàng cấu hình.
         </p>
       </header>
+
+      {chain === 'mock' && (
+        <p className="text-xs text-muted-foreground" role="note">
+          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-mono">{wallet}</span>.
+          Không cần kết nối ví trình duyệt.
+        </p>
+      )}
 
       {freshContext === null ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
