@@ -49,6 +49,7 @@ export type NewAudit = Omit<AuditRecord, 'id' | 'createdAt'>;
 export interface ITxnStore {
   readonly kind: StoreKind;
   saveTxn(txn: NewTxn): Promise<TxnRecord>;
+  findTxnByHash(chain: ChainKey, txHash: string): Promise<TxnRecord | null>;
   updateTxnStatus(id: string, status: TxStatus, reason?: string): Promise<void>;
   listTxns(options?: { chain?: ChainKey; wallet?: string; limit?: number }): Promise<TxnRecord[]>;
   appendAudit(entry: NewAudit): Promise<AuditRecord>;

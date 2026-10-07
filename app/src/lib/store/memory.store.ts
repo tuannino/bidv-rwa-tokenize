@@ -48,6 +48,11 @@ export function createMemoryStore(): ITxnStore {
       return record;
     },
 
+    async findTxnByHash(chain, txHash) {
+      const found = state().txns.find((txn) => txn.chain === chain && txn.txHash === txHash);
+      return found ? { ...found } : null;
+    },
+
     async updateTxnStatus(id, status, reason) {
       const found = state().txns.find((txn) => txn.id === id);
       if (!found) return;
