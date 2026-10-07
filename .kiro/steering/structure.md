@@ -54,3 +54,11 @@ app/src/app/(audit)/    # Kiểm toán/Regulator — CHỈ ĐỌC (audit log + r
 - Free-tier: giữ web bundle nhỏ (xem tech.md), demo default `mock`/`evm-testnet`.
 - VPS: `docker compose up` đầy đủ (gồm hardhat node).
 - Đừng viết luồng demo public phụ thuộc CỨNG vào hardhat node thường trú.
+
+## Nguồn spec duy nhất (OP-02, quyết định ngày 07/10/2026)
+
+`docs/<mã-task-tên>/` là **nguồn spec duy nhất** cho công việc mới và hiện tại.
+`.kiro/specs/` **đóng băng** để giữ vết lịch sử: không sửa và không thêm spec mới vào đó.
+Khi hướng dẫn cũ nhắc `.kiro/specs/`, tìm spec hiện hành tương ứng trong `docs/`; không tạo bản sao
+để giữ hai bản song song. Steering tiếp tục nằm trong `.kiro/steering/`, trạng thái task trong
+`.kiro/task-status.json`.
