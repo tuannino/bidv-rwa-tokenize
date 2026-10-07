@@ -1,6 +1,7 @@
 // Chạy trọn một chu kỳ trên mạng in-process (hardhat) để minh họa.
 //   npx hardhat run scripts/demo-cycle.js
 const { ethers } = require("hardhat");
+const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
 
 const f = (x) => x.toLocaleString("vi-VN");
 
@@ -21,8 +22,10 @@ async function main() {
   await wpt.batchSetWhitelisted([invA.address, invB.address], true);
 
   console.log("2) Ngân hàng phát hành WPT: A=6000, B=4000");
-  await wpt.mint(invA.address, 6000n);
-  await wpt.mint(invB.address, 4000n);
+  await seedProjectBalances(wpt, bank, bank, [
+    { wallet: invA, amount: 6000n },
+    { wallet: invB, amount: 4000n },
+  ]);
 
   console.log("3) Chốt kỳ Q1 và nạp 300.000.000 VND lợi nhuận");
   await vnd.mint(bank.address, 300_000_000n);

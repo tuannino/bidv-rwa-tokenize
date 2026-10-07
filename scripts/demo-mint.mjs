@@ -2,9 +2,8 @@
 /**
  * Demo runner một lệnh: whitelist -> mint 100 -> in balance.
  *
- *   node scripts/demo-mint.mjs                                  # hardhat-local
- *   node scripts/demo-mint.mjs --chain mock                      # không cần chain thật
- *   node scripts/demo-mint.mjs --chain hardhat-local --amount 250
+ *   node scripts/demo-mint.mjs                                  # mock
+ *   node scripts/demo-mint.mjs --chain mock --amount 250
  *   BASE_URL=http://localhost:3000 node scripts/demo-mint.mjs
  *
  * Cố tình gọi qua HTTP API của app (chứ không import trực tiếp thư viện):
@@ -20,7 +19,7 @@ function arg(name, fallback) {
 }
 
 const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-const CHAIN = arg('chain', 'hardhat-local');
+const CHAIN = arg('chain', 'mock');
 const AMOUNT = arg('amount', '100');
 // Hardhat account #1 — ví nhà đầu tư mặc định cho demo.
 const WALLET = arg('wallet', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
@@ -71,6 +70,13 @@ const readBalance = () => call('GET', `/api/balance?chain=${CHAIN}&wallet=${WALL
 async function main() {
   log(`${C.bold}DEMO MINT — BIDV RWA điện gió${C.reset}`);
   log(`${C.dim}server=${BASE_URL}  chain=${CHAIN}  investor=${WALLET}  amount=${AMOUNT}${C.reset}`);
+
+  if (CHAIN !== 'mock') {
+    throw new Error(
+      'Đường dữ liệu thử chỉ chạy trên mock; trên EVM hãy phát hành chính thức qua luồng ' +
+        'Giao dịch viên lập lệnh và Kiểm soát viên duyệt.',
+    );
+  }
 
   if (IS_PUBLIC_CHAIN) {
     log(
@@ -142,9 +148,6 @@ main().catch((error) => {
   bad(error.message);
   const hints = ['web đã chạy chưa? (npm run dev trong app/, hoặc docker compose up)'];
 
-  if (CHAIN === 'hardhat-local') {
-    hints.push('hardhat node phải đang chạy và contract đã deploy');
-  }
   if (IS_PUBLIC_CHAIN) {
     hints.push(
       'chain evm (Sepolia) cần: NEXT_PUBLIC_ADDR_EVM_* đã điền, SERVER_SIGNER_PRIVATE_KEY là ví ngân hàng CÓ ETH test',
