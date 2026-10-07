@@ -184,8 +184,9 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
  * bấm. Tính lại lúc khớp là âm thầm thu một số khác với số đã báo — sai về nghiệp vụ,
  * không phải chuyện làm tròn.
  *
- * Lệnh sinh ra ở `PLACED` và KHÔNG gửi giao dịch nào. Gửi giao dịch là việc của
- * `executeOrder`.
+ * Lệnh sinh ra ở `PLACED`, rồi CHÍNH bản ghi vừa tạo được chuyển ngay vào phần quyết toán
+ * nội bộ. Đường này không nhận `orderId` từ dữ liệu vào: nhà đầu tư chỉ có thể kích hoạt
+ * quyết toán cho lệnh mà lời gọi hiện tại vừa tạo sau khi đã qua bộ kiểm.
  *
  * ĐIỀU KIỆN ĐƯỢC KIỂM NGAY TẠI ĐÂY, trước khi tạo bản ghi. Trước BE-03 thì không: lệnh
  * chắc chắn sẽ bị từ chối lúc khớp vẫn được lưu, rồi chuyển sang `REJECTED` ở một lần gọi
@@ -193,7 +194,7 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
  * thiếu gì sau khi đã đặt lệnh. `executeOrder` VẪN kiểm lại — điều kiện đổi được giữa hai
  * thời điểm, nên kiểm ở đây không thay thế được kiểm ở đó.
  *
- * @flow purchase:4 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu lệnh PLACED kèm chiều mua hoặc bán
+ * @flow purchase:4 | validate Zod, kiểm quyền order:place, kiểm điều kiện, lưu đúng một lệnh rồi tự quyết toán chính lệnh vừa tạo
  */
 export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   const parsed = placeOrderSchema.safeParse(input);
@@ -268,10 +269,37 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       chain,
     });
 
-    return ok(toOrderView(order));
+    return await autoSettleCreatedOrder(order, role);
   } catch (error) {
     return toResult(error);
   }
+}
+
+/**
+ * Quyết toán CHÍNH bản ghi vừa tạo — ranh giới thẩm quyền của đường tự động BE-17.
+ *
+ * Hàm cố ý nhận `OrderRecord`, không nhận `orderId` và không tự tìm một lệnh theo dữ liệu
+ * phía khách gửi lên. Nhờ vậy việc đặt lệnh không thể bị biến thành một API khớp lệnh tùy ý.
+ *
+ * Một lỗi quyết toán không được biến thành lỗi đặt lệnh: bản ghi đã tồn tại và trạng thái/lý
+ * do của nó là sự thật cần trả cho nhà đầu tư cũng như giữ lại cho vận hành can thiệp. Vì thế
+ * mọi kết quả lỗi của thân quyết toán được đổi thành kết quả thành công chứa ảnh chụp mới nhất
+ * của lệnh; lỗi nghiệp vụ vẫn nhìn thấy ở `status` và `reason`.
+ */
+async function autoSettleCreatedOrder(
+  order: OrderRecord,
+  actorRole: Role,
+): Promise<Result<OrderView>> {
+  try {
+    const settled = await settleStoredOrder(order, actorRole);
+    if (settled.ok) return settled;
+  } catch {
+    // Rơi tiếp xuống đọc lại bản ghi. Kể cả lỗi ngoài dự kiến sau khi tạo, biên API đặt lệnh
+    // vẫn phải trả lệnh đang tồn tại thay vì nói rằng việc đặt lệnh chưa xảy ra.
+  }
+
+  const current = await getOrderStore().findOrder(order.id);
+  return ok(toOrderView(current ?? order));
 }
 
 function isClientRequestConflict(error: unknown): error is UniqueConstraintError {

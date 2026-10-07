@@ -199,14 +199,25 @@ const DEGRADATIONS = [
   },
 ] as const;
 
-/** Đặt lệnh với vai INVESTOR rồi trả về mã lệnh, đồng thời đổi sang vai ngân hàng. */
+/**
+ * Dựng một lệnh PLACED để kiểm riêng đường can thiệp lịch sử.
+ *
+ * Từ BE-17, API đặt lệnh thật tự quyết toán ngay nên không thể dùng nó để chuẩn bị một lệnh
+ * đang chờ rồi mới thay đổi điều kiện. Store là seam đúng để mô phỏng tiến trình chết ngay sau
+ * lúc tạo bản ghi; các ca của `placeOrder` phía trên vẫn đi qua API thật.
+ */
 async function placeAsInvestor(wptAmount: string, investor = ALICE): Promise<string> {
-  actAs('INVESTOR');
-  const placed = await placeOrder({ chain: CHAIN, investorWallet: investor, wptAmount });
-  expect(placed.ok, `đặt lệnh phải thành công: ${placed.ok ? '' : placed.error}`).toBe(true);
-  if (!placed.ok) throw new Error('không đặt được lệnh');
+  const placed = await getOrderStore().createOrder({
+    chain: CHAIN,
+    investorWallet: investor,
+    clientRequestId: crypto.randomUUID(),
+    side: 'BUY',
+    wptAmount,
+    vndAmount: (BigInt(wptAmount) * PRICE).toString(),
+    actorRole: 'INVESTOR',
+  });
   actAs('TELLER');
-  return placed.data.id;
+  return placed.id;
 }
 
 /**
@@ -289,7 +300,7 @@ describe('placeOrder', () => {
     if (!first.ok || !repeated.ok) return;
     expect(repeated.data.id).toBe(first.data.id);
     expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
-    expect(fault.sendCount).toBe(0);
+    expect(fault.sendCount).toBe(1);
   });
 
   it('gửi lại cùng mã nhưng khác nội dung bị từ chối rõ ràng', async () => {
@@ -329,6 +340,7 @@ describe('placeOrder', () => {
     if (!first.ok || !second.ok) return;
     expect(second.data.id).toBe(first.data.id);
     expect(await getOrderStore().listOrders({ investorWallet: ALICE })).toHaveLength(1);
+    expect(fault.sendCount, 'hai request song song chỉ được phát đúng một giao dịch').toBe(1);
   });
 
   it('hai ví được dùng cùng mã yêu cầu mà không va chạm', async () => {
@@ -360,22 +372,87 @@ describe('placeOrder', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.status).toBe('PLACED');
+    expect(result.data.status).toBe('COMPLETED');
     expect(result.data.wptAmount).toBe('7');
     expect(result.data.vndAmount).toBe((7n * PRICE).toString());
     // Chuỗi, không phải number: uint256 vượt Number.MAX_SAFE_INTEGER là mất chính xác.
     expect(typeof result.data.vndAmount).toBe('string');
-    expect(result.data.txHash).toBeNull();
+    expect(result.data.txHash).toMatch(/^0x/);
   });
 
-  it('KHÔNG gửi giao dịch nào khi chỉ đặt lệnh', async () => {
+  it('tự gửi đúng một giao dịch và cập nhật đủ bốn số dư ngay khi đặt lệnh', async () => {
     await seedReadyToBuy();
     const before = await snapshotBalances();
 
     await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '5' });
 
-    expect(fault.sendCount).toBe(0);
-    expect(await snapshotBalances()).toEqual(before);
+    expect(fault.sendCount).toBe(1);
+    expect(await snapshotBalances()).toEqual({
+      investorWpt: before.investorWpt + 5n,
+      investorVndb: before.investorVndb - 5n * PRICE,
+      spvWpt: before.spvWpt - 5n,
+      spvVndb: before.spvVndb + 5n * PRICE,
+    });
+  });
+
+  it('lệnh bán hợp lệ cũng tự quyết toán trong chính lời gọi đặt lệnh', async () => {
+    await seedReadyToBuy();
+    const bought = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '5' });
+    expect(bought.ok && bought.data.status).toBe('COMPLETED');
+    const beforeSale = await snapshotBalances();
+
+    const sold = await placeOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '2',
+      side: 'SELL',
+    });
+
+    expect(sold.ok).toBe(true);
+    if (!sold.ok) return;
+    expect(sold.data.status).toBe('COMPLETED');
+    expect(sold.data.txHash).toMatch(/^0x/);
+    expect(await snapshotBalances()).toEqual({
+      investorWpt: beforeSale.investorWpt - 2n,
+      investorVndb: beforeSale.investorVndb + 2n * PRICE,
+      spvWpt: beforeSale.spvWpt + 2n,
+      spvVndb: beforeSale.spvVndb - 2n * PRICE,
+    });
+    expect(fault.sendCount).toBe(2);
+  });
+
+  it('đường tự động chỉ quyết toán lệnh vừa tạo, không nhận mã lệnh khác từ dữ liệu vào', async () => {
+    await seedReadyToBuy();
+    const victimId = await placeAsInvestor('2');
+    actAs('INVESTOR');
+
+    const result = await placeOrderService({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      wptAmount: '1',
+      clientRequestId: crypto.randomUUID(),
+      orderId: victimId,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.id).not.toBe(victimId);
+    expect(result.data.status).toBe('COMPLETED');
+    expect((await getOrderStore().findOrder(victimId))?.status).toBe('PLACED');
+    expect(fault.sendCount).toBe(1);
+  });
+
+  it('quyết toán lỗi vẫn trả lệnh đã lưu cùng trạng thái và lý do cuối', async () => {
+    await seedReadyToBuy();
+    fault.mode = 'throw';
+
+    const result = await placeOrder({ chain: CHAIN, investorWallet: ALICE, wptAmount: '2' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('FAILED');
+    expect(result.data.reason).toMatch(/không đủ WPT/);
+    expect((await getOrderStore().findOrder(result.data.id))?.status).toBe('FAILED');
   });
 
   it('vai không có order:place bị chặn, có bản ghi kiểm toán DENIED', async () => {
@@ -1125,15 +1202,19 @@ async function holdWpt(held: string, investor = ALICE) {
   expect(bought.ok, bought.ok ? '' : bought.error).toBe(true);
 }
 
-/** Đặt lệnh BÁN với vai INVESTOR rồi đổi sang vai TELLER, trả mã lệnh. */
+/** Dựng lệnh BÁN ở PLACED để kiểm riêng đường can thiệp tay. */
 async function placeSaleAsInvestor(wptAmount: string, investor = ALICE): Promise<string> {
-  actAs('INVESTOR');
-  const placed = await placeOrder({ chain: CHAIN, investorWallet: investor, wptAmount, side: 'SELL' });
-  expect(placed.ok, `đặt lệnh bán phải thành công: ${placed.ok ? '' : placed.error}`).toBe(true);
-  if (!placed.ok) throw new Error('không đặt được lệnh bán');
-  expect(placed.data.side).toBe('SELL');
+  const placed = await getOrderStore().createOrder({
+    chain: CHAIN,
+    investorWallet: investor,
+    clientRequestId: crypto.randomUUID(),
+    side: 'SELL',
+    wptAmount,
+    vndAmount: (BigInt(wptAmount) * PRICE).toString(),
+    actorRole: 'INVESTOR',
+  });
   actAs('TELLER');
-  return placed.data.id;
+  return placed.id;
 }
 
 /** Phần chưa phân phối (WPT còn trong ví SPV) và phần đang lưu hành — cùng công thức BE-12. */

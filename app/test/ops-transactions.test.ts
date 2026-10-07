@@ -127,19 +127,10 @@ describe('FE-06 — sổ lệnh vận hành', () => {
     expect(listed.data.rows[0]?.canExecute).toBe(true);
   });
 
-  it('Giao dịch viên khớp lệnh rồi danh sách và nguồn cung phản ánh trạng thái mới', async () => {
+  it('lệnh tự khớp và danh sách vận hành phản ánh ngay trạng thái cùng nguồn cung mới', async () => {
     const orderId = await seedExecutableOrder();
-    const { executeOrder } = await purchase();
     const { listOpsOrders } = await ops();
     actAs('TELLER');
-
-    const before = await listOpsOrders({ chain: CHAIN, q: orderId });
-    expect(before.ok && before.data.rows[0]?.status).toBe('PLACED');
-    expect(before.ok && before.data.rows[0]?.canExecute).toBe(true);
-    expect(before.ok && before.data.supply?.undistributed).toBe('1000');
-
-    const executed = await executeOrder({ chain: CHAIN, orderId });
-    expect(executed.ok, executed.ok ? '' : executed.error).toBe(true);
 
     const after = await listOpsOrders({ chain: CHAIN, q: orderId });
     expect(after.ok && after.data.rows[0]?.status).toBe('COMPLETED');
