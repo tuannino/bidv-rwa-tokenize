@@ -1,5 +1,6 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { InvestorOrderDetailPage } from '@/components/pages/investor-order-detail';
+import { getOwnAccountProfile } from '@/lib/bank/account-profile.service';
 
 /**
  * Màn chi tiết một lệnh (FE-25). Nằm trong khu vực Nhà đầu tư nên cùng cổng `portfolio:read` với
@@ -7,6 +8,8 @@ import { InvestorOrderDetailPage } from '@/components/pages/investor-order-detai
  */
 export default async function InvestorOrderDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const profile = await getOwnAccountProfile();
+  const mockWallet = profile.ok && profile.data.kind === 'CUSTOMER' ? profile.data.wallet : null;
   return (
     <AppLayout
       breadcrumbs={[
@@ -15,7 +18,7 @@ export default async function InvestorOrderDetail({ params }: { params: Promise<
         { label: id.slice(0, 8) },
       ]}
     >
-      <InvestorOrderDetailPage orderId={id} />
+      <InvestorOrderDetailPage orderId={id} mockWallet={mockWallet} />
     </AppLayout>
   );
 }

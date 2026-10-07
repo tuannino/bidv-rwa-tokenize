@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:standalone": "NEXT_PRIVATE_STANDALONE=true next build && node scripts/flatten-standalone.mjs",
-    "cf:build": "npm run build:standalone && opennextjs-cloudflare build --skipNextBuild",
+    "cf:build": "BUILD_COMMIT_SHA=${BUILD_COMMIT_SHA:-$(git rev-parse HEAD)} BUILD_BRANCH=${BUILD_BRANCH:-$(git branch --show-current)} BUILD_TIME=${BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)} npm run build:standalone && opennextjs-cloudflare build --skipNextBuild",
     "start": "next start",
     "lint": "eslint",
     "db:sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/init.sql",

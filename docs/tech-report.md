@@ -9,12 +9,12 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 3.5 |
+| Phiên bản tài liệu | 3.6 |
 | Cập nhật lần cuối | 2026-10-07 |
-| Nhánh / commit | `feat/account-info`, nền `dev` @ `08b8e55` (đã có FE-06 qua PR #36) — **nhánh đang chờ nghiệm thu, chưa merge vào `dev`**. Danh sách thay đổi ở `docs/CHECKPOINT_FE24.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20) |
-| Đang chờ nghiệm thu | **FE-24** + bổ sung cấu hình/guide demo trọn luồng (checkpoint `docs/CHECKPOINT_FE24.md`) |
-| Phase kế tiếp | Hai spec đề xuất: **SC-02** nối Mint/Burn maker–checker xuống EVM thật, sau đó **SC-03** nối mua/bán và quyết toán nguyên tử; xem `docs/sc-02-evm-issuance/` và `docs/sc-03-evm-trading/` |
+| Nhánh / commit | `ops/02-demo-unblock`, nền `dev` @ `abd1ceb` (FE-24 đã merge qua PR #38); checkpoint `docs/CHECKPOINT_OP02.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu) |
+| Đang chờ nghiệm thu | **OP-02** — gỡ khóa ký nhầm ở mock, metadata build Cloudflare và dọn tài liệu |
+| Phase kế tiếp | Đợt 5: FE-08, BE-13, FE-07, FE-23 theo `docs/GIAO_VIEC_DOT_5.md`. SC-02/SC-03 vẫn planned, spec sẽ viết lại khi khởi động |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
@@ -368,9 +368,10 @@ bidv-rwa-tokenize/
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
     ├── tech-report.md         # ★ Báo cáo công nghệ (file này)
     ├── tech-report-maintenance.md  # Quy tắc cập nhật báo cáo
+    ├── CHECKPOINT_OP02.md    # Bằng chứng local + bàn giao deploy cho Owner
+    ├── op-02-demo-unblock/    # Spec hiện hành OP-02 (bản v2)
+    ├── GIAO_VIEC_DOT_5.md     # Phạm vi và thứ tự đợt 5
     ├── guide.md               # ★ Hướng dẫn demo trọn luồng Mint/Burn + mua/bán trên mock
-    ├── sc-02-evm-issuance/    # Spec đề xuất: nối Mint/Burn maker-checker xuống EVM
-    ├── sc-03-evm-order-settlement/ # Spec đề xuất: mua/bán nguyên tử trên EVM
     ├── BRANCH_PROTECTION.md   # ★ Hướng dẫn Owner bật bảo vệ nhánh `dev` (OP-01)
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
     └── flows/                 # ★ SINH TỰ ĐỘNG từ marker @flow — đừng sửa tay
@@ -508,16 +509,16 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 |---|---|---|
 | **P1** | Chưa có xác thực thật. Vai trò lấy từ cookie do client đặt được | Phase 4: SIWE + phiên thật. **Trước đó tuyệt đối không deploy public khi chưa bật bảo vệ mật khẩu** |
 | **P1** | **Bộ contract trên Sepolia còn symbol `tVND` cũ.** Mã nguồn đã đổi sang `VNDB` nhưng bản đã deploy thì không đổi được — symbol nằm trong constructor | Deploy lại `VNDToken`, `ProfitDistributor`, `Redemption` (hai cái sau giữ địa chỉ VNDToken dạng `immutable`) rồi verify lại. `ProjectToken`/WPT không ảnh hưởng nên P4 vẫn đứng |
+| **P1** | **`ENABLE_DEMO_PAYMENT_MINT` mặc định bật cho bản trình diễn.** Đây là quyết định của chủ dự án ngày **07/10/2026**, không phải sơ suất | Trước triển khai thật: đặt `ENABLE_DEMO_PAYMENT_MINT=false` và gỡ màn **Nạp VNDB (trình diễn)**; không dùng tiền mô phỏng cho nghiệp vụ thật |
+| **P2** | Bốn màn Nhà đầu tư (`trade`, `orders` và hai màn chi tiết) chép lặp `chain === 'mock' ? mockWallet : address`. Khi hoàn thiện Mock ở `d45b596`, việc chép lặp làm sót hai màn chi tiết; OP-02 v3 vá đủ bằng cùng khuôn | Gom đoạn phân giải ví về một hook dùng chung khi task tiếp theo đụng nhóm màn này; không mở task riêng và không gom trong OP-02 |
 | ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
 | **P1** | **11 trong 16 method mới của `ILedgerPort` chưa nối được ở `evm.adapter`** — chờ contract phát hành một lần (SC-02), contract khớp lệnh (SC-03), quyết định chữ ký để `distributeBatch` mang được mã kỳ xuống adapter (**SC-05**, mã task mới — BE-06 đã chẩn đoán và ghi ngay trên marker ở `evm.adapter.ts`, xem 4.5), và quyết định cờ tất toán/NAV nối vào contract nào (SC-04). Bảng đầy đủ ở 3.1; bảng sinh tự động theo marker ở 3.10 | Hiện phát triển trên chain `mock` (đã hiện thực đủ 16/16, có 49 test). Khi contract xong thì bổ sung `evm.adapter` trong commit riêng — `docs/CHECKPOINT_BE01.md`. **Con số đo lại ở MC-01: `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` → 11, không phải 10** |
-| **P2** | Chưa có CI. Mọi kiểm tra chạy tay | Thêm GitHub Actions chạy `typecheck + lint + test` mỗi lần push |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Phát hiện tiền vào ví lợi nhuận bằng HỎI ĐỊNH KỲ, không bằng sự kiện on-chain** (BE-07). Hệ quả: (a) độ trễ bằng chu kỳ cron, (b) hai lần nạp giữa hai lượt hỏi bị gộp thành **một** kỳ chia, (c) không biết ai nạp và nạp lúc nào — chỉ biết số dư đã tăng. Nguyên nhân: IN-01/IN-02 (Indexer) chưa làm nên chưa đọc được sự kiện | IN-02 đổi **nguồn tín hiệu** sang sự kiện `Transfer` vào ví lợi nhuận, giữ nguyên bốn nhánh quyết định và toàn bộ phần chia. Điểm cắm đã đánh dấu `@pending IN-02` ngay trên `detectNewFunds` (`lib/bank/distribution-trigger.service.ts`) |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`KeeperRun` không có cột tóm tắt.** Lược đồ chỉ có `status` + `error`, nên "số lô đã chia, số ví còn lại" của mỗi vòng chỉ vào được cột `error` — mà cột đó tên là `error`, nhồi tóm tắt thành công vào sẽ làm mọi truy vấn "vòng nào có lỗi" trả về cả vòng chạy đúng. BE-07 vì vậy để `error` chỉ mang thông báo khi thất bại, còn tóm tắt mỗi vòng ghi vào **sổ kiểm toán** | Nếu Owner muốn tóm tắt nằm trong `KeeperRun`: thêm cột `summary String?` vào `KeeperRun`, `IKeeperStore.finishRun`, hai bản hiện thực và `store-constraints.test.ts`. Chưa làm vì vượt phạm vi Tác động của BE-07 |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
 | ~~P2~~ | ~~1 cảnh báo lint ở `src/empty.ts`~~ | **ĐÃ XỬ LÝ ở MC-01 Bước 7.** Cảnh báo là `import/no-anonymous-default-export` do `export default {}`. Đo lại thì default export đó **không cần cho build**, nên xóa luôn thay vì đặt tên biến hay dùng `eslint-disable`. Nay `npx eslint .` cho **0 error, 0 warning**. Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8 |
-| **P2** *(đề nghị, Supervisor chốt mức)* | **Spec tồn tại hai bản song song và đã lệch nhau.** Đo ở MC-01: `docs/` có **8** thư mục spec, `.kiro/specs/` có **10**, trùng tên nhau **6** cặp (số còn lại chỉ tồn tại một phía). Trong 6 cặp đó, **5 cặp đã khác nhau** — `be-01-ledger-port`, `be-02-purchase-orders`, `fe-01-investor-channel-v2`, `fe-02-wallet-connect` lệch **cả ba** tệp; `mc-01-make-control` lệch `tasks.md`; chỉ `be-09-data-schema` còn giống hệt. Hai bản lệch nghĩa là "spec nói gì" phụ thuộc vào việc người đọc mở bản nào | Chọn **một** bản làm nguồn (`.kiro/specs/` là bản Kiro nạp) rồi bản kia thành con trỏ trỏ sang, hoặc xóa. Việc này Supervisor quyết vì nó đổi cách tổ chức tài liệu. Lệnh đo: `diff -rq docs/<tên> .kiro/specs/<tên>` |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`app/src/empty.ts` + alias `@x402/*` trong `next.config.ts` là vá cho phụ thuộc của bên thứ ba.** `@x402/*` là `peerDependencies` **tùy chọn** của `@coinbase/cdp-sdk` nên npm không cài, nhưng mã cdp-sdk vẫn `import` chúng và cdp-sdk có trong đồ thị module của app theo chuỗi `providers.tsx → @rainbow-me/rainbowkit → @wagmi/connectors/baseAccount → @base-org/account → @coinbase/cdp-sdk`. Bỏ alias ra thì `next build` FAIL 8 lỗi *Module not found* ở 5 specifier | Đã thu gọn tối đa ở MC-01 Bước 7: `empty.ts` còn **1 export** (`toClientEvmSigner`, import tĩnh duy nhất mà build đòi), alias Turbopack còn **1 dòng wildcard**. **ĐIỀU KIỆN XÓA:** khi `cd app && npm ls @coinbase/cdp-sdk` trả về rỗng — tức wagmi/connectors không còn kéo `@base-org/account`. Lúc đó gỡ cả hai khối alias, xóa `app/src/empty.ts`, chạy lại `npm run build` + `npm run cf:build` để xác minh |
 | **P1** | **Cờ `isConfig` có HAI nguồn và chỉ một nguồn được đọc.** Lớp quyền thứ hai của `setIssuePrice` đọc bảng hằng số `CONFIG_ROLES` trong mã (`app/src/lib/rbac/config-role.ts`), trong khi cột `Role.isConfig` trong cơ sở dữ liệu đã có dữ liệu (`SEED_ROLE_ROWS` nạp đủ bốn vai) mà **chưa lời gọi nào đọc**. Hệ quả: đổi cờ trong cơ sở dữ liệu không có tác dụng gì, và người vận hành không có cách nào biết — đo bằng `git grep -n "isConfig" -- app/src \| grep -v config-role` | Chờ **AU-01** (SIWE + phiên thật) và **AU-02** (vai đọc từ cơ sở dữ liệu). Khi AU-02 xong thì `isConfigRole()` đọc cột `Role.isConfig`, còn `CONFIG_ROLES` chỉ còn là dữ liệu khởi tạo. **Đừng** đọc cột đó sớm hơn: chưa có phiên thật thì vai lấy từ cookie do client đặt được, nên thêm một lần tra cơ sở dữ liệu chỉ làm chậm mà không chặn được ai |
 | **P2** | **`SystemConfigHistory` không có thứ tự tuyệt đối.** Hai lần ghi trùng mốc tới từng phần nghìn giây thì thứ tự tương đối KHÔNG xác định — cả hai bản hiện thực phá thế bằng `id`, một uuid ngẫu nhiên chứ không phải thứ tự chèn. Đã gây một ca kiểm đỏ tuỳ lần chạy ở BE-04 (xem mục C phần bài học) | Thêm một cột số thứ tự tăng dần (`seq BIGSERIAL` ở Postgres, số đếm ở bản bộ nhớ) **khi làm task nào đụng tới bảng này** — không mở task riêng, vì tình huống chỉ xảy ra khi hai lần đổi tham số cách nhau dưới một phần nghìn giây. Tới lúc đó phải sửa cả `listConfigHistory` ở hai bản và bỏ cảnh báo trong doc của cổng |
@@ -709,7 +710,7 @@ nhất có sửa contract**, tức chặn đúng các task SC-0x.
 | | |
 |---|---|
 | `GET /api/version` | Trả `{ ok, data: { commit, branch, buildTime, source } }`. **Không cần xác thực** có chủ đích: đây là thứ phải trả lời được TRƯỚC khi đăng nhập được. Chỉ đọc ba biến môi trường; không chạm cơ sở dữ liệu, chuỗi, hay biến bí mật |
-| `app/src/lib/config/build-info.ts` | Nơi DUY NHẤT đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME`. Tách khỏi `env.ts` vì `serverEnv()` **ném lỗi** khi cấu hình sai, còn `/api/version` phải trả lời được **kể cả lúc** cấu hình đang sai |
+| `app/src/lib/config/build-info.ts` | Nơi đọc metadata khi chạy; `config/build-env.ts` đọc cùng ba biến trong lúc dựng để nhúng metadata công khai qua `next.config.env`. Tách khỏi `env.ts` vì `serverEnv()` **ném lỗi** khi cấu hình sai, còn `/api/version` phải trả lời được **kể cả lúc** cấu hình đang sai |
 | Trường `source` | Nói từng trường là `env` hay `fallback`. Cần vì `commit: "local"` một mình không phân biệt được "đang chạy cục bộ" với "quy trình triển khai quên truyền biến" — hai chuyện xử lý khác nhau hoàn toàn |
 | `export const dynamic = 'force-dynamic'` | Tường minh. Một `/api/version` bị đóng băng vào bản dựng vẫn trả 200 kèm mã commit CŨ, tức kiểm khói báo xanh cho đúng thứ nó phải phát hiện |
 | `scripts/smoke-test.mjs <địa-chỉ>` | Gọi `/api/version` và `/api/token?chain=mock`. **Chạy tay, chưa gắn vào triển khai.** Mã thoát: `0` đạt · `1` có phép kiểm đỏ · `2` gọi sai |
@@ -719,6 +720,14 @@ vẫn xanh khi tầng nghiệp vụ hỏng hoàn toàn; `/api/token` đi qua ser
 `chain=mock` để phép kiểm đỏ thì đỏ vì **ứng dụng**, không vì hạ tầng chưa lên. Chỉ gọi `GET`:
 kiểm khói chạy trên môi trường thật, một phép kiểm có ghi sẽ để lại dữ liệu rác trong sổ sách mỗi
 lần triển khai.
+
+**OP-02 — metadata của bản Cloudflare.** `npm run cf:build` cấp `BUILD_COMMIT_SHA`,
+`BUILD_BRANCH`, `BUILD_TIME` từ Git/UTC nếu nơi dựng chưa cấp. `config/build-env.ts` chỉ đọc ba
+biến công khai này và `next.config.ts` nhúng chúng vào bundle; Worker không phải cấu hình lại
+metadata lúc chạy. Không thêm secret vào `next.config.env`. `/api/version` vẫn chạy theo request,
+nhưng metadata đã nhúng mô tả đúng commit đã dựng. Khi mở rộng metadata: sửa `config/build-env.ts`,
+`build-info.ts` và lệnh dựng cùng nhau, rồi chạy `scripts/smoke-test.mjs --expect-commit` trên bản dựng.
+Chạy `npm run dev` không cấp biến vẫn dùng fallback như trước.
 
 ### Lưu ý khi phát triển
 
@@ -745,7 +754,7 @@ lần triển khai.
 | Thêm một loại kiểm mới vào cổng | `run-local-all.sh`: hàm `part_*` + `ALL_PARTS` + `DEFAULT_PARTS`. Rồi thêm tên phần vào dòng lệnh của việc tương ứng trong `ci.yml` |
 | Siết việc C thành cổng bắt buộc | Chỉ là cấu hình kho mã — thêm tên việc vào danh sách phép kiểm bắt buộc, và đổi tên việc trong `ci.yml` cho khỏi nói sai. `docs/BRANCH_PROTECTION.md` mục 5 |
 | Gắn kiểm khói vào một bước triển khai | Gọi `node scripts/smoke-test.mjs <địa-chỉ> --expect-commit=$(git rev-parse HEAD)` sau khi triển khai xong. Task này **không** dựng bước triển khai |
-| Thêm trường vào `/api/version` | `build-info.ts` (nơi duy nhất đọc env), rồi `app/test/build-info.test.ts`. Route handler không tự đọc `process.env` |
+| Thêm trường vào `/api/version` | `build-info.ts` và `build-env.ts` (đọc metadata runtime/build), rồi `app/test/build-info.test.ts`. Route handler không tự đọc `process.env` |
 
 ---
 
@@ -865,7 +874,7 @@ giới hạn khoảng block.
 | File | Vai trò | Lưu ý |
 |---|---|---|
 | `signer.port.ts` | `ISigner`: `getAddress()`, `getAccount()` | Giữ tối giản |
-| `server.signer.ts` | Khóa ngân hàng | **File duy nhất được đọc `SERVER_SIGNER_PRIVATE_KEY`** |
+| `server.signer.ts` | Tài khoản ký ngân hàng | Chain thật đọc khóa qua `config/env.ts` và vẫn ném `SignerUnavailableError` nếu thiếu. OP-02: riêng `mock` trả tài khoản json-rpc cố định làm nhãn audit, không có private key và không ký/gửi giao dịch thật |
 | `wallet.signer.ts` | Ví người dùng qua EIP-1193 | Không phụ thuộc React, nhận provider từ ngoài |
 | `fireblocks.signer.stub.ts` | Chỗ cắm Phase 5 | **Ném lỗi, cấm fallback về khóa server** |
 | `index.ts` | `getBankSigner()` chọn custody theo `SIGNER_KIND`, có cache | |
@@ -1205,7 +1214,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | File | Vai trò | Lưu ý |
 |---|---|---|
 | `config/env.ts` | Nơi duy nhất đọc `process.env` **của cấu hình nghiệp vụ**, validate bằng Zod | Có `import 'server-only'` — hàng rào cứng. `serverEnv()` **ném lỗi** khi cấu hình không hợp lệ |
-| `config/build-info.ts` | Nơi duy nhất đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME` (OP-01) | Tách khỏi `env.ts` **có chủ đích**: `/api/version` là nơi đầu tiên người ta gọi khi nghi bản triển khai có vấn đề, nên nó phải trả lời được **kể cả lúc** `serverEnv()` đang ném lỗi. Ba biến này không có giá trị nào không hợp lệ nên không có gì để validate. Xem 2.7 |
+| `config/build-info.ts` | Đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME` khi chạy (OP-01); OP-02 thêm `config/build-env.ts` cho lúc dựng | Tách khỏi `env.ts` **có chủ đích**: `/api/version` là nơi đầu tiên người ta gọi khi nghi bản triển khai có vấn đề, nên nó phải trả lời được **kể cả lúc** `serverEnv()` đang ném lỗi. Ba biến này không có giá trị nào không hợp lệ nên không có gì để validate. Xem 2.7 |
 | `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` và `demoTokenMint` (FE-22) tính bằng đúng hàm mà server dùng để chặn |
 | `config/issue-terms.ts` | **Nguồn duy nhất của điều khoản phát hành** và của **mặc định mọi tham số hệ thống**: gồm giá/tổng cung/ngưỡng, ba chỉ tiêu token FE-24 (`WPT_REMAINING_LIFETIME_YEARS`, `WPT_ANNUAL_YIELD_PERCENT`, `WPT_TRADING_FEE_PERCENT`), nhóm phân phối, `CONFIG_KEYS`, `WPT_TOKEN_SYMBOL` | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. Giá trị đang có hiệu lực phải đọc qua `config-values.ts`, không dùng thẳng mặc định |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
@@ -1921,7 +1930,7 @@ số lượng, năm điều kiện, tổng giá trị, năm bước quyết toá
 - **Nhật ký kiểm toán của lệnh lọc theo chuỗi chi tiết** trong 500 dòng mới nhất vì `AuditLog` chưa
   có cột mã lệnh (chú thích `ponytail:` ở `trade.service.ts`).
 - **Chain thật cần ví đã kết nối** (`useAccount`). Riêng chain `mock`, route server đọc ví từ hồ sơ
-  của chính phiên rồi truyền xuống hai màn; vì mock không ký giao dịch nên bản demo mặc định không
+  của chính phiên rồi truyền xuống bốn màn (`trade`, `orders`, chi tiết lệnh và token; OP-02 v3 bổ sung hai màn chi tiết); vì mock không ký giao dịch nên bản demo mặc định không
   cần extension. Tầng nghiệp vụ vẫn đối chiếu địa chỉ đó với hồ sơ NDT001 và lọc lệnh theo ví —
   client không được tự gửi một ví mẫu bất kỳ để vượt phạm vi tài khoản.
 

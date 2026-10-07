@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { buildMetadataEnv } from "./src/lib/config/build-env";
 
 const repoRoot = path.join(__dirname, "..");
 
@@ -15,6 +16,9 @@ const repoRoot = path.join(__dirname, "..");
 const skipTypeCheck = process.env.NEXT_SKIP_TYPECHECK === "1";
 
 const nextConfig: NextConfig = {
+  // Workers không kế thừa env của máy build. Nhúng đúng metadata công khai đã cấp,
+  // để /api/version đọc được commit ngay cả khi Worker chưa đặt runtime variables.
+  env: buildMetadataEnv(),
   typescript: { ignoreBuildErrors: skipTypeCheck },
   // `@bidv/shared` là TS source ngoài app/ (npm link qua "file:../packages/shared"),
   // nên Next phải transpile nó và Turbopack phải nhìn thấy thư mục cha.

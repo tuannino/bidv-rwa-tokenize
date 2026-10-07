@@ -22,7 +22,7 @@ Mở <http://localhost:3000>. Trạng thái đúng khi mới mở:
 - Chain: **Mock (không cần chain)**.
 - Vai trò: **Giao dịch viên · GDV001**.
 - Trang **Bảng điều khiển** hiện ra, không có thông báo “Không có quyền vào kênh Vận hành”.
-- Menu có **Lập lệnh**, **Giao dịch**, **KYC & Phát hành** và **Nạp VNDB**.
+- Menu có **Bảng điều khiển**, **Lập lệnh**, **Giao dịch**, **Chia lợi nhuận**, **Thông tin tài khoản** và **Nạp VNDB (trình diễn)** (khi cờ trình diễn bật).
 
 Nếu cổng 3000 đã bận, Next.js in URL thực tế trong terminal; dùng đúng URL đó. Nếu trình duyệt từng
 chọn một vai khác, cookie của trình duyệt được ưu tiên: chọn lại **Giao dịch viên · GDV001** ở góc
@@ -46,7 +46,7 @@ chúng có hai bộ dữ liệu mock khác nhau.
 
 Thực hiện khi đang ở vai **Giao dịch viên** và chain **Mock**:
 
-1. Mở menu **KYC & Phát hành**, hoặc vào `/mint`.
+1. Vào trực tiếp đường dẫn `/mint`. Đây là màn dữ liệu thử, chủ ý không nằm trong menu theo tài liệu yêu cầu.
 2. Nhập ví SPV ở bảng trên vào ô **Ví nhà đầu tư**.
 3. Bấm **1 · KYC + Whitelist**.
 4. Chờ thông báo có `whitelist=true` và trạng thái ví bên phải hiện **Đã whitelist**.
@@ -89,7 +89,7 @@ GDV không vào được màn phê duyệt và KSV không vào được màn l�
 ## 4. Nạp VNDB cho Nhà đầu tư
 
 1. Đổi về **Giao dịch viên · GDV001**.
-2. Mở **Nạp VNDB** (`/demo-payment`).
+2. Mở menu **Nạp VNDB (trình diễn)** (`/demo-payment`).
 3. Nhập ví NDT001 vào **Ví đích**.
 4. Nhập `1000000` vào **Số VNDB** rồi bấm **Nạp VNDB**.
 5. Chờ thông báo bắt đầu bằng **Đã nạp**, có số dư mới `1.000.000 VNDB` và trạng thái giao dịch.
@@ -126,7 +126,8 @@ nhưng không có nút **Khớp lệnh**.
 
 1. Đổi sang **Nhà đầu tư · NDT001** → **Quản lý lệnh** (`/orders`).
 2. Dòng vừa tạo phải có chiều **Mua** và trạng thái **Hoàn tất**.
-3. Bấm **Chi tiết** để đối chiếu tiến trình, mã giao dịch và số dư sau giao dịch.
+3. Bấm **Chi tiết** để đối chiếu tiến trình và mã giao dịch. Mở lại **Giao dịch token** để đối chiếu
+   số dư `2 WPT` và `800.000 VNDB` ở khối **Tóm tắt lệnh**.
 
 ## 6. Luồng bán WPT ngược lại cho SPV
 
@@ -168,12 +169,17 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 |---|---|
 | “Vai trò hiện tại là SELLER” ở trình duyệt cũ | Cookie cũ còn hiệu lực; chọn **Giao dịch viên** ở góc trên phải hoặc xóa hai cookie `bidv_role`, `bidv_channel`. Trình duyệt sạch tự vào TELLER. |
 | KYC/whitelist báo lỗi kết nối DB | Local đang đặt `USE_MOCK_DB=false` nhưng Postgres chưa chạy. Đặt `true` và khởi động lại web. |
-| Không thấy **Nạp VNDB** | Server production-like đã đặt `ENABLE_DEMO_PAYMENT_MINT=false`, hoặc vai không phải TELLER. Bản PoC từ `.env.example` đặt `true`. |
+| Không thấy **Nạp VNDB (trình diễn)** | Server production-like đã đặt `ENABLE_DEMO_PAYMENT_MINT=false`, hoặc vai không phải TELLER. Bản PoC từ `.env.example` đặt `true`. |
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Hai trình duyệt thấy dữ liệu khác nhau sau deploy serverless | Memory DB/mock ledger gắn với từng tiến trình. Demo nhiều người ổn định phải dùng một instance hoặc Postgres/chain dùng chung. |
+| Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
 ## 9. Chuyển sang môi trường thật
+
+Chain `mock` không cần khóa ký; bản trình diễn mặc định chạy được mà không cấu hình khóa.
+Chain thật (`hardhat-local`, `evm`) vẫn cần `SERVER_SIGNER_PRIVATE_KEY`; trên Cloudflare phải đặt
+biến này làm **secret của Worker**, không đưa vào source hay biến công khai.
 
 Guide này không phải runbook production. Tối thiểu phải đặt:
 

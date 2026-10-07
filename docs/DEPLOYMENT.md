@@ -43,6 +43,11 @@ Tên Worker trên dashboard **phải bằng đúng** `name` trong `app/wrangler.
 hook `buildCommand` trong `open-next.config.ts`, mà hook đó chạy đúng ở máy cục bộ nhưng
 KHÔNG được áp dụng trên Workers Builds (log fail không có dòng `[flatten-standalone]`).
 
+OP-02: `cf:build` lấy mã commit, nhánh và thời điểm UTC từ Git nếu chưa được CI cấp
+`BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME`. Chỉ ba giá trị công khai này được nhúng
+vào bản dựng; không cần đặt lại trên Worker. Sau khi dựng, dùng `scripts/smoke-test.mjs`
+với `--expect-commit` để xác nhận bản đang chạy.
+
 - **Root directory = `app`**, không phải gốc repo: đây là nơi có `wrangler.json` và
   `package.json`. Cloudflare vẫn clone TOÀN BỘ repo rồi mới `cd` vào đây, nên
   `@bidv/shared` (`file:../packages/shared`) resolve được. Không cần build
