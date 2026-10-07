@@ -15,5 +15,12 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "bidv-rwa-tokenize"
     }
-  ]
+  ],
+  "vars": {
+    "USE_MOCK_KYC": "true",
+    "USE_MOCK_DB": "true",
+    "DEMO_ROLE": "TELLER",
+    "ENABLE_DEMO_PAYMENT_MINT": "true",
+    "ENABLE_DEMO_TOKEN_MINT": "false"
+  }
 }
