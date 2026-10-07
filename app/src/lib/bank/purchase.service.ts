@@ -650,7 +650,6 @@ async function auditExecution(
  * có thể đã thành công mà phản hồi bị mất). `REJECTED` nghĩa là CHẮC CHẮN chưa tốn phí;
  * dùng nó ở đây sẽ nói với nhà đầu tư một điều ta không biết.
  *
- * @flow purchase:7 | kiểm quyền order:execute, PLACED sang CHECKING, chiếm EXECUTING chống gửi hai lần
  */
 export async function executeOrder(input: unknown): Promise<Result<OrderExecutionView>> {
   const parsed = executeOrderSchema.safeParse(input);
@@ -659,7 +658,6 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
   }
   const { chain, orderId } = parsed.data;
 
-  const txnStore = getStore();
   const orderStore = getOrderStore();
 
   try {
@@ -687,71 +685,89 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     // `authorize` ghi audit cho cả lần bị chặn rồi mới ném (R1.4 / ca kiểm thử 7.9).
     const executorRole = await authorize('order:execute', order.investorWallet, chain);
 
-    const ledger = getLedger(chain);
-
-    // --- 3. Chuyển sang CHECKING -------------------------------------------------
-    // Đã ở `CHECKING` thì giữ nguyên: `CHECKING` -> `CHECKING` không có trong bảng
-    // chuyển tiếp, và một lệnh treo ở `CHECKING` (tiến trình trước chết trước khi chiếm
-    // `EXECUTING`) thì CHƯA gửi giao dịch nào nên chạy lại là an toàn.
-    const checking =
-      order.status === 'CHECKING'
-        ? order
-        : await orderStore.transitionOrder({ id: orderId, from: ['PLACED'], to: 'CHECKING' });
-    if (!checking) {
-      return err(
-        'ORDER_STATE',
-        `Lệnh ${orderId} vừa được một tiến trình khác nhận xử lý. Không khớp lần hai.`,
-      );
-    }
-
-    // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
-    // Truyền `vndAmount` ĐÃ CHỐT ở lệnh, nên đường này — và chỉ đường này — kiểm thêm
-    // "giá đã đổi chưa". Xem trước và đặt lệnh không có giá cũ để so.
-    const checks = await runOrderChecks(ledger, {
-      side: checking.side,
-      investorWallet: checking.investorWallet,
-      wptAmount: BigInt(checking.wptAmount),
-      quotedVndAmount: BigInt(checking.vndAmount),
-    });
-    const check = firstFailure(checks.results);
-    if (check) {
-      // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
-      await orderStore.transitionOrder({
-        id: orderId,
-        from: ['CHECKING'],
-        to: 'REJECTED',
-        reason: check.reason,
-      });
-      await auditExecution(
-        txnStore,
-        checking,
-        executorRole,
-        'FAILURE',
-        `bị từ chối trước khi gửi tx — ${check.reason}`,
-      );
-      return err(check.code, check.reason);
-    }
-
-    // --- 5. Cập nhật CÓ ĐIỀU KIỆN sang EXECUTING ---------------------------------
-    const executing = await orderStore.transitionOrder({
-      id: orderId,
-      from: ['CHECKING'],
-      to: 'EXECUTING',
-    });
-    if (!executing) {
-      // Không dòng nào bị ảnh hưởng = tiến trình khác đã chiếm. Đây là điểm chặn gửi
-      // giao dịch hai lần; dừng lại, KHÔNG gửi gì.
-      return err(
-        'ORDER_STATE',
-        `Lệnh ${orderId} đã được một tiến trình khác gửi đi. Không gửi giao dịch lần hai.`,
-      );
-    }
-
-    // --- 6..9. Gửi giao dịch, lưu mã, chờ biên nhận -------------------------------
-    return await sendAndSettle(txnStore, orderStore, ledger, executing, executorRole);
+    return await settleStoredOrder(order, executorRole);
   } catch (error) {
     return toResult(error);
   }
+}
+
+/**
+ * Phần quyết toán dùng chung cho đường can thiệp và đường tự động của BE-17.
+ *
+ * Hàm nhận nguyên `OrderRecord`, không nhận `orderId`: người gọi phải đã tải hoặc vừa tạo đúng
+ * bản ghi được phép xử lý. Ranh giới này giữ việc chọn lệnh ở bên ngoài phần chuyển tài sản.
+ *
+ * @flow purchase:7 | PLACED sang CHECKING, chạy lại bộ kiểm và chiếm EXECUTING chống gửi hai lần
+ */
+async function settleStoredOrder(
+  order: OrderRecord,
+  executorRole: Role,
+): Promise<Result<OrderExecutionView>> {
+  const txnStore = getStore();
+  const orderStore = getOrderStore();
+  const ledger = getLedger(order.chain);
+  const orderId = order.id;
+
+  // --- 3. Chuyển sang CHECKING -------------------------------------------------
+  // Đã ở `CHECKING` thì giữ nguyên: `CHECKING` -> `CHECKING` không có trong bảng
+  // chuyển tiếp, và một lệnh treo ở `CHECKING` (tiến trình trước chết trước khi chiếm
+  // `EXECUTING`) thì CHƯA gửi giao dịch nào nên chạy lại là an toàn.
+  const checking =
+    order.status === 'CHECKING'
+      ? order
+      : await orderStore.transitionOrder({ id: orderId, from: ['PLACED'], to: 'CHECKING' });
+  if (!checking) {
+    return err(
+      'ORDER_STATE',
+      `Lệnh ${orderId} vừa được một tiến trình khác nhận xử lý. Không khớp lần hai.`,
+    );
+  }
+
+  // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
+  // Truyền `vndAmount` ĐÃ CHỐT ở lệnh, nên đường này — và chỉ đường này — kiểm thêm
+  // "giá đã đổi chưa". Xem trước và đặt lệnh không có giá cũ để so.
+  const checks = await runOrderChecks(ledger, {
+    side: checking.side,
+    investorWallet: checking.investorWallet,
+    wptAmount: BigInt(checking.wptAmount),
+    quotedVndAmount: BigInt(checking.vndAmount),
+  });
+  const check = firstFailure(checks.results);
+  if (check) {
+    // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
+    await orderStore.transitionOrder({
+      id: orderId,
+      from: ['CHECKING'],
+      to: 'REJECTED',
+      reason: check.reason,
+    });
+    await auditExecution(
+      txnStore,
+      checking,
+      executorRole,
+      'FAILURE',
+      `bị từ chối trước khi gửi tx — ${check.reason}`,
+    );
+    return err(check.code, check.reason);
+  }
+
+  // --- 5. Cập nhật CÓ ĐIỀU KIỆN sang EXECUTING ---------------------------------
+  const executing = await orderStore.transitionOrder({
+    id: orderId,
+    from: ['CHECKING'],
+    to: 'EXECUTING',
+  });
+  if (!executing) {
+    // Không dòng nào bị ảnh hưởng = tiến trình khác đã chiếm. Đây là điểm chặn gửi
+    // giao dịch hai lần; dừng lại, KHÔNG gửi gì.
+    return err(
+      'ORDER_STATE',
+      `Lệnh ${orderId} đã được một tiến trình khác gửi đi. Không gửi giao dịch lần hai.`,
+    );
+  }
+
+  // --- 6..9. Gửi giao dịch, lưu mã, chờ biên nhận -------------------------------
+  return sendAndSettle(txnStore, orderStore, ledger, executing, executorRole);
 }
 
 /**
