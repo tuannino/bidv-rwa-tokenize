@@ -16,6 +16,9 @@ const repoRoot = path.join(__dirname, "..");
 const skipTypeCheck = process.env.NEXT_SKIP_TYPECHECK === "1";
 
 const nextConfig: NextConfig = {
+  // Thư mục build riêng cho bản build đầu cuối trên hardhat (OP-03), để không ghi đè `.next` của
+  // bộ đầu cuối `mock`. Xem app/playwright.config.ts.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // Workers không kế thừa env của máy build. Nhúng đúng metadata công khai đã cấp,
   // để /api/version đọc được commit ngay cả khi Worker chưa đặt runtime variables.
   env: buildMetadataEnv(),

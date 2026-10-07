@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-hardhat/
 /out/
 
 # @opennextjs/cloudflare build output

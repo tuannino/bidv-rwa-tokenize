@@ -125,8 +125,10 @@ part_build() {
 }
 
 part_e2e() {
-  # Playwright TỰ dựng server theo app/playwright.config.ts (mặc định `next dev` cổng 3100,
-  # chain `mock`, lưu trong bộ nhớ). Không cần hardhat node, không cần Postgres.
+  # Playwright TỰ chạy máy chủ theo app/playwright.config.ts: `next start` trên BẢN BUILD mà
+  # phần `build` vừa dựng (không dựng lại), cổng 3100, chain `mock`, lưu trong bộ nhớ. Không
+  # cần hardhat node, không cần Postgres, và PHẢI chạy khi không có node (chain-selector.spec.ts).
+  # Chưa dựng bản thì `next start` báo thiếu bản build: gọi `build e2e`. Gỡ lỗi: E2E_DEV=1.
   run "APP - E2E (PLAYWRIGHT)" app npx playwright test
 }
 

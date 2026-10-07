@@ -315,8 +315,13 @@ test.describe('Nhãn dữ liệu mẫu', () => {
     await enterInvestorChannel(context, baseURL!);
     await page.goto('/portfolio');
 
+    // Đợi hộp tình trạng phát hành tải xong: kiểm "không có" trước lúc đó thì luôn xanh.
+    const disclaimer = /Chưa có thị trường thứ cấp/i;
+    await expect(page.getByText(disclaimer).first()).toBeVisible();
+
     // R6.3 — chưa có thị trường thứ cấp thì bày mấy số này ra là trình bày sai bản chất.
+    // Câu miễn trừ (R6.2) nhắc "biến động giá" chính là để nói KHÔNG có, nên loại nó ra.
     await expect(page.getByText(/khối lượng giao dịch/i)).toHaveCount(0);
-    await expect(page.getByText(/biến động giá/i)).toHaveCount(0);
+    await expect(page.getByText(/biến động giá/i).filter({ hasNotText: disclaimer })).toHaveCount(0);
   });
 });
