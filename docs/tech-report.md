@@ -9,12 +9,12 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 3.7 |
-| Cập nhật lần cuối | 2026-10-07 |
-| Nhánh / commit | `feat/auto-settle`, nền `dev` @ `456ab54` (sau OP-02 PR #39); checkpoint `docs/CHECKPOINT_BE17.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu) |
-| Đang chờ nghiệm thu | **BE-17** — tự khớp mua/bán, chống trùng và can thiệp an toàn |
-| Phase kế tiếp | Đợt 5: FE-08, BE-13, FE-07, FE-23 theo `docs/GIAO_VIEC_DOT_5.md`. SC-02/SC-03 vẫn planned, spec sẽ viết lại khi khởi động |
+| Phiên bản tài liệu | 3.8 |
+| Cập nhật lần cuối | 2026-10-08 |
+| Nhánh / commit | `ops/03-evm-local`, nền `dev` @ `e4dd889` (sau BE-17 PR #40); checkpoint `docs/CHECKPOINT_OP03.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — xem 1.5 và 2.7) |
+| Đang chờ nghiệm thu | **OP-03** — hardhat một lệnh, ví mẫu trên chuỗi, đầu cuối trên bản build, project `hardhat` |
+| Phase kế tiếp | Đợt 5 (kế hoạch bản 3, `docs/GIAO_VIEC_DOT_5.md`): SC-02 song song với OP-03, rồi OP-04 (Sepolia) |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
@@ -354,7 +354,8 @@ bidv-rwa-tokenize/
 │   │   │   └── extensions/ERC20Snapshotable.sol
 │   │   ├── scripts/           # deploy.js, demo-cycle.js, demo-oracle.js,
 │   │   │                      #   preflight-sepolia.js, verify-deployment.js,
-│   │   │                      #   dod-verify-sepolia.js (nghiệm thu DoD lớp 2)
+│   │   │                      #   dod-verify-sepolia.js (nghiệm thu DoD lớp 2),
+│   │   │                      #   local-state.js + seed-local.js (evm-local.sh gọi, OP-03)
 │   │   ├── test/              # full-cycle, oracle-cycle (13 test)
 │   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (54 test)
 │   │   └── trex/              # ERC-3643 thật — TOOLCHAIN RIÊNG, KHÔNG trộn
@@ -362,7 +363,7 @@ bidv-rwa-tokenize/
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
 │
 ├── scripts/                   # Công cụ chạy từ GỐC repo (Node 20+ / bash, không phụ thuộc ngoài)
-│   ├── run-local-all.sh       # ★ NGUỒN DUY NHẤT của danh sách việc cần kiểm — 7 phần gọi
+│   ├── run-local-all.sh       # ★ NGUỒN DUY NHẤT của danh sách việc cần kiểm — 8 phần gọi
 │   │                          #   riêng được (`--list`). Không tham số = bộ mặc định 5 phần
 │   ├── verify-arch-rules.sh   # Lớp 3: 3 luật kiến trúc + cấu trúc repo + ký hiệu token
 │   │                          #   + bảng quyền không teo lại so với nền (OP-01)
@@ -370,6 +371,7 @@ bidv-rwa-tokenize/
 │   ├── gen-flow-diagram.mjs   # ★ Sinh docs/flows/<luồng>.md (Mermaid) từ marker @flow
 │   ├── check-checkpoint.mjs   # ★ Kiểm khuôn checkpoint; --in-progress (MC-02)
 │   ├── smoke-test.mjs         # ★ Kiểm khói bản đã triển khai (OP-01) — chạy TAY
+│   ├── evm-local.sh           # ★ Chuỗi hardhat cục bộ: up / down / reset (OP-03), xem docs/EVM_LOCAL.md
 │   └── demo-mint.mjs          # Kịch bản demo luồng mint
 │
 └── docs/                      # SPEC, WORKING_PROTOCOL, CHECKPOINT, REVIEW
@@ -378,6 +380,7 @@ bidv-rwa-tokenize/
     ├── CHECKPOINT_OP02.md    # Bằng chứng local + bàn giao deploy cho Owner
     ├── op-02-demo-unblock/    # Spec hiện hành OP-02 (bản v2)
     ├── GIAO_VIEC_DOT_5.md     # Phạm vi và thứ tự đợt 5
+    ├── EVM_LOCAL.md           # Chạy app và đầu cuối trên chuỗi hardhat cục bộ (OP-03)
     ├── guide.md               # ★ Hướng dẫn demo trọn luồng Mint/Burn + mua/bán trên mock
     ├── BRANCH_PROTECTION.md   # ★ Hướng dẫn Owner bật bảo vệ nhánh `dev` (OP-01)
     ├── CHECKPOINT_TEMPLATE.md # ★ Khuôn checkpoint, có mục 0 bắt buộc (MC-02)
@@ -397,8 +400,13 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 |---|---|---|---|---|
 | Đầy đủ | `docker compose up` | hardhat-local | Postgres 16 | Phát triển, demo nội bộ |
 | Free-tier | Deploy Vercel/Cloudflare | `mock` | memory | Demo public, không cần hạ tầng |
+| Chuỗi cục bộ (OP-03) | `bash scripts/evm-local.sh up` rồi `cd app && npm run dev` | hardhat-local | memory | Phát triển hợp đồng/adapter, đầu cuối trên chuỗi. Sau `reset` phải khởi động lại app. Xem `docs/EVM_LOCAL.md` |
 
 Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, các cờ `USE_MOCK_*=true`.
+`app/wrangler.json` có mục `vars` cho năm biến công khai đọc lúc chạy (`USE_MOCK_KYC`,
+`USE_MOCK_DB`, `DEMO_ROLE`, `ENABLE_DEMO_PAYMENT_MINT`, `ENABLE_DEMO_TOKEN_MINT`), giá trị bằng
+đúng mặc định trong `lib/config/env.ts` (OP-03). Không đặt `NEXT_PUBLIC_*` ở đó: biến đó nhúng lúc
+dựng bản, đặt lúc chạy không có tác dụng.
 
 Bản PoC mặc định `mock` + memory DB + vai `TELLER` và bật `ENABLE_DEMO_PAYMENT_MINT`, nên một bản
 clone/deploy không có biến môi trường vẫn demo được trọn luồng maker–checker và mua token.
@@ -429,6 +437,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Dùng lại ký hiệu `SPT` hoặc `tVND` | Đã đổi thành **WPT** và **VNDB**. Không để sót ở mã, UI, test, tài liệu |
 | Bundle hardhat/ethers/artifact vào web | Dùng viem + ABI tối giản; đồ nặng để ở `packages` |
 | Luồng demo phụ thuộc hardhat node thường trú | Mặc định phải là `mock`, để free-tier chạy được |
+| Kiểm "không có X" (`toHaveCount(0)`) ngay sau khi mở trang | Xanh ăn may khi khối dữ liệu chưa tải. Đợi mốc "đã tải" rồi mới kiểm vắng mặt (OP-03, xem `lessons.md`) |
 | Giả định API Next.js theo bản cũ | Next.js 16 có breaking change. Đọc `node_modules/next/dist/docs/` và `app/AGENTS.md` **trước khi** sửa `app/` |
 | Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` từng mất sạch `packages/` và `app/src/lib/`. Cách đúng duy nhất: `git revert <sha-của-commit-revert>`. Không merge lại, không cherry-pick — `branching.md` §6 |
 | Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
@@ -604,7 +613,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Công nghệ | Mục đích | Bản dùng | Mới nhất | License |
 |---|---|---|---|---|
 | Vitest | Unit test — **517 test / 19 tệp** (`cd app && npm test`) | 3.2.4 | 5.0.0 | MIT |
-| Playwright | E2E — **30 test / 4 tệp** (`cd app && npx playwright test --list`) | 1.63.0 | 1.63.0 | Apache-2.0 |
+| Playwright | E2E trên bản build — project `mock` **54 test / 7 tệp** (`cd app && npx playwright test --list`), project `hardhat` **13 test / 2 tệp** (`E2E_CHAIN=hardhat-local npx playwright test --list`) | 1.63.0 | 1.63.0 | Apache-2.0 |
 | ESLint | Kiểm tra mã nguồn | 9.x | 10.10.0 | MIT |
 | Docker / Compose | 3 service: chain, db, web | — | 29.7.1 | Apache-2.0 |
 | @opennextjs/cloudflare | Đưa Next.js lên Workers | 1.14.0 | 1.20.6 | MIT |
@@ -663,11 +672,12 @@ bash scripts/run-local-all.sh --list        # in danh sách phần, dấu * = th
 | `contracts` | `npx hardhat test` | B |
 | `app` | typecheck, ESLint, Vitest | A |
 | `build` | `npm run build` — **cần mạng** (`next/font/google`) | C |
-| `e2e` | `npx playwright test` | C |
+| `e2e` | `npx playwright test` trên bản build `.next` của phần `build` (`next start`), chain `mock`, KHÔNG có nút hardhat | C |
+| `evm` | Dựng bản build riêng `.next-hardhat` (chain mặc định nhúng lúc dựng), `evm-local.sh reset`, project `hardhat`, rồi dọn app và nút kể cả khi đỏ (OP-03) | C, sau `build e2e` |
 
 Bộ mặc định (chạy `bash scripts/run-local-all.sh` không tham số) = `arch markers checkpoint
-contracts app`, tức **giữ nguyên** hành vi có từ trước OP-01. `build` và `e2e` cố ý ở ngoài: cả
-hai nặng, và `build` không chạy được ở nơi bị chặn ra ngoài.
+contracts app`, tức **giữ nguyên** hành vi có từ trước OP-01. `build`, `e2e` và `evm` cố ý ở
+ngoài: cả ba nặng, và `build`/`evm` không chạy được ở nơi bị chặn ra ngoài.
 
 **Vì sao không chép danh sách lệnh vào tệp YAML.** Chép là tạo ra hai danh sách phải tự tay giữ
 khớp nhau, và chúng sẽ lệch. Lúc đó nơi chạy tự động và nơi chạy tay kiểm hai thứ khác nhau, mà
@@ -1277,6 +1287,7 @@ Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 | `src/abi/` | ABI tối giản cho web: `project-token.ts`, `vnd-token.ts`, `profit-distributor.ts`, `redemption.ts` |
 | `generated/` | ABI đầy đủ sinh từ Hardhat — chỉ để test đối chiếu, không ship lên web |
 | `src/addresses.ts` | Tra địa chỉ contract: **env thắng file**, hỗ trợ free-tier không đọc được filesystem |
+| `src/sample-wallets.json` | Ví của hai tài khoản khách hàng mẫu `NDT001`, `NB001` (OP-03). App đọc qua `SAMPLE_WALLETS`, `contracts-evm/scripts/seed-local.js` đọc thẳng tệp để whitelist trên chuỗi cục bộ — **một nguồn**, không chép địa chỉ lần hai |
 
 ⚠️ **Tuyệt đối không copy ABI hay địa chỉ contract ra ngoài package này.**
 
@@ -1403,6 +1414,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `scripts/scan-pending.mjs` | Quét marker, in bảng, `--check`, `--json`, và sinh mục dưới đây | Node 20, ESM thuần, **không phụ thuộc gói ngoài**. Cú pháp khai ở đây và **chỉ** ở đây |
 | `scripts/gen-flow-diagram.mjs` | Sinh `docs/flows/<luồng>.md` (Mermaid) từ marker `@flow` | Nhập `scan()` từ script trên, **không quét lại mã nguồn** |
 | `app/test/pending-markers.test.ts` | 20 ca chốt cơ chế: marker không lạc hậu, sơ đồ khớp marker, mục dưới đây khớp marker | Tầng 2 dựng **repo giả trong thư mục tạm** để chứng minh phép kiểm có răng, không chạm repo thật |
+| `scripts/evm-local.sh` | Chuỗi hardhat cục bộ `up`/`down`/`reset` (OP-03) | Không thuộc cơ chế marker. **Không bao giờ triển khai đè**: lệch bytecode hoặc nút có giao dịch lạ thì dừng, báo `reset`. Xem `docs/EVM_LOCAL.md` |
 | `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01) | Không thuộc cơ chế marker; liệt kê ở đây vì cùng ở `scripts/`. Chạy **tay** — xem 2.7 |
 
 **Lưu ý khi phát triển:**
@@ -2708,6 +2720,10 @@ bash scripts/run-local-all.sh --list                              # danh sách p
 bash scripts/run-local-all.sh arch markers checkpoint app         # việc A
 bash scripts/run-local-all.sh contracts                           # việc B
 bash scripts/run-local-all.sh build e2e                           # việc C (cần mạng)
+bash scripts/run-local-all.sh evm                                 # việc C, đầu cuối trên hardhat
+
+# Chuỗi hardhat cục bộ (OP-03) — xem docs/EVM_LOCAL.md
+bash scripts/evm-local.sh up | down | reset
 
 # Bảng quyền có teo lại so với nền hay không (mặc định nền là origin/dev)
 RBAC_BASE_REF=origin/dev bash scripts/verify-arch-rules.sh
