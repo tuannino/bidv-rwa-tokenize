@@ -707,3 +707,16 @@ node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP04.md docs/op-04-sepolia/req
 ĐẠT     docs/CHECKPOINT_OP04.md
   mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 6 ✅ 3 🔶 0 ❌ · cả tệp 130/800 dòng · có tệp _DETAIL.md
 ```
+
+## 9. Kiểm khuôn sau đối chiếu bộ Sepolia mới
+
+```bash
+node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP04.md docs/op-04-sepolia/requirements.md
+```
+
+Đầu ra nguyên văn, mã thoát 0:
+
+```text
+ĐẠT     docs/CHECKPOINT_OP04.md
+  mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 7 ✅ 2 🔶 0 ❌ · cả tệp 218/800 dòng · có tệp _DETAIL.md
+```

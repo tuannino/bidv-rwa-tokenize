@@ -1,7 +1,9 @@
 # Runbook OP-04 — lập–duyệt Mint/Burn trên Sepolia
 
-Bộ địa chỉ `evm` hiện có được triển khai ngày 10/09/2026, **trước SC-02**. Chỉ đánh dấu triển khai
-mới sau khi chủ dự án chạy và commit kết quả từ nhánh `ops/04-sepolia`. Không dùng bộ cũ để thử phát hành.
+Chủ dự án đã triển khai bộ SC-02 lên Sepolia ngày 08/10/2026 từ worktree `ops/04-sepolia`.
+Bộ địa chỉ mới nằm trong `packages/shared/src/addresses.json`; ProjectToken là
+`0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02`. Verify trạng thái đầu đã đạt; SPV đã whitelist.
+Tiếp tục mục 5 để lập–duyệt Mint/Mint/Burn; bằng chứng ở `CHECKPOINT_OP04.md` mục 5.
 
 **Không gửi SepoliaETH vào tài khoản mẫu của Hardhat.** Hai ví `NDT001`, `NB001` trong
 `packages/shared/src/sample-wallets.json` và account #0 có khóa công khai. Script cấp phí từ chối
