@@ -104,7 +104,7 @@ export interface SeedProjectRow {
 }
 
 /** Tên dự án điện gió của PoC. */
-const SEED_PROJECT_NAME = 'Dự án điện gió Bạc Liêu';
+const SEED_PROJECT_NAME = 'Dự án điện gió An Viên';
 
 /**
  * Các chuỗi được nạp sẵn dòng dự án.

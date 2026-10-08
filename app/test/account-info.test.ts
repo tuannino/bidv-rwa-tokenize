@@ -35,7 +35,7 @@ describe('FE-24 — màn Thông tin tài khoản', () => {
 
   it('Người bán thấy pháp nhân, người liên hệ và ví thanh toán', () => {
     const html = render('SELLER');
-    for (const text of ['Thông tin pháp nhân', 'Công ty Cổ phần Điện gió Bạc Liêu', 'Trần Thị Bình', 'Ví thanh toán']) {
+    for (const text of ['Thông tin pháp nhân', 'Công ty Cổ phần Điện gió An Viên', 'Trần Thị Bình', 'Ví thanh toán']) {
       expect(html).toContain(text);
     }
   });

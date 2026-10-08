@@ -266,10 +266,10 @@ test.describe('Trang chi tiết dự án token', () => {
     await enterInvestorChannel(context, baseURL!);
     await page.goto('/portfolio');
 
-    await page.getByRole('link', { name: /WPT-QTR3/ }).click();
+    await page.getByRole('link', { name: /WPT-PQY/ }).click();
 
-    await expect(page).toHaveURL(/\/tokens\/WPT-QTR3$/);
-    await expect(page.getByRole('heading', { name: /Điện gió Hướng Linh 3/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/tokens\/WPT-PQY$/);
+    await expect(page.getByRole('heading', { name: /Điện gió Phú Quý/i })).toBeVisible();
     // Dự án chưa lên chuỗi phải nói rõ, không hiện số dư 0.
     await expect(page.getByText('chưa triển khai trên chuỗi')).toBeVisible();
   });
@@ -282,7 +282,7 @@ test.describe('Trang chi tiết dự án token', () => {
     await enterInvestorChannel(context, baseURL!);
     await page.goto('/tokens/WPT');
 
-    await expect(page.getByRole('heading', { name: /Điện gió Bạc Liêu 1/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Điện gió An Viên/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Vị thế của bạn' })).toBeVisible();
     await expect(page.getByText('on-chain').first()).toBeVisible();
   });
