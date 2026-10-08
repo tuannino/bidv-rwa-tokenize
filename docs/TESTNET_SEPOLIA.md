@@ -187,14 +187,16 @@ Trên `http://localhost:3000` chọn Sepolia (`evm`) và thực hiện:
 | Lượt | Giao dịch viên — Lập lệnh (`/draft`) | Kiểm soát viên — Phê duyệt (`/approvals`) | Kết quả trên chuỗi |
 |---|---|---|---|
 | 1 | Tạo Mint 1.000 WPT vào **SPV riêng** đã whitelist; gửi duyệt | Đổi vai, mở đúng mã yêu cầu, Chấp nhận | tổng cung/SPV 1.000, cờ true, SPV cố định |
-| 2 | Tạo Mint bổ sung 250 WPT, cùng SPV; gửi duyệt | Chấp nhận | tổng cung/SPV 1.250 |
-| 3 | Tạo Burn 300 WPT chưa phân phối; gửi duyệt | Chấp nhận | tổng cung/SPV 950 |
+| 2 | Tạo Mint bổ sung 2.000 WPT, cùng SPV; gửi duyệt | Chấp nhận | tổng cung/SPV 3.000 |
+| 3 | Tạo Burn 300 WPT chưa phân phối; gửi duyệt | Chấp nhận | tổng cung/SPV 2.700 |
 
 Đường `/mint` và `demo-mint.mjs` là dữ liệu thử mock, không dùng trên EVM. Không cần nối ví trình
 duyệt cho hai vai ngân hàng: ứng dụng ký qua server signer. Không phân phối WPT giữa ba lượt này.
 Giữ lại mã yêu cầu, tx hash, receipt `status=1`, block, tổng cung và số dư SPV cho từng lượt;
 link là `https://sepolia.etherscan.io/tx/` cộng tx hash. Receipt ứng dụng chờ tối đa 90 giây;
 PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi thử lại.
+
+Đã chạy thực tế ngày 08/10/2026: Mint 1.000 → Mint 2.000 → Burn 300; tổng cung và SPV cuối 2.700 WPT. Receipt và trạng thái từng block ở `docs/CHECKPOINT_OP04_TXS.md`.
 
 ## 6. Cloudflare [Chủ dự án đặt secret; chạy sau merge]
 
@@ -207,6 +209,7 @@ PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi t
 | `USE_MOCK_DB` | Worker runtime variable | `true`; dữ liệu chia theo isolate, giới hạn đã biết |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` | Worker runtime variable | `true`; đăng ký dự án WPT Sepolia, không tự mint |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`; dùng luồng lập–duyệt |
+| `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` nếu chỉ kiểm Mint/Burn WPT; chỉ bật riêng khi cần demo nạp VNDB |
 
 Không đặt `FUNDER_PRIVATE_KEY`, `PRIVATE_KEY` hay `NEXT_PUBLIC_ADDR_EVM_*` trên Worker.
 Workers Builds dựng từ `dev` sau khi Owner merge PR: build `npm run cf:build`, deploy `npx wrangler deploy`.

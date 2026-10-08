@@ -76,6 +76,10 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
 | `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
+| `ENABLE_SEPOLIA_DEMO_PROJECT` | Worker runtime variable | `true` cho OP-04: đăng ký WPT Sepolia đã deploy; mặc định tắt |
+| `USE_MOCK_DB` | Worker runtime variable | `true` trong OP-04; dữ liệu tách theo isolate |
+| `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |
+| `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` khi chỉ kiểm WPT; bật riêng nếu cần demo VNDB |
 | `RPC_EVM` | Worker → Settings → Variables, dạng **Secret** | RPC Sepolia có API key; mở chain Sepolia phía server, không đưa endpoint bí mật vào bundle |
 | `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-02 trên Sepolia, có `MINTER_ROLE` và `AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variables**, tùy chọn | RPC công khai cho ví trình duyệt; không chứa API key bí mật |
