@@ -6,7 +6,7 @@ import { resetChainRegistryCache } from '@/lib/chains/registry';
 import { createEvmLedger } from '@/lib/ledger/evm.adapter';
 import { LedgerError, type ILedgerPort } from '@/lib/ledger/ledger.port';
 import { resetSignerCache, type ISigner } from '@/lib/signer';
-import { getProjectStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 
 const HARDHAT_RPC = process.env.TEST_HARDHAT_RPC;
 const OLD_HARDHAT_RPC = process.env.TEST_OLD_HARDHAT_RPC;
@@ -189,16 +189,6 @@ live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
   it('hai lần duyệt đồng thời ở service chỉ gửi đúng một giao dịch hardhat', async () => {
     resetMemoryStore();
     resetStoreCache();
-    const project = await getProjectStore().findProject({
-      chain: 'hardhat-local',
-      tokenSymbol: 'WPT',
-    });
-    expect(project).not.toBeNull();
-    if (!project) return;
-    await getProjectStore().markIssued({
-      id: project.id,
-      issuedAt: new Date().toISOString(),
-    });
     actAs('TELLER', 'GDV001');
     const { approveTokenRequest, createTokenRequest } = await import(
       '@/lib/bank/token-request.service'
@@ -230,6 +220,9 @@ live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
     );
     expect(txns).toHaveLength(1);
     expect(await ledger.balanceOf(SPV)).toBe(1_075n);
+    const audit = await getStore().listAudit({ limit: 20 });
+    expect(audit.filter((entry) => entry.detail?.includes('Đối soát mốc phát hành từ chuỗi')))
+      .toHaveLength(1);
   });
 });
 

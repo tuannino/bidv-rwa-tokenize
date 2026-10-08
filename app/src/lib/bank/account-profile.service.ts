@@ -72,7 +72,7 @@ const SAMPLE_ACCOUNT_PROFILES: readonly AccountProfileView[] = [
     actorId: 'NB001',
     role: 'SELLER',
     status: 'ACTIVE',
-    fullName: 'Công ty Cổ phần Điện gió Bạc Liêu',
+    fullName: 'Công ty Cổ phần Điện gió An Viên',
     phone: '0291 395 8888',
     email: 'contact@diengiobaclieu.vn',
     createdAt: '2025-12-10T02:00:00.000Z',

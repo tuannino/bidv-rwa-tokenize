@@ -19,7 +19,7 @@ async function actAs(context: BrowserContext, baseURL: string, role: AccountRole
 test.describe('FE-24 — Thông tin tài khoản', () => {
   for (const [role, name, actorId] of [
     ['INVESTOR', 'Nguyễn Văn An', 'NDT001'],
-    ['SELLER', 'Công ty Cổ phần Điện gió Bạc Liêu', 'NB001'],
+    ['SELLER', 'Công ty Cổ phần Điện gió An Viên', 'NB001'],
     ['TELLER', 'Lê Minh Cường', 'GDV001'],
     ['CONTROLLER', 'Phạm Thu Dung', 'KSV001'],
   ] as const) {

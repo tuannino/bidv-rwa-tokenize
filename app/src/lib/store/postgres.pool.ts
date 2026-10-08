@@ -1,50 +1,87 @@
 import 'server-only';
 
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { Pool } from 'pg';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { Client, type ClientBase } from 'pg';
 import { serverEnv } from '@/lib/config/env';
 import { configuredProjectSeeds } from './configured-seed-data';
+import { INIT_SQL } from './init-sql.generated';
 import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
 
 /**
  * Kết nối Postgres dùng chung cho MỌI cổng lưu trữ, và việc áp lược đồ một lần lúc khởi động.
  *
  * Vì sao tách khỏi `postgres.store.ts`: BE-09 thêm bốn cổng nữa, mỗi cổng một file hiện
- * thực Postgres. Năm bản sao của `new Pool(...)` là năm pool thật (mỗi cái `max: 5`) và
- * năm lần áp lược đồ chồng nhau — chưa kể `ensureSchema` sẽ có năm phiên bản trôi dạt.
+ * thực Postgres. Chép phần kết nối vào từng cổng sẽ tạo nhiều đường hành xử và nhiều lần áp lược
+ * đồ chồng nhau — chưa kể `ensureSchema` sẽ có nhiều phiên bản trôi dạt.
  *
  * Vì sao `pg` chứ không phải Prisma Client, dù lược đồ là Prisma:
  *   `prisma/schema.prisma` VẪN là nguồn sự thật của lược đồ — `prisma/init.sql` được
  *   Prisma sinh ra từ nó (`npm run db:sql`), nên không có hai nguồn DDL.
  *   Nhưng Prisma Client sinh ra ~22MB (có cả query engine nhị phân); nhét vào bundle
  *   Cloudflare Worker là trái steering "build gọn / đồ nặng để lúc build".
- *   `pg` khoảng 0.5MB và nằm trong `serverExternalPackages` mặc định của Next.
+ *   `pg` khoảng 0.5MB và chạy được với chuỗi kết nối Hyperdrive.
+ *
+ * Cloudflare cấm giữ client/pool I/O qua request. Vì vậy `pgQuery` mở một Client cho đúng một
+ * truy vấn; `pgTransaction` mở một Client cho trọn transaction; cả hai luôn đóng trong finally.
+ * Hyperdrive giữ pool ở phía sau nên việc mở Client tại Worker không mở connection gốc mới mỗi lần.
  *
  * Mọi câu lệnh nghiệp vụ đều tham số hoá ($1, $2, ...) — không nội suy chuỗi vào SQL.
  */
 
-const GLOBAL_KEY = '__bidvPgPool__';
+type HyperdriveBinding = { connectionString?: unknown };
 
-interface PoolHolder {
-  pool: Pool;
-  schemaReady: Promise<void>;
+let schemaReady: { connectionString: string; promise: Promise<void> } | null = null;
+
+/**
+ * Trên Worker, Hyperdrive là nguồn ưu tiên. Ngoài Worker, `getCloudflareContext()` ném lỗi nên
+ * đường Node/Docker rơi về `DATABASE_URL`. Không giữ binding hay Client ở phạm vi module: cả hai
+ * đều gắn với request hiện tại trong Cloudflare Workers.
+ */
+function connectionString(): string {
+  try {
+    const binding = (
+      getCloudflareContext().env as CloudflareEnv & { HYPERDRIVE?: HyperdriveBinding }
+    ).HYPERDRIVE;
+    if (typeof binding?.connectionString === 'string' && binding.connectionString.length > 0) {
+      return binding.connectionString;
+    }
+  } catch {
+    // Bình thường khi chạy Next.js, Vitest hoặc Docker ngoài Cloudflare Workers.
+  }
+
+  const fallback = serverEnv().databaseUrl;
+  if (fallback) return fallback;
+  throw new Error(
+    'USE_MOCK_DB=false nhưng không có binding HYPERDRIVE và thiếu DATABASE_URL. ' +
+      'Cách sửa: cấu hình Hyperdrive cho Worker, đặt DATABASE_URL khi chạy Node/Docker, ' +
+      'hoặc để USE_MOCK_DB=true để lưu trong bộ nhớ.',
+  );
 }
 
-function holder(): PoolHolder {
-  const g = globalThis as typeof globalThis & { [GLOBAL_KEY]?: PoolHolder };
-  if (!g[GLOBAL_KEY]) {
-    const connectionString = serverEnv().databaseUrl;
-    if (!connectionString) {
-      throw new Error(
-        'USE_MOCK_DB=false nhưng thiếu DATABASE_URL. ' +
-          'Cách sửa: đặt DATABASE_URL, hoặc để USE_MOCK_DB=true để lưu trong bộ nhớ.',
-      );
-    }
-    const pool = new Pool({ connectionString, max: 5 });
-    g[GLOBAL_KEY] = { pool, schemaReady: ensureSchema(pool) };
+async function withClient<T>(
+  databaseUrl: string,
+  body: (client: Client) => Promise<T>,
+): Promise<T> {
+  const client = new Client({ connectionString: databaseUrl });
+  let connected = false;
+  try {
+    await client.connect();
+    connected = true;
+    return await body(client);
+  } finally {
+    if (connected) await client.end();
   }
-  return g[GLOBAL_KEY];
+}
+
+async function ensureSchemaReady(databaseUrl: string): Promise<void> {
+  if (schemaReady?.connectionString === databaseUrl) return schemaReady.promise;
+
+  const promise = withClient(databaseUrl, ensureSchema).catch((error) => {
+    if (schemaReady?.promise === promise) schemaReady = null;
+    throw error;
+  });
+  schemaReady = { connectionString: databaseUrl, promise };
+  return promise;
 }
 
 /** Các cột thời gian phải là `timestamptz` — xem ghi chú trong prisma/schema.prisma. */
@@ -71,7 +108,7 @@ const TIMESTAMP_COLUMNS: ReadonlyArray<[table: string, column: string]> = [
  * Cố ý giới hạn ở đúng một việc này, KHÔNG dựng framework migration: chạy xong là no-op,
  * và Phase 4 (khi dùng Prisma Migrate thật) thì xoá hàm này.
  */
-async function migrateTimestampColumns(client: import('pg').PoolClient): Promise<void> {
+async function migrateTimestampColumns(client: ClientBase): Promise<void> {
   for (const [table, column] of TIMESTAMP_COLUMNS) {
     const { rows } = await client.query<{ data_type: string }>(
       `SELECT data_type FROM information_schema.columns
@@ -112,7 +149,7 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMPTZ(3)`,
 ];
 
-async function addMissingColumns(client: import('pg').PoolClient): Promise<void> {
+async function addMissingColumns(client: ClientBase): Promise<void> {
   for (const statement of ADDED_COLUMNS) await client.query(statement);
 }
 
@@ -163,7 +200,7 @@ function splitStatements(sql: string): string[] {
  * lệnh đó, các lệnh sau vẫn chạy được. Không có SAVEPOINT thì lỗi đầu tiên làm cả
  * transaction thành abort và mọi lệnh sau đều thất bại.
  */
-async function applyInitSql(client: import('pg').PoolClient, sql: string): Promise<void> {
+async function applyInitSql(client: ClientBase, sql: string): Promise<void> {
   for (const statement of splitStatements(sql)) {
     await client.query('SAVEPOINT bidv_ddl');
     try {
@@ -186,10 +223,11 @@ async function applyInitSql(client: import('pg').PoolClient, sql: string): Promi
  * thứ hai cho giá phát hành và tổng cung — đúng loại lệch mà `seed-data.ts` được lập ra để
  * chặn, và nó sẽ lệch âm thầm vì demo free-tier không chạy đường SQL này.
  *
- * `ON CONFLICT DO NOTHING` ở mọi câu: hàm chạy MỖI lần khởi động, và lần thứ hai không được
- * ghi đè giá mà cán bộ ngân hàng vừa đặt. Đây là "nạp nếu còn trống", không phải "đặt lại".
+ * SystemConfig/Role vẫn là "nạp nếu còn trống". Riêng địa chỉ hợp đồng của Project được phép
+ * đồng bộ lại từ cấu hình deploy KHI dự án chưa phát hành; sau `issuedAt`, địa chỉ là chứng từ
+ * bất biến và seed tuyệt đối không được sửa.
  */
-async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
+export async function seedInitialData(client: ClientBase): Promise<void> {
   for (const row of SEED_CONFIG_ROWS) {
     await client.query(
       `INSERT INTO "SystemConfig" ("key","value","type","updatedBy","updatedAt")
@@ -202,9 +240,13 @@ async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
   for (const project of configuredProjectSeeds()) {
     await client.query(
       `INSERT INTO "Project"
-         ("id","tokenSymbol","name","totalSupply","status","chain","contractAddress","updatedAt")
+       ("id","tokenSymbol","name","totalSupply","status","chain","contractAddress","updatedAt")
        VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,CURRENT_TIMESTAMP)
-       ON CONFLICT ("tokenSymbol","chain") DO NOTHING`,
+       ON CONFLICT ("tokenSymbol","chain") DO UPDATE
+       SET "contractAddress" = EXCLUDED."contractAddress",
+           "updatedAt" = CURRENT_TIMESTAMP
+       WHERE "Project"."issuedAt" IS NULL
+         AND "Project"."contractAddress" IS DISTINCT FROM EXCLUDED."contractAddress"`,
       [
         project.tokenSymbol,
         project.name,
@@ -233,24 +275,18 @@ async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
  * Bọc trong transaction + chốt tư vấn để hai instance khởi động cùng lúc không tạo bảng
  * nửa vời hay ALTER chồng nhau.
  */
-async function ensureSchema(pool: Pool): Promise<void> {
-  const sqlPath = path.join(process.cwd(), 'prisma', 'init.sql');
-  const sql = await readFile(sqlPath, 'utf8');
-
-  const client = await pool.connect();
+async function ensureSchema(client: ClientBase): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(918273645)');
     await addMissingColumns(client);
-    await applyInitSql(client, sql);
+    await applyInitSql(client, INIT_SQL);
     await migrateTimestampColumns(client);
     await seedInitialData(client);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
-  } finally {
-    client.release();
   }
 }
 
@@ -262,10 +298,12 @@ async function ensureSchema(pool: Pool): Promise<void> {
 export type PgQuery = <T extends object>(sql: string, params?: unknown[]) => Promise<T[]>;
 
 export const pgQuery: PgQuery = async <T extends object>(sql: string, params: unknown[] = []) => {
-  const { pool, schemaReady } = holder();
-  await schemaReady;
-  const result = await pool.query<T>(sql, params);
-  return result.rows;
+  const databaseUrl = connectionString();
+  await ensureSchemaReady(databaseUrl);
+  return withClient(databaseUrl, async (client) => {
+    const result = await client.query<T>(sql, params);
+    return result.rows;
+  });
 };
 
 /**
@@ -286,21 +324,20 @@ export type PgTransaction = <T>(
 export const pgTransaction: PgTransaction = async <T>(
   body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
 ): Promise<T> => {
-  const { pool, schemaReady } = holder();
-  await schemaReady;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await body(async <R extends object>(sql: string, params: unknown[] = []) => {
-      const rows = await client.query<R>(sql, params);
-      return rows.rows;
-    });
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  const databaseUrl = connectionString();
+  await ensureSchemaReady(databaseUrl);
+  return withClient(databaseUrl, async (client) => {
+    try {
+      await client.query('BEGIN');
+      const result = await body(async <R extends object>(sql: string, params: unknown[] = []) => {
+        const rows = await client.query<R>(sql, params);
+        return rows.rows;
+      });
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
 };

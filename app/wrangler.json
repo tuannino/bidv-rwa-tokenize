@@ -18,9 +18,17 @@
   ],
   "vars": {
     "USE_MOCK_KYC": "true",
-    "USE_MOCK_DB": "true",
+    "USE_MOCK_DB": "false",
     "DEMO_ROLE": "TELLER",
     "ENABLE_DEMO_PAYMENT_MINT": "true",
-    "ENABLE_DEMO_TOKEN_MINT": "false"
-  }
+    "ENABLE_DEMO_TOKEN_MINT": "false",
+    "ENABLE_SEPOLIA_DEMO_PROJECT": "true"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "bf7828b9f4bb42de9f65123d0f00e4a3",
+      "localConnectionString": "postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa"
+    }
+  ]
 }

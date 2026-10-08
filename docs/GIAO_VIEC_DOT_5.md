@@ -1,7 +1,8 @@
-# Kế hoạch đợt 5 tới đợt 8 (bản 4, 08/10/2026)
+# Kế hoạch đợt 5 tới đợt 8 (bản 5, 08/10/2026)
 
 > Thay toàn bộ các bản `GIAO_VIEC_DOT_5.md` trước. Tệp Excel đi kèm: `20261008_ke_hoach_v6_1.xlsx`
 > (sheet "Task Plan" và "Nhật ký thay đổi v6").
+> Bản 5 so với bản 4: OP-04 nghiệm thu (`dev` @ `182b9b1`); thêm OP-06 (5 điểm) vào đợt 5 để bản deploy lưu dữ liệu bền.
 > Bản 4 so với bản 3: OP-03 và SC-02 đã merge (`dev` @ `dd015a1`); DS-01 đã duyệt; IN-03 đổi thành đánh
 > giá "trước và sau" có thử nghiệm, 5 điểm; thêm mục 10 quy tắc phí Sepolia. Sheet "Tổng quan" của Excel cộng cả task đã xong trong đợt, nên đợt 5 ở đó là 34 điểm (gồm OP-02, BE-17, G-07 đã xong).
 > Nền: `dev` @ `e4dd889` (BE-17 đã merge qua PR #40).
@@ -10,7 +11,7 @@
 
 | Đợt | Mục tiêu chủ dự án chốt | Mốc dự kiến | Điểm còn làm |
 |---|---|---|---|
-| **5** | Mint/Burn lập duyệt **chạy thật trên hardhat và Sepolia** | 08/10 tới 19/10 | 18 |
+| **5** | Mint/Burn lập duyệt **chạy thật trên hardhat và Sepolia**, dữ liệu bền trên bản deploy | 08/10 tới 19/10 | 23 |
 | **6** | **Mua bán chạy trên chuỗi**, ví thanh toán SPV là **vault**. Song song: **Fireblocks** ký Mint/Burn | 20/10 tới 07/11 | 41 |
 | **7** | Rút VNDB, màn Cấu hình, luồng chia lợi nhuận mới trên vault chia lợi nhuận | 10/11 tới 28/11 | 51 |
 | **8** | Xác thực thật, tất toán, đối soát, Indexer, nghiệm thu | 01/12 tới 19/12 | 107 |
@@ -44,7 +45,8 @@ cd app && E2E_CHAIN=hardhat-local npx playwright test e2e/mint.spec.ts e2e/walle
 |---|---|---|---|---|---|---|
 | 1 | **OP-03** | Hardhat một lệnh, ví mẫu trên chuỗi, đầu cuối trên bản build, project `hardhat` (**đã merge**) | 5 | Vừa | `ops/03-evm-local` | |
 | 1 | **SC-02** | Lập duyệt Mint/Burn trên EVM: `ProjectToken` giữ ví SPV và cờ lần đầu (**đã merge**, PR #42) | 10 | Cao | `feat/sc-02-evm-issuance` | bước đầu cuối cần OP-03 |
-| 2 | **OP-04** | Triển khai lại Sepolia bằng bytecode SC-02, mở bộ chọn chain Sepolia | 3 | Vừa | `ops/04-sepolia` | SC-02, OP-03 |
+| 2 | **OP-04** | Triển khai lại Sepolia bằng bytecode SC-02, mở bộ chọn chain Sepolia (**nghiệm thu 08/10**, PR #43, #44; nợ kiểm bản deploy chuyển OP-06) | 3 | Vừa | `ops/04-sepolia` | SC-02, OP-03 |
+| 3 | **OP-06** (mới) | Lưu dữ liệu bền trên Cloudflare: Postgres qua Hyperdrive, kết nối theo lời gọi, lược đồ nhúng, đối soát mốc phát hành từ chuỗi. Spec `docs/op-06-cloudflare-db/` | 5 | Cao | `ops/06-cloudflare-db` | OP-04 |
 
 Ranh giới song song vòng 1: OP-03 không sửa hợp đồng, adapter, ABI; SC-02 không sửa
 `run-local-all.sh`, CI, cấu hình Playwright. Cả hai sửa `deploy.js` (OP-03 phần ghi tệp, SC-02 phần

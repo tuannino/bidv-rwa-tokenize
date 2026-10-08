@@ -220,27 +220,50 @@ describe('ca 4 — đã chạm trần thì lần sau bị từ chối', () => {
     expect(project?.issuedAt).toBe(first.data.issuedAt);
   });
 
-  /**
-   * Cơ sở dữ liệu và chuỗi lệch nhau: chuỗi đã phát hành nhưng bảng dự án chưa ghi mốc.
-   *
-   * Phải TỪ CHỐI với lý do nói rõ phải đối soát, không được âm thầm phát hành lần nữa. Đây là
-   * tình huống có thật: lần trước giao dịch thành công rồi tiến trình chết trước khi ghi mốc.
-   */
-  it('chuỗi đã phát hành mà bảng dự án chưa ghi mốc thì từ chối và đòi đối soát', async () => {
+  it('chuỗi đã phát hành mà DB chưa có mốc thì đối soát rồi dùng mint, không mintInitialSupply', async () => {
     const { issueInitialSupply } = await services();
     await whitelistSpv();
 
     // Phát hành THẲNG qua ledger, không qua service — nên bảng dự án không biết gì.
     await (await mockLedger()).mintInitialSupply(SPV, 500n);
 
-    const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV });
+    const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '100' });
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.code).toBe('ORDER_STATE');
-    expect(result.error).toMatch(/đối soát/i);
-    // Tổng cung vẫn là con số của lần phát hành thẳng, không cộng thêm.
-    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(500n);
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(600n);
+    const txns = await getStore().listTxns({ chain: CHAIN });
+    expect(txns.map((txn) => txn.operation)).toEqual(['mint']);
+    const audit = await getStore().listAudit({ limit: 20 });
+    expect(audit.filter((entry) => entry.detail?.includes('Đối soát mốc phát hành từ chuỗi')))
+      .toHaveLength(1);
+  });
+
+  it('lần sau không ghi thêm dòng đối soát', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+    await (await mockLedger()).mintInitialSupply(SPV, 500n);
+
+    await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '100' });
+    await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '50' });
+
+    const audit = await getStore().listAudit({ limit: 20 });
+    expect(audit.filter((entry) => entry.detail?.includes('Đối soát mốc phát hành từ chuỗi')))
+      .toHaveLength(1);
+    expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(650n);
+  });
+
+  it('chuỗi chưa phát hành vẫn đi qua mintInitialSupply như cũ', async () => {
+    const { issueInitialSupply } = await services();
+    await whitelistSpv();
+
+    const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: '100' });
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    const txns = await getStore().listTxns({ chain: CHAIN });
+    expect(txns.map((txn) => txn.operation)).toEqual(['mintInitialSupply']);
+    const audit = await getStore().listAudit({ limit: 20 });
+    expect(audit.some((entry) => entry.detail?.includes('Đối soát mốc phát hành từ chuỗi')))
+      .toBe(false);
   });
 });
 
