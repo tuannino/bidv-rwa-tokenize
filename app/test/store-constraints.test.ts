@@ -911,7 +911,12 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       const from = new Date(Date.now() - 1).toISOString();
       const wallet = freshWallet();
       const complete = async (side: 'BUY' | 'SELL', wptAmount: string, vndAmount: string) => {
-        const o = await store.orders.createOrder({ ...order(wallet, side), wptAmount, vndAmount });
+        const o = await store.orders.createOrder({
+          ...order(wallet, side),
+          chain: 'hardhat-local',
+          wptAmount,
+          vndAmount,
+        });
         await store.orders.transitionOrder({ id: o.id, from: ['PLACED'], to: 'CHECKING' });
         await store.orders.transitionOrder({ id: o.id, from: ['CHECKING'], to: 'EXECUTING' });
         await store.orders.transitionOrder({ id: o.id, from: ['EXECUTING'], to: 'COMPLETED' });
@@ -920,14 +925,20 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       await complete('BUY', '3', '300');
       await complete('SELL', '1', '100');
       // Lệnh chưa hoàn tất không được đếm.
-      await store.orders.createOrder(order(wallet, 'SELL'));
+      await store.orders.createOrder({ ...order(wallet, 'SELL'), chain: 'hardhat-local' });
       const to = new Date(Date.now() + 60_000).toISOString();
 
-      const summary = await store.orders.summarizeCompleted({ chain: 'mock', from, to });
+      // summarizeCompleted không lọc theo ví. Dùng chain riêng để không hút các dòng COMPLETED
+      // do ca trước trong cùng lượt chạy tạo ra khi hai ca rơi cùng mili-giây.
+      const summary = await store.orders.summarizeCompleted({ chain: 'hardhat-local', from, to });
       expect(summary.BUY).toEqual({ count: 2, wptAmount: '5', vndAmount: '500' });
       expect(summary.SELL).toEqual({ count: 1, wptAmount: '1', vndAmount: '100' });
 
-      const empty = await store.orders.summarizeCompleted({ chain: 'mock', from: to, to });
+      const empty = await store.orders.summarizeCompleted({
+        chain: 'hardhat-local',
+        from: to,
+        to,
+      });
       expect(empty).toEqual({
         BUY: { count: 0, wptAmount: '0', vndAmount: '0' },
         SELL: { count: 0, wptAmount: '0', vndAmount: '0' },
