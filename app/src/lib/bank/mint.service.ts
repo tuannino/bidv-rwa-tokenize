@@ -160,10 +160,34 @@ export async function mintToInvestorDirect(input: unknown): Promise<Result<MintR
 
   try {
     const role = await authorize('demo:mint-token', wallet, chain, assertCanMintDemoToken);
+    const store = getStore();
+
+    /**
+     * Lệch CÓ CHỦ Ý giữa mock và EVM:
+     *
+     * - mock giữ đường ngắn này để dựng dữ liệu trình diễn;
+     * - hardhat-local/Sepolia từ chối trước mọi lời gọi ghi lên chain, vì ProjectToken SC-02 chỉ
+     *   cho phát hành chính thức vào ví SPV qua luồng Giao dịch viên lập — Kiểm soát viên duyệt.
+     *
+     * Luồng chính thức không lệch giữa hai họ chain: `token-request.service.ts` gọi
+     * `executeIssuance`, tự kiểm ví SPV và dùng `mintInitialSupply`/`mint` đúng trạng thái.
+     */
+    if (chain !== 'mock') {
+      const message =
+        'Đường dữ liệu thử chỉ chạy trên mock; phát hành chính thức qua luồng lập duyệt.';
+      await store.appendAudit({
+        actorRole: role,
+        action: 'token:mint',
+        target: wallet,
+        outcome: 'FAILURE',
+        detail: `${message} Không gửi giao dịch lên chain.`,
+        chain,
+      });
+      return err('VALIDATION', message);
+    }
 
     const ledger = getLedger(chain);
     const signer = getBankSigner(chain);
-    const store = getStore();
 
     // AC#2: chưa whitelist thì TỪ CHỐI TRƯỚC KHI gửi tx (không đốt gas vào tx chắc chắn revert).
     if (!(await ledger.isWhitelisted(wallet))) {

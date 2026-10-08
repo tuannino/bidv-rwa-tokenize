@@ -5,7 +5,8 @@ import { resetServerEnvCache } from '@/lib/config/env';
 import { resetChainRegistryCache } from '@/lib/chains/registry';
 import { createEvmLedger } from '@/lib/ledger/evm.adapter';
 import { LedgerError, type ILedgerPort } from '@/lib/ledger/ledger.port';
-import type { ISigner } from '@/lib/signer';
+import { resetSignerCache, type ISigner } from '@/lib/signer';
+import { getProjectStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 
 const HARDHAT_RPC = process.env.TEST_HARDHAT_RPC;
 const OLD_HARDHAT_RPC = process.env.TEST_OLD_HARDHAT_RPC;
@@ -13,6 +14,8 @@ const ADMIN = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const UNPRIVILEGED = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const OTHER = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+const HARDHAT_ACCOUNT0_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 function unlockedSigner(address: `0x${string}`): ISigner {
   const account: Account = { address, type: 'json-rpc' };
@@ -32,6 +35,23 @@ function useRpc(url: string | undefined): void {
   else delete process.env.RPC_HARDHAT;
   resetServerEnvCache();
   resetChainRegistryCache();
+}
+
+function actAs(role: 'TELLER' | 'CONTROLLER', actor: string): void {
+  process.env.DEMO_ROLE = role;
+  process.env.DEMO_ACTOR = actor;
+  resetServerEnvCache();
+}
+
+async function blockNumber(): Promise<bigint> {
+  const response = await fetch(HARDHAT_RPC!, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+  });
+  const body = (await response.json()) as { result?: string; error?: { message?: string } };
+  if (!body.result) throw new Error(body.error?.message ?? 'Không đọc được block number.');
+  return BigInt(body.result);
 }
 
 async function wait(ledger: ILedgerPort, tx: Awaited<ReturnType<ILedgerPort['mint']>>) {
@@ -58,14 +78,40 @@ const live = HARDHAT_RPC ? describe.sequential : describe.skip;
 
 live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
   let ledger: ILedgerPort;
-  const originalRpc = process.env.RPC_HARDHAT;
+  const originalEnv = {
+    rpc: process.env.RPC_HARDHAT,
+    privateKey: process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL,
+    useMockDb: process.env.USE_MOCK_DB,
+    enableDemoMint: process.env.ENABLE_DEMO_TOKEN_MINT,
+    role: process.env.DEMO_ROLE,
+    actor: process.env.DEMO_ACTOR,
+  };
 
   beforeAll(() => {
+    process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL = HARDHAT_ACCOUNT0_KEY;
+    process.env.USE_MOCK_DB = 'true';
+    process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
     useRpc(HARDHAT_RPC);
+    resetSignerCache();
     ledger = createEvmLedger('hardhat-local', unlockedSigner(ADMIN));
   });
 
-  afterAll(() => useRpc(originalRpc));
+  afterAll(() => {
+    const restore = (key: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    };
+    restore('RPC_HARDHAT', originalEnv.rpc);
+    restore('SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL', originalEnv.privateKey);
+    restore('USE_MOCK_DB', originalEnv.useMockDb);
+    restore('ENABLE_DEMO_TOKEN_MINT', originalEnv.enableDemoMint);
+    restore('DEMO_ROLE', originalEnv.role);
+    restore('DEMO_ACTOR', originalEnv.actor);
+    resetServerEnvCache();
+    resetChainRegistryCache();
+    resetSignerCache();
+    resetStoreCache();
+  });
 
   it('đọc trạng thái chưa phát hành từ contract mới', async () => {
     expect(await ledger.isInitialSupplyMinted()).toBe(false);
@@ -115,6 +161,75 @@ live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
   it('phát hành bổ sung đúng ví SPV và chờ receipt thành công', async () => {
     await wait(ledger, await ledger.mint(SPV, 25n));
     expect(await ledger.balanceOf(SPV)).toBe(1_025n);
+  });
+
+  it('đường dữ liệu thử từ chối hardhat trước khi gửi giao dịch', async () => {
+    resetMemoryStore();
+    resetStoreCache();
+    actAs('TELLER', 'GDV001');
+    const before = await blockNumber();
+    const { mintToInvestorDirect } = await import('@/lib/bank/mint.service');
+
+    const result = await mintToInvestorDirect({
+      chain: 'hardhat-local',
+      wallet: SPV,
+      amount: '10',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('VALIDATION');
+    expect(result.error).toBe(
+      'Đường dữ liệu thử chỉ chạy trên mock; phát hành chính thức qua luồng lập duyệt.',
+    );
+    expect(await blockNumber()).toBe(before);
+    expect(await getStore().listTxns({ chain: 'hardhat-local' })).toHaveLength(0);
+  });
+
+  it('hai lần duyệt đồng thời ở service chỉ gửi đúng một giao dịch hardhat', async () => {
+    resetMemoryStore();
+    resetStoreCache();
+    const project = await getProjectStore().findProject({
+      chain: 'hardhat-local',
+      tokenSymbol: 'WPT',
+    });
+    expect(project).not.toBeNull();
+    if (!project) return;
+    await getProjectStore().markIssued({
+      id: project.id,
+      issuedAt: new Date().toISOString(),
+    });
+    actAs('TELLER', 'GDV001');
+    const { approveTokenRequest, createTokenRequest } = await import(
+      '@/lib/bank/token-request.service'
+    );
+    const created = await createTokenRequest({
+      chain: 'hardhat-local',
+      tokenSymbol: 'WPT',
+      type: 'MINT',
+      wallet: SPV,
+      amount: '50',
+      reason: 'Kiểm thử duyệt đồng thời trên hardhat',
+    });
+    expect(created.ok, created.ok ? '' : created.error).toBe(true);
+    if (!created.ok) return;
+
+    actAs('CONTROLLER', 'KSV001');
+    const before = await blockNumber();
+    const results = await Promise.all([
+      approveTokenRequest({ requestId: created.data.request.id }),
+      approveTokenRequest({ requestId: created.data.request.id }),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    const rejected = results.find((result) => !result.ok);
+    expect(rejected && !rejected.ok ? rejected.code : null).toBe('REQUEST_STATE');
+    expect(await blockNumber()).toBe(before + 1n);
+    const txns = (await getStore().listTxns({ chain: 'hardhat-local' })).filter(
+      (txn) => txn.operation === 'mint',
+    );
+    expect(txns).toHaveLength(1);
+    expect(await ledger.balanceOf(SPV)).toBe(1_075n);
   });
 });
 
