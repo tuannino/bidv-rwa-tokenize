@@ -223,10 +223,11 @@ async function applyInitSql(client: ClientBase, sql: string): Promise<void> {
  * thứ hai cho giá phát hành và tổng cung — đúng loại lệch mà `seed-data.ts` được lập ra để
  * chặn, và nó sẽ lệch âm thầm vì demo free-tier không chạy đường SQL này.
  *
- * `ON CONFLICT DO NOTHING` ở mọi câu: hàm chạy MỖI lần khởi động, và lần thứ hai không được
- * ghi đè giá mà cán bộ ngân hàng vừa đặt. Đây là "nạp nếu còn trống", không phải "đặt lại".
+ * SystemConfig/Role vẫn là "nạp nếu còn trống". Riêng địa chỉ hợp đồng của Project được phép
+ * đồng bộ lại từ cấu hình deploy KHI dự án chưa phát hành; sau `issuedAt`, địa chỉ là chứng từ
+ * bất biến và seed tuyệt đối không được sửa.
  */
-async function seedInitialData(client: ClientBase): Promise<void> {
+export async function seedInitialData(client: ClientBase): Promise<void> {
   for (const row of SEED_CONFIG_ROWS) {
     await client.query(
       `INSERT INTO "SystemConfig" ("key","value","type","updatedBy","updatedAt")
@@ -239,9 +240,13 @@ async function seedInitialData(client: ClientBase): Promise<void> {
   for (const project of configuredProjectSeeds()) {
     await client.query(
       `INSERT INTO "Project"
-         ("id","tokenSymbol","name","totalSupply","status","chain","contractAddress","updatedAt")
+       ("id","tokenSymbol","name","totalSupply","status","chain","contractAddress","updatedAt")
        VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,CURRENT_TIMESTAMP)
-       ON CONFLICT ("tokenSymbol","chain") DO NOTHING`,
+       ON CONFLICT ("tokenSymbol","chain") DO UPDATE
+       SET "contractAddress" = EXCLUDED."contractAddress",
+           "updatedAt" = CURRENT_TIMESTAMP
+       WHERE "Project"."issuedAt" IS NULL
+         AND "Project"."contractAddress" IS DISTINCT FROM EXCLUDED."contractAddress"`,
       [
         project.tokenSymbol,
         project.name,

@@ -194,15 +194,41 @@ export async function executeIssuance(input: {
   const context = input.auditContext ? `${input.auditContext}: ` : '';
 
   const minted = await ledger.isInitialSupplyMinted();
+  let issuedAt = project.issuedAt;
 
   // Chuỗi đã phát hành mà bảng dự án chưa ghi mốc: hai nguồn lệch nhau (ví dụ lần trước giao dịch
-  // thành công rồi tiến trình chết trước khi ghi mốc). Đối soát trước, chuỗi là sự thật cuối cùng.
-  if (minted && project.issuedAt === null) {
-    return err(
-      'ORDER_STATE',
-      `Chuỗi "${chain}" báo đã phát hành nguồn cung ban đầu, trong khi bảng dự án chưa ghi mốc ` +
-        `phát hành. Đối soát trước khi thử lại: chuỗi là nguồn sự thật cuối cùng.`,
-    );
+  // thành công rồi tiến trình chết trước khi ghi mốc, hoặc DB mới trỏ vào bộ contract đã chạy).
+  // Chuỗi là nguồn sự thật cuối cùng: ghi bù mốc, nhưng chính bước đối soát KHÔNG phát hành token.
+  if (minted && issuedAt === null) {
+    const reconciled = await getProjectStore().markIssued({
+      id: project.id,
+      issuedAt: new Date().toISOString(),
+    });
+    if (reconciled) {
+      issuedAt = reconciled.issuedAt;
+      await store.appendAudit({
+        actorRole: role,
+        action: 'token:mint',
+        target: spvWallet,
+        outcome: 'SUCCESS',
+        detail:
+          `${context}Đối soát mốc phát hành từ chuỗi, không phát hành thêm; ` +
+          `chain ${chain}, dự án ${tokenSymbol}.`,
+        chain,
+      });
+    } else {
+      // Một request khác có thể vừa ghi xong giữa phép đọc và markIssued. Đọc lại rồi đi tiếp
+      // nếu mốc đã có; chỉ lỗi khi cả chuỗi và lần đọc lại vẫn không thể làm DB hội tụ.
+      const current = await getProjectStore().findProject({ tokenSymbol, chain });
+      if (!current?.issuedAt) {
+        return err(
+          'ORDER_STATE',
+          `Chuỗi "${chain}" đã phát hành nhưng không ghi hoặc đọc lại được mốc phát hành của ` +
+            `dự án ${tokenSymbol}. Cần kiểm tra cơ sở dữ liệu trước khi thử lại.`,
+        );
+      }
+      issuedAt = current.issuedAt;
+    }
   }
 
   const { remaining } = await remainingIssuanceCap(chain, project);
@@ -255,7 +281,6 @@ export async function executeIssuance(input: {
   }
 
   // @flow issue:6 | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan
-  let issuedAt = project.issuedAt;
   if (issuedAt === null) {
     const marked = await getProjectStore().markIssued({
       id: project.id,
