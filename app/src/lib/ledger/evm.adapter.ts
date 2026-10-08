@@ -195,7 +195,8 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     if (!(reverted instanceof ContractFunctionRevertedError)) return false;
     return (
       (!reverted.reason && !reverted.data?.errorName && !reverted.signature) ||
-      /without a reason/i.test(reverted.reason ?? '')
+      /without a reason/i.test(reverted.reason ?? '') ||
+      /function selector was not recognized/i.test(reverted.reason ?? '')
     );
   };
 
