@@ -150,9 +150,11 @@ RPC_EVM=
 SERVER_SIGNER_PRIVATE_KEY_EVM=
 USE_MOCK_DB=true
 ENABLE_DEMO_TOKEN_MINT=false
+ENABLE_SEPOLIA_DEMO_PROJECT=true
 ```
 
 `RPC_EVM` cùng endpoint Sepolia với `SEPOLIA_RPC_URL`; khóa đúng ví đã deploy.
+`ENABLE_SEPOLIA_DEMO_PROJECT=true` đăng ký dự án WPT trạng thái DRAFT trên `evm`, dùng địa chỉ ProjectToken đã deploy từ nguồn shared. Cờ mặc định tắt; thiếu cờ thì màn Lập lệnh báo chưa có dự án. Sau khi thêm cờ cần dựng lại và khởi động lại app trước giao dịch đầu tiên.
 Giữ `USE_MOCK_DB=true` theo phạm vi task. Không đặt `NEXT_PUBLIC_ADDR_EVM_*`.
 Nếu ví trình duyệt cần RPC riêng, dùng `NEXT_PUBLIC_RPC_EVM` là URL **công khai**, không chứa
 API key bí mật vì Next nội tuyến biến này vào bundle trình duyệt.
@@ -195,6 +197,7 @@ PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi t
 | `NEXT_PUBLIC_RPC_EVM` | **Build variable**, tùy chọn | RPC công khai cho ví trình duyệt; không đặt RPC có key bí mật |
 | `NEXT_PUBLIC_DEFAULT_CHAIN` | **Build variable**, tùy chọn | `evm` nếu muốn Sepolia mặc định; giữ mock vẫn chọn được Sepolia khi có RPC_EVM |
 | `USE_MOCK_DB` | Worker runtime variable | `true`; dữ liệu chia theo isolate, giới hạn đã biết |
+| `ENABLE_SEPOLIA_DEMO_PROJECT` | Worker runtime variable | `true`; đăng ký dự án WPT Sepolia, không tự mint |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`; dùng luồng lập–duyệt |
 
 Không đặt `FUNDER_PRIVATE_KEY`, `PRIVATE_KEY` hay `NEXT_PUBLIC_ADDR_EVM_*` trên Worker.

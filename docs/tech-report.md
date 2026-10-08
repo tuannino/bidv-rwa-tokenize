@@ -9,13 +9,15 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.3 |
+| Phiên bản tài liệu | 4.4 |
 | Cập nhật lần cuối | 2026-10-08 |
 | Nhánh / commit | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02 đã merge qua PR #42); checkpoint `docs/CHECKPOINT_OP04.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
 | Đang thực hiện | **OP-04** — đã chuẩn bị cấp phí, preflight, kiểm khói và runbook; đã triển khai Sepolia/whitelist SPV, chờ ba giao dịch local và kiểm bản Cloudflare sau merge |
 | Phase kế tiếp | **OP-04** — triển khai lại bộ hợp đồng sau SC-02 lên Sepolia |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.3 → 4.4 (OP-04).** Khắc phục màn Lập lệnh báo chưa có WPT trên `evm`: biến server `ENABLE_SEPOLIA_DEMO_PROJECT` mặc định tắt, bật riêng cho demo đã deploy. `app/src/lib/store/configured-seed-data.ts` cấp cùng dữ liệu DRAFT cho memory và Postgres, lấy địa chỉ qua shared; Postgres giữ `ON CONFLICT DO NOTHING`, không ghi đè trạng thái đã phát hành. `config/env.ts` là nơi duy nhất đọc cờ; `seed-data.ts` vẫn thuần. Không đổi luật lập–duyệt hay tự gửi giao dịch. Runbook Sepolia bổ sung cờ cho local và Worker.
 
 **Vì sao 1.9 → 2.0 vẫn là bước `+0.1` thường, không phải `+1.0`.** Con số tròn dễ bị đọc là "đổi
 lớn", nhưng đây chỉ là phép cộng: `tech-report-maintenance.md` §3 bước 5 để `+0.1` cho thay đổi
@@ -337,6 +339,7 @@ bidv-rwa-tokenize/
 │   │   │                      #   placeholder (2 trang: FE-08, FE-23)
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
+│   │   └── store/configured-seed-data.ts # OP-04: đăng ký Sepolia khi bật cờ
 │   ├── e2e/                   # Playwright
 │   ├── test/                  # Vitest
 │   ├── prisma/                # schema.prisma + init.sql
@@ -401,6 +404,8 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 | Đầy đủ | `docker compose up` | hardhat-local | Postgres 16 | Phát triển, demo nội bộ |
 | Free-tier | Deploy Vercel/Cloudflare | `mock` | memory | Demo public, không cần hạ tầng |
 | Chuỗi cục bộ (OP-03) | `bash scripts/evm-local.sh up` rồi `cd app && npm run dev` | hardhat-local | memory | Phát triển hợp đồng/adapter, đầu cuối trên chuỗi. Sau `reset` phải khởi động lại app. Xem `docs/EVM_LOCAL.md` |
+
+Demo Sepolia đã deploy (OP-04) bật `ENABLE_SEPOLIA_DEMO_PROJECT=true` trước khi khởi tạo DB. Cờ chỉ thêm dòng WPT DRAFT với địa chỉ shared, không tự phát hành; xem `docs/TESTNET_SEPOLIA.md`.
 
 Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, các cờ `USE_MOCK_*=true`.
 `app/wrangler.json` có mục `vars` cho năm biến công khai đọc lúc chạy (`USE_MOCK_KYC`,
@@ -1160,6 +1165,7 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/config.store.port.ts` | `IConfigStore` — tham số hệ thống **và** lịch sử đổi tham số (BE-04). MỘT cổng cho HAI bảng: mọi lần ghi giá PHẢI kèm một dòng lịch sử, nên tách hai cổng là mở đường gọi một mà quên cái kia | `getConfig`, `setConfig`, `listConfigHistory` |
 | `store/project.store.port.ts` | `IProjectStore` — dự án đã token hoá; giữ **tổng cung** của đợt phát hành (BE-04) | `createProject`, `findProject`, `markIssued`, `listProjects` |
 | `store/token-request.store.port.ts` | `ITokenRequestStore` — yêu cầu Mint/Burn (BE-12). Năm trạng thái `PENDING → EXECUTING → COMPLETED \| FAILED`, `PENDING → REJECTED`; bảng `TOKEN_REQUEST_TRANSITIONS` chặn chuyển ngược chiều ở **cả hai bản** trước khi chạm dữ liệu. Tự ghi `decidedAt` / `completedAt`. FE-22: `countRequests` nhận thêm `type` và `decidedFrom` (mốc ISO) cho các thẻ số liệu — đếm ở cơ sở dữ liệu, không `list` rồi lấy độ dài | `createRequest`, `findRequest`, `transitionRequest`, `attachRequestTxHash`, `listRequests`, `countRequests` |
+| `store/configured-seed-data.ts` | OP-04: nguồn dự án cho memory/Postgres, thêm Sepolia khi bật cờ server; địa chỉ qua shared, mặc định chỉ mock/Hardhat | `configuredProjectSeeds()` |
 | `store/seed-data.ts` | **MỘT nguồn dữ liệu khởi tạo cho CẢ HAI bản lưu trữ** (BE-04). Không con số nào gõ tay ở đây: giá/tổng cung/ngưỡng/chỉ tiêu token nhập từ `lib/config/issue-terms.ts`, danh sách vai được đổi cấu hình suy từ `lib/rbac/config-role.ts` | `SEED_CONFIG_ROWS`, `SEED_PROJECTS`, `SEED_PROJECT_CHAINS`, `SEED_ROLE_ROWS` |
 | `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. Đặt ở tầng lưu trữ vì có người đọc ở nhiều tầng; để ở `lib/bank` thì tầng cổng phải nhập tầng nghiệp vụ, tức ngược chiều phụ thuộc. FE-24 thêm `readTokenTerms()` đọc nguyên khối ba chỉ tiêu nhưng lùi mặc định từng khoá hỏng, không làm một khoá lỗi kéo sai cả ba. Bảng khoá đầy đủ ở 3.13 | `readIssuePriceVnd`, `readTokenTerms`, `readPriceChangeThreshold`, `readDistributionBatchSize`, `readDistributionDustWallet` |
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
@@ -1252,6 +1258,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | `USE_MOCK_DB` | `true` | `true` = Txn/audit trong RAM (free-tier); `false` = Postgres qua `DATABASE_URL` |
 | `ENABLE_DEMO_PAYMENT_MINT` | **`true`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định để demo trọn luồng. Production **bắt buộc** ghi đè `false` |
 | `ENABLE_DEMO_TOKEN_MINT` (FE-22) | **`false`** | Cho phát hành WPT **trực tiếp**, không qua lập–duyệt (màn `/mint`, `POST /api/mint`, `issueInitialSupply`) — **chỉ môi trường thử**. Bật trên môi trường thật là mở lại đường đi vòng qua Kiểm soát viên |
+| `ENABLE_SEPOLIA_DEMO_PROJECT` (OP-04) | **`false`** | Đăng ký WPT DRAFT trên `evm` đã deploy, không mint. Cùng dữ liệu cho memory/Postgres |
 | `DEMO_ACTOR` (BE-12) | trống | Mã tài khoản giả lập ghi vào người lập / người duyệt. Trống = mã mẫu của vai (`SAMPLE_ACCOUNTS` ở `lib/session/channel.ts`). **Không phải xác thực** — AU-01 thay |
 
 **Bí mật trong `env.ts` (không phải cờ):**
