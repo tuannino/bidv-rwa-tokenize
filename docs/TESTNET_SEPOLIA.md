@@ -19,7 +19,7 @@ Ví SPV chỉ nhận WPT, không tự ký giao dịch trong OP-04 nên không c�
 
 | Địa chỉ | Giá trị được chủ dự án xác nhận |
 |---|---|
-| Ví MetaMask chủ dự án cung cấp | `0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076`; trùng deployer cũ, chờ xác nhận vai trò |
+| Ví ký máy chủ / deployer | `0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076`; chủ dự án xác nhận giữ ví này ngày 08/10 |
 | Ví SPV thử Sepolia | **Chờ chủ dự án cung cấp địa chỉ công khai** |
 | URL Cloudflare | https://bidv-rwa-tokenize.tuanlhbidv.workers.dev/ |
 
