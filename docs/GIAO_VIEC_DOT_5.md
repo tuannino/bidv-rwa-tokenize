@@ -1,7 +1,9 @@
-# Kế hoạch đợt 5 tới đợt 8 (bản 3, chốt tối 07/10/2026)
+# Kế hoạch đợt 5 tới đợt 8 (bản 4, 08/10/2026)
 
-> Thay toàn bộ các bản `GIAO_VIEC_DOT_5.md` trước. Tệp Excel đi kèm: `20261008_ke_hoach_v6.xlsx`
-> (sheet "Task Plan" và "Nhật ký thay đổi v6"). Sheet "Tổng quan" của Excel cộng cả task đã xong trong đợt, nên đợt 5 ở đó là 34 điểm (gồm OP-02, BE-17, G-07 đã xong).
+> Thay toàn bộ các bản `GIAO_VIEC_DOT_5.md` trước. Tệp Excel đi kèm: `20261008_ke_hoach_v6_1.xlsx`
+> (sheet "Task Plan" và "Nhật ký thay đổi v6").
+> Bản 4 so với bản 3: OP-03 và SC-02 đã merge (`dev` @ `dd015a1`); DS-01 đã duyệt; IN-03 đổi thành đánh
+> giá "trước và sau" có thử nghiệm, 5 điểm; thêm mục 10 quy tắc phí Sepolia. Sheet "Tổng quan" của Excel cộng cả task đã xong trong đợt, nên đợt 5 ở đó là 34 điểm (gồm OP-02, BE-17, G-07 đã xong).
 > Nền: `dev` @ `e4dd889` (BE-17 đã merge qua PR #40).
 
 ## 1. Mục tiêu từng đợt
@@ -9,7 +11,7 @@
 | Đợt | Mục tiêu chủ dự án chốt | Mốc dự kiến | Điểm còn làm |
 |---|---|---|---|
 | **5** | Mint/Burn lập duyệt **chạy thật trên hardhat và Sepolia** | 08/10 tới 19/10 | 18 |
-| **6** | **Mua bán chạy trên chuỗi**, ví thanh toán SPV là **vault**. Song song: **Fireblocks** ký Mint/Burn | 20/10 tới 07/11 | 39 |
+| **6** | **Mua bán chạy trên chuỗi**, ví thanh toán SPV là **vault**. Song song: **Fireblocks** ký Mint/Burn | 20/10 tới 07/11 | 41 |
 | **7** | Rút VNDB, màn Cấu hình, luồng chia lợi nhuận mới trên vault chia lợi nhuận | 10/11 tới 28/11 | 51 |
 | **8** | Xác thực thật, tất toán, đối soát, Indexer, nghiệm thu | 01/12 tới 19/12 | 107 |
 
@@ -40,8 +42,8 @@ cd app && E2E_CHAIN=hardhat-local npx playwright test e2e/mint.spec.ts e2e/walle
 
 | Vòng | Mã | Tên | Điểm | Mức | Nhánh | Phụ thuộc |
 |---|---|---|---|---|---|---|
-| 1 | **OP-03** | Hardhat một lệnh, ví mẫu trên chuỗi, đầu cuối trên bản build, project `hardhat` | 5 | Vừa | `ops/03-evm-local` | |
-| 1 | **SC-02** | Lập duyệt Mint/Burn trên EVM: `ProjectToken` giữ ví SPV và cờ lần đầu | 10 | Cao | `feat/sc-02-evm-issuance` | bước đầu cuối cần OP-03 |
+| 1 | **OP-03** | Hardhat một lệnh, ví mẫu trên chuỗi, đầu cuối trên bản build, project `hardhat` (**đã merge**) | 5 | Vừa | `ops/03-evm-local` | |
+| 1 | **SC-02** | Lập duyệt Mint/Burn trên EVM: `ProjectToken` giữ ví SPV và cờ lần đầu (**đã merge**, PR #42) | 10 | Cao | `feat/sc-02-evm-issuance` | bước đầu cuối cần OP-03 |
 | 2 | **OP-04** | Triển khai lại Sepolia bằng bytecode SC-02, mở bộ chọn chain Sepolia | 3 | Vừa | `ops/04-sepolia` | SC-02, OP-03 |
 
 Ranh giới song song vòng 1: OP-03 không sửa hợp đồng, adapter, ABI; SC-02 không sửa
@@ -49,8 +51,8 @@ Ranh giới song song vòng 1: OP-03 không sửa hợp đồng, adapter, ABI; S
 vai) và `task-status.json`; ai merge sau thì rebase.
 
 OP-04 cần thứ chỉ chủ dự án có (khoá ví triển khai, ETH Sepolia, RPC có API key). Người viết mã chuẩn
-bị script và runbook; chủ dự án chạy triển khai và đặt biến trên Cloudflare. Spec viết sau khi vòng 1
-merge.
+bị script và runbook; chủ dự án chạy triển khai và đặt biến trên Cloudflare. Spec ở
+`docs/op-04-sepolia/` (chủ dự án duyệt 08/10). Phí theo mục 10.
 
 **Hết đợt 5:** trên hardhat và Sepolia chạy được kết nối ví, whitelist, nạp VNDB mô phỏng, lập duyệt
 Mint và Burn vào ví thanh toán SPV (lúc này vẫn là ví thường), số liệu nguồn cung đọc từ chuỗi. Giao
@@ -70,13 +72,13 @@ dịch ký bằng khoá phía máy chủ.
 
 | Làn | Mã | Tên | Điểm | Mức | Phụ thuộc |
 |---|---|---|---|---|---|
-| Chuỗi | **DS-01** | Ghi chú kiến trúc hợp đồng đợt 6. Supervisor viết, chủ dự án duyệt. Không vào `task-status.json` | 3 | | |
+| Chuỗi | **DS-01** | Ghi chú kiến trúc hợp đồng đợt 6. Supervisor viết, **chủ dự án đã duyệt 08/10**. Không vào `task-status.json` | 3 | | |
 | Chuỗi | **SC-07** | Vault thanh toán SPV: giữ WPT chưa bán và VNDB thu về, cấp quyền cho hợp đồng khớp lệnh, luật khoá (mục 5), đường rút của SPV | 10 | Cao | DS-01, SC-02 |
 | Chuỗi | **SC-03** | Hợp đồng khớp lệnh mua bán nguyên tử, làm việc với vault; gỡ 5 điểm chặn SC-03 | 13 | Cao | SC-07, BE-14 |
 | Chuỗi | **FE-05** | Bước cấp ủy quyền VNDB của Nhà đầu tư khi chạy chain thật (phạm vi chốt ở DS-01) | 3 | Vừa | SC-03 |
 | Chuỗi | **OP-05** | Triển khai lại Sepolia với vault và hợp đồng khớp lệnh, kiểm khói mua bán | 2 | Vừa | SC-03 |
-| Fireblocks | **IN-03** | Nghiên cứu Fireblocks sandbox: cách gửi lời gọi hợp đồng, chính sách duyệt, theo dõi trạng thái | 3 | | |
-| Fireblocks | **IN-04** | `ISigner` loại `fireblocks` ký giao dịch Mint/Burn; cấp vai trên hợp đồng cho địa chỉ Fireblocks; runbook | 5 | Cao | IN-03, SC-02 |
+| Fireblocks | **IN-03** | Đánh giá Fireblocks "trước và sau" có thử nghiệm: ký song song (viem), TAP so với lập duyệt có bật/tắt, giám sát qua webhook. Spec `docs/in-03-fireblocks-eval/` | 5 | Vừa | phần C cần OP-04 |
+| Fireblocks | **IN-04** | `ISigner` loại `fireblocks` ký giao dịch Mint/Burn; cấp vai trên hợp đồng cho địa chỉ Fireblocks; runbook. **Phạm vi chốt lại theo khuyến nghị cuối báo cáo IN-03** (có thể tách ký và theo dõi bất đồng bộ, TAP bật/tắt) | 5 | Cao | IN-03, SC-02 |
 
 Hai làn đụng hai vùng mã khác nhau (hợp đồng và adapter, so với `lib/signer`), nên chạy song song
 được. IN-04 dùng lại khung hardhat của OP-03 để thử trước khi lên Sepolia.
@@ -112,9 +114,9 @@ Ví dụ: P = 20, kỳ trước đã chia 29.217.000.000, kỳ này khoá 5.843.
 Hệ quả cho thứ tự làm: ở đợt 6 chưa có kỳ chia nào trên chuỗi, nên `PERCENT` chỉ chạy với **công
 thức kỳ đầu**; từ kỳ thứ hai cần số liệu chia của SC-06 ở đợt 7. `FIXED` chạy đủ ngay ở đợt 6.
 
-**Còn phải xác nhận khi viết spec SC-07:** "giá trị lượng token đã bán ra" ở kỳ đầu là (a) số WPT
-đang lưu hành nhân giá phát hành, hay (b) tổng VNDB ví thanh toán đã thu từ bán WPT trừ phần đã chi
-mua lại.
+**Đã chốt 08/10 (DS-01 CH-1, CH-2):** "giá trị lượng token đã bán ra" ở kỳ đầu là tổng VNDB ví thanh
+toán **thu ròng** từ bán WPT (thu khi bán trừ chi khi mua lại); giá token đang cố định nên tương đương
+WPT lưu hành nhân giá. Phần khoá **không chặn** tiền trả Nhà đầu tư bán lại WPT (bản thử).
 
 ## 6. Luồng chia lợi nhuận mới (tạm chốt, trao đổi chi tiết ở BE-18)
 
@@ -140,3 +142,11 @@ tệp này. SC-02 chỉ chuyển `SC-02` sang `inProgress`.
 - Dòng nợ P2: lệnh kẹt ở `PLACED` không can thiệp được, chỉ được `expireStaleOrders` dọn.
 - Đầu cuối chạy trên bản build thay vì `next dev`.
 - Mục `vars` cho Worker với các biến công khai đọc lúc chạy.
+
+## 10. Quy tắc phí Sepolia (chủ dự án chốt 08/10, DS-01 CH-3)
+
+Chủ dự án giữ một **tài khoản tổng** chứa SepoliaETH. Trước mỗi bước có phí trên Sepolia (triển khai,
+Mint, Burn, cấp vai, `approve` của Nhà đầu tư thử, giao dịch từ vault Fireblocks), chuyển **vừa đủ phí**
+cho đúng giao dịch đó từ tài khoản tổng sang ví đang thử, rồi chạy luồng như bình thường. Công cụ:
+`packages/contracts-evm/scripts/fund-sepolia.js` (OP-04), chỉ bù phần thiếu, từ chối chain khác Sepolia
+và từ chối địa chỉ mẫu Hardhat. Khoá tài khoản tổng chỉ chủ dự án giữ (biến `FUNDER_PRIVATE_KEY` trong `.env` cục bộ), không trao cho người viết mã.

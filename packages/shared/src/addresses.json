@@ -15,12 +15,12 @@
     "evm": {
       "chainId": 11155111,
       "deployer": "0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076",
-      "deployedAt": "2026-09-10T16:17:15.350Z",
+      "deployedAt": "2026-10-08T07:59:35.988Z",
       "contracts": {
-        "ProjectToken": "0x3Fe22dcfFCFB4459a417113ED6deb5C3A23B14be",
-        "VNDToken": "0xF9ceD0D827020D4A8778E0B4DBEdF46bb14f9fCd",
-        "ProfitDistributor": "0x675f0e3dBc7a0c6dB11442F3a236b6427442CdB5",
-        "Redemption": "0x39eC24eC638dc9e394ED7bb7A6ff72c3DfBd1d68"
+        "ProjectToken": "0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02",
+        "VNDToken": "0xc18FF0a03c94aa057DDff3A90a16F7454b5ACF45",
+        "ProfitDistributor": "0x7f2b975259Ee12f7cf847EDda3331CF9e8614166",
+        "Redemption": "0xB19b13aAbC42852A3608f232196012D5758Ac1B2"
       }
     }
   }

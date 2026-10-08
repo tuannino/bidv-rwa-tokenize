@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Pool } from 'pg';
 import { serverEnv } from '@/lib/config/env';
-import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_PROJECTS, SEED_ROLE_ROWS } from './seed-data';
+import { configuredProjectSeeds } from './configured-seed-data';
+import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
 
 /**
  * Kết nối Postgres dùng chung cho MỌI cổng lưu trữ, và việc áp lược đồ một lần lúc khởi động.
@@ -198,11 +199,11 @@ async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
     );
   }
 
-  for (const project of SEED_PROJECTS) {
+  for (const project of configuredProjectSeeds()) {
     await client.query(
       `INSERT INTO "Project"
-         ("id","tokenSymbol","name","totalSupply","status","chain","updatedAt")
-       VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,CURRENT_TIMESTAMP)
+         ("id","tokenSymbol","name","totalSupply","status","chain","contractAddress","updatedAt")
+       VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,CURRENT_TIMESTAMP)
        ON CONFLICT ("tokenSymbol","chain") DO NOTHING`,
       [
         project.tokenSymbol,
@@ -210,6 +211,7 @@ async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
         project.totalSupply,
         project.status,
         project.chain,
+        project.contractAddress ?? null,
       ],
     );
   }

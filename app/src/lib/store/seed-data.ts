@@ -100,6 +100,7 @@ export interface SeedProjectRow {
   totalSupply: string;
   status: ProjectStatus;
   chain: ChainKey;
+  contractAddress?: string;
 }
 
 /** Tên dự án điện gió của PoC. */

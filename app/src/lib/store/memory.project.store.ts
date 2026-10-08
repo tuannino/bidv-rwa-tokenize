@@ -9,7 +9,7 @@ import {
   type NewProject,
   type ProjectRecord,
 } from './project.store.port';
-import { SEED_PROJECTS } from './seed-data';
+import { configuredProjectSeeds } from './configured-seed-data';
 import { assertAmount, UniqueConstraintError } from './store.errors';
 
 /**
@@ -30,14 +30,14 @@ const state = (): ProjectState =>
   memoryState('project', () => {
     const now = new Date().toISOString();
     return {
-      projects: SEED_PROJECTS.map((seed) => ({
+      projects: configuredProjectSeeds().map((seed) => ({
         id: randomUUID(),
         tokenSymbol: seed.tokenSymbol,
         name: seed.name,
         totalSupply: assertAmount('totalSupply', seed.totalSupply),
         status: assertProjectStatus(seed.status),
         chain: seed.chain,
-        contractAddress: null,
+        contractAddress: seed.contractAddress ?? null,
         issuedAt: null,
         createdAt: now,
         updatedAt: now,
