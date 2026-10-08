@@ -14,13 +14,19 @@ Mọi lệnh contract chạy từ `packages/contracts-evm`, trừ khi ghi rõ th
 ## 1. Chuẩn bị ví và biến bí mật [Chủ dự án]
 
 Dùng một ví tổng giữ SepoliaETH (`FUNDER_PRIVATE_KEY`) và một ví ký máy chủ riêng, cũng là ví
-triển khai. Tạo thêm ví SPV thử bằng ứng dụng ví; ghi **địa chỉ công khai** vào bảng dưới.
-Ví SPV chỉ nhận WPT, không tự ký giao dịch trong OP-04 nên không cần ETH hay khóa trong ứng dụng.
+triển khai. Chủ dự án đã cung cấp các địa chỉ công khai dưới đây ngày 08/10/2026.
+Trong OP-04, ví SPV nhận WPT chưa phân phối; địa chỉ chủ dự án gọi là ví SPV nhận VNDB
+được dùng làm ví SPV thử này. Luồng mua/bán nhận VNDB thuộc các task sau. SPV không tự ký
+trong OP-04 nên không cần ETH hay khóa trong ứng dụng. Ví Nhà đầu tư được ghi để thử các
+luồng sau; KSV hiện duyệt bằng vai trong app, giao dịch vẫn ký bằng server signer
+0xCa49…9076. Không cấp vai on-chain hay nạp ETH vào ví KSV chỉ vì thao tác phê duyệt.
 
 | Địa chỉ | Giá trị được chủ dự án xác nhận |
 |---|---|
 | Ví ký máy chủ / deployer | `0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076`; chủ dự án xác nhận giữ ví này ngày 08/10 |
-| Ví SPV thử Sepolia | **Chờ chủ dự án cung cấp địa chỉ công khai** |
+| Ví SPV thử Sepolia | `0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd` |
+| Ví Nhà đầu tư thử | `0xB3a5B799F05F98f78FE58a7f14CD9A400696d033` |
+| Ví KSV ngân hàng (dự phòng) | `0x45614534F1f66043534585dB6AaaC1bdebBC8279` |
 | URL Cloudflare | https://bidv-rwa-tokenize.tuanlhbidv.workers.dev/ |
 
 ```bash
@@ -35,7 +41,7 @@ SEPOLIA_RPC_URL=
 PRIVATE_KEY=
 SERVER_SIGNER_PRIVATE_KEY_EVM=
 FUNDER_PRIVATE_KEY=
-SPV_SEPOLIA_ADDRESS=
+SPV_SEPOLIA_ADDRESS=0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd
 ETHERSCAN_API_KEY=
 ```
 

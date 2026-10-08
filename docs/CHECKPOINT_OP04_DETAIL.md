@@ -677,3 +677,33 @@ node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP04.md docs/op-04-sepolia/req
 ĐẠT     docs/CHECKPOINT_OP04.md
   mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 5 ✅ 4 🔶 0 ❌ · cả tệp 129/800 dòng · có tệp _DETAIL.md
 ```
+
+## 8. Địa chỉ chủ dự án cung cấp
+
+Kiểm định dạng bằng assertTarget của công cụ cấp phí và đối chiếu danh sách ví mẫu bị chặn.
+Không truy cập khóa, không whitelist/cấp vai/gửi giao dịch.
+
+```bash
+node /tmp/op04-review-20261008/wallets-check.js
+```
+
+Đầu ra nguyên văn, mã thoát 0:
+
+```text
+SPV: 0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd — hợp lệ, không thuộc danh sách ví mẫu bị chặn.
+INVESTOR: 0xB3a5B799F05F98f78FE58a7f14CD9A400696d033 — hợp lệ, không thuộc danh sách ví mẫu bị chặn.
+CONTROLLER: 0x45614534F1f66043534585dB6AaaC1bdebBC8279 — hợp lệ, không thuộc danh sách ví mẫu bị chặn.
+```
+
+Kiểm lại khuôn checkpoint sau khi nhận địa chỉ ví:
+
+```bash
+node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP04.md docs/op-04-sepolia/requirements.md
+```
+
+Đầu ra nguyên văn, mã thoát 0:
+
+```text
+ĐẠT     docs/CHECKPOINT_OP04.md
+  mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 6 ✅ 3 🔶 0 ❌ · cả tệp 130/800 dòng · có tệp _DETAIL.md
+```

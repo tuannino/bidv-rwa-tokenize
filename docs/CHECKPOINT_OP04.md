@@ -17,19 +17,19 @@
 | 1 | Script cấp phí, đúng ca 1, có kiểm thử | ✅ | mục 2.1; chi tiết 2 |
 | 2 | Preflight kiểm phí ví ký và in lệnh cấp phí | ✅ | mục 2.2; chi tiết 2, 3 |
 | 3 | Sepolia triển khai lại, địa chỉ evm đã commit, verify trạng thái đầu | 🔶 | mục 3.1 |
-| 4 | Ví SPV thử riêng Sepolia, không dùng ví mẫu | 🔶 | mục 3.2 |
+| 4 | Ví SPV thử riêng Sepolia, không dùng ví mẫu | ✅ | mục 3.2 |
 | 5 | Ba giao dịch Mint/Mint/Burn trên Sepolia có Etherscan | 🔶 | mục 3.3 |
 | 6 | Bản deploy chọn Sepolia, smoke xanh, thử lập–duyệt được ghi lại | 🔶 | mục 3.4 |
 | 7 | Runbook Sepolia và bảng biến Cloudflare đúng hiện trạng | ✅ | mục 2.3 |
 | 8 | Không bí mật trong lịch sử commit nhánh | ✅ | mục 4.2 |
 | 9 | Bộ kiểm chứng mặc định xanh | ✅ | mục 4.1 |
 
-**Kết luận:** 5 ✅ · 4 🔶 · 0 ❌
+**Kết luận:** 6 ✅ · 3 🔶 · 0 ❌
 
 ### 0.2 Việc cần Owner quyết / thực hiện
 
 - Chủ dự án chạy các bước có khóa và Cloudflare theo runbook, trả output không chứa bí mật.
-- Owner xác nhận giữ ví 0xCa49…9076 làm deployer/signer; cần Owner tạo và gửi địa chỉ SPV riêng, không nhận bí mật qua chat.
+- Owner đã xác nhận deployer/signer 0xCa49…9076 và SPV riêng 0x5a5B…c4fd; còn bước triển khai/whitelist cần khóa cục bộ.
 - Không đổi DB khi gặp isolate; ghi kết quả thử và đề xuất theo spec. Bước 5 thực hiện sau merge.
 
 ## 1. Phạm vi và hiện trạng đo lại
@@ -90,9 +90,10 @@ Thực hiện [runbook mục 1–3](TESTNET_SEPOLIA.md#1-chuẩn-bị-ví-và-bi
 
 ### 3.2 Ví SPV
 
-Chủ dự án đã chốt giữ 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076 làm deployer/signer, tạo SPV riêng.
-Chưa có địa chỉ SPV mới được gửi lại. Không dùng NB001 hay tự ghi địa chỉ giả.
-Chủ dự án tạo ví, ghi public address vào runbook và whitelist theo mục 4.
+Owner xác nhận giữ 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076 làm deployer/signer và đã cung cấp
+SPV riêng 0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd. Đã kiểm định dạng và danh sách ví bị chặn,
+ghi vào runbook; chờ whitelist sau triển khai theo runbook mục 4. Nhà đầu tư và ví KSV được ghi
+làm địa chỉ thử/dự phòng; không thay signer của luồng lập–duyệt. Lệnh và output ở chi tiết mục 8.
 
 ### 3.3 Ba giao dịch
 
