@@ -43,7 +43,9 @@ Mỗi spec ghi **mức kiểm chứng** và **lệnh cần chạy**. Làm đúng
 ## 4. Checkpoint gọn
 
 - Mục 0 theo `checkpoint.md` là bắt buộc.
-- Kết quả chạy: ghi **tóm tắt và mã thoát**, không dán nguyên văn. Chỉ dán chi tiết khi có lỗi.
+- Theo chỉ định Owner ngày 08/10/2026: mọi lệnh ghi trong checkpoint phải là lệnh **đã chạy**;
+  đầu ra phải **dán nguyên văn**, kèm mã thoát. Không thay đầu ra bằng chú thích hoặc số liệu gõ lại.
+- Nhật ký dài tách sang `CHECKPOINT_<TASK>_DETAIL.md` theo `checkpoint.md`; tệp chính trỏ đúng mục.
 - Không mô tả lại những gì đã rõ trong diff.
 
 ## 5. Đọc spec thế nào

@@ -11,6 +11,7 @@
 const { expect } = require("chai");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
 const { deploySpecFixture, whitelist } = require("./helpers/spec-fixture");
+const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 /** Dựng sẵn: A giữ 700 WPT, B giữ 300 WPT, kho VNDB của distributor đã nạp. */
 async function withHolders() {
@@ -18,8 +19,10 @@ async function withHolders() {
   const { project, payout, admin, investorA, investorB, distributor } = f;
 
   await whitelist(project, admin, [investorA, investorB]);
-  await project.connect(admin).mint(investorA.address, 700);
-  await project.connect(admin).mint(investorB.address, 300);
+  await seedProjectBalances(project, admin, admin, [
+    { wallet: investorA, amount: 700n },
+    { wallet: investorB, amount: 300n },
+  ]);
 
   // Ngân hàng có VNDB và cấp quyền cho distributor kéo về (safeTransferFrom).
   await payout.connect(admin).mint(admin.address, 10_000_000);

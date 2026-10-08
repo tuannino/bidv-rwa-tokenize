@@ -3,6 +3,7 @@ import 'server-only';
 import {
   BaseError,
   ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
   createPublicClient,
   createWalletClient,
   http,
@@ -44,7 +45,7 @@ import {
  * và KHÔNG tốn một tx thất bại on-chain — khớp requirements AC#2.
  *
  * ----------------------------------------------------------------------------
- * NỢ CÓ CHỦ ĐÍCH — 11 method chưa nối được
+ * NỢ CÓ CHỦ ĐÍCH — 10 method chưa nối được
  *
  * `ILedgerPort` mô tả ba luồng đã chốt, nhưng hợp đồng cho hai luồng khớp lệnh và
  * tất toán CHƯA có trên `dev`. Theo `docs/be-01-ledger-port/design.md` mục 5,
@@ -110,6 +111,13 @@ const REVERT_MESSAGES: Record<string, string> = {
   ERC20InsufficientAllowance:
     'Mức ủy quyền token không đủ — chủ ví phải approve cho hợp đồng trước.',
   ERC20InvalidReceiver: 'Địa chỉ nhận không hợp lệ.',
+
+  // --- ProjectToken: phát hành theo ví SPV (SC-02) ---
+  InitialSupplyAlreadyMinted: 'Nguồn cung ban đầu đã được phát hành.',
+  InitialSupplyNotMinted: 'Nguồn cung ban đầu chưa được phát hành.',
+  MintTargetNotSpv: 'Ví nhận không trùng với ví SPV đã đăng ký.',
+  ZeroAddress: 'Địa chỉ ví SPV không được là địa chỉ 0.',
+  ZeroAmount: 'Số lượng phát hành phải lớn hơn 0.',
 };
 
 function translateRevert(raw: string): string {
@@ -142,6 +150,56 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
 
   const addressOf = (contract: ContractName): Hex => getContractAddress(chain, contract) as Hex;
 
+  const sc02Operations = new Set([
+    'mint',
+    'mintInitialSupply',
+    'isInitialSupplyMinted',
+    'spvWallet',
+  ]);
+  const sc02NewOperations = new Set([
+    'mintInitialSupply',
+    'isInitialSupplyMinted',
+    'spvWallet',
+  ]);
+
+  const sc02Action = (raw: string): string => {
+    switch (raw) {
+      case 'InitialSupplyAlreadyMinted':
+        return 'Đọc spvWallet() rồi dùng mint(...) đúng ví SPV nếu cần phát hành bổ sung.';
+      case 'InitialSupplyNotMinted':
+        return 'Lập và duyệt lệnh phát hành nguồn cung ban đầu bằng mintInitialSupply trước.';
+      case 'MintTargetNotSpv':
+        return 'Đọc spvWallet() và phát hành bổ sung đúng địa chỉ đó.';
+      case 'phat hanh cho vi chua KYC':
+      case 'ben nhan chua KYC':
+        return 'Hoàn tất KYC/whitelist cho ví SPV rồi thử lại.';
+      case 'ben nhan bi bang':
+        return 'Gỡ đóng băng ví SPV sau khi hoàn tất kiểm soát rồi thử lại.';
+      case 'AccessControlUnauthorizedAccount':
+        return 'Cấp MINTER_ROLE cho ví vận hành trên ProjectToken rồi thử lại.';
+      case 'ZeroAddress':
+        return 'Nhập địa chỉ ví SPV hợp lệ, khác địa chỉ 0.';
+      case 'ZeroAmount':
+        return 'Nhập số lượng phát hành lớn hơn 0.';
+      default:
+        return 'Kiểm tra trạng thái phát hành, ví SPV, whitelist và vai MINTER_ROLE rồi thử lại.';
+    }
+  };
+
+  const oldSc02Contract = (operation: string, error: BaseError): boolean => {
+    if (!sc02NewOperations.has(operation)) return false;
+    const zeroData = error.walk((item) => item instanceof ContractFunctionZeroDataError);
+    if (zeroData instanceof ContractFunctionZeroDataError) return true;
+
+    const reverted = error.walk((item) => item instanceof ContractFunctionRevertedError);
+    if (!(reverted instanceof ContractFunctionRevertedError)) return false;
+    return (
+      (!reverted.reason && !reverted.data?.errorName && !reverted.signature) ||
+      /without a reason/i.test(reverted.reason ?? '') ||
+      /function selector was not recognized/i.test(reverted.reason ?? '')
+    );
+  };
+
   /**
    * Trả về CẢ object `Account`, không chỉ địa chỉ.
    *
@@ -162,6 +220,16 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   /** Bóc revert reason của contract ra message đọc được, giữ lỗi gốc ở `cause`. */
   const fail: (operation: string, error: unknown) => never = (operation, error) => {
     if (error instanceof BaseError) {
+      if (oldSc02Contract(operation, error)) {
+        throw new LedgerError(
+          chain,
+          operation,
+          `ProjectToken (${addressOf('ProjectToken')}) là bản trước SC-02 nên không có ` +
+            `${operation}(). Nguyên nhân: contract không trả dữ liệu cho hàm mới. ` +
+            'Cách xử lý: triển khai lại bộ hợp đồng bằng deploy.js rồi nạp lại địa chỉ.',
+          { cause: error },
+        );
+      }
       const reverted = error.walk((e) => e instanceof ContractFunctionRevertedError);
       if (reverted instanceof ContractFunctionRevertedError) {
         /**
@@ -180,7 +248,12 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           reverted.data?.errorName ??
           reverted.signature ??
           reverted.shortMessage;
-        throw new LedgerError(chain, operation, translateRevert(raw), { cause: error });
+        const translated = translateRevert(raw);
+        const message = sc02Operations.has(operation)
+          ? `ProjectToken (${addressOf('ProjectToken')}) từ chối ${operation}. ` +
+            `Nguyên nhân: ${translated} Cách xử lý: ${sc02Action(raw)}`
+          : translated;
+        throw new LedgerError(chain, operation, message, { cause: error });
       }
       throw new LedgerError(chain, operation, error.shortMessage, { cause: error });
     }
@@ -375,33 +448,18 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       ]);
     },
 
-    /**
-     * `ProjectToken.mint` phát hành được nhiều lần và không lưu cờ "đã
-     * phát hành nguồn cung ban đầu", nên không có cách nào giữ ràng buộc R1.3
-     * ("phát hành lần hai phải bị từ chối") ở tầng adapter: kiểm bằng
-     * `totalSupply > 0` thì một lần mint lẻ bất kỳ cũng khoá luôn việc phát hành.
-     *
-     * @blocked SC-02 | thiếu hợp đồng phát hành một lần: chưa contract nào lưu cờ "đã phát hành nguồn cung ban đầu"
-     */
-    async mintInitialSupply() {
-      return pendingContract('mintInitialSupply', 'hợp đồng phát hành một lần (SC-02)');
+    async mintInitialSupply(to, amount) {
+      assertPositiveAmount(chain, 'mintInitialSupply', amount);
+      return write('mintInitialSupply', 'mintInitialSupply', [normalizeEvmAddress(to), amount]);
     },
 
-    /** @blocked SC-02 | thiếu hợp đồng phát hành một lần: không có cờ nào để đọc, nên không trả được true/false thật */
     async isInitialSupplyMinted() {
-      return pendingContract('isInitialSupplyMinted', 'hợp đồng phát hành một lần (SC-02)');
+      return read<boolean>('isInitialSupplyMinted', 'initialSupplyMinted', []);
     },
 
-    /**
-     * KHÔNG lấy tạm địa chỉ ví ngân hàng đang ký làm ví SPV. Hai ví có thể trùng nhau
-     * trong một lần dựng demo, nhưng chúng là hai vai khác nhau — ví ngân hàng ký giao
-     * dịch, ví SPV giữ token chưa bán. Nối tạm thì phép kiểm "SPV còn đủ WPT" sẽ đo số
-     * dư của ví SAI, và nó vẫn "chạy" nên không ai phát hiện tới lúc chạy thật.
-     *
-     * @blocked SC-02 | thiếu hợp đồng phát hành một lần: địa chỉ ví thanh toán SPV do chính hợp đồng đó giữ
-     */
     async spvWallet() {
-      return pendingContract('spvWallet', 'hợp đồng phát hành một lần (SC-02)');
+      const wallet = await read<string>('spvWallet', 'spvWallet', []);
+      return /^0x0{40}$/i.test(wallet) ? null : normalizeEvmAddress(wallet);
     },
 
     // =========================================================================

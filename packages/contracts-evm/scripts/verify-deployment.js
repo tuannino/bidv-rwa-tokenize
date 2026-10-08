@@ -25,6 +25,19 @@ function chainKeyOf(chainId) {
   return chainId === 31337n || chainId === 1337n ? "hardhat-local" : "evm";
 }
 
+async function readSc02State(project) {
+  try {
+    const [initialSupplyMinted, spvWallet, totalSupply] = await Promise.all([
+      project.initialSupplyMinted(),
+      project.spvWallet(),
+      project.totalSupply(),
+    ]);
+    return { initialSupplyMinted, spvWallet, totalSupply };
+  } catch {
+    throw new Error("Bộ hợp đồng là bản trước SC-02, cần triển khai lại.");
+  }
+}
+
 async function main() {
   const { chainId } = await ethers.provider.getNetwork();
   const chainKey = chainKeyOf(chainId);
@@ -54,6 +67,18 @@ async function main() {
   if (symbol === "WPT") ok(`ProjectToken symbol = ${symbol} (${name}), decimals ${decimals}`);
   else bad(`ProjectToken symbol = ${symbol}, mong đợi WPT`);
   console.log(`  ${C.dim}tổng cung hiện tại: ${supply} WPT${C.reset}`);
+
+  const issuance = await readSc02State(spt);
+  ok(`SC-02.initialSupplyMinted = ${issuance.initialSupplyMinted}`);
+  ok(`SC-02.spvWallet = ${issuance.spvWallet}`);
+  ok(`SC-02.totalSupply = ${issuance.totalSupply}`);
+  const zeroAddress = ethers.ZeroAddress.toLowerCase();
+  if (issuance.initialSupplyMinted && issuance.spvWallet.toLowerCase() === zeroAddress) {
+    bad("SC-02 có cờ phát hành nhưng spvWallet vẫn là địa chỉ 0");
+  }
+  if (!issuance.initialSupplyMinted && issuance.spvWallet.toLowerCase() !== zeroAddress) {
+    bad("SC-02 chưa phát hành nhưng spvWallet đã được ghi");
+  }
 
   const vndSymbol = await vnd.symbol();
   ok(`VNDToken symbol = ${vndSymbol} (${await vnd.name()}), decimals ${await vnd.decimals()}`);

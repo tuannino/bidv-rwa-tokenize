@@ -33,6 +33,14 @@ async function exportAbi(contractName) {
   );
 }
 
+/** Cấp tường minh hai vai mà ISigner của ứng dụng cần cho luồng Mint/Burn. */
+async function ensureApplicationSignerRole(token, roleName, account) {
+  const role = await token[roleName]();
+  if (!(await token.hasRole(role, account))) {
+    await (await token.grantRole(role, account)).wait();
+  }
+}
+
 /**
  * Ghi addresses.json, GIỮ LẠI các chain khác đã có trong file.
  *
@@ -104,6 +112,8 @@ async function main() {
   // 3) Distributor cần chốt snapshot trên WPT
   const SNAPSHOT_ROLE = await wpt.SNAPSHOT_ROLE();
   await (await wpt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress())).wait();
+  await ensureApplicationSignerRole(wpt, "MINTER_ROLE", admin);
+  await ensureApplicationSignerRole(wpt, "AGENT_ROLE", admin);
 
   const contracts = {
     ProjectToken: await wpt.getAddress(),

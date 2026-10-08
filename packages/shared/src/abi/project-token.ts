@@ -66,6 +66,20 @@ export const projectTokenAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'string' }],
   },
+  {
+    type: 'function',
+    name: 'initialSupplyMinted',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'spvWallet',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
 
   // --- Đọc: chốt quyền theo thời điểm (ERC20Snapshotable) ---
   {
@@ -160,6 +174,16 @@ export const projectTokenAbi = [
   // --- Ghi: phát hành / thu hồi ---
   {
     type: 'function',
+    name: 'mintInitialSupply',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spv', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
     name: 'mint',
     stateMutability: 'nonpayable',
     inputs: [
@@ -238,6 +262,15 @@ export const projectTokenAbi = [
       { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
+  {
+    type: 'event',
+    name: 'InitialSupplyMinted',
+    inputs: [
+      { name: 'spvWallet', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'operator', type: 'address', indexed: true },
+    ],
+  },
   /** Nguồn sự thật DUY NHẤT của mã snapshot. `id` không indexed (theo contract). */
   {
     type: 'event',
@@ -284,5 +317,33 @@ export const projectTokenAbi = [
     type: 'error',
     name: 'ERC20InvalidReceiver',
     inputs: [{ name: 'receiver', type: 'address' }],
+  },
+  {
+    type: 'error',
+    name: 'InitialSupplyAlreadyMinted',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InitialSupplyNotMinted',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'MintTargetNotSpv',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'spv', type: 'address' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ZeroAddress',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroAmount',
+    inputs: [],
   },
 ] as const;

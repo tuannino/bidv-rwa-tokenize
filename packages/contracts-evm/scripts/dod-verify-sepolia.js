@@ -21,6 +21,7 @@
  * Không chạy trên mạng chính.
  */
 const { ethers, network } = require("hardhat");
+const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
 
 const EXPLORER = "https://sepolia.etherscan.io";
 const ONLY = (process.env.ONLY || "").toLowerCase();
@@ -107,7 +108,7 @@ async function main() {
     assertEq("A đã whitelist", await project.isWhitelisted(investorA), true);
 
     const MINT = 100n;
-    await send(`mint ${MINT} WPT cho A`, project.mint(investorA, MINT));
+    await seedProjectBalances(project, bank, bank, [{ wallet: investorA, amount: MINT }]);
     assertEq("số dư WPT của A sau mint", await project.balanceOf(investorA), before + MINT);
   }
 
@@ -209,7 +210,7 @@ async function main() {
       if (!(await project.isWhitelisted(bank.address))) {
         await send("whitelist ví ngân hàng", project.setWhitelisted(bank.address, true));
       }
-      await send(`mint ${REDEEM} WPT cho ví ngân hàng`, project.mint(bank.address, REDEEM));
+      await send(`mint ${REDEEM} WPT vào ví SPV`, project.mint(bank.address, REDEEM));
     }
 
     const supplyBefore = await project.totalSupply();

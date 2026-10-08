@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function () {
   let bank, treasury, invA, invB, invC, outsider;
@@ -37,22 +38,25 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Mint: chỉ MINTER mint được và chỉ mint cho ví đã KYC", async function () {
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    // Kiểm hook KYC trên chính đường phát hành lần đầu, trước khi cờ được ghi.
+    await expect(wpt.mintInitialSupply(outsider.address, 100n)).to.be.revertedWith(
+      "phat hanh cho vi chua KYC"
+    );
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
     expect(await wpt.totalSupply()).to.equal(10000n);
     expect(await wpt.balanceOf(invA.address)).to.equal(6000n);
 
-    // mint cho ví chưa KYC -> revert
-    await expect(wpt.mint(outsider.address, 100n)).to.be.revertedWith("phat hanh cho vi chua KYC");
-
     // ví thường không mint được
-    await expect(wpt.connect(invA).mint(invA.address, 1n)).to.be.revertedWithCustomError(
+    await expect(wpt.connect(invA).mint(bank.address, 1n)).to.be.revertedWithCustomError(
       wpt, "AccessControlUnauthorizedAccount"
     );
   });
 
   it("Chuyển nhượng có kiểm soát: chặn ví chưa KYC và ví bị đóng băng", async function () {
-    await wpt.mint(invA.address, 1000n);
+    await seedProjectBalances(wpt, bank, bank, [{ wallet: invA, amount: 1000n }]);
 
     // gửi cho outsider (chưa KYC) -> revert
     await expect(wpt.connect(invA).transfer(outsider.address, 10n)).to.be.revertedWith("ben nhan chua KYC");
@@ -67,7 +71,7 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Clawback: agent thu hồi WPT từ ví bị băng về ví thu hồi", async function () {
-    await wpt.mint(invA.address, 500n);
+    await seedProjectBalances(wpt, bank, bank, [{ wallet: invA, amount: 500n }]);
     await wpt.setFrozen(invA.address, true); // nghi vấn -> băng lại
 
     // clawback bỏ qua trạng thái băng của bên gửi
@@ -77,8 +81,10 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Snapshot công bằng: chuyển nhượng SAU khi chốt kỳ không đổi phần được chia của kỳ đó", async function () {
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
 
     // Ngân hàng nạp VND và tạo kỳ Q1 (chốt snapshot tại 6000/4000)
     const amountQ1 = 300_000_000n;
@@ -95,8 +101,10 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Tính & chia lợi nhuận: preview đúng, claim đúng, không claim hai lần", async function () {
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
 
     const amountQ1 = 300_000_000n;
     await vnd.mint(bank.address, amountQ1);
@@ -122,8 +130,10 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Quét phần dư: sau thời hạn nhận, phần chưa nhận trả về ngân hàng", async function () {
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
 
     const amountQ1 = 300_000_000n;
     await vnd.mint(bank.address, amountQ1);
@@ -142,7 +152,7 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Hoàn vốn: đốt WPT đổi VND theo tỷ giá; giảm tổng cung", async function () {
-    await wpt.mint(invA.address, 1000n);
+    await seedProjectBalances(wpt, bank, bank, [{ wallet: invA, amount: 1000n }]);
 
     // Ngân hàng nạp thanh khoản VND cho hợp đồng hoàn vốn
     const liq = 2_000_000_000n;
@@ -165,8 +175,10 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
   });
 
   it("Hai kỳ liên tiếp: cơ cấu sở hữu đổi giữa hai kỳ, mỗi kỳ chia theo snapshot của kỳ đó", async function () {
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
 
     // Q1: 6000/4000
     await vnd.mint(bank.address, 300_000_000n);

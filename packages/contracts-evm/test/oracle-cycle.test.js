@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("Oracle sản lượng điện + chia lợi nhuận theo công thức", function () {
   let bank, reporter2, invA, invB;
@@ -27,8 +28,10 @@ describe("Oracle sản lượng điện + chia lợi nhuận theo công thức",
 
     // KYC + phát hành WPT: A 6000, B 4000
     await wpt.batchSetWhitelisted([invA.address, invB.address], true);
-    await wpt.mint(invA.address, 6000n);
-    await wpt.mint(invB.address, 4000n);
+    await seedProjectBalances(wpt, bank, bank, [
+      { wallet: invA, amount: 6000n },
+      { wallet: invB, amount: 4000n },
+    ]);
   });
 
   it("Công thức lợi nhuận: gross = kWh×giá, net = gross−opex, chia = net×share", async function () {

@@ -1,5 +1,8 @@
 # Runbook: đưa luồng mint lên Ethereum testnet Sepolia (P4)
 
+> ⚠️ Bộ hợp đồng Sepolia hiện tại là bản trước SC-02, phải triển khai lại ở OP-04 trước khi chạy
+> luồng lập–duyệt Mint/Burn. Không dùng địa chỉ cũ để xác nhận hành vi phát hành theo ví SPV.
+
 Tài liệu cho **Owner** thực hiện. Ba bước đầu cần thứ chỉ Owner có (ví, khóa, API key) nên
 Kiro không làm được; từ bước 4 trở đi là lệnh chạy sẵn.
 

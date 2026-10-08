@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
 
 // Demo một chu kỳ chia lợi nhuận LẤY SỐ TỪ ORACLE sản lượng điện.
 //   npx hardhat run scripts/demo-oracle.js
@@ -23,8 +24,10 @@ async function main() {
 
   // KYC + phát hành: A 6000 (60%), B 4000 (40%)
   await wpt.batchSetWhitelisted([invA.address, invB.address], true);
-  await wpt.mint(invA.address, 6000n);
-  await wpt.mint(invB.address, 4000n);
+  await seedProjectBalances(wpt, bank, bank, [
+    { wallet: invA, amount: 6000n },
+    { wallet: invB, amount: 4000n },
+  ]);
   console.log("Phát hành WPT: A=6000 (60%), B=4000 (40%), tổng cung =", (await wpt.totalSupply()).toString());
 
   // Yêu cầu 2 xác nhận (O&M + kiểm toán độc lập)
