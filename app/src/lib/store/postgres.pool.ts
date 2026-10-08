@@ -1,10 +1,9 @@
 import 'server-only';
 
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Pool } from 'pg';
 import { serverEnv } from '@/lib/config/env';
 import { configuredProjectSeeds } from './configured-seed-data';
+import { INIT_SQL } from './init-sql.generated';
 import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
 
 /**
@@ -234,15 +233,12 @@ async function seedInitialData(client: import('pg').PoolClient): Promise<void> {
  * nửa vời hay ALTER chồng nhau.
  */
 async function ensureSchema(pool: Pool): Promise<void> {
-  const sqlPath = path.join(process.cwd(), 'prisma', 'init.sql');
-  const sql = await readFile(sqlPath, 'utf8');
-
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(918273645)');
     await addMissingColumns(client);
-    await applyInitSql(client, sql);
+    await applyInitSql(client, INIT_SQL);
     await migrateTimestampColumns(client);
     await seedInitialData(client);
     await client.query('COMMIT');
