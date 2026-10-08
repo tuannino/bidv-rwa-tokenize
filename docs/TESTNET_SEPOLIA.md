@@ -166,6 +166,14 @@ npm run build
 npm start
 ```
 
+Nếu đọc token báo `The request took too long to respond` trên máy có HTTP(S) proxy:
+Node 22.13 không tự dùng proxy môi trường cho `fetch`, dù curl/Hardhat truy cập RPC được.
+Dừng app trước giao dịch đầu rồi chạy `npm run start:proxy` thay cho `npm start` từ thư mục `app`.
+Lệnh này dùng bản build hiện có, nạp `scripts/local-proxy.mjs` để fetch theo proxy/NO_PROXY,
+luôn bỏ qua localhost/127.0.0.1/::1. Không ghi URL proxy hay RPC chứa key vào log.
+Không cần rebuild hoặc deploy lại hợp đồng. Không nhập bootstrap này vào Worker.
+Nếu đã có yêu cầu/giao dịch thì ghi lại ID/tx trước khi restart vì DB đang dùng RAM.
+
 Từ cửa sổ khác, thư mục contract, trước mỗi lần Kiểm soát viên duyệt:
 
 ```bash

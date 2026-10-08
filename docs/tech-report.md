@@ -9,13 +9,15 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.4 |
+| Phiên bản tài liệu | 4.5 |
 | Cập nhật lần cuối | 2026-10-08 |
 | Nhánh / commit | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02 đã merge qua PR #42); checkpoint `docs/CHECKPOINT_OP04.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
 | Đang thực hiện | **OP-04** — đã chuẩn bị cấp phí, preflight, kiểm khói và runbook; đã triển khai Sepolia/whitelist SPV, chờ ba giao dịch local và kiểm bản Cloudflare sau merge |
 | Phase kế tiếp | **OP-04** — triển khai lại bộ hợp đồng sau SC-02 lên Sepolia |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.4 → 4.5 (OP-04).** Máy Owner dùng HTTP(S) proxy; curl/Hardhat đọc Sepolia được nhưng Node fetch trực tiếp timeout. Thêm `npm run start:proxy` nạp `app/scripts/local-proxy.mjs`, dùng `EnvHttpProxyAgent` và giữ NO_PROXY/loopback. Khai báo trực tiếp devDependency `undici` 7.29.1 đã có trong lock, chỉ dùng công cụ khởi động local; không nhập vào mã Worker. Không thay EVM adapter hay retry/timeout nghiệp vụ.
 
 **4.3 → 4.4 (OP-04).** Khắc phục màn Lập lệnh báo chưa có WPT trên `evm`: biến server `ENABLE_SEPOLIA_DEMO_PROJECT` mặc định tắt, bật riêng cho demo đã deploy. `app/src/lib/store/configured-seed-data.ts` cấp cùng dữ liệu DRAFT cho memory và Postgres, lấy địa chỉ qua shared; Postgres giữ `ON CONFLICT DO NOTHING`, không ghi đè trạng thái đã phát hành. `config/env.ts` là nơi duy nhất đọc cờ; `seed-data.ts` vẫn thuần. Không đổi luật lập–duyệt hay tự gửi giao dịch. Runbook Sepolia bổ sung cờ cho local và Worker.
 
@@ -338,6 +340,7 @@ bidv-rwa-tokenize/
 │   │   │                      #   ops-transactions + ops-order-detail (FE-06), account-info (FE-24),
 │   │   │                      #   placeholder (2 trang: FE-08, FE-23)
 │   │   └── ui/                # shadcn/ui primitives
+│   ├── scripts/local-proxy.mjs # OP-04: bootstrap fetch qua proxy, chỉ Node local
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   │   └── store/configured-seed-data.ts # OP-04: đăng ký Sepolia khi bật cờ
 │   ├── e2e/                   # Playwright
@@ -404,6 +407,8 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 | Đầy đủ | `docker compose up` | hardhat-local | Postgres 16 | Phát triển, demo nội bộ |
 | Free-tier | Deploy Vercel/Cloudflare | `mock` | memory | Demo public, không cần hạ tầng |
 | Chuỗi cục bộ (OP-03) | `bash scripts/evm-local.sh up` rồi `cd app && npm run dev` | hardhat-local | memory | Phát triển hợp đồng/adapter, đầu cuối trên chuỗi. Sau `reset` phải khởi động lại app. Xem `docs/EVM_LOCAL.md` |
+
+Máy local có HTTP(S) proxy dùng `npm run start:proxy` thay `npm start`; bootstrap Node giữ NO_PROXY và bỏ qua loopback, không áp dụng cho Worker.
 
 Demo Sepolia đã deploy (OP-04) bật `ENABLE_SEPOLIA_DEMO_PROJECT=true` trước khi khởi tạo DB. Cờ chỉ thêm dòng WPT DRAFT với địa chỉ shared, không tự phát hành; xem `docs/TESTNET_SEPOLIA.md`.
 
@@ -577,6 +582,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 |---|---|---|---|---|
 | Tailwind CSS | Styling utility-first, theme qua biến CSS | 4.x | 4.3.3 | MIT |
 | shadcn/ui | Bộ component copy vào repo | 4.10.0 | 4.21.0 | MIT |
+| undici (dev, công cụ local) | `EnvHttpProxyAgent` cho `start:proxy`, không import vào app/Worker | 7.29.1 | 7.29.1 (lock hiện tại) | MIT |
 | Base UI | Component headless — `components/ui` dựng trên bộ này | 1.5.0 | 1.8.0 | MIT |
 | lucide-react | Bộ icon | 1.17.0 | 1.42.0 | ISC |
 | Recharts | Biểu đồ sản lượng, lợi tức | 3.8.1 | 3.10.1 | MIT |
@@ -1424,6 +1430,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `scripts/evm-local.sh` | Chuỗi hardhat cục bộ `up`/`down`/`reset` (OP-03) | Không thuộc cơ chế marker. **Không bao giờ triển khai đè**: lệch bytecode hoặc nút có giao dịch lạ thì dừng, báo `reset`. Xem `docs/EVM_LOCAL.md` |
 | `packages/contracts-evm/scripts/fund-sepolia.js` | OP-04: `fund`, `estimateOperationGas`, `feeBudget`, `planFunding` cấp phí Sepolia | Đo gas trên bytecode cục bộ trong tiến trình Hardhat riêng, giá trần từ Sepolia, dự phòng 20%; chỉ bù phần thiếu, chặn ví mẫu và sai chain; `--dry-run` không cần khóa. Thêm thao tác thì bổ sung mô phỏng và kiểm thử; không dùng để ký trên chain khác |
 | `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04: `signerFunding` kiểm phí triển khai + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
+| `app/scripts/local-proxy.mjs` | OP-04: bootstrap Node fetch qua proxy môi trường | Nạp riêng bằng `start:proxy`, giữ NO_PROXY và luôn bypass loopback; không log endpoint, không vào bundle Worker |
 | `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01/OP-04) | `--chain=evm` chỉ GET token qua EVM adapter, kiểm WPT decimals 0 và tổng cung hợp lệ. Không chứng minh SC-02 hay quyền ký; verify và Mint/Burn là kiểm riêng. Chạy **tay** — xem 2.7 và runbook Sepolia |
 
 **Lưu ý khi phát triển:**

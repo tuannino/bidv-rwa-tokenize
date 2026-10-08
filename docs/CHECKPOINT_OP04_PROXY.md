@@ -1,266 +1,104 @@
-# Báo cáo bàn giao — OP-04: triển khai lại Sepolia sau SC-02
+# OP-04 — xử lý timeout RPC local qua proxy
 
-| | |
-|---|---|
-| Mã task | OP-04 |
-| Nhánh | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02, PR #42) |
-| Spec | `docs/op-04-sepolia/{requirements,tasks}.md`, gói 20261008_spec_OP04_IN03_DS01.zip |
-| Mức kiểm chứng | Vừa |
-| Tiến độ | Bước 0–3 đã thực hiện; chờ ba giao dịch local và kiểm Cloudflare; giữ `inProgress`, chưa mở PR |
+Owner xác nhận localhost:3000 / terminal thường. Tiến trình Next PID 39774 trong worktree
+có HTTP(S)_PROXY nhưng không có cơ chế áp proxy cho Node fetch. Đo RPC cấu hình chỉ đọc:
+curl trả chainId 0xaa36a7, Node fetch trực tiếp hết hạn 8003ms. Không ghi endpoint chứa API key.
 
-## 0. Tóm tắt nghiệm thu
+Bổ sung `app/scripts/local-proxy.mjs`, lệnh `npm run start:proxy`, khai báo devDependency
+undici 7.29.1 đúng bản đã có trong lock. Đây là công cụ Node local; không import vào app/src
+hay Worker. Giữ NO_PROXY, thêm loopback; không đổi adapter, signer, luật Mint/Burn hoặc retry.
+Runbook và tech-report 4.5 cập nhật cùng commit. Phạm vi tác động bổ sung: công cụ khởi động,
+package/lock và tài liệu; không gửi giao dịch Sepolia. App Owner cổng 3000 không bị dừng;
+tiến trình kiểm chứng riêng ở 3001 đã được dừng sau kiểm khói.
 
-### 0.1 Đối chiếu điều kiện hoàn thành
+## 1. Kiểm bootstrap cuối cùng
 
-| # | Điều kiện | Trạng thái | Bằng chứng |
-|---|---|---|---|
-| 1 | Script cấp phí, đúng ca 1, có kiểm thử | ✅ | mục 2.1; chi tiết 2 |
-| 2 | Preflight kiểm phí ví ký và in lệnh cấp phí | ✅ | mục 2.2; chi tiết 2, 3 |
-| 3 | Sepolia triển khai lại, địa chỉ evm đã commit, verify trạng thái đầu | ✅ | mục 3.1 |
-| 4 | Ví SPV thử riêng Sepolia, không dùng ví mẫu | ✅ | mục 3.2 |
-| 5 | Ba giao dịch Mint/Mint/Burn trên Sepolia có Etherscan | 🔶 | mục 3.3 |
-| 6 | Bản deploy chọn Sepolia, smoke xanh, thử lập–duyệt được ghi lại | 🔶 | mục 3.4 |
-| 7 | Runbook Sepolia và bảng biến Cloudflare đúng hiện trạng | ✅ | mục 2.3 |
-| 8 | Không bí mật trong lịch sử commit nhánh | ✅ | mục 4.2 |
-| 9 | Bộ kiểm chứng mặc định xanh | ✅ | mục 4.1 |
+Nguồn script đo tạm (không chứa khóa/endpoint):
 
-**Kết luận:** 7 ✅ · 2 🔶 · 0 ❌
+```javascript
+const app=process.cwd()+'/app';
+const {loadEnvConfig}=require(app+'/node_modules/@next/env');
+loadEnvConfig(app,false,{info(){},error(){}});
+const {createPublicClient,http,parseAbi}=require(app+'/node_modules/viem');
+const addresses=require(process.cwd()+'/packages/shared/src/addresses.json');
+const url=process.env.RPC_EVM || process.env.NEXT_PUBLIC_RPC_EVM;
+const client=createPublicClient({transport:http(url,{timeout:10000,retryCount:0})});
+(async()=>{
+  console.log('chainId:',await client.getChainId());
+  const address=addresses.chains.evm.contracts.ProjectToken;
+  const abi=parseAbi(['function totalSupply() view returns (uint256)','function initialSupplyMinted() view returns (bool)']);
+  console.log('ProjectToken:',address);
+  console.log('totalSupply:',String(await client.readContract({address,abi,functionName:'totalSupply'})));
+  console.log('initialSupplyMinted:',await client.readContract({address,abi,functionName:'initialSupplyMinted'}));
+  const server=require('node:http').createServer((req,res)=>res.end('loopback-ok'));
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const r=await fetch('http://127.0.0.1:'+server.address().port,{signal:AbortSignal.timeout(3000)});
+    console.log('loopback:',await r.text());
+  }finally{server.close()}
+})().catch(e=>{console.log('Check failed:',e.name);process.exitCode=1});
+```
 
-### 0.2 Việc cần Owner quyết / thực hiện
-
-- Chủ dự án chạy các bước có khóa và Cloudflare theo runbook, trả output không chứa bí mật.
-- Owner đã triển khai và whitelist SPV; tiếp tục app bản build để lập–duyệt ba giao dịch tại runbook mục 5.
-- Không đổi DB khi gặp isolate; ghi kết quả thử và đề xuất theo spec. Bước 5 thực hiện sau merge.
-
-## 1. Phạm vi và hiện trạng đo lại
-
-Đã tiếp nhận nguyên văn spec OP-04, kế hoạch giao việc bản 4 và quyết định kiến trúc DS-01 từ gói đính kèm.
-Chỉ thực thi OP-04; không thực hiện IN-03 hay xây vault/khớp lệnh.
-Commit đầu chuyển đúng OP-04 sang `inProgress`.
-
-Mốc đo ban đầu: bộ Sepolia ngày 10/09/2026 không có getter SC-02. Sau đó Owner đã triển khai
-bộ mới ngày 08/10/2026; tệp địa chỉ được deploy script ghi, ABI không đổi vì SC-02 đã đồng bộ.
-Lệnh đo và đầu ra nguyên văn ở [chi tiết mục 1](CHECKPOINT_OP04_DETAIL.md#1-đo-lại-hiện-trạng).
-
-## 2. Phần chuẩn bị đã thực hiện
-
-### 2.1 Cấp phí
-
-`fund-sepolia.js` chạy bằng Node, nhận địa chỉ và một trong số dư ETH cần có hoặc tên thao tác.
-Chỉ bù chênh lệch, không gửi khi đủ, không tạo signer khi dry-run; chặn sai chain và ví mẫu
-trong nguồn chung cộng Hardhat #0. Dùng ethers/transport RPC hiện có, không thêm thư viện.
-
-Gas được đo từ bytecode trên Hardhat nội bộ trong tiến trình riêng cưỡng chế network hardhat;
-không gửi giao dịch Sepolia để ước lượng. Giá trần lấy lúc chạy, dự phòng 20%, tính BigInt và làm
-tròn lên. Có deploy, whitelist, mint-initial, mint, burn, cycle. Đo nội bộ không ghi địa chỉ shared.
-
-Đã thử đơn vị và dry-run RPC thật với **địa chỉ deployer cũ công khai**, không dùng hay xin khóa.
-Đó chỉ là kiểm công cụ, không xác nhận ví ký cho triển khai OP-04. Lượt đầu ethers kết nối trực tiếp
-không qua proxy bị lỗi; đã dùng transport sẵn có của Hardhat và dry-run chạy được.
-Lệnh và output ở [chi tiết mục 2](CHECKPOINT_OP04_DETAIL.md#2-kiểm-cấp-phí-và-tính-toán).
-
-### 2.2 Preflight
-
-Kiểm hai khóa triển khai/ví ký có cùng địa chỉ và không phải mẫu; kiểm số dư ví ký đủ bốn constructor,
-cấp vai, whitelist và Mint/Mint/Burn. Thiếu thì in lệnh cấp số dư cần có để công cụ chỉ bù phần thiếu.
-Unit kiểm cả đủ/thiếu và đối chiếu chính lệnh cấp phí in ra. Preflight chạy trên Sepolia thật đã đọc
-đúng chain, nhưng báo thiếu hai biến khóa trong môi trường hiện tại, mã 1 đúng chủ ý.
-Output ở [chi tiết mục 3](CHECKPOINT_OP04_DETAIL.md#3-preflight-sepolia-thật).
-
-### 2.3 Runbook và kiểm khói
-
-Runbook thay luồng mint cũ bằng lập–duyệt, cấp phí từng bước, SPV riêng, commit địa chỉ cách B,
-whitelist, chạy bản build local một tiến trình, ghi receipt và quy trình Cloudflare sau merge.
-Bảng biến xác định RPC_EVM và khóa ký là runtime Secret; NEXT_PUBLIC_RPC_EVM chỉ dùng RPC công khai.
-Không đưa khóa tổng lên Worker. Báo cáo công nghệ cập nhật metadata, cây thư mục, bảng công cụ và mục 4.3.
-
-Kiểm khói dùng đường GET token có sẵn đi qua ledger EVM, kiểm thêm WPT/decimals/tổng cung khi chain evm.
-Đã kiểm CLI bằng HTTP giả lập cho dữ liệu đúng/sai, xác nhận chỉ GET. **Đây không phải bằng chứng
-Cloudflare hay ứng dụng đã đọc Sepolia thật.** Kết quả thật còn chờ mục 3.4.
-Output fixture ở [chi tiết mục 4](CHECKPOINT_OP04_DETAIL.md#4-kiểm-cli-smoke-bằng-fixture).
-
-## 3. Bước chưa chạy và bàn giao chủ dự án
-
-### 3.1 Triển khai và verify
-
-Owner đã triển khai từ worktree ops/04-sepolia, cùng deployer 0xCa49…9076.
-Bộ địa chỉ mới được commit cùng cập nhật này, chỉ đổi khóa evm; ABI và hardhat-local không đổi.
-Đã chạy verify chỉ đọc bằng RPC công khai: cờ false, ví SPV 0x0, tổng cung 0 và đủ vai.
-Lệnh và đầu ra nguyên văn ở mục 5.1. Preflight/deploy do Owner chạy; chưa có đầy đủ stdout
-hai lệnh đó gửi lại, không dựng output thay thế. Trạng thái mới được đối chiếu trực tiếp on-chain.
-
-### 3.2 Ví SPV
-
-Owner xác nhận giữ 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076 làm deployer/signer và đã cung cấp
-SPV riêng 0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd. Đã kiểm định dạng và danh sách ví bị chặn,
-ghi vào runbook. Owner đã whitelist thành công; receipt status=1 ở block 11868854,
-RPC đọc isWhitelisted=true. Tx và output đối chiếu ở mục 5.2. Nhà đầu tư và ví KSV được ghi
-làm địa chỉ thử/dự phòng; không thay signer của luồng lập–duyệt. Lệnh và output ở chi tiết mục 8.
-
-### 3.3 Ba giao dịch
-
-Chưa có giao dịch/receipt OP-04; không tái dùng tx Hardhat SC-02 hay dựng tx hash.
-Chủ dự án/người giữ khóa chạy app bản build và lập–duyệt Mint/Mint/Burn theo runbook mục 5,
-trả mã yêu cầu, tx hash, receipt và số dư sau từng bước.
-
-### 3.4 Cloudflare
-
-Chưa đặt secret hay triển khai Worker. Chủ dự án đã cung cấp URL Cloudflare;
-đã đọc metadata bản hiện hành dd015a1 và chạy kiểm khói trước cấu hình OP-04 (chi tiết mục 4).
-Kết quả đó chưa phải kiểm bản OP-04 sau merge.
-Theo spec tasks Bước 5, cần nhánh đã merge để Workers Builds dựng từ dev; điều kiện 6 chỉ chuyển
-✅ sau khi kiểm khói và ghi kết quả lập–duyệt, kể cả khi hỏng do isolate. Không sửa DB trong OP-04.
-Không chuyển task sang done hoặc tuyên bố nghiệm thu khi các bằng chứng này chưa có.
-
-## 4. Kiểm chứng và lịch sử
-
-### 4.1 Bộ mặc định
-
-Bộ mặc định mã 0: 84 ca contract, 790 ca app đạt; 10 ca RPC SC-02 bỏ qua trong bộ mặc định.
-Typecheck, lint, arch, marker, checkpoint đều đạt. Lệnh và toàn bộ đầu ra ở chi tiết mục 5.
-
-### 4.2 Bí mật
-
-Đã kiểm mẫu bí mật trong lịch sử commit nhánh theo spec, không có kết quả khớp.
-Đây là phép quét mẫu được spec chỉ định, không phải kiểm chứng mọi loại bí mật có thể có.
-Lệnh và đầu ra ở chi tiết mục 6.
-Không nhận hay đưa khóa/API key/email vào spec, mã, log hoặc checkpoint.
-
-### 4.3 Khuôn checkpoint
-
-Kiểm đủ 9 dòng điều kiện, giữ các bằng chứng Sepolia/Cloudflare còn thiếu ở trạng thái 🔶.
-Output kiểm khuôn ở chi tiết mục 7.
-
-## 5. Đối chiếu triển khai và whitelist chủ dự án đã chạy
-
-### 5.1 Verify trạng thái đầu trước Mint
-
-Thư mục chạy: packages/contracts-evm. Dùng RPC công khai để không đưa endpoint có key vào log.
+Từ gốc worktree, lệnh đã chạy:
 
 ```bash
-SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com npx hardhat run scripts/verify-deployment.js --network sepolia
-```
-
-Đầu ra nguyên văn, mã thoát 0:
-
-```text
-◇ injected env (6) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
-◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
-[1mKIỂM BẢN DEPLOY — sepolia (chainKey="evm")[0m
-[2mdeployer ghi trong file: 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076[0m
-
-[1m1. Token[0m
-  [32mOK  [0m ProjectToken symbol = WPT (Wind Power Token), decimals 0
-  [2mtổng cung hiện tại: 0 WPT[0m
-  [32mOK  [0m SC-02.initialSupplyMinted = false
-  [32mOK  [0m SC-02.spvWallet = 0x0000000000000000000000000000000000000000
-  [32mOK  [0m SC-02.totalSupply = 0
-  [32mOK  [0m VNDToken symbol = VNDB (Vietnam Dong Bank token), decimals 0
-
-[1m2. Role on-chain của ví ngân hàng (deployer)[0m
-  [32mOK  [0m MINTER_ROLE -> 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076
-  [32mOK  [0m AGENT_ROLE -> 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076
-  [32mOK  [0m SNAPSHOT_ROLE -> 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076
-  [32mOK  [0m PAUSER_ROLE -> 0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076
-
-[1m3. Liên kết giữa các contract[0m
-  [32mOK  [0m ProfitDistributor.projectToken khớp
-  [32mOK  [0m ProfitDistributor.payoutToken khớp VNDToken
-  [32mOK  [0m Redemption.projectToken khớp
-  [32mOK  [0m Redemption.payoutToken khớp VNDToken
-  [32mOK  [0m Redemption.rate = 1000000 (VND cho 1 WPT)
-
-[1m4. Điều kiện cho P7 (chia lợi tức)[0m
-  [32mOK  [0m ProfitDistributor có SNAPSHOT_ROLE (chốt kỳ được)
-
-[32m[1mBẢN DEPLOY HỢP LỆ[0m — đủ điều kiện cho P4, và P7/P12 dùng lại.
-```
-
-### 5.2 Receipt whitelist và phép đọc lại SPV
-
-Owner cung cấp tx [whitelist SPV](https://sepolia.etherscan.io/tx/0xa1a545dfe9f3daa92238f59e8cc1ee4e70c6a2b1c8fe280dbe23dce4f6aebae3).
-Đã đọc lại receipt và isWhitelisted qua batch RPC; query gồm eth_getTransactionReceipt cho tx
-trên và eth_call isWhitelisted cho SPV 0x5a5B…c4fd tại ProjectToken 0xB8e9…6A02.
-Thư mục chạy: gốc repo; không gửi giao dịch.
-
-```bash
-curl -sS --max-time 25 -H 'Content-Type: application/json' --data-binary @/tmp/op04-review-20261008/whitelist-query.json https://ethereum-sepolia-rpc.publicnode.com
-```
-
-Đầu ra nguyên văn, mã thoát 0:
-
-```text
-[{"jsonrpc":"2.0","id":1,"result":{"blockHash":"0x972410202055e9fa6938f2587f0759732451b24c533acc9df778ee96e13a5087","blockNumber":"0xb51ab6","contractAddress":null,"cumulativeGasUsed":"0x72d331","effectiveGasPrice":"0x3b9aca00","from":"0xca49fb2590800c9524f2bc57ecd80c3cc75d9076","gasUsed":"0x1fcab","logs":[{"address":"0xb8e9add2a9a4968f7bd5c1a8bfb43a55761e6a02","topics":["0xf93f9a76c1bf3444d22400a00cb9fe990e6abe9dbb333fda48859cfee864543d","0x0000000000000000000000005a5b0ab8613ba0f16e257228e4109a8f611ec4fd"],"data":"0x0000000000000000000000000000000000000000000000000000000000000001","blockNumber":"0xb51ab6","transactionHash":"0xa1a545dfe9f3daa92238f59e8cc1ee4e70c6a2b1c8fe280dbe23dce4f6aebae3","transactionIndex":"0x31","blockHash":"0x972410202055e9fa6938f2587f0759732451b24c533acc9df778ee96e13a5087","blockTimestamp":"0x6ac74ef4","logIndex":"0x3f","removed":false}],"logsBloom":"0x00000000000000000000000000000000000000000000000000000010000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000100004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000002000000080000001000000","status":"0x1","to":"0xb8e9add2a9a4968f7bd5c1a8bfb43a55761e6a02","transactionHash":"0xa1a545dfe9f3daa92238f59e8cc1ee4e70c6a2b1c8fe280dbe23dce4f6aebae3","transactionIndex":"0x31","type":"0x2"}},{"jsonrpc":"2.0","id":2,"result":"0x0000000000000000000000000000000000000000000000000000000000000001"}]
-```
-
-### 5.3 Kiểm địa chỉ và ABI sau cập nhật
-
-Thư mục chạy: app. Bộ mặc định của lượt chuẩn bị ở mục 4.1; đây là kiểm bổ sung cho tệp địa chỉ mới.
-
-```bash
-npx vitest run test/abi-contract-sync.test.ts test/evm-address-env.test.ts
-```
-
-Đầu ra nguyên văn, mã thoát 0:
-
-```text
-
- RUN  v3.2.4 /home/tuanlh/.codex/worktrees/03a6/bidv-rwa-tokenize/app
-
- ✓ test/evm-address-env.test.ts (5 tests) 3ms
- ✓ test/abi-contract-sync.test.ts (8 tests) 5ms
-
- Test Files  2 passed (2)
-      Tests  13 passed (13)
-   Start at  15:25:43
-   Duration  270ms (transform 68ms, setup 0ms, collect 131ms, tests 7ms, environment 0ms, prepare 211ms)
-
-```
-
-
-## 6. Sửa chặn Lập lệnh: thiếu dự án WPT trên evm
-
-Ảnh Owner gửi cho thấy `getTokenInfo` dừng ở tìm Project trước khi đọc chain. Dữ liệu mặc định
-chỉ seed mock/Hardhat; runbook OP-04 thiếu cách đăng ký dự án đã deploy trên Sepolia.
-Bổ sung `ENABLE_SEPOLIA_DEMO_PROJECT` mặc định false, bật có chủ đích trong runbook local/Worker.
-Nguồn server `configuredProjectSeeds()` dùng chung cho memory/Postgres, địa chỉ theo shared,
-DRAFT và chưa issuedAt; Postgres không ghi đè dự án đã tồn tại. Không sửa luật Mint/Burn,
-không tự mint, không đổi SPV on-chain. Đây là bổ sung cấu hình/seed ngoài bảng tác động ban đầu
-của OP-04 để xử lý blocker Owner báo; tech-report 4.4 và .env.example cập nhật cùng commit.
-
-Kiểm chức năng: cờ tắt không có evm; bật có đúng WPT/địa chỉ/trần, giữ hai chain cục bộ;
-đọc lại giữ trạng thái đã phát hành. Chưa chạy Postgres thật hoặc nghiệm thu UI Sepolia;
-Owner tiếp tục ba giao dịch theo mục 3.3. Ví trong ảnh là mẫu Hardhat, cần thay bằng SPV đã whitelist.
-
-Từ thư mục `app`, lệnh đã chạy:
-
-```bash
-npx vitest run test/sepolia-project-seed.test.ts test/store-constraints.test.ts > /tmp/op04-review-20261008/project-seed-tests.log 2>&1
+node --import ./app/scripts/local-proxy.mjs /tmp/op04-review-20261008/check-proxy-rpc.cjs > /tmp/op04-review-20261008/proxy-rpc-final.log 2>&1
 ```
 
 Đầu ra nguyên văn:
 
 ```text
-
- RUN  v3.2.4 /home/tuanlh/.codex/worktrees/03a6/bidv-rwa-tokenize/app
-
- ✓ test/sepolia-project-seed.test.ts (3 tests) 6ms
- ✓ test/store-constraints.test.ts (119 tests) 32ms
-
- Test Files  2 passed (2)
-      Tests  122 passed (122)
-   Start at  15:41:59
-   Duration  576ms (transform 230ms, setup 0ms, collect 552ms, tests 38ms, environment 0ms, prepare 239ms)
-
+[local-proxy] Node fetch dùng proxy môi trường; bỏ qua loopback.
+chainId: 11155111
+ProjectToken: 0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02
+totalSupply: 0
+initialSupplyMinted: false
+loopback: loopback-ok
 ```
 
-Từ gốc worktree, bộ mặc định chạy một lần cho bản sửa này:
+## 2. Kiểm khói bản build hiện có
+
+Từ `app`, đã chạy tiến trình riêng:
 
 ```bash
-bash scripts/run-local-all.sh > /tmp/op04-review-20261008/project-seed-all.log 2>&1
+PORT=3001 npm run start:proxy
+```
+
+Từ gốc worktree, lệnh đã chạy:
+
+```bash
+node scripts/smoke-test.mjs http://127.0.0.1:3001 --chain=evm > /tmp/op04-review-20261008/proxy-app-smoke.log 2>&1
 ```
 
 Đầu ra nguyên văn:
+
+```text
+KIỂM KHÓI http://127.0.0.1:3001  [2m(chuỗi=evm, hạn chờ=10000ms)[0m
+
+  [32mPASS[0m  GET /api/version
+        commit=local nhánh=local dựng=2026-10-08T08:52:01.482Z[33m (dự phòng: commit, branch, buildTime)[0m
+  [32mPASS[0m  GET /api/token?chain=evm
+        WPT trên evm, tổng cung 0
+
+[32m  => ĐẠT toàn bộ 2 phép kiểm.[0m
+```
+
+Chỉ GET thông tin token qua bản build và EVM adapter, chưa thử tạo/duyệt yêu cầu trên UI.
+
+## 3. Bộ mặc định và sửa lint
+
+Từ gốc worktree, chạy một lần cho bản sửa proxy:
+
+```bash
+bash scripts/run-local-all.sh > /tmp/op04-review-20261008/proxy-all.log 2>&1
+```
+
+Lượt này trượt riêng lint do bootstrap CJS dùng require; contracts 84, app 793 ca đạt,
+10 ca RPC có điều kiện bỏ qua. Sau đó chuyển bootstrap sang ESM `.mjs` / `--import`,
+không thay app/src. Chạy lại riêng lint và kiểm RPC/bootstrap/khói bản cuối như trên.
+Không gọi bộ mặc định ban đầu là xanh.
+
+Đầu ra nguyên văn lượt mặc định:
 
 ```text
 
@@ -320,11 +158,11 @@ Marker hợp lệ: 18 điểm cắm, 10 điểm chặn, 35 bước luồng. Khô
 
 [1m########## LỚP 3 - KHUÔN CHECKPOINT ##########[0m
 ĐẠT     OP-04 · docs/CHECKPOINT_OP04.md
-  mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 7 ✅ 2 🔶 0 ❌ · cả tệp 218/800 dòng · có tệp _DETAIL.md
+  mục 0: 23/60 dòng · bảng đối chiếu 9 dòng / 9 điều kiện · 7 ✅ 2 🔶 0 ❌ · cả tệp 622/800 dòng · có tệp _DETAIL.md
 [32m  => PASS: LỚP 3 - KHUÔN CHECKPOINT[0m
 
 [1m########## LỚP 1 - SPEC TEST CONTRACT EVM ##########[0m
-◇ injected env (7) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (7) from .env // tip: ⌘ enable debugging { debug: true }
 
 
   RWA năng lượng tái tạo — chu kỳ đầu-cuối
@@ -443,7 +281,7 @@ Marker hợp lệ: 18 điểm cắm, 10 điểm chặn, 35 bước luồng. Khô
       ✔ P7-23: hết hạn thì thu được phần chưa ai nhận
 
 
-  84 passing (959ms)
+  84 passing (939ms)
 
 [32m  => PASS: LỚP 1 - SPEC TEST CONTRACT EVM[0m
 [33m  (Soroban: tạm dừng ở khâu kiểm chứng, không cần chạy — mã nguồn Rust giữ nguyên)[0m
@@ -456,7 +294,13 @@ Marker hợp lệ: 18 điểm cắm, 10 điểm chặn, 35 bước luồng. Khô
 [32m  => PASS: APP - TYPECHECK[0m
 
 [1m########## APP - LINT ##########[0m
-[32m  => PASS: APP - LINT[0m
+
+/home/tuanlh/.codex/worktrees/03a6/bidv-rwa-tokenize/app/scripts/local-proxy.cjs
+  7:54  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+✖ 1 problem (1 error, 0 warnings)
+
+[31m  => FAIL: APP - LINT[0m
 
 [1m########## APP - VITEST ##########[0m
 
@@ -466,57 +310,57 @@ Marker hợp lệ: 18 điểm cắm, 10 điểm chặn, 35 bước luồng. Khô
 
  RUN  v3.2.4 /home/tuanlh/.codex/worktrees/03a6/bidv-rwa-tokenize/app
 
- ✓ test/check-checkpoint.test.ts (21 tests) 30ms
- ✓ test/pending-markers.test.ts (24 tests) 39ms
- ✓ test/env-private-key.test.ts (9 tests) 30ms
- ✓ test/rbac.test.ts (60 tests) 33ms
- ✓ test/wallet-status.test.ts (30 tests) 25ms
- ✓ test/account-info.test.ts (8 tests) 81ms
- ✓ test/mock-ledger.test.ts (61 tests) 42ms
- ✓ test/four-roles-routes.test.ts (22 tests) 17ms
- ✓ test/account-profile.test.ts (9 tests) 10ms
- ✓ test/store-constraints.test.ts (119 tests) 51ms
- ✓ test/purchase-state.test.ts (19 tests) 7ms
- ✓ test/issue-price-single-source.test.ts (16 tests) 30ms
+ ✓ test/check-checkpoint.test.ts (21 tests) 29ms
+ ✓ test/pending-markers.test.ts (24 tests) 20ms
+ ✓ test/rbac.test.ts (60 tests) 29ms
+ ✓ test/env-private-key.test.ts (9 tests) 46ms
+ ✓ test/issue-price-single-source.test.ts (16 tests) 27ms
+ ✓ test/wallet-status.test.ts (30 tests) 31ms
+ ✓ test/account-info.test.ts (8 tests) 67ms
+ ✓ test/mock-ledger.test.ts (61 tests) 51ms
+ ✓ test/four-roles-routes.test.ts (22 tests) 14ms
+ ✓ test/abi-contract-sync.test.ts (8 tests) 7ms
+ ✓ test/store-constraints.test.ts (119 tests) 47ms
+ ✓ test/sepolia-project-seed.test.ts (3 tests) 9ms
+ ✓ test/purchase-state.test.ts (19 tests) 10ms
+ ✓ test/evm-address-env.test.ts (5 tests) 4ms
+ ✓ test/account-profile.test.ts (9 tests) 12ms
+ ✓ test/token-request.test.ts (22 tests) 232ms
+ ✓ test/config-service.test.ts (30 tests) 246ms
+ ✓ test/demo-payment.test.ts (19 tests) 247ms
  ✓ test/build-info.test.ts (6 tests) 6ms
- ✓ test/token-request.test.ts (22 tests) 239ms
- ✓ test/demo-payment.test.ts (19 tests) 210ms
- ✓ test/sepolia-project-seed.test.ts (3 tests) 10ms
- ✓ test/ops-transactions.test.ts (7 tests) 212ms
- ✓ test/config-service.test.ts (30 tests) 248ms
- ✓ test/issuance-service.test.ts (25 tests) 283ms
- ✓ test/seller-channel.test.ts (10 tests) 260ms
- ✓ test/investor-trading.test.ts (20 tests) 273ms
- ✓ test/distribution-trigger.test.ts (45 tests) 100ms
- ✓ test/portfolio-service.test.ts (12 tests) 19ms
- ✓ test/abi-contract-sync.test.ts (8 tests) 13ms
- ✓ test/purchase-service.test.ts (81 tests) 140ms
+ ✓ test/ops-transactions.test.ts (7 tests) 258ms
+ ✓ test/seller-channel.test.ts (10 tests) 276ms
+ ✓ test/issuance-service.test.ts (25 tests) 292ms
+ ✓ test/investor-trading.test.ts (20 tests) 266ms
+ ✓ test/receipt-timeout.test.ts (5 tests) 4ms
+ ✓ test/maker-checker-ui.test.ts (31 tests) 310ms
+ ✓ test/distribution-trigger.test.ts (45 tests) 108ms
  ✓ test/distribution-service.test.ts (43 tests) 172ms
- ✓ test/evm-address-env.test.ts (5 tests) 6ms
- ✓ test/maker-checker-ui.test.ts (31 tests) 291ms
- ✓ test/receipt-timeout.test.ts (5 tests) 3ms
+ ✓ test/purchase-service.test.ts (81 tests) 141ms
+ ✓ test/portfolio-service.test.ts (12 tests) 21ms
  ✓ test/server-signer.test.ts (4 tests) 9ms
  ✓ test/four-roles-shell.test.ts (19 tests) 8ms
  ↓ test/evm-issuance.test.ts (10 tests | 10 skipped)
 
  Test Files  31 passed | 1 skipped (32)
       Tests  793 passed | 10 skipped (803)
-   Start at  15:42:21
-   Duration  1.78s (transform 4.88s, setup 0ms, collect 18.18s, tests 2.90s, environment 6ms, prepare 2.65s)
+   Start at  15:51:07
+   Duration  1.66s (transform 3.41s, setup 0ms, collect 16.20s, tests 3.00s, environment 5ms, prepare 2.99s)
 
 [32m  => PASS: APP - VITEST[0m
 
 [1m########## TỔNG KẾT ##########[0m
   Phần đã chạy: arch markers checkpoint contracts app
-  Đạt:     7
+  Đạt:     6
     PASS  luật kiến trúc (có cảnh báo)
     PASS  LỚP 3 - ĐIỂM CẮM (marker)
     PASS  LỚP 3 - KHUÔN CHECKPOINT
     PASS  LỚP 1 - SPEC TEST CONTRACT EVM
     PASS  APP - TYPECHECK
-    PASS  APP - LINT
     PASS  APP - VITEST
-  Không đạt: 0
+  Không đạt: 1
+[31m    FAIL  APP - LINT[0m
 
 ĐIỂM CẮM ĐANG CHỜ
 
@@ -618,15 +462,20 @@ purchase  (12 bước)
 
 Tổng: 18 điểm cắm · 10 điểm chặn · 35 bước luồng
 
-[32m  => ĐẠT các phần đã chạy: arch markers checkpoint contracts app[0m
+[31m  => CHƯA ĐẠT. Sửa các mục FAIL trước khi nộp checkpoint.[0m
 ```
 
+Từ `app`, lệnh lint đã chạy trên bản ESM cuối:
 
-## 7. Timeout RPC trên máy local có proxy
+```bash
+npm run lint > /tmp/op04-review-20261008/proxy-lint-fixed.log 2>&1
+```
 
-Owner báo đọc WPT timeout sau khi đăng ký dự án. Xác nhận tiến trình Node local có proxy
-môi trường nhưng fetch không dùng proxy. Thêm lệnh `npm run start:proxy`; bản build hiện có
-đã đọc Sepolia thật, smoke 2/2 đạt trên cổng phụ 3001, rồi dừng tiến trình phụ. Không gửi giao dịch.
-Bộ mặc định có một lỗi lint của CJS; đã đổi ESM và lint bản cuối đạt, các phần còn lại đạt.
-Chi tiết lệnh/đầu ra nguyên văn tại [checkpoint proxy](CHECKPOINT_OP04_PROXY.md).
-Ba giao dịch local và Cloudflare vẫn chờ Owner; giữ OP-04 inProgress.
+Đầu ra nguyên văn, exit 0:
+
+```text
+
+> app@0.1.0 lint
+> eslint
+
+```

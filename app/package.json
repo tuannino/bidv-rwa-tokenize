@@ -15,7 +15,8 @@
     "demo:mint": "node ../scripts/demo-mint.mjs",
     "test": "vitest --run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "start:proxy": "node --import ./scripts/local-proxy.mjs ./node_modules/next/dist/bin/next start"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -56,6 +57,7 @@
     "prisma": "6.19.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "undici": "7.29.1"
   }
 }
