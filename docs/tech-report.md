@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.1 |
+| Phiên bản tài liệu | 4.2 |
 | Cập nhật lần cuối | 2026-10-08 |
-| Nhánh / commit | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02 đã merge qua PR #42); checkpoint OP-04 đang chuẩn bị |
+| Nhánh / commit | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02 đã merge qua PR #42); checkpoint `docs/CHECKPOINT_OP04.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
-| Đang thực hiện | **OP-04** — đã chuẩn bị cấp phí và preflight; triển khai Sepolia và đặt secret Cloudflare chờ chủ dự án |
+| Đang thực hiện | **OP-04** — đã chuẩn bị cấp phí, preflight, kiểm khói và runbook; triển khai Sepolia và đặt secret Cloudflare chờ chủ dự án |
 | Phase kế tiếp | **OP-04** — triển khai lại bộ hợp đồng sau SC-02 lên Sepolia |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
@@ -1417,7 +1417,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `scripts/evm-local.sh` | Chuỗi hardhat cục bộ `up`/`down`/`reset` (OP-03) | Không thuộc cơ chế marker. **Không bao giờ triển khai đè**: lệch bytecode hoặc nút có giao dịch lạ thì dừng, báo `reset`. Xem `docs/EVM_LOCAL.md` |
 | `packages/contracts-evm/scripts/fund-sepolia.js` | OP-04: `fund`, `estimateOperationGas`, `feeBudget`, `planFunding` cấp phí Sepolia | Đo gas trên bytecode cục bộ trong tiến trình Hardhat riêng, giá trần từ Sepolia, dự phòng 20%; chỉ bù phần thiếu, chặn ví mẫu và sai chain; `--dry-run` không cần khóa. Thêm thao tác thì bổ sung mô phỏng và kiểm thử; không dùng để ký trên chain khác |
 | `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04: `signerFunding` kiểm phí triển khai + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
-| `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01) | Không thuộc cơ chế marker; liệt kê ở đây vì cùng ở `scripts/`. Chạy **tay** — xem 2.7 |
+| `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01/OP-04) | `--chain=evm` chỉ GET token qua EVM adapter, kiểm WPT decimals 0 và tổng cung hợp lệ. Không chứng minh SC-02 hay quyền ký; verify và Mint/Burn là kiểm riêng. Chạy **tay** — xem 2.7 và runbook Sepolia |
 
 **Lưu ý khi phát triển:**
 - **Còn điểm cắm là bình thường, không làm đỏ bất cứ thứ gì.** Điểm cắm là trạng thái công
@@ -2413,7 +2413,8 @@ theo kết cục (hoàn tất / thất bại / đang xử lý / từ chối). Xe
 
 **Trạng thái EVM sau SC-02:** `evm.adapter` đã nối `mintInitialSupply`,
 `isInitialSupplyMinted`, `spvWallet`; luồng lập–duyệt Mint hai lần và Burn đã chạy đầu cuối trên
-Hardhat. Sepolia vẫn là bytecode trước SC-02 và phải triển khai lại ở OP-04. Đường dữ liệu thử
+Hardhat. Sepolia vẫn là bytecode trước SC-02; OP-04 đã chuẩn bị công cụ cấp phí, preflight và
+runbook lập–duyệt, còn chờ chủ dự án triển khai lại và commit địa chỉ mới. Đường dữ liệu thử
 phát hành trực tiếp chỉ chạy trên `mock`; mọi chain EVM phải đi qua lập–duyệt.
 Adapter nhận diện bytecode cũ cả khi Hardhat trả reason `function selector was not recognized`;
 kiểm lại ngày 08/10 với nút cũ từ `e4dd889` ở 8545 và nút mới ở 8645 đạt 10/10,
@@ -2670,7 +2671,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
 | — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, nay chỉ còn chờ SC-03 cho `evm`) | ✅ Xong |
 | — | OP-03 hardhat một lệnh, ví mẫu trên chuỗi và project E2E `hardhat` | ✅ Xong — PR #41 |
-| — | SC-02 contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat | ✅ Xong — chờ nghiệm thu |
+| — | SC-02 contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat | ✅ Đã merge PR #42 |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |

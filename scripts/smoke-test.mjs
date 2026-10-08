@@ -6,6 +6,7 @@
  *     node scripts/smoke-test.mjs http://localhost:3000
  *     node scripts/smoke-test.mjs https://<địa-chỉ> --expect-commit=$(git rev-parse HEAD)
  *     node scripts/smoke-test.mjs http://localhost:3000 --chain=hardhat-local --timeout=15000
+ *     node scripts/smoke-test.mjs https://<địa-chỉ> --chain=evm --expect-commit=<sha>
  *
  * Mã thoát:  0 = đạt · 1 = có phép kiểm không đạt · 2 = gọi sai (thiếu địa chỉ, tham số lạ)
  *
@@ -20,7 +21,8 @@
  *
  * Mặc định `chain=mock` có chủ đích: bản mock luôn trả lời được, không cần node chuỗi lẫn cơ sở
  * dữ liệu, nên phép kiểm này đỏ thì đỏ vì ỨNG DỤNG, không vì hạ tầng chưa lên. Muốn kiểm chuỗi
- * thật thì truyền `--chain=`.
+ * thật thì truyền `--chain=`. Với `evm`, kiểm thêm metadata WPT và tổng cung đọc qua
+ * EVM adapter. Đây là kiểm chỉ đọc, không chứng minh quyền ký hay Mint/Burn đã chạy.
  *
  * ## KHÔNG ghi gì
  *
@@ -156,6 +158,11 @@ async function checkReadOnly(baseUrl, opts) {
 
   const data = res.json?.ok === true ? res.json.data : undefined;
   if (!data) return fail(name, `thân phản hồi không có { ok: true, data }: ${JSON.stringify(res.json).slice(0, 160)}`);
+  if (opts.chain === 'evm' && (data.symbol !== 'WPT' || data.decimals !== 0 ||
+      typeof data.name !== 'string' || data.name.trim() === '' ||
+      typeof data.totalSupply !== 'string' || !/^\d+$/.test(data.totalSupply))) {
+    return fail(name, 'Phản hồi Sepolia không có metadata WPT decimals=0 và tổng cung nguyên không âm hợp lệ.');
+  }
   if (typeof data.symbol !== 'string' || data.symbol.trim() === '') {
     return fail(name, `thiếu ký hiệu token trong phản hồi: ${JSON.stringify(data).slice(0, 160)}`);
   }

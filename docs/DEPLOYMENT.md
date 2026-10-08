@@ -75,8 +75,25 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 | Loại | Đặt ở | Vì sao |
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
-| `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*`, `RPC_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
+| `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
+| `RPC_EVM` | Worker → Settings → Variables, dạng **Secret** | RPC Sepolia có API key; mở chain Sepolia phía server, không đưa endpoint bí mật vào bundle |
+| `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-02 trên Sepolia, có `MINTER_ROLE` và `AGENT_ROLE` |
+| `NEXT_PUBLIC_RPC_EVM` | **Build variables**, tùy chọn | RPC công khai cho ví trình duyệt; không chứa API key bí mật |
 | `DATABASE_URL`, `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
+
+OP-04 dùng bộ địa chỉ Sepolia trong `packages/shared/src/addresses.json` đã commit trên nhánh
+triển khai. Xóa các `NEXT_PUBLIC_ADDR_EVM_*` cũ vì env ghi đè tệp; build lại sau khi địa chỉ đổi.
+Không cần filesystem runtime để đọc địa chỉ: JSON đã được import vào bản build.
+Không đặt `FUNDER_PRIVATE_KEY` hay `PRIVATE_KEY` trên Worker. Các bước cấp phí, deploy,
+whitelist và lập–duyệt: [runbook Sepolia](TESTNET_SEPOLIA.md).
+
+Kiểm sau Workers Builds bằng `scripts/smoke-test.mjs` với `--chain=evm` và SHA đang deploy;
+script chỉ GET metadata WPT/tổng cung qua adapter, không gửi giao dịch. Bộ chọn Sepolia cần
+`RPC_EVM` lúc chạy; `NEXT_PUBLIC_RPC_EVM` chỉ cần khi cấu hình RPC cho ví trình duyệt.
+
+Dữ liệu nghiệp vụ với `USE_MOCK_DB=true` nằm riêng ở mỗi isolate. Luồng lập–duyệt trên Cloudflare
+có thể không thấy yêu cầu vừa lập khi đổi vai/trình duyệt. OP-04 ghi hiện tượng và số lần thử;
+bằng chứng ba giao dịch chính lấy từ một tiến trình app cục bộ. Chưa sửa sang Postgres trong task này.
 
 Muốn dùng Postgres thật (Supabase/Neon) thì đặt `USE_MOCK_DB=false` + `DATABASE_URL`;
 để nguyên mặc định thì Txn/audit lưu trong bộ nhớ, đủ cho demo theo lượt.
