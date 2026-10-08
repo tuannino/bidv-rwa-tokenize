@@ -65,7 +65,9 @@ npm start
 
 Máy có HTTP(S) proxy, gặp lỗi đọc RPC timeout: dùng `npm run start:proxy` thay `npm start`,
 không cần dựng lại. Lệnh này giúp Node fetch dùng proxy môi trường và bỏ qua localhost.
-Giữ một tiến trình app liên tục trong vòng lập–duyệt vì DB đang lưu trong RAM.
+Đo nhanh một tiến trình có thể giữ `USE_MOCK_DB=true`. Muốn kiểm đúng chế độ bền OP-06, đổi thành
+`USE_MOCK_DB=false`, đặt `DATABASE_URL` và chạy `docker compose up -d db`; khi đó có thể restart app
+mà lịch sử vẫn còn.
 
 Trên giao diện chọn **EVM Testnet (Sepolia)**:
 
@@ -94,12 +96,65 @@ Ví ngân hàng ký giao dịch trả phí; WPT nằm ở ví SPV. Xem số dư 
 Địa chỉ ở đây là bộ demo OP-04; khi deploy bộ khác, đối chiếu lại `packages/shared/src/addresses.json`.
 
 Cloudflare: `RPC_EVM` và `SERVER_SIGNER_PRIVATE_KEY_EVM` là **runtime Secrets**;
-`USE_MOCK_DB`, `ENABLE_SEPOLIA_DEMO_PROJECT`, `ENABLE_DEMO_TOKEN_MINT`, `ENABLE_DEMO_PAYMENT_MINT`
-là runtime variables như trên. `NEXT_PUBLIC_DEFAULT_CHAIN=evm` đặt ở **build**;
+`USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và các cờ demo lấy từ `wrangler.json`.
+`NEXT_PUBLIC_DEFAULT_CHAIN=evm` đặt ở **build**;
 `NEXT_PUBLIC_RPC_EVM` tùy chọn, chỉ dùng RPC công khai cho ví trình duyệt.
 Không đặt khóa deploy/cấp phí lên Worker. Bảng đầy đủ và bước kiểm sau merge ở
 [runbook mục 6](TESTNET_SEPOLIA.md#6-cloudflare-chủ-dự-án-đặt-secret-chạy-sau-merge).
-Memory DB có thể tách theo isolate; ghi nhận kết quả thử lập–duyệt Cloudflare trước khi nghiệm thu OP-04.
+Lịch sử nghiệp vụ lưu trong Neon qua Hyperdrive và phải còn sau khi đóng/mở trình duyệt hoặc Worker
+đổi isolate. Chain `mock` vẫn giữ số dư trong RAM, nên kiểm deploy bền phải chọn `evm` (Sepolia).
+
+### 1.2. Thiết lập Neon + Cloudflare Hyperdrive (OP-06)
+
+Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi hoặc commit mật khẩu/connection string.
+
+1. Trong Neon, mở project → **Roles** → **New Role**, tạo role riêng như `hyperdrive-user` và lưu
+   mật khẩu. Role cần quyền tạo bảng ở lần chạy đầu.
+2. Mở **Connection Details**, chọn đúng branch, database và role vừa tạo. Sao chép chuỗi **Direct
+   connection** (không chọn pooled connection).
+3. Cloudflare Dashboard → **Storage & Databases → Hyperdrive → Create configuration**; dán chuỗi
+   Neon, tạo cấu hình.
+4. Mở cấu hình vừa tạo. Chuỗi 32 ký tự hiển thị ở trường **ID** là Hyperdrive ID; đây không phải
+   secret. Có thể đối chiếu bằng:
+
+   ```bash
+   cd app
+   npx wrangler login
+   npx wrangler hyperdrive list
+   ```
+
+5. Điền ID vào `app/wrangler.json`, binding phải tên `HYPERDRIVE`. Repo hiện dùng
+   `bf7828b9f4bb42de9f65123d0f00e4a3`. Không điền Neon URL vào tệp này.
+6. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true`; signer và RPC
+   có API key đặt dạng **Secret** trên đúng Worker. Build/deploy lại từ `dev`.
+7. Kiểm sau deploy: Giao dịch viên lập một yêu cầu, Kiểm soát viên duyệt trong lượt/trình duyệt khác,
+   đóng rồi mở lại trang chi tiết. Trạng thái và lịch sử phải còn.
+
+Chạy Worker local với Postgres thường (không chạm Neon):
+
+```bash
+docker compose up -d db
+bash scripts/evm-local.sh up
+cd app
+NEXT_PUBLIC_DEFAULT_CHAIN=hardhat-local npm run cf:build
+set -a
+source ../.env.example
+set +a
+npx wrangler dev --port 8787 \
+  --var USE_MOCK_DB:false \
+  --var NEXT_PUBLIC_DEFAULT_CHAIN:hardhat-local \
+  --var RPC_HARDHAT:http://127.0.0.1:8545 \
+  --var SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL:$SERVER_SIGNER_PRIVATE_KEY
+```
+
+Khóa trong lệnh cuối là khóa test công khai của Hardhat account #0 trong `.env.example`, tuyệt đối
+không thay bằng khóa mạng thật. `localConnectionString` trong `wrangler.json` trỏ DB local. Nếu
+Hardhat do một terminal ngắn hạn dựng bị dừng theo terminal, giữ `npx hardhat node` chạy ở một cửa
+sổ riêng rồi deploy/seed như `scripts/evm-local.sh`; lỗi `HTTP request failed` khi đọc WPT thường là
+nút RPC đã dừng, không phải lỗi Hyperdrive.
+
+Hạn Workers Free hiện là 100.000 câu lệnh Hyperdrive/ngày. Cách đổi Neon sang Supabase/Postgres tự
+dựng, sao lưu/khôi phục và nguồn tài liệu chính nằm ở [DEPLOYMENT.md](DEPLOYMENT.md#cơ-sở-dữ-liệu-bền-qua-hyperdrive-op-06).
 
 ### Dữ liệu Mock dùng xuyên suốt
 

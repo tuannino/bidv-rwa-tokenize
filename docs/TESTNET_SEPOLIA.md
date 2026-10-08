@@ -148,18 +148,21 @@ Chủ dự án điền `app/.env.local` (bị Git bỏ qua) qua trình soạn th
 NEXT_PUBLIC_DEFAULT_CHAIN=evm
 RPC_EVM=
 SERVER_SIGNER_PRIVATE_KEY_EVM=
-USE_MOCK_DB=true
+USE_MOCK_DB=false
+DATABASE_URL=postgresql://bidv:bidv@localhost:5432/bidv_rwa
 ENABLE_DEMO_TOKEN_MINT=false
 ENABLE_SEPOLIA_DEMO_PROJECT=true
 ```
 
 `RPC_EVM` cùng endpoint Sepolia với `SEPOLIA_RPC_URL`; khóa đúng ví đã deploy.
-`ENABLE_SEPOLIA_DEMO_PROJECT=true` đăng ký dự án WPT trạng thái DRAFT trên `evm`, dùng địa chỉ ProjectToken đã deploy từ nguồn shared. Cờ mặc định tắt; thiếu cờ thì màn Lập lệnh báo chưa có dự án. Sau khi thêm cờ cần dựng lại và khởi động lại app trước giao dịch đầu tiên.
-Giữ `USE_MOCK_DB=true` theo phạm vi task. Không đặt `NEXT_PUBLIC_ADDR_EVM_*`.
+`ENABLE_SEPOLIA_DEMO_PROJECT=true` đăng ký dự án WPT trên `evm`, dùng địa chỉ ProjectToken đã deploy
+từ nguồn shared. Với `USE_MOCK_DB=false`, dựng PostgreSQL trước bằng `docker compose up -d db`;
+lược đồ/seed tự áp. Có thể khởi động lại app giữa các giao dịch, yêu cầu và lịch sử vẫn còn.
+Không đặt `NEXT_PUBLIC_ADDR_EVM_*`.
 Nếu ví trình duyệt cần RPC riêng, dùng `NEXT_PUBLIC_RPC_EVM` là URL **công khai**, không chứa
 API key bí mật vì Next nội tuyến biến này vào bundle trình duyệt.
 
-Từ `app`, dựng và chạy một tiến trình duy nhất; không khởi động lại giữa ba giao dịch vì DB bộ nhớ:
+Từ `app`, dựng và chạy; PostgreSQL giữ dữ liệu qua lần khởi động lại:
 
 ```bash
 npm run build
@@ -172,7 +175,7 @@ Dừng app trước giao dịch đầu rồi chạy `npm run start:proxy` thay c
 Lệnh này dùng bản build hiện có, nạp `scripts/local-proxy.mjs` để fetch theo proxy/NO_PROXY,
 luôn bỏ qua localhost/127.0.0.1/::1. Không ghi URL proxy hay RPC chứa key vào log.
 Không cần rebuild hoặc deploy lại hợp đồng. Không nhập bootstrap này vào Worker.
-Nếu đã có yêu cầu/giao dịch thì ghi lại ID/tx trước khi restart vì DB đang dùng RAM.
+Nếu restart, giữ lại ID yêu cầu để mở lại đúng bản ghi và xác nhận trạng thái từ PostgreSQL.
 
 Từ cửa sổ khác, thư mục contract, trước mỗi lần Kiểm soát viên duyệt:
 
@@ -206,10 +209,11 @@ PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi t
 | `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker runtime **Secret** | Khóa ví deployer đã có hai vai |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variable**, tùy chọn | RPC công khai cho ví trình duyệt; không đặt RPC có key bí mật |
 | `NEXT_PUBLIC_DEFAULT_CHAIN` | **Build variable**, tùy chọn | `evm` nếu muốn Sepolia mặc định; giữ mock vẫn chọn được Sepolia khi có RPC_EVM |
-| `USE_MOCK_DB` | Worker runtime variable | `true`; dữ liệu chia theo isolate, giới hạn đã biết |
-| `ENABLE_SEPOLIA_DEMO_PROJECT` | Worker runtime variable | `true`; đăng ký dự án WPT Sepolia, không tự mint |
-| `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`; dùng luồng lập–duyệt |
-| `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` nếu chỉ kiểm Mint/Burn WPT; chỉ bật riêng khi cần demo nạp VNDB |
+| `USE_MOCK_DB` | `app/wrangler.json` | `false`; Worker dùng binding Hyperdrive |
+| `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`; đăng ký dự án WPT Sepolia, không tự mint |
+| `ENABLE_DEMO_TOKEN_MINT` | `app/wrangler.json` | `false`; dùng luồng lập–duyệt |
+| `ENABLE_DEMO_PAYMENT_MINT` | `app/wrangler.json` | Bản PoC đang `true`; production bắt buộc đổi `false` |
+| `HYPERDRIVE` | binding trong `app/wrangler.json` | ID cấu hình Neon; chuỗi kết nối không nằm trong repo |
 
 Không đặt `FUNDER_PRIVATE_KEY`, `PRIVATE_KEY` hay `NEXT_PUBLIC_ADDR_EVM_*` trên Worker.
 Workers Builds dựng từ `dev` sau khi Owner merge PR: build `npm run cf:build`, deploy `npx wrangler deploy`.

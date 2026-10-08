@@ -9,13 +9,21 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.6 |
-| Cập nhật lần cuối | 2026-10-08 |
-| Nhánh / commit | `ops/04-sepolia`, từ `dev` @ `dd015a1` (SC-02 đã merge qua PR #42); checkpoint `docs/CHECKPOINT_OP04.md` |
+| Phiên bản tài liệu | 4.7 |
+| Cập nhật lần cuối | 2026-10-09 |
+| Nhánh / commit | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1`; checkpoint `docs/CHECKPOINT_OP06.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
-| Đang thực hiện | **OP-04** — đã chuẩn bị cấp phí, preflight, kiểm khói và runbook; đã triển khai Sepolia/whitelist SPV, đã đối soát Mint 1.000, Mint 2.000, Burn 300 (cuối 2.700 WPT); chờ kiểm bản Cloudflare sau merge |
-| Phase kế tiếp | **OP-04** — triển khai lại bộ hợp đồng sau SC-02 lên Sepolia |
+| Đang thực hiện | **OP-06** — mã và kiểm Worker local đã xong; chờ merge rồi kiểm bản Cloudflare/Neon để đóng điều kiện deploy |
+| Phase kế tiếp | **OP-05** — công việc testnet kế tiếp theo kế hoạch đợt 5 |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.6 → 4.7 (OP-06).** Bản Cloudflare chuyển dữ liệu nghiệp vụ từ RAM theo isolate sang PostgreSQL
+qua Hyperdrive. Worker lấy binding `HYPERDRIVE`, Node/Docker lùi về `DATABASE_URL`; mỗi lời gọi mở và
+đóng một `pg.Client`, không giữ I/O toàn cục. `init.sql` được nhúng từng byte lúc build. Dự án chưa
+phát hành được seed cập nhật địa chỉ contract; dự án đã có `issuedAt` bất biến. Khi chuỗi đã phát hành
+nhưng DB mới chưa có mốc, service tự đối soát có audit rồi tiếp tục `mint`, không chặn vĩnh viễn.
+Worker local với Postgres 16 + Hardhat đã giữ yêu cầu qua lần tắt/bật Wrangler. Bộ ràng buộc Postgres
+tăng từ 1,04 s lên 2,33 s (2,24×); vượt ngưỡng 2×, Owner đã chấp nhận ngày 09/10 và yêu cầu ghi rõ.
 
 **4.4 → 4.5 (OP-04).** Máy Owner dùng HTTP(S) proxy; curl/Hardhat đọc Sepolia được nhưng Node fetch trực tiếp timeout. Thêm `npm run start:proxy` nạp `app/scripts/local-proxy.mjs`, dùng `EnvHttpProxyAgent` và giữ NO_PROXY/loopback. Khai báo trực tiếp devDependency `undici` 7.29.1 đã có trong lock, chỉ dùng công cụ khởi động local; không nhập vào mã Worker. Không thay EVM adapter hay retry/timeout nghiệp vụ.
 
@@ -405,18 +413,17 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 | Chế độ | Lệnh | Chain | DB | Dùng khi |
 |---|---|---|---|---|
 | Đầy đủ | `docker compose up` | hardhat-local | Postgres 16 | Phát triển, demo nội bộ |
-| Free-tier | Deploy Vercel/Cloudflare | `mock` | memory | Demo public, không cần hạ tầng |
+| Free-tier | Deploy Cloudflare | `evm` (Sepolia) | Neon qua Hyperdrive | Demo public có dữ liệu bền |
 | Chuỗi cục bộ (OP-03) | `bash scripts/evm-local.sh up` rồi `cd app && npm run dev` | hardhat-local | memory | Phát triển hợp đồng/adapter, đầu cuối trên chuỗi. Sau `reset` phải khởi động lại app. Xem `docs/EVM_LOCAL.md` |
 
 Máy local có HTTP(S) proxy dùng `npm run start:proxy` thay `npm start`; bootstrap Node giữ NO_PROXY và bỏ qua loopback, không áp dụng cho Worker.
 
 Demo Sepolia đã deploy (OP-04) bật `ENABLE_SEPOLIA_DEMO_PROJECT=true` trước khi khởi tạo DB. Cờ chỉ thêm dòng WPT DRAFT với địa chỉ shared, không tự phát hành; xem `docs/TESTNET_SEPOLIA.md`.
 
-Free-tier chỉ cần: `NEXT_PUBLIC_DEFAULT_CHAIN=mock`, `USE_MOCK_DB=true`, các cờ `USE_MOCK_*=true`.
-`app/wrangler.json` có mục `vars` cho năm biến công khai đọc lúc chạy (`USE_MOCK_KYC`,
-`USE_MOCK_DB`, `DEMO_ROLE`, `ENABLE_DEMO_PAYMENT_MINT`, `ENABLE_DEMO_TOKEN_MINT`), giá trị bằng
-đúng mặc định trong `lib/config/env.ts` (OP-03). Không đặt `NEXT_PUBLIC_*` ở đó: biến đó nhúng lúc
-dựng bản, đặt lúc chạy không có tác dụng.
+Free-tier OP-06 dùng `USE_MOCK_DB=false` và binding Hyperdrive trong `app/wrangler.json`; các biến
+runtime không bí mật cũng lấy từ tệp này. `NEXT_PUBLIC_*` vẫn là biến build. Secret RPC/signer chỉ
+đặt trên Worker. Chain `mock` vẫn là lựa chọn nhanh nhưng ledger của nó nằm trong RAM, nên không dùng
+để chứng minh dữ liệu đầu-cuối bền qua isolate.
 
 Bản PoC mặc định `mock` + memory DB + vai `TELLER` và bật `ENABLE_DEMO_PAYMENT_MINT`, nên một bản
 clone/deploy không có biến môi trường vẫn demo được trọn luồng maker–checker và mua token.
@@ -1176,8 +1183,8 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. Đặt ở tầng lưu trữ vì có người đọc ở nhiều tầng; để ở `lib/bank` thì tầng cổng phải nhập tầng nghiệp vụ, tức ngược chiều phụ thuộc. FE-24 thêm `readTokenTerms()` đọc nguyên khối ba chỉ tiêu nhưng lùi mặc định từng khoá hỏng, không làm một khoá lỗi kéo sai cả ba. Bảng khoá đầy đủ ở 3.13 | `readIssuePriceVnd`, `readTokenTerms`, `readPriceChangeThreshold`, `readDistributionBatchSize`, `readDistributionDustWallet` |
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
 | `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
-| `store/memory.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản RAM cho free-tier. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
-| `store/postgres.pool.ts` | Pool `pg` + `ensureSchema` (BE-14: `addMissingColumns` nâng bảng `PurchaseOrder` cũ TRƯỚC khi áp `init.sql`) + **nạp dữ liệu khởi tạo** (BE-04, `ON CONFLICT DO NOTHING` nên chạy lại không ghi đè giá ngân hàng đã đặt) | `pgQuery`, `pgTransaction` |
+| `store/memory.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản RAM cho demo local nhanh; không bền qua Worker isolate. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
+| `store/postgres.pool.ts` | OP-06: `pg.Client` theo từng lời gọi/transaction, ưu tiên Hyperdrive rồi `DATABASE_URL`; `ensureSchema` dùng SQL nhúng và lời hứa theo connection string. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
 | `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
 | `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
@@ -1261,7 +1268,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | Cờ | Mặc định | Ý nghĩa |
 |---|:--:|---|
 | `USE_MOCK_KYC`, `USE_MOCK_ORACLE`, `USE_MOCK_COREBANK` | `true` | Dùng provider mock để mint chạy ngay, không cần tích hợp thật |
-| `USE_MOCK_DB` | `true` | `true` = Txn/audit trong RAM (free-tier); `false` = Postgres qua `DATABASE_URL` |
+| `USE_MOCK_DB` | `true` trong mã; `false` ở Worker | `true` = dữ liệu nghiệp vụ trong RAM; `false` = Postgres qua binding Hyperdrive hoặc `DATABASE_URL` |
 | `ENABLE_DEMO_PAYMENT_MINT` | **`true`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định để demo trọn luồng. Production **bắt buộc** ghi đè `false` |
 | `ENABLE_DEMO_TOKEN_MINT` (FE-22) | **`false`** | Cho phát hành WPT **trực tiếp**, không qua lập–duyệt (màn `/mint`, `POST /api/mint`, `issueInitialSupply`) — **chỉ môi trường thử**. Bật trên môi trường thật là mở lại đường đi vòng qua Kiểm soát viên |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` (OP-04) | **`false`** | Đăng ký WPT DRAFT trên `evm` đã deploy, không mint. Cùng dữ liệu cho memory/Postgres |

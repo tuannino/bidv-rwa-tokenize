@@ -280,8 +280,8 @@ export async function executeIssuance(input: {
     return err('LEDGER', receipt.reason ?? 'Giao dịch phát hành thất bại on-chain.');
   }
 
-  // @flow issue:6 | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan
   if (issuedAt === null) {
+    // @flow issue:6 | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan
     const marked = await getProjectStore().markIssued({
       id: project.id,
       issuedAt: new Date().toISOString(),

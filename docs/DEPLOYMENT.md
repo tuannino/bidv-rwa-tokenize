@@ -7,7 +7,7 @@ Mục tiêu: **default free-tier** (rẻ, bật/tắt nhanh, demo theo lượt),
 | | FREE-TIER (default) | VPS (đầy đủ) |
 |---|---|---|
 | Web | Cloudflare Workers (`@opennextjs/cloudflare`) | Docker (`docker compose`) |
-| DB | Supabase / Neon (Postgres free) | Postgres container |
+| DB | Neon / Supabase qua Cloudflare Hyperdrive | Postgres container |
 | Chain | `mock` (mặc định) hoặc `evm` testnet (Sepolia + RPC free) | `hardhat-local` node thật |
 | Lệnh | `npm run build` + deploy (wrangler) | `docker compose up` |
 | Dùng khi | demo public nhanh, không cần chain thật | demo đầy đủ mọi luồng, có hardhat |
@@ -68,22 +68,24 @@ tường minh `NEXT_PUBLIC_DEFAULT_CHAIN=mock` ở Build variables để cấu h
 `hardhat-local` khi deploy có node Hardhat đi kèm; free-tier không có node đó nên mọi lời gọi ledger
 sẽ trả lỗi kết nối.
 
-Các `USE_MOCK_*` còn lại mặc định `true` nên không cần đặt.
+`wrangler.json` là nguồn duy nhất cho biến runtime **không bí mật** của bản deploy. OP-06 đặt sẵn
+`USE_MOCK_DB=false` và `ENABLE_SEPOLIA_DEMO_PROJECT=true`; không đặt lại hai biến này bằng tay trên
+dashboard. Các secret vẫn đặt trên dashboard và không đưa vào repository.
 
 Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không có tác dụng:
 
 | Loại | Đặt ở | Vì sao |
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
-| `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | Worker → Settings → Variables | server đọc `process.env` lúc chạy |
-| `ENABLE_SEPOLIA_DEMO_PROJECT` | Worker runtime variable | `true` cho OP-04: đăng ký WPT Sepolia đã deploy; mặc định tắt |
-| `USE_MOCK_DB` | Worker runtime variable | `true` trong OP-04; dữ liệu tách theo isolate |
+| `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | `app/wrangler.json` → `vars` | nguồn duy nhất của biến runtime không bí mật |
+| `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`: đăng ký WPT Sepolia đã deploy |
+| `USE_MOCK_DB` | `app/wrangler.json` | `false`: dữ liệu nghiệp vụ dùng Postgres qua Hyperdrive |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |
 | `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` khi chỉ kiểm WPT; bật riêng nếu cần demo VNDB |
 | `RPC_EVM` | Worker → Settings → Variables, dạng **Secret** | RPC Sepolia có API key; mở chain Sepolia phía server, không đưa endpoint bí mật vào bundle |
 | `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-02 trên Sepolia, có `MINTER_ROLE` và `AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variables**, tùy chọn | RPC công khai cho ví trình duyệt; không chứa API key bí mật |
-| `DATABASE_URL`, `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
+| `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
 
 OP-04 dùng bộ địa chỉ Sepolia trong `packages/shared/src/addresses.json` đã commit trên nhánh
 triển khai. Xóa các `NEXT_PUBLIC_ADDR_EVM_*` cũ vì env ghi đè tệp; build lại sau khi địa chỉ đổi.
@@ -95,12 +97,70 @@ Kiểm sau Workers Builds bằng `scripts/smoke-test.mjs` với `--chain=evm` v�
 script chỉ GET metadata WPT/tổng cung qua adapter, không gửi giao dịch. Bộ chọn Sepolia cần
 `RPC_EVM` lúc chạy; `NEXT_PUBLIC_RPC_EVM` chỉ cần khi cấu hình RPC cho ví trình duyệt.
 
-Dữ liệu nghiệp vụ với `USE_MOCK_DB=true` nằm riêng ở mỗi isolate. Luồng lập–duyệt trên Cloudflare
-có thể không thấy yêu cầu vừa lập khi đổi vai/trình duyệt. OP-04 ghi hiện tượng và số lần thử;
-bằng chứng ba giao dịch chính lấy từ một tiến trình app cục bộ. Chưa sửa sang Postgres trong task này.
+### Cơ sở dữ liệu bền qua Hyperdrive (OP-06)
 
-Muốn dùng Postgres thật (Supabase/Neon) thì đặt `USE_MOCK_DB=false` + `DATABASE_URL`;
-để nguyên mặc định thì Txn/audit lưu trong bộ nhớ, đủ cho demo theo lượt.
+Worker ưu tiên `env.HYPERDRIVE.connectionString`; `DATABASE_URL` chỉ là đường lùi cho Node/Docker.
+Không đặt chuỗi kết nối Neon vào Worker Variables. `app/wrangler.json` chỉ chứa ID Hyperdrive công
+khai và `localConnectionString` trỏ PostgreSQL local. Mã dùng `pg` thuần, một `Client` trong mỗi lời
+gọi/transaction; không dùng SDK hay tính năng riêng của nhà cung cấp.
+
+Yêu cầu tối thiểu cho mọi nhà cung cấp: PostgreSQL **13+**, TLS, tài khoản có quyền tạo bảng ở lần
+chạy đầu. Lược đồ và seed tự áp. Hyperdrive trên Workers Free giới hạn **100.000 câu lệnh/ngày**;
+mỗi `SELECT`, `INSERT`, `UPDATE`, `DELETE` và DDL đều được tính. Nguồn:
+[Cloudflare pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/).
+
+#### Neon — cấu hình hiện dùng
+
+1. Neon → project → **Roles** → tạo role riêng (ví dụ `hyperdrive-user`), lưu mật khẩu một lần.
+2. Connection Details: chọn đúng branch/database/role và lấy **Direct connection**, không chọn
+   chuỗi pooled. Chuỗi này là secret, chỉ dán vào Cloudflare.
+3. Cloudflare → Storage & Databases → Hyperdrive → Create configuration → dán chuỗi kết nối.
+4. Sao chép ID cấu hình (không phải secret) vào `app/wrangler.json` → `hyperdrive[0].id`.
+5. Xác nhận bằng `cd app && npx wrangler hyperdrive list`; tuyệt đối không ghi chuỗi kết nối vào
+   commit, log hay tài liệu.
+
+Repo hiện dùng ID `bf7828b9f4bb42de9f65123d0f00e4a3`. Hướng dẫn role/driver `pg >= 8.16.3`:
+[Cloudflare + Neon](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-database-providers/neon/).
+
+#### Supabase — theo tài liệu, chưa đo trên dự án này
+
+Dùng **Direct connection**; chính Hyperdrive thực hiện pooling. Cloudflare hiện khuyến cáo không dùng
+chuỗi pooled của Supabase cho Hyperdrive. Nếu Direct connection chỉ có IPv6 mà hạ tầng không tới
+được, dùng shared pooler **session mode** cổng 5432 như phương án tương thích IPv4, rồi kiểm kết nối
+trước khi thay ID. Nguồn chính:
+[Cloudflare + Supabase](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-database-providers/supabase/) và
+[các chế độ kết nối Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
+#### PostgreSQL tự dựng — theo tài liệu, local đã đo
+
+Postgres có thể mở endpoint TLS công khai và allow-list dải IP Hyperdrive. Với cơ sở dữ liệu trong
+mạng riêng, cách hiện được Cloudflare khuyến nghị là Workers VPC + Cloudflare Tunnel; `cloudflared`
+chạy trong mạng có thể tới DB. Cách Tunnel + Access cũ vẫn được hỗ trợ. Nguồn:
+[Workers VPC](https://developers.cloudflare.com/hyperdrive/configuration/connect-to-private-database-vpc/) và
+[Tunnel + Access](https://developers.cloudflare.com/hyperdrive/configuration/connect-to-private-database/).
+
+Worker local đã chạy thật với Postgres 16 thường qua `localConnectionString`: lập yêu cầu bằng
+Giao dịch viên, duyệt bằng Kiểm soát viên, tắt hẳn Wrangler, bật lại và đọc được cùng mã yêu cầu.
+
+#### Đổi nhà cung cấp và chuyển dữ liệu
+
+Tạo/cập nhật Hyperdrive trỏ tới DB mới rồi thay ID trong `wrangler.json`; không sửa mã ứng dụng.
+DB mới trống sẽ tự có lược đồ/seed, và mốc phát hành được đối soát từ chuỗi. Lịch sử cũ không tự
+chuyển; dùng công cụ chuẩn PostgreSQL (đặt URL trong shell cục bộ, không commit):
+
+```bash
+pg_dump --format=custom --no-owner --no-acl "$OLD_DATABASE_URL" --file=bidv-rwa.dump
+pg_restore --clean --if-exists --no-owner --no-acl --dbname="$NEW_DATABASE_URL" bidv-rwa.dump
+```
+
+#### Kết quả V3
+
+Đã đo ngày 09/10/2026 bằng Worker tạm `bidv-op06-v3-probe-20261009`, không chạm Worker chính:
+lần deploy đầu có `OP06_PROBE=1` thì endpoint trả `{"probe":"1"}`; bỏ biến khỏi `wrangler.json`
+và deploy lần hai thì trả `{"probe":null}`. Worker probe đã được xoá sau phép đo. Kết luận: biến
+plain có ở deployment/dashboard trước **không tự được giữ** khi cấu hình deploy kế tiếp không khai
+nó. Vì vậy biến không bí mật phải nằm trong `wrangler.json`; secret ở dashboard, không dựa vào trạng
+thái ngầm của lần deploy trước.
 
 Bản PoC mặc định `DEMO_ROLE=TELLER` và `ENABLE_DEMO_PAYMENT_MINT=true`, nên trình duyệt sạch mở
 thẳng khu vực Vận hành và chạy được luồng nạp VNDB. Trước khi dùng cùng codebase ở production,
