@@ -5,6 +5,8 @@ DB**. Luồng Mint/Burn chính thức luôn đi qua **Giao dịch viên lập l�
 không dùng nút phát hành WPT trực tiếp hay `scripts/demo-mint.mjs`. Lệnh mua/bán của Nhà đầu tư
 được hệ thống tự quyết toán; Giao dịch viên chỉ can thiệp khi lệnh bị kẹt.
 
+Các bước 2–7 và bảng ví mẫu bên dưới dùng cho **Mock**. Mint/Burn trên **Sepolia** theo mục 1.1; mua/bán trên Sepolia còn chờ SC-03.
+
 ## 1. Chạy bản demo
 
 Yêu cầu: Node.js 20+ và npm. Chain `mock` không cần Docker, Postgres, Hardhat hay ví trình duyệt.
@@ -32,7 +34,74 @@ Nếu cổng 3000 đã bận, Next.js in URL thực tế trong terminal; dùng �
 chọn một vai khác, cookie của trình duyệt được ưu tiên: chọn lại **Giao dịch viên · GDV001** ở góc
 trên phải. Hai trình duyệt lưu cookie độc lập, nhưng một trình duyệt sạch luôn bắt đầu ở GDV.
 
-### Dữ liệu dùng xuyên suốt
+### 1.1. Mint/Burn trên Sepolia (OP-04)
+
+Dùng bản đã triển khai hợp đồng SC-02. Chuẩn bị/cấp phí/whitelist theo
+[runbook Sepolia](TESTNET_SEPOLIA.md); dùng ví SPV thử riêng, không dùng ví mẫu ở bảng Mock.
+
+Đặt trong `app/.env.local` bằng trình soạn thảo:
+
+```dotenv
+NEXT_PUBLIC_DEFAULT_CHAIN=evm
+RPC_EVM=
+SERVER_SIGNER_PRIVATE_KEY_EVM=
+USE_MOCK_DB=true
+ENABLE_SEPOLIA_DEMO_PROJECT=true
+ENABLE_DEMO_TOKEN_MINT=false
+ENABLE_DEMO_PAYMENT_MINT=false
+```
+
+Điền RPC Sepolia và khóa ví ngân hàng đã deploy `0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076` vào hai dòng trống.
+Cờ `ENABLE_SEPOLIA_DEMO_PROJECT` đăng ký dự án WPT trong ứng dụng, không tự mint.
+Cờ nạp VNDB đang tắt vì lượt này chỉ kiểm WPT. Không đặt `NEXT_PUBLIC_ADDR_EVM_*`;
+địa chỉ hợp đồng lấy từ nguồn shared đã commit. Không commit `.env.local`.
+
+Từ thư mục `app`, dựng bản phát hành và chạy:
+
+```bash
+npm run build
+npm start
+```
+
+Máy có HTTP(S) proxy, gặp lỗi đọc RPC timeout: dùng `npm run start:proxy` thay `npm start`,
+không cần dựng lại. Lệnh này giúp Node fetch dùng proxy môi trường và bỏ qua localhost.
+Giữ một tiến trình app liên tục trong vòng lập–duyệt vì DB đang lưu trong RAM.
+
+Trên giao diện chọn **EVM Testnet (Sepolia)**:
+
+1. Giao dịch viên → **Lập lệnh**, nhập `WPT`, ví SPV
+   `0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd`, số lượng `1000`, điền lý do/ngày hiệu lực theo biểu mẫu rồi gửi yêu cầu.
+2. Kiểm soát viên → **Phê duyệt lệnh**, mở đúng yêu cầu và chấp nhận. Chờ **Hoàn tất**, lưu mã giao dịch.
+3. Lặp lập–duyệt Mint bổ sung `2000` vào cùng SPV.
+4. Lập–duyệt Burn `300`, nguồn **Phần chưa phân phối**.
+
+Nếu bắt đầu với hợp đồng chưa phát hành và không có giao dịch khác xen vào, tổng cung/số dư SPV
+lần lượt là **1.000 → 3.000 → 2.700 WPT**. Vòng local ngày 08/10/2026 đã chạy đúng kết quả này;
+receipt và trạng thái từng block ở [checkpoint giao dịch](CHECKPOINT_OP04_TXS.md).
+Hợp đồng hiện đã phát hành: lần Mint tiếp theo là bổ sung, không đặt lại trạng thái hoặc deploy lại
+để lặp lượt đầu. Hai vai ngân hàng dùng server signer, không cần nối ví trình duyệt để lập–duyệt.
+
+Để xem trong MetaMask, chọn mạng **Sepolia**, tài khoản SPV, rồi **Import tokens → Custom token**:
+
+| Trường | Giá trị |
+|---|---|
+| Địa chỉ WPT | `0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02` |
+| Ký hiệu | `WPT` |
+| Decimals | `0` |
+
+Ví ngân hàng ký giao dịch trả phí; WPT nằm ở ví SPV. Xem số dư và lịch sử tại
+[Etherscan của SPV/WPT](https://sepolia.etherscan.io/token/0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02?a=0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd).
+Địa chỉ ở đây là bộ demo OP-04; khi deploy bộ khác, đối chiếu lại `packages/shared/src/addresses.json`.
+
+Cloudflare: `RPC_EVM` và `SERVER_SIGNER_PRIVATE_KEY_EVM` là **runtime Secrets**;
+`USE_MOCK_DB`, `ENABLE_SEPOLIA_DEMO_PROJECT`, `ENABLE_DEMO_TOKEN_MINT`, `ENABLE_DEMO_PAYMENT_MINT`
+là runtime variables như trên. `NEXT_PUBLIC_DEFAULT_CHAIN=evm` đặt ở **build**;
+`NEXT_PUBLIC_RPC_EVM` tùy chọn, chỉ dùng RPC công khai cho ví trình duyệt.
+Không đặt khóa deploy/cấp phí lên Worker. Bảng đầy đủ và bước kiểm sau merge ở
+[runbook mục 6](TESTNET_SEPOLIA.md#6-cloudflare-chủ-dự-án-đặt-secret-chạy-sau-merge).
+Memory DB có thể tách theo isolate; ghi nhận kết quả thử lập–duyệt Cloudflare trước khi nghiệm thu OP-04.
+
+### Dữ liệu Mock dùng xuyên suốt
 
 | Đối tượng | Giá trị |
 |---|---|
@@ -184,6 +253,9 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | “Vai trò hiện tại là SELLER” ở trình duyệt cũ | Cookie cũ còn hiệu lực; chọn **Giao dịch viên** ở góc trên phải hoặc xóa hai cookie `bidv_role`, `bidv_channel`. Trình duyệt sạch tự vào TELLER. |
 | KYC/whitelist báo lỗi kết nối DB | Local đang đặt `USE_MOCK_DB=false` nhưng Postgres chưa chạy. Đặt `true` và khởi động lại web. |
 | Không thấy **Nạp VNDB (trình diễn)** | Server production-like đã đặt `ENABLE_DEMO_PAYMENT_MINT=false`, hoặc vai không phải TELLER. Bản PoC từ `.env.example` đặt `true`. |
+| Sepolia báo chưa có dự án WPT | Bật `ENABLE_SEPOLIA_DEMO_PROJECT=true`, dựng/khởi động lại app trước vòng giao dịch đầu. |
+| Đọc WPT báo `The request took too long to respond` trên máy có proxy | Dừng app và chạy `npm run start:proxy`; giữ cấu hình RPC Sepolia. |
+| MetaMask chưa hiện WPT | Chọn Sepolia và đúng tài khoản SPV; import hợp đồng WPT với decimals 0 theo mục 1.1. |
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Lệnh ở **Đang xử lý** nhưng không có mã giao dịch | Không bấm hay gọi lại đường phát giao dịch. Giao dịch có thể đã lên chuỗi; màn Vận hành sẽ hiện **Cần đối soát tay**. |
@@ -193,7 +265,8 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 ## 9. Chuyển sang môi trường thật
 
 Chain `mock` không cần khóa ký; bản trình diễn mặc định chạy được mà không cấu hình khóa.
-Chain thật (`hardhat-local`, `evm`) vẫn cần `SERVER_SIGNER_PRIVATE_KEY`; trên Cloudflare phải đặt
+Chain thật (`hardhat-local`, `evm`) vẫn cần khóa ký theo chain: `SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL` /
+`SERVER_SIGNER_PRIVATE_KEY_EVM` (hoặc khóa chung `SERVER_SIGNER_PRIVATE_KEY`); trên Cloudflare phải đặt
 biến này làm **secret của Worker**, không đưa vào source hay biến công khai.
 
 Guide này không phải runbook production. Tối thiểu phải đặt:
@@ -205,4 +278,5 @@ USE_MOCK_DB=false
 ```
 
 Sau đó cấu hình `DATABASE_URL`, signer/RPC theo chain, thay `DEMO_ROLE` và cookie PoC bằng phiên xác
-thực (AU-01), và hoàn tất SC-02/SC-03 trước khi chạy Mint/Burn và mua/bán trên EVM thật.
+thực (AU-01). SC-02 đã hoàn tất và Mint/Burn Sepolia đã được kiểm chứng local trong OP-04;
+mua/bán trên Sepolia vẫn cần SC-03. Các kết quả testnet này chưa thay thế nghiệm thu production.
