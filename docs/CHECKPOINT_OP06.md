@@ -283,3 +283,14 @@ production xác nhận request bị hủy làm Promise bị bỏ dở; kiểm th
 Promise của A, không mô phỏng toàn bộ vòng đời Cloudflare. Các lượt vẫn có thể cùng chờ khóa DB.
 Giữ `ENABLE_READ_DIAGNOSTICS=true` trên Worker tới khi có số đo production; sau deploy Owner kiểm
 mã tra cứu/trace, rồi Mint/Burn/lịch sử bền mới đóng điều kiện 7 và tắt log. OP-06 vẫn `inProgress`.
+
+
+## 8. Lưu log Worker và mã lỗi HTTP/CF-Ray (Owner yêu cầu 09/10/2026)
+
+Wrangler bật observability/logs persist, invocation logs và lấy mẫu 1. Helper tra cứu phân biệt
+máy chủ trả lỗi, quá thời gian chờ, mất kết nối; giữ HTTP/cf-ray đã nhận trong thông báo kèm Mã
+tra cứu. HTML lỗi Cloudflare không bị gọi nhầm mất kết nối, không đưa body HTML lên UI.
+Trước response headers thì không có HTTP/cf-ray để hiển thị. Không thay service/RBAC hay lệnh ghi.
+Bằng chứng tại [CHECKPOINT_OP06_HTTP_DETAIL.md](CHECKPOINT_OP06_HTTP_DETAIL.md), mục 1–3.
+Giữ log bật đến số đo production; giảm rủi ro lan lỗi giữa request, chưa xác nhận đã hết timeout.
+PR #47 đã merge tại dev 8c64c84; commit này tiếp tục cùng nhánh OP-06, mở PR bổ sung vào dev.

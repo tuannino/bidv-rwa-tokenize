@@ -29,7 +29,7 @@ test('lỗi mạng có nút thử lại và lần sau đọc được, giữ n�
   await page.goto('/draft');
   const card = page.getByLabel('Thẻ tạo token');
   await card.getByLabel('Mã hoặc ký hiệu token').fill('WPT');
-  await expect(card.getByLabel('Khối thông tin token')).toContainText('Không kết nối được máy chủ');
+  await expect(card.getByLabel('Khối thông tin token')).toContainText('Mất kết nối tới máy chủ');
   await expect(card.getByLabel('Khối thông tin token')).not.toContainText('sau 15 giây');
   await card.getByRole('button', { name: 'Thử đọc lại thông tin token' }).click();
   await expect(card.getByLabel('Khối thông tin token')).toContainText('Dự án');
