@@ -108,13 +108,35 @@ Lịch sử nghiệp vụ lưu trong Neon qua Hyperdrive và phải còn sau khi
 
 Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi hoặc commit mật khẩu/connection string.
 
-1. Trong Neon, mở project → **Roles** → **New Role**, tạo role riêng như `hyperdrive-user` và lưu
-   mật khẩu. Role cần quyền tạo bảng ở lần chạy đầu.
-2. Mở **Connection Details**, chọn đúng branch, database và role vừa tạo. Sao chép chuỗi **Direct
+1. Trong Neon, mở project → **Roles** → **New Role**, tạo role riêng như `rwa-user` và lưu mật
+   khẩu. Không dùng role chỉ có quyền đọc: ứng dụng tự tạo/nâng lược đồ ở lần chạy đầu.
+2. Mở **SQL Editor** bằng role chủ sở hữu database, rồi cấp quyền cho đúng database/role vừa tạo
+   (thay hai tên trong dấu ngoặc kép):
+
+   ```sql
+   GRANT CONNECT, CREATE ON DATABASE "rwa-bid" TO "rwa-user";
+   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
+   ALTER SCHEMA public OWNER TO "rwa-user";
+   ```
+
+   Kiểm ngay trước khi cấu hình Hyperdrive:
+
+   ```sql
+   SELECT
+     has_database_privilege('rwa-user', current_database(), 'CONNECT') AS can_connect,
+     has_database_privilege('rwa-user', current_database(), 'CREATE') AS can_create_schema,
+     has_schema_privilege('rwa-user', 'public', 'USAGE') AS can_use_public,
+     has_schema_privilege('rwa-user', 'public', 'CREATE') AS can_create_in_public;
+   ```
+
+   Bốn cột phải là `true`. Nên dùng database trống để role này tự tạo toàn bộ bảng. Nếu bảng đã
+   được role khác tạo, `GRANT` không cấp được quyền `ALTER TABLE`; phải chuyển ownership từng object
+   sau khi rà soát hoặc tạo database trống mới, không cấp quyền rộng mù quáng.
+3. Mở **Connection Details**, chọn đúng branch, database và role vừa tạo. Sao chép chuỗi **Direct
    connection** (không chọn pooled connection).
-3. Cloudflare Dashboard → **Storage & Databases → Hyperdrive → Create configuration**; dán chuỗi
+4. Cloudflare Dashboard → **Storage & Databases → Hyperdrive → Create configuration**; dán chuỗi
    Neon, tạo cấu hình.
-4. Mở cấu hình vừa tạo. Chuỗi 32 ký tự hiển thị ở trường **ID** là Hyperdrive ID; đây không phải
+5. Mở cấu hình vừa tạo. Chuỗi 32 ký tự hiển thị ở trường **ID** là Hyperdrive ID; đây không phải
    secret. Có thể đối chiếu bằng:
 
    ```bash
@@ -123,11 +145,22 @@ Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi
    npx wrangler hyperdrive list
    ```
 
-5. Điền ID vào `app/wrangler.json`, binding phải tên `HYPERDRIVE`. Repo hiện dùng
+6. Điền ID vào `app/wrangler.json`, binding phải tên `HYPERDRIVE`. Repo hiện dùng
    `bf7828b9f4bb42de9f65123d0f00e4a3`. Không điền Neon URL vào tệp này.
-6. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true`; signer và RPC
-   có API key đặt dạng **Secret** trên đúng Worker. Build/deploy lại từ `dev`.
-7. Kiểm sau deploy: Giao dịch viên lập một yêu cầu, Kiểm soát viên duyệt trong lượt/trình duyệt khác,
+7. Kiểm metadata và xác nhận host **không có** hậu tố `-pooler`:
+
+   ```bash
+   cd app
+   npx wrangler hyperdrive get bf7828b9f4bb42de9f65123d0f00e4a3
+   ```
+
+   Hyperdrive đã giữ pool; trỏ tiếp vào Neon pooled endpoint làm pooler chồng pooler và có thể treo
+   truy vấn. Nếu lỡ chọn pooled URL, cập nhật lại bằng Direct hostname + cổng 5432.
+8. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và
+   `keep_vars=true`; signer/RPC có API key đặt dạng **Secret** trên đúng Worker. `keep_vars` chặn
+   `wrangler deploy` xoá các biến đặt trên Dashboard. Nếu deploy in cảnh báo sẽ ghi đè/xoá RPC hoặc
+   signer, dừng lại và sửa cấu hình trước.
+9. Kiểm sau deploy: Giao dịch viên lập một yêu cầu, Kiểm soát viên duyệt trong lượt/trình duyệt khác,
    đóng rồi mở lại trang chi tiết. Trạng thái và lịch sử phải còn.
 
 Chạy Worker local với Postgres thường (không chạm Neon):
@@ -315,6 +348,8 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Lệnh ở **Đang xử lý** nhưng không có mã giao dịch | Không bấm hay gọi lại đường phát giao dịch. Giao dịch có thể đã lên chuỗi; màn Vận hành sẽ hiện **Cần đối soát tay**. |
 | Hai trình duyệt thấy dữ liệu khác nhau sau deploy serverless | Memory DB/mock ledger gắn với từng tiến trình. Demo nhiều người ổn định phải dùng một instance hoặc Postgres/chain dùng chung. |
+| `permission denied for schema public` trên Neon | Role của Hyperdrive thiếu `USAGE, CREATE` hoặc không sở hữu schema/object. Chạy khối cấp và kiểm quyền ở mục 1.2 bằng database owner; với DB đã có bảng do role khác tạo, xử lý ownership trước. |
+| “Đang đọc thông tin token…” quá 15 giây trên Worker | Kiểm Hyperdrive có dùng Neon **Direct hostname** (không `-pooler`), quyền DB đủ và bản deploy có đường kiểm catalog OP-06. Giao diện mới phải kết thúc loading bằng thông báo quá hạn thay vì quay mãi. |
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
 ## 9. Chuyển sang môi trường thật
