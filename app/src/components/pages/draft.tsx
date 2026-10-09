@@ -10,7 +10,7 @@ import { RequestCheckBlock } from '@/components/maker-checker/request-check-bloc
 import { RequestTable } from '@/components/maker-checker/request-table';
 import { INPUT_CLASS, StatCard } from '@/components/maker-checker/stat-card';
 import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
-import { fetchTokenInfo, TokenInfoTimeoutError } from '@/components/maker-checker/token-info-read';
+import { fetchTokenInfo, tokenInfoReadErrorMessage } from '@/components/maker-checker/token-info-read';
 import {
   BURN_SOURCE_LABELS,
   burnSourceEffect,
@@ -250,9 +250,7 @@ function RequestForm({
           setLoadedInfo({
             key: infoKey, revision: lookupRevision,
             data: null,
-            error: `${error instanceof TokenInfoTimeoutError
-              ? 'Không đọc được thông tin token sau 15 giây.'
-              : 'Không kết nối được máy chủ để đọc thông tin token.'} Vui lòng thử lại. Mã tra cứu: ${readId}`,
+            error: tokenInfoReadErrorMessage(error, readId),
           });
         });
     }, LOOKUP_DEBOUNCE_MS);
