@@ -42,6 +42,25 @@ import type { TokenRequestRecord, TokenRequestType } from '@/lib/store/token-req
 /** Chờ người dùng gõ xong rồi mới hỏi máy chủ — không thì mỗi ký tự là một lượt gọi. */
 const LOOKUP_DEBOUNCE_MS = 300;
 
+/** Một phép đọc bị kẹt không được giữ giao diện ở trạng thái loading vô hạn. */
+const READ_TIMEOUT_MS = 15_000;
+
+function withReadTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('READ_TIMEOUT')), READ_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 /** Số dòng mỗi bảng "yêu cầu đã lập". */
 const MY_REQUESTS_LIMIT = 50;
 
@@ -66,24 +85,38 @@ export function DraftPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([
-      getDraftStatsAction(),
-      listTokenRequestsAction({ mine: true, type: 'MINT', limit: MY_REQUESTS_LIMIT }),
-      listTokenRequestsAction({ mine: true, type: 'BURN', limit: MY_REQUESTS_LIMIT }),
-    ]).then(([statsResult, mintResult, burnResult]) => {
-      if (cancelled) return;
-      setStats(
-        statsResult.ok
-          ? { key: revision, data: statsResult.data, error: null }
-          : { key: revision, data: null, error: statsResult.error },
-      );
-      setMine({
-        key: revision,
-        mint: mintResult.ok ? mintResult.data : [],
-        burn: burnResult.ok ? burnResult.data : [],
-        error: !mintResult.ok ? mintResult.error : !burnResult.ok ? burnResult.error : null,
+    void withReadTimeout(
+      Promise.all([
+        getDraftStatsAction(),
+        listTokenRequestsAction({ mine: true, type: 'MINT', limit: MY_REQUESTS_LIMIT }),
+        listTokenRequestsAction({ mine: true, type: 'BURN', limit: MY_REQUESTS_LIMIT }),
+      ]),
+    )
+      .then(([statsResult, mintResult, burnResult]) => {
+        if (cancelled) return;
+        setStats(
+          statsResult.ok
+            ? { key: revision, data: statsResult.data, error: null }
+            : { key: revision, data: null, error: statsResult.error },
+        );
+        setMine({
+          key: revision,
+          mint: mintResult.ok ? mintResult.data : [],
+          burn: burnResult.ok ? burnResult.data : [],
+          error: !mintResult.ok ? mintResult.error : !burnResult.ok ? burnResult.error : null,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const message = 'Không đọc được dữ liệu từ máy chủ sau 15 giây. Vui lòng thử tải lại trang.';
+        setStats({ key: revision, data: null, error: message });
+        setMine({
+          key: revision,
+          mint: [],
+          burn: [],
+          error: message,
+        });
       });
-    });
     return () => {
       cancelled = true;
     };
@@ -195,14 +228,23 @@ function RequestForm({
     const [keyChain, keySymbol] = infoKey.split('|');
     let cancelled = false;
     const timer = setTimeout(() => {
-      void getTokenInfoAction({ chain: keyChain, tokenSymbol: keySymbol }).then((result) => {
-        if (cancelled) return;
-        setLoadedInfo(
-          result.ok
-            ? { key: infoKey, data: result.data, error: null }
-            : { key: infoKey, data: null, error: result.error },
-        );
-      });
+      void withReadTimeout(getTokenInfoAction({ chain: keyChain, tokenSymbol: keySymbol }))
+        .then((result) => {
+          if (cancelled) return;
+          setLoadedInfo(
+            result.ok
+              ? { key: infoKey, data: result.data, error: null }
+              : { key: infoKey, data: null, error: result.error },
+          );
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setLoadedInfo({
+            key: infoKey,
+            data: null,
+            error: 'Không đọc được thông tin token sau 15 giây. Vui lòng thử lại.',
+          });
+        });
     }, LOOKUP_DEBOUNCE_MS);
     return () => {
       cancelled = true;
