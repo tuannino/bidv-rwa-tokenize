@@ -47,14 +47,14 @@ flowchart TD
 | Bước | Tệp | Hàm | Việc |
 |---|---|---|---|
 | 1 | `app/src/app/actions/bank.ts:40` | `issueInitialSupplyAction()` | nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service |
-| 2 | `app/src/lib/bank/issuance.service.ts:351` | `issueInitialSupply()` | validate, kiểm hai lớp chặn dữ liệu thử (quyền demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT), đọc trần phát hành từ bảng dự án |
-| 3 | `app/src/lib/bank/issuance.service.ts:253` | `pending()` | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint |
-| 4 | `app/src/lib/bank/issuance.service.ts:76` | `saved()` | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận |
-| 5 | `app/src/lib/bank/issuance.service.ts:91` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
-| 6 | `app/src/lib/bank/issuance.service.ts:284` | `marked()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
-| 7 | `app/src/lib/bank/issuance.service.ts:313` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
+| 2 | `app/src/lib/bank/issuance.service.ts:355` | `issueInitialSupply()` | validate, kiểm hai lớp chặn dữ liệu thử (quyền demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT), đọc trần phát hành từ bảng dự án |
+| 3 | `app/src/lib/bank/issuance.service.ts:257` | `pending()` | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint |
+| 4 | `app/src/lib/bank/issuance.service.ts:78` | `saved()` | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận |
+| 5 | `app/src/lib/bank/issuance.service.ts:93` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
+| 6 | `app/src/lib/bank/issuance.service.ts:288` | `marked()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
+| 7 | `app/src/lib/bank/issuance.service.ts:317` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
 | 8 | `app/src/app/actions/bank.ts:48` | `issuanceStatusAction()` | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service |
-| 9 | `app/src/lib/bank/issuance.service.ts:412` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
+| 9 | `app/src/lib/bank/issuance.service.ts:416` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
 
 ## Điểm cắm trên đường đi
 

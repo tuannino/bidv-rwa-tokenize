@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { readStep } from '@/lib/diagnostics/read-trace';
+
 import type { ChainKey, TxResult, TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
@@ -105,7 +107,7 @@ export async function remainingIssuanceCap(
   project: ProjectRecord,
 ): Promise<{ cap: bigint; supply: bigint; remaining: bigint }> {
   const cap = BigInt(project.totalSupply);
-  const { totalSupply: supply } = await getLedger(chain).tokenInfo();
+  const { totalSupply: supply } = await readStep('rpc.tokenInfo', () => getLedger(chain).tokenInfo());
   return { cap, supply, remaining: supply >= cap ? 0n : cap - supply };
 }
 
@@ -130,13 +132,15 @@ export interface SupplyMetrics {
  * hàm này; giao diện chỉ hiển thị. Từ FE-22 khối kiểm tra Burn và khối thông tin token của
  * `token-request.service.ts` cũng gọi thẳng hàm này, không còn công thức thứ hai.
  */
-export async function readSupplyMetrics(chain: ChainKey, project: ProjectRecord): Promise<SupplyMetrics> {
+export async function readSupplyMetrics(
+  chain: ChainKey, project: ProjectRecord, spvRead?: Promise<string | null>,
+): Promise<SupplyMetrics> {
   const ledger = getLedger(chain);
   const [{ cap, supply, remaining }, spv] = await Promise.all([
     remainingIssuanceCap(chain, project),
-    ledger.spvWallet(),
+    spvRead ?? readStep('rpc.spv', () => ledger.spvWallet()),
   ]);
-  const undistributed = spv ? await ledger.balanceOf(spv) : 0n;
+  const undistributed = spv ? await readStep('rpc.balance', () => ledger.balanceOf(spv)) : 0n;
   return {
     cap: cap.toString(),
     remaining: remaining.toString(),

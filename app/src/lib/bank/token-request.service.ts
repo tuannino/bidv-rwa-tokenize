@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { readStep } from '@/lib/diagnostics/read-trace';
+
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
@@ -722,15 +724,16 @@ export async function getTokenInfo(input: unknown): Promise<Result<TokenInfoView
 
 /** Phần đọc của `getTokenInfo`, không kiểm quyền — dùng lại cho màn chi tiết. */
 async function readTokenInfo(chain: ChainKey, tokenSymbol: string): Promise<TokenInfoView> {
-  const project = await getProjectStore().findProject({ tokenSymbol, chain });
+  const project = await readStep('project.lookup', () => getProjectStore().findProject({ tokenSymbol, chain }));
   if (!project) {
     throw new TokenInfoNotFoundError(`Chưa có dự án "${tokenSymbol}" trên chuỗi "${chain}".`);
   }
   // Năm chỉ tiêu nguồn cung đọc qua `readSupplyMetrics` (FE-21) — một chỗ tính cho màn Người bán,
   // khối kiểm tra Burn và khối này, nên ba nơi không thể ra hai con số khác nhau.
+  const spvRead = readStep('rpc.spv', () => getLedger(chain).spvWallet());
   const [metrics, spv] = await Promise.all([
-    readSupplyMetrics(chain, project),
-    getLedger(chain).spvWallet(),
+    readSupplyMetrics(chain, project, spvRead),
+    spvRead,
   ]);
   return {
     chain,

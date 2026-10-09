@@ -30,7 +30,8 @@ Commit: `feat(op-06): nhúng lược đồ init.sql vào mã, bỏ đọc tệp 
 
 ## Bước 2: Kết nối mỗi lời gọi một Client (QĐ-1, QĐ-2)
 
-Sửa `holder()`: không giữ `Pool`; giữ lời hứa `schemaReady` một lần mỗi tiến trình và xoá khi lỗi.
+Sửa `holder()`: không giữ `Pool`; theo QĐ-3 cập nhật 09/10, chỉ cache khởi tạo đã hoàn tất theo
+chuỗi kết nối, không giữ Promise đang chạy. Lỗi không xoá thành công của lượt khác.
 Hàm lấy chuỗi kết nối theo QĐ-2. `pgQuery`, `pgTransaction` mở và đóng `Client` trong `try/finally`.
 Đóng `Client` cả khi truy vấn lỗi. Chạy lại bộ ràng buộc, ghi thời gian sau; quá 2 lần thì dừng hỏi.
 
@@ -81,3 +82,26 @@ node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP06.md docs/op-06-cloudflare-
 
 Việc 9 trên bản deploy. Ghi kết quả vào checkpoint bằng một commit bổ sung, điều kiện 7 chuyển ✅,
 `OP-06` sang `done`. Hỏng thì ghi nguyên văn lỗi, giữ `inProgress`, báo Supervisor.
+
+
+## Bổ sung Owner ngày 09/10/2026: timeout trên giao diện
+
+Owner cho phép tiếp tục commit/debug trên `ops/06-cloudflare-db` và thu thông tin để xử lý timeout.
+Tra cứu token được tách khỏi hàng chờ Server Actions bằng GET, giữ service kiểm quyền; hủy fetch
+cũ, báo đúng timeout/lỗi mạng và cho thử lại giữ biểu mẫu. Trace chỉ ghi id, bước, thời gian,
+SQLSTATE; không ghi URL/SQL/payload/bí mật. Một lượt đọc dùng chung kết quả SPV.
+Tác động bổ sung: `draft.tsx`, `token-info-read.ts`, `api/token-info/route.ts`,
+`diagnostics/read-trace.ts`, config và các điểm đọc DB/RPC trong service/store.
+Kiểm chức năng client/route, giao diện chỉ đọc, PostgreSQL thật và build Worker local.
+Giữ điều kiện hoàn thành gốc; chưa đóng task khi chưa có bằng chứng deploy mới.
+Bằng chứng ở checkpoint mục 6 và `CHECKPOINT_OP06_TIMEOUT_DETAIL.md`.
+
+
+### Bổ sung VĐ-45 được Owner duyệt ngày 09/10/2026
+
+Bỏ Promise khởi tạo dùng chung, chỉ ghi nhớ thành công sau COMMIT/đóng Client. Giả lập `pg` trong
+kiểm thử để giữ A chưa xong và cho B hoàn tất độc lập; không thêm env hay nhánh code test vào
+production. Kiểm lỗi/retry, A lỗi muộn, cache theo connection string và trace `db.schema.verify`.
+Đột biến khôi phục Promise chung phải đỏ; hoàn nguyên rồi kiểm xanh, Postgres thật và bộ mặc định.
+Cập nhật QĐ-3, guide, tech-report, checkpoint và PR #47. Bàn giao ghi rõ giảm rủi ro lan lỗi giữa
+request, chưa xác nhận đã hết timeout. Giữ log bật tới khi có số đo production; OP-06 vẫn inProgress.

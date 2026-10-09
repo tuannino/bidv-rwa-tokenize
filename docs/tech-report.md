@@ -9,13 +9,22 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.7 |
+| Phiên bản tài liệu | 4.9 |
 | Cập nhật lần cuối | 2026-10-09 |
 | Nhánh / commit | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1`; checkpoint `docs/CHECKPOINT_OP06.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
 | Đang thực hiện | **OP-06** — mã và kiểm Worker local đã xong; chờ merge rồi kiểm bản Cloudflare/Neon để đóng điều kiện deploy |
 | Phase kế tiếp | **OP-05** — công việc testnet kế tiếp theo kế hoạch đợt 5 |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.8 → 4.9 (OP-06, VĐ-45).** Postgres chỉ cache trạng thái khởi tạo đã hoàn tất theo chuỗi
+kết nối, không cache Promise/I/O đang chạy. Lượt chưa có thành công dùng Client riêng; lỗi muộn
+không xóa thành công của lượt khác. Giữ transaction, khóa tư vấn và seed. `db.schema.verify` đo
+trọn lượt khởi tạo thực tế, không phát log verify cho cache hit. Kiểm thử giả lập pg giữ A chưa xong,
+B vẫn đọc được; khôi phục Promise chung làm ca này đỏ. Đây là giảm rủi ro lan lỗi giữa request,
+chưa xác nhận đã hết timeout; giữ cờ nhật ký bật đến khi có số đo production.
+
+**4.7 → 4.8 (OP-06, xử lý timeout đọc WPT).** Lập lệnh dùng GET `api/token-info` thay Server Action để không đợi hàng chờ đọc khác. Giữ quyền/schema ở service, trả no-store và mã tra cứu. Helper client hủy fetch khi đổi nội dung, phân biệt timeout/lỗi mạng, có thử lại không làm mất biểu mẫu. Dùng chung một phép đọc SPV trong cùng lượt lấy chỉ tiêu để tránh RPC lặp. `diagnostics/read-trace.ts` dùng AsyncLocalStorage chỉ cho metadata log, không giữ client I/O; đo connect/schema/query/close và RPC theo request. `ENABLE_READ_DIAGNOSTICS` mặc định tắt, bật tạm trong Wrangler cho debug. Không log URL/SQL/payload/error.message. Chưa xác nhận lỗi production hết trước khi deploy/đo lại. ESLint bỏ cache sinh `.wrangler` để không quét bundle Worker local.
 
 **4.6 → 4.7 (OP-06).** Bản Cloudflare chuyển dữ liệu nghiệp vụ từ RAM theo isolate sang PostgreSQL
 qua Hyperdrive. Worker lấy binding `HYPERDRIVE`, Node/Docker lùi về `DATABASE_URL`; mỗi lời gọi mở và
@@ -350,6 +359,7 @@ bidv-rwa-tokenize/
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── scripts/local-proxy.mjs # OP-04: bootstrap fetch qua proxy, chỉ Node local
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
+│   │   └── diagnostics/read-trace.ts # OP-06: thời gian DB/RPC theo request
 │   │   └── store/configured-seed-data.ts # OP-04: đăng ký Sepolia khi bật cờ
 │   ├── e2e/                   # Playwright
 │   ├── test/                  # Vitest
@@ -409,6 +419,8 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 `.kiro/steering/` — đường dẫn đó không tồn tại.
 
 ## 1.5. Hai chế độ chạy
+
+OP-06 debug bật `ENABLE_READ_DIAGNOSTICS=true` ở Node hoặc Wrangler runtime; mặc định env.ts tắt. Thu trace GET token-info bằng mã tra cứu và tắt cờ sau đo, không import module trace vào client.
 
 | Chế độ | Lệnh | Chain | DB | Dùng khi |
 |---|---|---|---|---|
@@ -1184,7 +1196,10 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
 | `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
 | `store/memory.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản RAM cho demo local nhanh; không bền qua Worker isolate. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
-| `store/postgres.pool.ts` | OP-06: `pg.Client` theo từng lời gọi/transaction, ưu tiên Hyperdrive rồi `DATABASE_URL`; `ensureSchema` dùng SQL nhúng và lời hứa theo connection string. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
+| `diagnostics/read-trace.ts` | OP-06: metadata trace theo request bằng AsyncLocalStorage; chỉ bước/thời gian/SQLSTATE, không log endpoint/payload | `traceRead`, `readStep` |
+| `app/api/token-info/route.ts` | GET thông tin WPT, gọi service có kiểm quyền, no-store; X-Read-Id và Server-Timing | `GET` |
+| `components/maker-checker/token-info-read.ts` | Fetch GET độc lập hàng chờ action, timeout/hủy lượt cũ; không gọi thao tác ghi | `fetchTokenInfo`, `TokenInfoTimeoutError`, `TOKEN_INFO_TIMEOUT_MS` |
+| `store/postgres.pool.ts` | OP-06: `pg.Client` theo từng lời gọi/transaction, ưu tiên Hyperdrive rồi `DATABASE_URL`; `ensureSchema` dùng SQL nhúng, chỉ cache thành công theo connection string; không giữ Promise đang chạy. `db.schema.verify` đo mỗi lượt thực sự khởi tạo. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
 | `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
 | `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
@@ -1271,6 +1286,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | `USE_MOCK_DB` | `true` trong mã; `false` ở Worker | `true` = dữ liệu nghiệp vụ trong RAM; `false` = Postgres qua binding Hyperdrive hoặc `DATABASE_URL` |
 | `ENABLE_DEMO_PAYMENT_MINT` | **`true`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định để demo trọn luồng. Production **bắt buộc** ghi đè `false` |
 | `ENABLE_DEMO_TOKEN_MINT` (FE-22) | **`false`** | Cho phát hành WPT **trực tiếp**, không qua lập–duyệt (màn `/mint`, `POST /api/mint`, `issueInitialSupply`) — **chỉ môi trường thử**. Bật trên môi trường thật là mở lại đường đi vòng qua Kiểm soát viên |
+| `ENABLE_READ_DIAGNOSTICS` (OP-06) | **`false`** | Log bước/thời gian đọc; Wrangler bật tạm true để debug, tắt sau khi đo |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` (OP-04) | **`false`** | Đăng ký WPT DRAFT trên `evm` đã deploy, không mint. Cùng dữ liệu cho memory/Postgres |
 | `DEMO_ACTOR` (BE-12) | trống | Mã tài khoản giả lập ghi vào người lập / người duyệt. Trống = mã mẫu của vai (`SAMPLE_ACCOUNTS` ở `lib/session/channel.ts`). **Không phải xác thực** — AU-01 thay |
 

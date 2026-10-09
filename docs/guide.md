@@ -154,8 +154,9 @@ Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi
    npx wrangler hyperdrive get bf7828b9f4bb42de9f65123d0f00e4a3
    ```
 
-   Hyperdrive đã giữ pool; trỏ tiếp vào Neon pooled endpoint làm pooler chồng pooler và có thể treo
-   truy vấn. Nếu lỡ chọn pooled URL, cập nhật lại bằng Direct hostname + cổng 5432.
+   Hyperdrive đã giữ pool; Cloudflare/Neon khuyến nghị dùng Direct endpoint và không chồng thêm
+   Neon pooler. Đây là cấu hình nên sửa, chưa phải bằng chứng riêng rằng pooler gây treo.
+   Nếu lỡ chọn pooled URL, cập nhật lại bằng Direct hostname + cổng 5432.
 8. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và
    `keep_vars=true`; signer/RPC có API key đặt dạng **Secret** trên đúng Worker. `keep_vars` chặn
    `wrangler deploy` xoá các biến đặt trên Dashboard. Nếu deploy in cảnh báo sẽ ghi đè/xoá RPC hoặc
@@ -370,3 +371,39 @@ USE_MOCK_DB=false
 Sau đó cấu hình `DATABASE_URL`, signer/RPC theo chain, thay `DEMO_ROLE` và cookie PoC bằng phiên xác
 thực (AU-01). SC-02 đã hoàn tất và Mint/Burn Sepolia đã được kiểm chứng local trong OP-04;
 mua/bán trên Sepolia vẫn cần SC-03. Các kết quả testnet này chưa thay thế nghiệm thu production.
+
+
+## 10. Chẩn đoán lượt đọc WPT chậm (bổ sung OP-06)
+
+Màn Lập lệnh tra cứu qua `GET /api/token-info?chain=evm&tokenSymbol=WPT`, độc lập với hàng chờ
+Server Actions của danh sách yêu cầu. GET giữ nguyên quyền `ops:read` và không cache kết quả.
+Đổi token/chain hoặc rời màn hình sẽ hủy fetch cũ. Khi hết 15 giây, màn hình báo timeout; lỗi mạng
+được báo riêng. Bấm **Thử đọc lại thông tin token** để tải lại dữ liệu, không tự gửi lại Mint/Burn.
+Mã tra cứu trong thông báo lỗi dùng để đối chiếu log; biểu mẫu vẫn giữ nguyên.
+
+Trong thời gian debug, `app/wrangler.json` bật `ENABLE_READ_DIAGNOSTICS=true`. Node local có thể
+đặt cờ này trong `.env.local`. Log JSON có `event=op06.read`, `id`, `stage`, `state`, `ms`, `elapsedMs`:
+
+| Bước | Cần kiểm khi chậm |
+|---|---|
+| `db.connect` | Binding, endpoint Direct, TLS/kết nối origin |
+| `db.schema.verify` | Tổng thời gian một lượt thực sự khởi tạo (Client, transaction, catalog, seed/DDL, đóng Client); đếm `start` theo id để thấy các lượt cùng khởi động. Cache hit không có bước này |
+| `db.schema.catalog`, `db.schema.lock`, `db.schema.ddl`, `db.schema.seed` | Khởi tạo schema/seed, chờ lock hoặc cold start |
+| `db.query`, `project.lookup` | Truy vấn Project và tổng thời gian đường Postgres |
+| `rpc.tokenInfo`, `rpc.spv`, `rpc.balance` | RPC Sepolia, gồm các lời gọi metadata và số dư |
+| `request` | Tổng thời gian server; so với `Server-Timing`/thời gian Network ở trình duyệt |
+
+`state=ok` nghĩa bước đã trả về, không thay receipt hay nghiệm thu giao dịch. Log không chứa SQL,
+tham số, kết quả DB, URL hay error.message. Chỉ SQLSTATE chuẩn được ghi nếu có lỗi PostgreSQL.
+Giữ cờ nhật ký bật tới khi có số đo từ production. Sau khi hết timeout và nghiệm thu Mint/Burn/lịch
+sử bền, đổi cờ trong Wrangler thành `false` rồi deploy để giảm lượng log.
+
+Để thu thập trên Cloudflare, mở Worker Logs hoặc `wrangler tail`, lọc `op06.read` theo mã tra cứu.
+Ghi phiên bản `/api/version`, thời gian, mã tra cứu và các dòng trace. Nếu UI timeout mà server vẫn
+đang chạy, bước cuối có `start` chưa có `ok/error` giúp định vị điểm chờ. Hủy fetch ở trình duyệt
+không bảo đảm hủy SQL/RPC backend; backend vẫn dùng timeout của driver. Không gửi khóa/chuỗi kết nối.
+
+Bổ sung VĐ-45: Worker chỉ ghi nhớ khởi tạo đã hoàn tất; request chưa có trạng thái thành công dùng
+Client riêng, không chờ Promise khởi tạo của request khác. Đây là giảm rủi ro lan lỗi giữa request,
+chưa xác nhận đã hết timeout. Nhiều lượt khởi tạo vẫn có thể chờ cùng khóa DB; đối chiếu các bước
+`verify`, `lock`, `seed` thay vì coi mọi lượt trùng là lỗi.
