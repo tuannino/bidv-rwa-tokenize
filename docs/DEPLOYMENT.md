@@ -79,6 +79,7 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
 | `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | `app/wrangler.json` → `vars` | nguồn duy nhất của biến runtime không bí mật |
+| `ENABLE_READ_DIAGNOSTICS` | Worker runtime variable, nguồn `wrangler.json` | OP-06 bật tạm `true` để log thời gian đường đọc WPT, tắt sau khi chẩn đoán |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`: đăng ký WPT Sepolia đã deploy |
 | `USE_MOCK_DB` | `app/wrangler.json` | `false`: dữ liệu nghiệp vụ dùng Postgres qua Hyperdrive |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |

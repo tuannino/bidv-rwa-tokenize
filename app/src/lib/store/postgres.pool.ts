@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { Client, type ClientBase } from 'pg';
+import { readStep } from '@/lib/diagnostics/read-trace';
 import { serverEnv } from '@/lib/config/env';
 import { configuredProjectSeeds } from './configured-seed-data';
 import { INIT_SQL } from './init-sql.generated';
@@ -79,11 +80,11 @@ async function withClient<T>(
   });
   let connected = false;
   try {
-    await client.connect();
+    await readStep('db.connect', () => client.connect());
     connected = true;
     return await body(client);
   } finally {
-    if (connected) await client.end();
+    if (connected) await readStep('db.close', () => client.end());
   }
 }
 
@@ -352,16 +353,16 @@ export async function seedInitialData(client: ClientBase): Promise<void> {
 async function ensureSchema(client: ClientBase): Promise<void> {
   try {
     await client.query('BEGIN');
-    if (!(await schemaObjectsReady(client))) {
-      await client.query('SELECT pg_advisory_xact_lock(918273645)');
+    if (!(await readStep('db.schema.catalog', () => schemaObjectsReady(client)))) {
+      await readStep('db.schema.lock', () => client.query('SELECT pg_advisory_xact_lock(918273645)'));
       // Isolate khác có thể đã hoàn tất trong lúc ta chờ khoá; đọc lại trước khi chạy DDL.
-      if (!(await schemaObjectsReady(client))) {
-        await addMissingColumns(client);
-        await applyInitSql(client, INIT_SQL);
-        await migrateTimestampColumns(client);
+      if (!(await readStep('db.schema.catalog', () => schemaObjectsReady(client)))) {
+        await readStep('db.schema.columns', () => addMissingColumns(client));
+        await readStep('db.schema.ddl', () => applyInitSql(client, INIT_SQL));
+        await readStep('db.schema.timestamps', () => migrateTimestampColumns(client));
       }
     }
-    await seedInitialData(client);
+    await readStep('db.schema.seed', () => seedInitialData(client));
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -378,9 +379,9 @@ export type PgQuery = <T extends object>(sql: string, params?: unknown[]) => Pro
 
 export const pgQuery: PgQuery = async <T extends object>(sql: string, params: unknown[] = []) => {
   const databaseUrl = connectionString();
-  await ensureSchemaReady(databaseUrl);
+  await readStep('db.schema.wait', () => ensureSchemaReady(databaseUrl));
   return withClient(databaseUrl, async (client) => {
-    const result = await client.query<T>(sql, params);
+    const result = await readStep('db.query', () => client.query<T>(sql, params));
     return result.rows;
   });
 };
@@ -404,7 +405,7 @@ export const pgTransaction: PgTransaction = async <T>(
   body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
 ): Promise<T> => {
   const databaseUrl = connectionString();
-  await ensureSchemaReady(databaseUrl);
+  await readStep('db.schema.wait', () => ensureSchemaReady(databaseUrl));
   return withClient(databaseUrl, async (client) => {
     try {
       await client.query('BEGIN');

@@ -6,7 +6,7 @@
 | Nhánh | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1` |
 | Spec | `docs/op-06-cloudflare-db/{requirements,tasks}.md` |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Mã/local xong; đọc DB + WPT trên Cloudflare/Neon đã xanh, còn nghiệm thu Mint/Burn bền |
+| Tiến độ | Bổ sung sửa timeout GET/trace đã kiểm local; cần deploy lại và nghiệm thu Mint/Burn bền |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -20,10 +20,10 @@
 | 4 | Seed cập nhật địa chỉ đúng QĐ-6 trên Postgres thật | ✅ | mục 2.4 |
 | 5 | `wrangler.json` có cấu hình và ID Hyperdrive thật | ✅ | mục 3.1 |
 | 6 | Worker local lập–duyệt bền qua restart, không lỗi I/O | ✅ | mục 3.2 |
-| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | 🔶 | mục 4 |
+| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | 🔶 | mục 4, 6 |
 | 8 | Runbook đủ ba nhà cung cấp, V3, giới hạn mock/DB | ✅ | mục 3.3 |
 | 9 | Danh sách nhà máy đổi đúng, số liệu giữ nguyên | ✅ | mục 3.4 |
-| 10 | Bộ mặc định/Postgres xanh, không lộ bí mật | ✅ | mục 5 |
+| 10 | Bộ mặc định/Postgres xanh, không lộ bí mật | ✅ | mục 5, 6 |
 
 **Kết luận:** 9 ✅ · 1 🔶 · 0 ❌. Giữ OP-06 ở `inProgress` đến kiểm sau merge.
 
@@ -238,3 +238,27 @@ Tests       187 passed (187)
 Hai kết quả quét là tài khoản `bidv:bidv` của PostgreSQL **local** theo đúng spec: một dòng lệnh test
 trong checkpoint và `localConnectionString` bắt buộc của Wrangler. Không có hostname ngoài máy,
 khóa riêng, RPC API key, chuỗi Neon hay SDK nhà cung cấp trong lịch sử nhánh.
+
+
+## 6. Bổ sung xử lý timeout giao diện — 09/10/2026
+
+Theo chỉ định Owner, tiếp tục commit/debug trên cùng nhánh `ops/06-cloudflare-db` sau PR #46.
+Phạm vi bổ sung: GET chỉ đọc qua service kiểm quyền, hủy fetch cũ, thử lại giữ biểu mẫu,
+phân biệt timeout/lỗi mạng, dùng chung phép đọc SPV và trace thời gian DB/schema/RPC.
+`ENABLE_READ_DIAGNOSTICS` mặc định false, Wrangler bật tạm true; tắt sau khi thu đủ log.
+Không thay đường lập/duyệt lệnh, signer, adapter, hợp đồng hoặc quy tắc Mint/Burn.
+
+Bằng chứng nguyên văn và mã thoát: [CHECKPOINT_OP06_TIMEOUT_DETAIL.md](CHECKPOINT_OP06_TIMEOUT_DETAIL.md)
+mục 1–5. Bộ mặc định xanh, PostgreSQL thật và hai ca giao diện chỉ đọc xanh; Worker local
+đọc qua Hyperdrive tới PostgreSQL tạm được HTTP 200. Node đọc Sepolia được HTTP 200.
+Các phép đo local không đại diện độ trễ Neon production.
+
+Sai lệch đã xử lý: sơ đồ `issue.md` lệch số dòng sau thêm trace, đã sinh lại bằng script.
+ESLint quét cache bundle `.wrangler` gây heap OOM sau kiểm Worker local; đã bỏ cache sinh ra
+khỏi ESLint như `.open-next`, rồi chạy lại bộ mặc định xanh. Chi tiết ở mục 5 của tệp bằng chứng.
+
+Chưa xác nhận timeout production hết. Sau review/merge, Workers Builds cần dựng bản mới;
+Owner thử WPT tại `/draft`, nếu lỗi gửi **Mã tra cứu** và log `op06.read` cùng id.
+`db.schema.wait`/`db.connect`/`db.query` lâu chỉ về DB; `rpc.*` lâu chỉ về RPC;
+không có `request/start` chỉ về lượt gọi chưa vào handler hoặc bản deploy cũ.
+Giữ điều kiện 7 ở 🔶 và OP-06 `inProgress` đến có bằng chứng deploy và Mint/Burn/lịch sử bền.

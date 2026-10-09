@@ -23,7 +23,8 @@
     "DEMO_ROLE": "TELLER",
     "ENABLE_DEMO_PAYMENT_MINT": "true",
     "ENABLE_DEMO_TOKEN_MINT": "false",
-    "ENABLE_SEPOLIA_DEMO_PROJECT": "true"
+    "ENABLE_SEPOLIA_DEMO_PROJECT": "true",
+    "ENABLE_READ_DIAGNOSTICS": "true"
   },
   "hyperdrive": [
     {

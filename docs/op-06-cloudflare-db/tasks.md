@@ -81,3 +81,16 @@ node scripts/check-checkpoint.mjs docs/CHECKPOINT_OP06.md docs/op-06-cloudflare-
 
 Việc 9 trên bản deploy. Ghi kết quả vào checkpoint bằng một commit bổ sung, điều kiện 7 chuyển ✅,
 `OP-06` sang `done`. Hỏng thì ghi nguyên văn lỗi, giữ `inProgress`, báo Supervisor.
+
+
+## Bổ sung Owner ngày 09/10/2026: timeout trên giao diện
+
+Owner cho phép tiếp tục commit/debug trên `ops/06-cloudflare-db` và thu thông tin để xử lý timeout.
+Tra cứu token được tách khỏi hàng chờ Server Actions bằng GET, giữ service kiểm quyền; hủy fetch
+cũ, báo đúng timeout/lỗi mạng và cho thử lại giữ biểu mẫu. Trace chỉ ghi id, bước, thời gian,
+SQLSTATE; không ghi URL/SQL/payload/bí mật. Một lượt đọc dùng chung kết quả SPV.
+Tác động bổ sung: `draft.tsx`, `token-info-read.ts`, `api/token-info/route.ts`,
+`diagnostics/read-trace.ts`, config và các điểm đọc DB/RPC trong service/store.
+Kiểm chức năng client/route, giao diện chỉ đọc, PostgreSQL thật và build Worker local.
+Giữ điều kiện hoàn thành gốc; chưa đóng task khi chưa có bằng chứng deploy mới.
+Bằng chứng ở checkpoint mục 6 và `CHECKPOINT_OP06_TIMEOUT_DETAIL.md`.

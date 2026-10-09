@@ -132,6 +132,8 @@ const envSchema = z.object({
 
   /** OP-04: đăng ký dự án Sepolia đã deploy; không tự phát hành token. */
   enableSepoliaDemoProject: boolFlag(false),
+  /** OP-06: log thời gian đọc, không log credential/SQL/payload. */
+  enableReadDiagnostics: boolFlag(false),
 
   /**
    * Khoá bí mật cho `POST /api/keeper/distribution` (BE-07).
@@ -182,6 +184,7 @@ function load(): ServerEnv {
     // Cùng lý do: không có biến thể NEXT_PUBLIC_.
     enableDemoTokenMint: process.env.ENABLE_DEMO_TOKEN_MINT,
     enableSepoliaDemoProject: process.env.ENABLE_SEPOLIA_DEMO_PROJECT,
+    enableReadDiagnostics: process.env.ENABLE_READ_DIAGNOSTICS,
     // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle
     // browser thì mọi người xem trang đều đọc được.
     keeperSecret: process.env.KEEPER_SECRET,

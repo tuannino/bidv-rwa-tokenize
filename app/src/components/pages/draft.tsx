@@ -10,6 +10,7 @@ import { RequestCheckBlock } from '@/components/maker-checker/request-check-bloc
 import { RequestTable } from '@/components/maker-checker/request-table';
 import { INPUT_CLASS, StatCard } from '@/components/maker-checker/stat-card';
 import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
+import { fetchTokenInfo, TokenInfoTimeoutError } from '@/components/maker-checker/token-info-read';
 import {
   BURN_SOURCE_LABELS,
   burnSourceEffect,
@@ -21,7 +22,6 @@ import {
 import {
   createTokenRequestAction,
   getDraftStatsAction,
-  getTokenInfoAction,
   listTokenRequestsAction,
   previewTokenRequestAction,
 } from '@/app/actions/token-request';
@@ -45,9 +45,11 @@ const LOOKUP_DEBOUNCE_MS = 300;
 /** Một phép đọc bị kẹt không được giữ giao diện ở trạng thái loading vô hạn. */
 const READ_TIMEOUT_MS = 15_000;
 
+class DraftReadTimeoutError extends Error {}
+
 function withReadTimeout<T>(promise: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error('READ_TIMEOUT')), READ_TIMEOUT_MS);
+    const timer = window.setTimeout(() => reject(new DraftReadTimeoutError()), READ_TIMEOUT_MS);
     promise.then(
       (value) => {
         window.clearTimeout(timer);
@@ -106,9 +108,11 @@ export function DraftPage() {
           error: !mintResult.ok ? mintResult.error : !burnResult.ok ? burnResult.error : null,
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled) return;
-        const message = 'Không đọc được dữ liệu từ máy chủ sau 15 giây. Vui lòng thử tải lại trang.';
+        const message = error instanceof DraftReadTimeoutError
+          ? 'Không đọc được dữ liệu từ máy chủ sau 15 giây. Vui lòng thử tải lại trang.'
+          : 'Không kết nối được máy chủ để đọc danh sách yêu cầu. Vui lòng thử tải lại trang.';
         setStats({ key: revision, data: null, error: message });
         setMine({
           key: revision,
@@ -217,8 +221,10 @@ function RequestForm({
 
   // ---- Khối thông tin token: tra theo ký hiệu đã gõ ----
   const infoKey = symbol.trim() ? `${chain}|${symbol.trim()}|${revision}` : null;
+  const [lookupRevision, setLookupRevision] = useState(0);
   const [loadedInfo, setLoadedInfo] = useState<{
     key: string;
+    revision: number;
     data: TokenInfoView | null;
     error: string | null;
   } | null>(null);
@@ -226,33 +232,38 @@ function RequestForm({
   useEffect(() => {
     if (!infoKey) return;
     const [keyChain, keySymbol] = infoKey.split('|');
+    const controller = new AbortController();
+    const readId = crypto.randomUUID();
     let cancelled = false;
     const timer = setTimeout(() => {
-      void withReadTimeout(getTokenInfoAction({ chain: keyChain, tokenSymbol: keySymbol }))
+      void fetchTokenInfo(keyChain, keySymbol, readId, controller.signal)
         .then((result) => {
           if (cancelled) return;
           setLoadedInfo(
             result.ok
-              ? { key: infoKey, data: result.data, error: null }
-              : { key: infoKey, data: null, error: result.error },
+              ? { key: infoKey, revision: lookupRevision, data: result.data, error: null }
+              : { key: infoKey, revision: lookupRevision, data: null, error: `${result.error} Mã tra cứu: ${readId}` },
           );
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (cancelled) return;
           setLoadedInfo({
-            key: infoKey,
+            key: infoKey, revision: lookupRevision,
             data: null,
-            error: 'Không đọc được thông tin token sau 15 giây. Vui lòng thử lại.',
+            error: `${error instanceof TokenInfoTimeoutError
+              ? 'Không đọc được thông tin token sau 15 giây.'
+              : 'Không kết nối được máy chủ để đọc thông tin token.'} Vui lòng thử lại. Mã tra cứu: ${readId}`,
           });
         });
     }, LOOKUP_DEBOUNCE_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      controller.abort();
     };
-  }, [infoKey]);
+  }, [infoKey, lookupRevision]);
 
-  const infoFresh = infoKey !== null && loadedInfo?.key === infoKey ? loadedInfo : null;
+  const infoFresh = infoKey !== null && loadedInfo?.key === infoKey && loadedInfo.revision === lookupRevision ? loadedInfo : null;
   const info = infoFresh?.data ?? null;
 
   /**
@@ -372,6 +383,11 @@ function RequestForm({
           error={infoFresh?.error ?? null}
           loading={infoKey !== null && infoFresh === null}
         />
+        {infoFresh?.error && (
+          <Button type="button" variant="outline" onClick={() => setLookupRevision((value) => value + 1)}>
+            Thử đọc lại thông tin token
+          </Button>
+        )}
 
         {type === 'MINT' ? (
           <Field
