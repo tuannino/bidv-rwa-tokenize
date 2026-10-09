@@ -6,7 +6,7 @@
 | Nhánh | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1` |
 | Spec | `docs/op-06-cloudflare-db/{requirements,tasks}.md` |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Mã và kiểm local xong; chờ merge rồi kiểm Cloudflare/Neon |
+| Tiến độ | Mã/local xong; đọc DB + WPT trên Cloudflare/Neon đã xanh, còn nghiệm thu Mint/Burn bền |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -119,7 +119,7 @@ seed chạy lại vẫn giữ địa chỉ đã khoá.
 
 ### 3.1 Cấu hình
 
-`app/wrangler.json` có `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true`, binding
+`app/wrangler.json` có `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true`, `keep_vars=true`, binding
 `HYPERDRIVE` ID `bf7828b9f4bb42de9f65123d0f00e4a3`, và `localConnectionString` chỉ tới localhost.
 `npm run cf:build` hoàn tất với `OpenNext build complete.`
 
@@ -153,8 +153,10 @@ Current Version ID: eeb4c80c-5bcf-4a62-934b-76e289dfb160
 Successfully deleted bidv-op06-v3-probe-20261009
 ```
 
-Kết luận: biến plain không có trong cấu hình mới bị mất. `DEPLOYMENT.md` vì vậy quy định
-`wrangler.json` là nguồn biến không bí mật; secret giữ ở dashboard. Runbook có Neon, Supabase Direct
+Kết luận: biến plain không có trong cấu hình mới bị mất. Lượt deploy production ngày 09/10 tái xác
+nhận cảnh báo này; đã rollback ngay về version có RPC/signer, thêm `keep_vars=true`, rồi deploy lại
+thành công mà không còn cảnh báo xoá biến. `DEPLOYMENT.md` vì vậy quy định `wrangler.json` là nguồn
+biến không bí mật; biến/secret Dashboard được giữ bởi `keep_vars`. Runbook có Neon, Supabase Direct
 connection, Postgres tự dựng qua Workers VPC/Tunnel, Postgres 13+/TLS/quyền tạo bảng, giới hạn
 100.000 query/ngày và `pg_dump`/`pg_restore`. `guide.md` ghi rõ cách lấy Hyperdrive ID.
 
@@ -164,11 +166,31 @@ connection, Postgres tự dựng qua Workers VPC/Tunnel, Postgres 13+/TLS/quyề
 (`WIND-NTH-03`, `WPT-NTH`), giữ mọi số liệu. Pháp nhân và seed đổi sang An Viên. Các chuỗi địa lý
 “Quảng Trị”/“Bạc Liêu” còn lại chỉ là gợi ý vùng `REGION_HINTS`, đúng spec.
 
-## 4. Kiểm bản deploy sau merge — đang chờ
+## 4. Kiểm bản deploy — đọc đã xanh, giao dịch đang chờ
 
-Điều kiện duy nhất còn 🔶. Không deploy nhánh tính năng trực tiếp lên Worker chung. Sau merge, Owner
-chạy theo `docs/TESTNET_SEPOLIA.md` và `docs/guide.md`; checkpoint bổ sung output/tx rồi mới chuyển
-OP-06 sang `done`.
+Ngày 09/10/2026, theo yêu cầu xử lý lỗi production, đã kiểm Worker chính với Neon + Hyperdrive:
+
+```text
+# trước sửa: action chỉ đọc Postgres, chưa gọi chain
+stats status=200 ttfb=66.479703s total=66.481805s
+
+# sau đường kiểm catalog, bản deploy version 8f05028f-2617-4dd6-b491-a47190757928
+stats status=200 ttfb=0.713155s total=0.713671s
+token status=200 ttfb=8.916898s total=8.917563s
+token2 status=200 ttfb=9.208451s total=9.209348s
+```
+
+Action token trả WPT/An Viên, contract `0xB8e9…6A02`, tổng cung `2700`, ví SPV
+`0x5a5B…c4fd` và đủ năm chỉ tiêu. Nguyên nhân 66 giây: mỗi isolate chạy lại hơn một trăm DDL +
+SAVEPOINT dù schema đã đủ. Bản sửa đối chiếu toàn bộ bảng/enum/index/constraint từ chính
+`INIT_SQL` bằng một query catalog; thiếu mới chạy DDL. Client có timeout, giao diện kết thúc loading
+sau 15 giây thay vì quay vô hạn.
+
+Hyperdrive ban đầu dùng Neon hostname `-pooler`; đã đổi sang Direct hostname theo tài liệu Cloudflare
+(Hyperdrive đã là pooler). Không ghi hostname/credential vào repo.
+
+Điều kiện 7 vẫn 🔶 vì chưa gửi Mint/Burn mới và chưa kiểm lịch sử sau đóng/mở trình duyệt. Chỉ sau
+ba bằng chứng đó mới chuyển OP-06 sang `done`.
 
 ## 5. Bộ kiểm cuối và bí mật
 

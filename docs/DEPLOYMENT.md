@@ -69,8 +69,9 @@ tường minh `NEXT_PUBLIC_DEFAULT_CHAIN=mock` ở Build variables để cấu h
 sẽ trả lỗi kết nối.
 
 `wrangler.json` là nguồn duy nhất cho biến runtime **không bí mật** của bản deploy. OP-06 đặt sẵn
-`USE_MOCK_DB=false` và `ENABLE_SEPOLIA_DEMO_PROJECT=true`; không đặt lại hai biến này bằng tay trên
-dashboard. Các secret vẫn đặt trên dashboard và không đưa vào repository.
+`USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và `keep_vars=true`; không đặt lại hai biến
+đầu bằng tay trên dashboard. `keep_vars` giữ các secret/biến kết nối đặt trên Dashboard khi chạy
+`wrangler deploy`; không được bỏ cờ này nếu chưa chuyển toàn bộ cấu hình sang secrets file an toàn.
 
 Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không có tác dụng:
 
@@ -104,20 +105,32 @@ Không đặt chuỗi kết nối Neon vào Worker Variables. `app/wrangler.json
 khai và `localConnectionString` trỏ PostgreSQL local. Mã dùng `pg` thuần, một `Client` trong mỗi lời
 gọi/transaction; không dùng SDK hay tính năng riêng của nhà cung cấp.
 
-Yêu cầu tối thiểu cho mọi nhà cung cấp: PostgreSQL **13+**, TLS, tài khoản có quyền tạo bảng ở lần
-chạy đầu. Lược đồ và seed tự áp. Hyperdrive trên Workers Free giới hạn **100.000 câu lệnh/ngày**;
+Yêu cầu tối thiểu cho mọi nhà cung cấp: PostgreSQL **13+**, TLS, tài khoản có `CONNECT, CREATE` trên
+database và `USAGE, CREATE` trên schema `public` ở lần chạy đầu. Role nên sở hữu schema và các object
+do ứng dụng tạo vì bước nâng lược đồ có `ALTER TABLE`. Lược đồ và seed tự áp. Hyperdrive trên Workers
+Free giới hạn **100.000 câu lệnh/ngày**;
 mỗi `SELECT`, `INSERT`, `UPDATE`, `DELETE` và DDL đều được tính. Nguồn:
 [Cloudflare pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/).
 
 #### Neon — cấu hình hiện dùng
 
-1. Neon → project → **Roles** → tạo role riêng (ví dụ `hyperdrive-user`), lưu mật khẩu một lần.
-2. Connection Details: chọn đúng branch/database/role và lấy **Direct connection**, không chọn
+1. Neon → project → **Roles** → tạo role riêng (ví dụ `rwa-user`), lưu mật khẩu một lần.
+2. Bằng role chủ sở hữu, cấp quyền cho role ứng dụng (đổi tên database/role cho đúng):
+
+   ```sql
+   GRANT CONNECT, CREATE ON DATABASE "rwa-bid" TO "rwa-user";
+   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
+   ALTER SCHEMA public OWNER TO "rwa-user";
+   ```
+
+   Nếu database đã có object do role khác sở hữu, kiểm/chuyển ownership có chủ đích; chỉ `GRANT`
+   không cho phép `ALTER TABLE` trên object của role khác.
+3. Connection Details: chọn đúng branch/database/role và lấy **Direct connection**, không chọn
    chuỗi pooled. Chuỗi này là secret, chỉ dán vào Cloudflare.
-3. Cloudflare → Storage & Databases → Hyperdrive → Create configuration → dán chuỗi kết nối.
-4. Sao chép ID cấu hình (không phải secret) vào `app/wrangler.json` → `hyperdrive[0].id`.
-5. Xác nhận bằng `cd app && npx wrangler hyperdrive list`; tuyệt đối không ghi chuỗi kết nối vào
-   commit, log hay tài liệu.
+4. Cloudflare → Storage & Databases → Hyperdrive → Create configuration → dán chuỗi kết nối.
+5. Sao chép ID cấu hình (không phải secret) vào `app/wrangler.json` → `hyperdrive[0].id`.
+6. Xác nhận bằng `cd app && npx wrangler hyperdrive get <ID>`: `origin.host` không được chứa
+   `-pooler`. Tuyệt đối không ghi chuỗi kết nối vào commit, log hay tài liệu.
 
 Repo hiện dùng ID `bf7828b9f4bb42de9f65123d0f00e4a3`. Hướng dẫn role/driver `pg >= 8.16.3`:
 [Cloudflare + Neon](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-database-providers/neon/).
@@ -159,8 +172,9 @@ pg_restore --clean --if-exists --no-owner --no-acl --dbname="$NEW_DATABASE_URL" 
 lần deploy đầu có `OP06_PROBE=1` thì endpoint trả `{"probe":"1"}`; bỏ biến khỏi `wrangler.json`
 và deploy lần hai thì trả `{"probe":null}`. Worker probe đã được xoá sau phép đo. Kết luận: biến
 plain có ở deployment/dashboard trước **không tự được giữ** khi cấu hình deploy kế tiếp không khai
-nó. Vì vậy biến không bí mật phải nằm trong `wrangler.json`; secret ở dashboard, không dựa vào trạng
-thái ngầm của lần deploy trước.
+nó. Vì vậy biến không bí mật phải nằm trong `wrangler.json`; biến/secret do Owner đặt trên Dashboard
+được bảo vệ bằng top-level `keep_vars=true`. Mọi cảnh báo deploy nói cấu hình local sẽ xóa RPC/signer
+là lỗi chặn phát hành, không bấm tiếp.
 
 Bản PoC mặc định `DEMO_ROLE=TELLER` và `ENABLE_DEMO_PAYMENT_MINT=true`, nên trình duyệt sạch mở
 thẳng khu vực Vận hành và chạy được luồng nạp VNDB. Trước khi dùng cùng codebase ở production,
