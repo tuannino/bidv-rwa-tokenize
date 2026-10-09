@@ -178,6 +178,11 @@ stats status=200 ttfb=66.479703s total=66.481805s
 stats status=200 ttfb=0.713155s total=0.713671s
 token status=200 ttfb=8.916898s total=8.917563s
 token2 status=200 ttfb=9.208451s total=9.209348s
+
+# smoke chính thức trên cùng version, dùng đúng commit đầy đủ
+PASS /api/version
+PASS commit 9c3610342307a8f32d9a75396034f178348cf2ee
+PASS /api/token?chain=evm totalSupply=2700
 ```
 
 Action token trả WPT/An Viên, contract `0xB8e9…6A02`, tổng cung `2700`, ví SPV
@@ -216,8 +221,9 @@ TỔNG KẾT run-local-all.sh
 Bộ Postgres và kiểm không gắn nhà cung cấp/bí mật:
 
 ```text
-✓ test/postgres-seed.test.ts (1 test) 135ms
-✓ test/store-constraints.test.ts (186 tests) 927ms
+# database tạm mới hoàn toàn: bidv_rwa_op06_coldfix_20261009
+✓ test/postgres-seed.test.ts (1 test) 181ms
+✓ test/store-constraints.test.ts (186 tests) 871ms
 Test Files  2 passed (2)
 Tests       187 passed (187)
 
