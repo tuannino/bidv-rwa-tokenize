@@ -33,6 +33,16 @@ type HyperdriveBinding = { connectionString?: unknown };
 let schemaReady: { connectionString: string; promise: Promise<void> } | null = null;
 
 /**
+ * Không để một origin sai cấu hình giữ Server Action ở trạng thái pending vô hạn.
+ *
+ * Hyperdrive tự giới hạn lần bắt tay origin ở 15 giây; đặt client thấp hơn một chút để ứng dụng
+ * còn kịp trả lỗi đọc được cho giao diện. `query_timeout` áp cho từng câu, đủ rộng cho DDL lần đầu
+ * nhưng chặn một advisory lock hoặc socket hỏng treo mãi.
+ */
+const CONNECT_TIMEOUT_MS = 12_000;
+const QUERY_TIMEOUT_MS = 30_000;
+
+/**
  * Trên Worker, Hyperdrive là nguồn ưu tiên. Ngoài Worker, `getCloudflareContext()` ném lỗi nên
  * đường Node/Docker rơi về `DATABASE_URL`. Không giữ binding hay Client ở phạm vi module: cả hai
  * đều gắn với request hiện tại trong Cloudflare Workers.
@@ -62,7 +72,11 @@ async function withClient<T>(
   databaseUrl: string,
   body: (client: Client) => Promise<T>,
 ): Promise<T> {
-  const client = new Client({ connectionString: databaseUrl });
+  const client = new Client({
+    connectionString: databaseUrl,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    query_timeout: QUERY_TIMEOUT_MS,
+  });
   let connected = false;
   try {
     await client.connect();
@@ -92,6 +106,66 @@ const TIMESTAMP_COLUMNS: ReadonlyArray<[table: string, column: string]> = [
   ['Investor', 'updatedAt'],
   ['Investor', 'kycDecidedAt'],
 ];
+
+/**
+ * Danh sách đối tượng được rút trực tiếp từ `INIT_SQL`, không chép tay một "bảng mốc".
+ *
+ * Mỗi isolate Worker mới trước đây chạy lại hơn một trăm câu DDL + SAVEPOINT tuần tự dù lược đồ đã
+ * đủ; qua Hyperdrive → Neon việc đó đo được 66,48 giây. Một phép đọc catalog cho toàn bộ bảng, enum,
+ * index và constraint đưa cold-start về đường nhanh. Khi `init.sql` thêm đối tượng, danh sách này tự
+ * đổi theo nên lần deploy kế tiếp sẽ chạy lại đường nâng lược đồ thay vì bỏ sót bảng mới.
+ */
+function namesFromInitSql(pattern: RegExp): string[] {
+  return [...INIT_SQL.matchAll(pattern)].map((match) => match[1]!);
+}
+
+const EXPECTED_TABLES = namesFromInitSql(/CREATE TABLE "([^"]+)"/g);
+const EXPECTED_TYPES = namesFromInitSql(/CREATE TYPE "([^"]+)"/g);
+const EXPECTED_INDEXES = namesFromInitSql(/CREATE (?:UNIQUE )?INDEX "([^"]+)"/g);
+const EXPECTED_CONSTRAINTS = namesFromInitSql(/CONSTRAINT "([^"]+)"/g);
+
+/** Một lượt catalog xác nhận lược đồ hiện tại đã chứa mọi đối tượng mà mã đang cần. */
+async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
+  const timestampColumns = TIMESTAMP_COLUMNS.map(([table, column]) => `${table}.${column}`);
+  const { rows } = await client.query<{ ready: boolean }>(
+    `SELECT
+       (SELECT count(*) FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
+           AND c.relname = ANY($1::text[])) = $2
+       AND
+       (SELECT count(*) FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+         WHERE n.nspname = 'public' AND t.typname = ANY($3::text[])) = $4
+       AND
+       (SELECT count(*) FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public' AND c.relkind = 'i'
+           AND c.relname = ANY($5::text[])) = $6
+       AND
+       (SELECT count(*) FROM pg_constraint c
+          JOIN pg_namespace n ON n.oid = c.connamespace
+         WHERE n.nspname = 'public' AND c.conname = ANY($7::text[])) = $8
+       AND NOT EXISTS (
+         SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name || '.' || column_name = ANY($9::text[])
+            AND data_type = 'timestamp without time zone'
+       ) AS ready`,
+    [
+      EXPECTED_TABLES,
+      EXPECTED_TABLES.length,
+      EXPECTED_TYPES,
+      EXPECTED_TYPES.length,
+      EXPECTED_INDEXES,
+      EXPECTED_INDEXES.length,
+      EXPECTED_CONSTRAINTS,
+      EXPECTED_CONSTRAINTS.length,
+      timestampColumns,
+    ],
+  );
+  return rows[0]?.ready === true;
+}
 
 /**
  * Sửa các DB đã tạo bằng lược đồ cũ (`timestamp` không timezone) sang `timestamptz`.
@@ -278,10 +352,15 @@ export async function seedInitialData(client: ClientBase): Promise<void> {
 async function ensureSchema(client: ClientBase): Promise<void> {
   try {
     await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(918273645)');
-    await addMissingColumns(client);
-    await applyInitSql(client, INIT_SQL);
-    await migrateTimestampColumns(client);
+    if (!(await schemaObjectsReady(client))) {
+      await client.query('SELECT pg_advisory_xact_lock(918273645)');
+      // Isolate khác có thể đã hoàn tất trong lúc ta chờ khoá; đọc lại trước khi chạy DDL.
+      if (!(await schemaObjectsReady(client))) {
+        await addMissingColumns(client);
+        await applyInitSql(client, INIT_SQL);
+        await migrateTimestampColumns(client);
+      }
+    }
     await seedInitialData(client);
     await client.query('COMMIT');
   } catch (error) {
