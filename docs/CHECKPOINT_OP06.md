@@ -14,16 +14,16 @@
 
 | # | Điều kiện | Trạng thái | Bằng chứng |
 |---|---|---|---|
-| 1 | Không Pool/fs runtime; Hyperdrive trước, DATABASE_URL sau | ✅ | mục 2.1 |
+| 1 | Không Pool/fs runtime; Hyperdrive trước, DATABASE_URL sau | ✅ | mục 2.1, 7 |
 | 2 | SQL nhúng trùng byte và đột biến đỏ | ✅ | mục 2.2 |
 | 3 | Tự đối soát mốc phát hành, ba ca và đột biến | ✅ | mục 2.3 |
 | 4 | Seed cập nhật địa chỉ đúng QĐ-6 trên Postgres thật | ✅ | mục 2.4 |
 | 5 | `wrangler.json` có cấu hình và ID Hyperdrive thật | ✅ | mục 3.1 |
 | 6 | Worker local lập–duyệt bền qua restart, không lỗi I/O | ✅ | mục 3.2 |
-| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | 🔶 | mục 4, 6 |
+| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | 🔶 | mục 4, 6, 7 |
 | 8 | Runbook đủ ba nhà cung cấp, V3, giới hạn mock/DB | ✅ | mục 3.3 |
 | 9 | Danh sách nhà máy đổi đúng, số liệu giữ nguyên | ✅ | mục 3.4 |
-| 10 | Bộ mặc định/Postgres xanh, không lộ bí mật | ✅ | mục 5, 6 |
+| 10 | Bộ mặc định/Postgres xanh, không lộ bí mật | ✅ | mục 5, 6, 7 |
 
 **Kết luận:** 9 ✅ · 1 🔶 · 0 ❌. Giữ OP-06 ở `inProgress` đến kiểm sau merge.
 
@@ -262,3 +262,24 @@ Owner thử WPT tại `/draft`, nếu lỗi gửi **Mã tra cứu** và log `op0
 `db.schema.wait`/`db.connect`/`db.query` lâu chỉ về DB; `rpc.*` lâu chỉ về RPC;
 không có `request/start` chỉ về lượt gọi chưa vào handler hoặc bản deploy cũ.
 Giữ điều kiện 7 ở 🔶 và OP-06 `inProgress` đến có bằng chứng deploy và Mint/Burn/lịch sử bền.
+
+
+## 7. VĐ-45 — khởi tạo độc lập giữa request (Owner duyệt 09/10/2026)
+
+Bỏ Promise khởi tạo dùng chung; cache chỉ giữ chuỗi kết nối đã khởi tạo thành công sau COMMIT
+và đóng Client. Khi chưa hoàn tất, mỗi lượt dùng Client riêng. Lỗi không ghi trạng thái, không
+xóa thành công của lượt khác. Giữ nguyên transaction, khóa tư vấn, catalog, seed và timeout.
+Bước `db.schema.verify` bao trọn mỗi lượt khởi tạo thực tế; cache hit không phát log verify.
+Không thêm biến môi trường/nhánh production dành riêng cho kiểm thử; giả lập thư viện pg.
+
+Kiểm thử giữ A ở catalog hoặc trước COMMIT, B vẫn hoàn tất độc lập; lỗi thì thử lại, A lỗi muộn
+không mất thành công B, cache theo chuỗi kết nối và trace theo id. Khôi phục cách chờ Promise chung
+làm ca A/B đỏ; hoàn nguyên mã production rồi kiểm xanh. Bằng chứng nguyên văn và mã thoát tại
+[CHECKPOINT_OP06_INIT_DETAIL.md](CHECKPOINT_OP06_INIT_DETAIL.md), mục 1–4.
+
+Đã viết lại QĐ-3 và bước 2 của task theo chỉ định Owner, cập nhật guide/tech-report và PR #47.
+Bàn giao: **giảm rủi ro lan lỗi giữa request, chưa xác nhận đã hết timeout**. Không có bằng chứng
+production xác nhận request bị hủy làm Promise bị bỏ dở; kiểm thử chứng minh B không còn phụ thuộc
+Promise của A, không mô phỏng toàn bộ vòng đời Cloudflare. Các lượt vẫn có thể cùng chờ khóa DB.
+Giữ `ENABLE_READ_DIAGNOSTICS=true` trên Worker tới khi có số đo production; sau deploy Owner kiểm
+mã tra cứu/trace, rồi Mint/Burn/lịch sử bền mới đóng điều kiện 7 và tắt log. OP-06 vẫn `inProgress`.

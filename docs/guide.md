@@ -387,6 +387,7 @@ Trong thời gian debug, `app/wrangler.json` bật `ENABLE_READ_DIAGNOSTICS=true
 | Bước | Cần kiểm khi chậm |
 |---|---|
 | `db.connect` | Binding, endpoint Direct, TLS/kết nối origin |
+| `db.schema.verify` | Tổng thời gian một lượt thực sự khởi tạo (Client, transaction, catalog, seed/DDL, đóng Client); đếm `start` theo id để thấy các lượt cùng khởi động. Cache hit không có bước này |
 | `db.schema.catalog`, `db.schema.lock`, `db.schema.ddl`, `db.schema.seed` | Khởi tạo schema/seed, chờ lock hoặc cold start |
 | `db.query`, `project.lookup` | Truy vấn Project và tổng thời gian đường Postgres |
 | `rpc.tokenInfo`, `rpc.spv`, `rpc.balance` | RPC Sepolia, gồm các lời gọi metadata và số dư |
@@ -394,9 +395,15 @@ Trong thời gian debug, `app/wrangler.json` bật `ENABLE_READ_DIAGNOSTICS=true
 
 `state=ok` nghĩa bước đã trả về, không thay receipt hay nghiệm thu giao dịch. Log không chứa SQL,
 tham số, kết quả DB, URL hay error.message. Chỉ SQLSTATE chuẩn được ghi nếu có lỗi PostgreSQL.
-Sau khi thu đủ thông tin, đổi cờ trong Wrangler thành `false` rồi deploy để giảm lượng log.
+Giữ cờ nhật ký bật tới khi có số đo từ production. Sau khi hết timeout và nghiệm thu Mint/Burn/lịch
+sử bền, đổi cờ trong Wrangler thành `false` rồi deploy để giảm lượng log.
 
 Để thu thập trên Cloudflare, mở Worker Logs hoặc `wrangler tail`, lọc `op06.read` theo mã tra cứu.
 Ghi phiên bản `/api/version`, thời gian, mã tra cứu và các dòng trace. Nếu UI timeout mà server vẫn
 đang chạy, bước cuối có `start` chưa có `ok/error` giúp định vị điểm chờ. Hủy fetch ở trình duyệt
 không bảo đảm hủy SQL/RPC backend; backend vẫn dùng timeout của driver. Không gửi khóa/chuỗi kết nối.
+
+Bổ sung VĐ-45: Worker chỉ ghi nhớ khởi tạo đã hoàn tất; request chưa có trạng thái thành công dùng
+Client riêng, không chờ Promise khởi tạo của request khác. Đây là giảm rủi ro lan lỗi giữa request,
+chưa xác nhận đã hết timeout. Nhiều lượt khởi tạo vẫn có thể chờ cùng khóa DB; đối chiếu các bước
+`verify`, `lock`, `seed` thay vì coi mọi lượt trùng là lỗi.

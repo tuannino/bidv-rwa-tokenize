@@ -9,7 +9,7 @@ import { INIT_SQL } from './init-sql.generated';
 import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
 
 /**
- * Kết nối Postgres dùng chung cho MỌI cổng lưu trữ, và việc áp lược đồ một lần lúc khởi động.
+ * Kết nối Postgres dùng chung cho MỌI cổng lưu trữ; chỉ cache khởi tạo đã hoàn tất theo URL.
  *
  * Vì sao tách khỏi `postgres.store.ts`: BE-09 thêm bốn cổng nữa, mỗi cổng một file hiện
  * thực Postgres. Chép phần kết nối vào từng cổng sẽ tạo nhiều đường hành xử và nhiều lần áp lược
@@ -31,7 +31,8 @@ import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
 
 type HyperdriveBinding = { connectionString?: unknown };
 
-let schemaReady: { connectionString: string; promise: Promise<void> } | null = null;
+// Chỉ cache dữ liệu đã hoàn tất. Không để request khác chờ I/O của request khởi tạo.
+const initializedConnections = new Set<string>();
 
 /**
  * Không để một origin sai cấu hình giữ Server Action ở trạng thái pending vô hạn.
@@ -89,14 +90,10 @@ async function withClient<T>(
 }
 
 async function ensureSchemaReady(databaseUrl: string): Promise<void> {
-  if (schemaReady?.connectionString === databaseUrl) return schemaReady.promise;
-
-  const promise = withClient(databaseUrl, ensureSchema).catch((error) => {
-    if (schemaReady?.promise === promise) schemaReady = null;
-    throw error;
-  });
-  schemaReady = { connectionString: databaseUrl, promise };
-  return promise;
+  if (initializedConnections.has(databaseUrl)) return;
+  await readStep('db.schema.verify', () => withClient(databaseUrl, ensureSchema));
+  // Chỉ ghi sau COMMIT và đóng Client thành công; lỗi không xoá kết quả của lượt khác.
+  initializedConnections.add(databaseUrl);
 }
 
 /** Các cột thời gian phải là `timestamptz` — xem ghi chú trong prisma/schema.prisma. */

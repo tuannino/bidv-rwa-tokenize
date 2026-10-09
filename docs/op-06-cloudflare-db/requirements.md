@@ -67,12 +67,27 @@ ghi vào checkpoint; chậm hơn **quá 2 lần** thì dừng lại hỏi Superv
 `env.HYPERDRIVE.connectionString`; nếu không thì `DATABASE_URL`. Thiếu cả hai mà `USE_MOCK_DB=false`
 thì báo lỗi nêu đủ hai cách sửa.
 
-**QĐ-3. Lược đồ nhúng vào mã lúc build, không đọc tệp lúc chạy.** Thêm tệp sinh
-`app/src/lib/store/init-sql.generated.ts` (xuất một chuỗi), sinh từ `prisma/init.sql` bằng script.
-`npm run db:sql` sinh cả hai. Kiểm thử bắt buộc: chuỗi trong tệp sinh **trùng từng byte** với
-`prisma/init.sql`, để không có hai nguồn lược đồ trôi dạt. `ensureSchema` giữ nguyên logic (khoá tư vấn,
-savepoint, seed), chạy một lần mỗi tiến trình; lời hứa lỗi thì xoá để lần sau thử lại, không giữ lời hứa
-hỏng mãi.
+**QĐ-3. Lược đồ nhúng vào mã lúc build; chỉ ghi nhớ khởi tạo đã hoàn tất.** Tệp sinh
+`app/src/lib/store/init-sql.generated.ts` xuất chuỗi từ `prisma/init.sql`; `npm run db:sql` sinh cả
+hai. Kiểm thử bắt buộc: chuỗi nhúng **trùng từng byte** với `prisma/init.sql`.
+
+Mỗi tiến trình/isolate chỉ ghi nhớ trạng thái **đã khởi tạo xong**, gắn với chuỗi kết nối; không giữ
+phép khởi tạo đang chạy để request khác chờ. Khi chưa xong, mỗi request tự khởi tạo bằng Client
+riêng, an toàn nhờ khóa tư vấn khi cần nâng schema, seed không ghi đè dữ liệu nghiệp vụ và bước
+kiểm catalog chạy trước. Giữ savepoint, transaction và ngoại lệ seed địa chỉ trước phát hành ở QĐ-6.
+Chỉ ghi nhận thành công sau COMMIT và đóng Client; lỗi không ghi nhận và không xóa thành công của
+lượt khác. Lượt sau thử lại nếu chưa có thành công. Cache không dùng chung giữa các chuỗi kết nối.
+
+Lý do đổi (VĐ-45): trên Cloudflare, request tạo ra phép khởi tạo có thể bị hủy, làm các request
+đang chờ Promise của nó bị ảnh hưởng. Đây là **giảm rủi ro lan lỗi giữa request, chưa xác nhận đã
+hết timeout**. Khởi tạo trùng vẫn có thể chờ khóa database; không coi bản sửa là loại bỏ mọi
+nguyên nhân chậm. Trace `db.schema.verify` ghi từng lượt khởi tạo thực tế theo request id và thời
+lượng; giữ `ENABLE_READ_DIAGNOSTICS=true` trên Worker tới khi có số đo production.
+
+Kiểm thử giả lập `pg` hoặc thay hàm khởi tạo, không thêm env/nhánh production cho test: giữ lượt A
+chưa xong nhưng B vẫn trả kết quả; lỗi thì lần sau thử lại; thành công rồi bỏ qua; A lỗi muộn
+không xóa thành công B; chưa COMMIT không được cache; trạng thái gắn với chuỗi kết nối. Đột biến
+khôi phục Promise chờ chung phải làm ca A/B đỏ. Không dùng khóa bảng chung để kiểm độc lập Promise.
 
 **QĐ-4. `wrangler.json` là nguồn duy nhất cho biến không bí mật của bản deploy.** Đổi
 `USE_MOCK_DB` thành `"false"`, thêm `ENABLE_SEPOLIA_DEMO_PROJECT: "true"`, thêm khối `hyperdrive` với
