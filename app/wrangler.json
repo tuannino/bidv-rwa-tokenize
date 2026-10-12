@@ -32,5 +32,14 @@
       "id": "bf7828b9f4bb42de9f65123d0f00e4a3",
       "localConnectionString": "postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  }
 }

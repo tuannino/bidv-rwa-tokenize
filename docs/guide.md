@@ -407,3 +407,11 @@ Bổ sung VĐ-45: Worker chỉ ghi nhớ khởi tạo đã hoàn tất; request 
 Client riêng, không chờ Promise khởi tạo của request khác. Đây là giảm rủi ro lan lỗi giữa request,
 chưa xác nhận đã hết timeout. Nhiều lượt khởi tạo vẫn có thể chờ cùng khóa DB; đối chiếu các bước
 `verify`, `lock`, `seed` thay vì coi mọi lượt trùng là lỗi.
+
+Bổ sung lưu log: `wrangler.json` bật `observability.enabled`, `logs.enabled`,
+`logs.invocation_logs`, `logs.persist` và `head_sampling_rate=1`. Sau deploy, mở Worker →
+Observability → Logs, lọc `event=op06.read` và `id` bằng Mã tra cứu trên UI để tìm lại lượt đọc.
+Thông báo phân biệt **Máy chủ trả lỗi**, **Quá thời gian chờ**, **Mất kết nối**; kèm HTTP và CF-Ray
+nếu đã nhận headers. Nếu bị ngắt/quá hạn trước headers thì hai mã này không có; không tự gán
+HTTP 504 hoặc tạo CF-Ray. Lỗi Cloudflare xảy ra trước handler có thể không có log `op06.read`;
+đối chiếu CF-Ray và invocation logs nếu có. Giữ cờ log bật tới khi có số đo production.

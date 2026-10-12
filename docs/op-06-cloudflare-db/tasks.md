@@ -105,3 +105,11 @@ production. Kiểm lỗi/retry, A lỗi muộn, cache theo connection string và
 Đột biến khôi phục Promise chung phải đỏ; hoàn nguyên rồi kiểm xanh, Postgres thật và bộ mặc định.
 Cập nhật QĐ-3, guide, tech-report, checkpoint và PR #47. Bàn giao ghi rõ giảm rủi ro lan lỗi giữa
 request, chưa xác nhận đã hết timeout. Giữ log bật tới khi có số đo production; OP-06 vẫn inProgress.
+
+
+### Bổ sung Owner: lưu log và mã lỗi HTTP/CF-Ray
+
+Bật observability/logs persist trong Wrangler, lấy mẫu 1 trong thời gian debug. Màn tra cứu WPT
+phân biệt lỗi HTTP máy chủ (kể cả HTML của Cloudflare), quá hạn và mất kết nối; hiện status/cf-ray
+khi headers đã nhận, không dựng mã giả nếu chưa có response. Giữ Mã tra cứu và biểu mẫu/thử lại.
+Kiểm helper đọc và toàn bộ bộ mặc định; ghi đầu ra nguyên văn vào checkpoint mục 8.
