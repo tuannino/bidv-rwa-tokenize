@@ -65,8 +65,10 @@ async function seed(supply: bigint, vndb: bigint, investors: string[] = [ALICE])
   const l = await ledger();
   await l.whitelist(SPV);
   process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
+  resetServerEnvCache();
   const issued = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV, amount: String(supply) });
   delete process.env.ENABLE_DEMO_TOKEN_MINT;
+  resetServerEnvCache();
   expect(issued.ok, issued.ok ? '' : issued.error).toBe(true);
   for (const wallet of investors) {
     await l.whitelist(wallet);

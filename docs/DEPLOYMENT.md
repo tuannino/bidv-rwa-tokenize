@@ -130,6 +130,71 @@ Free giới hạn **100.000 câu lệnh/ngày**;
 mỗi `SELECT`, `INSERT`, `UPDATE`, `DELETE` và DDL đều được tính. Nguồn:
 [Cloudflare pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/).
 
+#### Đọc-sau-ghi và cache Hyperdrive (bắt buộc)
+
+Ứng dụng dùng dữ liệu quyền, maker-checker và trạng thái chain mock vừa ghi xong ở request kế tiếp,
+nên cấu hình Hyperdrive gắn với binding `HYPERDRIVE` **phải tắt query cache**. Hyperdrive mặc định có
+thể giữ `SELECT` 60 giây và phục vụ bản cũ thêm 15 giây; câu ghi không tự xoá kết quả đọc đã cache.
+Nguồn: [Cloudflare — Query caching](https://developers.cloudflare.com/hyperdrive/concepts/query-caching/).
+
+```bash
+npx wrangler hyperdrive update <HYPERDRIVE_ID> --caching-disabled
+npx wrangler hyperdrive get <HYPERDRIVE_ID>
+```
+
+Kiểm trên Dashboard hoặc đầu ra lệnh `get` rằng caching ở trạng thái disabled. Owner xác nhận cấu
+hình đang dùng đã tắt cache ngày 14/10/2026. Đây là cấu hình ngoài repo; tạo Hyperdrive mới hoặc đổi
+ID thì phải kiểm lại, không được suy ra từ ID cũ.
+
+#### Trạng thái chain mock theo `USE_MOCK_DB` (OP-07)
+
+Một cờ chọn đồng thời kho nghiệp vụ và kho ledger mock; không có chế độ pha trộn:
+
+| `USE_MOCK_DB` | Workflow/Txn | Trạng thái chain mock | Mục đích |
+|---|---|---|---|
+| `true` | RAM | RAM (`globalThis`) | Local/test; không mở kết nối DB, mất khi restart và không bền qua isolate |
+| `false` | PostgreSQL | PostgreSQL, bảng `MockLedgerState` | Worker/Neon; bền qua restart và dùng chung giữa các isolate |
+
+`MockLedgerState` giữ một dòng JSONB cho mỗi chain; mọi ghi dùng transaction và
+`SELECT ... FOR UPDATE`. `Txn` chỉ là lịch sử/audit, không dùng để dựng lại ledger. Lỗi PostgreSQL
+được trả rõ ràng và **không** tự fallback sang RAM. Chain thật (`evm`, `hardhat-local`, `stellar`)
+vẫn lấy state từ chain, không đọc bảng này.
+
+#### Làm mới Neon sau khi triển khai OP-07
+
+Chỉ Owner thực hiện sau khi OP-07 đã merge/deploy. Thao tác dưới đây **xoá toàn bộ dữ liệu trong
+schema `public`**, gồm lịch sử mock và EVM; trạng thái Sepolia on-chain không bị xoá.
+
+1. Xác nhận query cache của Hyperdrive đã tắt như mục trên.
+2. Neon Console → đúng project/branch/database → SQL Editor, đăng nhập bằng database owner và chạy:
+
+   ```sql
+   DROP SCHEMA public CASCADE;
+   CREATE SCHEMA public;
+   ALTER SCHEMA public OWNER TO "rwa-user"; -- đổi đúng role ứng dụng thực tế
+   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
+   ```
+
+3. Mở web đúng một lần. Request đầu tiên tự tạo lại toàn bộ bảng, gồm `MockLedgerState`, và seed dữ
+   liệu nền. Lượt đầu có thể chậm hơn vì chạy DDL.
+4. Kiểm trong Neon:
+
+   ```sql
+   SELECT to_regclass('public."MockLedgerState"');
+   SELECT count(*) FROM "Project";
+   SELECT count(*) FROM "Role";
+   SELECT count(*) FROM "SystemConfig";
+   ```
+
+5. Trên bản deploy chọn chain Mock: trình duyệt A whitelist và lập Mint; đóng A, mở trình duyệt B
+   bằng vai KSV và duyệt cùng request. Sau đó ghi ở A và đọc ngay ở B để xác nhận read-after-write.
+   Ghi request ID vào checkpoint nghiệm thu.
+
+Phương án thay thế an toàn hơn khi cần giữ khả năng quay lại: tạo Neon branch/database mới, trỏ
+Hyperdrive sang đó rồi deploy ID mới. Không replay `Txn` sang `MockLedgerState`. Sau reset, dự án
+Sepolia trở về `DRAFT`; lần duyệt Mint kế tiếp tự đối soát mốc phát hành từ chain, còn số dư và tổng
+cung trên Sepolia giữ nguyên.
+
 #### Neon — cấu hình hiện dùng
 
 1. Neon → project → **Roles** → tạo role riêng (ví dụ `rwa-user`), lưu mật khẩu một lần.
