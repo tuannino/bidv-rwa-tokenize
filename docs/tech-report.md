@@ -9,13 +9,21 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.11 |
+| Phiên bản tài liệu | 4.12 |
 | Cập nhật lần cuối | 2026-10-14 |
-| Nhánh / commit | `ops/06-db-cpu`, từ `dev` @ `f673837`; checkpoint `docs/CHECKPOINT_OP06_CPU.md` |
+| Nhánh / commit | `ops/07-mock-ledger-pg`, từ `dev` @ `615c7ef`; checkpoint `docs/CHECKPOINT_OP07.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
-| Đang thực hiện | **OP-06** — giảm kết nối/seed Worker local đã xong; chờ Owner đo CPU bản Cloudflare/Neon sau merge |
-| Phase kế tiếp | **OP-05** — công việc testnet kế tiếp theo kế hoạch đợt 5 |
+| Đang thực hiện | **OP-07** — mã và kiểm chứng local hoàn tất; chờ Supervisor nghiệm thu và Owner reset Neon/thử deploy. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
+| Phase kế tiếp | **FE-27** — đồng bộ giao diện và dữ liệu khi đổi chain, chỉ làm sau khi OP-07 nghiệm thu |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.11 → 4.12 (OP-07).** Chain mock không còn nằm ngoài ranh giới lưu bền khi Worker dùng
+`USE_MOCK_DB=false`: toàn bộ 17 trường state được mã hoá vào một dòng JSONB/chain trong
+`MockLedgerState`; transaction khoá dòng bằng `SELECT ... FOR UPDATE`, nên kiểm-và-ghi của phát hành,
+mua/bán, snapshot và chia lợi nhuận nguyên tử giữa nhiều tiến trình. `USE_MOCK_DB=true` vẫn dùng RAM
+và không mở kết nối PostgreSQL; lỗi DB ở chế độ `false` không fallback. `Txn` tiếp tục chỉ là lịch sử.
+Runbook yêu cầu tắt Hyperdrive query cache và reset toàn bộ Neon một lần sau merge; Owner xác nhận cache
+đã tắt ngày 14/10, còn reset và kiểm hai trình duyệt thực hiện sau merge.
 
 **4.10 → 4.11 (OP-06, giảm CPU Postgres trên Workers Free).** `pgQuery` dùng chung một
 `pg.Client` theo `getCloudflareContext().ctx`; hai request không dùng chung I/O và transaction giữ
@@ -447,10 +455,10 @@ Máy local có HTTP(S) proxy dùng `npm run start:proxy` thay `npm start`; boots
 
 Demo Sepolia đã deploy (OP-04) bật `ENABLE_SEPOLIA_DEMO_PROJECT=true` trước khi khởi tạo DB. Cờ chỉ thêm dòng WPT DRAFT với địa chỉ shared, không tự phát hành; xem `docs/TESTNET_SEPOLIA.md`.
 
-Free-tier OP-06 dùng `USE_MOCK_DB=false` và binding Hyperdrive trong `app/wrangler.json`; các biến
+Free-tier OP-06/OP-07 dùng `USE_MOCK_DB=false` và binding Hyperdrive trong `app/wrangler.json`; các biến
 runtime không bí mật cũng lấy từ tệp này. `NEXT_PUBLIC_*` vẫn là biến build. Secret RPC/signer chỉ
-đặt trên Worker. Chain `mock` vẫn là lựa chọn nhanh nhưng ledger của nó nằm trong RAM, nên không dùng
-để chứng minh dữ liệu đầu-cuối bền qua isolate.
+đặt trên Worker. Với cờ này, chain `mock` dùng bảng `MockLedgerState` và bền qua isolate; Hyperdrive
+phải tắt query cache để giữ read-after-write. Chain thật vẫn lấy state từ chain tương ứng.
 
 Bản PoC mặc định `mock` + memory DB + vai `TELLER` và bật `ENABLE_DEMO_PAYMENT_MINT`, nên một bản
 clone/deploy không có biến môi trường vẫn demo được trọn luồng maker–checker và mua token.
@@ -1217,6 +1225,9 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/postgres.pool.ts` | OP-06: Worker dùng một `pg.Client` theo `ExecutionContext` cho các `pgQuery`; request khác và transaction dùng Client riêng. Node vẫn theo từng lời gọi. Khởi tạo nhanh chỉ kiểm catalog + seed; thiếu mới chạy transaction/DDL/seed. Chỉ cache thành công theo connection string, không cho request khác chờ Promise đang chạy. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
 | `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
 | `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
+| `ledger/mock-state.store.ts` | OP-07: kiểu đủ 17 trường state, mã hoá/giải mã bigint/Map/Set/snapshot và kho RAM có rollback khi callback lỗi | `MockLedgerStateStore`, `memoryMockLedgerStateStore`, `encodeMockLedgerState`, `decodeMockLedgerState` |
+| `ledger/postgres-mock-state.store.ts` | OP-07: một dòng JSONB/chain; ghi trong transaction, `SELECT ... FOR UPDATE`, tăng version; cảnh báo trên 512 KiB | `createPostgresMockLedgerStateStore` |
+| `ledger/index.ts` (nhánh mock) | OP-07: cùng `USE_MOCK_DB` chọn RAM/Postgres cho ledger mock; lỗi Postgres nổi lên, không fallback. Chain thật không đổi | `getMockLedgerStateStore`, `getLedger` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |
 
 **Bảng dữ liệu và ràng buộc duy nhất** (`app/prisma/schema.prisma` là nguồn sự thật; `init.sql`
@@ -1224,6 +1235,7 @@ sinh ra từ nó bằng `npm run db:sql`):
 
 | Bảng | Ràng buộc duy nhất | Chặn điều gì |
 |---|---|---|
+| `MockLedgerState` | `chain` (khoá chính) | hai dòng nguồn sự thật cho cùng chain mock; ghi đồng thời còn được tuần tự hoá bằng khoá dòng |
 | `PurchaseOrder` | `txHash`; `(investorWallet, clientRequestId)` | một mã giao dịch gắn cho hai lệnh; hai retry cùng ví tạo hai lệnh |
 | `DistributionPeriod` | `periodKey` | mở cùng một kỳ chia hai lần |
 | `DistributionPayout` | `(periodId, investorWallet)` | **chia trùng** cho một nhà đầu tư trong cùng kỳ |
@@ -1298,7 +1310,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | Cờ | Mặc định | Ý nghĩa |
 |---|:--:|---|
 | `USE_MOCK_KYC`, `USE_MOCK_ORACLE`, `USE_MOCK_COREBANK` | `true` | Dùng provider mock để mint chạy ngay, không cần tích hợp thật |
-| `USE_MOCK_DB` | `true` trong mã; `false` ở Worker | `true` = dữ liệu nghiệp vụ trong RAM; `false` = Postgres qua binding Hyperdrive hoặc `DATABASE_URL` |
+| `USE_MOCK_DB` | `true` trong mã; `false` ở Worker | Chọn đồng thời cả workflow và ledger mock: `true` = cùng ở RAM, không mở DB; `false` = cùng ở Postgres qua Hyperdrive/`DATABASE_URL`, không fallback |
 | `ENABLE_DEMO_PAYMENT_MINT` | **`true`** | Cho cán bộ ngân hàng tự phát hành VNDB vào ví chỉ định để demo trọn luồng. Production **bắt buộc** ghi đè `false` |
 | `ENABLE_DEMO_TOKEN_MINT` (FE-22) | **`false`** | Cho phát hành WPT **trực tiếp**, không qua lập–duyệt (màn `/mint`, `POST /api/mint`, `issueInitialSupply`) — **chỉ môi trường thử**. Bật trên môi trường thật là mở lại đường đi vòng qua Kiểm soát viên |
 | `ENABLE_READ_DIAGNOSTICS` (OP-06) | **`false`** | Log bước/thời gian đọc; Wrangler bật tạm true để debug, tắt sau khi đo |

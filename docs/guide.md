@@ -145,9 +145,18 @@ Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi
    npx wrangler hyperdrive list
    ```
 
-6. Điền ID vào `app/wrangler.json`, binding phải tên `HYPERDRIVE`. Repo hiện dùng
+6. Tắt query cache để thao tác ghi ở trình duyệt A được đọc ngay ở trình duyệt B:
+
+   ```bash
+   npx wrangler hyperdrive update <HYPERDRIVE_ID> --caching-disabled
+   npx wrangler hyperdrive get <HYPERDRIVE_ID>
+   ```
+
+   Owner đã tắt cache cho cấu hình hiện dùng ngày 14/10/2026. Hyperdrive mới vẫn phải làm lại bước
+   này; cache là cấu hình Cloudflare, không nằm trong source.
+7. Điền ID vào `app/wrangler.json`, binding phải tên `HYPERDRIVE`. Repo hiện dùng
    `bf7828b9f4bb42de9f65123d0f00e4a3`. Không điền Neon URL vào tệp này.
-7. Kiểm metadata và xác nhận host **không có** hậu tố `-pooler`:
+8. Kiểm metadata và xác nhận host **không có** hậu tố `-pooler`:
 
    ```bash
    cd app
@@ -157,11 +166,11 @@ Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi
    Hyperdrive đã giữ pool; Cloudflare/Neon khuyến nghị dùng Direct endpoint và không chồng thêm
    Neon pooler. Đây là cấu hình nên sửa, chưa phải bằng chứng riêng rằng pooler gây treo.
    Nếu lỡ chọn pooled URL, cập nhật lại bằng Direct hostname + cổng 5432.
-8. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và
+9. `wrangler.json` phải giữ `USE_MOCK_DB=false`, `ENABLE_SEPOLIA_DEMO_PROJECT=true` và
    `keep_vars=true`; signer/RPC có API key đặt dạng **Secret** trên đúng Worker. `keep_vars` chặn
    `wrangler deploy` xoá các biến đặt trên Dashboard. Nếu deploy in cảnh báo sẽ ghi đè/xoá RPC hoặc
    signer, dừng lại và sửa cấu hình trước.
-9. Kiểm sau deploy: Giao dịch viên lập một yêu cầu, Kiểm soát viên duyệt trong lượt/trình duyệt khác,
+10. Kiểm sau deploy: Giao dịch viên lập một yêu cầu, Kiểm soát viên duyệt trong lượt/trình duyệt khác,
    đóng rồi mở lại trang chi tiết. Trạng thái và lịch sử phải còn.
 
 Chạy Worker local với Postgres thường (không chạm Neon):
@@ -200,9 +209,11 @@ dựng, sao lưu/khôi phục và nguồn tài liệu chính nằm ở [DEPLOYME
 | Trần phát hành | `20.000.000 WPT` |
 | Giá mặc định | `100.000 VNDB/WPT` |
 
-Mock ledger và memory DB sống trong tiến trình web. Muốn chạy lại từ trạng thái trắng, dừng
-`npm run dev` bằng `Ctrl+C`, chạy lại lệnh và tải lại trang. Đừng chạy hai tiến trình web cùng lúc:
-chúng có hai bộ dữ liệu mock khác nhau.
+Khi `USE_MOCK_DB=true`, cả mock ledger và dữ liệu nghiệp vụ sống trong tiến trình web. Muốn chạy lại
+từ trạng thái trắng, dừng `npm run dev`, chạy lại và tải trang; hai tiến trình có hai bộ dữ liệu
+khác nhau. Khi `USE_MOCK_DB=false`, cả hai dùng PostgreSQL: mock ledger nằm trong bảng
+`MockLedgerState`, bền qua restart và dùng chung giữa Worker isolate. Không xoá riêng lịch sử `Txn`
+để “reset ledger”; runbook làm mới toàn bộ Neon nằm trong [DEPLOYMENT.md](DEPLOYMENT.md#làm-mới-neon-sau-khi-triển-khai-op-07).
 
 ## 2. Whitelist ví SPV và Nhà đầu tư
 
@@ -348,7 +359,8 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Lệnh ở **Đang xử lý** nhưng không có mã giao dịch | Không bấm hay gọi lại đường phát giao dịch. Giao dịch có thể đã lên chuỗi; màn Vận hành sẽ hiện **Cần đối soát tay**. |
-| Hai trình duyệt thấy dữ liệu khác nhau sau deploy serverless | Memory DB/mock ledger gắn với từng tiến trình. Demo nhiều người ổn định phải dùng một instance hoặc Postgres/chain dùng chung. |
+| Hai trình duyệt thấy dữ liệu mock khác nhau sau deploy | Kiểm Worker có đúng `USE_MOCK_DB=false` và Hyperdrive đã tắt query cache. Với `true`, lệch theo isolate là giới hạn có chủ ý của chế độ memory. |
+| Lịch sử whitelist `CONFIRMED` nhưng duyệt báo chưa whitelist | Bản cũ chỉ lưu `Txn` ở Neon còn mock ledger ở RAM. Bản OP-07 phải có bảng `MockLedgerState`; làm mới DB theo runbook rồi whitelist/lập lại, không replay lịch sử `Txn`. |
 | `permission denied for schema public` trên Neon | Role của Hyperdrive thiếu `USAGE, CREATE` hoặc không sở hữu schema/object. Chạy khối cấp và kiểm quyền ở mục 1.2 bằng database owner; với DB đã có bảng do role khác tạo, xử lý ownership trước. |
 | “Đang đọc thông tin token…” quá 15 giây trên Worker | Kiểm Hyperdrive có dùng Neon **Direct hostname** (không `-pooler`), quyền DB đủ và bản deploy có đường kiểm catalog OP-06. Giao diện mới phải kết thúc loading bằng thông báo quá hạn thay vì quay mãi. |
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
