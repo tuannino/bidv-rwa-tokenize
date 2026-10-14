@@ -248,8 +248,10 @@ describe('ca 8 — sau khi nạp, lệnh mua tự khớp', () => {
     // Người bán đã phát hành nguồn cung (đường dữ liệu thử, cờ token bật riêng cho bước dựng này).
     await (await ledger()).whitelist(SPV);
     process.env.ENABLE_DEMO_TOKEN_MINT = 'true';
+    resetServerEnvCache();
     const issued = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV });
     delete process.env.ENABLE_DEMO_TOKEN_MINT;
+    resetServerEnvCache();
     expect(issued.ok, issued.ok ? '' : issued.error).toBe(true);
 
     const buyCap = async () => {
