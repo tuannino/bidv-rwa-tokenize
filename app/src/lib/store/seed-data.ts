@@ -1,4 +1,4 @@
-import type { ChainKey } from '@bidv/shared';
+import { CHAIN_ORDER, type ChainKey } from '@bidv/shared';
 import {
   CONFIG_KEYS,
   DEMO_PAYMENT_MINT_MAX_VND,
@@ -12,6 +12,7 @@ import {
   WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import { CONFIG_ROLES, CONFIG_ROLE_NAMES } from '@/lib/rbac/config-role';
+import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { ROLES, type Role } from '@/lib/rbac';
 import type { ConfigValueType } from './config.store.port';
 import type { ProjectStatus } from './project.store.port';
@@ -42,7 +43,7 @@ export interface SeedConfigRow {
 }
 
 /**
- * Bảy tham số nạp sẵn vào `SystemConfig` (FE-24 thêm ba điều khoản token).
+ * Các tham số nạp sẵn vào `SystemConfig` (FE-27 tách giá phát hành theo chain).
  *
  * Nạp sẵn thay vì để bảng trống và dựa vào giá trị mặc định trong mã: có dòng thật thì màn hình
  * cấu hình của FE-07 hiện được "ai đặt, lúc nào" ngay từ đầu, và đường đọc cơ sở dữ liệu được
@@ -53,12 +54,12 @@ export interface SeedConfigRow {
  * thì phần dư nằm yên trong ví lợi nhuận — xem `readDistributionDustWallet`.
  */
 export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
-  {
-    key: CONFIG_KEYS.issuePriceVnd,
+  ...CHAIN_ORDER.map((chain) => ({
+    key: issuePriceConfigKey(chain),
     // `bigint` vì giá đi xuống ledger dưới dạng uint256; `String(...)` giữ nguyên chữ số.
     value: String(WPT_ISSUE_PRICE_VND),
-    type: 'bigint',
-  },
+    type: 'bigint' as const,
+  })),
   {
     key: CONFIG_KEYS.priceChangeThreshold,
     // `number` vì đây là hệ số so sánh, không phải số tiền — không cần dải uint256.

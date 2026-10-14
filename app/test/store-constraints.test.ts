@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { CHAIN_ORDER } from '@bidv/shared';
 import { resetServerEnvCache } from '@/lib/config/env';
 import {
   createMemoryDistributionStore,
@@ -32,6 +33,7 @@ import type {
   NewTokenRequest,
 } from '@/lib/store/token-request.store.port';
 import { CONFIG_KEYS, WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
+import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import {
   FOREIGN_KEYS,
@@ -950,14 +952,19 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
   //  BE-04 — tham số hệ thống: mọi lần ghi phải kèm một dòng lịch sử
   // -------------------------------------------------------------------------
   describe('tham số hệ thống', () => {
-    it('dữ liệu khởi tạo có giá phát hành và ngưỡng đổi giá', async () => {
-      const price = await store.config.getConfig(CONFIG_KEYS.issuePriceVnd);
+    it('dữ liệu khởi tạo có giá phát hành cho mọi chain và ngưỡng đổi giá', async () => {
+      const prices = await Promise.all(
+        CHAIN_ORDER.map((chain) => store.config.getConfig(issuePriceConfigKey(chain))),
+      );
       const threshold = await store.config.getConfig(CONFIG_KEYS.priceChangeThreshold);
 
       // Không so với một con số gõ tay: con số nằm ở `lib/config/issue-terms.ts` và ca kiểm này
       // chỉ khẳng định "dòng khởi tạo có mặt, kiểu đọc được".
-      expect(price?.type).toBe('bigint');
-      expect(BigInt(price!.value)).toBeGreaterThan(0n);
+      expect(prices).toHaveLength(CHAIN_ORDER.length);
+      for (const price of prices) {
+        expect(price?.type).toBe('bigint');
+        expect(BigInt(price!.value)).toBeGreaterThan(0n);
+      }
       expect(threshold?.type).toBe('number');
       expect(Number(threshold!.value)).toBeGreaterThan(1);
     });
