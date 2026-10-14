@@ -40,6 +40,7 @@ type RequestClientState = {
   databaseUrl: string;
   client: Client;
   connected: Promise<Client>;
+  initialization?: Promise<void>;
 };
 
 // Chỉ cache dữ liệu đã hoàn tất. Không để request khác chờ I/O của request khởi tạo.
@@ -177,13 +178,6 @@ async function queryClient<T extends object>(
   }
 }
 
-async function ensureSchemaReady(databaseUrl: string): Promise<void> {
-  if (initializedConnections.has(databaseUrl)) return;
-  await readStep('db.schema.verify', () => withClient(databaseUrl, ensureSchema));
-  // Chỉ ghi sau COMMIT và đóng Client thành công; lỗi không xoá kết quả của lượt khác.
-  initializedConnections.add(databaseUrl);
-}
-
 /** Các cột thời gian phải là `timestamptz` — xem ghi chú trong prisma/schema.prisma. */
 const TIMESTAMP_COLUMNS: ReadonlyArray<[table: string, column: string]> = [
   ['Txn', 'createdAt'],
@@ -248,6 +242,45 @@ async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
       EXPECTED_CONSTRAINTS,
       EXPECTED_CONSTRAINTS.length,
       timestampColumns,
+    ],
+  );
+  return rows[0]?.ready === true;
+}
+
+/**
+ * Một câu xác nhận toàn bộ dữ liệu nền đã đủ, kể cả quy tắc địa chỉ QĐ-6 của OP-06:
+ * dự án chưa phát hành phải khớp địa chỉ cấu hình; dự án đã phát hành giữ địa chỉ bất biến.
+ */
+async function seedDataReady(client: ClientBase): Promise<boolean> {
+  const projects = configuredProjectSeeds().map((project) => ({
+    tokenSymbol: project.tokenSymbol,
+    chain: project.chain,
+    contractAddress: project.contractAddress ?? null,
+  }));
+  const { rows } = await client.query<{ ready: boolean }>(
+    `WITH expected_projects AS (
+       SELECT * FROM jsonb_to_recordset($5::jsonb)
+         AS seed("tokenSymbol" text, "chain" text, "contractAddress" text)
+     )
+     SELECT
+       (SELECT count(*) FROM "SystemConfig" WHERE "key" = ANY($1::text[])) = $2
+       AND
+       (SELECT count(*) FROM "Role" WHERE "name" = ANY($3::text[])) = $4
+       AND
+       (SELECT count(*) FROM expected_projects seed
+          JOIN "Project" project
+            ON project."tokenSymbol" = seed."tokenSymbol"
+           AND project."chain"::text = seed."chain"
+         WHERE project."issuedAt" IS NOT NULL
+            OR project."contractAddress" IS NOT DISTINCT FROM seed."contractAddress") = $6
+       AS ready`,
+    [
+      SEED_CONFIG_ROWS.map((row) => row.key),
+      SEED_CONFIG_ROWS.length,
+      SEED_ROLE_ROWS.map((row) => row.name),
+      SEED_ROLE_ROWS.length,
+      JSON.stringify(projects),
+      projects.length,
     ],
   );
   return rows[0]?.ready === true;
@@ -455,6 +488,42 @@ async function ensureSchema(client: ClientBase): Promise<void> {
   }
 }
 
+/** Đường lạnh chỉ mở transaction/seed khi một trong hai phép kiểm nhanh báo thiếu. */
+async function ensureSchemaFromRequestClient(
+  databaseUrl: string,
+  client: ClientBase,
+): Promise<void> {
+  const schemaReady = await readStep('db.schema.catalog', () => schemaObjectsReady(client));
+  if (schemaReady && await readStep('db.schema.seed-check', () => seedDataReady(client))) return;
+  await withClient(databaseUrl, ensureSchema);
+}
+
+async function ensureSchemaReady(target: ConnectionTarget): Promise<void> {
+  if (initializedConnections.has(target.databaseUrl)) return;
+
+  if (!target.requestKey) {
+    await readStep('db.schema.verify', () => withClient(target.databaseUrl, ensureSchema));
+    initializedConnections.add(target.databaseUrl);
+    return;
+  }
+
+  const state = requestClient(target as ConnectionTarget & { requestKey: object });
+  state.initialization ??= readStep('db.schema.verify', async () => {
+    const client = await state.connected;
+    await ensureSchemaFromRequestClient(target.databaseUrl, client);
+  })
+    .then(() => {
+      // Chỉ cache kết quả hoàn tất; request khác không chờ Promise đang chạy của request này.
+      initializedConnections.add(target.databaseUrl);
+    })
+    .catch((error) => {
+      state.initialization = undefined;
+      if (isConnectionFailure(error)) invalidateRequestClient(target.requestKey!, state);
+      throw error;
+    });
+  await state.initialization;
+}
+
 /**
  * Chạy một truy vấn sau khi lược đồ đã sẵn sàng.
  *
@@ -464,7 +533,7 @@ export type PgQuery = <T extends object>(sql: string, params?: unknown[]) => Pro
 
 export const pgQuery: PgQuery = async <T extends object>(sql: string, params: unknown[] = []) => {
   const target = connectionTarget();
-  await readStep('db.schema.wait', () => ensureSchemaReady(target.databaseUrl));
+  await readStep('db.schema.wait', () => ensureSchemaReady(target));
   return queryClient<T>(target, sql, params);
 };
 
@@ -487,7 +556,7 @@ export const pgTransaction: PgTransaction = async <T>(
   body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
 ): Promise<T> => {
   const target = connectionTarget();
-  await readStep('db.schema.wait', () => ensureSchemaReady(target.databaseUrl));
+  await readStep('db.schema.wait', () => ensureSchemaReady(target));
   return withClient(target.databaseUrl, async (client) => {
     try {
       await client.query('BEGIN');

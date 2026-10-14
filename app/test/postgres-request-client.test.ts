@@ -11,6 +11,7 @@ const fake = vi.hoisted(() => ({
   clients: [] as FakeClient[],
   currentContext: {} as object,
   failBusinessQuery: undefined as string | undefined,
+  seedReady: true,
 }));
 
 vi.mock('@opennextjs/cloudflare', () => ({
@@ -28,6 +29,7 @@ vi.mock('pg', () => ({
     on = vi.fn(() => this);
     query = vi.fn(async (sql: string) => {
       if (sql.includes('pg_class')) return { rows: [{ ready: true }] };
+      if (sql.includes('expected_projects')) return { rows: [{ ready: fake.seedReady }] };
       if (fake.failBusinessQuery && sql === fake.failBusinessQuery) {
         fake.failBusinessQuery = undefined;
         throw Object.assign(new Error('socket reset'), { code: 'ECONNRESET' });
@@ -51,7 +53,39 @@ beforeEach(() => {
   fake.clients = [];
   fake.currentContext = {};
   fake.failBusinessQuery = undefined;
+  fake.seedReady = true;
   vi.stubEnv('ENABLE_READ_DIAGNOSTICS', 'false');
+});
+
+describe('khởi tạo nhanh trên Client của request', () => {
+  it('lược đồ và seed đủ thì không BEGIN, không INSERT và chỉ dùng một Client', async () => {
+    const { pgQuery } = await import('@/lib/store/postgres.pool');
+    await pgQuery('SELECT business');
+
+    expect(fake.clients).toHaveLength(1);
+    const statements = fake.clients[0]!.query.mock.calls.map(([sql]) => sql as string);
+    expect(statements.some((sql) => sql.includes('pg_class'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('expected_projects'))).toBe(true);
+    expect(statements).not.toContain('BEGIN');
+    expect(statements.some((sql) => sql.includes('INSERT INTO'))).toBe(false);
+    expect(statements.at(-1)).toBe('SELECT business');
+  });
+
+  it('thiếu dữ liệu seed thì kiểm nhanh trên Client request rồi chạy đường chậm riêng', async () => {
+    fake.seedReady = false;
+    const { pgQuery } = await import('@/lib/store/postgres.pool');
+    await pgQuery('SELECT business');
+
+    expect(fake.clients).toHaveLength(2);
+    const fastStatements = fake.clients[0]!.query.mock.calls.map(([sql]) => sql as string);
+    const slowStatements = fake.clients[1]!.query.mock.calls.map(([sql]) => sql as string);
+    expect(fastStatements.some((sql) => sql.includes('expected_projects'))).toBe(true);
+    expect(fastStatements).not.toContain('BEGIN');
+    expect(slowStatements[0]).toBe('BEGIN');
+    expect(slowStatements.some((sql) => sql.includes('INSERT INTO'))).toBe(true);
+    expect(slowStatements.at(-1)).toBe('COMMIT');
+    expect(fastStatements.at(-1)).toBe('SELECT business');
+  });
 });
 
 afterEach(() => {
