@@ -2,11 +2,14 @@ import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
 import { chainFamily } from '@/lib/chains/registry';
+import { serverEnv } from '@/lib/config/env';
 import { getBankSigner } from '@/lib/signer';
 import type { ISigner } from '@/lib/signer';
 import { readIssuePriceVnd } from '@/lib/store/config-values';
 import { createEvmLedger } from './evm.adapter';
+import { memoryMockLedgerStateStore } from './mock-state.store';
 import { createMockLedger } from './mock.adapter';
+import { createPostgresMockLedgerStateStore } from './postgres-mock-state.store';
 import { createStellarLedger } from './stellar.adapter';
 import type { ILedgerPort } from './ledger.port';
 
@@ -34,6 +37,13 @@ export {
 export { InvalidAddressError, normalizeEvmAddress } from './address';
 export { resetMockLedger } from './mock.adapter';
 
+/** Một cờ chọn đồng thời kho nghiệp vụ và kho ledger mock; không có cấu hình pha trộn. */
+export function getMockLedgerStateStore(chain: ChainKey) {
+  return serverEnv().useMockDb
+    ? memoryMockLedgerStateStore
+    : createPostgresMockLedgerStateStore(chain);
+}
+
 /**
  * FACTORY — điểm duy nhất map chain -> adapter.
  *
@@ -60,7 +70,10 @@ export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner(chain
        * Chain thật KHÔNG cần: giá nằm trong hợp đồng khớp lệnh, nên `quotePurchase` đọc thẳng
        * từ chuỗi và không có gì phải nạp.
        */
-      return createMockLedger(chain, { readInitialPrice: readIssuePriceVnd });
+      return createMockLedger(chain, {
+        readInitialPrice: readIssuePriceVnd,
+        stateStore: getMockLedgerStateStore(chain),
+      });
     case 'evm':
       return createEvmLedger(chain, signer);
     case 'stellar':

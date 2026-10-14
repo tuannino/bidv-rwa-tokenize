@@ -76,6 +76,15 @@ model AuditLog {
   @@index([actorRole, action])
 }
 
+/// Nguồn sự thật bền của chain mô phỏng khi USE_MOCK_DB=false (OP-07).
+/// Một dòng/chain để mọi thay đổi được tuần tự hoá bằng SELECT ... FOR UPDATE.
+model MockLedgerState {
+  chain     String   @id
+  version   Int      @default(0)
+  state     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
 // =============================================================================
 //  BE-09 — LỆNH MUA WPT
 // =============================================================================
