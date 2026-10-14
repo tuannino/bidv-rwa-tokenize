@@ -79,7 +79,7 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 |---|---|---|
 | `NEXT_PUBLIC_*` | **Build variables** (trong Settings → Build) | Next nội tuyến vào bundle lúc build, đặt ở runtime không ăn |
 | `USE_MOCK_*`, `DEMO_ROLE`, `ENABLE_DEMO_*` | `app/wrangler.json` → `vars` | nguồn duy nhất của biến runtime không bí mật |
-| `ENABLE_READ_DIAGNOSTICS` | Worker runtime variable, nguồn `wrangler.json` | OP-06 bật tạm `true` để log thời gian đường đọc WPT, tắt sau khi chẩn đoán |
+| `ENABLE_READ_DIAGNOSTICS` | Worker runtime variable, nguồn `wrangler.json` | `false`; chỉ bật tạm để điều tra một lượt đọc WPT rồi tắt lại |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`: đăng ký WPT Sepolia đã deploy |
 | `USE_MOCK_DB` | `app/wrangler.json` | `false`: dữ liệu nghiệp vụ dùng Postgres qua Hyperdrive |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |
@@ -103,8 +103,25 @@ script chỉ GET metadata WPT/tổng cung qua adapter, không gửi giao dịch.
 
 Worker ưu tiên `env.HYPERDRIVE.connectionString`; `DATABASE_URL` chỉ là đường lùi cho Node/Docker.
 Không đặt chuỗi kết nối Neon vào Worker Variables. `app/wrangler.json` chỉ chứa ID Hyperdrive công
-khai và `localConnectionString` trỏ PostgreSQL local. Mã dùng `pg` thuần, một `Client` trong mỗi lời
-gọi/transaction; không dùng SDK hay tính năng riêng của nhà cung cấp.
+khai và `localConnectionString` trỏ PostgreSQL local. Mã dùng `pg` thuần: trên Worker, mọi
+`pgQuery` trong cùng một request dùng chung một `Client`; request khác có `Client` khác và
+`pgTransaction` luôn dùng kết nối riêng để câu lệnh ngoài transaction không chen vào. Ngoài Worker
+(Node/Vitest/Docker), mỗi lời gọi vẫn mở/đóng một `Client` như trước. Không dùng SDK hay tính năng
+riêng của nhà cung cấp.
+
+Client Worker được tạo bên trong invocation và khoá theo `getCloudflareContext().ctx`, không đặt ở
+global để dùng xuyên request. Không gọi `client.end()` trong request Worker: runtime tự thu hồi edge
+connection khi invocation kết thúc, còn Hyperdrive giữ pool origin. Nguồn:
+[Cloudflare — Connection lifecycle](https://developers.cloudflare.com/hyperdrive/concepts/connection-lifecycle/).
+Đường khởi động lạnh chỉ đọc catalog và kiểm đủ seed; khi cả hai đủ thì không `BEGIN` và không chạy
+`INSERT`. Thiếu một trong hai mới mở kết nối riêng, lấy advisory lock rồi chạy DDL/seed như trước.
+
+Workers Free giới hạn **10 ms CPU cho mỗi HTTP request** và trả lỗi 1102 khi vượt tài nguyên
+([Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)). Vì vậy
+không được đổi lại thành một Client
+mỗi query, không bật `ENABLE_READ_DIAGNOSTICS` thường trực và không chạy seed ở mọi cold start.
+Nếu bản deploy còn lỗi 1102, Owner đo CPU P50/P90 trong 15 phút với `USE_MOCK_DB=false`; nếu không
+tiệm cận mốc mock đã đo ngày 14/10/2026 thì nâng Workers Paid thay vì tiếp tục mở rộng task này.
 
 Yêu cầu tối thiểu cho mọi nhà cung cấp: PostgreSQL **13+**, TLS, tài khoản có `CONNECT, CREATE` trên
 database và `USAGE, CREATE` trên schema `public` ở lần chạy đầu. Role nên sở hữu schema và các object

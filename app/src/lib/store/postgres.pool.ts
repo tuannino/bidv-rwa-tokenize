@@ -22,17 +22,36 @@ import { SEED_ACTOR_ROLE, SEED_CONFIG_ROWS, SEED_ROLE_ROWS } from './seed-data';
  *   Cloudflare Worker là trái steering "build gọn / đồ nặng để lúc build".
  *   `pg` khoảng 0.5MB và chạy được với chuỗi kết nối Hyperdrive.
  *
- * Cloudflare cấm giữ client/pool I/O qua request. Vì vậy `pgQuery` mở một Client cho đúng một
- * truy vấn; `pgTransaction` mở một Client cho trọn transaction; cả hai luôn đóng trong finally.
- * Hyperdrive giữ pool ở phía sau nên việc mở Client tại Worker không mở connection gốc mới mỗi lần.
+ * Cloudflare cấm giữ client/pool I/O qua request. Vì vậy `pgQuery` dùng chung đúng một Client theo
+ * `ExecutionContext` của request; `pgTransaction` vẫn mở Client riêng cho trọn transaction.
+ * Ngoài Worker, mỗi lời gọi tiếp tục mở/đóng Client riêng như trước.
  *
  * Mọi câu lệnh nghiệp vụ đều tham số hoá ($1, $2, ...) — không nội suy chuỗi vào SQL.
  */
 
 type HyperdriveBinding = { connectionString?: unknown };
 
+type ConnectionTarget = {
+  databaseUrl: string;
+  requestKey?: object;
+};
+
+type RequestClientState = {
+  databaseUrl: string;
+  client: Client;
+  connected: Promise<Client>;
+  initialization?: Promise<void>;
+};
+
 // Chỉ cache dữ liệu đã hoàn tất. Không để request khác chờ I/O của request khởi tạo.
 const initializedConnections = new Set<string>();
+
+/**
+ * Khoá là `getCloudflareContext().ctx`, do OpenNext đặt trong AsyncLocalStorage riêng cho mỗi
+ * lần gọi `fetch`. WeakMap không biến Client thành tài nguyên toàn cục dùng xuyên request: khi
+ * invocation kết thúc, runtime tự thu hồi kết nối Worker → Hyperdrive cùng request.
+ */
+const requestClients = new WeakMap<object, RequestClientState>();
 
 /**
  * Không để một origin sai cấu hình giữ Server Action ở trạng thái pending vô hạn.
@@ -49,20 +68,19 @@ const QUERY_TIMEOUT_MS = 30_000;
  * đường Node/Docker rơi về `DATABASE_URL`. Không giữ binding hay Client ở phạm vi module: cả hai
  * đều gắn với request hiện tại trong Cloudflare Workers.
  */
-function connectionString(): string {
+function connectionTarget(): ConnectionTarget {
   try {
-    const binding = (
-      getCloudflareContext().env as CloudflareEnv & { HYPERDRIVE?: HyperdriveBinding }
-    ).HYPERDRIVE;
+    const context = getCloudflareContext();
+    const binding = (context.env as CloudflareEnv & { HYPERDRIVE?: HyperdriveBinding }).HYPERDRIVE;
     if (typeof binding?.connectionString === 'string' && binding.connectionString.length > 0) {
-      return binding.connectionString;
+      return { databaseUrl: binding.connectionString, requestKey: context.ctx };
     }
   } catch {
     // Bình thường khi chạy Next.js, Vitest hoặc Docker ngoài Cloudflare Workers.
   }
 
   const fallback = serverEnv().databaseUrl;
-  if (fallback) return fallback;
+  if (fallback) return { databaseUrl: fallback };
   throw new Error(
     'USE_MOCK_DB=false nhưng không có binding HYPERDRIVE và thiếu DATABASE_URL. ' +
       'Cách sửa: cấu hình Hyperdrive cho Worker, đặt DATABASE_URL khi chạy Node/Docker, ' +
@@ -70,15 +88,19 @@ function connectionString(): string {
   );
 }
 
-async function withClient<T>(
-  databaseUrl: string,
-  body: (client: Client) => Promise<T>,
-): Promise<T> {
-  const client = new Client({
+function createClient(databaseUrl: string): Client {
+  return new Client({
     connectionString: databaseUrl,
     connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
     query_timeout: QUERY_TIMEOUT_MS,
   });
+}
+
+async function withClient<T>(
+  databaseUrl: string,
+  body: (client: Client) => Promise<T>,
+): Promise<T> {
+  const client = createClient(databaseUrl);
   let connected = false;
   try {
     await readStep('db.connect', () => client.connect());
@@ -89,11 +111,71 @@ async function withClient<T>(
   }
 }
 
-async function ensureSchemaReady(databaseUrl: string): Promise<void> {
-  if (initializedConnections.has(databaseUrl)) return;
-  await readStep('db.schema.verify', () => withClient(databaseUrl, ensureSchema));
-  // Chỉ ghi sau COMMIT và đóng Client thành công; lỗi không xoá kết quả của lượt khác.
-  initializedConnections.add(databaseUrl);
+/** Chỉ lỗi kết nối/giao thức làm Client không còn an toàn để tái dùng; lỗi SQL vẫn để nổi lên. */
+function isConnectionFailure(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  return typeof code === 'string' && (
+    code.startsWith('ECONN') ||
+    code === 'EPIPE' ||
+    code === 'ETIMEDOUT' ||
+    code.startsWith('08') ||
+    code === '57P01' ||
+    code === '57P02' ||
+    code === '57P03'
+  );
+}
+
+function invalidateRequestClient(requestKey: object, state: RequestClientState): void {
+  if (requestClients.get(requestKey) === state) requestClients.delete(requestKey);
+}
+
+/**
+ * Tạo Client bên trong request đầu tiên chạm DB rồi dùng lại cho các `pgQuery` của chính request.
+ * Không gọi `client.end()` trên Worker: Cloudflare tự dọn edge connection khi invocation kết thúc;
+ * gọi end sớm sẽ cắt các Server Action còn chạy song song trong cùng request.
+ */
+function requestClient(target: ConnectionTarget & { requestKey: object }): RequestClientState {
+  const existing = requestClients.get(target.requestKey);
+  if (existing?.databaseUrl === target.databaseUrl) return existing;
+
+  const client = createClient(target.databaseUrl);
+  const state: RequestClientState = {
+    databaseUrl: target.databaseUrl,
+    client,
+    connected: Promise.resolve(client),
+  };
+  requestClients.set(target.requestKey, state);
+  client.on('error', () => invalidateRequestClient(target.requestKey, state));
+  state.connected = readStep('db.connect', () => client.connect())
+    .then(() => client)
+    .catch((error) => {
+      invalidateRequestClient(target.requestKey, state);
+      throw error;
+    });
+  return state;
+}
+
+async function queryClient<T extends object>(
+  target: ConnectionTarget,
+  sql: string,
+  params: unknown[],
+): Promise<T[]> {
+  if (!target.requestKey) {
+    return withClient(target.databaseUrl, async (client) => {
+      const result = await readStep('db.query', () => client.query<T>(sql, params));
+      return result.rows;
+    });
+  }
+
+  const state = requestClient(target as ConnectionTarget & { requestKey: object });
+  const client = await state.connected;
+  try {
+    const result = await readStep('db.query', () => client.query<T>(sql, params));
+    return result.rows;
+  } catch (error) {
+    if (isConnectionFailure(error)) invalidateRequestClient(target.requestKey, state);
+    throw error;
+  }
 }
 
 /** Các cột thời gian phải là `timestamptz` — xem ghi chú trong prisma/schema.prisma. */
@@ -160,6 +242,45 @@ async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
       EXPECTED_CONSTRAINTS,
       EXPECTED_CONSTRAINTS.length,
       timestampColumns,
+    ],
+  );
+  return rows[0]?.ready === true;
+}
+
+/**
+ * Một câu xác nhận toàn bộ dữ liệu nền đã đủ, kể cả quy tắc địa chỉ QĐ-6 của OP-06:
+ * dự án chưa phát hành phải khớp địa chỉ cấu hình; dự án đã phát hành giữ địa chỉ bất biến.
+ */
+async function seedDataReady(client: ClientBase): Promise<boolean> {
+  const projects = configuredProjectSeeds().map((project) => ({
+    tokenSymbol: project.tokenSymbol,
+    chain: project.chain,
+    contractAddress: project.contractAddress ?? null,
+  }));
+  const { rows } = await client.query<{ ready: boolean }>(
+    `WITH expected_projects AS (
+       SELECT * FROM jsonb_to_recordset($5::jsonb)
+         AS seed("tokenSymbol" text, "chain" text, "contractAddress" text)
+     )
+     SELECT
+       (SELECT count(*) FROM "SystemConfig" WHERE "key" = ANY($1::text[])) = $2
+       AND
+       (SELECT count(*) FROM "Role" WHERE "name" = ANY($3::text[])) = $4
+       AND
+       (SELECT count(*) FROM expected_projects seed
+          JOIN "Project" project
+            ON project."tokenSymbol" = seed."tokenSymbol"
+           AND project."chain"::text = seed."chain"
+         WHERE project."issuedAt" IS NOT NULL
+            OR project."contractAddress" IS NOT DISTINCT FROM seed."contractAddress") = $6
+       AS ready`,
+    [
+      SEED_CONFIG_ROWS.map((row) => row.key),
+      SEED_CONFIG_ROWS.length,
+      SEED_ROLE_ROWS.map((row) => row.name),
+      SEED_ROLE_ROWS.length,
+      JSON.stringify(projects),
+      projects.length,
     ],
   );
   return rows[0]?.ready === true;
@@ -367,6 +488,42 @@ async function ensureSchema(client: ClientBase): Promise<void> {
   }
 }
 
+/** Đường lạnh chỉ mở transaction/seed khi một trong hai phép kiểm nhanh báo thiếu. */
+async function ensureSchemaFromRequestClient(
+  databaseUrl: string,
+  client: ClientBase,
+): Promise<void> {
+  const schemaReady = await readStep('db.schema.catalog', () => schemaObjectsReady(client));
+  if (schemaReady && await readStep('db.schema.seed-check', () => seedDataReady(client))) return;
+  await withClient(databaseUrl, ensureSchema);
+}
+
+async function ensureSchemaReady(target: ConnectionTarget): Promise<void> {
+  if (initializedConnections.has(target.databaseUrl)) return;
+
+  if (!target.requestKey) {
+    await readStep('db.schema.verify', () => withClient(target.databaseUrl, ensureSchema));
+    initializedConnections.add(target.databaseUrl);
+    return;
+  }
+
+  const state = requestClient(target as ConnectionTarget & { requestKey: object });
+  state.initialization ??= readStep('db.schema.verify', async () => {
+    const client = await state.connected;
+    await ensureSchemaFromRequestClient(target.databaseUrl, client);
+  })
+    .then(() => {
+      // Chỉ cache kết quả hoàn tất; request khác không chờ Promise đang chạy của request này.
+      initializedConnections.add(target.databaseUrl);
+    })
+    .catch((error) => {
+      state.initialization = undefined;
+      if (isConnectionFailure(error)) invalidateRequestClient(target.requestKey!, state);
+      throw error;
+    });
+  await state.initialization;
+}
+
 /**
  * Chạy một truy vấn sau khi lược đồ đã sẵn sàng.
  *
@@ -375,12 +532,9 @@ async function ensureSchema(client: ClientBase): Promise<void> {
 export type PgQuery = <T extends object>(sql: string, params?: unknown[]) => Promise<T[]>;
 
 export const pgQuery: PgQuery = async <T extends object>(sql: string, params: unknown[] = []) => {
-  const databaseUrl = connectionString();
-  await readStep('db.schema.wait', () => ensureSchemaReady(databaseUrl));
-  return withClient(databaseUrl, async (client) => {
-    const result = await readStep('db.query', () => client.query<T>(sql, params));
-    return result.rows;
-  });
+  const target = connectionTarget();
+  await readStep('db.schema.wait', () => ensureSchemaReady(target));
+  return queryClient<T>(target, sql, params);
 };
 
 /**
@@ -401,9 +555,9 @@ export type PgTransaction = <T>(
 export const pgTransaction: PgTransaction = async <T>(
   body: (run: <R extends object>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
 ): Promise<T> => {
-  const databaseUrl = connectionString();
-  await readStep('db.schema.wait', () => ensureSchemaReady(databaseUrl));
-  return withClient(databaseUrl, async (client) => {
+  const target = connectionTarget();
+  await readStep('db.schema.wait', () => ensureSchemaReady(target));
+  return withClient(target.databaseUrl, async (client) => {
     try {
       await client.query('BEGIN');
       const result = await body(async <R extends object>(sql: string, params: unknown[] = []) => {
