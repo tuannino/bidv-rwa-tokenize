@@ -9,13 +9,21 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.10 |
-| Cập nhật lần cuối | 2026-10-09 |
-| Nhánh / commit | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1`; checkpoint `docs/CHECKPOINT_OP06.md` |
+| Phiên bản tài liệu | 4.11 |
+| Cập nhật lần cuối | 2026-10-14 |
+| Nhánh / commit | `ops/06-db-cpu`, từ `dev` @ `f673837`; checkpoint `docs/CHECKPOINT_OP06_CPU.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
-| Đang thực hiện | **OP-06** — mã và kiểm Worker local đã xong; chờ merge rồi kiểm bản Cloudflare/Neon để đóng điều kiện deploy |
+| Đang thực hiện | **OP-06** — giảm kết nối/seed Worker local đã xong; chờ Owner đo CPU bản Cloudflare/Neon sau merge |
 | Phase kế tiếp | **OP-05** — công việc testnet kế tiếp theo kế hoạch đợt 5 |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.10 → 4.11 (OP-06, giảm CPU Postgres trên Workers Free).** `pgQuery` dùng chung một
+`pg.Client` theo `getCloudflareContext().ctx`; hai request không dùng chung I/O và transaction giữ
+Client riêng. Worker để runtime dọn edge connection khi invocation kết thúc, đúng vòng đời
+Hyperdrive; Node/Vitest/Docker vẫn mở/đóng theo từng lời gọi. Cold start kiểm catalog + dữ liệu seed
+bằng hai query trên Client request, chỉ mở transaction/DDL/seed khi thiếu. Local đo `/draft` giảm
+8→4 connection, duyệt Mint 15→3, token-info giữ 1; sau 30 lượt và dừng Worker còn 0 connection.
+Tắt `ENABLE_READ_DIAGNOSTICS`; chờ Owner đo CPU P50/P90 và lỗi 1102 trên deploy để đóng task.
 
 **4.9 → 4.10 (OP-06, lưu log và phân loại lỗi đọc).** Wrangler bật observability/logs,
 invocation logs và persist, lấy mẫu 1 để tra cứu lại theo mã. Client phân biệt máy chủ trả lỗi,
@@ -27,8 +35,8 @@ quyền ở service, hủy lượt cũ và nút thử lại; chưa xác nhận t
 kết nối, không cache Promise/I/O đang chạy. Lượt chưa có thành công dùng Client riêng; lỗi muộn
 không xóa thành công của lượt khác. Giữ transaction, khóa tư vấn và seed. `db.schema.verify` đo
 trọn lượt khởi tạo thực tế, không phát log verify cho cache hit. Kiểm thử giả lập pg giữ A chưa xong,
-B vẫn đọc được; khôi phục Promise chung làm ca này đỏ. Đây là giảm rủi ro lan lỗi giữa request,
-chưa xác nhận đã hết timeout; giữ cờ nhật ký bật đến khi có số đo production.
+B vẫn đọc được; khôi phục Promise chung làm ca này đỏ. Đây là giảm rủi ro lan lỗi giữa request;
+tại mốc 4.9 cờ nhật ký còn bật để lấy số đo, đến 4.11 đã tắt sau khi hoàn tất chẩn đoán.
 
 **4.7 → 4.8 (OP-06, xử lý timeout đọc WPT).** Lập lệnh dùng GET `api/token-info` thay Server Action để không đợi hàng chờ đọc khác. Giữ quyền/schema ở service, trả no-store và mã tra cứu. Helper client hủy fetch khi đổi nội dung, phân biệt timeout/lỗi mạng, có thử lại không làm mất biểu mẫu. Dùng chung một phép đọc SPV trong cùng lượt lấy chỉ tiêu để tránh RPC lặp. `diagnostics/read-trace.ts` dùng AsyncLocalStorage chỉ cho metadata log, không giữ client I/O; đo connect/schema/query/close và RPC theo request. `ENABLE_READ_DIAGNOSTICS` mặc định tắt, bật tạm trong Wrangler cho debug. Không log URL/SQL/payload/error.message. Chưa xác nhận lỗi production hết trước khi deploy/đo lại. ESLint bỏ cache sinh `.wrangler` để không quét bundle Worker local.
 
@@ -426,7 +434,8 @@ dù cả hai có `inclusion: always` ở đầu tệp. Trước MC-01 cây thư 
 
 ## 1.5. Hai chế độ chạy
 
-OP-06 debug bật `ENABLE_READ_DIAGNOSTICS=true` ở Node hoặc Wrangler runtime; mặc định env.ts tắt. Thu trace GET token-info bằng mã tra cứu và tắt cờ sau đo, không import module trace vào client.
+OP-06 giữ `ENABLE_READ_DIAGNOSTICS=false` ở Wrangler và env mặc định. Chỉ bật tạm khi điều tra một
+lượt GET token-info có mã tra cứu, rồi tắt lại; không import module trace vào client.
 
 | Chế độ | Lệnh | Chain | DB | Dùng khi |
 |---|---|---|---|---|
@@ -1205,7 +1214,7 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `diagnostics/read-trace.ts` | OP-06: metadata trace theo request bằng AsyncLocalStorage; chỉ bước/thời gian/SQLSTATE, không log endpoint/payload | `traceRead`, `readStep` |
 | `app/api/token-info/route.ts` | GET thông tin WPT, gọi service có kiểm quyền, no-store; X-Read-Id và Server-Timing | `GET` |
 | `components/maker-checker/token-info-read.ts` | Fetch GET độc lập hàng chờ action, timeout/hủy lượt cũ; không gọi thao tác ghi | `fetchTokenInfo`, `TokenInfoTimeoutError`, `TOKEN_INFO_TIMEOUT_MS` |
-| `store/postgres.pool.ts` | OP-06: `pg.Client` theo từng lời gọi/transaction, ưu tiên Hyperdrive rồi `DATABASE_URL`; `ensureSchema` dùng SQL nhúng, chỉ cache thành công theo connection string; không giữ Promise đang chạy. `db.schema.verify` đo mỗi lượt thực sự khởi tạo. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
+| `store/postgres.pool.ts` | OP-06: Worker dùng một `pg.Client` theo `ExecutionContext` cho các `pgQuery`; request khác và transaction dùng Client riêng. Node vẫn theo từng lời gọi. Khởi tạo nhanh chỉ kiểm catalog + seed; thiếu mới chạy transaction/DDL/seed. Chỉ cache thành công theo connection string, không cho request khác chờ Promise đang chạy. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
 | `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
 | `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
 | `providers/kyc/*` | `IKycProvider` + mock (auto-approve nhưng **vẫn validate địa chỉ**) + real stub |  |

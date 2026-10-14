@@ -381,8 +381,9 @@ Server Actions của danh sách yêu cầu. GET giữ nguyên quyền `ops:read`
 được báo riêng. Bấm **Thử đọc lại thông tin token** để tải lại dữ liệu, không tự gửi lại Mint/Burn.
 Mã tra cứu trong thông báo lỗi dùng để đối chiếu log; biểu mẫu vẫn giữ nguyên.
 
-Trong thời gian debug, `app/wrangler.json` bật `ENABLE_READ_DIAGNOSTICS=true`. Node local có thể
-đặt cờ này trong `.env.local`. Log JSON có `event=op06.read`, `id`, `stage`, `state`, `ms`, `elapsedMs`:
+Mặc định `app/wrangler.json` giữ `ENABLE_READ_DIAGNOSTICS=false` để giảm CPU/log. Khi cần điều tra
+một lượt, bật tạm cờ này (Node local có thể đặt trong `.env.local`), thu log rồi tắt lại. Log JSON có
+`event=op06.read`, `id`, `stage`, `state`, `ms`, `elapsedMs`:
 
 | Bước | Cần kiểm khi chậm |
 |---|---|
@@ -395,8 +396,8 @@ Trong thời gian debug, `app/wrangler.json` bật `ENABLE_READ_DIAGNOSTICS=true
 
 `state=ok` nghĩa bước đã trả về, không thay receipt hay nghiệm thu giao dịch. Log không chứa SQL,
 tham số, kết quả DB, URL hay error.message. Chỉ SQLSTATE chuẩn được ghi nếu có lỗi PostgreSQL.
-Giữ cờ nhật ký bật tới khi có số đo từ production. Sau khi hết timeout và nghiệm thu Mint/Burn/lịch
-sử bền, đổi cờ trong Wrangler thành `false` rồi deploy để giảm lượng log.
+Không giữ cờ nhật ký bật thường trực trên Workers Free. Việc nghiệm thu Mint/Burn/lịch sử bền dùng
+log invocation và bằng chứng giao dịch; chỉ bật trace thời gian khi cần định vị một lỗi đọc cụ thể.
 
 Để thu thập trên Cloudflare, mở Worker Logs hoặc `wrangler tail`, lọc `op06.read` theo mã tra cứu.
 Ghi phiên bản `/api/version`, thời gian, mã tra cứu và các dòng trace. Nếu UI timeout mà server vẫn
@@ -414,4 +415,4 @@ Observability → Logs, lọc `event=op06.read` và `id` bằng Mã tra cứu tr
 Thông báo phân biệt **Máy chủ trả lỗi**, **Quá thời gian chờ**, **Mất kết nối**; kèm HTTP và CF-Ray
 nếu đã nhận headers. Nếu bị ngắt/quá hạn trước headers thì hai mã này không có; không tự gán
 HTTP 504 hoặc tạo CF-Ray. Lỗi Cloudflare xảy ra trước handler có thể không có log `op06.read`;
-đối chiếu CF-Ray và invocation logs nếu có. Giữ cờ log bật tới khi có số đo production.
+đối chiếu CF-Ray và invocation logs nếu có. Xong lượt điều tra phải trả cờ về `false`.
