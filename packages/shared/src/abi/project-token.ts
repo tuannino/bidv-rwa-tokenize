@@ -1,26 +1,37 @@
 /**
- * ABI **TỐI GIẢN** của ProjectToken (WPT) — chỉ những hàm/event mà `ILedgerPort` cần.
- *
- * Vì sao không import artifact Hardhat: artifact chứa bytecode + AST (hàng trăm KB/contract),
- * bundle vào worker edge là phình vô ích (xem docs/DEPLOYMENT.md).
- * `packages/contracts-evm/scripts/deploy.js` kiểm tra chéo file này với artifact thật khi deploy,
- * nên chữ ký lệch sẽ fail sớm chứ không âm thầm sai lúc runtime.
+ * ABI tối giản của ProjectToken sau SC-09.
+ * Chỉ giữ bề mặt app dùng trực tiếp, ERC-3643 core cần chẩn đoán và ERC-2612 permit.
+ * ABI đầy đủ sinh vào packages/shared/generated để kiểm tra chữ ký, không ship lên web.
  */
 export const projectTokenAbi = [
-  // --- Đọc: tuân thủ ---
+  // --- ERC-3643: registry, compliance, freeze, pause ---
   {
     type: 'function',
-    name: 'isWhitelisted',
+    name: 'identityRegistry',
     stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    type: 'function',
+    name: 'compliance',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
   },
   {
     type: 'function',
     name: 'isFrozen',
     stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
+    inputs: [{ name: 'userAddress', type: 'address' }],
     outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'getFrozenTokens',
+    stateMutability: 'view',
+    inputs: [{ name: 'userAddress', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     type: 'function',
@@ -29,8 +40,29 @@ export const projectTokenAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'bool' }],
   },
+  {
+    type: 'function',
+    name: 'setAddressFrozen',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'userAddress', type: 'address' },
+      { name: 'freeze', type: 'bool' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'forcedTransfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
 
-  // --- Đọc: token ---
+  // --- ERC-20 / SC-02 ---
   {
     type: 'function',
     name: 'balanceOf',
@@ -80,8 +112,48 @@ export const projectTokenAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'address' }],
   },
+  {
+    type: 'function',
+    name: 'transfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'mintInitialSupply',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spv', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'mint',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'burn',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'userAddress', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
 
-  // --- Đọc: chốt quyền theo thời điểm (ERC20Snapshotable) ---
+  // --- Snapshot ---
   {
     type: 'function',
     name: 'balanceOfAt',
@@ -99,11 +171,6 @@ export const projectTokenAbi = [
     inputs: [{ name: 'snapshotId', type: 'uint256' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
-  /**
-   * Mã snapshot gần nhất, 0 nếu chưa chốt lần nào. Dùng để báo lỗi có ích khi
-   * nghiệp vụ truyền mã sai ("mã hợp lệ hiện có: 1..N") thay vì để contract
-   * revert bằng "Snapshot: id chua ton tai".
-   */
   {
     type: 'function',
     name: 'getCurrentSnapshotId',
@@ -111,8 +178,15 @@ export const projectTokenAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
+  {
+    type: 'function',
+    name: 'snapshot',
+    stateMutability: 'nonpayable',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 
-  // --- Đọc: phân quyền on-chain (để chẩn đoán "signer thiếu role") ---
+  // --- Phân quyền ---
   {
     type: 'function',
     name: 'hasRole',
@@ -138,96 +212,48 @@ export const projectTokenAbi = [
     outputs: [{ name: '', type: 'bytes32' }],
   },
 
-  // --- Ghi: tuân thủ (AGENT_ROLE) ---
+  // --- ERC-2612 ---
   {
     type: 'function',
-    name: 'setWhitelisted',
+    name: 'permit',
     stateMutability: 'nonpayable',
     inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'status', type: 'bool' },
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'v', type: 'uint8' },
+      { name: 'r', type: 'bytes32' },
+      { name: 's', type: 'bytes32' },
     ],
     outputs: [],
   },
   {
     type: 'function',
-    name: 'setFrozen',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'status', type: 'bool' },
-    ],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'forcedTransfer',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-
-  // --- Ghi: phát hành / thu hồi ---
-  {
-    type: 'function',
-    name: 'mintInitialSupply',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'spv', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'mint',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-  {
-    type: 'function',
-    name: 'agentBurn',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'from', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-
-  // --- Ghi: chốt quyền (SNAPSHOT_ROLE) ---
-  /**
-   * Trả về mã snapshot, NHƯNG đây là hàm ghi nên giá trị trả về không đọc được từ
-   * `eth_sendTransaction`. Mã thật phải lấy từ event `Snapshot` trong receipt —
-   * đừng tự tăng số đếm ở tầng ứng dụng, sẽ lệch ngay khi có ai khác gọi snapshot.
-   */
-  {
-    type: 'function',
-    name: 'snapshot',
-    stateMutability: 'nonpayable',
-    inputs: [],
+    name: 'nonces',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
     type: 'function',
-    name: 'transfer',
-    stateMutability: 'nonpayable',
+    name: 'DOMAIN_SEPARATOR',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
     inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
     ],
-    outputs: [{ name: '', type: 'bool' }],
+    outputs: [{ name: '', type: 'uint256' }],
   },
 
-  // --- Events (dùng cho lịch sử / đối soát) ---
+  // --- Events ---
   {
     type: 'event',
     name: 'Transfer',
@@ -239,27 +265,11 @@ export const projectTokenAbi = [
   },
   {
     type: 'event',
-    name: 'WhitelistUpdated',
+    name: 'AddressFrozen',
     inputs: [
-      { name: 'account', type: 'address', indexed: true },
-      { name: 'status', type: 'bool', indexed: false },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'FrozenUpdated',
-    inputs: [
-      { name: 'account', type: 'address', indexed: true },
-      { name: 'status', type: 'bool', indexed: false },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'ForcedTransfer',
-    inputs: [
-      { name: 'from', type: 'address', indexed: true },
-      { name: 'to', type: 'address', indexed: true },
-      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'userAddress', type: 'address', indexed: true },
+      { name: 'isFrozen', type: 'bool', indexed: true },
+      { name: 'owner', type: 'address', indexed: true },
     ],
   },
   {
@@ -271,22 +281,13 @@ export const projectTokenAbi = [
       { name: 'operator', type: 'address', indexed: true },
     ],
   },
-  /** Nguồn sự thật DUY NHẤT của mã snapshot. `id` không indexed (theo contract). */
   {
     type: 'event',
     name: 'Snapshot',
     inputs: [{ name: 'id', type: 'uint256', indexed: false }],
   },
 
-  // --- Custom error (OpenZeppelin v5) ---
-  /**
-   * BẮT BUỘC có trong ABI tối giản, không phải cho đẹp.
-   *
-   * OZ v5 revert bằng custom error thay vì chuỗi. ABI thiếu mục `error` thì viem
-   * KHÔNG giải mã được và chỉ trả về 4 byte selector, ra message kiểu
-   * `reverted with the following signature: 0xe2517d3f` — vô nghĩa với cả người
-   * dùng lẫn người sửa lỗi. Có mục này thì viem cho ra `errorName` để dịch được.
-   */
+  // --- Custom errors cần dịch ở adapter ---
   {
     type: 'error',
     name: 'AccessControlUnauthorizedAccount',
@@ -313,21 +314,9 @@ export const projectTokenAbi = [
       { name: 'needed', type: 'uint256' },
     ],
   },
-  {
-    type: 'error',
-    name: 'ERC20InvalidReceiver',
-    inputs: [{ name: 'receiver', type: 'address' }],
-  },
-  {
-    type: 'error',
-    name: 'InitialSupplyAlreadyMinted',
-    inputs: [],
-  },
-  {
-    type: 'error',
-    name: 'InitialSupplyNotMinted',
-    inputs: [],
-  },
+  { type: 'error', name: 'ERC20InvalidReceiver', inputs: [{ name: 'receiver', type: 'address' }] },
+  { type: 'error', name: 'InitialSupplyAlreadyMinted', inputs: [] },
+  { type: 'error', name: 'InitialSupplyNotMinted', inputs: [] },
   {
     type: 'error',
     name: 'MintTargetNotSpv',
@@ -336,14 +325,38 @@ export const projectTokenAbi = [
       { name: 'spv', type: 'address' },
     ],
   },
+  { type: 'error', name: 'ZeroAddress', inputs: [] },
+  { type: 'error', name: 'ZeroAmount', inputs: [] },
+  { type: 'error', name: 'TokenPaused', inputs: [] },
+  { type: 'error', name: 'WalletFrozen', inputs: [{ name: 'wallet', type: 'address' }] },
+  { type: 'error', name: 'IdentityRegistryNotSet', inputs: [] },
+  { type: 'error', name: 'ComplianceNotSet', inputs: [] },
+  { type: 'error', name: 'IdentityNotVerified', inputs: [{ name: 'wallet', type: 'address' }] },
   {
     type: 'error',
-    name: 'ZeroAddress',
-    inputs: [],
+    name: 'ComplianceRejected',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
   },
   {
     type: 'error',
-    name: 'ZeroAmount',
-    inputs: [],
+    name: 'InsufficientUnfrozenTokens',
+    inputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'available', type: 'uint256' },
+      { name: 'requested', type: 'uint256' },
+    ],
+  },
+  { type: 'error', name: 'ERC2612ExpiredSignature', inputs: [{ name: 'deadline', type: 'uint256' }] },
+  {
+    type: 'error',
+    name: 'ERC2612InvalidSigner',
+    inputs: [
+      { name: 'signer', type: 'address' },
+      { name: 'owner', type: 'address' },
+    ],
   },
 ] as const;

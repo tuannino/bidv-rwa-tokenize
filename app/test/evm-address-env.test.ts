@@ -14,6 +14,9 @@ const DOCUMENTED_KEYS: Record<string, string> = {
   VNDToken: 'NEXT_PUBLIC_ADDR_EVM_VND_TOKEN',
   ProfitDistributor: 'NEXT_PUBLIC_ADDR_EVM_PROFIT_DISTRIBUTOR',
   Redemption: 'NEXT_PUBLIC_ADDR_EVM_REDEMPTION',
+  IdentityRegistry: 'NEXT_PUBLIC_ADDR_EVM_IDENTITY_REGISTRY',
+  ModularCompliance: 'NEXT_PUBLIC_ADDR_EVM_MODULAR_COMPLIANCE',
+  AllowAllModule: 'NEXT_PUBLIC_ADDR_EVM_ALLOW_ALL_MODULE',
 };
 
 const TOUCHED: string[] = [];

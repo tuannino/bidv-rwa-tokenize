@@ -76,6 +76,35 @@ export const vndTokenAbi = [
     outputs: [{ name: '', type: 'bool' }],
   },
   {
+    type: 'function',
+    name: 'permit',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+      { name: 'v', type: 'uint8' },
+      { name: 'r', type: 'bytes32' },
+      { name: 's', type: 'bytes32' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'nonces',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'DOMAIN_SEPARATOR',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
     type: 'event',
     name: 'Transfer',
     inputs: [
@@ -110,6 +139,19 @@ export const vndTokenAbi = [
       { name: 'spender', type: 'address' },
       { name: 'allowance', type: 'uint256' },
       { name: 'needed', type: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'ERC2612ExpiredSignature',
+    inputs: [{ name: 'deadline', type: 'uint256' }],
+  },
+  {
+    type: 'error',
+    name: 'ERC2612InvalidSigner',
+    inputs: [
+      { name: 'signer', type: 'address' },
+      { name: 'owner', type: 'address' },
     ],
   },
 ] as const;

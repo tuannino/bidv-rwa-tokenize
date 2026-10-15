@@ -29,6 +29,9 @@ export const CONTRACT_NAMES = [
   'VNDToken',
   'ProfitDistributor',
   'Redemption',
+  'IdentityRegistry',
+  'ModularCompliance',
+  'AllowAllModule',
 ] as const;
 export type ContractName = (typeof CONTRACT_NAMES)[number];
 
@@ -45,3 +48,6 @@ export interface DeploymentRecord {
 
 /** Nội dung addresses.json: chain key -> deployment. */
 export type AddressBook = Partial<Record<ChainKey, DeploymentRecord>>;
+
+/** ISO 3166-1 numeric của Việt Nam, lưu trong IdentityRegistry ERC-3643 PoC. */
+export const VIETNAM_COUNTRY_CODE = 704;

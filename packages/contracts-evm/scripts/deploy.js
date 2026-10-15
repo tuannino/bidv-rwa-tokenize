@@ -109,7 +109,23 @@ async function main() {
   ]);
   await redemption.waitForDeployment();
 
-  // 3) Distributor cần chốt snapshot trên WPT
+  // 3) ERC-3643 PoC. BẮT BUỘC đặt sau bốn hợp đồng cũ để địa chỉ tất định
+  // ProjectToken/VNDToken/ProfitDistributor/Redemption không đổi.
+  const identityRegistry = await ethers.deployContract("IdentityRegistry", [admin]);
+  await identityRegistry.waitForDeployment();
+
+  const modularCompliance = await ethers.deployContract("ModularCompliance", [admin]);
+  await modularCompliance.waitForDeployment();
+
+  const allowAllModule = await ethers.deployContract("AllowAllModule");
+  await allowAllModule.waitForDeployment();
+
+  await (await wpt.setIdentityRegistry(await identityRegistry.getAddress())).wait();
+  await (await wpt.setCompliance(await modularCompliance.getAddress())).wait();
+  await (await modularCompliance.bindToken(await wpt.getAddress())).wait();
+  await (await modularCompliance.addModule(await allowAllModule.getAddress())).wait();
+
+  // 4) Distributor cần chốt snapshot trên WPT
   const SNAPSHOT_ROLE = await wpt.SNAPSHOT_ROLE();
   await (await wpt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress())).wait();
   await ensureApplicationSignerRole(wpt, "MINTER_ROLE", admin);
@@ -120,16 +136,27 @@ async function main() {
     VNDToken: await vnd.getAddress(),
     ProfitDistributor: await distributor.getAddress(),
     Redemption: await redemption.getAddress(),
+    IdentityRegistry: await identityRegistry.getAddress(),
+    ModularCompliance: await modularCompliance.getAddress(),
+    AllowAllModule: await allowAllModule.getAddress(),
   };
 
-  // 4) Xuất sang packages/shared
+  // 5) Xuất sang packages/shared
   const written = writeAddresses(chainKey, {
     chainId: Number(chainId),
     deployer: admin,
     deployedAt: new Date().toISOString(),
     contracts,
   });
-  for (const name of ["ProjectToken", "VNDToken", "ProfitDistributor", "Redemption"]) {
+  for (const name of [
+    "ProjectToken",
+    "VNDToken",
+    "ProfitDistributor",
+    "Redemption",
+    "IdentityRegistry",
+    "ModularCompliance",
+    "AllowAllModule",
+  ]) {
     await exportAbi(name);
   }
 
