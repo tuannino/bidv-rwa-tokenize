@@ -1,10 +1,10 @@
-# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt)
+# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 2)
 
 | | |
 |---|---|
 | Người viết | Supervisor |
-| Trạng thái | **Đã duyệt** ngày 08/10/2026. Câu trả lời CH-1 đến CH-5 ở mục 5 |
-| Áp cho | SC-07 (vault thanh toán), SC-03 (khớp lệnh), FE-05 (ủy quyền của Nhà đầu tư), OP-05 (Sepolia lần hai); ảnh hưởng SC-06, BE-18, BE-13 ở đợt 7 |
+| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-13 (mục 7) |
+| Áp cho | SC-09 (tầng token ERC-3643 và permit), SC-07 (vault thanh toán), SC-03 (khớp lệnh), FE-05 (ủy quyền của Nhà đầu tư), OP-05 (Sepolia lần hai); ảnh hưởng SC-06, BE-18, BE-13 ở đợt 7 |
 | Nền | `dev` @ `e4dd889` |
 
 Tài liệu này không phải spec giao việc. Nó chốt các quyết định kiến trúc mà spec SC-07 và SC-03
@@ -85,8 +85,8 @@ toàn vì hợp đồng tự chặn trùng.
   không nhỏ hơn `lockedAmount`.
 - `FIXED`: vai CONFIG đặt thẳng `lockedAmount`.
 - `PERCENT`: vai CONFIG đặt tỷ lệ (đơn vị phần vạn). Đầu mỗi kỳ, máy chủ gọi hàm chốt kỳ với số VNDB
-  đã chia ở kỳ trước; vault tự tính `lockedAmount`. Khi SC-06 có, vault đọc thẳng số đó từ vault chia
-  lợi nhuận thay vì nhận từ máy chủ.
+  đã chia ở kỳ trước; vault tự tính `lockedAmount`. Số này luôn do máy chủ đẩy lên, vault không đọc
+  thẳng vault chia lợi nhuận (sửa theo QĐ-13).
 - Kỳ đầu (CH-1, đã chốt): `lockedAmount` = tỷ lệ nhân **VNDB vault thu ròng từ bán WPT** (thu khi bán
   trừ chi khi mua lại). Vault tự cộng trừ con số này mỗi lần `MATCHER` thực hiện lệnh.
 - Phần khoá **không chặn** tiền trả Nhà đầu tư khi bán lại WPT (CH-2, bản thử): đường chi của `MATCHER`
@@ -114,20 +114,21 @@ ví SPV, nên **phải giữ** `AGENT_ROLE`; vault không cần làm gì thêm �
 **QĐ-7. Không dùng proxy nâng cấp.** Trên testnet, đổi bytecode thì triển khai lại. Hợp đồng khớp
 lệnh thay được nhờ QĐ-1.
 
-**QĐ-8. Mẫu số chia lợi nhuận phải trừ phần trong vault.** Không làm ở đợt 6, nhưng SC-06 và BE-18
-bắt buộc xử lý: mẫu số là tổng cung tại ảnh chụp trừ số dư của vault tại ảnh chụp. Ghi vào kế hoạch
-để không bị quên.
+**QĐ-8. ~~Mẫu số chia lợi nhuận phải trừ phần trong vault.~~ HUỶ ngày 15/10/2026.** Chủ dự án chốt:
+lợi nhuận tính cho cả dự án, WPT chưa bán do SPV nắm giữ nên SPV được hưởng phần tương ứng. Mẫu số
+giữ là tổng cung tại ảnh chụp, đúng như `ProfitDistributor` hiện có. Xem QĐ-12.
 
 ## 4. Tác động tới các task
 
 | Task | Thay đổi so với kế hoạch |
 |---|---|
-| SC-07 | Hợp đồng vault theo QĐ-5, QĐ-6; adapter đọc số dư và phần khoá; whitelist vault khi triển khai |
+| SC-09 (mới) | Làm trước SC-07: WPT theo kiến trúc ERC-3643 (QĐ-9), `permit` cho VNDB (QĐ-10) |
+| SC-07 | Hợp đồng vault theo QĐ-5, QĐ-6, QĐ-13; adapter đọc số dư và phần khoá; **đăng ký vault vào `IdentityRegistry`** khi triển khai (thay cho whitelist) |
 | SC-03 | Hợp đồng khớp lệnh theo QĐ-3, QĐ-4; thêm `orderRef` vào lời gọi thực hiện; thêm hàm đọc ủy quyền WPT vào `ILedgerPort`; gỡ 5 điểm chặn SC-03; nối `orderRef` với mã lệnh BE-17 |
-| FE-05 | Nút cấp ủy quyền VNDB và WPT qua ví đã kết nối, hiện mức đã cấp; chỉ hiện khi chain thật |
+| FE-05 | Nhà đầu tư ký `permit` VNDB ngoài chuỗi, ngân hàng gửi hộ (QĐ-10); không còn cần ETH cho bước ủy quyền VNDB. Chỉ hiện khi chain thật |
 | OP-05 | Triển khai lại Sepolia theo QĐ-2; runbook dùng `fund-sepolia.js` (OP-04) cấp vừa đủ phí từ tài khoản tổng cho ví Nhà đầu tư thử trước bước `approve` (CH-3) |
 | BE-17 | Không sửa trong đợt 6; khi SC-03 xong, cập nhật nợ P2 "khoảng trống phát giao dịch" thành đã đóng nhờ QĐ-4 |
-| SC-06, BE-18 | Thêm QĐ-8 vào phạm vi |
+| SC-06, BE-18 | Chia theo tổng cung (QĐ-12); đẩy phần của SPV vào vault bằng `distributeTo` |
 | IN-04 | Địa chỉ Fireblocks nhận `MINTER_ROLE`, `AGENT_ROLE` trên `ProjectToken`; chưa nhận vai trên vault ở đợt 6 |
 
 ## 5. Câu hỏi và câu trả lời của chủ dự án (08/10/2026)
@@ -139,6 +140,39 @@ bắt buộc xử lý: mẫu số là tổng cung tại ảnh chụp trừ số 
 | CH-3 | Trên Sepolia, ai trả ETH cho giao dịch `approve` của Nhà đầu tư? | Ngân hàng chuyển một ít ETH thử cho ví Nhà đầu tư khi whitelist (chỉ testnet), ghi trong runbook OP-05 | Chủ dự án có tài khoản tổng chứa SepoliaETH. Bước nào có phí thì chuyển **vừa đủ phí** từ tài khoản tổng sang ví đang thử, rồi chạy luồng bình thường. Áp cho mọi task dùng Sepolia (OP-04, IN-03, OP-05) |
 | CH-4 | Đồng ý tách vault và hợp đồng khớp lệnh (QĐ-1)? | Đồng ý | Đồng ý |
 | CH-5 | Đồng ý ghi nhận giả định tin cậy ở QĐ-6 cho bản thử, xử lý ở giai đoạn sau? | Đồng ý | Đồng ý |
+
+## 7. Bổ sung bản 2 (chủ dự án chốt 15/10/2026)
+
+**QĐ-9. WPT theo kiến trúc ERC-3643, phần lõi đơn giản (phương án C), làm ngay đợt 6.**
+- Tách ba phần như ERC-3643: token (`ProjectToken`), sổ danh tính (`IdentityRegistry`), bộ luật giao
+  dịch (`ModularCompliance` kèm module). Token hỏi sổ danh tính `isVerified` và hỏi bộ luật
+  `canTransfer` ở mọi lần chuyển.
+- Các hàm của token đặt **đúng tên, tham số và sự kiện** như `IToken` của T-REX v4 cho phần đã làm,
+  để về sau thay bằng T-REX thật thì phía ứng dụng không phải đổi.
+- **Không dùng ONCHAINID**: sổ danh tính lưu thẳng ví, quốc gia, trạng thái. `recoveryAddress` (cần
+  ONCHAINID) không làm.
+- Giữ phần riêng của dự án: snapshot cho chia lợi nhuận, luật SC-02 (ví SPV, phát hành lần đầu, mint
+  chỉ vào ví SPV).
+- Bộ T-REX đầy đủ đã có sẵn ở `packages/contracts-evm/trex` (solc 0.8.17, OpenZeppelin v4, không trộn
+  được vào project chính 0.8.28): giữ làm tài liệu tham chiếu "bản sản xuất".
+
+**QĐ-10. `permit` (ERC-2612) cho VNDB, đợt 6.** Nhà đầu tư ký ủy quyền ngoài chuỗi, ngân hàng gửi
+giao dịch hộ. Ví Nhà đầu tư không cần ETH cho bước ủy quyền VNDB trên Sepolia.
+
+**QĐ-11. Không dùng `ProfitDistributorOracle` và `EnergyOracle` trong bản thử.** Lợi nhuận do SPV nạp
+VNDB, Kiểm soát viên duyệt. Giữ mã, không triển khai, không nối vào ứng dụng.
+
+**QĐ-12. Chia lợi nhuận theo tổng cung tại ảnh chụp** (thay QĐ-8). Phần của SPV (WPT chưa bán nằm
+trong vault) được đẩy vào vault bằng `distributeTo`, vì vault là hợp đồng, không tự nhận được. VNDB
+lợi nhuận vào vault cộng vào số dư rút được theo hạn mức, **không** cộng vào "VNDB thu ròng từ bán WPT".
+
+**QĐ-13. Chốt kỳ `PERCENT` bằng số liệu ngoài chuỗi đẩy lên** (sửa QĐ-5).
+- Máy chủ đọc tổng VNDB đã chia kỳ trước từ database, vai `CONFIG` gọi `closePeriod(periodRef,
+  distributedPrev)`; vault tự tính `lockedAmount`, lưu, phát sự kiện. Mỗi `periodRef` chốt một lần.
+- Vault thanh toán **không** đọc trực tiếp vault chia lợi nhuận: hai hợp đồng độc lập.
+- **Không qua lập duyệt GDV**; Kiểm soát viên (vai cấu hình) tự đặt. Bắt buộc **hiển thị công khai**
+  cho Giao dịch viên và Kiểm soát viên: kỳ, số đã chia kỳ trước, tỷ lệ, phần khoá, người đặt, thời
+  điểm, mã giao dịch.
 
 ## 6. Không thuộc tài liệu này
 
