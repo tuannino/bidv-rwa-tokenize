@@ -2147,6 +2147,12 @@ không thêm nút sửa vào màn này.
 
 ## 3.22. Phạm vi chain của giao diện và dữ liệu (FE-27)
 
+Bổ sung sau review: ca từ chối yêu cầu sai chain kiểm `REQUEST_CHECK` và bản ghi vẫn `PENDING`.
+Runbook Neon cấp lại `GRANT ALL` cho role ứng dụng và `GRANT USAGE` cho PUBLIC sau tạo schema;
+không đổi chủ schema vì Neon có thể báo `must be able to SET ROLE`.
+Ghi nhận không chặn merge: menu bên trái phát sinh thêm lượt đếm việc chờ khi chuyển trang;
+chấp nhận trên gói Paid hiện tại, chỉ tối ưu khi số đo cho thấy chậm. Chưa thay đổi cơ chế đếm.
+
 FE-27 rà toàn bộ `components/pages/` và các khối dữ liệu dùng chung; bảng theo từng màn nằm ở
 `docs/CHECKPOINT_FE27.md` mục 2. Quy tắc chung cho dữ liệu bất đồng bộ đã có nguồn chain:
 

@@ -15,7 +15,7 @@
 |---|---|---|---|
 | 1 | Bảng rà soát đủ các màn trong `components/pages/` | ✅ | mục 2 |
 | 2 | Màn đọc theo chain tải lại khi đổi chain và bỏ phản hồi cũ | ✅ | mục 3.1 · 5.2 |
-| 3 | Màn Duyệt lọc theo chain, không duyệt nhầm chain | ✅ | mục 3.2 · 5.1 |
+| 3 | Màn Duyệt lọc theo chain, không duyệt nhầm chain | ✅ | mục 3.2 · 5.1 · 8 |
 | 4 | Hàm đọc danh sách phía máy chủ lọc theo chain, có kiểm thử | ✅ | mục 3.3 · 5.1 |
 | 5 | Giá phát hành theo chain, seed và đặt giá độc lập, có kiểm thử | ✅ | mục 3.4 · 5.1 |
 | 6 | Đầu cuối đổi chain xanh, gồm ca phản hồi chậm | ✅ | mục 5.2 · 5.3 |
@@ -234,4 +234,59 @@ Project Hardhat chạy cả ca đổi chain FE-27 trên bản production build v
 ```bash
 $ rg -n "@(pending|blocked) FE-27" app/src packages scripts
 # không có kết quả
+```
+
+
+## 8. Bổ sung sau review Supervisor — 15/10/2026
+
+- Thêm ca gọi `rejectTokenRequest` bằng `hardhat-local` cho yêu cầu của `mock`: trả
+  `REQUEST_CHECK`, thông báo nêu hai chain và bản ghi vẫn `PENDING`, chưa có lý do từ chối.
+  Không đổi service hoặc luật nghiệp vụ; chốt từ chối sai chain đã có sẵn.
+- Runbook làm mới Neon trong `DEPLOYMENT.md` cấp lại quyền ngay sau `CREATE SCHEMA public`:
+  `GRANT ALL ON SCHEMA public TO "<role ứng dụng>"` và `GRANT USAGE ON SCHEMA public TO PUBLIC`.
+  Ghi rõ không dùng `ALTER SCHEMA ... OWNER` vì Neon có thể báo `must be able to SET ROLE`.
+  Đồng bộ hướng dẫn khởi tạo Neon trong DEPLOYMENT/guide để không còn lệnh đổi chủ mâu thuẫn.
+- Ghi nhận không chặn merge: menu trái thêm lượt đếm việc chờ khi chuyển trang. Chấp nhận trên gói
+  Paid hiện tại; nếu số đo sau này cho thấy chậm thì tối ưu. Lượt này không đổi mã sidebar.
+- Giữ trạng thái bàn giao chờ Supervisor kiểm lại hai điểm trước khi đề xuất merge; không tự merge.
+
+### 8.1 Kiểm thử phần sửa
+
+Chạy từ `app/`, mã thoát 0:
+
+```bash
+npx vitest run test/maker-checker-ui.test.ts > /tmp/fe27-review-focused.log 2>&1
+```
+
+```text
+
+ RUN  v3.2.4 /home/tuanlh/.codex/worktrees/03a6/bidv-rwa-tokenize/app
+
+ ✓ test/maker-checker-ui.test.ts (34 tests) 251ms
+
+ Test Files  1 passed (1)
+      Tests  34 passed (34)
+   Start at  09:04:55
+   Duration  977ms (transform 302ms, setup 0ms, collect 506ms, tests 251ms, environment 0ms, prepare 119ms)
+```
+
+### 8.2 Bộ kiểm cuối
+
+Chạy từ gốc repo, mã thoát 0. Chỉ trích các dòng kết quả, bỏ tiến độ và bảng marker lặp;
+đầu ra của lệnh lọc giữ nguyên văn:
+
+```bash
+bash scripts/run-local-all.sh > /tmp/fe27-review-all.log 2>&1
+rg '84 passing|PASS: APP|Test Files|Tests |Đạt:|Không đạt:' /tmp/fe27-review-all.log > /tmp/fe27-review-all-summary.log
+```
+
+```text
+  84 passing (1s)
+[32m  => PASS: APP - TYPECHECK[0m
+[32m  => PASS: APP - LINT[0m
+ Test Files  39 passed | 2 skipped (41)
+      Tests  835 passed | 17 skipped (852)
+[32m  => PASS: APP - VITEST[0m
+  Đạt:     7
+  Không đạt: 0
 ```

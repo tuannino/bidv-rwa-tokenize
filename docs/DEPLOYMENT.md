@@ -124,9 +124,9 @@ Nếu bản deploy còn lỗi 1102, Owner đo CPU P50/P90 trong 15 phút với `
 tiệm cận mốc mock đã đo ngày 14/10/2026 thì nâng Workers Paid thay vì tiếp tục mở rộng task này.
 
 Yêu cầu tối thiểu cho mọi nhà cung cấp: PostgreSQL **13+**, TLS, tài khoản có `CONNECT, CREATE` trên
-database và `USAGE, CREATE` trên schema `public` ở lần chạy đầu. Role nên sở hữu schema và các object
-do ứng dụng tạo vì bước nâng lược đồ có `ALTER TABLE`. Lược đồ và seed tự áp. Hyperdrive trên Workers
-Free giới hạn **100.000 câu lệnh/ngày**;
+database và `USAGE, CREATE` trên schema `public` ở lần chạy đầu. Các object ứng dụng tạo phải thuộc
+role ứng dụng vì bước nâng lược đồ có `ALTER TABLE`; không cần chuyển chủ schema `public`.
+Lược đồ và seed tự áp. Hyperdrive trên Workers Free giới hạn **100.000 câu lệnh/ngày**;
 mỗi `SELECT`, `INSERT`, `UPDATE`, `DELETE` và DDL đều được tính. Nguồn:
 [Cloudflare pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/).
 
@@ -171,9 +171,15 @@ schema `public`**, gồm lịch sử mock và EVM; trạng thái Sepolia on-chai
    ```sql
    DROP SCHEMA public CASCADE;
    CREATE SCHEMA public;
-   ALTER SCHEMA public OWNER TO "rwa-user"; -- đổi đúng role ứng dụng thực tế
-   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
+   GRANT ALL ON SCHEMA public TO "<role ứng dụng>";
+   GRANT USAGE ON SCHEMA public TO PUBLIC;
    ```
+
+   Thay `"<role ứng dụng>"` bằng role trong chuỗi kết nối Hyperdrive (ví dụ `"rwa-user"`).
+   Cấp lại quyền sau `CREATE SCHEMA`: quyền trên schema đã xóa không tự chuyển sang schema mới.
+   **Không dùng `ALTER SCHEMA ... OWNER`**: Neon có thể báo `must be able to SET ROLE` khi role
+   quản trị không được chuyển sang role ứng dụng. Hai lệnh `GRANT` ở trên không đổi chủ schema;
+   ứng dụng kết nối bằng role riêng sẽ sở hữu các bảng/index do chính nó tạo.
 
 3. Mở web đúng một lần. Request đầu tiên tự tạo lại toàn bộ bảng, gồm `MockLedgerState`, và seed dữ
    liệu nền. Lượt đầu có thể chậm hơn vì chạy DDL.
@@ -202,12 +208,13 @@ cung trên Sepolia giữ nguyên.
 
    ```sql
    GRANT CONNECT, CREATE ON DATABASE "rwa-bid" TO "rwa-user";
-   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
-   ALTER SCHEMA public OWNER TO "rwa-user";
+   GRANT ALL ON SCHEMA public TO "rwa-user";
+   GRANT USAGE ON SCHEMA public TO PUBLIC;
    ```
 
-   Nếu database đã có object do role khác sở hữu, kiểm/chuyển ownership có chủ đích; chỉ `GRANT`
-   không cho phép `ALTER TABLE` trên object của role khác.
+   Không dùng `ALTER SCHEMA ... OWNER`: Neon có thể báo `must be able to SET ROLE`. Nếu database
+   đã có object do role khác sở hữu, kiểm đúng chủ sở hữu; chỉ `GRANT` trên schema không cho phép
+   `ALTER TABLE` trên object của role khác. Runbook làm mới ở trên tạo lại bảng bằng role ứng dụng.
 3. Connection Details: chọn đúng branch/database/role và lấy **Direct connection**, không chọn
    chuỗi pooled. Chuỗi này là secret, chỉ dán vào Cloudflare.
 4. Cloudflare → Storage & Databases → Hyperdrive → Create configuration → dán chuỗi kết nối.

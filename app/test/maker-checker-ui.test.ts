@@ -356,6 +356,24 @@ describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồ
     expect((await getTokenRequestDetail({ chain: CHAIN, requestId: id })).ok).toBe(true);
   });
 
+  it('từ chối yêu cầu thuộc chain khác báo lỗi và giữ nguyên PENDING', async () => {
+    const { rejectTokenRequest } = await service();
+    const id = await draft(mintInput(50n));
+
+    controller();
+    const result = await rejectTokenRequest({
+      chain: 'hardhat-local', requestId: id, reason: 'Thiếu chứng từ gốc',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('REQUEST_CHECK');
+    expect(result.error).toContain(`thuộc chain ${CHAIN}`);
+    expect(result.error).toContain('chain đang chọn hardhat-local');
+    expect(await getTokenRequestStore().findRequest(id)).toMatchObject({
+      chain: CHAIN, status: 'PENDING', rejectReason: null,
+    });
+  });
+
   it('Mint: COMPLETED, tổng cung và số còn được phát hành đổi theo, nhật ký 1 → 2 dòng', async () => {
     const { approveTokenRequest, getTokenRequestDetail } = await service();
     await issueViaApproval(1000n);
