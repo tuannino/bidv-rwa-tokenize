@@ -45,8 +45,9 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
   const { chain } = useSelectedChain();
   const router = useRouter();
   const [revision, setRevision] = useState(0);
+  const loadKey = `${chain}|${revision}`;
   const [loaded, setLoaded] = useState<{
-    key: number;
+    key: string;
     data: TokenRequestDetailView | null;
     error: string | null;
   } | null>(null);
@@ -60,14 +61,14 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: revision, data: result.data, error: null }
-          : { key: revision, data: null, error: result.error },
+          ? { key: loadKey, data: result.data, error: null }
+          : { key: loadKey, data: null, error: result.error },
       );
     });
     return () => {
       cancelled = true;
     };
-  }, [chain, requestId, revision]);
+  }, [chain, loadKey, requestId, revision]);
 
   const reload = useCallback(() => {
     setRevision((value) => value + 1);
@@ -75,7 +76,8 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
     router.refresh();
   }, [router]);
 
-  const detail = loaded?.data ?? null;
+  const fresh = loaded?.key === loadKey ? loaded : null;
+  const detail = fresh?.data ?? null;
   const decisionBlock = detail ? decisionBlockReason(detail) : 'Đang tải yêu cầu…';
   const approveBlock = working ? 'Đang xử lý…' : decisionBlock;
   const rejectBlock = working ? 'Đang xử lý…' : (decisionBlock ?? rejectBlockReason(rejectReason));
@@ -118,7 +120,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
         </Link>
       </header>
 
-      {loaded?.error && <p className="text-sm text-destructive">{loaded.error}</p>}
+      {fresh?.error && <p className="text-sm text-destructive">{fresh.error}</p>}
 
       {detail && (
         <>

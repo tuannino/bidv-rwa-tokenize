@@ -124,8 +124,10 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   const trackingId = tracked && !isSettled(tracked) ? tracked.id : null;
   useEffect(() => {
     if (!trackingId || !wallet) return;
+    let cancelled = false;
     const timer = setInterval(() => {
       void listOrdersAction({ chain, investorWallet: wallet, orderId: trackingId }).then((result) => {
+        if (cancelled) return;
         const order = result.ok ? result.data[0] : undefined;
         if (!order) return;
         setTracked(order);
@@ -133,7 +135,10 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
         if (isSettled(order)) setContextTick((tick) => tick + 1);
       });
     }, TRACK_INTERVAL_MS);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [trackingId, chain, wallet]);
 
   async function submit() {

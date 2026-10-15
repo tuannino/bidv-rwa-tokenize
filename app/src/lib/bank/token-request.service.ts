@@ -684,6 +684,18 @@ export async function countPendingWork(
   return { draft, approval };
 }
 
+/** Số việc chờ trên đúng chain đang chọn, dùng cho menu phía client. */
+export async function getPendingWork(chain: unknown): Promise<Result<PendingWorkView>> {
+  const parsed = chainSchema.safeParse(chain);
+  if (!parsed.success) return err('VALIDATION', 'Chain không hợp lệ.');
+  try {
+    const role = await currentRole();
+    return ok(await countPendingWork(role, await currentActorId(role), parsed.data));
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
 // ===========================================================================
 //  FE-22 — các phép ĐỌC cho hai màn Lập lệnh và Phê duyệt lệnh
 //

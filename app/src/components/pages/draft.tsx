@@ -77,9 +77,10 @@ export function DraftPage() {
 
   /** Tăng sau mỗi lần gửi thành công — khoá nạp lại số liệu và bảng. */
   const [revision, setRevision] = useState(0);
-  const [stats, setStats] = useState<{ key: number; data: DraftStatsView | null; error: string | null } | null>(null);
+  const loadKey = `${chain}|${revision}`;
+  const [stats, setStats] = useState<{ key: string; data: DraftStatsView | null; error: string | null } | null>(null);
   const [mine, setMine] = useState<{
-    key: number;
+    key: string;
     mint: TokenRequestRecord[];
     burn: TokenRequestRecord[];
     error: string | null;
@@ -98,11 +99,11 @@ export function DraftPage() {
         if (cancelled) return;
         setStats(
           statsResult.ok
-            ? { key: revision, data: statsResult.data, error: null }
-            : { key: revision, data: null, error: statsResult.error },
+            ? { key: loadKey, data: statsResult.data, error: null }
+            : { key: loadKey, data: null, error: statsResult.error },
         );
         setMine({
-          key: revision,
+          key: loadKey,
           mint: mintResult.ok ? mintResult.data : [],
           burn: burnResult.ok ? burnResult.data : [],
           error: !mintResult.ok ? mintResult.error : !burnResult.ok ? burnResult.error : null,
@@ -113,9 +114,9 @@ export function DraftPage() {
         const message = error instanceof DraftReadTimeoutError
           ? 'Không đọc được dữ liệu từ máy chủ sau 15 giây. Vui lòng thử tải lại trang.'
           : 'Không kết nối được máy chủ để đọc danh sách yêu cầu. Vui lòng thử tải lại trang.';
-        setStats({ key: revision, data: null, error: message });
+        setStats({ key: loadKey, data: null, error: message });
         setMine({
-          key: revision,
+          key: loadKey,
           mint: [],
           burn: [],
           error: message,
@@ -124,7 +125,10 @@ export function DraftPage() {
     return () => {
       cancelled = true;
     };
-  }, [chain, revision]);
+  }, [chain, loadKey, revision]);
+
+  const freshStats = stats?.key === loadKey ? stats : null;
+  const freshMine = mine?.key === loadKey ? mine : null;
 
   const onSubmitted = useCallback(() => {
     setRevision((value) => value + 1);
@@ -138,15 +142,15 @@ export function DraftPage() {
         <h1 className="text-xl font-semibold">Lập lệnh</h1>
         <p className="text-sm text-muted-foreground">
           Lập yêu cầu tạo hoặc huỷ token. Yêu cầu chỉ có hiệu lực sau khi Kiểm soát viên chấp nhận;
-          trước đó token không thay đổi. Chuỗi đang dùng: <span className="font-mono">{chain}</span>
+          trước đó token không thay đổi. Chain đang xem: <span className="font-mono">{chain}</span>
         </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Yêu cầu tạo token đang chờ" value={stats?.data?.pendingMint ?? null} />
-        <StatCard label="Yêu cầu huỷ token đang chờ" value={stats?.data?.pendingBurn ?? null} />
+        <StatCard label="Yêu cầu tạo token đang chờ" value={freshStats?.data?.pendingMint ?? null} />
+        <StatCard label="Yêu cầu huỷ token đang chờ" value={freshStats?.data?.pendingBurn ?? null} />
       </div>
-      {stats?.error && <p className="text-sm text-destructive">{stats.error}</p>}
+      {freshStats?.error && <p className="text-sm text-destructive">{freshStats.error}</p>}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <RequestForm type="MINT" chain={chain} revision={revision} onSubmitted={onSubmitted} />
@@ -161,21 +165,21 @@ export function DraftPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {mine?.error && <p className="text-sm text-destructive">{mine.error}</p>}
+          {freshMine?.error && <p className="text-sm text-destructive">{freshMine.error}</p>}
           <section className="space-y-2">
             <h3 className="text-sm font-medium">Yêu cầu tạo token</h3>
             <RequestTable
               caption="Yêu cầu tạo token đã lập"
-              rows={mine?.mint ?? []}
-              emptyText={mine ? 'Chưa lập yêu cầu tạo token nào.' : 'Đang tải…'}
+              rows={freshMine?.mint ?? []}
+              emptyText={freshMine ? 'Chưa lập yêu cầu tạo token nào.' : 'Đang tải…'}
             />
           </section>
           <section className="space-y-2">
             <h3 className="text-sm font-medium">Yêu cầu huỷ token</h3>
             <RequestTable
               caption="Yêu cầu huỷ token đã lập"
-              rows={mine?.burn ?? []}
-              emptyText={mine ? 'Chưa lập yêu cầu huỷ token nào.' : 'Đang tải…'}
+              rows={freshMine?.burn ?? []}
+              emptyText={freshMine ? 'Chưa lập yêu cầu huỷ token nào.' : 'Đang tải…'}
             />
           </section>
         </CardContent>

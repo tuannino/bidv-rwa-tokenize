@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { BidvLogo } from "@/components/bidv-logo";
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { usePublicConfig } from "@/lib/config/config-context";
+import { getPendingWorkAction } from "@/app/actions/token-request";
 import {
   TELLER_NAV,
   type NavIconName,
@@ -66,6 +68,24 @@ export function Sidebar({
   pendingWork?: PendingWorkCounts;
 }) {
   const pathname = usePathname();
+  const { chain } = useSelectedChain();
+  const [loadedCounts, setLoadedCounts] = useState<{
+    chain: string;
+    counts: PendingWorkCounts;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPendingWorkAction(chain).then((result) => {
+      if (cancelled || !result.ok) return;
+      setLoadedCounts({ chain, counts: result.data });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, pendingWork.approval, pendingWork.draft]);
+
+  const activePendingWork = loadedCounts?.chain === chain ? loadedCounts.counts : pendingWork;
 
   /**
    * `/` chỉ khớp chính nó. Mọi mục khác khớp cả đường dẫn con, để `/seller/withdraw` vẫn làm
@@ -108,7 +128,7 @@ export function Sidebar({
                 key={item.href}
                 item={item}
                 active={isActive(item)}
-                pendingCount={item.pendingWork ? pendingWork[item.pendingWork] : undefined}
+                pendingCount={item.pendingWork ? activePendingWork[item.pendingWork] : undefined}
               />
             ))}
           </div>

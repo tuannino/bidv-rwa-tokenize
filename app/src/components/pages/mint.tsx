@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Coins, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
@@ -48,10 +48,19 @@ export function MintPage() {
 
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('100');
-  const [status, setStatus] = useState<WalletStatus | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [txns, setTxns] = useState<TxnView[]>([]);
+  const loadKey = `${chain}|${wallet}`;
+  const activeLoadKey = useRef(loadKey);
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    status: WalletStatus | null;
+    txns: TxnView[];
+  } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    activeLoadKey.current = loadKey;
+  }, [loadKey]);
 
   // Cùng hàm với chốt chặn phía server (`canMintDemoToken`), tính sẵn trong cấu hình công khai.
   const mayMint = config.demoTokenMint;
@@ -91,9 +100,8 @@ export function MintPage() {
     [],
   );
 
-  const apply = useCallback((result: Awaited<ReturnType<typeof load>>) => {
-    setTxns(result.txns);
-    setStatus(result.status);
+  const apply = useCallback((key: string, result: Awaited<ReturnType<typeof load>>) => {
+    setLoaded({ key, txns: result.txns, status: result.status });
     if (result.error) setFeedback({ tone: 'error', message: result.error });
   }, []);
 
@@ -106,7 +114,7 @@ export function MintPage() {
     let cancelled = false;
     const timer = setTimeout(() => {
       void load(chain, wallet).then((result) => {
-        if (!cancelled) apply(result);
+        if (!cancelled) apply(loadKey, result);
       });
     }, 300);
 
@@ -114,15 +122,20 @@ export function MintPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [chain, wallet, load, apply]);
+  }, [chain, wallet, loadKey, load, apply]);
+
+  const fresh = loaded?.key === loadKey ? loaded : null;
+  const status = fresh?.status ?? null;
+  const txns = fresh?.txns ?? [];
 
   const run = (task: () => Promise<Feedback>) => {
+    const submittedKey = loadKey;
     setFeedback(null);
     startTransition(async () => {
       const result = await task();
       const refreshed = await load(chain, wallet);
-      setTxns(refreshed.txns);
-      setStatus(refreshed.status);
+      if (activeLoadKey.current !== submittedKey) return;
+      setLoaded({ key: submittedKey, txns: refreshed.txns, status: refreshed.status });
       // Kết quả của thao tác vừa chạy quan trọng hơn lỗi đọc lại, nên set sau cùng.
       setFeedback(result);
     });
