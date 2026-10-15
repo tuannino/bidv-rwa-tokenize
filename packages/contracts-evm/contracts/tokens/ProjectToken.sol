@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC20Snapshotable} from "../extensions/ERC20Snapshotable.sol";
 import {IERC3643Token} from "../interfaces/IERC3643Token.sol";
@@ -21,6 +22,7 @@ import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 contract ProjectToken is
     ERC20Burnable,
     ERC20Snapshotable,
+    ERC20Permit,
     AccessControl,
     IERC3643Token
 {
@@ -63,6 +65,7 @@ contract ProjectToken is
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_, address admin)
         ERC20(name_, symbol_)
+        ERC20Permit(name_)
     {
         if (admin == address(0)) revert ZeroAddress();
         _customDecimals = decimals_;

@@ -1,6 +1,24 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+async function signPermit(token, owner, spender, value, deadline, signer = owner) {
+  const { buildPermitTypedData } = await import("../../shared/src/permit.js");
+  const { chainId } = await ethers.provider.getNetwork();
+  const typedData = buildPermitTypedData({
+    tokenName: await token.name(),
+    chainId,
+    verifyingContract: await token.getAddress(),
+    owner: owner.address,
+    spender: spender.address,
+    value,
+    nonce: await token.nonces(owner.address),
+    deadline,
+  });
+  const raw = await signer.signTypedData(typedData.domain, typedData.types, typedData.message);
+  const signature = ethers.Signature.from(raw);
+  return { v: signature.v, r: signature.r, s: signature.s, typedData };
+}
+
 describe("SC-09 - ERC-3643 core", function () {
   async function deployTokenFixture() {
     const [admin, spv, investorA, investorB, outsider] = await ethers.getSigners();
@@ -237,6 +255,95 @@ describe("SC-09 - ERC-3643 core", function () {
       await registry.registerIdentity(spv.address, 704);
       await expect(project.mintInitialSupply(spv.address, 1))
         .to.be.revertedWithCustomError(project, "ComplianceNotSet");
+    });
+  });
+
+  describe("ERC-2612 permit", function () {
+    async function verifyPermitLifecycle(token, owner, spender, recipient) {
+      const now = BigInt((await ethers.provider.getBlock("latest")).timestamp);
+      const valid = await signPermit(token, owner, spender, 50n, now + 3600n);
+      await token.permit(
+        owner.address,
+        spender.address,
+        50n,
+        now + 3600n,
+        valid.v,
+        valid.r,
+        valid.s,
+      );
+      expect(await token.allowance(owner.address, spender.address)).to.equal(50n);
+      await token.connect(spender).transferFrom(owner.address, recipient.address, 10n);
+
+      await expect(
+        token.permit(
+          owner.address,
+          spender.address,
+          50n,
+          now + 3600n,
+          valid.v,
+          valid.r,
+          valid.s,
+        ),
+      ).to.be.revertedWithCustomError(token, "ERC2612InvalidSigner");
+
+      const expired = await signPermit(token, owner, spender, 1n, now - 1n);
+      await expect(
+        token.permit(
+          owner.address,
+          spender.address,
+          1n,
+          now - 1n,
+          expired.v,
+          expired.r,
+          expired.s,
+        ),
+      ).to.be.revertedWithCustomError(token, "ERC2612ExpiredSignature");
+
+      const [, , , , wrongSigner] = await ethers.getSigners();
+      const wrong = await signPermit(token, owner, spender, 1n, now + 3600n, wrongSigner);
+      await expect(
+        token.permit(
+          owner.address,
+          spender.address,
+          1n,
+          now + 3600n,
+          wrong.v,
+          wrong.r,
+          wrong.s,
+        ),
+      ).to.be.revertedWithCustomError(token, "ERC2612InvalidSigner");
+    }
+
+    it("VNDB: helper ký đúng domain; permit, transferFrom, expiry, sai signer và replay", async function () {
+      const [admin, owner, spender, recipient] = await ethers.getSigners();
+      const payout = await ethers.deployContract("VNDToken", [admin.address]);
+      await payout.waitForDeployment();
+      await payout.connect(admin).mint(owner.address, 100);
+      await verifyPermitLifecycle(payout, owner, spender, recipient);
+      expect(await payout.balanceOf(recipient.address)).to.equal(10n);
+    });
+
+    it("WPT: permit độc lập KYC nhưng transferFrom vẫn qua identity và compliance", async function () {
+      const { admin, spv, investorA, investorB, outsider, project } = await deployTokenFixture();
+      await project.connect(admin).mintInitialSupply(spv.address, 100);
+      await verifyPermitLifecycle(project, spv, investorB, investorA);
+      expect(await project.balanceOf(investorA.address)).to.equal(10n);
+
+      const now = BigInt((await ethers.provider.getBlock("latest")).timestamp);
+      const unverified = await signPermit(project, outsider, investorB, 5n, now + 3600n);
+      await project.permit(
+        outsider.address,
+        investorB.address,
+        5n,
+        now + 3600n,
+        unverified.v,
+        unverified.r,
+        unverified.s,
+      );
+      expect(await project.allowance(outsider.address, investorB.address)).to.equal(5n);
+      await expect(project.connect(investorB).transferFrom(spv.address, outsider.address, 1))
+        .to.be.revertedWithCustomError(project, "IdentityNotVerified")
+        .withArgs(outsider.address);
     });
   });
 });

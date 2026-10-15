@@ -3,6 +3,8 @@ import sampleWalletsJson from './sample-wallets.json';
 export * from './types';
 export * from './chains';
 export * from './abi/index';
+export { buildPermitTypedData } from './permit.js';
+export type { PermitAddress, PermitTypedData, PermitTypedDataInput } from './permit.js';
 export {
   addressBook,
   addressEnvKey,

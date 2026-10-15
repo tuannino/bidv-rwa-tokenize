@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
@@ -13,13 +14,16 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  *         khai thật, đây nên là tiền gửi token hóa cũng có kiểm soát (whitelist/tuân thủ);
  *         ở đây để tối giản, chỉ gắn quyền mint/burn cho ngân hàng.
  */
-contract VNDToken is ERC20, AccessControl {
+contract VNDToken is ERC20, ERC20Permit, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
     uint8 private immutable _customDecimals;
 
-    constructor(address admin) ERC20("Vietnam Dong Bank token", "VNDB") {
+    constructor(address admin)
+        ERC20("Vietnam Dong Bank token", "VNDB")
+        ERC20Permit("Vietnam Dong Bank token")
+    {
         require(admin != address(0), "admin = 0");
         _customDecimals = 0;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
