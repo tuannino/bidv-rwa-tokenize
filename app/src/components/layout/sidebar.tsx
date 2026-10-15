@@ -68,6 +68,7 @@ export function Sidebar({
   pendingWork?: PendingWorkCounts;
 }) {
   const pathname = usePathname();
+  const config = usePublicConfig();
   const { chain } = useSelectedChain();
   const [loadedCounts, setLoadedCounts] = useState<{
     chain: string;
@@ -85,7 +86,15 @@ export function Sidebar({
     };
   }, [chain, pendingWork.approval, pendingWork.draft]);
 
-  const activePendingWork = loadedCounts?.chain === chain ? loadedCounts.counts : pendingWork;
+  // `pendingWork` được Server Component đọc cho chain mặc định trước khi client biết lựa chọn
+  // đang lưu trong localStorage. Chỉ dùng nó ở lần render đầu; sau khi đã nhận dữ liệu của một
+  // chain, lúc đổi chain phải hiện 0 trong lúc chờ thay vì làm số của chain cũ xuất hiện dưới
+  // chain mới. Phản hồi cũ cũng bị chặn bởi cờ `cancelled` phía trên.
+  const activePendingWork = loadedCounts?.chain === chain
+    ? loadedCounts.counts
+    : loadedCounts === null && chain === config.defaultChain
+      ? pendingWork
+      : NO_COUNTS;
 
   /**
    * `/` chỉ khớp chính nó. Mọi mục khác khớp cả đường dẫn con, để `/seller/withdraw` vẫn làm
