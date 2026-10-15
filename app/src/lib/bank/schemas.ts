@@ -346,18 +346,22 @@ export const createTokenRequestSchema = z.discriminatedUnion('type', [
 ]);
 export type CreateTokenRequestInput = z.input<typeof createTokenRequestSchema>;
 
-export const approveTokenRequestSchema = z.object({ requestId: tokenRequestIdSchema });
+export const approveTokenRequestSchema = z.object({
+  requestId: tokenRequestIdSchema,
+  chain: chainSchema,
+});
 export type ApproveTokenRequestInput = z.input<typeof approveTokenRequestSchema>;
 
 /** Từ chối BẮT BUỘC có lý do — người lập cần biết phải sửa gì. */
 export const rejectTokenRequestSchema = z.object({
   requestId: tokenRequestIdSchema,
+  chain: chainSchema,
   reason: z.string().trim().min(1, 'Từ chối phải nêu lý do.').max(500, 'Lý do tối đa 500 ký tự.'),
 });
 export type RejectTokenRequestInput = z.input<typeof rejectTokenRequestSchema>;
 
 export const tokenRequestQuerySchema = z.object({
-  chain: chainSchema.optional(),
+  chain: chainSchema,
   type: z.enum(TOKEN_REQUEST_TYPES).optional(),
   status: z.enum(TOKEN_REQUEST_STATUSES).optional(),
   /**
@@ -387,4 +391,7 @@ export const tokenInfoQuerySchema = z.object({
 export type TokenInfoQueryInput = z.input<typeof tokenInfoQuerySchema>;
 
 /** Xem chi tiết một yêu cầu (FE-22, màn chi tiết của Kiểm soát viên). */
-export const tokenRequestDetailSchema = z.object({ requestId: tokenRequestIdSchema });
+export const tokenRequestDetailSchema = z.object({
+  requestId: tokenRequestIdSchema,
+  chain: chainSchema,
+});

@@ -265,7 +265,7 @@ describe('ca 8 — sau khi nạp, lệnh mua tự khớp', () => {
     actAs('TELLER');
     expect((await mint(INVESTOR, SAMPLE)).ok).toBe(true);
 
-    const price = await readIssuePriceVnd();
+    const price = await readIssuePriceVnd(CHAIN);
     const cap = await buyCap();
     expect(cap).toBe(SAMPLE / price);
 

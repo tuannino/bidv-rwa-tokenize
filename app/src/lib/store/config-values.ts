@@ -16,6 +16,8 @@ import {
   WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import type { WithdrawPolicy } from '@/lib/bank/withdraw-limit';
+import type { ChainKey } from '@bidv/shared';
+import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { getConfigStore } from './index';
 
 /**
@@ -35,8 +37,8 @@ import { getConfigStore } from './index';
  */
 
 /** Giá phát hành một WPT đang có hiệu lực, đơn vị VNDB. */
-export async function readIssuePriceVnd(): Promise<bigint> {
-  const row = await getConfigStore().getConfig(CONFIG_KEYS.issuePriceVnd);
+export async function readIssuePriceVnd(chain: ChainKey): Promise<bigint> {
+  const row = await getConfigStore().getConfig(issuePriceConfigKey(chain));
   // Không có dòng nào -> mặc định trong mã. `BigInt(row.value)` chứ không `Number`: giá là
   // uint256, qua `number` là mất chính xác từ 2^53.
   return row ? BigInt(row.value) : BigInt(WPT_ISSUE_PRICE_VND);

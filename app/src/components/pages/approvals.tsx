@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import type { ChainKey } from '@bidv/shared';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RequestTable } from '@/components/maker-checker/request-table';
 import { INPUT_CLASS, StatCard } from '@/components/maker-checker/stat-card';
 import { STATUS_LABELS } from '@/components/maker-checker/gates';
 import { getApprovalStatsAction, listTokenRequestsAction } from '@/app/actions/token-request';
 import type { ApprovalStatsView } from '@/lib/bank/token-request.service';
+import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import {
   TOKEN_REQUEST_STATUSES,
   type TokenRequestRecord,
@@ -29,18 +31,29 @@ import {
 const QUEUE_LIMIT = 200;
 
 export function ApprovalsPage() {
-  const [stats, setStats] = useState<{ data: ApprovalStatsView | null; error: string | null } | null>(null);
+  const { chain } = useSelectedChain();
+  const [stats, setStats] = useState<{
+    chain: ChainKey;
+    data: ApprovalStatsView | null;
+    error: string | null;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void getApprovalStatsAction().then((result) => {
+    void getApprovalStatsAction(chain).then((result) => {
       if (cancelled) return;
-      setStats(result.ok ? { data: result.data, error: null } : { data: null, error: result.error });
+      setStats(
+        result.ok
+          ? { chain, data: result.data, error: null }
+          : { chain, data: null, error: result.error },
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [chain]);
+
+  const freshStats = stats?.chain === chain ? stats : null;
 
   return (
     <div className="space-y-6">
@@ -48,19 +61,20 @@ export function ApprovalsPage() {
         <h1 className="text-xl font-semibold">Phê duyệt lệnh</h1>
         <p className="text-sm text-muted-foreground">
           Xem yêu cầu Giao dịch viên đã lập rồi chấp nhận hoặc từ chối. Chấp nhận thì hệ thống kiểm lại
-          điều kiện và thực hiện ngay trên chuỗi.
+          điều kiện và thực hiện ngay trên chuỗi. Chain đang xem:{' '}
+          <span className="font-mono">{chain}</span>.
         </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Đang chờ duyệt" value={stats?.data?.pending ?? null} />
-        <StatCard label="Đã duyệt hôm nay" value={stats?.data?.approvedToday ?? null} />
-        <StatCard label="Đã từ chối hôm nay" value={stats?.data?.rejectedToday ?? null} />
+        <StatCard label="Đang chờ duyệt" value={freshStats?.data?.pending ?? null} />
+        <StatCard label="Đã duyệt hôm nay" value={freshStats?.data?.approvedToday ?? null} />
+        <StatCard label="Đã từ chối hôm nay" value={freshStats?.data?.rejectedToday ?? null} />
       </div>
-      {stats?.error && <p className="text-sm text-destructive">{stats.error}</p>}
+      {freshStats?.error && <p className="text-sm text-destructive">{freshStats.error}</p>}
 
-      <Queue type="MINT" title="Hàng chờ tạo token" />
-      <Queue type="BURN" title="Hàng chờ huỷ token" />
+      <Queue chain={chain} type="MINT" title="Hàng chờ tạo token" />
+      <Queue chain={chain} type="BURN" title="Hàng chờ huỷ token" />
     </div>
   );
 }
@@ -68,12 +82,13 @@ export function ApprovalsPage() {
 /** `ALL` = không lọc trạng thái. */
 type StatusFilter = TokenRequestStatus | 'ALL';
 
-function Queue({ type, title }: { type: TokenRequestType; title: string }) {
+function Queue({ chain, type, title }: { chain: ChainKey; type: TokenRequestType; title: string }) {
   const prefix = type === 'MINT' ? 'mint' : 'burn';
   const [status, setStatus] = useState<StatusFilter>('PENDING');
   const [search, setSearch] = useState('');
+  const requestKey = `${chain}|${status}`;
   const [loaded, setLoaded] = useState<{
-    key: StatusFilter;
+    key: string;
     rows: TokenRequestRecord[];
     error: string | null;
   } | null>(null);
@@ -81,6 +96,7 @@ function Queue({ type, title }: { type: TokenRequestType; title: string }) {
   useEffect(() => {
     let cancelled = false;
     void listTokenRequestsAction({
+      chain,
       type,
       status: status === 'ALL' ? undefined : status,
       limit: QUEUE_LIMIT,
@@ -88,16 +104,16 @@ function Queue({ type, title }: { type: TokenRequestType; title: string }) {
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: status, rows: result.data, error: null }
-          : { key: status, rows: [], error: result.error },
+          ? { key: requestKey, rows: result.data, error: null }
+          : { key: requestKey, rows: [], error: result.error },
       );
     });
     return () => {
       cancelled = true;
     };
-  }, [type, status]);
+  }, [chain, requestKey, status, type]);
 
-  const fresh = loaded?.key === status ? loaded : null;
+  const fresh = loaded?.key === requestKey ? loaded : null;
   const needle = search.trim().toLowerCase();
   const rows = (fresh?.rows ?? []).filter(
     (row) =>

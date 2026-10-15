@@ -258,7 +258,7 @@ describe('ca 3 — duyệt thì tổng cung tăng đúng, mã giao dịch đư�
     const id = await draft(mintInput(500n));
 
     controller();
-    const result = await approveTokenRequest({ requestId: id });
+    const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
 
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
     if (!result.ok) return;
@@ -281,7 +281,7 @@ describe('ca 3 — duyệt thì tổng cung tăng đúng, mã giao dịch đư�
     const id = await draft(mintInput(700n));
 
     controller();
-    const result = await approveTokenRequest({ requestId: id });
+    const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
 
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
     expect(await supply()).toBe(700n);
@@ -294,7 +294,7 @@ describe('ca 3 — duyệt thì tổng cung tăng đúng, mã giao dịch đư�
     const id = await draft(burnInput(300n, 'UNDISTRIBUTED'));
 
     controller();
-    const result = await approveTokenRequest({ requestId: id });
+    const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
 
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
     expect(await supply()).toBe(700n);
@@ -307,7 +307,7 @@ describe('ca 3 — duyệt thì tổng cung tăng đúng, mã giao dịch đư�
     const id = await draft(mintInput(500n));
 
     actAs('TELLER', 'GDV002');
-    const result = await approveTokenRequest({ requestId: id });
+    const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -323,7 +323,7 @@ describe('ca 4 — từ chối', () => {
 
     controller();
     for (const reason of [undefined, '', '   ']) {
-      const result = await rejectTokenRequest({ requestId: id, reason });
+      const result = await rejectTokenRequest({ chain: CHAIN, requestId: id, reason });
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.code).toBe('VALIDATION');
@@ -341,7 +341,7 @@ describe('ca 4 — từ chối', () => {
     const id = await draft(mintInput(500n));
 
     controller();
-    const rejected = await rejectTokenRequest({ requestId: id, reason: 'Thiếu chứng từ gốc' });
+    const rejected = await rejectTokenRequest({ chain: CHAIN, requestId: id, reason: 'Thiếu chứng từ gốc' });
 
     expect(rejected.ok, rejected.ok ? '' : rejected.error).toBe(true);
     if (!rejected.ok) return;
@@ -350,7 +350,7 @@ describe('ca 4 — từ chối', () => {
     expect(rejected.data.txHash).toBeNull();
     expect(await supply()).toBe(1000n);
 
-    const late = await approveTokenRequest({ requestId: id });
+    const late = await approveTokenRequest({ chain: CHAIN, requestId: id });
     expect(late.ok).toBe(false);
     if (late.ok) return;
     expect(late.code).toBe('REQUEST_STATE');
@@ -366,8 +366,8 @@ describe('ca 5 — người lập không duyệt được yêu cầu của chín
 
     // Cùng người GDV001, nay mang vai Kiểm soát viên — đủ quyền `order:approve`.
     controller('GDV001');
-    const approved = await approveTokenRequest({ requestId: id });
-    const rejected = await rejectTokenRequest({ requestId: id, reason: 'tự huỷ' });
+    const approved = await approveTokenRequest({ chain: CHAIN, requestId: id });
+    const rejected = await rejectTokenRequest({ chain: CHAIN, requestId: id, reason: 'tự huỷ' });
 
     for (const result of [approved, rejected]) {
       expect(result.ok).toBe(false);
@@ -396,8 +396,8 @@ describe('đột biến 1 — hai lần duyệt đồng thời cùng một yêu 
 
     controller();
     const results = await Promise.all([
-      approveTokenRequest({ requestId: id }),
-      approveTokenRequest({ requestId: id }),
+      approveTokenRequest({ chain: CHAIN, requestId: id }),
+      approveTokenRequest({ chain: CHAIN, requestId: id }),
     ]);
 
     expect(results.filter((r) => r.ok)).toHaveLength(1);
@@ -419,7 +419,7 @@ describe('đột biến 2 — điều kiện đổi giữa lúc lập và lúc d
     await issueDirect(CAP - 1000n);
 
     controller();
-    const result = await approveTokenRequest({ requestId: id });
+    const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -463,7 +463,7 @@ describe('ca 8 — số việc đang chờ đếm đúng theo vai', () => {
 
     // Đã xử lý thì không còn là việc chờ.
     controller();
-    await rejectTokenRequest({ requestId: other.data.request.id, reason: 'trùng' });
+    await rejectTokenRequest({ chain: CHAIN, requestId: other.data.request.id, reason: 'trùng' });
     expect(await countPendingWork('CONTROLLER', 'KSV001')).toEqual({ draft: 0, approval: 2 });
   });
 

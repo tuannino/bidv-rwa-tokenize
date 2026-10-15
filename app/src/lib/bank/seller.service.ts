@@ -96,7 +96,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
       await Promise.all([
         ledger.spvWallet(),
         getProjectStore().listProjects({ chain }),
-        readIssuePriceVnd(),
+        readIssuePriceVnd(chain),
         readTokenTerms(),
         ledger.isSettlementMode(),
         ledger.profitPoolBalance(),

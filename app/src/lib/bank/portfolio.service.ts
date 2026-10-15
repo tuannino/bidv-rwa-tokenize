@@ -90,7 +90,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
       ledger.tokenInfo(),
-      readIssuePriceVnd(),
+      readIssuePriceVnd(chain),
     ]);
 
     const balanceString = balance.toString();
@@ -184,7 +184,7 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
     await authorize('portfolio:read', null, parsed.data);
     const [info, issuePriceVnd] = await Promise.all([
       getLedger(parsed.data).tokenInfo(),
-      readIssuePriceVnd(),
+      readIssuePriceVnd(parsed.data),
     ]);
 
     return ok({

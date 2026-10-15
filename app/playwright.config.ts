@@ -64,7 +64,7 @@ export default defineConfig({
     ON_HARDHAT
       ? {
           name: 'hardhat',
-          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts'],
+          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts', 'chain-scope.spec.ts'],
           use: { ...devices['Desktop Chrome'] },
         }
       : { name: 'mock', use: { ...devices['Desktop Chrome'] } },

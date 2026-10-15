@@ -71,7 +71,7 @@ export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner(chain
        * từ chuỗi và không có gì phải nạp.
        */
       return createMockLedger(chain, {
-        readInitialPrice: readIssuePriceVnd,
+        readInitialPrice: () => readIssuePriceVnd(chain),
         stateStore: getMockLedgerStateStore(chain),
       });
     case 'evm':

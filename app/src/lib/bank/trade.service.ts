@@ -136,7 +136,7 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       ledger.paymentBalanceOf(wallet),
       // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`).
       ledger.quotePurchase(1n),
-      readIssuePriceVnd(),
+      readIssuePriceVnd(chain),
       readTokenTerms(),
       ledger.isSettlementMode(),
     ]);

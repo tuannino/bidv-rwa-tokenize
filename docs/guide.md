@@ -115,9 +115,12 @@ Phần này chỉ làm một lần cho mỗi môi trường deploy. Không gửi
 
    ```sql
    GRANT CONNECT, CREATE ON DATABASE "rwa-bid" TO "rwa-user";
-   GRANT USAGE, CREATE ON SCHEMA public TO "rwa-user";
-   ALTER SCHEMA public OWNER TO "rwa-user";
+   GRANT ALL ON SCHEMA public TO "rwa-user";
+   GRANT USAGE ON SCHEMA public TO PUBLIC;
    ```
+
+   Không dùng `ALTER SCHEMA ... OWNER`: Neon có thể báo `must be able to SET ROLE`. Khi làm mới
+   database, cấp lại quyền ngay sau `CREATE SCHEMA public` theo runbook trong `DEPLOYMENT.md`.
 
    Kiểm ngay trước khi cấu hình Hyperdrive:
 

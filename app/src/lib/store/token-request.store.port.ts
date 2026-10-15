@@ -185,6 +185,7 @@ export interface ITokenRequestStore {
    * dài: `list` mặc định cắt ở 50 dòng, nên số đếm sẽ đứng ở 50 mà không ai biết.
    */
   countRequests(options: {
+    chain?: ChainKey;
     status: TokenRequestStatus;
     makerId?: string;
     excludeMakerId?: string;

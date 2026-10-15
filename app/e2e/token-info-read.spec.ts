@@ -36,3 +36,58 @@ test('lỗi mạng có nút thử lại và lần sau đọc được, giữ n�
   await expect(card.getByLabel('Mã hoặc ký hiệu token')).toHaveValue('WPT');
   expect(attempts).toBe(2);
 });
+
+test('phản hồi chậm của chain cũ không ghi đè dữ liệu chain mới', async ({ page }) => {
+  let releaseOld!: () => void;
+  const oldBlocked = new Promise<void>((resolve) => { releaseOld = resolve; });
+  const tokenInfo = (chain: 'mock' | 'hardhat-local', projectName: string) => ({
+    ok: true,
+    data: {
+      chain,
+      tokenSymbol: 'WPT',
+      projectName,
+      contractAddress: null,
+      cap: '20000000',
+      remaining: '20000000',
+      totalSupply: '0',
+      undistributed: '0',
+      circulating: '0',
+      sellerCode: 'NB001',
+      spvWallet: null,
+      issuedAt: null,
+    },
+  });
+
+  await page.route('**/api/token-info?**', async (route) => {
+    const chain = new URL(route.request().url()).searchParams.get('chain');
+    if (chain === 'mock') {
+      await oldBlocked;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(tokenInfo('mock', 'PHẢN HỒI CŨ MOCK')),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(tokenInfo('hardhat-local', 'DỮ LIỆU MỚI HARDHAT')),
+    });
+  });
+
+  await page.goto('/draft');
+  const card = page.getByLabel('Thẻ tạo token');
+  const oldRequest = page.waitForRequest(
+    (request) => request.url().includes('/api/token-info?') && request.url().includes('chain=mock'),
+  );
+  await card.getByLabel('Mã hoặc ký hiệu token').fill('WPT');
+  await oldRequest;
+
+  await page.locator('#chain-selector').selectOption('hardhat-local');
+  await expect(card.getByLabel('Khối thông tin token')).toContainText('DỮ LIỆU MỚI HARDHAT');
+  releaseOld();
+  await page.waitForTimeout(300);
+  await expect(card.getByLabel('Khối thông tin token')).toContainText('DỮ LIỆU MỚI HARDHAT');
+  await expect(card.getByLabel('Khối thông tin token')).not.toContainText('PHẢN HỒI CŨ MOCK');
+});

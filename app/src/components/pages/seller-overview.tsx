@@ -105,6 +105,7 @@ function Box({ title, children }: { title: string; children: React.ReactNode }) 
 }
 
 export function SellerOverviewPage() {
+  const { chain } = useSelectedChain();
   const { data, error, loading } = useSellerOverview();
   const token = data?.tokens[0];
   const wallet = data?.wallet;
@@ -115,7 +116,8 @@ export function SellerOverviewPage() {
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-foreground">Tổng quan</h1>
           <p className="text-sm text-muted-foreground">
-            Tình hình bán token, nguồn cung và số dư ví của Người bán. Màn chỉ đọc.
+            Tình hình bán token, nguồn cung và số dư ví của Người bán. Màn chỉ đọc. Chain đang xem:{' '}
+            <span className="font-mono">{chain}</span>.
           </p>
         </div>
         <nav className="flex gap-2" aria-label="Lối tắt">

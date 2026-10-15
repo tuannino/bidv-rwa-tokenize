@@ -140,12 +140,13 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
         .map((r) => ({ ...r }));
     },
 
-    async countRequests({ status, makerId, excludeMakerId, type, decidedFrom }) {
+    async countRequests({ chain, status, makerId, excludeMakerId, type, decidedFrom }) {
       const wanted = assertTokenRequestStatus(status);
       const from = decidedFrom === undefined ? undefined : Date.parse(decidedFrom);
       return state().requests.filter(
         (r) =>
           r.status === wanted &&
+          (chain === undefined || r.chain === chain) &&
           (makerId === undefined || r.makerId === makerId) &&
           (excludeMakerId === undefined || r.makerId !== excludeMakerId) &&
           (type === undefined || r.type === type) &&

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { AlertTriangle, CheckCircle2, Coins, Loader2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,9 +32,17 @@ export function DemoPaymentPage() {
   const { chain } = useSelectedChain();
   const [wallet, setWallet] = useState('');
   const [amount, setAmount] = useState('');
-  const [context, setContext] = useState<DemoPaymentContext | null>(null);
+  const activeChain = useRef(chain);
+  const [loadedContext, setLoadedContext] = useState<{
+    chain: string;
+    data: DemoPaymentContext;
+  } | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    activeChain.current = chain;
+  }, [chain]);
 
   const load = useCallback(async () => {
     const result = await demoPaymentContextAction({ chain });
@@ -45,13 +53,15 @@ export function DemoPaymentPage() {
     let cancelled = false;
     void load().then((result) => {
       if (cancelled) return;
-      if (result.ok) setContext(result.data);
+      if (result.ok) setLoadedContext({ chain, data: result.data });
       else setFeedback({ tone: 'error', message: result.error });
     });
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [chain, load]);
+
+  const context = loadedContext?.chain === chain ? loadedContext.data : null;
 
   /** Ví gợi ý cho ô chọn: ví người bán và các ví đã từng được nạp. */
   const knownWallets = [
@@ -63,11 +73,13 @@ export function DemoPaymentPage() {
   ];
 
   const submit = () => {
+    const submittedChain = chain;
     setFeedback(null);
     startTransition(async () => {
       const result = await mintDemoPaymentAction({ chain, wallet: wallet.trim(), amount: amount.trim() });
       const refreshed = await load();
-      if (refreshed.ok) setContext(refreshed.data);
+      if (activeChain.current !== submittedChain) return;
+      if (refreshed.ok) setLoadedContext({ chain: submittedChain, data: refreshed.data });
       setFeedback(
         result.ok
           ? {

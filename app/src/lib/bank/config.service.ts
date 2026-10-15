@@ -2,7 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
-import { CONFIG_KEYS } from '@/lib/config/issue-terms';
+import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { getLedger } from '@/lib/ledger';
 import { assertCanConfigure } from '@/lib/rbac/config-role';
 import { currentRole } from '@/lib/rbac/session';
@@ -69,6 +69,7 @@ export interface IssuePriceView {
   updatedAt: string | null;
   /** `false` = chưa ai cấu hình, con số đang dùng là mặc định ở `lib/config/issue-terms.ts`. */
   configured: boolean;
+  chain: ChainKey;
 }
 
 export interface SetIssuePriceView extends IssuePriceView {
@@ -87,16 +88,17 @@ export interface SetIssuePriceView extends IssuePriceView {
  * Người gọi chỉ cần con số thì dùng `readIssuePriceVnd()` ở `lib/store/config-values.ts`; hàm
  * này thêm phần siêu dữ liệu cho màn hình cấu hình.
  */
-export async function getIssuePrice(): Promise<IssuePriceView> {
-  const row = await getConfigStore().getConfig(CONFIG_KEYS.issuePriceVnd);
+export async function getIssuePrice(chain: ChainKey): Promise<IssuePriceView> {
+  const row = await getConfigStore().getConfig(issuePriceConfigKey(chain));
   if (!row) {
     // Lùi về mặc định qua CÙNG một hàm mà `getLedger` dùng, không tự lấy hằng số ở đây: hai
     // nhánh lùi về mặc định viết rời nhau sẽ lệch, và lệch ở nhánh ít chạy nhất.
     return {
-      priceVnd: (await readIssuePriceVnd()).toString(),
+      priceVnd: (await readIssuePriceVnd(chain)).toString(),
       updatedBy: null,
       updatedAt: null,
       configured: false,
+      chain,
     };
   }
   return {
@@ -104,6 +106,7 @@ export async function getIssuePrice(): Promise<IssuePriceView> {
     updatedBy: row.updatedBy,
     updatedAt: row.updatedAt,
     configured: true,
+    chain,
   };
 }
 
@@ -120,6 +123,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
   const { chain, priceVnd, reason, confirmLargeChange } = parsed.data;
+  const configKey = issuePriceConfigKey(chain);
 
   const role = await currentRole();
   const store = getStore();
@@ -132,7 +136,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
     await store.appendAudit({
       actorRole: role,
       action: 'treasury:manage',
-      target: CONFIG_KEYS.issuePriceVnd,
+      target: configKey,
       outcome: 'DENIED',
       detail: error instanceof Error ? error.message : null,
       chain,
@@ -143,14 +147,14 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
   await store.appendAudit({
     actorRole: role,
     action: 'treasury:manage',
-    target: CONFIG_KEYS.issuePriceVnd,
+    target: configKey,
     outcome: 'ALLOWED',
     detail: null,
     chain,
   });
 
   try {
-    const previous = await readIssuePriceVnd();
+    const previous = await readIssuePriceVnd(chain);
     const threshold = await readPriceChangeThreshold();
 
     // Ngưỡng kiểm TRƯỚC khi chạm vào ledger: một lần gõ sai chữ số không được đi tới chuỗi rồi
@@ -172,7 +176,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
     let saved;
     try {
       saved = await getConfigStore().setConfig({
-        key: CONFIG_KEYS.issuePriceVnd,
+        key: configKey,
         value: priceVnd.toString(),
         type: 'bigint',
         changedBy: role,
@@ -202,7 +206,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
       await store.appendAudit({
         actorRole: role,
         action: 'treasury:manage',
-        target: CONFIG_KEYS.issuePriceVnd,
+        target: configKey,
         outcome: 'FAILURE',
         detail: `Ghi giá ${priceVnd} vào cơ sở dữ liệu thất bại. ${rollbackNote}`,
         chain,
@@ -218,7 +222,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
     await store.appendAudit({
       actorRole: role,
       action: 'treasury:manage',
-      target: CONFIG_KEYS.issuePriceVnd,
+      target: configKey,
       outcome: 'SUCCESS',
       detail: `Giá phát hành ${previous} -> ${priceVnd} VND; tx ${tx.txHash}${reason ? `; lý do: ${reason}` : ''}`,
       chain,

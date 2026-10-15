@@ -1,6 +1,7 @@
 'use server';
 
 import { getIssuePrice, setIssuePrice } from '@/lib/bank/config.service';
+import { chainSchema } from '@/lib/bank/schemas';
 
 /**
  * Server actions cho THAM SỐ HỆ THỐNG — vỏ mỏng quanh `config.service`.
@@ -24,6 +25,8 @@ export async function setIssuePriceAction(input: unknown) {
 /**
  * @pending FE-07 | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư
  */
-export async function getIssuePriceAction() {
-  return getIssuePrice();
+export async function getIssuePriceAction(chain: unknown) {
+  const parsed = chainSchema.safeParse(chain);
+  if (!parsed.success) throw new Error('Chain không hợp lệ.');
+  return getIssuePrice(parsed.data);
 }

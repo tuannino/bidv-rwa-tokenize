@@ -9,13 +9,19 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.12 |
-| Cập nhật lần cuối | 2026-10-14 |
-| Nhánh / commit | `ops/07-mock-ledger-pg`, từ `dev` @ `615c7ef`; checkpoint `docs/CHECKPOINT_OP07.md` |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat) |
-| Đang thực hiện | **OP-07** — mã và kiểm chứng local hoàn tất; chờ Supervisor nghiệm thu và Owner reset Neon/thử deploy. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
-| Phase kế tiếp | **FE-27** — đồng bộ giao diện và dữ liệu khi đổi chain, chỉ làm sau khi OP-07 nghiệm thu |
+| Phiên bản tài liệu | 4.13 |
+| Cập nhật lần cuối | 2026-10-15 |
+| Nhánh / commit | `feat/fe-27-chain-scope`, từ `dev` @ `89a10a3` (PR #50); checkpoint `docs/CHECKPOINT_FE27.md` |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat), **OP-07** (mock ledger lưu bền theo chain — PR #50), **FE-27** (giao diện, dữ liệu lập–duyệt và giá phát hành đồng bộ theo chain — xem 3.22) |
+| Đang thực hiện | **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
+| Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.12 → 4.13 (FE-27).** Mọi phép đọc đã có nguồn chain ở giao diện mang chain trong khoá tải và
+bỏ phản hồi cũ; Lập lệnh, Duyệt và số việc chờ lọc tại service/store thay vì chỉ hiện cột chain.
+Yêu cầu mở trực tiếp ở chain khác không thể duyệt. Giá phát hành tách thành khoá
+`wpt.issue_price_vnd.<chain>`, được seed cho toàn bộ `CHAIN_ORDER`; đổi giá một chain không đổi chain
+khác. Bảng rà soát toàn bộ màn và bằng chứng đổi `mock`/`hardhat-local` ở `CHECKPOINT_FE27.md`.
 
 **4.11 → 4.12 (OP-07).** Chain mock không còn nằm ngoài ranh giới lưu bền khi Worker dùng
 `USE_MOCK_DB=false`: toàn bộ 17 trường state được mã hoá vào một dòng JSONB/chain trong
@@ -77,7 +83,7 @@ bất di không bị chạm. Có **bốn đổi hành vi** cần đọc kỹ:
 
 1. Giá phát hành nay nằm trong cơ sở dữ liệu và **đổi được lúc chạy**. Hằng số
    `WPT_ISSUE_PRICE_VND` trở thành **giá mặc định khi chưa cấu hình**, không còn là giá đang có
-   hiệu lực — mọi chỗ hiển thị phải đọc qua `readIssuePriceVnd()` (xem 3.12).
+   hiệu lực — mọi chỗ hiển thị phải đọc qua `readIssuePriceVnd(chain)` (xem 3.12).
 2. `wptToVnd(amount)` đổi chữ ký thành `wptToVnd(amount, issuePriceVnd)`.
 3. `PortfolioView.issuePriceVnd` và `TokenSummary.issuePriceVnd` đổi kiểu `number` → `string`.
 4. `mintTokens` đổi tên thành `mintToInvestorDirect`. Tên server action `mintAction` **giữ nguyên**,
@@ -381,6 +387,7 @@ bidv-rwa-tokenize/
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── scripts/local-proxy.mjs # OP-04: bootstrap fetch qua proxy, chỉ Node local
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
+│   │   └── config/issue-price-key.ts # FE-27: khoá giá phát hành ghép theo chain
 │   │   └── diagnostics/read-trace.ts # OP-06: thời gian DB/RPC theo request
 │   │   └── store/configured-seed-data.ts # OP-04: đăng ký Sepolia khi bật cờ
 │   ├── e2e/                   # Playwright
@@ -1121,8 +1128,8 @@ quyền của vai nào.
 | `authorize.ts` | Guard + quy lỗi **dùng chung mọi nghiệp vụ**. FE-22: `authorize()` nhận tham số thứ tư `check` (mặc định `assertCan`) cho quyền cần thêm lớp chặn ngoài bảng quyền — lần bị chặn vì cờ vẫn vào sổ kiểm toán | `authorize()`, `toResult()` |
 | `mint.service.ts` | KYC/whitelist + mint LẺ. ⚠️ `mintToInvestorDirect` (BE-04 đổi tên từ `mintTokens`) là **đường dữ liệu thử**, không phải luồng phát hành chính: nó mint thẳng cho từng ví nên làm **phình tổng cung** mỗi lần gọi. Từ FE-22 nằm sau hai lớp chặn `demo:mint-token` + `ENABLE_DEMO_TOKEN_MINT` | `onboardInvestor()`, `mintToInvestorDirect()`, `readBalance()`, `listTransactions()`, `tokenOverview()` |
 | `issuance.service.ts` | **Phát hành NHIỀU LẦN** vào ví SPV, mỗi lần không vượt **trần còn lại** (BE-04, nhiều lần từ BE-12). Trần đọc từ bảng `Project`, tổng cung đọc từ chuỗi. `executeIssuance` là lõi KHÔNG kiểm quyền, chỉ hai nơi gọi: lần duyệt yêu cầu Mint và `issueInitialSupply` — từ FE-22 là **đường dữ liệu thử** sau hai lớp chặn `demo:mint-token` + cờ (ca 10 của FE-22 quét mã để giữ điều này); `trackTxn` là thứ tự "lưu giao dịch chờ → đợi biên nhận" dùng chung với Burn | `issueInitialSupply()`, `getIssuanceStatus()`, `executeIssuance()`, `remainingIssuanceCap()`, `readSupplyMetrics()` (FE-21 — năm chỉ tiêu nguồn cung tính **một chỗ**, dùng chung cho màn Người bán, khối kiểm tra Burn và khối thông tin token của FE-22), `trackTxn()` |
-| `token-request.service.ts` | **Lập–duyệt yêu cầu Mint/Burn** (BE-12). Lập chỉ ghi `PENDING`; duyệt kiểm lại toàn bộ điều kiện, chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện rồi mới gửi giao dịch; chặn người lập tự duyệt/từ chối — xem 4.3. FE-22 thêm bốn phép **đọc** cho hai màn (kiểm quyền bằng `assertCan`, **không** ghi sổ — cùng cách `listAuditLog`, vì chạy mỗi lần mở trang): khối thông tin token, số liệu hai màn, chi tiết kèm nhật ký và lý do khoá nút khi người xem là người lập; `listTokenRequests` nhận cờ `mine` | `previewTokenRequest()`, `createTokenRequest()`, `approveTokenRequest()`, `rejectTokenRequest()`, `listTokenRequests()`, `countPendingWork()`, `getTokenInfo()`, `getDraftStats()`, `getApprovalStats()`, `getTokenRequestDetail()`, `startOfVietnamDay()` |
-| `config.service.ts` | Tham số hệ thống: đổi giá phát hành (BE-04). Thứ tự **đẩy xuống ledger trước, ghi cơ sở dữ liệu sau** — xem 3.12 | `getIssuePrice()`, `setIssuePrice()` |
+| `token-request.service.ts` | **Lập–duyệt yêu cầu Mint/Burn** (BE-12). Lập chỉ ghi `PENDING`; duyệt kiểm lại toàn bộ điều kiện, chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện rồi mới gửi giao dịch; chặn người lập tự duyệt/từ chối — xem 4.3. FE-22 thêm các phép đọc cho hai màn. FE-27 bắt mọi phép list/detail/stats và badge menu nhận chain; mở URL yêu cầu thuộc chain khác trả `REQUEST_CHECK` trước khi có thể duyệt/từ chối | `previewTokenRequest()`, `createTokenRequest()`, `approveTokenRequest()`, `rejectTokenRequest()`, `listTokenRequests()`, `getPendingWork()`, `getTokenInfo()`, `getDraftStats()`, `getApprovalStats()`, `getTokenRequestDetail()`, `startOfVietnamDay()` |
+| `config.service.ts` | Tham số hệ thống: đổi giá phát hành (BE-04). FE-27 tách mỗi chain một giá; vẫn giữ thứ tự **đẩy xuống ledger trước, ghi cơ sở dữ liệu sau** — xem 3.12 | `getIssuePrice()`, `setIssuePrice()` |
 | `seller.service.ts` | **Kênh Người bán, chỉ đọc** (FE-21). Cổng `seller:read` kiểm lại trong service. Dữ liệu "của mình" = sổ lệnh và số dư của ví SPV — xem 3.16 | `getSellerOverview()`, `listSellerTransactions()` |
 | `withdraw-limit.ts` | Hạn mức rút — hàm **thuần**, dùng được cả hai phía; chính sách đọc từ cấu hình, không có trong tệp | `computeWithdrawLimit()`, `quoteWithdraw()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
@@ -1138,7 +1145,7 @@ quyền của vai nào.
 | `issuance.ts` | Quy đổi WPT → VND theo giá phát hành. **Không giữ hằng số giá**: re-export `WPT_ISSUE_PRICE_VND` từ `lib/config/issue-terms.ts` (xem 3.6). ⚠️ BE-04 đổi chữ ký thành `wptToVnd(amount, issuePriceVnd)` — nhận giá làm **tham số** để tệp này giữ được tính thuần và **không** phải thành `server-only` | `wptToVnd()`, re-export `WPT_ISSUE_PRICE_VND` |
 | `audit.service.ts` | Đọc sổ kiểm toán | `listAuditLog()` |
 | `result.ts` | Kiểu `Result<T>` + `ok`/`err` + `httpStatusFor` | Chuẩn hóa lỗi |
-| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema` (BE-14 thêm `side`, `orderId`, `fromDate`/`toDate` gồm cả hai đầu theo giờ Việt Nam), `orderDailyStatsSchema` (BE-14), `issueInitialSupplySchema` (BE-04; BE-12 thêm `amount` tuỳ chọn — số lượng LẦN NÀY, trần vẫn chỉ đọc từ bảng dự án), `createTokenRequestSchema` / `approveTokenRequestSchema` / `rejectTokenRequestSchema` / `tokenRequestQuerySchema` (BE-12 — Burn **cố ý không có trường ví**: luôn đốt ở ví SPV chuỗi đã ghi; FE-22 thêm cờ `mine` — **cờ, không nhận mã người lập** từ input), `tokenInfoQuerySchema` / `tokenRequestDetailSchema` (FE-22), `openPeriodSchema` / `distributionPeriodSchema` / `distributionPeriodQuerySchema` (BE-06 — **cố ý không có trường kích thước lô**), `distributionCycleSchema` / `keeperRunQuerySchema` (BE-07 — `distributionCycleSchema` **chỉ có `chain`**: tiến trình tự phát hiện phải làm gì, nhận mã kỳ từ input là quay về luồng bấm tay), `amountSchema`, `walletSchema` |
+| `schemas.ts` | Schema Zod dùng chung FE/BE | `mintSchema`, `placeOrderSchema`, `previewPurchaseSchema` (**bút danh của `placeOrderSchema`**, không khai lại), `executeOrderSchema`, `orderQuerySchema`, `orderDailyStatsSchema`, `issueInitialSupplySchema`, `createTokenRequestSchema`; FE-27 bắt `approveTokenRequestSchema` / `rejectTokenRequestSchema` / `tokenRequestQuerySchema` / `tokenRequestDetailSchema` mang chain để service không suy chain từ bản ghi hoặc giao diện; cùng các schema token/distribution/keeper và `amountSchema`, `walletSchema` |
 
 ### Mô hình trạng thái lệnh mua (`purchase.state.ts`)
 
@@ -1212,10 +1219,10 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
 | `store/config.store.port.ts` | `IConfigStore` — tham số hệ thống **và** lịch sử đổi tham số (BE-04). MỘT cổng cho HAI bảng: mọi lần ghi giá PHẢI kèm một dòng lịch sử, nên tách hai cổng là mở đường gọi một mà quên cái kia | `getConfig`, `setConfig`, `listConfigHistory` |
 | `store/project.store.port.ts` | `IProjectStore` — dự án đã token hoá; giữ **tổng cung** của đợt phát hành (BE-04) | `createProject`, `findProject`, `markIssued`, `listProjects` |
-| `store/token-request.store.port.ts` | `ITokenRequestStore` — yêu cầu Mint/Burn (BE-12). Năm trạng thái `PENDING → EXECUTING → COMPLETED \| FAILED`, `PENDING → REJECTED`; bảng `TOKEN_REQUEST_TRANSITIONS` chặn chuyển ngược chiều ở **cả hai bản** trước khi chạm dữ liệu. Tự ghi `decidedAt` / `completedAt`. FE-22: `countRequests` nhận thêm `type` và `decidedFrom` (mốc ISO) cho các thẻ số liệu — đếm ở cơ sở dữ liệu, không `list` rồi lấy độ dài | `createRequest`, `findRequest`, `transitionRequest`, `attachRequestTxHash`, `listRequests`, `countRequests` |
+| `store/token-request.store.port.ts` | `ITokenRequestStore` — yêu cầu Mint/Burn (BE-12). Năm trạng thái `PENDING → EXECUTING → COMPLETED \| FAILED`, `PENDING → REJECTED`; bảng `TOKEN_REQUEST_TRANSITIONS` chặn chuyển ngược chiều ở **cả hai bản** trước khi chạm dữ liệu. Tự ghi `decidedAt` / `completedAt`. FE-27 thêm chain vào `countRequests`; memory và Postgres cùng lọc tại store, không list rồi lọc ở giao diện | `createRequest`, `findRequest`, `transitionRequest`, `attachRequestTxHash`, `listRequests`, `countRequests` |
 | `store/configured-seed-data.ts` | OP-04: nguồn dự án cho memory/Postgres, thêm Sepolia khi bật cờ server; địa chỉ qua shared, mặc định chỉ mock/Hardhat | `configuredProjectSeeds()` |
-| `store/seed-data.ts` | **MỘT nguồn dữ liệu khởi tạo cho CẢ HAI bản lưu trữ** (BE-04). Không con số nào gõ tay ở đây: giá/tổng cung/ngưỡng/chỉ tiêu token nhập từ `lib/config/issue-terms.ts`, danh sách vai được đổi cấu hình suy từ `lib/rbac/config-role.ts` | `SEED_CONFIG_ROWS`, `SEED_PROJECTS`, `SEED_PROJECT_CHAINS`, `SEED_ROLE_ROWS` |
-| `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. Đặt ở tầng lưu trữ vì có người đọc ở nhiều tầng; để ở `lib/bank` thì tầng cổng phải nhập tầng nghiệp vụ, tức ngược chiều phụ thuộc. FE-24 thêm `readTokenTerms()` đọc nguyên khối ba chỉ tiêu nhưng lùi mặc định từng khoá hỏng, không làm một khoá lỗi kéo sai cả ba. Bảng khoá đầy đủ ở 3.13 | `readIssuePriceVnd`, `readTokenTerms`, `readPriceChangeThreshold`, `readDistributionBatchSize`, `readDistributionDustWallet` |
+| `store/seed-data.ts` | **MỘT nguồn dữ liệu khởi tạo cho CẢ HAI bản lưu trữ** (BE-04). FE-27 sinh dòng giá cho mọi phần tử `CHAIN_ORDER`, không gõ lại danh sách chain; tổng cung/ngưỡng/chỉ tiêu token vẫn nhập từ `lib/config/issue-terms.ts` | `SEED_CONFIG_ROWS`, `SEED_PROJECTS`, `SEED_PROJECT_CHAINS`, `SEED_ROLE_ROWS` |
+| `store/config-values.ts` | Đọc tham số đã cấu hình, **lùi về mặc định trong mã** khi bảng trống. FE-27 đổi giá thành `readIssuePriceVnd(chain)`; các điều khoản không theo chain vẫn dùng khoá chung. Bảng khoá đầy đủ ở 3.13 | `readIssuePriceVnd`, `readTokenTerms`, `readPriceChangeThreshold`, `readDistributionBatchSize`, `readDistributionDustWallet` |
 | `store/store.errors.ts` | Lớp lỗi + phép kiểm **dùng chung cho cả hai bản** | `UniqueConstraintError`, `ForeignKeyError`, `InvalidStatusError`, `StoreUsageError`, `assertStatus`, `assertAmount`, `assertSnapshotId`, `assertBulkSize`, `assertNoDuplicateWallet`, `mapPgConstraintError`, `UNIQUE_CONSTRAINTS`, `FOREIGN_KEYS` |
 | `store/memory.state.ts` | Một khoá `globalThis` cho state của MỌI bản bộ nhớ | `memoryState`, `resetMemoryStores` |
 | `store/memory.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản RAM cho demo local nhanh; không bền qua Worker isolate. Hai bản BE-04 nạp dữ liệu khởi tạo từ `seed-data.ts` | |
@@ -1300,6 +1307,7 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | `config/build-info.ts` | Đọc `BUILD_COMMIT_SHA` / `BUILD_BRANCH` / `BUILD_TIME` khi chạy (OP-01); OP-02 thêm `config/build-env.ts` cho lúc dựng | Tách khỏi `env.ts` **có chủ đích**: `/api/version` là nơi đầu tiên người ta gọi khi nghi bản triển khai có vấn đề, nên nó phải trả lời được **kể cả lúc** `serverEnv()` đang ném lỗi. Ba biến này không có giá trị nào không hợp lệ nên không có gì để validate. Xem 2.7 |
 | `config/flags.ts` | Tính cấu hình công khai ở server | Quyết định chain nào chọn được; `demoPaymentMint` và `demoTokenMint` (FE-22) tính bằng đúng hàm mà server dùng để chặn |
 | `config/issue-terms.ts` | **Nguồn duy nhất của điều khoản phát hành** và của **mặc định mọi tham số hệ thống**: gồm giá/tổng cung/ngưỡng, ba chỉ tiêu token FE-24 (`WPT_REMAINING_LIFETIME_YEARS`, `WPT_ANNUAL_YIELD_PERCENT`, `WPT_TRADING_FEE_PERCENT`), nhóm phân phối, `CONFIG_KEYS`, `WPT_TOKEN_SYMBOL` | Hai điều **cố ý**, đừng "dọn" mất: (1) **không có `import` nào** — tệp lá thì không thể tạo vòng phụ thuộc, mà `mock.adapter.ts` đọc hằng số này ở phạm vi module nên một vòng sẽ cho ra giá `undefined`/`0` và biến khớp lệnh thành "mua không mất tiền"; (2) **không có `server-only`** — đây là hằng số hiển thị được, chặn phía client sẽ chặn luôn `wptToVnd`. Giá trị đang có hiệu lực phải đọc qua `config-values.ts`, không dùng thẳng mặc định |
+| `config/issue-price-key.ts` | FE-27 tạo khoá vật lý `wpt.issue_price_vnd.<chain>` từ khoá logic và `ChainKey` | Dùng khoá ghép để không đổi schema/cổng cấu hình; lịch sử cấu hình tách tự nhiên theo chain. Mọi người đọc/ghi phải gọi helper, không tự nối chuỗi ở nhiều nơi |
 | `config/config-context.tsx` | Truyền cấu hình xuống client | Client không tự đọc env |
 | `chains/registry.ts` | Map ChainKey → cấu hình viem, tự `defineChain` | Không import `viem/chains` để tránh phình bundle |
 | `chains/chain-store.ts` | Zustand giữ chain đang chọn | Không persist, mặc định `null` chống hydration mismatch |
@@ -1536,8 +1544,8 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-05` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:41` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:49` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
-| `FE-07` | cắm | `app/src/app/actions/config.ts:18` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
-| `FE-07` | cắm | `app/src/app/actions/config.ts:25` | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư |
+| `FE-07` | cắm | `app/src/app/actions/config.ts:19` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
+| `FE-07` | cắm | `app/src/app/actions/config.ts:26` | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư |
 | `FE-08` | cắm | `app/src/app/(ops)/distribution/page.tsx:4` | đường dẫn /distribution, cổng ops:read (cả hai vai vận hành) và mục menu "Chia lợi nhuận" đã chạy; openPeriod, previewDistribution, distributePeriod và runDistributionCycle đều đã xong đầu cuối — FE-08 chỉ thay phần thân |
 | `FE-08` | cắm | `app/src/app/actions/distribution.ts:33` | đã sẵn đầu cuối ở `openPeriod`: validate Zod, kiểm quyền `distribution:snapshot`, kiểm mã kỳ trùng và kiểm quỹ TRƯỚC khi chạm chuỗi nên lời gọi trượt không tốn ảnh chụp, chốt quyền qua `ILedgerPort.takeSnapshot`, đọc lại số dư quỹ để chắc contract chốt đúng con số đã ghi, lưu kỳ và ghi sổ kiểm toán cả bốn kết cục. Màn chia lợi nhuận chỉ cần gọi rồi hiển thị `Result`. FE-08 PHẢI hiện `snapshotId` và `totalAmount` trả về: đó là hai con số cán bộ ngân hàng dùng để đối chiếu trước khi bấm chia |
 | `FE-08` | cắm | `app/src/app/actions/distribution.ts:41` | đã sẵn đầu cuối ở `previewDistribution`: dựng danh sách người nhận từ cơ sở dữ liệu, đọc số dư tại ảnh chụp, tính phần từng ví bằng ĐÚNG hàm mà lúc chia sẽ dùng, trả kèm `dust` và `dustWallet`. Hàm KHÔNG ghi một dòng nào, kể cả sổ kiểm toán, nên gọi bao nhiêu lần cũng được. FE-08 nên hiện cả ví được chia 0 thay vì lọc bỏ: vắng mặt và được chia 0 là hai thông tin khác nhau với người đối soát |
@@ -1626,7 +1634,7 @@ mục này:
 
 | Nơi | Ai đọc | Dùng để |
 |---|---|---|
-| Cơ sở dữ liệu (`SystemConfig`) | `readIssuePriceVnd()`, `getIssuePrice()` | **HIỂN THỊ** cho nhà đầu tư |
+| Cơ sở dữ liệu (`SystemConfig`) | `readIssuePriceVnd(chain)`, `getIssuePrice(chain)` | **HIỂN THỊ** cho nhà đầu tư trên chain đang chọn |
 | Ledger (`state().wptPriceVnd` ở mock, contract khớp lệnh ở chuỗi thật) | `quotePurchase`, `executePurchase` | **TRỪ TIỀN** |
 
 Hai con số lệch nhau thì nhà đầu tư **thấy một giá và bị trừ theo giá khác**, và không phép kiểm
@@ -1669,7 +1677,7 @@ State của mock nằm trên `globalThis` nên mất khi tiến trình khởi đ
 nằm trong cơ sở dữ liệu và vẫn còn. Không nạp lại thì sau restart mock khớp lệnh theo **giá mặc
 định** trong khi màn hình hiện giá đã cấu hình.
 
-`getLedger(chain)` truyền `readInitialPrice: readIssuePriceVnd` vào `createMockLedger`. Đặt ở factory
+`getLedger(chain)` truyền `readInitialPrice: () => readIssuePriceVnd(chain)` vào `createMockLedger`. Đặt ở factory
 chứ không trong `mock.adapter.ts` vì mock là **tầng cổng**: cho nó nhập `lib/store` là để tầng cổng
 phụ thuộc tầng lưu trữ, và khi đó `createMockLedger` không dựng được trong test mà không có cơ sở dữ
 liệu. Truyền **hàm** chứ không giá trị vì `getLedger` là hàm đồng bộ và đang được gọi ở hàng chục chỗ.
@@ -1682,8 +1690,11 @@ sẽ biến cơ sở dữ liệu thành nguồn giá thứ hai bên cạnh `stat
 
 - **`WPT_ISSUE_PRICE_VND` không còn là giá đang có hiệu lực.** Nó là giá mặc định khi bảng trống.
   Dùng nó để hiển thị là hiển thị sai ngay sau lần đổi giá đầu tiên.
-- **Không đệm giá xuyên yêu cầu.** `readIssuePriceVnd()` cố ý không có lớp đệm: đổi giá phải có hiệu
+- **Không đệm giá xuyên yêu cầu.** `readIssuePriceVnd(chain)` cố ý không có lớp đệm: đổi giá phải có hiệu
   lực ở yêu cầu tiếp theo.
+- **Giá là dữ liệu theo chain.** `setIssuePrice` chỉ đẩy xuống ledger được chọn và ghi khoá
+  `wpt.issue_price_vnd.<chain>`; không được dùng lại khoá chung cũ vì sẽ làm màn của chain khác đổi
+  giá mà ledger của nó chưa đổi.
 - **`vndAmount` của lệnh đã đặt KHÔNG tính lại theo giá mới.** Nhà đầu tư trả đúng giá đã thấy lúc
   bấm; ca kiểm là `test/config-service.test.ts` ca 3.
 - **Trong test, đừng gõ lại con số giá.** Đọc từ `WPT_ISSUE_PRICE_VND` rồi suy ra. Ca 5 của BE-04
@@ -1693,11 +1704,12 @@ sẽ biến cơ sở dữ liệu thành nguồn giá thứ hai bên cạnh `stat
 
 ## 3.13. Tham số hệ thống — bảng khoá và cách thêm khoá mới
 
-Mười lăm khoá trong `SystemConfig`, khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts`):
+Mười lăm **nhóm khoá logic** khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts`). Riêng giá phát hành
+được FE-27 mở rộng thành một khoá vật lý cho mỗi chain bằng `issuePriceConfigKey(chain)`:
 
 | Khoá | Kiểu | Mặc định trong mã | Nạp sẵn? | Đọc bằng |
 |---|---|---|---|---|
-| `wpt.issue_price_vnd` | `bigint` | `WPT_ISSUE_PRICE_VND` = 100.000 | có | `readIssuePriceVnd()` |
+| `wpt.issue_price_vnd.<chain>` (FE-27) | `bigint` | `WPT_ISSUE_PRICE_VND` = 100.000 | có, cho mọi `CHAIN_ORDER` | `readIssuePriceVnd(chain)` |
 | `wpt.price_change_threshold` | `number` | `WPT_PRICE_CHANGE_THRESHOLD` = 2 | có | `readPriceChangeThreshold()` |
 | `wpt.remaining_lifetime_years` (FE-24) | `number` | `WPT_REMAINING_LIFETIME_YEARS` = 15 | có | `readTokenTerms()` |
 | `wpt.annual_yield_percent` (FE-24) | `number` | `WPT_ANNUAL_YIELD_PERCENT` = 5,8 | có | `readTokenTerms()` |
@@ -1866,7 +1878,7 @@ Task **chỉ dựng khung**, không làm nghiệp vụ. Bảng vai trò và bả
 |---|---|
 | `lib/rbac/area-gates.ts` | `AREAS` (7), `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực, **dữ liệu thuần** |
 | `lib/session/channel.ts` | 4 khu vực + `CHANNEL_HOME` + `CHANNEL_ROLE` + `ROLE_CHANNEL` (suy ra) + `homeForRole()` |
-| `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số việc đang chờ, đếm thật từ BE-12 qua `countPendingWork()`; `server-only` |
+| `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số ban đầu cho SSR ở chain mặc định; FE-27 sidebar tải lại bằng `getPendingWork(chain)` khi selector đổi; `server-only` |
 | `components/layout/nav-config.ts` | `NAV_BY_ROLE` — 4 menu, mỗi menu là **danh sách nhóm** |
 | `components/pages/placeholder.tsx` | `PlaceholderPage` — khuôn trang chỗ trống, hiện còn dùng ở 2 trang: `/distribution` (FE-08) và `/withdraw` (FE-23). FE-24 đã thay `/account` |
 | `test/four-roles-shell.test.ts` | Menu khớp tài liệu yêu cầu, khu vực ↔ vai, số việc chờ |
@@ -1967,6 +1979,9 @@ số liệu, nhật ký và lý do khoá nút đều do `token-request.service` 
 - **Nút khoá cho tới khi máy chủ trả lời.** Trạng thái `idle` / `loading` của khối kiểm tra cũng khoá
   nút gửi. Kết quả mang **khoá tình huống** (chuỗi JSON của nội dung gửi kèm `revision`), nên kết quả
   của nội dung cũ không mở được nút cho nội dung mới — cùng bài học "state thông báo mang khoá".
+- **FE-27: khoá tình huống và mọi phép đọc đều có chain.** Hai hàng chờ, thống kê và số cạnh menu
+  lọc ở store; component chỉ kết xuất state có chain khớp selector. Chi tiết mở bằng URL của chain
+  khác chỉ để báo sai phạm vi, không mở nút duyệt/từ chối.
 - **Số cạnh menu làm mới bằng `router.refresh()`** sau mỗi lần gửi / duyệt: số đó do `AppLayout`
   (Server Component) dựng. `refresh()` giữ nguyên state phía client.
 - **Thời gian ghim `Asia/Ho_Chi_Minh`.** Trang dựng ở máy chủ UTC rồi hydrate ở trình duyệt giờ Việt
@@ -2129,6 +2144,32 @@ chính nó, tránh một lỗi cấu hình phí làm tuổi thọ và lợi tứ
 **Cách mở rộng:** AU-01 thêm kho người dùng thật → ánh xạ bản ghi về `AccountProfileView` → giữ
 `getOwnAccountProfile()` không tham số. Muốn chỉnh hồ sơ phải là luồng riêng có quyền và audit;
 không thêm nút sửa vào màn này.
+
+## 3.22. Phạm vi chain của giao diện và dữ liệu (FE-27)
+
+Bổ sung sau review: ca từ chối yêu cầu sai chain kiểm `REQUEST_CHECK` và bản ghi vẫn `PENDING`.
+Runbook Neon cấp lại `GRANT ALL` cho role ứng dụng và `GRANT USAGE` cho PUBLIC sau tạo schema;
+không đổi chủ schema vì Neon có thể báo `must be able to SET ROLE`.
+Ghi nhận không chặn merge: menu bên trái phát sinh thêm lượt đếm việc chờ khi chuyển trang;
+chấp nhận trên gói Paid hiện tại, chỉ tối ưu khi số đo cho thấy chậm. Chưa thay đổi cơ chế đếm.
+
+FE-27 rà toàn bộ `components/pages/` và các khối dữ liệu dùng chung; bảng theo từng màn nằm ở
+`docs/CHECKPOINT_FE27.md` mục 2. Quy tắc chung cho dữ liệu bất đồng bộ đã có nguồn chain:
+
+1. Chain là input bắt buộc từ component qua action/service/store; không tải mọi chain rồi lọc ở client.
+2. Khoá tải chứa chain. Khi selector đổi, state của chain trước không được kết xuất trong lúc chờ.
+3. Effect huỷ lượt cũ bằng `AbortController` hoặc cờ huỷ; callback mutation/interval cũng phải kiểm
+   khoá còn hoạt động trước khi refresh.
+4. URL chi tiết mang mã bản ghi không thay thế phạm vi chain: service so chain người dùng chọn với
+   chain của bản ghi trước mọi thao tác ghi.
+
+Màn tĩnh ghi rõ là dữ liệu minh hoạ/chưa nối nguồn không được biến thành service giả chỉ để có chain.
+Khi task sau nối nguồn thật, nó phải áp cùng khuôn trên. Dữ liệu hồ sơ người dùng không thuộc chain;
+không thêm chain vào hồ sơ chỉ để đồng nhất hình thức.
+
+Giá phát hành là ngoại lệ cấu hình có phạm vi chain. `CONFIG_KEYS.issuePriceVnd` là tiền tố logic;
+`issuePriceConfigKey(chain)` tạo khoá vật lý. Cách này giữ nguyên schema `SystemConfig`, lịch sử vẫn
+tách được theo khoá, và tránh đổi giao diện store chỉ vì một nhóm cấu hình có scope khác.
 
 ---
 
@@ -2456,7 +2497,7 @@ PENDING ──► EXECUTING ──► COMPLETED
 | Lập | `createTokenRequest()` | `order:draft`; trượt điều kiện → `REQUEST_CHECK`, `fieldErrors` khoá theo mã điều kiện. Đạt → dòng `PENDING`, **chưa tác động token** |
 | Duyệt | `approveTokenRequest()` | `order:approve`; người lập = người duyệt (so **mã tài khoản**) → `SELF_APPROVAL`; **kiểm lại toàn bộ điều kiện**, đổi → `REQUEST_CHECK`, yêu cầu **giữ `PENDING`**; chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện, `null` → `REQUEST_STATE`; rồi `executeIssuance` / đốt ở ví SPV |
 | Từ chối | `rejectTokenRequest()` | Bắt buộc lý do (thiếu → `VALIDATION` + audit `FAILURE`); chặn tự từ chối; `PENDING → REJECTED`, không tác động token |
-| Đếm việc chờ | `countPendingWork(role, actorId)` | Theo **quyền**: `order:draft` đếm yêu cầu mình lập đang chờ; `order:approve` đếm yêu cầu người khác lập đang chờ |
+| Đếm việc chờ | `getPendingWork(chain)` | Theo **quyền và chain**: `order:draft` đếm yêu cầu mình lập đang chờ; `order:approve` đếm yêu cầu người khác lập đang chờ |
 
 **Vì sao năm trạng thái, không phải ba.** `EXECUTING` là đích của lần chiếm quyền — không có nó thì
 phải đánh `COMPLETED` **trước** khi gửi giao dịch, và tiến trình chết giữa chừng để lại một yêu cầu
@@ -2736,6 +2777,8 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, nay chỉ còn chờ SC-03 cho `evm`) | ✅ Xong |
 | — | OP-03 hardhat một lệnh, ví mẫu trên chuỗi và project E2E `hardhat` | ✅ Xong — PR #41 |
 | — | SC-02 contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat | ✅ Đã merge PR #42 |
+| — | OP-07 mock ledger lưu bền theo chain trên PostgreSQL/Hyperdrive | ✅ Xong — PR #50 |
+| — | FE-27 giao diện, lập–duyệt và giá phát hành đồng bộ theo chain (xem 3.22) | ✅ Mã và kiểm chứng local xong; chờ Supervisor nghiệm thu |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |

@@ -3,6 +3,7 @@ import 'server-only';
 import type { PendingWorkCounts } from '@/components/layout/nav-config';
 import { countPendingWork } from '@/lib/bank/token-request.service';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
+import { publicConfig } from '@/lib/config/flags';
 
 /**
  * Số việc đang chờ hiển thị cạnh mục menu (FE-20 yêu cầu 10).
@@ -34,7 +35,11 @@ export const NO_PENDING_WORK: PendingWorkCounts = { draft: 0, approval: 0 };
 export async function pendingWorkCounts(): Promise<PendingWorkCounts> {
   try {
     const role = await currentRole();
-    return await countPendingWork(role, await currentActorId(role));
+    return await countPendingWork(
+      role,
+      await currentActorId(role),
+      (await publicConfig()).defaultChain,
+    );
   } catch (error) {
     console.error('[pending-work] không đọc được số việc đang chờ:', error);
     return NO_PENDING_WORK;

@@ -212,7 +212,7 @@ describe.skipIf(!TEST_DATABASE_URL)('Postgres MockLedgerState', () => {
     resetServerEnvCache();
 
     expect(await getLedger('mock').isWhitelisted(regressionWallet)).toBe(true);
-    const approved = await approveTokenRequest({ requestId });
+    const approved = await approveTokenRequest({ chain: 'mock', requestId });
     expect(approved.ok, approved.ok ? '' : approved.error).toBe(true);
     if (!approved.ok) return;
     expect(approved.data.status).toBe('COMPLETED');
