@@ -8,7 +8,7 @@
  *
  *  - `Redemption.paused = true` tắt việc hoàn vốn, tức NGƯỢC hướng với "bật giai
  *    đoạn tất toán". Còn thứ chặn chuyển nhượng mà vẫn cho đốt là
- *    `ProjectToken.paused` (vì `agentBurn` bỏ qua kiểm tra tuân thủ).
+ *    `ProjectToken.paused` (vì agent `burn(address,uint256)` bỏ qua kiểm tra tuân thủ).
  *  - Chưa có contract nào phơi ra một cờ "đang tất toán" riêng.
  *
  * Vì vậy `setSettlementMode`/`navRate` CHƯA được nối vào contract nào ở

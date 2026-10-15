@@ -15,8 +15,12 @@ import {
   type WalletClient,
 } from 'viem';
 import {
+  findContractAddress,
   getContractAddress,
+  identityRegistryAbi,
+  modularComplianceAbi,
   projectTokenAbi,
+  VIETNAM_COUNTRY_CODE,
   vndTokenAbi,
   type ChainKey,
   type ContractName,
@@ -118,6 +122,13 @@ const REVERT_MESSAGES: Record<string, string> = {
   MintTargetNotSpv: 'Ví nhận không trùng với ví SPV đã đăng ký.',
   ZeroAddress: 'Địa chỉ ví SPV không được là địa chỉ 0.',
   ZeroAmount: 'Số lượng phát hành phải lớn hơn 0.',
+  TokenPaused: 'Token đang tạm dừng chuyển nhượng.',
+  WalletFrozen: 'Ví tham gia giao dịch đang bị đóng băng.',
+  IdentityRegistryNotSet: 'ProjectToken chưa được nối với sổ danh tính ERC-3643.',
+  ComplianceNotSet: 'ProjectToken chưa được nối với bộ luật tuân thủ ERC-3643.',
+  IdentityNotVerified: 'Ví chưa được xác minh trong sổ danh tính ERC-3643.',
+  ComplianceRejected: 'Bộ luật tuân thủ ERC-3643 từ chối giao dịch.',
+  InsufficientUnfrozenTokens: 'Số WPT khả dụng không đủ vì một phần số dư đang bị đóng băng.',
 };
 
 function translateRevert(raw: string): string {
@@ -148,7 +159,24 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     return publicClient;
   };
 
-  const addressOf = (contract: ContractName): Hex => getContractAddress(chain, contract) as Hex;
+  /**
+   * SC-09 là một lần nâng cấp nguyên khối: ProjectToken mới không được vận hành với
+   * bộ địa chỉ cũ thiếu registry/compliance. Chặn mọi lời gọi EVM trước RPC để Sepolia
+   * chưa triển khai lại không rơi vào trạng thái nửa cũ, nửa mới khó chẩn đoán.
+   */
+  const addressOf = (contract: ContractName): Hex => {
+    if (
+      !findContractAddress(chain, 'IdentityRegistry') ||
+      !findContractAddress(chain, 'ModularCompliance')
+    ) {
+      throw new LedgerError(
+        chain,
+        'configuration',
+        'bộ hợp đồng chain này chưa triển khai bản ERC-3643 (SC-09), chạy lại triển khai theo runbook',
+      );
+    }
+    return getContractAddress(chain, contract) as Hex;
+  };
 
   const sc02Operations = new Set([
     'mint',
@@ -170,11 +198,14 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
         return 'Lập và duyệt lệnh phát hành nguồn cung ban đầu bằng mintInitialSupply trước.';
       case 'MintTargetNotSpv':
         return 'Đọc spvWallet() và phát hành bổ sung đúng địa chỉ đó.';
-      case 'phat hanh cho vi chua KYC':
-      case 'ben nhan chua KYC':
+      case 'IdentityNotVerified':
         return 'Hoàn tất KYC/whitelist cho ví SPV rồi thử lại.';
-      case 'ben nhan bi bang':
+      case 'WalletFrozen':
         return 'Gỡ đóng băng ví SPV sau khi hoàn tất kiểm soát rồi thử lại.';
+      case 'TokenPaused':
+        return 'Bỏ tạm dừng ProjectToken rồi thử lại.';
+      case 'ComplianceRejected':
+        return 'Kiểm tra các module trong ModularCompliance rồi thử lại.';
       case 'AccessControlUnauthorizedAccount':
         return 'Cấp MINTER_ROLE cho ví vận hành trên ProjectToken rồi thử lại.';
       case 'ZeroAddress':
@@ -357,15 +388,27 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     //  TUÂN THỦ
     // =========================================================================
     async whitelist(wallet) {
-      return write('whitelist', 'setWhitelisted', [normalizeEvmAddress(wallet), true]);
+      return writeOn(
+        'whitelist',
+        'IdentityRegistry',
+        identityRegistryAbi,
+        'registerIdentity',
+        [normalizeEvmAddress(wallet), VIETNAM_COUNTRY_CODE],
+      );
     },
 
     async isWhitelisted(wallet) {
-      return read<boolean>('isWhitelisted', 'isWhitelisted', [normalizeEvmAddress(wallet)]);
+      return readOn<boolean>(
+        'isWhitelisted',
+        'IdentityRegistry',
+        identityRegistryAbi,
+        'isVerified',
+        [normalizeEvmAddress(wallet)],
+      );
     },
 
     async freeze(wallet, frozen) {
-      return write('freeze', 'setFrozen', [normalizeEvmAddress(wallet), frozen]);
+      return write('freeze', 'setAddressFrozen', [normalizeEvmAddress(wallet), frozen]);
     },
 
     async isFrozen(wallet) {
@@ -373,7 +416,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     },
 
     /**
-     * Gộp mọi kiểm tra của `ProjectToken._update` thành sáu lời gọi ĐỌC song song.
+     * Gộp mọi kiểm tra của `ProjectToken._update` thành tám lời gọi ĐỌC song song.
      * Không gửi giao dịch, không tốn phí (R3.2).
      *
      * Thứ tự trả lý do giống thứ tự `require` trong contract, để lý do báo ra đúng
@@ -384,14 +427,42 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       const sender = normalizeEvmAddress(from);
       const receiver = normalizeEvmAddress(to);
 
-      const [paused, senderFrozen, receiverFrozen, senderKyc, receiverKyc, senderBalance] =
-        await Promise.all([
+      const [
+        paused,
+        senderFrozen,
+        receiverFrozen,
+        senderKyc,
+        receiverKyc,
+        senderBalance,
+        senderFrozenTokens,
+        complianceAllowed,
+      ] = await Promise.all([
           read<boolean>('canTransfer', 'paused', []),
           read<boolean>('canTransfer', 'isFrozen', [sender]),
           read<boolean>('canTransfer', 'isFrozen', [receiver]),
-          read<boolean>('canTransfer', 'isWhitelisted', [sender]),
-          read<boolean>('canTransfer', 'isWhitelisted', [receiver]),
+          readOn<boolean>(
+            'canTransfer',
+            'IdentityRegistry',
+            identityRegistryAbi,
+            'isVerified',
+            [sender],
+          ),
+          readOn<boolean>(
+            'canTransfer',
+            'IdentityRegistry',
+            identityRegistryAbi,
+            'isVerified',
+            [receiver],
+          ),
           read<bigint>('canTransfer', 'balanceOf', [sender]),
+          read<bigint>('canTransfer', 'getFrozenTokens', [sender]),
+          readOn<boolean>(
+            'canTransfer',
+            'ModularCompliance',
+            modularComplianceAbi,
+            'canTransfer',
+            [sender, receiver, amount],
+          ),
         ]);
 
       const deny = (reason: string): TransferCheck => ({ allowed: false, reason });
@@ -404,6 +475,14 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       if (senderBalance < amount) {
         return deny(`Số dư WPT không đủ: cần ${amount}, ví ${sender} chỉ có ${senderBalance}.`);
       }
+      const available = senderBalance - senderFrozenTokens;
+      if (available < amount) {
+        return deny(
+          `Số WPT khả dụng không đủ: cần ${amount}, ví ${sender} chỉ dùng được ${available} ` +
+            `do ${senderFrozenTokens} WPT đang bị đóng băng.`,
+        );
+      }
+      if (!complianceAllowed) return deny('Bộ luật tuân thủ ERC-3643 từ chối giao dịch.');
       return { allowed: true };
     },
 
@@ -417,8 +496,8 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
 
     async burn(from, amount) {
       assertPositiveAmount(chain, 'burn', amount);
-      // agentBurn: ngân hàng (AGENT_ROLE) đốt được cả ví đang bị băng.
-      return write('burn', 'agentBurn', [normalizeEvmAddress(from), amount]);
+      // ERC-3643 agent burn: ngân hàng (AGENT_ROLE) đốt được cả ví đang bị băng.
+      return write('burn', 'burn', [normalizeEvmAddress(from), amount]);
     },
 
     async transfer(from, to, amount) {
@@ -673,7 +752,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     // =========================================================================
     /**
      * Chưa contract nào phơi ra cờ "đang tất toán" đúng nghĩa.
-     * `ProjectToken.paused` chặn chuyển nhượng và vẫn cho `agentBurn` (khớp R6.3),
+     * `ProjectToken.paused` chặn chuyển nhượng và vẫn cho agent `burn(address,uint256)` (khớp R6.3),
      * còn `Redemption.paused` thì NGƯỢC hướng. Chọn sai một trong hai sẽ ra hệ thống
      * chạy được nhưng làm ngược — cần Owner/Supervisor xác nhận trước khi nối.
      *

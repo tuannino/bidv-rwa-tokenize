@@ -18,4 +18,18 @@ export const modularComplianceAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'address[]' }],
   },
+  {
+    type: 'function',
+    name: 'addModule',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'module', type: 'address' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'removeModule',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'module', type: 'address' }],
+    outputs: [],
+  },
 ] as const;

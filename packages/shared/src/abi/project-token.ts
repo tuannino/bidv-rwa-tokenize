@@ -52,6 +52,26 @@ export const projectTokenAbi = [
   },
   {
     type: 'function',
+    name: 'freezePartialTokens',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'userAddress', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'unfreezePartialTokens',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'userAddress', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
     name: 'forcedTransfer',
     stateMutability: 'nonpayable',
     inputs: [
