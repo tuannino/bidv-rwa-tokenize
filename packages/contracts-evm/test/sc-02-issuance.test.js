@@ -22,7 +22,7 @@ describe("SC-02 - Phát hành EVM khóa theo ví SPV", function () {
     const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
     await whitelist(project, admin, [spv]);
     await project.connect(admin).mintInitialSupply(spv.address, 100n);
-    await project.connect(admin).agentBurn(spv.address, 100n);
+    await project.connect(admin)["burn(address,uint256)"](spv.address, 100n);
 
     expect(await project.totalSupply()).to.equal(0n);
     expect(await project.initialSupplyMinted()).to.equal(true);
@@ -77,9 +77,9 @@ describe("SC-02 - Phát hành EVM khóa theo ví SPV", function () {
   it("ví chưa whitelist bị hook chặn và hoàn nguyên ví/cờ", async function () {
     const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
 
-    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n)).to.be.revertedWith(
-      "phat hanh cho vi chua KYC",
-    );
+    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n))
+      .to.be.revertedWithCustomError(project, "IdentityNotVerified")
+      .withArgs(spv.address);
     expect(await project.initialSupplyMinted()).to.equal(false);
     expect(await project.spvWallet()).to.equal(ethers.ZeroAddress);
   });
@@ -87,11 +87,11 @@ describe("SC-02 - Phát hành EVM khóa theo ví SPV", function () {
   it("ví bị đóng băng bị hook chặn và hoàn nguyên ví/cờ", async function () {
     const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
     await whitelist(project, admin, [spv]);
-    await project.connect(admin).setFrozen(spv.address, true);
+    await project.connect(admin).setAddressFrozen(spv.address, true);
 
-    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n)).to.be.revertedWith(
-      "ben nhan bi bang",
-    );
+    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n))
+      .to.be.revertedWithCustomError(project, "WalletFrozen")
+      .withArgs(spv.address);
     expect(await project.initialSupplyMinted()).to.equal(false);
     expect(await project.spvWallet()).to.equal(ethers.ZeroAddress);
   });
@@ -99,11 +99,10 @@ describe("SC-02 - Phát hành EVM khóa theo ví SPV", function () {
   it("token tạm dừng bị hook chặn và hoàn nguyên ví/cờ", async function () {
     const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
     await whitelist(project, admin, [spv]);
-    await project.connect(admin).setPaused(true);
+    await project.connect(admin).pause();
 
-    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n)).to.be.revertedWith(
-      "token dang tam dung",
-    );
+    await expect(project.connect(admin).mintInitialSupply(spv.address, 1n))
+      .to.be.revertedWithCustomError(project, "TokenPaused");
     expect(await project.initialSupplyMinted()).to.equal(false);
     expect(await project.spvWallet()).to.equal(ethers.ZeroAddress);
   });

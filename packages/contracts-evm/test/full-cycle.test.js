@@ -5,7 +5,7 @@ const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function () {
   let bank, treasury, invA, invB, invC, outsider;
-  let wpt, vnd, distributor, redemption;
+  let wpt, registry, compliance, vnd, distributor, redemption;
 
   const DEC = 0n; // WPT & VND đều 0 số thập phân trong demo
 
@@ -14,6 +14,13 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
 
     // Triển khai token
     wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address]);
+    registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
+    compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
+    const allowAll = await ethers.deployContract("AllowAllModule");
+    await wpt.setIdentityRegistry(await registry.getAddress());
+    await wpt.setCompliance(await compliance.getAddress());
+    await compliance.bindToken(await wpt.getAddress());
+    await compliance.addModule(await allowAll.getAddress());
     vnd = await ethers.deployContract("VNDToken", [bank.address]);
 
     // Triển khai hợp đồng nghiệp vụ
@@ -34,14 +41,17 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
     await wpt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress());
 
     // KYC các bên hợp lệ
-    await wpt.batchSetWhitelisted([treasury.address, invA.address, invB.address, invC.address], true);
+    await registry.batchRegisterIdentity(
+      [treasury.address, invA.address, invB.address, invC.address],
+      [704, 704, 704, 704],
+    );
   });
 
   it("Mint: chỉ MINTER mint được và chỉ mint cho ví đã KYC", async function () {
     // Kiểm hook KYC trên chính đường phát hành lần đầu, trước khi cờ được ghi.
-    await expect(wpt.mintInitialSupply(outsider.address, 100n)).to.be.revertedWith(
-      "phat hanh cho vi chua KYC"
-    );
+    await expect(wpt.mintInitialSupply(outsider.address, 100n))
+      .to.be.revertedWithCustomError(wpt, "IdentityNotVerified")
+      .withArgs(outsider.address);
     await seedProjectBalances(wpt, bank, bank, [
       { wallet: invA, amount: 6000n },
       { wallet: invB, amount: 4000n },
@@ -59,20 +69,24 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
     await seedProjectBalances(wpt, bank, bank, [{ wallet: invA, amount: 1000n }]);
 
     // gửi cho outsider (chưa KYC) -> revert
-    await expect(wpt.connect(invA).transfer(outsider.address, 10n)).to.be.revertedWith("ben nhan chua KYC");
+    await expect(wpt.connect(invA).transfer(outsider.address, 10n))
+      .to.be.revertedWithCustomError(wpt, "IdentityNotVerified")
+      .withArgs(outsider.address);
 
     // gửi cho invB (KYC) -> ok
     await wpt.connect(invA).transfer(invB.address, 100n);
     expect(await wpt.balanceOf(invB.address)).to.equal(100n);
 
     // đóng băng invA -> không gửi được
-    await wpt.setFrozen(invA.address, true);
-    await expect(wpt.connect(invA).transfer(invB.address, 1n)).to.be.revertedWith("ben gui bi bang");
+    await wpt.setAddressFrozen(invA.address, true);
+    await expect(wpt.connect(invA).transfer(invB.address, 1n))
+      .to.be.revertedWithCustomError(wpt, "WalletFrozen")
+      .withArgs(invA.address);
   });
 
   it("Clawback: agent thu hồi WPT từ ví bị băng về ví thu hồi", async function () {
     await seedProjectBalances(wpt, bank, bank, [{ wallet: invA, amount: 500n }]);
-    await wpt.setFrozen(invA.address, true); // nghi vấn -> băng lại
+    await wpt.setAddressFrozen(invA.address, true); // nghi vấn -> băng lại
 
     // clawback bỏ qua trạng thái băng của bên gửi
     await wpt.forcedTransfer(invA.address, treasury.address, 500n);

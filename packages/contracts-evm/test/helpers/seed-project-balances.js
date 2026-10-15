@@ -3,12 +3,15 @@
  * sang các nhà đầu tư. Helper không để lại WPT trong SPV để tổng cung tại
  * snapshot vẫn đúng mẫu số mà các bộ P7/P12 đang kiểm.
  */
+const { ethers } = require("hardhat");
+
 async function seedProjectBalances(project, admin, spv, allocations) {
   const total = allocations.reduce((sum, { amount }) => sum + BigInt(amount), 0n);
   if (total <= 0n) throw new Error("Tổng WPT dựng phải lớn hơn 0.");
 
   const spvAddress = spv.address ?? spv;
-  await project.connect(admin).setWhitelisted(spvAddress, true);
+  const registry = await ethers.getContractAt("IdentityRegistry", await project.identityRegistry());
+  await registry.connect(admin).registerIdentity(spvAddress, 704);
 
   if (await project.initialSupplyMinted()) {
     await project.connect(admin).mint(spvAddress, total);

@@ -9,6 +9,13 @@ async function main() {
   const [bank, invA, invB] = await ethers.getSigners();
 
   const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
+  const registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
+  const compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
+  const allowAll = await ethers.deployContract("AllowAllModule");
+  await wpt.setIdentityRegistry(await registry.getAddress());
+  await wpt.setCompliance(await compliance.getAddress());
+  await compliance.bindToken(await wpt.getAddress());
+  await compliance.addModule(await allowAll.getAddress());
   const vnd = await ethers.deployContract("VNDToken", [bank.address]);
   const distributor = await ethers.deployContract("ProfitDistributor", [
     await wpt.getAddress(), await vnd.getAddress(), bank.address,
@@ -19,7 +26,7 @@ async function main() {
   await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await distributor.getAddress());
 
   console.log("1) KYC hai nhà đầu tư");
-  await wpt.batchSetWhitelisted([invA.address, invB.address], true);
+  await registry.batchRegisterIdentity([invA.address, invB.address], [704, 704]);
 
   console.log("2) Ngân hàng phát hành WPT: A=6000, B=4000");
   await seedProjectBalances(wpt, bank, bank, [

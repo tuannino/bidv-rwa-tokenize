@@ -2,6 +2,34 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("SC-09 - ERC-3643 core", function () {
+  async function deployTokenFixture() {
+    const [admin, spv, investorA, investorB, outsider] = await ethers.getSigners();
+    const project = await ethers.deployContract("ProjectToken", [
+      "Wind Project Token",
+      "WPT",
+      0,
+      admin.address,
+    ]);
+    const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
+    const compliance = await ethers.deployContract("ModularCompliance", [admin.address]);
+    const allowAll = await ethers.deployContract("AllowAllModule");
+    await Promise.all([
+      project.waitForDeployment(),
+      registry.waitForDeployment(),
+      compliance.waitForDeployment(),
+      allowAll.waitForDeployment(),
+    ]);
+    await project.setIdentityRegistry(await registry.getAddress());
+    await project.setCompliance(await compliance.getAddress());
+    await compliance.bindToken(await project.getAddress());
+    await compliance.addModule(await allowAll.getAddress());
+    await registry.batchRegisterIdentity(
+      [spv.address, investorA.address, investorB.address],
+      [704, 704, 704],
+    );
+    return { admin, spv, investorA, investorB, outsider, project, registry, compliance, allowAll };
+  }
+
   async function deployComplianceFixture() {
     const [admin, token, investor, outsider] = await ethers.getSigners();
     const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
@@ -76,6 +104,139 @@ describe("SC-09 - ERC-3643 core", function () {
           .withArgs(outsider.address);
         await expect(compliance.connect(token)[name](...args)).not.to.be.reverted;
       }
+    });
+  });
+
+  describe("ProjectToken", function () {
+    it("khớp selector và topic của phần IToken T-REX v4.1.6 đã hiện thực", async function () {
+      const { project } = await deployTokenFixture();
+      const functionSignatures = [
+        "setOnchainID(address)",
+        "pause()",
+        "unpause()",
+        "setAddressFrozen(address,bool)",
+        "freezePartialTokens(address,uint256)",
+        "unfreezePartialTokens(address,uint256)",
+        "setIdentityRegistry(address)",
+        "setCompliance(address)",
+        "forcedTransfer(address,address,uint256)",
+        "mint(address,uint256)",
+        "burn(address,uint256)",
+        "batchTransfer(address[],uint256[])",
+        "batchForcedTransfer(address[],address[],uint256[])",
+        "batchSetAddressFrozen(address[],bool[])",
+        "onchainID()",
+        "version()",
+        "identityRegistry()",
+        "compliance()",
+        "paused()",
+        "isFrozen(address)",
+        "getFrozenTokens(address)",
+      ];
+      for (const signature of functionSignatures) {
+        expect(project.interface.getFunction(signature).selector).to.equal(ethers.id(signature).slice(0, 10));
+      }
+
+      const eventSignatures = [
+        "AddressFrozen(address,bool,address)",
+        "TokensFrozen(address,uint256)",
+        "TokensUnfrozen(address,uint256)",
+        "Paused(address)",
+        "Unpaused(address)",
+        "IdentityRegistryAdded(address)",
+        "ComplianceAdded(address)",
+      ];
+      for (const signature of eventSignatures) {
+        expect(project.interface.getEvent(signature).topicHash).to.equal(ethers.id(signature));
+      }
+      expect(await project.version()).to.equal("4.1.6-poc");
+    });
+
+    it("chỉ ví đã xác minh được nhận/chuyển; xoá danh tính chặn ngay", async function () {
+      const { admin, spv, investorA, investorB, outsider, project, registry } =
+        await deployTokenFixture();
+      await project.connect(admin).mintInitialSupply(spv.address, 100);
+      await expect(project.connect(spv).transfer(outsider.address, 1))
+        .to.be.revertedWithCustomError(project, "IdentityNotVerified")
+        .withArgs(outsider.address);
+
+      await project.connect(spv).transfer(investorA.address, 10);
+      await registry.connect(admin).deleteIdentity(investorA.address);
+      await expect(project.connect(investorA).transfer(investorB.address, 1))
+        .to.be.revertedWithCustomError(project, "IdentityNotVerified")
+        .withArgs(investorA.address);
+    });
+
+    it("bộ luật RejectAll chặn đúng lỗi và gỡ module thì chuyển lại được", async function () {
+      const { admin, spv, investorA, project, compliance } = await deployTokenFixture();
+      const rejectAll = await ethers.deployContract("RejectAllModule");
+      await rejectAll.waitForDeployment();
+      await project.connect(admin).mintInitialSupply(spv.address, 100);
+      await compliance.connect(admin).addModule(await rejectAll.getAddress());
+
+      await expect(project.connect(spv).transfer(investorA.address, 1))
+        .to.be.revertedWithCustomError(project, "ComplianceRejected")
+        .withArgs(spv.address, investorA.address, 1);
+      await compliance.connect(admin).removeModule(await rejectAll.getAddress());
+      await expect(project.connect(spv).transfer(investorA.address, 1)).not.to.be.reverted;
+    });
+
+    it("đóng băng toàn phần và một phần; cưỡng chế tự mở đúng phần cần dùng", async function () {
+      const { admin, spv, investorA, project } = await deployTokenFixture();
+      await project.connect(admin).mintInitialSupply(spv.address, 100);
+
+      await project.connect(admin).setAddressFrozen(spv.address, true);
+      await expect(project.connect(spv).transfer(investorA.address, 1))
+        .to.be.revertedWithCustomError(project, "WalletFrozen")
+        .withArgs(spv.address);
+      await project.connect(admin).setAddressFrozen(spv.address, false);
+      await project.connect(admin).setAddressFrozen(investorA.address, true);
+      await expect(project.connect(spv).transfer(investorA.address, 1))
+        .to.be.revertedWithCustomError(project, "WalletFrozen")
+        .withArgs(investorA.address);
+      await project.connect(admin).setAddressFrozen(investorA.address, false);
+
+      await project.connect(admin).freezePartialTokens(spv.address, 80);
+      await expect(project.connect(spv).transfer(investorA.address, 21))
+        .to.be.revertedWithCustomError(project, "InsufficientUnfrozenTokens")
+        .withArgs(spv.address, 20, 21);
+      await expect(project.connect(admin).forcedTransfer(spv.address, investorA.address, 50))
+        .to.emit(project, "TokensUnfrozen")
+        .withArgs(spv.address, 30);
+      expect(await project.getFrozenTokens(spv.address)).to.equal(50);
+      expect(await project.balanceOf(spv.address)).to.equal(50);
+    });
+
+    it("pause/unpause chặn và mở chuyển; chỉ PAUSER_ROLE gọi được", async function () {
+      const { admin, spv, investorA, outsider, project } = await deployTokenFixture();
+      await project.connect(admin).mintInitialSupply(spv.address, 100);
+      await expect(project.connect(outsider).pause())
+        .to.be.revertedWithCustomError(project, "AccessControlUnauthorizedAccount");
+      await project.connect(admin).pause();
+      await expect(project.connect(spv).transfer(investorA.address, 1))
+        .to.be.revertedWithCustomError(project, "TokenPaused");
+      await project.connect(admin).unpause();
+      await expect(project.connect(spv).transfer(investorA.address, 1)).not.to.be.reverted;
+    });
+
+    it("thiếu sổ danh tính hoặc bộ luật báo custom error rõ", async function () {
+      const [admin, spv] = await ethers.getSigners();
+      const project = await ethers.deployContract("ProjectToken", [
+        "Wind Project Token",
+        "WPT",
+        0,
+        admin.address,
+      ]);
+      await project.waitForDeployment();
+      await expect(project.mintInitialSupply(spv.address, 1))
+        .to.be.revertedWithCustomError(project, "IdentityRegistryNotSet");
+
+      const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
+      await registry.waitForDeployment();
+      await project.setIdentityRegistry(await registry.getAddress());
+      await registry.registerIdentity(spv.address, 704);
+      await expect(project.mintInitialSupply(spv.address, 1))
+        .to.be.revertedWithCustomError(project, "ComplianceNotSet");
     });
   });
 });

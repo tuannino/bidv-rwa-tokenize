@@ -12,6 +12,13 @@ async function main() {
 
   // Triển khai
   const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
+  const registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
+  const compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
+  const allowAll = await ethers.deployContract("AllowAllModule");
+  await wpt.setIdentityRegistry(await registry.getAddress());
+  await wpt.setCompliance(await compliance.getAddress());
+  await compliance.bindToken(await wpt.getAddress());
+  await compliance.addModule(await allowAll.getAddress());
   const vndToken = await ethers.deployContract("VNDToken", [bank.address]);
   const oracle = await ethers.deployContract("EnergyOracle", [bank.address]);
   const dist = await ethers.deployContract("ProfitDistributorOracle", [
@@ -23,7 +30,7 @@ async function main() {
   await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await dist.getAddress());
 
   // KYC + phát hành: A 6000 (60%), B 4000 (40%)
-  await wpt.batchSetWhitelisted([invA.address, invB.address], true);
+  await registry.batchRegisterIdentity([invA.address, invB.address], [704, 704]);
   await seedProjectBalances(wpt, bank, bank, [
     { wallet: invA, amount: 6000n },
     { wallet: invB, amount: 4000n },

@@ -28,6 +28,20 @@ async function deploySpecFixture() {
   );
   await project.waitForDeployment();
 
+  // --- ERC-3643 core (sổ danh tính + bộ luật + module mặc định) ---
+  const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
+  const compliance = await ethers.deployContract("ModularCompliance", [admin.address]);
+  const allowAllModule = await ethers.deployContract("AllowAllModule");
+  await Promise.all([
+    registry.waitForDeployment(),
+    compliance.waitForDeployment(),
+    allowAllModule.waitForDeployment(),
+  ]);
+  await project.setIdentityRegistry(await registry.getAddress());
+  await project.setCompliance(await compliance.getAddress());
+  await compliance.bindToken(await project.getAddress());
+  await compliance.addModule(await allowAllModule.getAddress());
+
   // --- Token chi trả (VNDB) ---
   const VNDToken = await ethers.getContractFactory("VNDToken");
   const payout = await VNDToken.deploy(admin.address);
@@ -69,7 +83,8 @@ async function deploySpecFixture() {
 
   return {
     admin, investorA, investorB, outsider, reporter2,
-    project, payout, oracle, distributor, redemption,
+    project, registry, compliance, allowAllModule,
+    payout, oracle, distributor, redemption,
     RATE,
     EXPECTED_PROJECT_SYMBOL,
     EXPECTED_PAYOUT_SYMBOL,
@@ -78,8 +93,9 @@ async function deploySpecFixture() {
 
 /** Whitelist một danh sách ví trên token dự án. */
 async function whitelist(project, admin, wallets) {
+  const registry = await ethers.getContractAt("IdentityRegistry", await project.identityRegistry());
   for (const w of wallets) {
-    await project.connect(admin).setWhitelisted(w.address ?? w, true);
+    await registry.connect(admin).registerIdentity(w.address ?? w, 704);
   }
 }
 

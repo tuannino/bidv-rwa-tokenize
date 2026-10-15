@@ -80,7 +80,7 @@ contract Redemption is AccessControl, ReentrancyGuard {
     function redeem(uint256 wptAmount) external nonReentrant returns (uint256 vndAmount) {
         require(!paused, "dang tam dung");
         require(wptAmount > 0, "wptAmount = 0");
-        require(projectToken.isWhitelisted(msg.sender), "chua KYC");
+        require(projectToken.identityRegistry().isVerified(msg.sender), "chua KYC");
 
         vndAmount = quote(wptAmount);
         require(payoutToken.balanceOf(address(this)) >= vndAmount, "thieu thanh khoan VND");

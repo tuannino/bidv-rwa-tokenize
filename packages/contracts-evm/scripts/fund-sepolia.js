@@ -70,6 +70,9 @@ async function measureLocalGas() {
     VNDToken: [admin.address],
     ProfitDistributor: [spv.address, distributorAddress.address, admin.address],
     Redemption: [spv.address, distributorAddress.address, 1_000_000n, admin.address],
+    IdentityRegistry: [admin.address],
+    ModularCompliance: [admin.address],
+    AllowAllModule: [],
   };
   let deploy = 0n;
   for (const [name, constructorArgs] of Object.entries(args)) {
@@ -77,16 +80,24 @@ async function measureLocalGas() {
     deploy += await admin.estimateGas(await factory.getDeployTransaction(...constructorArgs));
   }
   const token = await hre.ethers.deployContract('ProjectToken', args.ProjectToken);
+  const registry = await hre.ethers.deployContract('IdentityRegistry', args.IdentityRegistry);
+  const compliance = await hre.ethers.deployContract('ModularCompliance', args.ModularCompliance);
+  const allowAll = await hre.ethers.deployContract('AllowAllModule');
   await token.waitForDeployment();
+  await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment()]);
+  await (await token.setIdentityRegistry(await registry.getAddress())).wait();
+  await (await token.setCompliance(await compliance.getAddress())).wait();
+  await (await compliance.bindToken(await token.getAddress())).wait();
+  await (await compliance.addModule(await allowAll.getAddress())).wait();
   deploy += await token.grantRole.estimateGas(await token.SNAPSHOT_ROLE(), distributorAddress.address);
   // MINTER_ROLE/AGENT_ROLE đã có trong constructor, deploy.js không gửi thêm tx.
-  const whitelist = await token.setWhitelisted.estimateGas(spv.address, true);
-  await (await token.setWhitelisted(spv.address, true)).wait();
+  const whitelist = await registry.registerIdentity.estimateGas(spv.address, 704);
+  await (await registry.registerIdentity(spv.address, 704)).wait();
   const initial = await token.mintInitialSupply.estimateGas(spv.address, 1000n);
   await (await token.mintInitialSupply(spv.address, 1000n)).wait();
   const mint = await token.mint.estimateGas(spv.address, 250n);
   await (await token.mint(spv.address, 250n)).wait();
-  const burn = await token.agentBurn.estimateGas(spv.address, 300n);
+  const burn = await token['burn(address,uint256)'].estimateGas(spv.address, 300n);
   return { deploy, 'mint-initial': initial, mint, burn, whitelist, cycle: initial + mint + burn };
 }
 async function estimateOperationGas() {

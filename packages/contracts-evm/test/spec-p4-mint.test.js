@@ -14,30 +14,30 @@ const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("SPEC P4 - Phát hành WPT", function () {
   describe("Whitelist (điều kiện tuân thủ trước khi phát hành)", function () {
-    it("P4-1: AGENT whitelist được ví, isWhitelisted phản ánh đúng", async function () {
-      const { project, admin, investorA } = await loadFixture(deploySpecFixture);
+    it("P4-1: AGENT đăng ký được ví, isVerified phản ánh đúng", async function () {
+      const { registry, admin, investorA } = await loadFixture(deploySpecFixture);
 
-      expect(await project.isWhitelisted(investorA.address)).to.equal(false);
-      await project.connect(admin).setWhitelisted(investorA.address, true);
-      expect(await project.isWhitelisted(investorA.address)).to.equal(true);
+      expect(await registry.isVerified(investorA.address)).to.equal(false);
+      await registry.connect(admin).registerIdentity(investorA.address, 704);
+      expect(await registry.isVerified(investorA.address)).to.equal(true);
     });
 
     it("P4-2: whitelist theo lô cho nhiều ví cùng lúc", async function () {
-      const { project, admin, investorA, investorB } = await loadFixture(deploySpecFixture);
+      const { registry, admin, investorA, investorB } = await loadFixture(deploySpecFixture);
 
-      await project.connect(admin).batchSetWhitelisted(
+      await registry.connect(admin).batchRegisterIdentity(
         [investorA.address, investorB.address],
-        true
+        [704, 704]
       );
-      expect(await project.isWhitelisted(investorA.address)).to.equal(true);
-      expect(await project.isWhitelisted(investorB.address)).to.equal(true);
+      expect(await registry.isVerified(investorA.address)).to.equal(true);
+      expect(await registry.isVerified(investorB.address)).to.equal(true);
     });
 
     it("P4-3: ví KHÔNG có AGENT_ROLE không được whitelist", async function () {
-      const { project, outsider, investorA } = await loadFixture(deploySpecFixture);
+      const { registry, outsider, investorA } = await loadFixture(deploySpecFixture);
 
       await expect(
-        project.connect(outsider).setWhitelisted(investorA.address, true)
+        registry.connect(outsider).registerIdentity(investorA.address, 704)
       ).to.be.reverted; // AccessControlUnauthorizedAccount
     });
   });
@@ -58,7 +58,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
 
       await expect(
         project.connect(admin).mintInitialSupply(spv.address, 1000)
-      ).to.be.revertedWith("phat hanh cho vi chua KYC");
+      ).to.be.revertedWithCustomError(project, "IdentityNotVerified").withArgs(spv.address);
 
       expect(await project.totalSupply()).to.equal(0n);
       expect(await project.initialSupplyMinted()).to.equal(false);
@@ -87,22 +87,22 @@ describe("SPEC P4 - Phát hành WPT", function () {
     it("P4-8: ví bị đóng băng không nhận được token phát hành", async function () {
       const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [spv]);
-      await project.connect(admin).setFrozen(spv.address, true);
+      await project.connect(admin).setAddressFrozen(spv.address, true);
 
       await expect(
         project.connect(admin).mintInitialSupply(spv.address, 100)
-      ).to.be.revertedWith("ben nhan bi bang");
+      ).to.be.revertedWithCustomError(project, "WalletFrozen").withArgs(spv.address);
       expect(await project.initialSupplyMinted()).to.equal(false);
     });
 
     it("P4-9: khi tạm dừng toàn hệ thì không phát hành được", async function () {
       const { project, admin, investorA: spv } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [spv]);
-      await project.connect(admin).setPaused(true);
+      await project.connect(admin).pause();
 
       await expect(
         project.connect(admin).mintInitialSupply(spv.address, 100)
-      ).to.be.revertedWith("token dang tam dung");
+      ).to.be.revertedWithCustomError(project, "TokenPaused");
       expect(await project.initialSupplyMinted()).to.equal(false);
     });
 
@@ -114,7 +114,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
       // investorB chưa whitelist
       await expect(
         project.connect(investorA).transfer(investorB.address, 100)
-      ).to.be.revertedWith("ben nhan chua KYC");
+      ).to.be.revertedWithCustomError(project, "IdentityNotVerified").withArgs(investorB.address);
 
       await whitelist(project, admin, [investorB]);
       await project.connect(investorA).transfer(investorB.address, 100);
@@ -128,7 +128,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
       await whitelist(project, admin, [investorA]);
       await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 1000n }]);
 
-      await project.connect(admin).agentBurn(investorA.address, 400);
+      await project.connect(admin)["burn(address,uint256)"](investorA.address, 400);
 
       expect(await project.balanceOf(investorA.address)).to.equal(600n);
       expect(await project.totalSupply()).to.equal(600n);
@@ -138,7 +138,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
       const { project, admin, investorA, investorB } = await loadFixture(deploySpecFixture);
       await whitelist(project, admin, [investorA, investorB]);
       await seedProjectBalances(project, admin, admin, [{ wallet: investorA, amount: 1000n }]);
-      await project.connect(admin).setFrozen(investorA.address, true);
+      await project.connect(admin).setAddressFrozen(investorA.address, true);
 
       await project.connect(admin).forcedTransfer(investorA.address, investorB.address, 300);
 
@@ -153,7 +153,7 @@ describe("SPEC P4 - Phát hành WPT", function () {
 
       await expect(
         project.connect(admin).forcedTransfer(investorA.address, outsider.address, 100)
-      ).to.be.revertedWith("clawback: to chua KYC");
+      ).to.be.revertedWithCustomError(project, "IdentityNotVerified").withArgs(outsider.address);
     });
   });
 
