@@ -25,6 +25,7 @@ import {
 import { err, ok, type Result } from './result';
 import {
   approveTokenRequestSchema,
+  chainSchema,
   createTokenRequestSchema,
   rejectTokenRequestSchema,
   tokenInfoQuerySchema,
@@ -413,14 +414,20 @@ export async function approveTokenRequest(
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { requestId } = parsed.data;
+  const { requestId, chain: selectedChain } = parsed.data;
 
   try {
-    const role = await authorize('order:approve', requestId, null);
+    const role = await authorize('order:approve', requestId, selectedChain);
     const loaded = await loadForDecision(requestId, role, 'duyệt');
     if (!loaded.ok) return loaded;
     const { request, checkerId } = loaded.data;
     const { chain } = request;
+    if (chain !== selectedChain) {
+      return err(
+        'REQUEST_CHECK',
+        `Yêu cầu ${requestId} thuộc chain ${chain}, không phải chain đang chọn ${selectedChain}.`,
+      );
+    }
 
     // Kiểm lại TOÀN BỘ điều kiện tại thời điểm duyệt.
     const evaluation = await evaluate(draftOf(request), request.id);
@@ -597,13 +604,19 @@ export async function rejectTokenRequest(
     }
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { requestId, reason } = parsed.data;
+  const { requestId, chain: selectedChain, reason } = parsed.data;
 
   try {
-    const role = await authorize('order:approve', requestId, null);
+    const role = await authorize('order:approve', requestId, selectedChain);
     const loaded = await loadForDecision(requestId, role, 'từ chối');
     if (!loaded.ok) return loaded;
     const { request, checkerId } = loaded.data;
+    if (request.chain !== selectedChain) {
+      return err(
+        'REQUEST_CHECK',
+        `Yêu cầu ${requestId} thuộc chain ${request.chain}, không phải chain đang chọn ${selectedChain}.`,
+      );
+    }
 
     const rejected = await getTokenRequestStore().transitionRequest({
       id: requestId,
@@ -654,14 +667,18 @@ export async function listTokenRequests(input: unknown): Promise<Result<TokenReq
  * vai có `order:approve` thấy số yêu cầu NGƯỜI KHÁC lập đang chờ — yêu cầu của chính mình không
  * phải việc của mình để duyệt. Vai không có quyền nào thấy 0.
  */
-export async function countPendingWork(role: Role, actorId: string): Promise<PendingWorkView> {
+export async function countPendingWork(
+  role: Role,
+  actorId: string,
+  chain?: ChainKey,
+): Promise<PendingWorkView> {
   const store = getTokenRequestStore();
   const [draft, approval] = await Promise.all([
     can(role, 'order:draft')
-      ? store.countRequests({ status: 'PENDING', makerId: actorId })
+      ? store.countRequests({ chain, status: 'PENDING', makerId: actorId })
       : Promise.resolve(0),
     can(role, 'order:approve')
-      ? store.countRequests({ status: 'PENDING', excludeMakerId: actorId })
+      ? store.countRequests({ chain, status: 'PENDING', excludeMakerId: actorId })
       : Promise.resolve(0),
   ]);
   return { draft, approval };
@@ -753,7 +770,9 @@ export interface DraftStatsView {
   pendingBurn: number;
 }
 
-export async function getDraftStats(): Promise<Result<DraftStatsView>> {
+export async function getDraftStats(chain: unknown): Promise<Result<DraftStatsView>> {
+  const parsed = chainSchema.safeParse(chain);
+  if (!parsed.success) return err('VALIDATION', 'Chain không hợp lệ.');
   try {
     const role = await currentRole();
     assertCan(role, 'order:draft');
@@ -761,7 +780,7 @@ export async function getDraftStats(): Promise<Result<DraftStatsView>> {
     const store = getTokenRequestStore();
     const [pendingMint, pendingBurn] = await Promise.all(
       (['MINT', 'BURN'] as const).map((type) =>
-        store.countRequests({ status: 'PENDING', makerId, type }),
+        store.countRequests({ chain: parsed.data, status: 'PENDING', makerId, type }),
       ),
     );
     return ok({ pendingMint, pendingBurn });
@@ -796,7 +815,9 @@ export function startOfVietnamDay(now: Date = new Date()): string {
 /** Trạng thái mà một yêu cầu ĐÃ ĐƯỢC DUYỆT có thể đang ở: đang xử lý, hoàn tất hoặc thất bại. */
 const APPROVED_STATUSES: readonly TokenRequestStatus[] = ['EXECUTING', 'COMPLETED', 'FAILED'];
 
-export async function getApprovalStats(): Promise<Result<ApprovalStatsView>> {
+export async function getApprovalStats(chain: unknown): Promise<Result<ApprovalStatsView>> {
+  const parsed = chainSchema.safeParse(chain);
+  if (!parsed.success) return err('VALIDATION', 'Chain không hợp lệ.');
   try {
     const role = await currentRole();
     assertCan(role, 'order:approve');
@@ -804,11 +825,13 @@ export async function getApprovalStats(): Promise<Result<ApprovalStatsView>> {
     const decidedFrom = startOfVietnamDay();
     const store = getTokenRequestStore();
     const [work, approved, rejectedToday] = await Promise.all([
-      countPendingWork(role, actorId),
+      countPendingWork(role, actorId, parsed.data),
       Promise.all(
-        APPROVED_STATUSES.map((status) => store.countRequests({ status, decidedFrom })),
+        APPROVED_STATUSES.map((status) =>
+          store.countRequests({ chain: parsed.data, status, decidedFrom }),
+        ),
       ),
-      store.countRequests({ status: 'REJECTED', decidedFrom }),
+      store.countRequests({ chain: parsed.data, status: 'REJECTED', decidedFrom }),
     ]);
     return ok({
       pending: work.approval,
@@ -899,6 +922,12 @@ export async function getTokenRequestDetail(
     const request = await getTokenRequestStore().findRequest(parsed.data.requestId);
     if (!request) {
       return err('VALIDATION', `Không có yêu cầu ${parsed.data.requestId}.`);
+    }
+    if (request.chain !== parsed.data.chain) {
+      return err(
+        'REQUEST_CHECK',
+        `Yêu cầu ${request.id} thuộc chain ${request.chain}, không phải chain đang chọn ${parsed.data.chain}.`,
+      );
     }
     const actorId = await currentActorId(role);
 

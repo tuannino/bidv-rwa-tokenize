@@ -1358,9 +1358,21 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       const other = `GDV-${randomUUID()}`;
       await store.tokenRequests.createRequest(newRequest({ makerId: maker }));
       await store.tokenRequests.createRequest(newRequest({ makerId: maker }));
+      await store.tokenRequests.createRequest(
+        newRequest({ chain: 'hardhat-local', makerId: maker }),
+      );
       await store.tokenRequests.createRequest(newRequest({ makerId: other }));
 
-      expect(await store.tokenRequests.countRequests({ status: 'PENDING', makerId: maker })).toBe(2);
+      expect(
+        await store.tokenRequests.countRequests({ chain: 'mock', status: 'PENDING', makerId: maker }),
+      ).toBe(2);
+      expect(
+        await store.tokenRequests.countRequests({
+          chain: 'hardhat-local',
+          status: 'PENDING',
+          makerId: maker,
+        }),
+      ).toBe(1);
       expect(
         await store.tokenRequests.countRequests({ status: 'PENDING', excludeMakerId: maker }),
       ).toBeGreaterThanOrEqual(1);

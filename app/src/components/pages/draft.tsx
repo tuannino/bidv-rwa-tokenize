@@ -89,9 +89,9 @@ export function DraftPage() {
     let cancelled = false;
     void withReadTimeout(
       Promise.all([
-        getDraftStatsAction(),
-        listTokenRequestsAction({ mine: true, type: 'MINT', limit: MY_REQUESTS_LIMIT }),
-        listTokenRequestsAction({ mine: true, type: 'BURN', limit: MY_REQUESTS_LIMIT }),
+        getDraftStatsAction(chain),
+        listTokenRequestsAction({ chain, mine: true, type: 'MINT', limit: MY_REQUESTS_LIMIT }),
+        listTokenRequestsAction({ chain, mine: true, type: 'BURN', limit: MY_REQUESTS_LIMIT }),
       ]),
     )
       .then(([statsResult, mintResult, burnResult]) => {
@@ -124,7 +124,7 @@ export function DraftPage() {
     return () => {
       cancelled = true;
     };
-  }, [revision]);
+  }, [chain, revision]);
 
   const onSubmitted = useCallback(() => {
     setRevision((value) => value + 1);

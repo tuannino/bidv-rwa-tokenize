@@ -21,6 +21,7 @@ import {
   rejectTokenRequestAction,
 } from '@/app/actions/token-request';
 import type { TokenRequestDetailView } from '@/lib/bank/token-request.service';
+import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount, formatDateTime } from '@/lib/format';
 
 /**
@@ -41,6 +42,7 @@ interface Feedback {
 }
 
 export function ApprovalDetailPage({ requestId }: { requestId: string }) {
+  const { chain } = useSelectedChain();
   const router = useRouter();
   const [revision, setRevision] = useState(0);
   const [loaded, setLoaded] = useState<{
@@ -54,7 +56,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    void getTokenRequestDetailAction({ requestId }).then((result) => {
+    void getTokenRequestDetailAction({ requestId, chain }).then((result) => {
       if (cancelled) return;
       setLoaded(
         result.ok
@@ -65,7 +67,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [requestId, revision]);
+  }, [chain, requestId, revision]);
 
   const reload = useCallback(() => {
     setRevision((value) => value + 1);
@@ -81,7 +83,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
   const approve = () =>
     startWork(async () => {
       setFeedback(null);
-      const result = await approveTokenRequestAction({ requestId });
+      const result = await approveTokenRequestAction({ requestId, chain });
       setFeedback(
         result.ok
           ? { tone: 'success', message: 'Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi.' }
@@ -93,7 +95,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
   const reject = () =>
     startWork(async () => {
       setFeedback(null);
-      const result = await rejectTokenRequestAction({ requestId, reason: rejectReason });
+      const result = await rejectTokenRequestAction({ requestId, chain, reason: rejectReason });
       if (result.ok) setRejectReason('');
       setFeedback(
         result.ok

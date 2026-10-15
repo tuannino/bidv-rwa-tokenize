@@ -51,13 +51,13 @@ export async function getTokenInfoAction(input: unknown) {
 }
 
 /** Hai thẻ số liệu của màn Lập lệnh (FE-22). */
-export async function getDraftStatsAction() {
-  return getDraftStats();
+export async function getDraftStatsAction(chain: unknown) {
+  return getDraftStats(chain);
 }
 
 /** Ba thẻ số liệu của màn Phê duyệt lệnh (FE-22). */
-export async function getApprovalStatsAction() {
-  return getApprovalStats();
+export async function getApprovalStatsAction(chain: unknown) {
+  return getApprovalStats(chain);
 }
 
 /** Chi tiết một yêu cầu kèm nhật ký và lý do khoá nút duyệt khi người xem là người lập (FE-22). */

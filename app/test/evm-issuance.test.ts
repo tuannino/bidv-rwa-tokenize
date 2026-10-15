@@ -207,8 +207,8 @@ live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
     actAs('CONTROLLER', 'KSV001');
     const before = await blockNumber();
     const results = await Promise.all([
-      approveTokenRequest({ requestId: created.data.request.id }),
-      approveTokenRequest({ requestId: created.data.request.id }),
+      approveTokenRequest({ chain: 'hardhat-local', requestId: created.data.request.id }),
+      approveTokenRequest({ chain: 'hardhat-local', requestId: created.data.request.id }),
     ]);
 
     expect(results.filter((result) => result.ok)).toHaveLength(1);

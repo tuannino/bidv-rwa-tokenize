@@ -5,7 +5,7 @@ import { WPT_TOKEN_SYMBOL, WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { formatAmount, formatDateTime } from '@/lib/format';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
-import { resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { getTokenRequestStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { TOKEN_REQUEST_STATUSES } from '@/lib/store/token-request.store.port';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
 import { NAV_BY_ROLE } from '@/components/layout/nav-config';
@@ -84,7 +84,7 @@ async function issueViaApproval(amount: bigint) {
   const { approveTokenRequest } = await service();
   const id = await draft(mintInput(amount));
   controller();
-  const approved = await approveTokenRequest({ requestId: id });
+  const approved = await approveTokenRequest({ chain: CHAIN, requestId: id });
   if (!approved.ok) throw new Error(approved.error);
   teller();
 }
@@ -239,19 +239,19 @@ describe('ca 3 — gửi xong thì yêu cầu chờ duyệt, số việc chờ c
     await issueViaApproval(1000n);
 
     controller();
-    const before = await getApprovalStats();
+    const before = await getApprovalStats(CHAIN);
     expect(before.ok).toBe(true);
     if (!before.ok) return;
 
     const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
 
-    const mine = await listTokenRequests({ mine: true, type: 'BURN' });
+    const mine = await listTokenRequests({ chain: CHAIN, mine: true, type: 'BURN' });
     expect(mine.ok && mine.data.map((r) => [r.id, r.status])).toEqual([[id, 'PENDING']]);
-    const drafted = await getDraftStats();
+    const drafted = await getDraftStats(CHAIN);
     expect(drafted.ok && drafted.data).toEqual({ pendingMint: 0, pendingBurn: 1 });
 
     controller();
-    const after = await getApprovalStats();
+    const after = await getApprovalStats(CHAIN);
     expect(after.ok && after.data.pending).toBe(before.data.pending + 1);
     expect(await countPendingWork('CONTROLLER', SAMPLE_ACCOUNTS.controller)).toEqual({
       draft: 0,
@@ -269,14 +269,35 @@ describe('ca 3 — gửi xong thì yêu cầu chờ duyệt, số việc chờ c
     expect(other.ok).toBe(true);
 
     teller();
-    const mine = await listTokenRequests({ mine: true });
+    const mine = await listTokenRequests({ chain: CHAIN, mine: true });
     expect(mine.ok && mine.data.map((r) => r.id)).toEqual(
       expect.arrayContaining([own]),
     );
     expect(mine.ok && mine.data.every((r) => r.makerId === SAMPLE_ACCOUNTS.teller)).toBe(true);
     // Không có cờ thì vẫn thấy toàn bộ (hàng chờ của Kiểm soát viên dùng đường này).
-    const all = await listTokenRequests({ type: 'BURN' });
+    const all = await listTokenRequests({ chain: CHAIN, type: 'BURN' });
     expect(all.ok && all.data).toHaveLength(2);
+  });
+
+  it('danh sách phía máy chủ chỉ trả yêu cầu của chain được chọn', async () => {
+    const { listTokenRequests } = await service();
+    const mockId = await draft(mintInput(10n));
+    await getTokenRequestStore().createRequest({
+      chain: 'hardhat-local',
+      tokenSymbol: WPT_TOKEN_SYMBOL,
+      type: 'MINT',
+      amount: '20',
+      wallet: SPV,
+      reason: 'yêu cầu ở chain khác',
+      makerId: SAMPLE_ACCOUNTS.teller,
+      makerRole: 'TELLER',
+    });
+
+    const mockRows = await listTokenRequests({ chain: CHAIN, mine: true });
+    expect(mockRows.ok).toBe(true);
+    if (!mockRows.ok) return;
+    expect(mockRows.data.map((row) => row.id)).toEqual([mockId]);
+    expect(mockRows.data.every((row) => row.chain === CHAIN)).toBe(true);
   });
 });
 
@@ -315,13 +336,33 @@ describe('ca 4 — chọn nguồn toàn bộ nguồn cung thì có cảnh báo x
 // ===========================================================================
 
 describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồn cung đổi, nhật ký thêm một dòng', () => {
+  it('URL của yêu cầu chain khác báo rõ chain và không cho duyệt nhầm', async () => {
+    const { approveTokenRequest, getTokenRequestDetail } = await service();
+    await issueViaApproval(1000n);
+    const id = await draft(mintInput(50n));
+
+    controller();
+    const detail = await getTokenRequestDetail({ chain: 'hardhat-local', requestId: id });
+    expect(detail.ok).toBe(false);
+    if (detail.ok) return;
+    expect(detail.code).toBe('REQUEST_CHECK');
+    expect(detail.error).toContain('thuộc chain mock');
+    expect(detail.error).toContain('chain đang chọn hardhat-local');
+
+    const approval = await approveTokenRequest({ chain: 'hardhat-local', requestId: id });
+    expect(approval.ok).toBe(false);
+    if (approval.ok) return;
+    expect(approval.code).toBe('REQUEST_CHECK');
+    expect((await getTokenRequestDetail({ chain: CHAIN, requestId: id })).ok).toBe(true);
+  });
+
   it('Mint: COMPLETED, tổng cung và số còn được phát hành đổi theo, nhật ký 1 → 2 dòng', async () => {
     const { approveTokenRequest, getTokenRequestDetail } = await service();
     await issueViaApproval(1000n);
     const id = await draft(mintInput(500n));
 
     controller();
-    const before = await getTokenRequestDetail({ requestId: id });
+    const before = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(before.ok).toBe(true);
     if (!before.ok) return;
     expect(before.data.request.status).toBe('PENDING');
@@ -329,10 +370,10 @@ describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồ
     expect(before.data.token?.totalSupply).toBe('1000');
     expect(decisionBlockReason(before.data)).toBeNull();
 
-    const approved = await approveTokenRequest({ requestId: id });
+    const approved = await approveTokenRequest({ chain: CHAIN, requestId: id });
     expect(approved.ok, approved.ok ? '' : approved.error).toBe(true);
 
-    const after = await getTokenRequestDetail({ requestId: id });
+    const after = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(after.ok).toBe(true);
     if (!after.ok) return;
     expect(after.data.request.status).toBe('COMPLETED');
@@ -357,14 +398,14 @@ describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồ
     const id = await draft(burnInput(400n, 'UNDISTRIBUTED'));
 
     controller();
-    const before = await getApprovalStats();
+    const before = await getApprovalStats(CHAIN);
     if (!before.ok) throw new Error(before.error);
     expect(before.data).toMatchObject({ pending: 1 });
-    expect((await approveTokenRequest({ requestId: id })).ok).toBe(true);
+    expect((await approveTokenRequest({ chain: CHAIN, requestId: id })).ok).toBe(true);
 
-    const detail = await getTokenRequestDetail({ requestId: id });
+    const detail = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(detail.ok && detail.data.token?.totalSupply).toBe('600');
-    const after = await getApprovalStats();
+    const after = await getApprovalStats(CHAIN);
     expect(after.ok && after.data).toEqual({
       pending: 0,
       approvedToday: before.data.approvedToday + 1,
@@ -386,19 +427,19 @@ describe('ca 6 — từ chối không nhập lý do thì nút bị khoá', () =>
     const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
 
     controller();
-    const before = await getApprovalStats();
+    const before = await getApprovalStats(CHAIN);
     if (!before.ok) throw new Error(before.error);
     // Máy chủ cũng chặn — giao diện khoá trước để người dùng không phải bấm rồi mới thấy lỗi.
-    expect((await rejectTokenRequest({ requestId: id, reason: '  ' })).ok).toBe(false);
-    expect((await rejectTokenRequest({ requestId: id, reason: 'sai chứng từ' })).ok).toBe(true);
+    expect((await rejectTokenRequest({ chain: CHAIN, requestId: id, reason: '  ' })).ok).toBe(false);
+    expect((await rejectTokenRequest({ chain: CHAIN, requestId: id, reason: 'sai chứng từ' })).ok).toBe(true);
 
-    const detail = await getTokenRequestDetail({ requestId: id });
+    const detail = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(detail.ok && detail.data.timeline.map((e) => e.label)).toEqual([
       'Lập yêu cầu, chờ duyệt',
       'Từ chối',
     ]);
     expect(detail.ok && detail.data.timeline[1].detail).toBe('sai chứng từ');
-    const after = await getApprovalStats();
+    const after = await getApprovalStats(CHAIN);
     expect(after.ok && after.data.rejectedToday).toBe(before.data.rejectedToday + 1);
   });
 });
@@ -411,14 +452,14 @@ describe('ca 8 — yêu cầu do chính mình lập thì nút duyệt bị khoá
 
     // Cùng mã tài khoản người lập, mang vai Kiểm soát viên.
     controller(SAMPLE_ACCOUNTS.teller);
-    const detail = await getTokenRequestDetail({ requestId: id });
+    const detail = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(detail.ok).toBe(true);
     if (!detail.ok) return;
     expect(detail.data.selfApprovalReason).toMatch(new RegExp(`${SAMPLE_ACCOUNTS.teller}.*đã lập yêu cầu này`));
     expect(decisionBlockReason(detail.data)).toBe(detail.data.selfApprovalReason);
 
     // Lý do giao diện báo trước khớp với điều máy chủ thật sự làm.
-    const forced = await approveTokenRequest({ requestId: id });
+    const forced = await approveTokenRequest({ chain: CHAIN, requestId: id });
     expect(forced.ok).toBe(false);
     if (!forced.ok) expect(forced.code).toBe('SELF_APPROVAL');
   });
@@ -428,7 +469,7 @@ describe('ca 8 — yêu cầu do chính mình lập thì nút duyệt bị khoá
     await issueViaApproval(1000n);
     const id = await draft(burnInput(10n, 'UNDISTRIBUTED'));
     controller();
-    const detail = await getTokenRequestDetail({ requestId: id });
+    const detail = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(detail.ok && detail.data.selfApprovalReason).toBeNull();
   });
 });
@@ -446,12 +487,12 @@ describe('việc 13 — hai trạng thái trung gian hiện ra, không bị gi�
     await store.transitionRequest({ id: execId, from: ['PENDING'], to: 'EXECUTING', checkerId: 'KSV001', checkerRole: 'CONTROLLER' });
 
     controller();
-    const failed = await getTokenRequestDetail({ requestId: failedId });
+    const failed = await getTokenRequestDetail({ chain: CHAIN, requestId: failedId });
     expect(failed.ok && failed.data.timeline[1]).toMatchObject({
       label: 'Chấp nhận, thất bại khi thực hiện',
       detail: 'chuỗi từ chối',
     });
-    const executing = await getTokenRequestDetail({ requestId: execId });
+    const executing = await getTokenRequestDetail({ chain: CHAIN, requestId: execId });
     expect(executing.ok && executing.data.timeline[1].label).toBe('Chấp nhận, đang xử lý trên chuỗi');
     expect(executing.ok && decisionBlockReason(executing.data)).toMatch(/Đang xử lý/);
   });
@@ -597,11 +638,11 @@ describe('ca 7 — guard hai chiều giữa hai vai vẫn đúng sau khi thay tr
   it('phép đọc số liệu của mỗi màn cũng chặn vai kia — gõ thẳng server action không lách được', async () => {
     const { getApprovalStats, getDraftStats } = await service();
     teller();
-    const tellerApproval = await getApprovalStats();
+    const tellerApproval = await getApprovalStats(CHAIN);
     expect(tellerApproval.ok).toBe(false);
     if (!tellerApproval.ok) expect(tellerApproval.code).toBe('FORBIDDEN');
     controller();
-    const controllerDraft = await getDraftStats();
+    const controllerDraft = await getDraftStats(CHAIN);
     expect(controllerDraft.ok).toBe(false);
     if (!controllerDraft.ok) expect(controllerDraft.code).toBe('FORBIDDEN');
   });
@@ -623,7 +664,7 @@ describe('việc 18 — số việc đang chờ cạnh menu lấy số thật, �
     await draft(mintInput(10n));
 
     controller();
-    const stats = await getApprovalStats();
+    const stats = await getApprovalStats(CHAIN);
     expect(stats.ok && stats.data.pending).toBe(2);
     expect((await pendingWorkCounts()).approval).toBe(2);
   });
