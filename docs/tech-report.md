@@ -17,6 +17,10 @@ inclusion: always
 | Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
+Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
+chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
+vẫn typecheck và thu thập được các ca bỏ qua. Không thay adapter, ABI hoặc logic hợp đồng.
+
 **4.13 → 4.14 (SC-09).** WPT chuyển sang bề mặt ERC-3643 PoC tương thích selector T-REX v4.1.6:
 `IdentityRegistry`, `ModularCompliance` và module cho phép mặc định; hỗ trợ đóng băng toàn phần/một
 phần, cưỡng chế và action sau dịch chuyển. Luật ví SPV/snapshot cũ được giữ; WPT và VNDB có ERC-2612

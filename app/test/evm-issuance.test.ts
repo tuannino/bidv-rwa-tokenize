@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   BaseError,
@@ -15,7 +16,6 @@ import {
   modularComplianceAbi,
   projectTokenAbi,
 } from '@bidv/shared';
-import rejectAllArtifact from '../../packages/contracts-evm/artifacts/contracts/test/RejectAllModule.sol/RejectAllModule.json';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetChainRegistryCache } from '@/lib/chains/registry';
 import { createEvmLedger } from '@/lib/ledger/evm.adapter';
@@ -96,7 +96,17 @@ async function adminWrite(
   expect(receipt.status).toBe('success');
 }
 
+/** Đọc artifact lúc chạy, chỉ trong ca cần nút Hardhat: Job A không biên dịch hợp đồng. */
+async function loadRejectAllArtifact(): Promise<{ abi: unknown[]; bytecode: string }> {
+  const file = new URL(
+    '../../packages/contracts-evm/artifacts/contracts/test/RejectAllModule.sol/RejectAllModule.json',
+    import.meta.url,
+  );
+  return JSON.parse(await readFile(file, 'utf8'));
+}
+
 async function deployRejectAllModule(): Promise<Hex> {
+  const rejectAllArtifact = await loadRejectAllArtifact();
   const account: Account = { address: ADMIN, type: 'json-rpc' };
   const publicClient = createPublicClient({ chain: hardhat, transport: http(HARDHAT_RPC) });
   const walletClient = createWalletClient({ account, chain: hardhat, transport: http(HARDHAT_RPC) });
