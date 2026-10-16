@@ -115,11 +115,11 @@ describe("SPEC P12 - Tất toán WPT sang VNDB", function () {
     });
 
     it("P12-11: ví chưa KYC không tất toán được", async function () {
-      const { redemption, project, admin, investorA } = await readyToRedeem();
+      const { redemption, project, registry, admin, investorA } = await readyToRedeem();
       await project.connect(investorA).approve(await redemption.getAddress(), 100);
 
-      // Gỡ whitelist để mô phỏng ví chưa KYC.
-      await project.connect(admin).setWhitelisted(investorA.address, false);
+      // Xoá danh tính để mô phỏng ví chưa KYC.
+      await registry.connect(admin).deleteIdentity(investorA.address);
 
       await expect(
         redemption.connect(investorA).redeem(100)

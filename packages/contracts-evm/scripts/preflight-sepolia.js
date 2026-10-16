@@ -4,10 +4,20 @@ const path = require('path');
 const { ethers, network } = require('hardhat');
 const { assertSepolia, assertTarget, feeBudget, gasPriceOf, estimateOperationGas } = require('./fund-sepolia');
 const SHARED_ADDRESSES = path.resolve(__dirname, '../../shared/src/addresses.json');
+const REQUIRED_CONTRACTS = [
+  'ProjectToken',
+  'VNDToken',
+  'ProfitDistributor',
+  'Redemption',
+  'IdentityRegistry',
+  'ModularCompliance',
+  'AllowAllModule',
+];
 
 async function signerFunding(provider, address, estimates) {
   const [balance, fees] = await Promise.all([provider.getBalance(address), provider.getFeeData()]);
-  // Deploy gồm bốn constructor và cấp SNAPSHOT_ROLE; thêm whitelist SPV + Mint/Mint/Burn.
+  // Deploy gồm bảy constructor, liên kết ERC-3643 và cấp SNAPSHOT_ROLE;
+  // thêm đăng ký danh tính SPV + Mint/Mint/Burn.
   const gas = estimates.deploy + estimates.whitelist + estimates.cycle;
   const required = feeBudget(gas, gasPriceOf(fees));
   return { balance, required, enough: balance >= required,
@@ -53,9 +63,15 @@ async function main() {
   }
   const book = JSON.parse(fs.readFileSync(SHARED_ADDRESSES, 'utf8'));
   console.log('Địa chỉ hiện tại lấy từ addresses.json, không dùng NEXT_PUBLIC_ADDR_EVM_*:');
-  for (const [name, address] of Object.entries(book.chains.evm?.contracts ?? {})) {
+  const current = book.chains.evm?.contracts ?? {};
+  for (const name of REQUIRED_CONTRACTS) {
+    const address = current[name];
+    if (!address) {
+      console.log(`${name}: chưa có địa chỉ (bản Sepolia trước SC-09)`);
+      continue;
+    }
     const code = await ethers.provider.getCode(address);
-    console.log(`${name} ${address}: ${code === '0x' ? 'chưa có bytecode' : 'có bytecode (chưa khẳng định SC-02)'}`);
+    console.log(`${name} ${address}: ${code === '0x' ? 'chưa có bytecode' : 'có bytecode (chưa khẳng định SC-09)'}`);
   }
   if (!process.env.ETHERSCAN_API_KEY) console.log('LƯU Ý: verify source Etherscan là tùy chọn, chưa có ETHERSCAN_API_KEY.');
   console.log(problems ? `CHƯA SẴN SÀNG — ${problems} việc cần xử lý.` : 'SẴN SÀNG — chạy npx hardhat run scripts/deploy.js --network sepolia');

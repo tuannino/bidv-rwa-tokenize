@@ -10,7 +10,9 @@
  * Biến môi trường cần có:
  *   SEPOLIA_RPC_URL, PRIVATE_KEY                        (ví ngân hàng, có ETH test)
  *   ADDR_PROJECT_TOKEN, ADDR_VND_TOKEN,
- *   ADDR_PROFIT_DISTRIBUTOR, ADDR_REDEMPTION            (địa chỉ đã deploy)
+ *   ADDR_PROFIT_DISTRIBUTOR, ADDR_REDEMPTION,
+ *   ADDR_IDENTITY_REGISTRY, ADDR_MODULAR_COMPLIANCE,
+ *   ADDR_ALLOW_ALL_MODULE                                (địa chỉ đã deploy)
  *   ADDR_ENERGY_ORACLE                                  (tùy chọn, để chạy nhánh oracle)
  *   INVESTOR_A, INVESTOR_B                               (địa chỉ ví nhà đầu tư)
  *
@@ -82,6 +84,12 @@ async function main() {
 
   const project = await ethers.getContractAt("ProjectToken", need("ADDR_PROJECT_TOKEN"));
   const payout = await ethers.getContractAt("VNDToken", need("ADDR_VND_TOKEN"));
+  const registry = await ethers.getContractAt("IdentityRegistry", need("ADDR_IDENTITY_REGISTRY"));
+  const compliance = await ethers.getContractAt(
+    "ModularCompliance",
+    need("ADDR_MODULAR_COMPLIANCE")
+  );
+  const allowAllModule = need("ADDR_ALLOW_ALL_MODULE");
 
   head("BU7 - ĐỌC ĐƯỢC THÔNG TIN TOKEN TRÊN TESTNET");
   const [nm, sym, dec] = await Promise.all([project.name(), project.symbol(), project.decimals()]);
@@ -91,6 +99,25 @@ async function main() {
   if (sym !== "WPT") {
     console.log(`  WARN  ký hiệu là "${sym}", kỳ vọng "WPT" (nợ P1 đổi tên chưa xong)`);
   }
+  assertEq("phiên bản ERC-3643 PoC", await project.version(), "4.1.6-poc");
+  assertEq(
+    "ProjectToken nối đúng IdentityRegistry",
+    (await project.identityRegistry()).toLowerCase(),
+    (await registry.getAddress()).toLowerCase()
+  );
+  assertEq(
+    "ProjectToken nối đúng ModularCompliance",
+    (await project.compliance()).toLowerCase(),
+    (await compliance.getAddress()).toLowerCase()
+  );
+  assertEq(
+    "ModularCompliance gắn đúng ProjectToken",
+    (await compliance.getTokenBound()).toLowerCase(),
+    (await project.getAddress()).toLowerCase()
+  );
+  assertEq("AllowAllModule đã gắn", await compliance.isModuleBound(allowAllModule), true);
+  assertEq("ProjectToken có domain permit", await project.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
+  assertEq("VNDToken có domain permit", await payout.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
 
   // =====================================================================
   //  P4 - MINT
@@ -100,12 +127,12 @@ async function main() {
     const before = await project.balanceOf(investorA);
     console.log(`  Số dư WPT của A trước: ${before}`);
 
-    if (!(await project.isWhitelisted(investorA))) {
-      await send("whitelist nhà đầu tư A", project.setWhitelisted(investorA, true));
+    if (!(await registry.isVerified(investorA))) {
+      await send("đăng ký nhà đầu tư A", registry.registerIdentity(investorA, 704));
     } else {
-      console.log("  (A đã whitelist, bỏ qua)");
+      console.log("  (A đã xác minh, bỏ qua)");
     }
-    assertEq("A đã whitelist", await project.isWhitelisted(investorA), true);
+    assertEq("A đã xác minh", await registry.isVerified(investorA), true);
 
     const MINT = 100n;
     await seedProjectBalances(project, bank, bank, [{ wallet: investorA, amount: MINT }]);
@@ -207,8 +234,8 @@ async function main() {
     // Ví ngân hàng tự tất toán để không cần khóa của nhà đầu tư.
     const wptBank = await project.balanceOf(bank.address);
     if (wptBank < REDEEM) {
-      if (!(await project.isWhitelisted(bank.address))) {
-        await send("whitelist ví ngân hàng", project.setWhitelisted(bank.address, true));
+      if (!(await registry.isVerified(bank.address))) {
+        await send("đăng ký ví ngân hàng", registry.registerIdentity(bank.address, 704));
       }
       await send(`mint ${REDEEM} WPT vào ví SPV`, project.mint(bank.address, REDEEM));
     }

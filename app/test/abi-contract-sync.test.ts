@@ -5,6 +5,8 @@ import {
   profitDistributorAbi,
   projectTokenAbi,
   redemptionAbi,
+  identityRegistryAbi,
+  modularComplianceAbi,
   vndTokenAbi,
 } from '@bidv/shared';
 
@@ -57,6 +59,8 @@ describe.each([
   ['VNDToken', vndTokenAbi as unknown as AbiEntry[]],
   ['ProfitDistributor', profitDistributorAbi as unknown as AbiEntry[]],
   ['Redemption', redemptionAbi as unknown as AbiEntry[]],
+  ['IdentityRegistry', identityRegistryAbi as unknown as AbiEntry[]],
+  ['ModularCompliance', modularComplianceAbi as unknown as AbiEntry[]],
 ])('ABI tối giản %s khớp contract thật', (contract, minimalAbi) => {
   const generated = loadGenerated(contract);
   const generatedSignatures = new Set(generated.map(signature));

@@ -4,7 +4,7 @@ const { seedProjectBalances } = require("./helpers/seed-project-balances");
 
 describe("Oracle sản lượng điện + chia lợi nhuận theo công thức", function () {
   let bank, reporter2, invA, invB;
-  let wpt, vnd, oracle, distributor;
+  let wpt, registry, compliance, vnd, oracle, distributor;
 
   const DEC = 0n;
   const PERIOD = 202601n; // 2026-Q1
@@ -13,6 +13,13 @@ describe("Oracle sản lượng điện + chia lợi nhuận theo công thức",
     [bank, reporter2, invA, invB] = await ethers.getSigners();
 
     wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address]);
+    registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
+    compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
+    const allowAll = await ethers.deployContract("AllowAllModule");
+    await wpt.setIdentityRegistry(await registry.getAddress());
+    await wpt.setCompliance(await compliance.getAddress());
+    await compliance.bindToken(await wpt.getAddress());
+    await compliance.addModule(await allowAll.getAddress());
     vnd = await ethers.deployContract("VNDToken", [bank.address]);
     oracle = await ethers.deployContract("EnergyOracle", [bank.address]);
 
@@ -27,7 +34,7 @@ describe("Oracle sản lượng điện + chia lợi nhuận theo công thức",
     await wpt.grantRole(await wpt.SNAPSHOT_ROLE(), await distributor.getAddress());
 
     // KYC + phát hành WPT: A 6000, B 4000
-    await wpt.batchSetWhitelisted([invA.address, invB.address], true);
+    await registry.batchRegisterIdentity([invA.address, invB.address], [704, 704]);
     await seedProjectBalances(wpt, bank, bank, [
       { wallet: invA, amount: 6000n },
       { wallet: invB, amount: 4000n },

@@ -9,13 +9,24 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.13 |
-| Cập nhật lần cuối | 2026-10-15 |
-| Nhánh / commit | `feat/fe-27-chain-scope`, từ `dev` @ `89a10a3` (PR #50); checkpoint `docs/CHECKPOINT_FE27.md` |
+| Phiên bản tài liệu | 4.14 |
+| Cập nhật lần cuối | 2026-10-16 |
+| Nhánh / commit | `feat/sc-09-erc3643-permit`, từ `dev` @ `945c833` (PR #51); checkpoint `docs/CHECKPOINT_SC09.md` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat), **OP-07** (mock ledger lưu bền theo chain — PR #50), **FE-27** (giao diện, dữ liệu lập–duyệt và giá phát hành đồng bộ theo chain — xem 3.22) |
-| Đang thực hiện | **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
+| Đang thực hiện | **SC-09** đã hoàn tất mã và kiểm chứng local; còn chờ Owner triển khai lại Sepolia sau merge. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
 | Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
+chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
+vẫn typecheck và thu thập được các ca bỏ qua. Không thay adapter, ABI hoặc logic hợp đồng.
+
+**4.13 → 4.14 (SC-09).** WPT chuyển sang bề mặt ERC-3643 PoC tương thích selector T-REX v4.1.6:
+`IdentityRegistry`, `ModularCompliance` và module cho phép mặc định; hỗ trợ đóng băng toàn phần/một
+phần, cưỡng chế và action sau dịch chuyển. Luật ví SPV/snapshot cũ được giữ; WPT và VNDB có ERC-2612
+`permit`. Adapter giữ nguyên ngôn ngữ nghiệp vụ nhưng whitelist đi qua registry, `canTransfer` đọc
+đủ tám điều kiện và chặn bộ địa chỉ trước SC-09. Bộ chính giữ OpenZeppelin 5.6.1, nhắm EVM Cancun;
+hỗ trợ Besu để ngỏ cho task sau.
 
 **4.12 → 4.13 (FE-27).** Mọi phép đọc đã có nguồn chain ở giao diện mang chain trong khoá tải và
 bỏ phản hồi cũ; Lập lệnh, Duyệt và số việc chờ lọc tại service/store thay vì chỉ hiện cột chain.
@@ -398,8 +409,11 @@ bidv-rwa-tokenize/
 ├── packages/
 │   ├── contracts-evm/         # Hardhat 2.x, Solidity 0.8.28, OZ 5
 │   │   ├── contracts/
-│   │   │   ├── tokens/ProjectToken.sol      # WPT — ERC20 + whitelist/freeze/snapshot
-│   │   │   ├── tokens/VNDToken.sol          # VNDB — token chi trả
+│   │   │   ├── tokens/ProjectToken.sol      # WPT — ERC-3643 PoC + snapshot + ERC-2612
+│   │   │   ├── tokens/VNDToken.sol          # VNDB — token chi trả + ERC-2612
+│   │   │   ├── identity/IdentityRegistry.sol # Sổ danh tính rút gọn
+│   │   │   ├── compliance/ModularCompliance.sol # Bộ luật giao dịch ghép module
+│   │   │   ├── compliance/modules/AllowAllModule.sol # Module mặc định
 │   │   │   ├── ProfitDistributor.sol        # Chia lợi tức theo snapshot
 │   │   │   ├── ProfitDistributorOracle.sol  # Bản nối EnergyOracle
 │   │   │   ├── Redemption.sol               # Hoàn vốn WPT → VNDB
@@ -409,8 +423,8 @@ bidv-rwa-tokenize/
 │   │   │                      #   fund-sepolia.js, preflight-sepolia.js, verify-deployment.js,
 │   │   │                      #   dod-verify-sepolia.js (nghiệm thu DoD lớp 2),
 │   │   │                      #   local-state.js + seed-local.js (evm-local.sh gọi, OP-03)
-│   │   ├── test/              # full-cycle, oracle-cycle (13 test)
-│   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (54 test)
+│   │   ├── test/              # full-cycle, oracle-cycle và SC-09
+│   │   │                      #   + spec-p4/p7/p12 theo acceptance criteria (96 test)
 │   │   └── trex/              # ERC-3643 thật — TOOLCHAIN RIÊNG, KHÔNG trộn
 │   ├── contracts-stellar/     # Soroban (Rust) — TẠM DỪNG, giữ mã (xem 2.6)
 │   └── shared/                # ★ MỘT nguồn sự thật: ABI, địa chỉ, chain, types
@@ -649,7 +663,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Hardhat | Build/test/deploy contract | 2.29 | 3.16.0 | MIT |
 | Solidity | Ngôn ngữ contract | 0.8.28 | 0.8.36 | GPL-3.0 |
 | OpenZeppelin Contracts | AccessControl, SafeERC20, ReentrancyGuard | 5.6.1 | 5.6.1 | MIT |
-| T-REX (ERC-3643) | Khung token chứng khoán tuân thủ — production sau | 4.1.6 | 4.1.6 | ⚠️ Riêng |
+| T-REX (ERC-3643) | Nguồn chuẩn chữ ký cho bề mặt ERC-3643 PoC; bộ đầy đủ vẫn tách riêng | 4.1.6 | 4.1.6 | ⚠️ Riêng |
 | ONCHAINID | Danh tính on-chain đi kèm ERC-3643 | 2.2.1 | 2.2.1 | ISC |
 | Soroban SDK | Contract Stellar — **TẠM DỪNG, không thuộc khâu kiểm chứng** (xem 2.6) | 26 | 27.0.6 | Apache-2.0 |
 
@@ -1355,7 +1369,7 @@ Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 |---|---|
 | `src/types.ts` | `ChainKey`, `ChainFamily`, `TxStatus`, `ContractName`… **Không import gì nặng** (bị kéo vào bundle edge) |
 | `src/chains.ts` | Danh sách chain theo thứ tự `mock` (mặc định), `hardhat-local`, `evm`, `stellar`. Kèm `explorerTxUrl()` và `explorerAddressUrl()` — **trả `null`** khi chain không có explorer (`hardhat-local`, `mock`) để UI ẩn liên kết chứ không trỏ sang explorer chain khác |
-| `src/abi/` | ABI tối giản cho web: `project-token.ts`, `vnd-token.ts`, `profit-distributor.ts`, `redemption.ts` |
+| `src/abi/` | ABI tối giản cho web: bốn hợp đồng cũ cùng `identity-registry.ts`, `modular-compliance.ts`, `allow-all-module.ts` |
 | `generated/` | ABI đầy đủ sinh từ Hardhat — chỉ để test đối chiếu, không ship lên web |
 | `src/addresses.ts` | Tra địa chỉ contract: **env thắng file**, hỗ trợ free-tier không đọc được filesystem |
 | `src/sample-wallets.json` | Ví của hai tài khoản khách hàng mẫu `NDT001`, `NB001` (OP-03). App đọc qua `SAMPLE_WALLETS`, `contracts-evm/scripts/seed-local.js` đọc thẳng tệp để whitelist trên chuỗi cục bộ — **một nguồn**, không chép địa chỉ lần hai |
@@ -1367,22 +1381,27 @@ custom error; ABI thiếu mục `error` thì viem không giải mã được và
 selector, ra message kiểu `reverted with the following signature: 0xe2517d3f` — vô nghĩa
 với cả người dùng lẫn người sửa lỗi.
 
-`app/test/abi-contract-sync.test.ts` đối chiếu **cả 4** ABI tối giản với `generated/`, nên
+`app/test/abi-contract-sync.test.ts` đối chiếu **cả 7** ABI tối giản với `generated/`, nên
 sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "function not found" lúc chạy.
 
 ## 3.8. `packages/contracts-evm/contracts/`
 
 | Contract | Vai trò | Hàm chính |
 |---|---|---|
-| `tokens/ProjectToken.sol` | Token dự án **WPT**; SC-02 đăng ký ví SPV ở lần phát hành đầu và khóa mọi lần mint sau vào ví đó | `mintInitialSupply`, `initialSupplyMinted`, `spvWallet`, `mint`, `agentBurn`, `setWhitelisted`, `setFrozen`, `forcedTransfer`, `snapshot` |
-| `tokens/VNDToken.sol` | Token tiền tệ **VNDB** | `mint`, `burn` |
+| `tokens/ProjectToken.sol` | Token dự án **WPT** theo bề mặt ERC-3643 PoC; giữ SC-02 và snapshot, thêm ERC-2612 | `mintInitialSupply`, `mint`, `burn(address,uint256)`, `setAddressFrozen`, `freezePartialTokens`, `forcedTransfer`, `permit`, `snapshot` |
+| `tokens/VNDToken.sol` | Token tiền tệ **VNDB**, có ERC-2612 | `mint`, `burn`, `permit` |
+| `identity/IdentityRegistry.sol` | Sổ danh tính rút gọn, chưa ONCHAINID/claim | `registerIdentity`, `deleteIdentity`, `updateCountry`, `isVerified` |
+| `compliance/ModularCompliance.sol` | Bộ luật giao dịch ghép module, chỉ token đã bind được gọi action | `bindToken`, `addModule`, `canTransfer`, `transferred`, `created`, `destroyed` |
+| `compliance/modules/AllowAllModule.sol` | Module mặc định chưa thêm giới hạn nghiệp vụ | `moduleCheck`, ba action sau giao dịch |
 | `ProfitDistributor.sol` | Chia lợi tức theo snapshot | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
 | `ProfitDistributorOracle.sol` | Bản nối oracle | `createDistributionFromOracle`, `previewDistributableFromOracle` |
 | `Redemption.sol` | Hoàn vốn | `quote`, `redeem`, `fund`, `withdraw`, `setRate`, `setPaused` |
 | `oracle/EnergyOracle.sol` | Sản lượng điện → doanh thu | `submitReading`, `grossRevenueVnd`, `netRevenueVnd`, `distributableProfitVnd` |
 | `extensions/ERC20Snapshotable.sol` | Chụp số dư tại thời điểm | `balanceOfAt`, `totalSupplyAt` |
 
-**Lưu ý:** thư mục `trex/` dùng **toolchain riêng** (Solidity 0.8.17 + OZ 4). Tuyệt đối không trộn với contracts chính (0.8.28 + OZ 5).
+**Lưu ý:** thư mục `trex/` dùng **toolchain riêng** (Solidity 0.8.17 + OZ 4) và chỉ làm nguồn đối
+chiếu chữ ký. Contracts chính dùng Solidity 0.8.28 + OpenZeppelin 5.6.1, biên dịch EVM Cancun;
+không trộn hai cây phụ thuộc. Besu chưa nằm trong phạm vi SC-09.
 
 ## 3.9. `app/src/lib/wallet/` và `lib/hooks/` — trạng thái ví ở client (FE-02)
 
@@ -1487,7 +1506,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `app/test/pending-markers.test.ts` | 20 ca chốt cơ chế: marker không lạc hậu, sơ đồ khớp marker, mục dưới đây khớp marker | Tầng 2 dựng **repo giả trong thư mục tạm** để chứng minh phép kiểm có răng, không chạm repo thật |
 | `scripts/evm-local.sh` | Chuỗi hardhat cục bộ `up`/`down`/`reset` (OP-03) | Không thuộc cơ chế marker. **Không bao giờ triển khai đè**: lệch bytecode hoặc nút có giao dịch lạ thì dừng, báo `reset`. Xem `docs/EVM_LOCAL.md` |
 | `packages/contracts-evm/scripts/fund-sepolia.js` | OP-04: `fund`, `estimateOperationGas`, `feeBudget`, `planFunding` cấp phí Sepolia | Đo gas trên bytecode cục bộ trong tiến trình Hardhat riêng, giá trần từ Sepolia, dự phòng 20%; chỉ bù phần thiếu, chặn ví mẫu và sai chain; `--dry-run` không cần khóa. Thêm thao tác thì bổ sung mô phỏng và kiểm thử; không dùng để ký trên chain khác |
-| `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04: `signerFunding` kiểm phí triển khai + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
+| `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04/SC-09: `signerFunding` kiểm phí triển khai bảy hợp đồng + liên kết registry/compliance/module + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
 | `app/scripts/local-proxy.mjs` | OP-04: bootstrap Node fetch qua proxy môi trường | Nạp riêng bằng `start:proxy`, giữ NO_PROXY và luôn bypass loopback; không log endpoint, không vào bundle Worker |
 | `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01/OP-04) | `--chain=evm` chỉ GET token qua EVM adapter, kiểm WPT decimals 0 và tổng cung hợp lệ. Không chứng minh SC-02 hay quyền ký; verify và Mint/Burn là kiểm riêng. Chạy **tay** — xem 2.7 và runbook Sepolia |
 
@@ -1556,16 +1575,16 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:344` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `profitPoolBalance` rồi so với mốc `distribution.last_settled_balance`, có chặn ngưỡng tối thiểu và có phát hiện số dư giảm. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào ví lợi nhuận do Indexer đọc được, giữ nguyên bốn nhánh quyết định và nguyên phần chia ở `runDistributionCycle`. Đổi được vì mốc số dư vẫn là thứ chốt "đã xử lý tới đâu", sự kiện chỉ thay việc hỏi định kỳ |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:468` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:480` | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:499` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:538` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:544` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:680` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:686` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:691` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:697` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:662` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:547` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:559` | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:578` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:617` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:623` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:759` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:765` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:770` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:776` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:741` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -2779,6 +2798,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | SC-02 contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat | ✅ Đã merge PR #42 |
 | — | OP-07 mock ledger lưu bền theo chain trên PostgreSQL/Hyperdrive | ✅ Xong — PR #50 |
 | — | FE-27 giao diện, lập–duyệt và giá phát hành đồng bộ theo chain (xem 3.22) | ✅ Mã và kiểm chứng local xong; chờ Supervisor nghiệm thu |
+| — | SC-09 WPT theo ERC-3643 PoC, sổ danh tính/bộ luật tách rời và ERC-2612 cho WPT/VNDB | 🔶 Mã và kiểm chứng local xong; chờ Owner triển khai lại Sepolia sau merge |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |

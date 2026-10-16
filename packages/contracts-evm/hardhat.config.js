@@ -36,7 +36,9 @@ module.exports = {
     version: "0.8.28",
     settings: {
       optimizer: { enabled: true, runs: 200 },
-      evmVersion: "paris", // an toàn cho Hyperledger Besu và đa số testnet EVM
+      // OpenZeppelin 5.6 ERC20Permit dùng MCOPY, cần EVM Cancun. Khả năng chạy
+      // trên Besu chưa hỗ trợ Cancun được để ngỏ sau SC-09; Hardhat và Sepolia hỗ trợ.
+      evmVersion: "cancun",
     },
   },
   networks: {
