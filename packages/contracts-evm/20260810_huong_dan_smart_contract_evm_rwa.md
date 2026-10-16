@@ -2,7 +2,9 @@
 
 Tài liệu kỹ thuật cho đội phát triển. Đi kèm bộ mã nguồn Solidity trong thư mục `rwa-evm/` gồm bốn hợp đồng: `ProjectToken` (WPT), `VNDToken` (VNDB), `ProfitDistributor`, `Redemption`.
 
-**Bài toán.** Token hóa quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA), có mô hình **chia lợi nhuận định kỳ** cho nhà đầu tư, vai trò phát hành là **ngân hàng**. Tài liệu hướng dẫn viết từng dạng hợp đồng cho các quy trình mint, burn, transfer có kiểm soát, clawback, đóng băng, snapshot, tính lợi nhuận, chia lợi nhuận, mua lại (redeem); và hướng dẫn cài đặt, biên dịch, kiểm thử, triển khai lên cả hai nhánh mạng (public testnet và Hyperledger Besu permissioned) rồi chạy một chu kỳ đầu-cuối.
+> **Ghi chú SC-09 (16/10/2026):** phần Besu trong tài liệu lịch sử này chưa được kiểm chứng lại với bytecode hiện tại. Bộ chính giữ OpenZeppelin 5.6.1 và nhắm EVM Cancun; hỗ trợ Besu được để ngỏ cho task sau. Không dùng các lệnh Besu bên dưới làm runbook production cho tới khi có kết quả tương thích riêng.
+
+**Bài toán.** Token hóa quyền hưởng lợi nhuận của một dự án điện mặt trời (RWA), có mô hình **chia lợi nhuận định kỳ** cho nhà đầu tư, vai trò phát hành là **ngân hàng**. Tài liệu hướng dẫn viết từng dạng hợp đồng cho các quy trình mint, burn, transfer có kiểm soát, clawback, đóng băng, snapshot, tính lợi nhuận, chia lợi nhuận, mua lại (redeem); và hướng dẫn cài đặt, biên dịch, kiểm thử, triển khai lên public testnet rồi chạy một chu kỳ đầu-cuối. Phần Besu là tư liệu tham khảo chưa nghiệm thu lại sau SC-09.
 
 **Vì sao chọn EVM.** Cùng một mã Solidity chạy được trên public chain (Ethereum, các L2 như Base/Arbitrum/Polygon) lẫn mạng permissioned tương thích EVM (Hyperledger Besu). Ngân hàng tái dùng được toàn bộ công cụ, nhân sự Solidity, và có thể bắc cầu từ thử nghiệm nội bộ sang thị trường mà không viết lại hợp đồng. Đây là lý do trong các báo cáo trước, hệ EVM được đặt làm nhánh chính, với ERC-3643 (T-REX) là chuẩn token có kiểm soát mục tiêu ở sản xuất.
 
@@ -19,9 +21,9 @@ Bộ mã này được biên dịch và kiểm thử với:
 | Node.js | v22.x |
 | Hardhat | 2.29.x |
 | @nomicfoundation/hardhat-toolbox | 5.0.x |
-| OpenZeppelin Contracts | 5.6.x |
+| OpenZeppelin Contracts | 5.6.1 |
 | Solidity (solc) | 0.8.28 |
-| Mục tiêu EVM | `paris` (an toàn cho Besu và đa số testnet) |
+| Mục tiêu EVM | `cancun` (Hardhat/Sepolia; Besu chưa nghiệm thu) |
 
 Đây là những thứ dễ đổi theo thời gian; trước khi lên sản xuất nên kiểm lại phiên bản mới nhất của Hardhat/OpenZeppelin/solc.
 
@@ -283,9 +285,9 @@ npx hardhat verify --network sepolia <ĐỊA_CHỈ_WPT> "Wind Power Token" "WPT"
 
 ---
 
-## 5. Triển khai — nhánh B: mạng permissioned (Hyperledger Besu)
+## 5. Triển khai — nhánh B: mạng permissioned (Hyperledger Besu, để ngỏ)
 
-Dùng cho thí điểm nội bộ có kiểm soát. Cùng mã hợp đồng, chỉ khác lớp mạng.
+Phần này mô tả hướng dựng mạng lịch sử. Sau SC-09, ERC20Permit của OpenZeppelin 5.6.1 làm bytecode cần Cancun/MCOPY; chưa có bằng chứng phiên bản Besu mục tiêu hỗ trợ đầy đủ. Không triển khai bộ hiện tại lên Besu chỉ dựa trên mục này.
 
 ### 5.1. Dựng một node Besu dev nhanh (Docker)
 Cách nhanh nhất để có một mạng Besu chạy thử là chế độ dev (một node, tự đào, gas = 0):
@@ -313,7 +315,7 @@ curl -s -X POST http://127.0.0.1:8545 \
 ```bash
 npx hardhat run scripts/deploy.js --network besu
 ```
-Vì `evmVersion` đặt là `paris` nên bytecode tương thích Besu; `gasPrice: 0` trong config khớp mạng dev free-gas.
+Lệnh được giữ làm khung cho task tương thích sau, **chưa phải runbook đã nghiệm thu**. Task đó phải xác nhận phiên bản Besu hỗ trợ Cancun hoặc chốt thay đổi compiler/OpenZeppelin có kiểm soát; SC-09 không hạ OpenZeppelin khỏi 5.6.1.
 
 ---
 

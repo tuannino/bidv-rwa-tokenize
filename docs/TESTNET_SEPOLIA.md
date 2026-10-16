@@ -1,9 +1,10 @@
-# Runbook OP-04 — lập–duyệt Mint/Burn trên Sepolia
+# Runbook Sepolia — triển khai lại SC-09 và lập–duyệt Mint/Burn
 
-Chủ dự án đã triển khai bộ SC-02 lên Sepolia ngày 08/10/2026 từ worktree `ops/04-sepolia`.
-Bộ địa chỉ mới nằm trong `packages/shared/src/addresses.json`; ProjectToken là
-`0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02`. Verify trạng thái đầu đã đạt; SPV đã whitelist.
-Tiếp tục mục 5 để lập–duyệt Mint/Mint/Burn; bằng chứng ở `CHECKPOINT_OP04.md` mục 5.
+Bộ SC-02 đã triển khai ngày 08/10/2026 là **bản trước SC-09** và không còn đủ điều kiện cho app mới:
+thiếu `IdentityRegistry`, `ModularCompliance`, `AllowAllModule`, ERC-2612 permit và bề mặt ERC-3643.
+Cho tới khi chủ dự án hoàn thành runbook này, chain `evm` phải báo rõ cần triển khai lại, không dùng
+API whitelist cũ. Các địa chỉ/tx cũ chỉ là bằng chứng lịch sử trong `CHECKPOINT_OP04.md`, không phải
+bộ địa chỉ được phép đưa vào bản build SC-09.
 
 **Không gửi SepoliaETH vào tài khoản mẫu của Hardhat.** Hai ví `NDT001`, `NB001` trong
 `packages/shared/src/sample-wallets.json` và account #0 có khóa công khai. Script cấp phí từ chối
@@ -61,10 +62,11 @@ npx hardhat compile
 npx hardhat run scripts/preflight-sepolia.js --network sepolia
 ```
 
-Preflight kiểm chainId **11155111**, hai khóa cùng ví, ví không phải mẫu, và số dư đủ cho bốn
-constructor, cấp vai, whitelist SPV, Mint lần đầu, Mint bổ sung, Burn. Thiếu phí: trả mã 1 và in
+Preflight kiểm chainId **11155111**, hai khóa cùng ví, ví không phải mẫu, và số dư đủ cho bảy
+constructor, bốn giao dịch liên kết ERC-3643, cấp vai snapshot, đăng ký danh tính SPV, Mint lần đầu,
+Mint bổ sung, Burn. Thiếu phí: trả mã 1 và in
 **đúng lệnh** cấp số dư cần có. Chép lệnh đó, chạy thêm `--dry-run` trước, rồi chạy bản không có cờ.
-`SẴN SÀNG` chỉ có nghĩa đủ điều kiện triển khai; không xác nhận bộ địa chỉ cũ đã có SC-02.
+`SẴN SÀNG` chỉ có nghĩa đủ điều kiện triển khai; không xác nhận bộ địa chỉ cũ đã có SC-09.
 
 Các ví dụ dưới cần thay `SIGNER_ADDRESS` bằng địa chỉ công khai preflight vừa in:
 
@@ -77,8 +79,9 @@ node scripts/fund-sepolia.js SIGNER_ADDRESS --for deploy
 Gas được **đo trên bytecode đã biên dịch trong Hardhat cục bộ riêng**, không gửi giao dịch testnet
 để đo, không đổi địa chỉ trong shared. Nhân với `maxFeePerGas` hiện tại của Sepolia (hoặc `gasPrice`
 khi RPC không có EIP-1559), cộng **20%** dự phòng. Đây là ước lượng theo trạng thái mẫu và calldata
-mẫu; kiểm/cấp lại trước từng bước nếu phí mạng thay đổi. `deploy` gồm bốn constructor và cấp
-`SNAPSHOT_ROLE`; không gồm whitelist và vòng nghiệp vụ. Preflight cộng đủ các bước này.
+mẫu; kiểm/cấp lại trước từng bước nếu phí mạng thay đổi. `deploy` gồm bảy constructor, liên kết
+registry/compliance/module và cấp `SNAPSHOT_ROLE`; không gồm đăng ký SPV và vòng nghiệp vụ.
+Preflight cộng đủ các bước này.
 
 `--eth <số>` là **số dư cần có**, không phải số chuyển thêm. Ví đích có đủ thì không gửi;
 thiếu thì chỉ gửi chênh lệch. `--dry-run` không cần khóa tổng, không tạo signer, không gửi.
@@ -92,19 +95,23 @@ npx hardhat run scripts/deploy.js --network sepolia
 npx hardhat run scripts/verify-deployment.js --network sepolia
 ```
 
-Đầu ra deploy phải ghi chainId 11155111, deployer khớp ví ký và bốn địa chỉ mới. Verify trước
-whitelist/mint phải đọc được `initialSupplyMinted = false`, `spvWallet = 0x0000000000000000000000000000000000000000`,
-tổng cung 0, ví ký có `MINTER_ROLE` và `AGENT_ROLE`, và kết luận bản deploy hợp lệ.
+Đầu ra deploy phải ghi chainId 11155111, deployer khớp ví ký và **bảy** địa chỉ mới. Verify trước
+đăng ký/mint phải đọc được `initialSupplyMinted = false`,
+`spvWallet = 0x0000000000000000000000000000000000000000`, tổng cung 0, phiên bản
+`4.1.6-poc`, domain permit của WPT/VNDB, ví ký có các vai token và
+`IdentityRegistry.AGENT_ROLE`. Phần liên kết phải xác nhận registry, compliance, bound token và
+`AllowAllModule` đều khớp trước khi kết luận `BẢN DEPLOY SC-09 HỢP LỆ`.
 Verify role hiện kiểm địa chỉ `deployer` trong file, nên phải đối chiếu nó với ví ký preflight.
 
-Từ gốc repo, commit **trên chính nhánh `ops/04-sepolia`**, rồi push. Kiểm diff chỉ đổi khóa `evm`,
-không thay địa chỉ `hardhat-local`; ABI sinh lại có thể không đổi vì SC-02 đã commit ABI:
+Từ gốc repo, tạo commit triển khai riêng trên nhánh vận hành do chủ dự án chọn, rồi push. Kiểm diff
+chỉ đổi khóa `evm`, không thay địa chỉ `hardhat-local`; ABI sinh lại phải tiếp tục khớp artifact
+SC-09 đã được đưa vào nhánh tính năng:
 
 ```bash
 git diff -- packages/shared/src/addresses.json packages/shared/generated
 git add packages/shared/src/addresses.json packages/shared/generated
-git commit -m "chore(op-04): ghi bộ hợp đồng SC-02 triển khai trên Sepolia"
-git push origin ops/04-sepolia
+git commit -m "chore(sc-09): ghi bộ hợp đồng ERC-3643 triển khai trên Sepolia"
+git push origin TEN_NHANH_VAN_HANH
 ```
 
 Chỉ dùng **cách B: tệp địa chỉ đã commit**. App import JSON lúc build, Cloudflare không cần đọc
@@ -131,11 +138,11 @@ const { assertTarget } = require('./scripts/fund-sepolia');
 const spv = process.env.SPV_SEPOLIA_ADDRESS;
 assertTarget(spv);
 const book = require('../shared/src/addresses.json');
-const token = await ethers.getContractAt('ProjectToken', book.chains.evm.contracts.ProjectToken);
-const tx = await token.setWhitelisted(spv, true);
+const registry = await ethers.getContractAt('IdentityRegistry', book.chains.evm.contracts.IdentityRegistry);
+const tx = await registry.registerIdentity(spv, 704);
 console.log('Whitelist tx:', tx.hash);
 await tx.wait();
-console.log('SPV:', spv, 'whitelisted:', await token.isWhitelisted(spv));
+console.log('SPV:', spv, 'whitelisted:', await registry.isVerified(spv));
 ```
 
 Phải có `whitelisted: true`. Ghi địa chỉ SPV vào bảng mục 1 và bàn giao output không kèm khóa/RPC bí mật.
@@ -206,7 +213,7 @@ PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi t
 | Biến | Nơi đặt | Giá trị / lưu ý |
 |---|---|---|
 | `RPC_EVM` | Worker runtime **Secret** | RPC Sepolia có API key, mở lựa chọn Sepolia phía server |
-| `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker runtime **Secret** | Khóa ví deployer đã có hai vai |
+| `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker runtime **Secret** | Khóa ví deployer có các vai token và `IdentityRegistry.AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variable**, tùy chọn | RPC công khai cho ví trình duyệt; không đặt RPC có key bí mật |
 | `NEXT_PUBLIC_DEFAULT_CHAIN` | **Build variable**, tùy chọn | `evm` nếu muốn Sepolia mặc định; giữ mock vẫn chọn được Sepolia khi có RPC_EVM |
 | `USE_MOCK_DB` | `app/wrangler.json` | `false`; Worker dùng binding Hyperdrive |
@@ -224,7 +231,7 @@ node scripts/smoke-test.mjs https://WORKER_URL --expect-commit=DEPLOYED_SHA --ch
 ```
 
 Kiểm khói chỉ GET `/api/version` và `/api/token?chain=evm`: đối chiếu commit, chain, WPT decimals 0
-và tổng cung đọc qua adapter EVM. Không gửi giao dịch, không chứng minh Mint/Burn hay SC-02 chỉ bằng
+và tổng cung đọc qua adapter EVM. Không gửi giao dịch, không chứng minh Mint/Burn hay SC-09 chỉ bằng
 kiểm khói; bằng chứng contract mới là verify ở mục 3 và ba giao dịch ở mục 5.
 
 Thử lập–duyệt trên bản deploy, cấp phí theo thao tác như mục 5. Hợp đồng đã phát hành ở local thì

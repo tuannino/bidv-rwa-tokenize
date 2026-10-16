@@ -85,9 +85,13 @@ async function measureLocalGas() {
   const allowAll = await hre.ethers.deployContract('AllowAllModule');
   await token.waitForDeployment();
   await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment()]);
+  deploy += await token.setIdentityRegistry.estimateGas(await registry.getAddress());
   await (await token.setIdentityRegistry(await registry.getAddress())).wait();
+  deploy += await token.setCompliance.estimateGas(await compliance.getAddress());
   await (await token.setCompliance(await compliance.getAddress())).wait();
+  deploy += await compliance.bindToken.estimateGas(await token.getAddress());
   await (await compliance.bindToken(await token.getAddress())).wait();
+  deploy += await compliance.addModule.estimateGas(await allowAll.getAddress());
   await (await compliance.addModule(await allowAll.getAddress())).wait();
   deploy += await token.grantRole.estimateGas(await token.SNAPSHOT_ROLE(), distributorAddress.address);
   // MINTER_ROLE/AGENT_ROLE đã có trong constructor, deploy.js không gửi thêm tx.

@@ -12,6 +12,32 @@ Mục tiêu: **default free-tier** (rẻ, bật/tắt nhanh, demo theo lượt),
 | Lệnh | `npm run build` + deploy (wrangler) | `docker compose up` |
 | Dùng khi | demo public nhanh, không cần chain thật | demo đầy đủ mọi luồng, có hardhat |
 
+## Bộ hợp đồng EVM sau SC-09
+
+Bản EVM hiện gồm bảy địa chỉ: `ProjectToken`, `VNDToken`, `ProfitDistributor`, `Redemption`,
+`IdentityRegistry`, `ModularCompliance`, `AllowAllModule`. Bốn hợp đồng đầu giữ nguyên thứ tự
+triển khai; ba hợp đồng ERC-3643 nối thêm phía sau. Sau khi đổi từ bản trước SC-09:
+
+```bash
+bash scripts/evm-local.sh reset
+cd packages/contracts-evm
+npx hardhat run scripts/verify-deployment.js --network localhost
+```
+
+`reset` là bắt buộc vì bytecode hai token đã đổi và nút cũ không được triển khai đè. Script deploy
+tự nối `ProjectToken` với registry/compliance, gắn token vào compliance, thêm `AllowAllModule`, rồi
+seed các ví mẫu vào `IdentityRegistry` với mã quốc gia Việt Nam 704.
+
+Sepolia trong `addresses.json` vẫn là bộ trước SC-09 cho tới khi chủ dự án chạy lại runbook
+[TESTNET_SEPOLIA.md](TESTNET_SEPOLIA.md). Trong khoảng đó, adapter `evm` chủ động dừng trước RPC với
+thông báo cần triển khai lại; không lùi về API whitelist cũ. Sau deploy phải commit cả ba địa chỉ
+mới và ABI sinh lại, xóa mọi `NEXT_PUBLIC_ADDR_EVM_*` cũ đang ghi đè JSON, rồi build lại app.
+
+Bộ chính giữ OpenZeppelin **5.6.1**, Solidity 0.8.28 và EVM target **Cancun** để dùng ERC-2612
+`permit`. Tương thích Hyperledger Besu chưa thuộc SC-09 và chưa được khẳng định; cần task riêng đo
+phiên bản Besu hỗ trợ Cancun hoặc chốt phương án compiler/OZ. Không hạ OZ hay coi network `besu`
+trong Hardhat config là bằng chứng tương thích.
+
 ## Ràng buộc Cloudflare (kích thước Worker)
 - **Hiện tại (từ 2026-09-04):** giới hạn **64 MiB KHÔNG nén** cho mọi gói (kể cả Free). Giới hạn nén cũ (Free 3 MiB / Paid 10 MiB) **đã bỏ**.
 - Thay đổi mới + docs đang cập nhật → **vẫn build gọn để chắc:**
@@ -85,12 +111,13 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |
 | `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` khi chỉ kiểm WPT; bật riêng nếu cần demo VNDB |
 | `RPC_EVM` | Worker → Settings → Variables, dạng **Secret** | RPC Sepolia có API key; mở chain Sepolia phía server, không đưa endpoint bí mật vào bundle |
-| `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-02 trên Sepolia, có `MINTER_ROLE` và `AGENT_ROLE` |
+| `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-09 trên Sepolia, có vai token và `IdentityRegistry.AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variables**, tùy chọn | RPC công khai cho ví trình duyệt; không chứa API key bí mật |
 | `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
 
-OP-04 dùng bộ địa chỉ Sepolia trong `packages/shared/src/addresses.json` đã commit trên nhánh
-triển khai. Xóa các `NEXT_PUBLIC_ADDR_EVM_*` cũ vì env ghi đè tệp; build lại sau khi địa chỉ đổi.
+Sau khi chủ dự án triển khai SC-09, dùng bộ địa chỉ Sepolia trong
+`packages/shared/src/addresses.json` đã commit trên nhánh triển khai. Xóa các
+`NEXT_PUBLIC_ADDR_EVM_*` cũ vì env ghi đè tệp; build lại sau khi địa chỉ đổi.
 Không cần filesystem runtime để đọc địa chỉ: JSON đã được import vào bản build.
 Không đặt `FUNDER_PRIVATE_KEY` hay `PRIVATE_KEY` trên Worker. Các bước cấp phí, deploy,
 whitelist và lập–duyệt: [runbook Sepolia](TESTNET_SEPOLIA.md).

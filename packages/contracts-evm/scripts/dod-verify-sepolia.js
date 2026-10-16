@@ -11,7 +11,8 @@
  *   SEPOLIA_RPC_URL, PRIVATE_KEY                        (ví ngân hàng, có ETH test)
  *   ADDR_PROJECT_TOKEN, ADDR_VND_TOKEN,
  *   ADDR_PROFIT_DISTRIBUTOR, ADDR_REDEMPTION,
- *   ADDR_IDENTITY_REGISTRY, ADDR_MODULAR_COMPLIANCE      (địa chỉ đã deploy)
+ *   ADDR_IDENTITY_REGISTRY, ADDR_MODULAR_COMPLIANCE,
+ *   ADDR_ALLOW_ALL_MODULE                                (địa chỉ đã deploy)
  *   ADDR_ENERGY_ORACLE                                  (tùy chọn, để chạy nhánh oracle)
  *   INVESTOR_A, INVESTOR_B                               (địa chỉ ví nhà đầu tư)
  *
@@ -84,6 +85,11 @@ async function main() {
   const project = await ethers.getContractAt("ProjectToken", need("ADDR_PROJECT_TOKEN"));
   const payout = await ethers.getContractAt("VNDToken", need("ADDR_VND_TOKEN"));
   const registry = await ethers.getContractAt("IdentityRegistry", need("ADDR_IDENTITY_REGISTRY"));
+  const compliance = await ethers.getContractAt(
+    "ModularCompliance",
+    need("ADDR_MODULAR_COMPLIANCE")
+  );
+  const allowAllModule = need("ADDR_ALLOW_ALL_MODULE");
 
   head("BU7 - ĐỌC ĐƯỢC THÔNG TIN TOKEN TRÊN TESTNET");
   const [nm, sym, dec] = await Promise.all([project.name(), project.symbol(), project.decimals()]);
@@ -93,6 +99,25 @@ async function main() {
   if (sym !== "WPT") {
     console.log(`  WARN  ký hiệu là "${sym}", kỳ vọng "WPT" (nợ P1 đổi tên chưa xong)`);
   }
+  assertEq("phiên bản ERC-3643 PoC", await project.version(), "4.1.6-poc");
+  assertEq(
+    "ProjectToken nối đúng IdentityRegistry",
+    (await project.identityRegistry()).toLowerCase(),
+    (await registry.getAddress()).toLowerCase()
+  );
+  assertEq(
+    "ProjectToken nối đúng ModularCompliance",
+    (await project.compliance()).toLowerCase(),
+    (await compliance.getAddress()).toLowerCase()
+  );
+  assertEq(
+    "ModularCompliance gắn đúng ProjectToken",
+    (await compliance.getTokenBound()).toLowerCase(),
+    (await project.getAddress()).toLowerCase()
+  );
+  assertEq("AllowAllModule đã gắn", await compliance.isModuleBound(allowAllModule), true);
+  assertEq("ProjectToken có domain permit", await project.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
+  assertEq("VNDToken có domain permit", await payout.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
 
   // =====================================================================
   //  P4 - MINT

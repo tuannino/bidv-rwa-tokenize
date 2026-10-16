@@ -20,6 +20,15 @@ const bad = (m) => {
   problems.push(m);
 };
 const section = (t) => console.log(`\n${C.bold}${t}${C.reset}`);
+const REQUIRED_CONTRACTS = [
+  "ProjectToken",
+  "VNDToken",
+  "ProfitDistributor",
+  "Redemption",
+  "IdentityRegistry",
+  "ModularCompliance",
+  "AllowAllModule",
+];
 
 function chainKeyOf(chainId) {
   return chainId === 31337n || chainId === 1337n ? "hardhat-local" : "evm";
@@ -54,10 +63,25 @@ async function main() {
   const addr = record.contracts;
   console.log(`${C.dim}deployer ghi trong file: ${record.deployer}${C.reset}`);
 
+  const missing = REQUIRED_CONTRACTS.filter((name) => !addr[name]);
+  if (missing.length) {
+    bad(`thiếu địa chỉ SC-09: ${missing.join(", ")}`);
+    console.log(`${C.red}${C.bold}Bộ địa chỉ là bản trước SC-09, cần triển khai lại.${C.reset}`);
+    process.exitCode = 1;
+    return;
+  }
+  for (const name of REQUIRED_CONTRACTS) {
+    const code = await ethers.provider.getCode(addr[name]);
+    if (code === "0x") bad(`${name} không có bytecode tại ${addr[name]}`);
+    else ok(`${name} có bytecode tại ${addr[name]}`);
+  }
+
   const spt = await ethers.getContractAt("ProjectToken", addr.ProjectToken);
   const vnd = await ethers.getContractAt("VNDToken", addr.VNDToken);
   const dist = await ethers.getContractAt("ProfitDistributor", addr.ProfitDistributor);
   const red = await ethers.getContractAt("Redemption", addr.Redemption);
+  const registry = await ethers.getContractAt("IdentityRegistry", addr.IdentityRegistry);
+  const compliance = await ethers.getContractAt("ModularCompliance", addr.ModularCompliance);
 
   // ---- Token ----
   section("1. Token");
@@ -66,6 +90,10 @@ async function main() {
   ]);
   if (symbol === "WPT") ok(`ProjectToken symbol = ${symbol} (${name}), decimals ${decimals}`);
   else bad(`ProjectToken symbol = ${symbol}, mong đợi WPT`);
+  if (await spt.version() === "4.1.6-poc") ok("ProjectToken.version = 4.1.6-poc");
+  else bad(`ProjectToken.version = ${await spt.version()}, mong đợi 4.1.6-poc`);
+  if (await spt.DOMAIN_SEPARATOR() !== ethers.ZeroHash) ok("ProjectToken ERC-2612 domain đã khởi tạo");
+  else bad("ProjectToken ERC-2612 domain bằng 0");
   console.log(`  ${C.dim}tổng cung hiện tại: ${supply} WPT${C.reset}`);
 
   const issuance = await readSc02State(spt);
@@ -82,6 +110,8 @@ async function main() {
 
   const vndSymbol = await vnd.symbol();
   ok(`VNDToken symbol = ${vndSymbol} (${await vnd.name()}), decimals ${await vnd.decimals()}`);
+  if (await vnd.DOMAIN_SEPARATOR() !== ethers.ZeroHash) ok("VNDToken ERC-2612 domain đã khởi tạo");
+  else bad("VNDToken ERC-2612 domain bằng 0");
 
   // ---- Role của ví ngân hàng ----
   section("2. Role on-chain của ví ngân hàng (deployer)");
@@ -91,6 +121,9 @@ async function main() {
     if (await spt.hasRole(role, bank)) ok(`${roleName} -> ${bank}`);
     else bad(`ví ngân hàng THIẾU ${roleName} trên ProjectToken`);
   }
+  const registryAgentRole = await registry.AGENT_ROLE();
+  if (await registry.hasRole(registryAgentRole, bank)) ok(`IdentityRegistry.AGENT_ROLE -> ${bank}`);
+  else bad("ví ngân hàng THIẾU AGENT_ROLE trên IdentityRegistry");
 
   // ---- Liên kết contract ----
   section("3. Liên kết giữa các contract");
@@ -109,6 +142,21 @@ async function main() {
   else bad(`Redemption.payoutToken = ${redPayout}`);
   ok(`Redemption.rate = ${await red.rate()} (VND cho 1 WPT)`);
 
+  const linkedRegistry = await spt.identityRegistry();
+  if (linkedRegistry.toLowerCase() === addr.IdentityRegistry.toLowerCase()) {
+    ok("ProjectToken.identityRegistry khớp IdentityRegistry");
+  } else bad(`ProjectToken.identityRegistry = ${linkedRegistry}, mong đợi ${addr.IdentityRegistry}`);
+  const linkedCompliance = await spt.compliance();
+  if (linkedCompliance.toLowerCase() === addr.ModularCompliance.toLowerCase()) {
+    ok("ProjectToken.compliance khớp ModularCompliance");
+  } else bad(`ProjectToken.compliance = ${linkedCompliance}, mong đợi ${addr.ModularCompliance}`);
+  const boundToken = await compliance.getTokenBound();
+  if (boundToken.toLowerCase() === addr.ProjectToken.toLowerCase()) {
+    ok("ModularCompliance đã gắn đúng ProjectToken");
+  } else bad(`ModularCompliance token = ${boundToken}, mong đợi ${addr.ProjectToken}`);
+  if (await compliance.isModuleBound(addr.AllowAllModule)) ok("AllowAllModule đã gắn vào ModularCompliance");
+  else bad("AllowAllModule chưa gắn vào ModularCompliance");
+
   // ---- Điều kiện cho P7 ----
   section("4. Điều kiện cho P7 (chia lợi tức)");
   const snapshotRole = await spt.SNAPSHOT_ROLE();
@@ -123,7 +171,7 @@ async function main() {
     console.log(`${C.red}${C.bold}${problems.length} vấn đề — bản deploy CHƯA dùng được${C.reset}`);
     process.exitCode = 1;
   } else {
-    console.log(`${C.green}${C.bold}BẢN DEPLOY HỢP LỆ${C.reset} — đủ điều kiện cho P4, và P7/P12 dùng lại.`);
+    console.log(`${C.green}${C.bold}BẢN DEPLOY SC-09 HỢP LỆ${C.reset} — ERC-3643/permit đã nối; đủ điều kiện cho P4, và P7/P12 dùng lại.`);
   }
 }
 
