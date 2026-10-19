@@ -17,6 +17,12 @@ inclusion: always
 | Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 
+**SC-10 — vá quỹ kỳ.** `ProfitDistributor` lưu `claimDeadline` bất biến và `closed` theo kỳ;
+claim/lô vào kỳ đóng hoặc hết hạn revert, kiểm tổng chi không vượt quỹ trước trả. Sweep đóng được
+cả kỳ đã chi hết, chỉ chuyển/phát DustSwept nếu có phần dư. `claimWindow` chỉ áp cho kỳ mới.
+Error `DistributionClosed` đặt trong interface namespace để cùng tồn tại với event cùng tên trong
+ABI; không thêm thư viện hoặc thay chữ ký hàm. Bộ cũ và sáu ca mới xanh, bằng chứng vào checkpoint.
+
 Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
 chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
 vẫn typecheck và thu thập được các ca bỏ qua. Không thay adapter, ABI hoặc logic hợp đồng.

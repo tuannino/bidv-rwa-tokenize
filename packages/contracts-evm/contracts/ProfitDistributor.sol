@@ -7,6 +7,11 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ProjectToken} from "./tokens/ProjectToken.sol";
 
+// Namespace riêng vì Solidity không cho error và event cùng tên trong một scope.
+interface IProfitDistributorErrors {
+    error DistributionClosed(uint256 id);
+}
+
 /**
  * @title ProfitDistributor
  * @notice Tính và chia lợi nhuận định kỳ cho người nắm giữ WPT, chi trả bằng VND.
@@ -39,6 +44,8 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
         uint256 claimed; // đã chia ra
         uint64 createdAt; // thời điểm tạo kỳ
         string period; // nhãn kỳ, ví dụ "2026-Q1"
+        uint64 claimDeadline; // cố định khi tạo kỳ
+        bool closed;
     }
 
     Distribution[] public distributions;
@@ -55,6 +62,10 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     event Claimed(uint256 indexed id, address indexed account, uint256 amount);
     event DustSwept(uint256 indexed id, address indexed to, uint256 amount);
     event ClaimWindowUpdated(uint256 newWindow);
+    event DistributionClosed(uint256 indexed id, uint256 sweptAmount);
+
+    error ClaimWindowEnded(uint256 id, uint256 deadline);
+    error DistributionOverdrawn(uint256 id, uint256 requested, uint256 remaining);
 
     constructor(address projectToken_, address payoutToken_, address admin) {
         require(projectToken_ != address(0) && payoutToken_ != address(0) && admin != address(0), "zero addr");
@@ -68,6 +79,7 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
         return distributions.length;
     }
 
+    /// @notice Chỉ áp dụng cho kỳ tạo sau; không thay hạn của kỳ đã tồn tại.
     function setClaimWindow(uint256 newWindow) external onlyRole(DEFAULT_ADMIN_ROLE) {
         claimWindow = newWindow;
         emit ClaimWindowUpdated(newWindow);
@@ -103,7 +115,9 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
                 supplyAtSnapshot: supply,
                 claimed: 0,
                 createdAt: uint64(block.timestamp),
-                period: period
+                period: period,
+                claimDeadline: uint64(block.timestamp + claimWindow),
+                closed: false
             })
         );
 
@@ -155,13 +169,18 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
 
     function _claim(uint256 id, address account) internal returns (uint256 amount) {
         require(id < distributions.length, "ky khong ton tai");
+        Distribution storage d = distributions[id];
+        if (d.closed) revert IProfitDistributorErrors.DistributionClosed(id);
+        if (block.timestamp >= d.claimDeadline) revert ClaimWindowEnded(id, d.claimDeadline);
         if (hasClaimed[id][account]) return 0;
 
         amount = entitlementOf(id, account);
+        if (d.claimed + amount > d.amount) {
+            revert DistributionOverdrawn(id, amount, d.amount - d.claimed);
+        }
         hasClaimed[id][account] = true; // đánh dấu kể cả khi phần = 0 để tránh lặp vô ích
 
         if (amount > 0) {
-            Distribution storage d = distributions[id];
             d.claimed += amount;
             payoutToken.safeTransfer(account, amount);
             emit Claimed(id, account, amount);
@@ -179,11 +198,15 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     {
         require(id < distributions.length, "ky khong ton tai");
         Distribution storage d = distributions[id];
-        require(block.timestamp >= d.createdAt + claimWindow, "chua het han nhan");
+        if (d.closed) revert IProfitDistributorErrors.DistributionClosed(id);
+        require(block.timestamp >= d.claimDeadline, "chua het han nhan");
         uint256 remaining = d.amount - d.claimed;
-        require(remaining > 0, "khong con du");
+        d.closed = true;
         d.claimed = d.amount;
-        payoutToken.safeTransfer(to, remaining);
-        emit DustSwept(id, to, remaining);
+        if (remaining > 0) {
+            payoutToken.safeTransfer(to, remaining);
+            emit DustSwept(id, to, remaining);
+        }
+        emit DistributionClosed(id, remaining);
     }
 }
