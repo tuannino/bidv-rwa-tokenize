@@ -5,7 +5,7 @@
 | Nhánh | `feat/sc-07-vault-thanh-toan`, từ `dev` @ `3342c2e` (PR #55, địa chỉ Sepolia sau SC-10) |
 | Điểm | 10,5 (gồm khoảng 0,5 cho việc kèm K1 đến K4) |
 | Mức kiểm chứng | **Cao** (hợp đồng giữ tiền và token của SPV) |
-| Trạng thái spec | **Bản 2, ngày 19/10/2026**: chủ dự án chốt CH-1 đến CH-6 và phương án một chain; đã xử lý góp ý review của Codex (mục cuối) |
+| Trạng thái spec | **Bản 2.1, ngày 19/10/2026** (2.1: chốt giao diện công khai cho SC-03, QĐ-A): chủ dự án chốt CH-1 đến CH-6 và phương án một chain; đã xử lý góp ý review của Codex (mục cuối) |
 | Thứ tự | Sau SC-10 (xong). Trước SC-03 (hợp đồng khớp lệnh gọi vào vault) |
 | Căn cứ | DS-01 bản 3: QĐ-1, QĐ-2, QĐ-5, QĐ-6, QĐ-12, QĐ-13, QĐ-15 đến QĐ-17, QĐ-19. Các chốt mới ghi vào DS-01 bản 4 |
 
@@ -64,7 +64,12 @@ Tệp `packages/contracts-evm/contracts/SpvPaymentVault.sol`. Kế thừa `Acces
 `ReentrancyGuard` của OpenZeppelin 5.6.1; dùng `Math.mulDiv` cho phép nhân rồi chia. Không proxy (QĐ-7).
 
 **Constructor:** `constructor(address projectToken_, address paymentToken_, address admin)`. Ba địa chỉ
-khác 0, lưu `immutable`. Cấp `DEFAULT_ADMIN_ROLE` cho `admin`. Không cấp vai nào khác trong constructor.
+khác 0, lưu `immutable` **và công khai** với đúng tên `projectToken()`, `paymentToken()` (SC-03 đọc hai hàm này
+để không trỏ lệch token). Cấp `DEFAULT_ADMIN_ROLE` cho `admin`. Không cấp vai nào khác trong constructor.
+
+> **Bổ sung 19/10 (bản 2.1, từ review SC-03):** SC-03 phụ thuộc giao diện công khai của vault: `projectToken()`,
+> `paymentToken()`, `isOrderSettled(bytes32)`, `MATCHER_ROLE()`, lỗi `OrderAlreadySettled(bytes32)` đúng tên và
+> tham số, sự kiện `OrderSettled` với `orderRef` là tham số indexed đầu tiên. Không đổi tên các mục này.
 
 **Vai** (QĐ-6, thêm `PAUSER_ROLE` theo CH-2). Dùng `AccessControlEnumerable` để đếm được người giữ vai
 (`getRoleMemberCount`), phục vụ kiểm "không ai giữ `MATCHER_ROLE`" ở R8.

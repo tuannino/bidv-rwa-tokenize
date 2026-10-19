@@ -53,6 +53,28 @@ describe("SC-07 - SpvPaymentVault: luật khoá và quyết toán", function () 
     await f.payout.mint(await vault.getAddress(), 123n);
     expect(await vault.projectToken()).to.equal(await f.project.getAddress());
     expect(await vault.paymentToken()).to.equal(await f.payout.getAddress());
+    const requiredFunctions = [
+      ["projectToken", [], ["address"]],
+      ["paymentToken", [], ["address"]],
+      ["isOrderSettled", ["bytes32"], ["bool"]],
+      ["MATCHER_ROLE", [], ["bytes32"]],
+    ];
+    for (const [name, inputs, outputs] of requiredFunctions) {
+      const fragment = vault.interface.getFunction(name);
+      expect(fragment.inputs.map(({ type }) => type), `${name} inputs`).to.deep.equal(inputs);
+      expect(fragment.outputs.map(({ type }) => type), `${name} outputs`).to.deep.equal(outputs);
+    }
+    const duplicateError = vault.interface.getError("OrderAlreadySettled");
+    expect(duplicateError.inputs.map(({ type }) => type)).to.deep.equal(["bytes32"]);
+    const settledEvent = vault.interface.getEvent("OrderSettled");
+    expect(settledEvent.inputs.map(({ type, indexed }) => [type, indexed])).to.deep.equal([
+      ["bytes32", true],
+      ["address", true],
+      ["uint8", false],
+      ["uint256", false],
+      ["uint256", false],
+      ["uint256", false],
+    ]);
     expect(await vault.lockMode()).to.equal(0n);
     expect(await vault.lockedAmount()).to.equal(123n);
     expect(await vault.withdrawable()).to.equal(0n);

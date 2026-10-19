@@ -28,6 +28,7 @@ const GENERATED_DIR = path.resolve(__dirname, '../../packages/shared/generated')
 interface AbiParameter {
   type: string;
   components?: AbiParameter[];
+  indexed?: boolean;
 }
 interface AbiEntry {
   type: string;
@@ -67,9 +68,18 @@ describe.each([
   const generated = loadGenerated(contract);
   const generatedSignatures = new Set(generated.map(signature));
 
-  it('mọi chữ ký trong ABI tối giản đều tồn tại trong contract', () => {
+  it('mọi chữ ký và chỉ mục sự kiện trong ABI tối giản đều khớp contract', () => {
     const missing = minimalAbi.map(signature).filter((sig) => !generatedSignatures.has(sig));
     expect(missing, `Chữ ký không có trong ${contract}.sol`).toEqual([]);
+
+    const generatedBySignature = new Map(generated.map((entry) => [signature(entry), entry]));
+    for (const entry of minimalAbi.filter((item) => item.type === 'event')) {
+      const real = generatedBySignature.get(signature(entry));
+      expect(
+        (entry.inputs ?? []).map((input) => Boolean(input.indexed)),
+        `indexed của ${entry.name}`,
+      ).toEqual((real!.inputs ?? []).map((input) => Boolean(input.indexed)));
+    }
   });
 
   it('kiểu trả về của hàm view khớp contract', () => {

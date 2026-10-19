@@ -1,6 +1,7 @@
 export const spvPaymentVaultAbi = [
   ...[
-    ['projectToken', 'address'], ['paymentToken', 'address'], ['lockMode', 'uint8'],
+    ['projectToken', 'address'], ['paymentToken', 'address'], ['MATCHER_ROLE', 'bytes32'],
+    ['lockMode', 'uint8'],
     ['fixedLockAmount', 'uint256'], ['percentRateBps', 'uint256'],
     ['pendingPercentRateBps', 'uint256'], ['hasPendingRate', 'bool'],
     ['netProceeds', 'uint256'], ['lockedAmount', 'uint256'], ['withdrawable', 'uint256'],
@@ -40,6 +41,16 @@ export const spvPaymentVaultAbi = [
   },
   { type: 'function', name: 'pauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { type: 'function', name: 'unpauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  {
+    type: 'event', name: 'OrderSettled', inputs: [
+      { name: 'orderRef', type: 'bytes32', indexed: true },
+      { name: 'investor', type: 'address', indexed: true },
+      { name: 'side', type: 'uint8', indexed: false },
+      { name: 'wptAmount', type: 'uint256', indexed: false },
+      { name: 'vndbAmount', type: 'uint256', indexed: false },
+      { name: 'price', type: 'uint256', indexed: false },
+    ],
+  },
   {
     type: 'event', name: 'PeriodClosed', inputs: [
       { name: 'periodRef', type: 'uint256', indexed: true },
