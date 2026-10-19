@@ -256,3 +256,116 @@ describe("SC-07 - SpvPaymentVault: luật khoá và quyết toán", function () 
     await expect(f.vault.withdraw(1n)).not.to.be.reverted;
   });
 });
+
+describe("SC-07 - SpvPaymentVault: nguyên tử và tương tác hợp đồng", function () {
+  async function integrationFixture() {
+    const f = await deployVaultFixture();
+    const matcher = await ethers.deployContract("TestMatcher", [
+      await f.vault.getAddress(),
+      await f.project.getAddress(),
+      await f.payout.getAddress(),
+    ]);
+    await matcher.waitForDeployment();
+    await f.vault.grantRole(await f.vault.MATCHER_ROLE(), await matcher.getAddress());
+    return { ...f, matcher };
+  }
+
+  it("ca 16: matcher kéo chân vào và quyết toán nguyên tử", async function () {
+    const f = await loadFixture(integrationFixture);
+    const unverified = (await ethers.getSigners())[8];
+    const matcherAddress = await f.matcher.getAddress();
+    const vaultAddress = await f.vault.getAddress();
+
+    await f.payout.mint(unverified.address, PRICE);
+    await f.payout.connect(unverified).approve(matcherAddress, PRICE);
+    const badBuyRef = orderRef("atomic-unverified-buy");
+    await expect(f.matcher.connect(unverified).buy(badBuyRef, 1n, PRICE, PRICE))
+      .to.be.revertedWithCustomError(f.project, "IdentityNotVerified");
+    expect(await f.payout.balanceOf(unverified.address)).to.equal(PRICE);
+    expect(await f.payout.balanceOf(vaultAddress)).to.equal(0n);
+    expect(await f.vault.isOrderSettled(badBuyRef)).to.equal(false);
+
+    await f.project.forcedTransfer(vaultAddress, f.investorA.address, 1n);
+    await f.project.connect(f.investorA).approve(matcherAddress, 1n);
+    const noLiquidityRef = orderRef("atomic-no-vndb");
+    await expect(f.matcher.connect(f.investorA).sell(noLiquidityRef, 1n, PRICE, PRICE))
+      .to.be.revertedWithCustomError(f.payout, "ERC20InsufficientBalance");
+    expect(await f.project.balanceOf(f.investorA.address)).to.equal(1n);
+    expect(await f.project.balanceOf(vaultAddress)).to.equal(9_999n);
+    expect(await f.vault.isOrderSettled(noLiquidityRef)).to.equal(false);
+
+    await f.payout.mint(f.investorA.address, PRICE);
+    await f.payout.connect(f.investorA).approve(matcherAddress, PRICE);
+    const okRef = orderRef("atomic-ok");
+    await expect(f.matcher.connect(f.investorA).buy(okRef, 1n, PRICE, PRICE))
+      .to.emit(f.vault, "OrderSettled")
+      .withArgs(okRef, f.investorA.address, 0n, 1n, PRICE, PRICE);
+    expect(await f.payout.balanceOf(vaultAddress)).to.equal(PRICE);
+    expect(await f.project.balanceOf(f.investorA.address)).to.equal(2n);
+  });
+
+  it("ca 17: vault phải đăng ký danh tính trước mint và chân WPT vào", async function () {
+    const f = await deploySpecFixture();
+    const vault = await ethers.deployContract("SpvPaymentVault", [
+      await f.project.getAddress(), await f.payout.getAddress(), f.admin.address,
+    ]);
+    await expect(f.project.mintInitialSupply(await vault.getAddress(), 100n))
+      .to.be.revertedWithCustomError(f.project, "IdentityNotVerified").withArgs(await vault.getAddress());
+
+    await whitelist(f.project, f.admin, [f.admin, f.investorA]);
+    await f.project.mintInitialSupply(f.admin.address, 100n);
+    await f.project.forcedTransfer(f.admin.address, f.investorA.address, 1n);
+    const matcher = await ethers.deployContract("TestMatcher", [
+      await vault.getAddress(), await f.project.getAddress(), await f.payout.getAddress(),
+    ]);
+    await vault.grantRole(await vault.MATCHER_ROLE(), await matcher.getAddress());
+    await f.project.connect(f.investorA).approve(await matcher.getAddress(), 1n);
+    await f.payout.mint(await vault.getAddress(), PRICE);
+    await expect(matcher.connect(f.investorA).sell(orderRef("unverified-vault"), 1n, PRICE, PRICE))
+      .to.be.revertedWithCustomError(f.project, "IdentityNotVerified").withArgs(await vault.getAddress());
+    expect(await f.project.balanceOf(f.investorA.address)).to.equal(1n);
+  });
+
+  it("ca 18: lợi nhuận phần SPV tăng số dư/rút được nhưng không đổi thu ròng", async function () {
+    const f = await loadFixture(integrationFixture);
+    await f.vault.setFixedLock(10n);
+    await f.vault.setLockMode(1);
+    await f.payout.mint(f.admin.address, 100n);
+    await f.payout.approve(await f.distributor.getAddress(), 100n);
+    await f.distributor.createDistribution(100n, "2026-Q1");
+    const beforeNet = await f.vault.netProceeds();
+    const beforeWithdrawable = await f.vault.withdrawable();
+    await f.distributor.distributeTo(0n, [await f.vault.getAddress()]);
+    expect(await f.payout.balanceOf(await f.vault.getAddress())).to.equal(100n);
+    expect(await f.vault.withdrawable()).to.equal(beforeWithdrawable + 90n);
+    expect(await f.vault.netProceeds()).to.equal(beforeNet);
+  });
+
+  it("ca 19: agent WPT và burner VNDB vẫn chạm được tài sản vault", async function () {
+    const f = await loadFixture(integrationFixture);
+    const vaultAddress = await f.vault.getAddress();
+    await f.project["burn(address,uint256)"](vaultAddress, 10n);
+    expect(await f.project.balanceOf(vaultAddress)).to.equal(9_990n);
+    await f.project.forcedTransfer(vaultAddress, f.investorA.address, 20n);
+    expect(await f.project.balanceOf(f.investorA.address)).to.equal(20n);
+    await f.payout.mint(vaultAddress, 30n);
+    await f.payout.burn(vaultAddress, 30n);
+    expect(await f.payout.balanceOf(vaultAddress)).to.equal(0n);
+  });
+
+  it("ca 20: module gọi lồng làm hoàn nguyên toàn bộ settleBuy", async function () {
+    const f = await loadFixture(integrationFixture);
+    const module = await ethers.deployContract("ReentrantModule", [await f.vault.getAddress()]);
+    await f.vault.grantRole(await f.vault.MATCHER_ROLE(), await module.getAddress());
+    await f.compliance.addModule(await module.getAddress());
+    const ref = orderRef("reentrant-buy");
+    await module.arm(ref, f.investorA.address, 1n, PRICE, PRICE);
+    await f.payout.mint(await f.vault.getAddress(), PRICE);
+    const beforeVaultWpt = await f.project.balanceOf(await f.vault.getAddress());
+    await expect(f.vault.settleBuy(ref, f.investorA.address, 1n, PRICE, PRICE))
+      .to.be.revertedWithCustomError(f.vault, "ReentrancyGuardReentrantCall");
+    expect(await f.project.balanceOf(await f.vault.getAddress())).to.equal(beforeVaultWpt);
+    expect(await f.project.balanceOf(f.investorA.address)).to.equal(0n);
+    expect(await f.vault.isOrderSettled(ref)).to.equal(false);
+  });
+});
