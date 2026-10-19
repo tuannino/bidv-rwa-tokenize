@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
-const { assertSepolia, assertTarget, planFunding, feeBudget, parseArgs, fund } = require('../scripts/fund-sepolia');
+const { assertSepolia, assertTarget, planFunding, feeBudget, parseArgs, fund, safeFundingMessage } = require('../scripts/fund-sepolia');
 const samples = require('../../shared/src/sample-wallets.json');
 const target = '0x1234567890123456789012345678901234567890';
 const provider = (chainId = 11155111n, balance = 0n) => ({
@@ -59,6 +59,27 @@ describe('OP-04 — cấp phí Sepolia', function () {
     for (const args of [[target], [target, '--eth', '1', '--for', 'mint'], [target, '--eth', '-1'], [target, '--eth', '0'], [target, '--for', 'lạ'], [target, '--eth', '1', '--lạ']]) {
       expect(() => parseArgs(args)).to.throw();
     }
+  });
+  it('phân loại lỗi an toàn, không lộ URL hay thân lỗi RPC', function () {
+    const raw = new Error('https://rpc.example/secret-key body private data');
+    expect(safeFundingMessage(raw)).to.equal('Lỗi RPC khi đọc hoặc gửi giao dịch; kiểm endpoint và kết nối Sepolia.');
+    expect(safeFundingMessage(raw)).not.to.include('secret-key');
+    const local = new Error('raw');
+    local.safeMessage = 'Ước lượng gas cục bộ thất bại; chạy npx hardhat compile rồi thử lại.';
+    expect(safeFundingMessage(local)).to.include('Ước lượng gas cục bộ');
+  });
+  it('báo riêng thiếu khóa cấp phí', async function () {
+    await expect(fund({ target, eth: '0.0000000000000001' }, {
+      provider: provider(), log: () => {}, key: '',
+    })).to.be.rejectedWith('Thiếu FUNDER_PRIVATE_KEY');
+  });
+  it('báo riêng số dư tài khoản tổng không đủ', async function () {
+    const rpc = provider();
+    rpc.estimateGas = async () => 21_000n;
+    await expect(fund({ target, eth: '0.0000000000000001' }, {
+      provider: rpc, key: 'khóa giả', log: () => {}, funderBalance: 0n,
+      makeWallet: () => ({ address: target }),
+    })).to.be.rejectedWith('Tài khoản tổng thiếu ETH');
   });
 });
 

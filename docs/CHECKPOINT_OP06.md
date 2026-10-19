@@ -6,7 +6,7 @@
 | Nhánh | `ops/06-cloudflare-db`, từ `dev` @ `182b9b1` |
 | Spec | `docs/op-06-cloudflare-db/{requirements,tasks}.md` |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Bổ sung sửa timeout GET/trace đã kiểm local; cần deploy lại và nghiệm thu Mint/Burn bền |
+| Tiến độ | Hoàn tất; Chủ dự án xác nhận lịch sử bền ngày 19/10/2026 |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -20,12 +20,13 @@
 | 4 | Seed cập nhật địa chỉ đúng QĐ-6 trên Postgres thật | ✅ | mục 2.4 |
 | 5 | `wrangler.json` có cấu hình và ID Hyperdrive thật | ✅ | mục 3.1 |
 | 6 | Worker local lập–duyệt bền qua restart, không lỗi I/O | ✅ | mục 3.2 |
-| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | 🔶 | mục 4, 6, 7 |
+| 7 | Bản deploy Neon + Sepolia có smoke/Mint/Burn/lịch sử bền | ✅ | mục 4, Phụ lục A |
 | 8 | Runbook đủ ba nhà cung cấp, V3, giới hạn mock/DB | ✅ | mục 3.3 |
 | 9 | Danh sách nhà máy đổi đúng, số liệu giữ nguyên | ✅ | mục 3.4 |
 | 10 | Bộ mặc định/Postgres xanh, không lộ bí mật | ✅ | mục 5, 6, 7 |
 
-**Kết luận:** 9 ✅ · 1 🔶 · 0 ❌. Giữ OP-06 ở `inProgress` đến kiểm sau merge.
+**Kết luận:** 10 ✅ · 0 🔶 · 0 ❌. Chủ dự án xác nhận điều kiện lịch sử bền; `OP-06` chuyển sang
+`done` trong task SC-07.
 
 ### 0.2 Việc Owner chạy sau merge
 
@@ -294,3 +295,18 @@ Trước response headers thì không có HTTP/cf-ray để hiển thị. Không
 Bằng chứng tại [CHECKPOINT_OP06_HTTP_DETAIL.md](CHECKPOINT_OP06_HTTP_DETAIL.md), mục 1–3.
 Giữ log bật đến số đo production; giảm rủi ro lan lỗi giữa request, chưa xác nhận đã hết timeout.
 PR #47 đã merge tại dev 8c64c84; commit này tiếp tục cùng nhánh OP-06, mở PR bổ sung vào dev.
+
+## Phụ lục A. Bằng chứng giao dịch và xác nhận đóng task — 19/10/2026
+
+Nguồn giao dịch: Supervisor đọc trực tiếp trên Sepolia. ProjectToken
+`0x995c29ff422483Ddbc7C6A671ECEC5A5f38C3d62`; ví SPV
+`0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd` đã xác minh.
+
+| Lượt | Mã giao dịch | Block | Kết quả |
+|---|---|---:|---|
+| Mint đầu | `0xaa529aa41b03174d3b494eec254fb0876a7f44b1657253d18eef08e3f62f6f20` | 11947924 | Thành công; 1.000 WPT vào SPV |
+| Burn | `0x6b68b7571b93a37a738b99e9966e6cebb2b2bc0b1ee4edfaee96143f025257d8` | 11947952 | Thành công; 1.000 WPT bị huỷ |
+| Mint bổ sung | `0x246804b1bc59a9d263b73a25b4f82ed1443d880c990a5c4d0f0ae2be0980f6aa` | 11947989 | Thành công; tổng cung và số dư SPV sau đó 1.000 WPT |
+
+Chủ dự án xác nhận `OP-06` đã hoàn thành và yêu cầu đổi trạng thái trong lượt SC-07 ngày
+19/10/2026; xác nhận này đóng phần “lịch sử bền” còn chờ ở điều kiện 7.

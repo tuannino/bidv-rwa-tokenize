@@ -21,7 +21,8 @@ const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
  *   ONLY=p4 | p7 | p12
  *
  * LƯU Ý: script này TIÊU ETH THẬT của testnet và thay đổi trạng thái on-chain.
- * Không chạy trên mạng chính.
+ * Không chạy trên mạng chính. Không dùng script này trên bộ hợp đồng trình diễn có vault:
+ * nhánh P4 cũ mint vào ví ngân hàng và sẽ khoá sai ví SPV vĩnh viễn.
  */
 const { ethers, network } = require("hardhat");
 const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
@@ -120,6 +121,10 @@ async function main() {
   assertEq("AllowAllModule đã gắn", await compliance.isModuleBound(allowAllModule), true);
   assertEq("ProjectToken có domain permit", await project.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
   assertEq("VNDToken có domain permit", await payout.DOMAIN_SEPARATOR() !== ethers.ZeroHash, true);
+
+  if (!ONLY || ONLY === "p4") {
+    await assertP4Ready(project);
+  }
 
   // =====================================================================
   //  P4 - MINT
@@ -270,7 +275,18 @@ async function main() {
   }
 }
 
-main().catch((e) => {
+async function assertP4Ready(project) {
+  if (!(await project.initialSupplyMinted())) {
+    throw new Error(
+      "Từ chối P4 trước khi gửi giao dịch: nguồn cung đầu chưa phát hành; " +
+      "script cũ sẽ mintInitialSupply vào ví ngân hàng và khoá sai ví SPV. Dùng luồng vault/OP-05.",
+    );
+  }
+}
+
+module.exports = { assertP4Ready };
+
+if (require.main === module) main().catch((e) => {
   console.error(`\n  LỖI: ${e.message}`);
   process.exitCode = 1;
 });

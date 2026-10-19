@@ -12,6 +12,7 @@ Workspace token hóa dự án điện gió có chia lợi nhuận định kỳ (
 | `EnergyOracle` | Oracle sản lượng điện → công thức lợi nhuận | submitReading (đa reporter xác nhận), distributableProfitVnd |
 | `ProfitDistributorOracle` | Chia lợi nhuận lấy số từ oracle | createDistributionFromOracle, previewDistributableFromOracle |
 | `Redemption` | Mua lại / hoàn vốn | redeem (đốt WPT đổi VND), setRate, pause, fund/withdraw |
+| `SpvPaymentVault` | Ví thanh toán SPV | giữ WPT/VNDB, khoá `UNSET`/`FIXED`/`PERCENT`, rút về ví cố định, điểm quyết toán cho SC-03 |
 
 `ProjectToken` hiện thực tập selector ERC-3643/T-REX v4.1.6 đã chốt cho PoC, nhưng cố ý chưa đưa ONCHAINID/claim registry vào phạm vi. Thư mục **`trex/`** là project tham khảo độc lập, không trộn toolchain với bộ hợp đồng chính.
 
@@ -20,7 +21,7 @@ Workspace token hóa dự án điện gió có chia lợi nhuận định kỳ (
 ```bash
 npm install
 npx hardhat compile     # biên dịch
-npx hardhat test        # hiện có 96 ca
+npx hardhat test        # hiện có 132 ca
 npx hardhat run scripts/demo-cycle.js    # demo chia lợi nhuận nhập tay
 npx hardhat run scripts/demo-oracle.js   # demo chia lợi nhuận lấy số từ oracle
 ```
@@ -34,6 +35,24 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 Triển khai local dùng `bash scripts/evm-local.sh reset` từ gốc repo; script sẽ triển khai, nối registry/compliance và seed ví mẫu. Runbook Sepolia: `docs/TESTNET_SEPOLIA.md`.
 
+Vault được triển khai thứ tám, đăng ký danh tính, cấp `CONFIG_ROLE`, `WITHDRAWER_ROLE` và
+`PAUSER_ROLE` cho khoá máy chủ; cố ý để `MATCHER_ROLE` trống, `payoutWallet` chưa đặt và chế độ
+`UNSET` (khoá toàn bộ). Quản trị bằng script an toàn mặc định:
+
+```bash
+npx hardhat run scripts/vault-admin.js --network localhost -- status
+npx hardhat run scripts/vault-admin.js --network localhost -- set-rate 2000       # chỉ in kế hoạch
+VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-rate 2000
+VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-mode PERCENT
+VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- close-period 1 50000000
+VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-payout 0x...
+```
+
+Trong PoC một khoá máy chủ giữ cả admin và withdrawer. `payoutWallet` chỉ ngăn nhập nhầm đích;
+nếu khoá đó lộ, người giữ khoá có thể đổi ví nhận rồi rút. Tách khoá hoặc đổi ví hai bước có thời
+gian chờ là việc giai đoạn sau. `MATCHER_ROLE` cũng là biên tin cậy đặc quyền: chỉ cấp cho hợp đồng
+khớp lệnh đã kiểm chứng, không cấp cho EOA.
+
 ## Lưu ý phiên bản
 - Solidity 0.8.28, OpenZeppelin Contracts **5.6.1**, Hardhat v2; bytecode hiện nhắm **Cancun** vì ERC20Permit của OZ 5.6.1 dùng opcode MCOPY.
 - Tương thích Hyperledger Besu được để ngỏ sau SC-09. Không coi cấu hình `besu` còn lại là bằng chứng bộ bytecode hiện tại chạy được; cần task riêng đo phiên bản Besu hỗ trợ Cancun hoặc chốt phương án compiler/OZ khác.
@@ -45,4 +64,5 @@ SC-10: ProjectToken nhận thêm `cap` ở cuối constructor, đơn vị nhỏ 
 Deployment hiện dùng decimals 0 và cap 20.000.000 WPT từ `shared/src/token-parameters.json`,
 cùng nguồn với giá trị seed ứng dụng. `ProfitDistributor` lưu deadline/closed riêng từng kỳ;
 đường cưỡng chế WPT báo action compliance. Bytecode đổi: reset local; sau merge triển khai lại
-Sepolia một lần theo `docs/TESTNET_SEPOLIA.md`, không đổi thứ tự bảy hợp đồng.
+Sepolia một lần theo `docs/TESTNET_SEPOLIA.md`, không đổi thứ tự bảy hợp đồng cũ. SC-07 thêm vault
+thứ tám ở local; OP-05 sẽ triển khai lại bộ `evm`, Mint đầu vào vault và cấu hình vault.

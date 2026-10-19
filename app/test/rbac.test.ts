@@ -107,6 +107,13 @@ describe('RBAC — can(role, action)', () => {
     }
   });
 
+  it('SC-07 — chỉ hai vai vận hành đọc được vault', () => {
+    expect(can('TELLER', 'vault:read')).toBe(true);
+    expect(can('CONTROLLER', 'vault:read')).toBe(true);
+    expect(can('INVESTOR', 'vault:read')).toBe(false);
+    expect(can('SELLER', 'vault:read')).toBe(false);
+  });
+
   it('portfolio:read KHÔNG bị lẫn vào nhóm chỉ-đọc dùng chung', () => {
     // Chốt bằng test để lần sau ai thêm nó vào READ_ONLY là đỏ ngay, không phải phát hiện
     // bằng cách bấm thử trên giao diện.
@@ -343,6 +350,11 @@ const FE20_AREA_GATES: ReadonlyArray<{ action: Action; allowed: readonly Role[];
     action: 'ops:read',
     allowed: ['TELLER', 'CONTROLLER'],
     why: 'khu vực Vận hành mở cho cả hai vai vận hành; nhà đầu tư và người bán bị chặn (ca 3)',
+  },
+  {
+    action: 'vault:read',
+    allowed: ['TELLER', 'CONTROLLER'],
+    why: 'SC-07: trạng thái vault công khai cho đúng hai vai vận hành',
   },
   {
     action: 'ops:draft:read',

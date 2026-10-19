@@ -2,7 +2,7 @@ import 'server-only';
 
 import { readStep } from '@/lib/diagnostics/read-trace';
 
-import type { ChainKey, TxResult, TxStatus } from '@bidv/shared';
+import { findContractAddress, type ChainKey, type TxResult, type TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
 import { getBankSigner } from '@/lib/signer';
@@ -50,6 +50,13 @@ export async function signerAddressOrNull(chain: ChainKey): Promise<string | nul
   } catch {
     return null;
   }
+}
+
+/** Guard cục bộ dùng ở cả lúc lập/duyệt và ngay trước khi gửi Mint đầu. */
+export function vaultMintTargetError(chain: ChainKey, wallet: string): string | null {
+  const vault = findContractAddress(chain, 'SpvPaymentVault');
+  if (!vault || vault.toLowerCase() === wallet.toLowerCase()) return null;
+  return `Chain "${chain}" đã triển khai vault thanh toán SPV; ví nhận Mint đầu phải là vault (${vault}), không phải ${wallet}.`;
 }
 
 /**
@@ -196,6 +203,9 @@ export async function executeIssuance(input: {
   const ledger = getLedger(chain);
   const store = getStore();
   const context = input.auditContext ? `${input.auditContext}: ` : '';
+
+  const vaultTargetError = vaultMintTargetError(chain, spvWallet);
+  if (vaultTargetError) return err('VALIDATION', vaultTargetError);
 
   const minted = await ledger.isInitialSupplyMinted();
   let issuedAt = project.issuedAt;

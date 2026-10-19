@@ -74,6 +74,7 @@ async function measureLocalGas() {
     IdentityRegistry: [admin.address],
     ModularCompliance: [admin.address],
     AllowAllModule: [],
+    SpvPaymentVault: [spv.address, distributorAddress.address, admin.address],
   };
   let deploy = 0n;
   for (const [name, constructorArgs] of Object.entries(args)) {
@@ -84,8 +85,11 @@ async function measureLocalGas() {
   const registry = await hre.ethers.deployContract('IdentityRegistry', args.IdentityRegistry);
   const compliance = await hre.ethers.deployContract('ModularCompliance', args.ModularCompliance);
   const allowAll = await hre.ethers.deployContract('AllowAllModule');
+  const vault = await hre.ethers.deployContract('SpvPaymentVault', [
+    await token.getAddress(), distributorAddress.address, admin.address,
+  ]);
   await token.waitForDeployment();
-  await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment()]);
+  await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment(), vault.waitForDeployment()]);
   deploy += await token.setIdentityRegistry.estimateGas(await registry.getAddress());
   await (await token.setIdentityRegistry(await registry.getAddress())).wait();
   deploy += await token.setCompliance.estimateGas(await compliance.getAddress());
@@ -95,6 +99,10 @@ async function measureLocalGas() {
   deploy += await compliance.addModule.estimateGas(await allowAll.getAddress());
   await (await compliance.addModule(await allowAll.getAddress())).wait();
   deploy += await token.grantRole.estimateGas(await token.SNAPSHOT_ROLE(), distributorAddress.address);
+  deploy += await registry.registerIdentity.estimateGas(await vault.getAddress(), 704);
+  for (const roleName of ['CONFIG_ROLE', 'WITHDRAWER_ROLE', 'PAUSER_ROLE']) {
+    deploy += await vault.grantRole.estimateGas(await vault[roleName](), admin.address);
+  }
   // MINTER_ROLE/AGENT_ROLE đã có trong constructor, deploy.js không gửi thêm tx.
   const whitelist = await registry.registerIdentity.estimateGas(spv.address, 704);
   await (await registry.registerIdentity(spv.address, 704)).wait();
@@ -106,13 +114,21 @@ async function measureLocalGas() {
   return { deploy, 'mint-initial': initial, mint, burn, whitelist, cycle: initial + mint + burn };
 }
 async function estimateOperationGas() {
-  const { stdout } = await promisify(execFile)(process.execPath, [__filename, '--local-estimates'], {
-    cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, HARDHAT_NETWORK: 'hardhat' }, timeout: 60_000,
-  });
+  let stdout;
+  try {
+    ({ stdout } = await promisify(execFile)(process.execPath, [__filename, '--local-estimates'], {
+      cwd: path.resolve(__dirname, '..'),
+      env: { ...process.env, HARDHAT_NETWORK: 'hardhat' }, timeout: 60_000,
+    }));
+  } catch {
+    refuse('Ước lượng gas cục bộ thất bại; chạy npx hardhat compile rồi thử lại.');
+  }
   const line = stdout.split('\n').find((item) => item.startsWith(GAS_OUTPUT_PREFIX));
   if (!line) refuse('Không đo được gas cục bộ. Chạy npx hardhat compile trong packages/contracts-evm.');
   return Object.fromEntries(Object.entries(JSON.parse(line.slice(GAS_OUTPUT_PREFIX.length))).map(([key, value]) => [key, BigInt(value)]));
+}
+function safeFundingMessage(error) {
+  return error?.safeMessage ?? 'Lỗi RPC khi đọc hoặc gửi giao dịch; kiểm endpoint và kết nối Sepolia.';
 }
 async function fund(opts, dependencies = {}) {
   assertTarget(opts.target);
@@ -167,9 +183,9 @@ async function main() {
   const { ethers: hardhatEthers } = require('hardhat');
   await fund(opts, { provider: hardhatEthers.provider });
 }
-module.exports = { assertSepolia, assertTarget, planFunding, feeBudget, gasPriceOf, parseArgs, fund, estimateOperationGas };
+module.exports = { assertSepolia, assertTarget, planFunding, feeBudget, gasPriceOf, parseArgs, fund, estimateOperationGas, safeFundingMessage };
 if (require.main === module) main().catch((error) => {
   // RPC errors may embed URLs/API keys or request bodies: never print raw error objects.
-  console.error('LỖI: ' + (error.safeMessage ?? 'Không hoàn tất cấp phí/ước lượng. Kiểm RPC, khóa trong .env, bản biên dịch và tx hash đã in (nếu có).'));
+  console.error('LỖI: ' + safeFundingMessage(error));
   process.exitCode = 1;
 });

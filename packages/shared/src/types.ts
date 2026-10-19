@@ -32,6 +32,7 @@ export const CONTRACT_NAMES = [
   'IdentityRegistry',
   'ModularCompliance',
   'AllowAllModule',
+  'SpvPaymentVault',
 ] as const;
 export type ContractName = (typeof CONTRACT_NAMES)[number];
 
@@ -43,6 +44,8 @@ export interface DeploymentRecord {
   /** Ví deployer = ngân hàng (admin/agent/minter) lúc deploy. */
   deployer?: string;
   deployedAt?: string;
+  /** Block triển khai hợp đồng đầu tiên; mốc tối thiểu khi quét sự kiện. */
+  deployBlock?: number;
   contracts: ContractAddressMap;
 }
 

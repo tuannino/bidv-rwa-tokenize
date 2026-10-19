@@ -6,7 +6,7 @@
 | Nhánh | `fix/sc-10-va-hop-dong`, từ `dev` @ `ecc3450` (PR #52) |
 | Spec | `docs/sc-10-va-hop-dong/{requirements,tasks}.md`; DS-01 bản 3 |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Mã/local xanh; chờ Supervisor và Owner triển khai lại Sepolia sau merge |
+| Tiến độ | Hoàn tất; bộ hợp đồng và Mint/Burn Sepolia sau PR #55 đã được đối chiếu |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -18,9 +18,9 @@
 | 4 | Đột biến đỏ đúng ca, ca 11 | ✅ | mục 2 |
 | 5 | App/Job A/Hardhat thật xanh, bí mật sạch, ca 12 | ✅ | mục 3.2–3.4 |
 | 6 | Tài liệu và task-status cập nhật | ✅ | mục 4 |
-| 7 | Owner deploy lại Sepolia, đăng ký SPV, deploy Worker, Mint đầu | 🔶 | mục 5 |
+| 7 | Owner deploy lại Sepolia, đăng ký SPV, deploy Worker, Mint đầu | ✅ | Phụ lục A |
 
-**Kết luận:** 6 ✅ · 1 🔶 · 0 ❌. SC-10 giữ `inProgress`.
+**Kết luận:** 7 ✅ · 0 🔶 · 0 ❌. `SC-10` chuyển sang `done` trong task SC-07.
 
 **Việc Owner quyết/chạy:** CH-1 đã chốt có trần 20.000.000 WPT ngày 19/10/2026. Sau merge,
 chạy runbook SC-09/SC-10 một lần và gửi mã giao dịch Mint đầu để đóng điều kiện 7 (và SC-09).
@@ -90,3 +90,16 @@ SC-09/SC-10 đều giữ inProgress tới bằng chứng Owner. Không thêm mar
 Chưa triển khai testnet trong task. Chạy TESTNET_SEPOLIA.md: preflight/cấp phí/deploy/verify,
 đăng ký ví SPV, commit địa chỉ evm mới, deploy Worker, duyệt Mint đầu, gửi hash/receipt/block.
 Chỉ khi có bằng chứng này mới đổi điều kiện 7 sang ✅ và đóng SC-10 cùng SC-09.
+
+## Phụ lục A. Bằng chứng Sepolia sau PR #55 — 19/10/2026
+
+Nguồn: Supervisor đọc trực tiếp trên chuỗi. ProjectToken
+`0x995c29ff422483Ddbc7C6A671ECEC5A5f38C3d62`, IdentityRegistry
+`0xA1Fb6C6831a4C1A66D6CE0090D2790Cd37a4b950`; `cap = 20000000`; ví SPV
+`0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd` đã xác minh.
+
+| Lượt | Mã giao dịch | Block | Kết quả |
+|---|---|---:|---|
+| Mint đầu | `0xaa529aa41b03174d3b494eec254fb0876a7f44b1657253d18eef08e3f62f6f20` | 11947924 | Thành công; 1.000 WPT vào SPV |
+| Burn | `0x6b68b7571b93a37a738b99e9966e6cebb2b2bc0b1ee4edfaee96143f025257d8` | 11947952 | Thành công; 1.000 WPT bị huỷ |
+| Mint bổ sung | `0x246804b1bc59a9d263b73a25b4f82ed1443d880c990a5c4d0f0ae2be0980f6aa` | 11947989 | Thành công; tổng cung và số dư SPV sau đó 1.000 WPT |

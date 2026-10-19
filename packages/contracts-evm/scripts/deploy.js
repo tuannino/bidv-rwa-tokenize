@@ -90,6 +90,8 @@ async function main() {
     wptSupplyCap,
   ]);
   await wpt.waitForDeployment();
+  const firstDeploymentReceipt = await wpt.deploymentTransaction().wait();
+  const deployBlock = firstDeploymentReceipt.blockNumber;
 
   const vnd = await ethers.deployContract("VNDToken", [admin]);
   await vnd.waitForDeployment();
@@ -122,12 +124,26 @@ async function main() {
   const allowAllModule = await ethers.deployContract("AllowAllModule");
   await allowAllModule.waitForDeployment();
 
+  // 4) Vault luôn triển khai sau bảy hợp đồng cũ để giữ nguyên địa chỉ tất định của chúng.
+  const vault = await ethers.deployContract("SpvPaymentVault", [
+    await wpt.getAddress(),
+    await vnd.getAddress(),
+    admin,
+  ]);
+  await vault.waitForDeployment();
+
   await (await wpt.setIdentityRegistry(await identityRegistry.getAddress())).wait();
   await (await wpt.setCompliance(await modularCompliance.getAddress())).wait();
   await (await modularCompliance.bindToken(await wpt.getAddress())).wait();
   await (await modularCompliance.addModule(await allowAllModule.getAddress())).wait();
 
-  // 4) Distributor cần chốt snapshot trên WPT
+  const vaultAddress = await vault.getAddress();
+  await (await identityRegistry.registerIdentity(vaultAddress, 704)).wait();
+  for (const roleName of ["CONFIG_ROLE", "WITHDRAWER_ROLE", "PAUSER_ROLE"]) {
+    await (await vault.grantRole(await vault[roleName](), admin)).wait();
+  }
+
+  // 5) Distributor cần chốt snapshot trên WPT
   const SNAPSHOT_ROLE = await wpt.SNAPSHOT_ROLE();
   await (await wpt.grantRole(SNAPSHOT_ROLE, await distributor.getAddress())).wait();
   await ensureApplicationSignerRole(wpt, "MINTER_ROLE", admin);
@@ -141,13 +157,15 @@ async function main() {
     IdentityRegistry: await identityRegistry.getAddress(),
     ModularCompliance: await modularCompliance.getAddress(),
     AllowAllModule: await allowAllModule.getAddress(),
+    SpvPaymentVault: vaultAddress,
   };
 
-  // 5) Xuất sang packages/shared
+  // 6) Xuất sang packages/shared
   const written = writeAddresses(chainKey, {
     chainId: Number(chainId),
     deployer: admin,
     deployedAt: new Date().toISOString(),
+    deployBlock,
     contracts,
   });
   for (const name of [
@@ -158,6 +176,7 @@ async function main() {
     "IdentityRegistry",
     "ModularCompliance",
     "AllowAllModule",
+    "SpvPaymentVault",
   ]) {
     await exportAbi(name);
   }

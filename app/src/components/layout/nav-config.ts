@@ -153,6 +153,7 @@ export const TELLER_NAV: NavSection = {
         },
         { href: '/transactions', label: 'Giao dịch', icon: 'ArrowLeftRight', shortcut: 'G' },
         { href: '/distribution', label: 'Chia lợi nhuận', icon: 'TrendingUp', shortcut: 'C' },
+        { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
       ],
     },
     {
@@ -181,6 +182,7 @@ export const CONTROLLER_NAV: NavSection = {
           icon: 'TrendingUp',
           shortcut: 'C',
         },
+        { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
       ],
     },
     {

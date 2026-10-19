@@ -4,3 +4,4 @@ export { profitDistributorAbi } from './profit-distributor';
 export { redemptionAbi } from './redemption';
 export { identityRegistryAbi } from './identity-registry';
 export { modularComplianceAbi } from './modular-compliance';
+export { spvPaymentVaultAbi } from './spv-payment-vault';

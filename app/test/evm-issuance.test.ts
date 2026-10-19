@@ -11,6 +11,7 @@ import {
 } from 'viem';
 import { hardhat } from 'viem/chains';
 import {
+  addressBook,
   addressEnvKey,
   getContractAddress,
   modularComplianceAbi,
@@ -29,7 +30,9 @@ const ADMIN = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const UNPRIVILEGED = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const OTHER = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const UNVERIFIED = '0x90F79bf6EB2c4f870365E785982E1f101E93b906';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+// SC-07: phương án duy nhất là Mint đầu vào vault, không còn ví SPV thường song song.
+const SPV = getContractAddress('hardhat-local', 'SpvPaymentVault');
+const OLD_SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
 const HARDHAT_ACCOUNT0_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
@@ -187,6 +190,24 @@ live('SC-02 — EVM issuance adapter trên Hardhat thật', () => {
     expect(await ledger.isInitialSupplyMinted()).toBe(true);
     expect(await ledger.spvWallet()).toBe(SPV);
     expect(await ledger.balanceOf(SPV)).toBe(1_000n);
+  });
+
+  it('SC-07 chặn Mint đầu sai vault ở service trước khi gửi giao dịch', async () => {
+    resetMemoryStore();
+    resetStoreCache();
+    actAs('TELLER', 'GDV001');
+    const before = await blockNumber();
+    const { issueInitialSupply } = await import('@/lib/bank/issuance.service');
+    const result = await issueInitialSupply({
+      chain: 'hardhat-local',
+      spvWallet: OLD_SPV,
+      amount: '1',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('VALIDATION');
+    expect(result.error).toContain('ví nhận Mint đầu phải là vault');
+    expect(await blockNumber()).toBe(before);
   });
 
   it('dịch lỗi phát hành nguồn cung ban đầu lần hai và giữ lỗi gốc', async () => {
@@ -375,8 +396,14 @@ describe('SC-09 — chặn cấu hình EVM cũ trước khi gọi RPC', () => {
     const complianceKey = addressEnvKey('evm', 'ModularCompliance');
     const oldRegistry = process.env[registryKey];
     const oldCompliance = process.env[complianceKey];
+    const oldBookRegistry = addressBook.evm?.contracts.IdentityRegistry;
+    const oldBookCompliance = addressBook.evm?.contracts.ModularCompliance;
     delete process.env[registryKey];
     delete process.env[complianceKey];
+    if (addressBook.evm) {
+      delete addressBook.evm.contracts.IdentityRegistry;
+      delete addressBook.evm.contracts.ModularCompliance;
+    }
 
     try {
       const ledger = createEvmLedger('evm', unlockedSigner(ADMIN));
@@ -388,6 +415,12 @@ describe('SC-09 — chặn cấu hình EVM cũ trước khi gọi RPC', () => {
       else process.env[registryKey] = oldRegistry;
       if (oldCompliance === undefined) delete process.env[complianceKey];
       else process.env[complianceKey] = oldCompliance;
+      if (addressBook.evm && oldBookRegistry) {
+        addressBook.evm.contracts.IdentityRegistry = oldBookRegistry;
+      }
+      if (addressBook.evm && oldBookCompliance) {
+        addressBook.evm.contracts.ModularCompliance = oldBookCompliance;
+      }
     }
   });
 });

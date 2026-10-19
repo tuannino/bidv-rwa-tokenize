@@ -83,6 +83,9 @@ async function main() {
   const red = await ethers.getContractAt("Redemption", addr.Redemption);
   const registry = await ethers.getContractAt("IdentityRegistry", addr.IdentityRegistry);
   const compliance = await ethers.getContractAt("ModularCompliance", addr.ModularCompliance);
+  const vault = addr.SpvPaymentVault
+    ? await ethers.getContractAt("SpvPaymentVault", addr.SpvPaymentVault)
+    : null;
 
   // ---- Token ----
   section("1. Token");
@@ -170,12 +173,38 @@ async function main() {
     bad("ProfitDistributor THIẾU SNAPSHOT_ROLE -> P7 sẽ chết ở bước chốt snapshot");
   }
 
+  // ---- Vault SC-07 (tùy chọn để bộ Sepolia cũ vẫn kiểm được trước OP-05) ----
+  if (vault) {
+    section("5. Vault thanh toán SPV (SC-07)");
+    const code = await ethers.provider.getCode(addr.SpvPaymentVault);
+    if (code === "0x") bad(`SpvPaymentVault không có bytecode tại ${addr.SpvPaymentVault}`);
+    else ok(`SpvPaymentVault có bytecode tại ${addr.SpvPaymentVault}`);
+    if ((await vault.projectToken()).toLowerCase() === addr.ProjectToken.toLowerCase()) {
+      ok("SpvPaymentVault.projectToken khớp");
+    } else bad("SpvPaymentVault.projectToken không khớp ProjectToken");
+    if ((await vault.paymentToken()).toLowerCase() === addr.VNDToken.toLowerCase()) {
+      ok("SpvPaymentVault.paymentToken khớp VNDB");
+    } else bad("SpvPaymentVault.paymentToken không khớp VNDToken");
+    if (await registry.isVerified(addr.SpvPaymentVault)) ok("SpvPaymentVault đã đăng ký danh tính");
+    else bad("SpvPaymentVault chưa đăng ký danh tính");
+    for (const roleName of ["CONFIG_ROLE", "WITHDRAWER_ROLE", "PAUSER_ROLE"]) {
+      const role = await vault[roleName]();
+      if (await vault.hasRole(role, bank)) ok(`${roleName} -> ${bank}`);
+      else bad(`ví ngân hàng THIẾU ${roleName} trên SpvPaymentVault`);
+    }
+    const matcherRole = await vault.MATCHER_ROLE();
+    if (await vault.getRoleMemberCount(matcherRole) === 0n) ok("MATCHER_ROLE chưa cấp cho ai");
+    else bad("MATCHER_ROLE phải trống ngay sau triển khai");
+    if (await vault.lockMode() === 0n) ok("lockMode = UNSET");
+    else bad("lockMode phải là UNSET ngay sau triển khai");
+  }
+
   console.log("");
   if (problems.length) {
     console.log(`${C.red}${C.bold}${problems.length} vấn đề — bản deploy CHƯA dùng được${C.reset}`);
     process.exitCode = 1;
   } else {
-    console.log(`${C.green}${C.bold}BẢN DEPLOY SC-09 HỢP LỆ${C.reset} — ERC-3643/permit đã nối; đủ điều kiện cho P4, và P7/P12 dùng lại.`);
+    console.log(`${C.green}${C.bold}BẢN DEPLOY HỢP LỆ${C.reset} — ERC-3643/permit và vault hiện có đã nối đúng.`);
   }
 }
 

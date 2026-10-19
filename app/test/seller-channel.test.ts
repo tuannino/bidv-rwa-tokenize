@@ -136,11 +136,13 @@ describe('ca 1 — Tổng quan đủ sáu khối, số liệu lấy từ nghiệ
     // khối 5, 6 — ví: chưa cấu hình hạn mức thì không tự đặt
     expect(view.spvWallet?.toLowerCase()).toBe(SPV.toLowerCase());
     expect(view.wallet).toMatchObject({
+      paymentWallet: SPV,
       paymentVnd: '5000',
       profitPoolVnd: '700',
       lockedVnd: null,
       withdrawableVnd: null,
       policy: null,
+      warning: null,
       withdrawFeeVnd: null,
     });
   });
@@ -239,7 +241,7 @@ describe('ca 4 — đổi chế độ hạn mức trong cấu hình thì hạn m
     expect(await wallet()).toMatchObject({
       lockedVnd: '300',
       withdrawableVnd: '700',
-      policy: { mode: 'PERCENT', lockedPercent: 30 },
+      policy: { source: 'config', policy: { mode: 'PERCENT', lockedPercent: 30 } },
     });
 
     await setConfig(CONFIG_KEYS.sellerWithdrawLimitValue, '130');

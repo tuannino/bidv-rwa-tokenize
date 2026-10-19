@@ -166,6 +166,8 @@ export const ACTIONS = [
   'wallet:connect',
   /** Vào khu vực Vận hành (bảng điều khiển, giao dịch, chia lợi nhuận). TELLER + CONTROLLER. */
   'ops:read',
+  /** Đọc trạng thái và lịch sử vault SPV. Chỉ hai vai vận hành. */
+  'vault:read',
   /** Mở mục Lập lệnh. CHỈ TELLER — Kiểm soát viên không tự lập lệnh mình sẽ duyệt. */
   'ops:draft:read',
   /** Mở mục Phê duyệt lệnh. CHỈ CONTROLLER — Giao dịch viên không tự duyệt lệnh mình lập. */
@@ -239,6 +241,7 @@ const READ_ONLY: Action[] = [
   // Cổng khu vực Vận hành: đúng hai vai này, và cả hai đều spread nhóm — nên đặt ở đây
   // là cách ngắn nhất nói "khu vực vận hành mở cho mọi vai vận hành".
   'ops:read',
+  'vault:read',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {

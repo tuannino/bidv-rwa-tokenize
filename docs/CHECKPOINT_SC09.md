@@ -6,7 +6,7 @@
 | Nhánh | `feat/sc-09-erc3643-permit`, từ `dev` @ `945c833` (PR #51) |
 | Spec | `docs/sc-09-erc3643-permit/{requirements,tasks}.md` |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Hoàn tất mã và kiểm chứng local; giữ `inProgress` tới khi Owner triển khai lại Sepolia sau merge |
+| Tiến độ | Hoàn tất; bằng chứng Sepolia sau PR #55 đã được đối chiếu ngày 19/10/2026 |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -24,10 +24,10 @@
 | 8 | Không còn lời gọi API cũ trong phạm vi yêu cầu | ✅ | mục 3.3 |
 | 9 | Bộ mặc định, E2E Hardhat xanh; quét bí mật sạch | ✅ | mục 4 · 7 |
 | 10 | Tài liệu và runbook Sepolia đã cập nhật | ✅ | mục 5 |
-| 11 | Owner triển khai lại Sepolia và thử Mint lập–duyệt | 🔶 | mục 6 |
+| 11 | Owner triển khai lại Sepolia và thử Mint lập–duyệt | ✅ | Phụ lục A |
 
-**Kết luận:** 10 ✅ · 1 🔶 · 0 ❌. Phần 🔶 là Bước 8 dành riêng cho Owner sau merge; task tiếp tục
-ở `inProgress`, chưa tự triển khai testnet và chưa đổi địa chỉ `evm`.
+**Kết luận:** 11 ✅ · 0 🔶 · 0 ❌. Điều kiện sau merge được đóng bằng bằng chứng Supervisor đọc
+trên Sepolia tại Phụ lục A; `SC-09` chuyển sang `done` trong task SC-07.
 
 ### 0.2 Việc cần Owner làm sau merge
 
@@ -336,8 +336,20 @@ không có bí mật
 | Smoke API | 🔶 | `/api/token?chain=evm` đọc được WPT |
 | Mint lập–duyệt | 🔶 | tx hash, receipt thành công, block |
 
-Khi đủ năm dòng, đổi điều kiện 11 ở mục 0 thành ✅ và chuyển `SC-09` từ `inProgress` sang `done`
-trong cùng commit bằng chứng. Không tự đánh dấu done chỉ vì phần local đã hoàn tất.
+Các điều kiện này đã được đối chiếu bằng bằng chứng Sepolia tại Phụ lục A.
+
+## Phụ lục A. Bằng chứng Sepolia sau PR #55 — 19/10/2026
+
+Nguồn: Supervisor đọc trực tiếp trên chuỗi. Bộ `evm` triển khai lúc
+`2026-10-19T10:25:33.221Z`: ProjectToken `0x995c29ff422483Ddbc7C6A671ECEC5A5f38C3d62`,
+IdentityRegistry `0xA1Fb6C6831a4C1A66D6CE0090D2790Cd37a4b950`; `cap = 20000000`; ví SPV
+`0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd` đã xác minh.
+
+| Lượt | Mã giao dịch | Block | Kết quả |
+|---|---|---:|---|
+| Mint đầu | `0xaa529aa41b03174d3b494eec254fb0876a7f44b1657253d18eef08e3f62f6f20` | 11947924 | Thành công; `InitialSupplyMinted` 1.000 WPT vào SPV |
+| Burn | `0x6b68b7571b93a37a738b99e9966e6cebb2b2bc0b1ee4edfaee96143f025257d8` | 11947952 | Thành công; `Transfer` 1.000 WPT từ SPV về địa chỉ 0 |
+| Mint bổ sung | `0x246804b1bc59a9d263b73a25b4f82ed1443d880c990a5c4d0f0ae2be0980f6aa` | 11947989 | Thành công; `mint`, tổng cung và số dư SPV sau đó là 1.000 WPT |
 
 
 ## 7. Sửa Job A: đọc artifact lúc chạy — 16/10/2026

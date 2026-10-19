@@ -7,8 +7,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getSellerOverviewAction } from '@/app/actions/seller';
-import type { SellerOverviewView } from '@/lib/bank/seller.service';
-import type { WithdrawPolicy } from '@/lib/bank/withdraw-limit';
+import type { SellerOverviewView, SellerWithdrawPolicy } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { ProjectStatus } from '@/lib/store/project.store.port';
 
@@ -28,12 +27,22 @@ export const nf = (value: string | null | undefined) => {
   }
 };
 
-export const describePolicy = (policy: WithdrawPolicy | null) =>
-  policy === null
-    ? 'Chưa cấu hình hạn mức rút — chưa rút được.'
-    : policy.mode === 'FIXED'
-      ? `Khoá cố định ${nf(policy.lockedVnd)} VNDB.`
-      : `Khoá ${policy.lockedPercent}% số dư tại thời điểm rút.`;
+export const describePolicy = (policy: SellerWithdrawPolicy | null) => {
+  if (policy === null) return 'Chưa cấu hình hạn mức rút — chưa rút được.';
+  if (policy.source === 'config') {
+    return policy.policy.mode === 'FIXED'
+      ? `Nguồn cấu hình FE-21: khoá cố định ${nf(policy.policy.lockedVnd)} VNDB.`
+      : `Nguồn cấu hình FE-21: khoá ${policy.policy.lockedPercent}% số dư tại thời điểm rút, làm tròn lên.`;
+  }
+  if (policy.lockMode === 'UNSET') return 'Nguồn on-chain: chưa cấu hình, vault khoá toàn bộ.';
+  if (policy.lockMode === 'FIXED') {
+    return `Nguồn on-chain: khoá cố định ${nf(policy.fixedLockAmount)} VNDB.`;
+  }
+  return (
+    `Nguồn on-chain: khoá ${Number(policy.percentRateBps) / 100}% theo kỳ, làm tròn xuống; ` +
+    `thu ròng ${nf(policy.netProceeds)} VNDB, phần khoá kỳ gần nhất ${nf(policy.percentLocked)} VNDB.`
+  );
+};
 
 /** Đọc tổng quan theo chuỗi đang chọn. Dùng chung cho màn Tổng quan và màn Tạo lệnh rút. */
 export function useSellerOverview() {
@@ -241,7 +250,15 @@ export function SellerOverviewPage() {
                 <Stat label="VNDB đã khoá" value={nf(wallet?.lockedVnd)} unit="VNDB" />
                 <Stat label="VNDB còn rút được" value={nf(wallet?.withdrawableVnd)} unit="VNDB" />
               </div>
-              {data.spvWallet === null && (
+              {wallet?.paymentWallet && (
+                <p className="mt-3 break-all text-xs text-muted-foreground">
+                  Ví thanh toán: <span className="font-mono">{wallet.paymentWallet}</span>
+                </p>
+              )}
+              {wallet?.warning && (
+                <p role="alert" className="mt-3 text-sm font-medium text-destructive">{wallet.warning}</p>
+              )}
+              {wallet?.paymentWallet === null && (
                 <p className="mt-3 text-xs text-muted-foreground">Chưa phát hành lần nào nên chưa có ví thanh toán.</p>
               )}
             </Box>
@@ -254,6 +271,9 @@ export function SellerOverviewPage() {
                 <Stat label="Hạn mức còn rút được" value={nf(wallet?.withdrawableVnd)} unit="VNDB" />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">{describePolicy(wallet?.policy ?? null)}</p>
+              {wallet?.warning && (
+                <p role="alert" className="mt-3 text-sm font-medium text-destructive">{wallet.warning}</p>
+              )}
             </Box>
           </div>
         </>

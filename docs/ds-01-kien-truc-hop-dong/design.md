@@ -1,9 +1,9 @@
-# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 3)
+# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 4)
 
 | | |
 |---|---|
 | Người viết | Supervisor |
-| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-14 (mục 7). **Bản 3 ngày 19/10/2026**: QĐ-15 đến QĐ-19 theo góp ý thiết kế (mục 8) |
+| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-14 (mục 7). **Bản 3 ngày 19/10/2026**: QĐ-15 đến QĐ-19 theo góp ý thiết kế (mục 8). **Bản 4 ngày 19/10/2026**: QĐ-20 đến QĐ-26 khi chốt spec SC-07 (mục 9) |
 | Áp cho | SC-09 (tầng token ERC-3643 và permit), SC-07 (vault thanh toán), SC-03 (khớp lệnh), FE-05 (ủy quyền của Nhà đầu tư), OP-05 (Sepolia lần hai); ảnh hưởng SC-06, BE-18, BE-13 ở đợt 7 |
 | Nền | `dev` @ `e4dd889` |
 
@@ -223,6 +223,35 @@ SC-10.
 **Lỗi đã xác nhận: `ProfitDistributor` cho chi sau khi quét.** `sweepDust` đặt `claimed = amount` nhưng
 `_claim` không kiểm, và mọi kỳ dùng chung một quỹ VNDB: claim kỳ A sau khi quét lấy tiền kỳ B (kỳ A ghi chi
 200 trên quỹ 100). Sửa ở SC-10, trước khi dùng chia lợi nhuận nhiều kỳ.
+
+## 9. Bổ sung bản 4 (chủ dự án chốt 19/10/2026, khi chốt spec SC-07)
+
+**QĐ-20. Một phương án: ví SPV là vault, một chain `evm`.** Không chạy song song phương án ví SPV thường.
+Điểm khôi phục phương án cũ: commit `3342c2e` trên `dev`, tag `poc-spv-vi-thuong-20261019` (ghi ở
+`tech-report.md`). OP-05 triển khai lại `evm` có vault và ghi đè bộ địa chỉ hiện tại.
+
+**QĐ-21. Phần khoá `PERCENT` kỳ đầu** (làm rõ QĐ-19): tỷ lệ nhân giá trị token đã bán đang lưu hành, tức
+tổng VNDB vault thu ròng (`netProceeds`). Trước lần chốt kỳ đầu, đổi tỷ lệ có hiệu lực ngay; từ sau lần chốt
+đầu, tỷ lệ mới áp ở lần chốt kế tiếp. Phép nhân chia dùng `Math.mulDiv`, làm tròn xuống.
+
+**QĐ-22. Tạm dừng chỉ chặn rút tiền của SPV** (`PAUSER_ROLE`), không chặn quyết toán. Tạm dừng quyết toán
+đặt ở hợp đồng khớp lệnh (SC-03).
+
+**QĐ-23. Ví nhận tiền rút cố định** (`payoutWallet`), phải đã xác minh trong sổ danh tính, admin đặt.
+Giả định tin cậy: bản thử dùng một khoá máy chủ cho admin và rút, nên `payoutWallet` chỉ ngăn nhập nhầm
+đích, không bảo vệ khi khoá lộ. Tách khoá hoặc đổi ví hai bước có thời gian chờ là việc giai đoạn sau.
+
+**QĐ-24. `MATCHER_ROLE` là biên tin cậy đặc quyền.** Vault không tự chứng minh chân vào; giữ QĐ-15 (hợp
+đồng khớp lệnh là bên được ủy quyền). Vault kiểm `price > 0` và `vndbAmount == wptAmount * price`. Dùng
+`AccessControlEnumerable` để kiểm được số người giữ vai.
+
+**QĐ-25. Vault khởi tạo `UNSET` (khoá toàn bộ)** cho tới khi Kiểm soát viên cấu hình: lỗi quên cấu hình rơi
+về phía an toàn, không viết cứng con số nghiệp vụ trong mã.
+
+**QĐ-26. PERCENT theo DS-01 thay cho FE-21.** Chain có vault đọc khoá trên chuỗi. Gỡ PERCENT kiểu FE-21
+(phần trăm số dư lúc rút) và mô phỏng khoá DS-01 trên chain mock gộp vào BE-13. `periodRef` trên chuỗi là
+bộ đếm độc lập; ánh xạ với `periodKey` của database thuộc SC-06. Address book lưu `deployBlock` để đọc sự
+kiện.
 
 ## 6. Không thuộc tài liệu này
 
