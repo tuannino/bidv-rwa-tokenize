@@ -43,6 +43,42 @@ export interface SnapshotResult {
   snapshotId: number;
 }
 
+export type VaultLockMode = 'UNSET' | 'FIXED' | 'PERCENT';
+
+export interface VaultStatus {
+  address: string;
+  wptBalance: bigint;
+  vndbBalance: bigint;
+  lockMode: VaultLockMode;
+  fixedLockAmount: bigint;
+  percentRateBps: bigint;
+  pendingPercentRateBps: bigint | null;
+  netProceeds: bigint;
+  lockedAmount: bigint;
+  withdrawable: bigint;
+  lastPeriodRef: bigint;
+  lastDistributedPrev: bigint;
+  percentLocked: bigint;
+  payoutWallet: string | null;
+  withdrawalsPaused: boolean;
+}
+
+export interface VaultPeriodClose {
+  periodRef: bigint;
+  distributedPrev: bigint;
+  rateBps: bigint;
+  percentLocked: bigint;
+  operator: string;
+  txHash: string;
+  blockNumber: bigint;
+  timestamp: number;
+}
+
+export interface ILedgerVault {
+  vaultStatus(): Promise<VaultStatus | null>;
+  vaultPeriodCloses(limit: number): Promise<VaultPeriodClose[]>;
+}
+
 // =============================================================================
 //  1. TUÂN THỦ — whitelist/KYC, đóng băng, và kiểm tra trước khi chuyển
 // =============================================================================
@@ -261,6 +297,7 @@ export interface ILedgerPort
     ILedgerSnapshot,
     ILedgerDistribution,
     ILedgerSettlement,
+    ILedgerVault,
     ILedgerRead {
   readonly chain: ChainKey;
 }

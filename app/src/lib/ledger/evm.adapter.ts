@@ -15,11 +15,13 @@ import {
   type WalletClient,
 } from 'viem';
 import {
+  addressBook,
   findContractAddress,
   getContractAddress,
   identityRegistryAbi,
   modularComplianceAbi,
   projectTokenAbi,
+  spvPaymentVaultAbi,
   VIETNAM_COUNTRY_CODE,
   vndTokenAbi,
   type ChainKey,
@@ -38,6 +40,8 @@ import {
   type TokenInfo,
   type TransferCheck,
   type TxResult,
+  type VaultLockMode,
+  type VaultPeriodClose,
 } from './ledger.port';
 
 /**
@@ -131,6 +135,16 @@ const REVERT_MESSAGES: Record<string, string> = {
   IdentityNotVerified: 'Ví chưa được xác minh trong sổ danh tính ERC-3643.',
   ComplianceRejected: 'Bộ luật tuân thủ ERC-3643 từ chối giao dịch.',
   InsufficientUnfrozenTokens: 'Số WPT khả dụng không đủ vì một phần số dư đang bị đóng băng.',
+  ZeroPrice: 'Giá một WPT phải lớn hơn 0.',
+  ZeroOrderRef: 'Mã lệnh không được để trống.',
+  OrderAlreadySettled: 'Mã lệnh này đã được quyết toán.',
+  AmountPriceMismatch: 'Thành tiền VNDB không khớp số lượng WPT nhân đơn giá.',
+  InvalidLockMode: 'Không thể đặt chế độ khoá về Chưa cấu hình.',
+  RateTooHigh: 'Tỷ lệ khoá không được vượt 100%.',
+  InvalidPeriodRef: 'Mã kỳ phải tăng tuần tự và không được chốt lại kỳ cũ.',
+  PayoutWalletNotSet: 'Vault chưa cấu hình ví nhận tiền rút.',
+  PayoutWalletNotVerified: 'Ví nhận tiền rút chưa được xác minh trong sổ danh tính.',
+  ExceedsWithdrawable: 'Số tiền rút vượt phần VNDB hiện được phép rút.',
 };
 
 function translateRevert(raw: string): string {
@@ -778,6 +792,115 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     /** @blocked SC-04 | thiếu quyết định giá NAV có phải `Redemption.rate` hay không */
     async navRate() {
       return pendingContract('navRate', 'xác nhận giá NAV có phải Redemption.rate hay không');
+    },
+
+    // =========================================================================
+    //  VAULT THANH TOÁN SPV — chỉ đọc trong SC-07
+    // =========================================================================
+    async vaultStatus() {
+      const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
+      if (!vaultAddress) return null;
+      const vault = normalizeEvmAddress(vaultAddress);
+      const [
+        wptBalance,
+        vndbBalance,
+        mode,
+        fixedLockAmount,
+        percentRateBps,
+        pendingRate,
+        hasPendingRate,
+        netProceeds,
+        lockedAmount,
+        withdrawable,
+        lastPeriodRef,
+        lastDistributedPrev,
+        percentLocked,
+        payoutWallet,
+        withdrawalsPaused,
+      ] = await Promise.all([
+        read<bigint>('vaultStatus', 'balanceOf', [vault]),
+        readOn<bigint>('vaultStatus', 'VNDToken', vndTokenAbi, 'balanceOf', [vault]),
+        readOn<number>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'lockMode', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'fixedLockAmount', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'percentRateBps', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'pendingPercentRateBps', []),
+        readOn<boolean>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'hasPendingRate', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'netProceeds', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'lockedAmount', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'withdrawable', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'lastPeriodRef', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'lastDistributedPrev', []),
+        readOn<bigint>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'percentLocked', []),
+        readOn<string>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'payoutWallet', []),
+        readOn<boolean>('vaultStatus', 'SpvPaymentVault', spvPaymentVaultAbi, 'paused', []),
+      ]);
+      const lockModes: VaultLockMode[] = ['UNSET', 'FIXED', 'PERCENT'];
+      const lockMode = lockModes[Number(mode)];
+      if (!lockMode) throw new LedgerError(chain, 'vaultStatus', `Chế độ khoá vault không hợp lệ: ${mode}.`);
+      return {
+        address: vault,
+        wptBalance,
+        vndbBalance,
+        lockMode,
+        fixedLockAmount,
+        percentRateBps,
+        pendingPercentRateBps: hasPendingRate ? pendingRate : null,
+        netProceeds,
+        lockedAmount,
+        withdrawable,
+        lastPeriodRef,
+        lastDistributedPrev,
+        percentLocked,
+        payoutWallet: /^0x0{40}$/i.test(payoutWallet) ? null : normalizeEvmAddress(payoutWallet),
+        withdrawalsPaused,
+      };
+    },
+
+    async vaultPeriodCloses(limit) {
+      const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
+      if (!vaultAddress || limit <= 0) return [];
+      const deployBlock = addressBook[chain]?.deployBlock;
+      if (deployBlock === undefined) {
+        throw new LedgerError(
+          chain,
+          'vaultPeriodCloses',
+          'Thiếu block triển khai trong address book; không quét lịch sử vault từ block 0.',
+        );
+      }
+      try {
+        const logs = (await reader().getContractEvents({
+          address: normalizeEvmAddress(vaultAddress) as Hex,
+          abi: spvPaymentVaultAbi as Abi,
+          eventName: 'PeriodClosed',
+          fromBlock: BigInt(deployBlock),
+          toBlock: 'latest',
+        })) as Array<{
+          args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
+          transactionHash: Hex;
+          blockNumber: bigint;
+          logIndex: number;
+        }>;
+        const latest = logs
+          .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex)
+          .slice(0, limit);
+        return await Promise.all(
+          latest.map(async (log): Promise<VaultPeriodClose> => {
+            const block = await reader().getBlock({ blockNumber: log.blockNumber });
+            return {
+              periodRef: log.args.periodRef ?? 0n,
+              distributedPrev: log.args.distributedPrev ?? 0n,
+              rateBps: log.args.rateBps ?? 0n,
+              percentLocked: log.args.percentLocked ?? 0n,
+              operator: normalizeEvmAddress(log.args.operator ?? '0x0000000000000000000000000000000000000000'),
+              txHash: log.transactionHash,
+              blockNumber: log.blockNumber,
+              timestamp: Number(block.timestamp),
+            };
+          }),
+        );
+      } catch (error) {
+        return fail('vaultPeriodCloses', error);
+      }
     },
 
     // =========================================================================

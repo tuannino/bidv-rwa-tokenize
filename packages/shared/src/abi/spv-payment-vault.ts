@@ -15,6 +15,32 @@ export const spvPaymentVaultAbi = [
     inputs: [{ name: 'orderRef', type: 'bytes32' }], outputs: [{ name: '', type: 'bool' }],
   },
   {
+    type: 'function', name: 'setLockMode', stateMutability: 'nonpayable',
+    inputs: [{ name: 'mode', type: 'uint8' }], outputs: [],
+  },
+  {
+    type: 'function', name: 'setFixedLock', stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }], outputs: [],
+  },
+  {
+    type: 'function', name: 'setPercentRate', stateMutability: 'nonpayable',
+    inputs: [{ name: 'bps', type: 'uint256' }], outputs: [],
+  },
+  {
+    type: 'function', name: 'closePeriod', stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'periodRef', type: 'uint256' },
+      { name: 'distributedPrev', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function', name: 'setPayoutWallet', stateMutability: 'nonpayable',
+    inputs: [{ name: 'wallet', type: 'address' }], outputs: [],
+  },
+  { type: 'function', name: 'pauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { type: 'function', name: 'unpauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  {
     type: 'event', name: 'PeriodClosed', inputs: [
       { name: 'periodRef', type: 'uint256', indexed: true },
       { name: 'distributedPrev', type: 'uint256', indexed: false },

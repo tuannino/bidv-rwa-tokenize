@@ -2,7 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
-import { getLedger } from '@/lib/ledger';
+import { getLedger, LedgerNotImplementedError } from '@/lib/ledger';
 import { getOrderStore, getProjectStore } from '@/lib/store';
 import {
   readIssuePriceVnd,
@@ -41,6 +41,16 @@ const vnDate = (iso: string | Date) =>
 // ponytail: lọc + phân trang trong bộ nhớ trên tối đa 500 lệnh mới nhất; cần thêm offset/lọc ở cổng lưu trữ khi sổ lệnh vượt mức đó
 const ORDER_SCAN_LIMIT = 500;
 
+/** SC-04 chưa nối cờ tất toán EVM; đừng để thiếu cờ đó che toàn bộ số liệu vault chỉ đọc. */
+const readSettlementModeForOverview = async (ledger: ReturnType<typeof getLedger>) => {
+  try {
+    return await ledger.isSettlementMode();
+  } catch (error) {
+    if (error instanceof LedgerNotImplementedError) return false;
+    throw error;
+  }
+};
+
 export interface SellerTokenRow extends SupplyMetrics {
   tokenSymbol: string;
   projectName: string;
@@ -50,6 +60,18 @@ export interface SellerTokenRow extends SupplyMetrics {
   tradingOpen: boolean;
   terms: TokenTerms;
 }
+
+/** Hai công thức có ngữ nghĩa và luật làm tròn khác nhau, nên không được ép về cùng một kiểu. */
+export type SellerWithdrawPolicy =
+  | { source: 'config'; policy: WithdrawPolicy }
+  | {
+      source: 'on-chain';
+      lockMode: 'UNSET' | 'FIXED' | 'PERCENT';
+      fixedLockAmount: string;
+      percentRateBps: string;
+      netProceeds: string;
+      percentLocked: string;
+    };
 
 export interface SellerOverviewView {
   chain: ChainKey;
@@ -67,14 +89,18 @@ export interface SellerOverviewView {
   };
   tokens: SellerTokenRow[];
   wallet: {
-    /** VNDB trong ví thanh toán; `null` khi chưa có ví SPV. */
+    /** Vault khi chain đã triển khai vault; nếu chưa thì là ví SPV đã Mint lần đầu. */
+    paymentWallet: string | null;
+    /** VNDB trong ví thanh toán; `null` khi chưa có vault và chưa có ví SPV. */
     paymentVnd: string | null;
     /** VNDB trong ví chia lợi nhuận. */
     profitPoolVnd: string;
     /** `null` khi chưa cấu hình hạn mức hoặc chưa có ví SPV. */
     lockedVnd: string | null;
     withdrawableVnd: string | null;
-    policy: WithdrawPolicy | null;
+    policy: SellerWithdrawPolicy | null;
+    /** Cảnh báo đối soát khi ProjectToken vẫn ghi một ví SPV khác vault. */
+    warning: string | null;
     /** Phí một lần rút; `null` khi chưa cấu hình. */
     withdrawFeeVnd: string | null;
   };
@@ -92,13 +118,14 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
     await authorize('seller:read', null, chain);
 
     const ledger = getLedger(chain);
-    const [spvWallet, projects, issuePrice, terms, tradingPaused, profitPool, policy, fee, daily] =
+    const [spvWallet, vault, projects, issuePrice, terms, tradingPaused, profitPool, policy, fee, daily] =
       await Promise.all([
         ledger.spvWallet(),
+        ledger.vaultStatus(),
         getProjectStore().listProjects({ chain }),
         readIssuePriceVnd(chain),
         readTokenTerms(),
-        ledger.isSettlementMode(),
+        readSettlementModeForOverview(ledger),
         ledger.profitPoolBalance(),
         readSellerWithdrawPolicy(),
         readSellerWithdrawFee(),
@@ -106,6 +133,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
       ]);
     if (!daily.ok) return daily;
 
+    const paymentWallet = vault?.address ?? spvWallet;
     const tokens = await Promise.all(
       projects.map(async (project) => ({
         tokenSymbol: project.tokenSymbol,
@@ -114,12 +142,32 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
         tokenStatus: project.status,
         tradingOpen: !tradingPaused,
         terms,
-        ...(await readSupplyMetrics(chain, project)),
+        ...(await readSupplyMetrics(chain, project, Promise.resolve(paymentWallet))),
       })),
     );
 
-    const paymentVnd = spvWallet ? (await ledger.paymentBalanceOf(spvWallet)).toString() : null;
-    const limit = paymentVnd !== null && policy ? computeWithdrawLimit(paymentVnd, policy) : null;
+    const paymentVnd = vault
+      ? vault.vndbBalance.toString()
+      : paymentWallet
+        ? (await ledger.paymentBalanceOf(paymentWallet)).toString()
+        : null;
+    const limit = !vault && paymentVnd !== null && policy ? computeWithdrawLimit(paymentVnd, policy) : null;
+    const withdrawPolicy: SellerWithdrawPolicy | null = vault
+      ? {
+          source: 'on-chain',
+          lockMode: vault.lockMode,
+          fixedLockAmount: vault.fixedLockAmount.toString(),
+          percentRateBps: vault.percentRateBps.toString(),
+          netProceeds: vault.netProceeds.toString(),
+          percentLocked: vault.percentLocked.toString(),
+        }
+      : policy
+        ? { source: 'config', policy }
+        : null;
+    const warning =
+      vault && spvWallet && spvWallet.toLowerCase() !== vault.address.toLowerCase()
+        ? `Ví SPV trên chuỗi không phải vault: ${spvWallet}. Vault hiện tại: ${vault.address}.`
+        : null;
 
     return ok({
       chain,
@@ -136,11 +184,13 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
       },
       tokens,
       wallet: {
+        paymentWallet,
         paymentVnd,
         profitPoolVnd: profitPool.toString(),
-        lockedVnd: limit?.lockedVnd ?? null,
-        withdrawableVnd: limit?.withdrawableVnd ?? null,
-        policy,
+        lockedVnd: vault ? vault.lockedAmount.toString() : (limit?.lockedVnd ?? null),
+        withdrawableVnd: vault ? vault.withdrawable.toString() : (limit?.withdrawableVnd ?? null),
+        policy: withdrawPolicy,
+        warning,
         withdrawFeeVnd: fee?.toString() ?? null,
       },
     });

@@ -21,6 +21,7 @@ import {
   readSupplyMetrics,
   remainingIssuanceCap,
   trackTxn,
+  vaultMintTargetError,
 } from './issuance.service';
 import { err, ok, type Result } from './result';
 import {
@@ -151,17 +152,21 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
     );
 
     const wallet = draft.wallet ?? '';
+    const vaultTargetError = vaultMintTargetError(chain, wallet);
     const [whitelisted, frozen] = await Promise.all([
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
     ]);
+    const matchesVault = vaultTargetError === null;
     const matchesSpv = spv === null || spv.toLowerCase() === wallet.toLowerCase();
     checks.push(
       check(
         'wallet',
         'Ví đích hợp lệ',
-        whitelisted && !frozen && matchesSpv,
-        !matchesSpv
+        whitelisted && !frozen && matchesVault && matchesSpv,
+        !matchesVault
+          ? vaultTargetError ?? 'Ví đích không phải vault thanh toán SPV.'
+          : !matchesSpv
           ? `Ví đích phải là ví thanh toán SPV đã đăng ký trên chuỗi (${spv}).`
           : !whitelisted
             ? `Ví ${wallet} chưa được whitelist.`

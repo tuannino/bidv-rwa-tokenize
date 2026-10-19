@@ -657,6 +657,14 @@ export function createMockLedger(
       return read('navRate', (s) => s.navRate);
     },
 
+    async vaultStatus() {
+      return null;
+    },
+
+    async vaultPeriodCloses() {
+      return [];
+    },
+
     // =========================================================================
     //  ĐỌC / GIAO DỊCH
     // =========================================================================

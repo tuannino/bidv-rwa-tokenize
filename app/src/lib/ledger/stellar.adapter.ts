@@ -133,6 +133,14 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
       return todoNeeds('navRate', 'contract tất toán bản Soroban');
     },
 
+    // SC-07: Stellar chưa triển khai vault, nhưng đây là trạng thái hợp lệ thay vì lỗi adapter.
+    async vaultStatus() {
+      return null;
+    },
+    async vaultPeriodCloses() {
+      return [];
+    },
+
     // --- Đọc / giao dịch ---
     async balanceOf(): Promise<bigint> {
       return todo('balanceOf');
