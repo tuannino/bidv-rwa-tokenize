@@ -276,7 +276,10 @@ contract ProjectToken is
         override(ERC20, ERC20Snapshotable)
     {
         if (_forcedMove) {
+            IERC3643Compliance forcedCompliance = _requireCompliance();
             super._update(from, to, value);
+            if (to == address(0)) forcedCompliance.destroyed(from, value);
+            else forcedCompliance.transferred(from, to, value);
             return;
         }
 

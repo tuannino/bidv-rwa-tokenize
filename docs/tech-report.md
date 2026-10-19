@@ -23,6 +23,10 @@ cả kỳ đã chi hết, chỉ chuyển/phát DustSwept nếu có phần dư. `
 Error `DistributionClosed` đặt trong interface namespace để cùng tồn tại với event cùng tên trong
 ABI; không thêm thư viện hoặc thay chữ ký hàm. Bộ cũ và sáu ca mới xanh, bằng chứng vào checkpoint.
 
+**SC-10 — callback cưỡng chế.** Forced transfer, batch và agent burn tiếp tục bỏ qua kiểm tra
+chuyển nhưng vẫn báo `transferred`/`destroyed`; thiếu compliance revert rõ. HolderCountModule chỉ
+cho kiểm thử, gắn trước mint và chỉ nhận callback từ compliance đã cấu hình.
+
 Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
 chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
 vẫn typecheck và thu thập được các ca bỏ qua. Không thay adapter, ABI hoặc logic hợp đồng.

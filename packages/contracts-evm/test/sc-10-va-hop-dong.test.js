@@ -119,3 +119,58 @@ describe("SC-10 - ProfitDistributor", function () {
     expect(await payout.balanceOf(await distributor.getAddress())).to.equal(0n);
   });
 });
+
+async function holderFixture() {
+  const f = await deploySpecFixture();
+  await whitelist(f.project, f.admin, [f.admin, f.investorA, f.investorB, f.outsider]);
+  const holders = await ethers.deployContract("HolderCountModule", [await f.project.getAddress(), await f.compliance.getAddress()]);
+  await f.compliance.addModule(await holders.getAddress());
+  return { ...f, holders };
+}
+async function expectHolderCount(f) {
+  const balances = await Promise.all([f.admin, f.investorA, f.investorB, f.outsider].map((wallet) => f.project.balanceOf(wallet.address)));
+  expect(await f.holders.holderCount()).to.equal(BigInt(balances.filter((balance) => balance > 0n).length));
+}
+
+describe("SC-10 - callbacks cưỡng chế", function () {
+  it("ca 7: module đếm đúng sau mint, transfer, forcedTransfer, agent burn và batch", async function () {
+    const f = await loadFixture(holderFixture);
+    const { project, investorA, investorB, outsider, admin } = f;
+    await project.mintInitialSupply(investorA.address, 100n); await expectHolderCount(f);
+    await project.connect(investorA).transfer(investorB.address, 20n); await expectHolderCount(f);
+    await project.forcedTransfer(investorA.address, outsider.address, 30n); await expectHolderCount(f);
+    await project['burn(address,uint256)'](investorB.address, 20n); await expectHolderCount(f);
+    await project.batchForcedTransfer([investorA.address, outsider.address], [investorB.address, admin.address], [10n, 10n]);
+    await expectHolderCount(f);
+    expect(await f.holders.holderCount()).to.equal(4n);
+  });
+
+  it("ca 8: RejectAll chặn đường thường, cưỡng chế bỏ kiểm nhưng vẫn báo module", async function () {
+    const f = await loadFixture(holderFixture);
+    const { project, compliance, registry, investorA, investorB } = f;
+    await project.mintInitialSupply(investorA.address, 100n);
+    const reject = await ethers.deployContract("RejectAllModule");
+    await compliance.addModule(await reject.getAddress());
+    await expect(project.connect(investorA).transfer(investorB.address, 10n))
+      .to.be.revertedWithCustomError(project, "ComplianceRejected");
+    await registry.deleteIdentity(investorA.address);
+    await project.setAddressFrozen(investorA.address, true);
+    await project.pause();
+    await expect(project.forcedTransfer(investorA.address, investorB.address, 10n)).not.to.be.reverted;
+    await expectHolderCount(f);
+    await expect(project['burn(address,uint256)'](investorA.address, 90n)).not.to.be.reverted;
+    await expectHolderCount(f);
+    expect(await f.holders.holderCount()).to.equal(1n);
+  });
+
+  it("ca 9: chưa gắn bộ luật thì cưỡng chế revert ComplianceNotSet", async function () {
+    const f = await deploySpecFixture();
+    const project = await ethers.deployContract("ProjectToken", ["Unbound WPT", "WPT", 0, f.admin.address]);
+    await whitelist(f.project, f.admin, [f.investorA, f.investorB]);
+    await project.setIdentityRegistry(await f.registry.getAddress());
+    await expect(project.forcedTransfer(f.investorA.address, f.investorB.address, 0))
+      .to.be.revertedWithCustomError(project, "ComplianceNotSet");
+    await expect(project['burn(address,uint256)'](f.investorA.address, 0))
+      .to.be.revertedWithCustomError(project, "ComplianceNotSet");
+  });
+});
