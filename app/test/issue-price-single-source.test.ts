@@ -154,7 +154,7 @@ describe('giá phát hành WPT — một nguồn duy nhất', () => {
       'Mỗi dòng ở đây là một con số về giá không suy ra từ dòng nào khác. Dòng lạ nghĩa là giá ' +
         'lại có hai nguồn — nhập từ `lib/config/issue-terms.ts` thay vì khai thêm.',
     ).toEqual(
-      [`${source}: WPT_ISSUE_PRICE_VND`, `${source}: WPT_PRICE_CHANGE_THRESHOLD`].sort(),
+      [`${source}: WPT_PRICE_CHANGE_THRESHOLD`].sort(),
     );
   });
 

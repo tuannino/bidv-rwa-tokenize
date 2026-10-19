@@ -1,4 +1,4 @@
-const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
+const { wptIssuePriceVnd, wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Kiểm bản deploy trên chain đã đủ điều kiện cho P4/P7/P12 chưa: role on-chain, liên kết
 // giữa các contract, và tham số. KHÔNG gửi giao dịch nào — chỉ đọc.
 //
@@ -29,6 +29,8 @@ const REQUIRED_CONTRACTS = [
   "IdentityRegistry",
   "ModularCompliance",
   "AllowAllModule",
+  "SpvPaymentVault",
+  "OrderSettlement",
 ];
 
 function chainKeyOf(chainId) {
@@ -66,8 +68,8 @@ async function main() {
 
   const missing = REQUIRED_CONTRACTS.filter((name) => !addr[name]);
   if (missing.length) {
-    bad(`thiếu địa chỉ SC-09: ${missing.join(", ")}`);
-    console.log(`${C.red}${C.bold}Bộ địa chỉ là bản trước SC-09, cần triển khai lại.${C.reset}`);
+    bad(`thiếu địa chỉ hợp đồng bắt buộc: ${missing.join(", ")}`);
+    console.log(`${C.red}${C.bold}Bộ địa chỉ là bản trước SC-03, cần triển khai lại.${C.reset}`);
     process.exitCode = 1;
     return;
   }
@@ -83,9 +85,8 @@ async function main() {
   const red = await ethers.getContractAt("Redemption", addr.Redemption);
   const registry = await ethers.getContractAt("IdentityRegistry", addr.IdentityRegistry);
   const compliance = await ethers.getContractAt("ModularCompliance", addr.ModularCompliance);
-  const vault = addr.SpvPaymentVault
-    ? await ethers.getContractAt("SpvPaymentVault", addr.SpvPaymentVault)
-    : null;
+  const vault = await ethers.getContractAt("SpvPaymentVault", addr.SpvPaymentVault);
+  const settlement = await ethers.getContractAt("OrderSettlement", addr.OrderSettlement);
 
   // ---- Token ----
   section("1. Token");
@@ -193,10 +194,26 @@ async function main() {
       else bad(`ví ngân hàng THIẾU ${roleName} trên SpvPaymentVault`);
     }
     const matcherRole = await vault.MATCHER_ROLE();
-    if (await vault.getRoleMemberCount(matcherRole) === 0n) ok("MATCHER_ROLE chưa cấp cho ai");
-    else bad("MATCHER_ROLE phải trống ngay sau triển khai");
+    if (await vault.getRoleMemberCount(matcherRole) === 1n &&
+        (await vault.getRoleMember(matcherRole, 0n)).toLowerCase() === addr.OrderSettlement.toLowerCase()) {
+      ok("MATCHER_ROLE chỉ cấp cho OrderSettlement");
+    } else bad("MATCHER_ROLE phải có đúng một người giữ là OrderSettlement");
     if (await vault.lockMode() === 0n) ok("lockMode = UNSET");
     else bad("lockMode phải là UNSET ngay sau triển khai");
+  }
+
+  section("6. Khớp lệnh SC-03");
+  if ((await settlement.vault()).toLowerCase() === addr.SpvPaymentVault.toLowerCase()) ok("OrderSettlement.vault khớp");
+  else bad("OrderSettlement.vault không khớp SpvPaymentVault");
+  if ((await settlement.projectToken()).toLowerCase() === addr.ProjectToken.toLowerCase()) ok("OrderSettlement.projectToken khớp");
+  else bad("OrderSettlement.projectToken không khớp ProjectToken");
+  if ((await settlement.paymentToken()).toLowerCase() === addr.VNDToken.toLowerCase()) ok("OrderSettlement.paymentToken khớp");
+  else bad("OrderSettlement.paymentToken không khớp VNDToken");
+  if (await settlement.price() === BigInt(wptIssuePriceVnd)) ok(`OrderSettlement.price = ${wptIssuePriceVnd}`);
+  else bad(`OrderSettlement.price không bằng ${wptIssuePriceVnd}`);
+  for (const roleName of ["OPERATOR_ROLE", "PRICE_ROLE", "PAUSER_ROLE"]) {
+    if (await settlement.hasRole(await settlement[roleName](), bank)) ok(`${roleName} -> ${bank}`);
+    else bad(`ví ngân hàng THIẾU ${roleName} trên OrderSettlement`);
   }
 
   console.log("");

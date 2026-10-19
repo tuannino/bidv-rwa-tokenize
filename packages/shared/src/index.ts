@@ -5,6 +5,7 @@ export * from './chains';
 export * from './abi/index';
 export { buildPermitTypedData } from './permit.js';
 export type { PermitAddress, PermitTypedData, PermitTypedDataInput } from './permit.js';
+export { orderIdFromOrderRef, orderRefFromOrderId } from './order-ref';
 export {
   addressBook,
   addressEnvKey,

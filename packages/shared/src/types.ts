@@ -33,6 +33,7 @@ export const CONTRACT_NAMES = [
   'ModularCompliance',
   'AllowAllModule',
   'SpvPaymentVault',
+  'OrderSettlement',
 ] as const;
 export type ContractName = (typeof CONTRACT_NAMES)[number];
 
