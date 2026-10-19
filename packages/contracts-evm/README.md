@@ -39,3 +39,10 @@ Triển khai local dùng `bash scripts/evm-local.sh reset` từ gốc repo; scri
 - Tương thích Hyperledger Besu được để ngỏ sau SC-09. Không coi cấu hình `besu` còn lại là bằng chứng bộ bytecode hiện tại chạy được; cần task riêng đo phiên bản Besu hỗ trợ Cancun hoặc chốt phương án compiler/OZ khác.
 - `hardhat.config.js` có một đoạn override để dùng `solc` cục bộ (do môi trường dựng bộ này chặn máy chủ tải solc). Trên máy có internet bình thường, đoạn này vô hại và Hardhat vẫn hoạt động chuẩn.
 - WPT và VNDB để 0 số thập phân cho số học minh bạch; đổi qua constructor nếu cần.
+
+
+SC-10: ProjectToken nhận thêm `cap` ở cuối constructor, đơn vị nhỏ nhất, không có setter.
+Deployment hiện dùng decimals 0 và cap 20.000.000 WPT từ `shared/src/token-parameters.json`,
+cùng nguồn với giá trị seed ứng dụng. `ProfitDistributor` lưu deadline/closed riêng từng kỳ;
+đường cưỡng chế WPT báo action compliance. Bytecode đổi: reset local; sau merge triển khai lại
+Sepolia một lần theo `docs/TESTNET_SEPOLIA.md`, không đổi thứ tự bảy hợp đồng.

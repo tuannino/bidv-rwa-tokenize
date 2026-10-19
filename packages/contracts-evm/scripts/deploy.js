@@ -86,7 +86,9 @@ async function main() {
     "Wind Power Token",
     "WPT",
     0,
-    admin, wptSupplyCap]);
+    admin,
+    wptSupplyCap,
+  ]);
   await wpt.waitForDeployment();
 
   const vnd = await ethers.deployContract("VNDToken", [admin]);

@@ -27,7 +27,7 @@ export const profitDistributorAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
-  /** Kỳ chia: (snapshotId, amount, supplyAtSnapshot, claimed, createdAt, period). */
+  /** Kỳ chia: (snapshotId, amount, supplyAtSnapshot, claimed, createdAt, period, claimDeadline, closed). */
   {
     type: 'function',
     name: 'distributions',
@@ -40,6 +40,8 @@ export const profitDistributorAbi = [
       { name: 'claimed', type: 'uint256' },
       { name: 'createdAt', type: 'uint64' },
       { name: 'period', type: 'string' },
+      { name: 'claimDeadline', type: 'uint64' },
+      { name: 'closed', type: 'bool' },
     ],
   },
   /** Phần theo quyền của một ví trong một kỳ, không tính đã nhận hay chưa. */
@@ -139,5 +141,98 @@ export const profitDistributorAbi = [
     type: 'error',
     name: 'SafeERC20FailedOperation',
     inputs: [{ name: 'token', type: 'address' }],
+  },
+  // SC-10: kỳ đóng/hết hạn và giới hạn quỹ.
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "name": "ClaimWindowEnded",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      }
+    ],
+    "name": "DistributionClosed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "remaining",
+        "type": "uint256"
+      }
+    ],
+    "name": "DistributionOverdrawn",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sweptAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "DistributionClosed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "DustSwept",
+    "type": "event"
   },
 ] as const;

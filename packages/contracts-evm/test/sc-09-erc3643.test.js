@@ -27,7 +27,9 @@ describe("SC-09 - ERC-3643 core", function () {
       "Wind Project Token",
       "WPT",
       0,
-      admin.address, wptSupplyCap]);
+      admin.address,
+      wptSupplyCap,
+    ]);
     const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
     const compliance = await ethers.deployContract("ModularCompliance", [admin.address]);
     const allowAll = await ethers.deployContract("AllowAllModule");
@@ -243,7 +245,9 @@ describe("SC-09 - ERC-3643 core", function () {
         "Wind Project Token",
         "WPT",
         0,
-        admin.address, wptSupplyCap]);
+        admin.address,
+        wptSupplyCap,
+      ]);
       await project.waitForDeployment();
       await expect(project.mintInitialSupply(spv.address, 1))
         .to.be.revertedWithCustomError(project, "IdentityRegistryNotSet");

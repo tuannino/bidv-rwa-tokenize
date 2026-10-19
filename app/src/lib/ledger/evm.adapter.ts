@@ -120,6 +120,8 @@ const REVERT_MESSAGES: Record<string, string> = {
   InitialSupplyAlreadyMinted: 'Nguồn cung ban đầu đã được phát hành.',
   InitialSupplyNotMinted: 'Nguồn cung ban đầu chưa được phát hành.',
   MintTargetNotSpv: 'Ví nhận không trùng với ví SPV đã đăng ký.',
+  SupplyCapExceeded: 'Tổng cung sau phát hành vượt trần cố định của hợp đồng.',
+  InvalidSupplyCap: 'Trần nguồn cung khi triển khai phải lớn hơn 0.',
   ZeroAddress: 'Địa chỉ ví SPV không được là địa chỉ 0.',
   ZeroAmount: 'Số lượng phát hành phải lớn hơn 0.',
   TokenPaused: 'Token đang tạm dừng chuyển nhượng.',
