@@ -9,11 +9,11 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.14 |
-| Cập nhật lần cuối | 2026-10-16 |
-| Nhánh / commit | `feat/sc-09-erc3643-permit`, từ `dev` @ `945c833` (PR #51); checkpoint `docs/CHECKPOINT_SC09.md` |
+| Phiên bản tài liệu | 4.15 |
+| Cập nhật lần cuối | 2026-10-19 |
+| Nhánh / commit | `fix/sc-10-va-hop-dong`, từ `dev` @ `ecc3450` (PR #52); spec `docs/sc-10-va-hop-dong/` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat), **OP-07** (mock ledger lưu bền theo chain — PR #50), **FE-27** (giao diện, dữ liệu lập–duyệt và giá phát hành đồng bộ theo chain — xem 3.22) |
-| Đang thực hiện | **SC-09** đã hoàn tất mã và kiểm chứng local; còn chờ Owner triển khai lại Sepolia sau merge. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
+| Đang thực hiện | **SC-10**: vá đóng kỳ chia lợi nhuận và callback cưỡng chế theo DS-01 bản 3; CH-1 đã được Owner duyệt ngày 19/10: trần cố định 20.000.000 WPT trên hợp đồng.  **SC-09** đã hoàn tất mã và kiểm chứng local; còn chờ Owner triển khai lại Sepolia sau merge. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
 | Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
 

@@ -1,9 +1,9 @@
-# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 2)
+# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 3)
 
 | | |
 |---|---|
 | Người viết | Supervisor |
-| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-13 (mục 7) |
+| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-14 (mục 7). **Bản 3 ngày 19/10/2026**: QĐ-15 đến QĐ-19 theo góp ý thiết kế (mục 8) |
 | Áp cho | SC-09 (tầng token ERC-3643 và permit), SC-07 (vault thanh toán), SC-03 (khớp lệnh), FE-05 (ủy quyền của Nhà đầu tư), OP-05 (Sepolia lần hai); ảnh hưởng SC-06, BE-18, BE-13 ở đợt 7 |
 | Nền | `dev` @ `e4dd889` |
 
@@ -173,6 +173,56 @@ lợi nhuận vào vault cộng vào số dư rút được theo hạn mức, **
 - **Không qua lập duyệt GDV**; Kiểm soát viên (vai cấu hình) tự đặt. Bắt buộc **hiển thị công khai**
   cho Giao dịch viên và Kiểm soát viên: kỳ, số đã chia kỳ trước, tỷ lệ, phần khoá, người đặt, thời
   điểm, mã giao dịch.
+
+**QĐ-14. Chia lợi nhuận: ngân hàng trả theo lô (đẩy), giữ sẵn đường nhà đầu tư tự nhận** (chủ dự án chốt 16/10/2026).
+- Bản thử chỉ làm đường ngân hàng trả hộ (`distributeTo` theo lô). Không làm giao diện "tự bấm nhận".
+- Hợp đồng SC-06 **giữ** `claim` và sự kiện `Claimed`; kiểm thử ca vừa tự nhận vừa trả lô (không trả hai lần).
+- Backend xác định "đã trả" bằng **trạng thái đọc từ chuỗi** (dấu đã nhận, sự kiện), không chỉ dựa vào kết quả lô mình gửi. Nhờ vậy mở "tự nhận" về sau chỉ còn là việc giao diện (ước 6 đến 8 điểm nếu làm đủ).
+- Phần của SPV (vault) luôn trả hộ vì hợp đồng không tự nhận được.
+
+## 8. Bổ sung bản 3 (góp ý thiết kế, chủ dự án chốt 19/10/2026)
+
+Nguồn: sáu góp ý của developer sau khi đọc sơ đồ #SC, DS-01 bản 2 và mã SC-09. Supervisor tái hiện được
+lỗi ở góp ý 1 trên Hardhat. Kiến trúc tổng thể giữ nguyên.
+
+**QĐ-15. Quyết toán hai chiều trong một giao dịch (cho SC-03).**
+
+| Lệnh | Chân WPT | Chân VNDB | Nhà đầu tư ủy quyền cho |
+|---|---|---|---|
+| Mua | Vault chuyển cho nhà đầu tư | OrderSettlement kéo từ nhà đầu tư vào vault | OrderSettlement (VNDB) |
+| Bán lại | OrderSettlement kéo từ nhà đầu tư vào vault | Vault trả cho nhà đầu tư | OrderSettlement (WPT) |
+
+- Hai chân cùng thành công hoặc cùng hoàn lại. WPT bị chặn (KYC, đóng băng, bộ luật) thì VNDB không chuyển;
+  vault thiếu VNDB thì WPT không chuyển. Phần khoá không chặn chân trả tiền bán lại.
+- OrderSettlement chỉ là spender, không giữ WPT nên **không** đăng ký sổ danh tính. Vault giữ WPT nên
+  **bắt buộc** đăng ký.
+
+**QĐ-16. Giới hạn của `permit`.** `permit` chỉ cấp quyền chi token, không xác nhận giá, chiều hay
+`orderRef`. Giữ giả định tin cậy QĐ-6: ngân hàng là bên thực hiện lệnh. Số ủy quyền bằng đúng số của lệnh,
+có hạn thực hiện. `permit` bọc `try/catch`; nếu đã bị gửi trước (lỗi nonce) nhưng `allowance` vẫn đủ thì
+lệnh chạy tiếp. EIP-712 cho lệnh do nhà đầu tư ký vẫn là việc tăng cường về sau.
+
+**QĐ-17. Dấu chống trùng `orderRef` lưu trong vault** (sửa QĐ-4). Vault tồn tại lâu dài, nên thay
+OrderSettlement bản mới không làm mất lịch sử. Vault phát sự kiện `OrderSettled` (orderRef dạng indexed,
+nhà đầu tư, chiều, số WPT, số VNDB, giá) để backend tìm lại giao dịch đã thành công khi mất tx hash. Đây là
+cách đóng khoảng trống đối soát BE-17.
+
+**QĐ-18. Đường cưỡng chế và module có trạng thái.** `forcedTransfer`, `burn` của agent bỏ qua kiểm tra
+`canTransfer` nhưng **vẫn báo** `transferred` / `destroyed` cho bộ luật (như T-REX). Module có lưu trạng
+thái chỉ được gắn khi token chưa có người nắm giữ, hoặc phải có hàm khởi tạo số liệu do agent gọi. Làm ở
+SC-10.
+
+**QĐ-19. Công thức và thời điểm của phần khoá** (bổ sung QĐ-5, QĐ-13, chủ dự án chốt theo đề xuất).
+- Kỳ đầu: phần khoá = tỷ lệ nhân thu ròng bán WPT, **cập nhật sau từng lệnh** cho tới lần chốt kỳ đầu.
+- "Đã chia kỳ trước" = số VNDB đã nạp quỹ kỳ đó (`amount` của `createDistribution`), **gồm phần SPV**.
+- Thu ròng dừng ở 0, không âm; khi đó phần khoá bằng 0.
+- Số được rút = số dư trừ phần khoá nếu dương, ngược lại bằng 0 (không để phép trừ gây lỗi).
+- Mã kỳ tăng liên tiếp, mỗi kỳ chốt một lần, không chốt lại kỳ cũ.
+- Tỷ lệ `PERCENT` mới có hiệu lực từ lần chốt kỳ kế tiếp; số khoá `FIXED` có hiệu lực ngay.
+
+**Lỗi đã xác nhận: `ProfitDistributor` cho chi sau khi quét.** `sweepDust` đặt `claimed = amount` nhưng
+`_claim` không kiểm, và mọi kỳ dùng chung một quỹ VNDB: claim kỳ A sau khi quét lấy tiền kỳ B (kỳ A ghi chi
+200 trên quỹ 100). Sửa ở SC-10, trước khi dùng chia lợi nhuận nhiều kỳ.
 
 ## 6. Không thuộc tài liệu này
 
