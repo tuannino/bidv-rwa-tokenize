@@ -18,12 +18,15 @@
     "evm": {
       "chainId": 11155111,
       "deployer": "0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076",
-      "deployedAt": "2026-10-08T07:59:35.988Z",
+      "deployedAt": "2026-10-19T08:49:57.541Z",
       "contracts": {
-        "ProjectToken": "0xB8e9Add2A9A4968f7BD5c1a8BfB43a55761E6A02",
-        "VNDToken": "0xc18FF0a03c94aa057DDff3A90a16F7454b5ACF45",
-        "ProfitDistributor": "0x7f2b975259Ee12f7cf847EDda3331CF9e8614166",
-        "Redemption": "0xB19b13aAbC42852A3608f232196012D5758Ac1B2"
+        "ProjectToken": "0xba27D98b610ddcA6a102Fade1bc9aC1fC16D060e",
+        "VNDToken": "0xc53382958A285D2d5Ae7BD4bb8492cbe6F2B5d85",
+        "ProfitDistributor": "0x962D8a44a31f16924A32C398FFE0536F5Aaf3153",
+        "Redemption": "0xAD4B08f5A070936A7061D1d0714B8603649cb1cb",
+        "IdentityRegistry": "0x382FD4F0ac7C4f2fa9BB867bB35deBE1a612Fe69",
+        "ModularCompliance": "0x354365d551247F6b5FF9aE6ca9a4bC0da74D9cAc",
+        "AllowAllModule": "0x78Db00EA71441cd8304EAF06CDBA292647087468"
       }
     }
   }
