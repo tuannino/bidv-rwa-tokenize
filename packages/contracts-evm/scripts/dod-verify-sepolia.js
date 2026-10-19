@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 /**
  * LỚP 2 - NGHIỆM THU DoD TRÊN ETHEREUM TESTNET (SEPOLIA)
  *
@@ -83,6 +84,7 @@ async function main() {
   if (ethBal === 0n) throw new Error("Ví ngân hàng hết ETH test. Nạp qua faucet Sepolia.");
 
   const project = await ethers.getContractAt("ProjectToken", need("ADDR_PROJECT_TOKEN"));
+  if (await project.cap() !== BigInt(wptSupplyCap)) throw new Error("WPT cap không đúng cấu hình");
   const payout = await ethers.getContractAt("VNDToken", need("ADDR_VND_TOKEN"));
   const registry = await ethers.getContractAt("IdentityRegistry", need("ADDR_IDENTITY_REGISTRY"));
   const compliance = await ethers.getContractAt(

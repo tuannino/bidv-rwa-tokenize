@@ -42,6 +42,7 @@ contract ProjectToken is
     address public spvWallet;
     bool public initialSupplyMinted;
     uint8 private immutable _customDecimals;
+    uint256 public immutable cap; // đơn vị nhỏ nhất, cố định lúc triển khai
 
     event InitialSupplyMinted(address indexed spvWallet, uint256 amount, address indexed operator);
 
@@ -49,6 +50,8 @@ contract ProjectToken is
     error InitialSupplyNotMinted();
     error MintTargetNotSpv(address to, address spv);
     error ZeroAddress();
+    error InvalidSupplyCap();
+    error SupplyCapExceeded(uint256 cap, uint256 currentSupply, uint256 amount);
     error ZeroAmount();
     error ArrayLengthMismatch();
     error TokenAlreadyPaused();
@@ -63,11 +66,13 @@ contract ProjectToken is
     error FreezeAmountExceedsBalance(address wallet, uint256 balance, uint256 requestedTotal);
     error UnfreezeAmountExceedsFrozen(address wallet, uint256 frozen, uint256 requested);
 
-    constructor(string memory name_, string memory symbol_, uint8 decimals_, address admin)
+    constructor(string memory name_, string memory symbol_, uint8 decimals_, address admin, uint256 cap_)
         ERC20(name_, symbol_)
         ERC20Permit(name_)
     {
         if (admin == address(0)) revert ZeroAddress();
+        if (cap_ == 0) revert InvalidSupplyCap();
+        cap = cap_;
         _customDecimals = decimals_;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MINTER_ROLE, admin);
@@ -275,8 +280,14 @@ contract ProjectToken is
         internal
         override(ERC20, ERC20Snapshotable)
     {
+        if (from == address(0) && value > cap - totalSupply()) {
+            revert SupplyCapExceeded(cap, totalSupply(), value);
+        }
         if (_forcedMove) {
+            IERC3643Compliance forcedCompliance = _requireCompliance();
             super._update(from, to, value);
+            if (to == address(0)) forcedCompliance.destroyed(from, value);
+            else forcedCompliance.transferred(from, to, value);
             return;
         }
 

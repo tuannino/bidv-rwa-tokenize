@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { ethers, network } = require("hardhat");
 
 // Deploy bản CÓ ORACLE: ProjectToken + VND + EnergyOracle + ProfitDistributorOracle + Redemption.
@@ -6,7 +7,7 @@ async function main() {
   const [admin] = await ethers.getSigners();
   console.log("Mạng:", network.name, "| Admin:", admin.address);
 
-  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, admin.address]);
+  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, admin.address, wptSupplyCap]);
   const vnd = await ethers.deployContract("VNDToken", [admin.address]);
   const oracle = await ethers.deployContract("EnergyOracle", [admin.address]);
   const dist = await ethers.deployContract("ProfitDistributorOracle", [

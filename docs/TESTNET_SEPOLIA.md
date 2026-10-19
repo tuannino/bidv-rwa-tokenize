@@ -1,4 +1,8 @@
-# Runbook Sepolia — triển khai lại SC-09 và lập–duyệt Mint/Burn
+# Runbook Sepolia — triển khai lại SC-09/SC-10 và lập–duyệt Mint/Burn
+
+Sau khi SC-10 merge, triển khai lại một lần theo các bước dưới: WPT có cap immutable
+**20.000.000 WPT** (decimals 0), lấy từ `packages/shared/src/token-parameters.json`. Constructor
+ProjectToken thêm cap; deploy/ước phí/verify đã đồng bộ. Không dùng bộ bytecode trước SC-10.
 
 Bộ SC-02 đã triển khai ngày 08/10/2026 là **bản trước SC-09** và không còn đủ điều kiện cho app mới:
 thiếu `IdentityRegistry`, `ModularCompliance`, `AllowAllModule`, ERC-2612 permit và bề mặt ERC-3643.

@@ -379,4 +379,44 @@ export const projectTokenAbi = [
       { name: 'owner', type: 'address' },
     ],
   },
+  // SC-10: trần tổng cung cố định lúc triển khai.
+  {
+    "inputs": [],
+    "name": "InvalidSupplyCap",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "cap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "currentSupply",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "SupplyCapExceeded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "cap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
 ] as const;

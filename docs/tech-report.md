@@ -9,13 +9,28 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.14 |
-| Cập nhật lần cuối | 2026-10-16 |
-| Nhánh / commit | `feat/sc-09-erc3643-permit`, từ `dev` @ `945c833` (PR #51); checkpoint `docs/CHECKPOINT_SC09.md` |
+| Phiên bản tài liệu | 4.15 |
+| Cập nhật lần cuối | 2026-10-19 |
+| Nhánh / commit | `fix/sc-10-va-hop-dong`, từ `dev` @ `ecc3450` (PR #52); spec `docs/sc-10-va-hop-dong/` |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31, xem 3.16), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32, xem 3.17), **BE-14** (chiều bán token + năm bước quyết toán — PR #33, xem 3.4 và 4.2), **FE-25** (màn Giao dịch token, Quản lý lệnh của Nhà đầu tư — PR #34, xem 3.18), **BE-16** (nạp VNDB mô phỏng, xem 3.19), **FE-06** (màn Giao dịch vận hành — PR #36, xem 3.20), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39: Mock không cần khóa/ví, metadata Cloudflare, hai màn chi tiết; kiểm chứng local xong, chờ Supervisor nghiệm thu), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh, đầu cuối trên bản build và trên chuỗi cục bộ — PR #41), **SC-02** (contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat), **OP-07** (mock ledger lưu bền theo chain — PR #50), **FE-27** (giao diện, dữ liệu lập–duyệt và giá phát hành đồng bộ theo chain — xem 3.22) |
-| Đang thực hiện | **SC-09** đã hoàn tất mã và kiểm chứng local; còn chờ Owner triển khai lại Sepolia sau merge. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
+| Đang thực hiện | **SC-10**: mã/local hoàn tất theo DS-01 bản 3, còn chờ Owner deploy lại Sepolia; CH-1 đã được Owner duyệt ngày 19/10: trần cố định 20.000.000 WPT trên hợp đồng.  **SC-09** đã hoàn tất mã và kiểm chứng local; còn chờ Owner triển khai lại Sepolia sau merge. **OP-06** còn chờ Owner đo CPU bản Cloudflare/Neon |
 | Phase kế tiếp | Chưa chốt; chờ Supervisor/Owner chọn task tiếp theo |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**SC-10 — vá quỹ kỳ.** `ProfitDistributor` lưu `claimDeadline` bất biến và `closed` theo kỳ;
+claim/lô vào kỳ đóng hoặc hết hạn revert, kiểm tổng chi không vượt quỹ trước trả. Sweep đóng được
+cả kỳ đã chi hết, chỉ chuyển/phát DustSwept nếu có phần dư. `claimWindow` chỉ áp cho kỳ mới.
+Error `DistributionClosed` đặt trong interface namespace để cùng tồn tại với event cùng tên trong
+ABI; không thêm thư viện hoặc thay chữ ký hàm. Bộ cũ và các ca SC-10 xanh; xem `docs/CHECKPOINT_SC10.md`.
+
+**SC-10 — callback cưỡng chế.** Forced transfer, batch và agent burn tiếp tục bỏ qua kiểm tra
+chuyển nhưng vẫn báo `transferred`/`destroyed`; thiếu compliance revert rõ. HolderCountModule chỉ
+cho kiểm thử, gắn trước mint và chỉ nhận callback từ compliance đã cấu hình.
+
+**SC-10 — CH-1 đã duyệt.** WPT có `cap` immutable theo constructor (đơn vị nhỏ nhất), chặn mọi
+mint nếu tổng cung mới vượt cap; burn rồi chỉ được mint bù trong trần, không reset cờ SC-02.
+Cấu hình 20.000.000 WPT ở `shared/src/token-parameters.json` là nguồn chung cho app, scripts và
+fixture (deploy hiện dùng decimals 0). Cập nhật deploy, ước phí và verify; không có setter cap.
 
 Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
 chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
@@ -1388,12 +1403,12 @@ sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "fu
 
 | Contract | Vai trò | Hàm chính |
 |---|---|---|
-| `tokens/ProjectToken.sol` | Token dự án **WPT** theo bề mặt ERC-3643 PoC; giữ SC-02 và snapshot, thêm ERC-2612 | `mintInitialSupply`, `mint`, `burn(address,uint256)`, `setAddressFrozen`, `freezePartialTokens`, `forcedTransfer`, `permit`, `snapshot` |
+| `tokens/ProjectToken.sol` | Token dự án **WPT** theo bề mặt ERC-3643 PoC; giữ SC-02/snapshot/permit, cap immutable và callback cưỡng chế SC-10 | `mintInitialSupply`, `mint`, `burn(address,uint256)`, `setAddressFrozen`, `freezePartialTokens`, `forcedTransfer`, `permit`, `snapshot`, `cap` |
 | `tokens/VNDToken.sol` | Token tiền tệ **VNDB**, có ERC-2612 | `mint`, `burn`, `permit` |
-| `identity/IdentityRegistry.sol` | Sổ danh tính rút gọn, chưa ONCHAINID/claim | `registerIdentity`, `deleteIdentity`, `updateCountry`, `isVerified` |
+| `registry/IdentityRegistry.sol` | Sổ danh tính rút gọn, chưa ONCHAINID/claim | `registerIdentity`, `deleteIdentity`, `updateCountry`, `isVerified` |
 | `compliance/ModularCompliance.sol` | Bộ luật giao dịch ghép module, chỉ token đã bind được gọi action | `bindToken`, `addModule`, `canTransfer`, `transferred`, `created`, `destroyed` |
-| `compliance/modules/AllowAllModule.sol` | Module mặc định chưa thêm giới hạn nghiệp vụ | `moduleCheck`, ba action sau giao dịch |
-| `ProfitDistributor.sol` | Chia lợi tức theo snapshot | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
+| `compliance/AllowAllModule.sol` | Module mặc định chưa thêm giới hạn nghiệp vụ | `moduleCheck`, ba action sau giao dịch |
+| `ProfitDistributor.sol` | Chia lợi tức theo snapshot; deadline/closed và giới hạn quỹ riêng từng kỳ (SC-10) | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
 | `ProfitDistributorOracle.sol` | Bản nối oracle | `createDistributionFromOracle`, `previewDistributableFromOracle` |
 | `Redemption.sol` | Hoàn vốn | `quote`, `redeem`, `fund`, `withdraw`, `setRate`, `setPaused` |
 | `oracle/EnergyOracle.sol` | Sản lượng điện → doanh thu | `submitReading`, `grossRevenueVnd`, `netRevenueVnd`, `distributableProfitVnd` |
@@ -1575,16 +1590,16 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:344` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `profitPoolBalance` rồi so với mốc `distribution.last_settled_balance`, có chặn ngưỡng tối thiểu và có phát hiện số dư giảm. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào ví lợi nhuận do Indexer đọc được, giữ nguyên bốn nhánh quyết định và nguyên phần chia ở `runDistributionCycle`. Đổi được vì mốc số dư vẫn là thứ chốt "đã xử lý tới đâu", sự kiện chỉ thay việc hỏi định kỳ |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:547` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:559` | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:578` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:617` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
-| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:623` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:759` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:765` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:770` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:776` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:741` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:549` | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:561` | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:580` | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:619` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch |
+| `SC-03` | chặn | `app/src/lib/ledger/evm.adapter.ts:625` | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:761` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:767` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:772` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:778` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:743` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -2704,7 +2719,8 @@ Nhà đầu tư không ký gì trong luồng này — đây là mô hình **push
 
 ### Phần dư làm tròn — giới hạn đã biết
 
-Tổng các phần nguyên nhỏ hơn hoặc bằng tổng tiền, nên **không bao giờ chia vượt quỹ**. Phần cắt ra là
+Tổng các phần nguyên nhỏ hơn hoặc bằng tổng tiền. SC-10 bổ sung guard đóng kỳ/hết hạn và bất biến
+tổng chi để chặn cả claim sau sweep, tránh lấy quỹ kỳ khác; không chỉ dựa vào phép làm tròn. Phần cắt ra là
 `dust`, và nó **nằm lại trong ví chia lợi nhuận**.
 
 `distribution.dust_wallet` hiện chỉ **ghi nhận** đích của phần dư (trong `previewDistribution` và

@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { seedProjectBalances } = require("./helpers/seed-project-balances");
@@ -12,7 +13,7 @@ describe("Oracle sản lượng điện + chia lợi nhuận theo công thức",
   beforeEach(async function () {
     [bank, reporter2, invA, invB] = await ethers.getSigners();
 
-    wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address]);
+    wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address, wptSupplyCap]);
     registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
     compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
     const allowAll = await ethers.deployContract("AllowAllModule");

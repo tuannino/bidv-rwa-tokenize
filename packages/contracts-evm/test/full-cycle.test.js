@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
@@ -13,7 +14,7 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
     [bank, treasury, invA, invB, invC, outsider] = await ethers.getSigners();
 
     // Triển khai token
-    wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address]);
+    wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", DEC, bank.address, wptSupplyCap]);
     registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
     compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
     const allowAll = await ethers.deployContract("AllowAllModule");

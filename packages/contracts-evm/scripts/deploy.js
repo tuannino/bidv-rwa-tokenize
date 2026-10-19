@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Triển khai bộ hợp đồng RWA ĐIỆN GIÓ + xuất địa chỉ/ABI sang packages/shared.
 //
 //   npx hardhat run scripts/deploy.js --network localhost
@@ -86,6 +87,7 @@ async function main() {
     "WPT",
     0,
     admin,
+    wptSupplyCap,
   ]);
   await wpt.waitForDeployment();
 
