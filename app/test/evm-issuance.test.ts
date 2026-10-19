@@ -11,6 +11,7 @@ import {
 } from 'viem';
 import { hardhat } from 'viem/chains';
 import {
+  addressBook,
   addressEnvKey,
   getContractAddress,
   modularComplianceAbi,
@@ -375,8 +376,14 @@ describe('SC-09 — chặn cấu hình EVM cũ trước khi gọi RPC', () => {
     const complianceKey = addressEnvKey('evm', 'ModularCompliance');
     const oldRegistry = process.env[registryKey];
     const oldCompliance = process.env[complianceKey];
+    const oldBookRegistry = addressBook.evm?.contracts.IdentityRegistry;
+    const oldBookCompliance = addressBook.evm?.contracts.ModularCompliance;
     delete process.env[registryKey];
     delete process.env[complianceKey];
+    if (addressBook.evm) {
+      delete addressBook.evm.contracts.IdentityRegistry;
+      delete addressBook.evm.contracts.ModularCompliance;
+    }
 
     try {
       const ledger = createEvmLedger('evm', unlockedSigner(ADMIN));
@@ -388,6 +395,12 @@ describe('SC-09 — chặn cấu hình EVM cũ trước khi gọi RPC', () => {
       else process.env[registryKey] = oldRegistry;
       if (oldCompliance === undefined) delete process.env[complianceKey];
       else process.env[complianceKey] = oldCompliance;
+      if (addressBook.evm && oldBookRegistry) {
+        addressBook.evm.contracts.IdentityRegistry = oldBookRegistry;
+      }
+      if (addressBook.evm && oldBookCompliance) {
+        addressBook.evm.contracts.ModularCompliance = oldBookCompliance;
+      }
     }
   });
 });
