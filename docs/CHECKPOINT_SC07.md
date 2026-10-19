@@ -6,7 +6,7 @@
 | Nhánh | `feat/sc-07-vault-thanh-toan`, từ `dev` @ `3342c2e` (PR #55) |
 | Spec | `docs/sc-07-vault-thanh-toan/{requirements,tasks}.md` bản 2.1; DS-01 bản 4 |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Hoàn tất; tag K4 đã xác minh trên `origin`; chờ Supervisor nghiệm thu PR |
+| Tiến độ | Hoàn tất; tag K4 đã xác minh trên `origin`; hot fix CI đã xanh trên PR #56 |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -87,6 +87,39 @@ dựng nút in-process để ước lượng gas, không phải đường nghi�
 [CHECKPOINT_SC07_VERIFICATION_DETAIL.md](CHECKPOINT_SC07_VERIFICATION_DETAIL.md): hợp đồng, bộ mặc
 định, mô phỏng Job A có phục hồi artifacts, adapter vault/phát hành trên Hardhat thật, marker,
 checkpoint và quét bí mật.
+
+### 4.1 Hot fix CI — Mint đầu vào vault trên hardhat-local
+
+`app/e2e/mint.spec.ts` giữ NB001 cho chain mock, nhưng khi chạy `hardhat-local` đọc
+`SpvPaymentVault` từ `packages/shared/src/addresses.json`. Kết quả chạy lại đúng lệnh CI được yêu
+cầu (lượt trong sandbox trước đó không tính vì bị chặn mạng khi Next.js tải Google Fonts):
+
+```text
+$ bash scripts/run-local-all.sh build evm
+...
+PASS: APP - BUILD BẢN PHÁT HÀNH
+PASS: EVM - BUILD BẢN HARDHAT
+...
+SpvPaymentVault      0xa513E6E4b8f2a923D98304ec87F64353C4D5C853
+PASS: EVM - DỰNG CHUỖI MỚI
+...
+[SC-02] MINT tx=0xcbc4bdd288a43ae7b6bd0933f027cf72a6ce4591ffb8062078de636571153f11 receipt=0x1 block=19
+[SC-02] MINT tx=0x341bcdf0b527052ed38db0f329b31e3e87198f80d8c8ca5da43b406d2b20ceda receipt=0x1 block=20
+[SC-02] BURN tx=0x65602f7e126f7f726125c4a3ba4656f5aa2366246e813b753e5a4b6023a450f8 receipt=0x1 block=21
+  2 skipped
+  16 passed (13.1s)
+  => PASS: EVM - E2E PROJECT HARDHAT
+...
+########## TỔNG KẾT ##########
+  Phần đã chạy: build evm
+  Đạt:     4
+    PASS  APP - BUILD BẢN PHÁT HÀNH
+    PASS  EVM - BUILD BẢN HARDHAT
+    PASS  EVM - DỰNG CHUỖI MỚI
+    PASS  EVM - E2E PROJECT HARDHAT
+  Không đạt: 0
+  => ĐẠT các phần đã chạy: build evm
+```
 
 ## 5. Tài liệu, trạng thái và sai lệch
 

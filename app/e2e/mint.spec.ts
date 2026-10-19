@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import addresses from '../../packages/shared/src/addresses.json';
 
 /**
  * E2E luồng MINT qua giao diện (T1.6).
@@ -10,9 +11,12 @@ import { expect, test, type BrowserContext, type Locator, type Page } from '@pla
 
 // Hardhat account #1 — dùng cho cả mock lẫn hardhat-local.
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
-// NB001 — ví SPV mẫu do OP-03 nạp whitelist khi dựng chain hardhat.
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
 const ON_HARDHAT = process.env.E2E_CHAIN === 'hardhat-local';
+// Mock chưa triển khai vault nên giữ ví SPV mẫu NB001. Hardhat-local phải Mint đầu vào đúng vault
+// vừa triển khai; đọc address book để test luôn đi cùng địa chỉ tất định của deploy.js.
+const SPV = ON_HARDHAT
+  ? addresses.chains['hardhat-local'].contracts.SpvPaymentVault
+  : '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
 const HARDHAT_RPC = `http://127.0.0.1:${process.env.EVM_LOCAL_PORT ?? 8545}`;
 
 async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
@@ -233,7 +237,7 @@ async function approveOfficialRequest(
 test.describe.serial('SC-02 — lập duyệt Mint/Burn trên hardhat', () => {
   test.skip(!ON_HARDHAT, 'Luồng này chỉ chạy trong project hardhat của OP-03.');
 
-  test('Mint lần đầu vào NB001 qua Giao dịch viên và Kiểm soát viên', async ({
+  test('Mint lần đầu vào vault qua Giao dịch viên và Kiểm soát viên', async ({
     page,
     context,
     baseURL,
@@ -244,7 +248,7 @@ test.describe.serial('SC-02 — lập duyệt Mint/Burn trên hardhat', () => {
     expect(result.spvBalance).toBe(1_000n);
   });
 
-  test('Mint lần hai cùng NB001; vượt trần bị chặn trước khi gửi', async ({
+  test('Mint lần hai cùng vault; vượt trần bị chặn trước khi gửi', async ({
     page,
     context,
     baseURL,
