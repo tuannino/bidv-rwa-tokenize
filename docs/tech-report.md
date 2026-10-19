@@ -1403,12 +1403,12 @@ sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "fu
 
 | Contract | Vai trò | Hàm chính |
 |---|---|---|
-| `tokens/ProjectToken.sol` | Token dự án **WPT** theo bề mặt ERC-3643 PoC; giữ SC-02 và snapshot, thêm ERC-2612 | `mintInitialSupply`, `mint`, `burn(address,uint256)`, `setAddressFrozen`, `freezePartialTokens`, `forcedTransfer`, `permit`, `snapshot` |
+| `tokens/ProjectToken.sol` | Token dự án **WPT** theo bề mặt ERC-3643 PoC; giữ SC-02/snapshot/permit, cap immutable và callback cưỡng chế SC-10 | `mintInitialSupply`, `mint`, `burn(address,uint256)`, `setAddressFrozen`, `freezePartialTokens`, `forcedTransfer`, `permit`, `snapshot`, `cap` |
 | `tokens/VNDToken.sol` | Token tiền tệ **VNDB**, có ERC-2612 | `mint`, `burn`, `permit` |
-| `identity/IdentityRegistry.sol` | Sổ danh tính rút gọn, chưa ONCHAINID/claim | `registerIdentity`, `deleteIdentity`, `updateCountry`, `isVerified` |
+| `registry/IdentityRegistry.sol` | Sổ danh tính rút gọn, chưa ONCHAINID/claim | `registerIdentity`, `deleteIdentity`, `updateCountry`, `isVerified` |
 | `compliance/ModularCompliance.sol` | Bộ luật giao dịch ghép module, chỉ token đã bind được gọi action | `bindToken`, `addModule`, `canTransfer`, `transferred`, `created`, `destroyed` |
-| `compliance/modules/AllowAllModule.sol` | Module mặc định chưa thêm giới hạn nghiệp vụ | `moduleCheck`, ba action sau giao dịch |
-| `ProfitDistributor.sol` | Chia lợi tức theo snapshot | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
+| `compliance/AllowAllModule.sol` | Module mặc định chưa thêm giới hạn nghiệp vụ | `moduleCheck`, ba action sau giao dịch |
+| `ProfitDistributor.sol` | Chia lợi tức theo snapshot; deadline/closed và giới hạn quỹ riêng từng kỳ (SC-10) | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
 | `ProfitDistributorOracle.sol` | Bản nối oracle | `createDistributionFromOracle`, `previewDistributableFromOracle` |
 | `Redemption.sol` | Hoàn vốn | `quote`, `redeem`, `fund`, `withdraw`, `setRate`, `setPaused` |
 | `oracle/EnergyOracle.sol` | Sản lượng điện → doanh thu | `submitReading`, `grossRevenueVnd`, `netRevenueVnd`, `distributableProfitVnd` |
@@ -2719,7 +2719,8 @@ Nhà đầu tư không ký gì trong luồng này — đây là mô hình **push
 
 ### Phần dư làm tròn — giới hạn đã biết
 
-Tổng các phần nguyên nhỏ hơn hoặc bằng tổng tiền, nên **không bao giờ chia vượt quỹ**. Phần cắt ra là
+Tổng các phần nguyên nhỏ hơn hoặc bằng tổng tiền. SC-10 bổ sung guard đóng kỳ/hết hạn và bất biến
+tổng chi để chặn cả claim sau sweep, tránh lấy quỹ kỳ khác; không chỉ dựa vào phép làm tròn. Phần cắt ra là
 `dust`, và nó **nằm lại trong ví chia lợi nhuận**.
 
 `distribution.dust_wallet` hiện chỉ **ghi nhận** đích của phần dư (trong `previewDistribution` và

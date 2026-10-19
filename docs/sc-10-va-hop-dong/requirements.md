@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Nhánh | `fix/sc-10-va-hop-dong`, từ `dev` @ `ecc3450` (PR #52, SC-09) |
-| Điểm | 3 (thêm 0,5 nếu chủ dự án đồng ý CH-1) |
+| Điểm | 3,5 (CH-1 đã được Owner duyệt ngày 19/10/2026) |
 | Mức kiểm chứng | **Cao** (hợp đồng giữ tiền, lỗi đã tái hiện) |
 | Thứ tự | Trước SC-07. Chủ dự án **chưa** triển khai lại Sepolia sau SC-09; triển khai một lần sau khi SC-10 merge |
 | Căn cứ | DS-01 bản 3: QĐ-18 và mục "Lỗi đã xác nhận" (mục 8) |
