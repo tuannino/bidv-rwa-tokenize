@@ -1,3 +1,5 @@
+import { tokenParameters } from '@bidv/shared';
+
 /**
  * Điều khoản phát hành WPT — THAM SỐ CẤU HÌNH, không phải số liệu thị trường.
  *
@@ -61,7 +63,7 @@ export const WPT_ISSUE_PRICE_VND = 100_000;
  * một đợt phát hành không được đòi sửa mã nghiệp vụ. Nghiệp vụ đọc `Project.totalSupply`;
  * hằng số này chỉ là con số nạp vào dòng `Project` đầu tiên.
  */
-export const WPT_TOTAL_SUPPLY = 20_000_000;
+export const WPT_TOTAL_SUPPLY = tokenParameters.wptSupplyCap;
 
 /**
  * Hệ số chặn đổi giá quá mạnh: giá mới lệch quá **gấp đôi** hoặc **còn một nửa** so với giá

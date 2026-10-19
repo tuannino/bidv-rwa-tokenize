@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { expect } = require("chai");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");
@@ -165,12 +166,49 @@ describe("SC-10 - callbacks cưỡng chế", function () {
 
   it("ca 9: chưa gắn bộ luật thì cưỡng chế revert ComplianceNotSet", async function () {
     const f = await deploySpecFixture();
-    const project = await ethers.deployContract("ProjectToken", ["Unbound WPT", "WPT", 0, f.admin.address]);
+    const project = await ethers.deployContract("ProjectToken", ["Unbound WPT", "WPT", 0, f.admin.address, wptSupplyCap]);
     await whitelist(f.project, f.admin, [f.investorA, f.investorB]);
     await project.setIdentityRegistry(await f.registry.getAddress());
     await expect(project.forcedTransfer(f.investorA.address, f.investorB.address, 0))
       .to.be.revertedWithCustomError(project, "ComplianceNotSet");
     await expect(project['burn(address,uint256)'](f.investorA.address, 0))
       .to.be.revertedWithCustomError(project, "ComplianceNotSet");
+  });
+});
+
+describe("SC-10 - CH-1 cap cố định", function () {
+  it("cap: lần đầu vượt trần bị chặn và không ghi mốc, đúng trần được phép", async function () {
+    const { project, registry, investorA } = await deploySpecFixture();
+    const cap = BigInt(wptSupplyCap);
+    await registry.registerIdentity(investorA.address, 704);
+    expect(await project.cap()).to.equal(cap);
+    await expect(project.mintInitialSupply(investorA.address, cap + 1n))
+      .to.be.revertedWithCustomError(project, "SupplyCapExceeded").withArgs(cap, 0, cap + 1n);
+    expect(await project.initialSupplyMinted()).to.equal(false);
+    expect(await project.spvWallet()).to.equal(ethers.ZeroAddress);
+    expect(await project.totalSupply()).to.equal(0n);
+    await project.mintInitialSupply(investorA.address, cap);
+    expect(await project.totalSupply()).to.equal(cap);
+  });
+
+  it("cap: mint bổ sung không vượt trần, đốt rồi chỉ mint bù trong trần", async function () {
+    const { project, registry, investorA } = await deploySpecFixture();
+    const cap = BigInt(wptSupplyCap);
+    await registry.registerIdentity(investorA.address, 704);
+    await project.mintInitialSupply(investorA.address, cap - 10n);
+    await project.mint(investorA.address, 10n);
+    await expect(project.mint(investorA.address, 1n)).to.be.revertedWithCustomError(project, "SupplyCapExceeded");
+    expect(await project.totalSupply()).to.equal(cap);
+    await project['burn(address,uint256)'](investorA.address, 5n);
+    await project.mint(investorA.address, 5n);
+    expect(await project.totalSupply()).to.equal(cap);
+    await expect(project.mintInitialSupply(investorA.address, 1n)).to.be.revertedWithCustomError(project, "InitialSupplyAlreadyMinted");
+    await expect(project.mint(investorA.address, 1n)).to.be.revertedWithCustomError(project, "SupplyCapExceeded");
+  });
+
+  it("cap: không cho triển khai cap bằng 0", async function () {
+    const [admin] = await ethers.getSigners();
+    const factory = await ethers.getContractFactory("ProjectToken");
+    await expect(factory.deploy("WPT", "WPT", 0, admin.address, 0)).to.be.revertedWithCustomError(factory, "InvalidSupplyCap");
   });
 });

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // CH-3: chỉ bù số dư thiếu. Không ký trên chain khác Sepolia hoặc nạp ví mẫu công khai.
 const path = require('path');
 const { execFile } = require('node:child_process');
@@ -66,7 +67,7 @@ async function measureLocalGas() {
   if (hre.network.name !== 'hardhat') refuse('Mô phỏng gas chỉ được chạy trên hardhat nội bộ.');
   const [admin, spv, distributorAddress] = await hre.ethers.getSigners();
   const args = {
-    ProjectToken: ['Wind Power Token', 'WPT', 0, admin.address],
+    ProjectToken: ['Wind Power Token', 'WPT', 0, admin.address, wptSupplyCap],
     VNDToken: [admin.address],
     ProfitDistributor: [spv.address, distributorAddress.address, admin.address],
     Redemption: [spv.address, distributorAddress.address, 1_000_000n, admin.address],

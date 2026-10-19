@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Kiểm bản deploy trên chain đã đủ điều kiện cho P4/P7/P12 chưa: role on-chain, liên kết
 // giữa các contract, và tham số. KHÔNG gửi giao dịch nào — chỉ đọc.
 //
@@ -95,6 +96,9 @@ async function main() {
   if (await spt.DOMAIN_SEPARATOR() !== ethers.ZeroHash) ok("ProjectToken ERC-2612 domain đã khởi tạo");
   else bad("ProjectToken ERC-2612 domain bằng 0");
   console.log(`  ${C.dim}tổng cung hiện tại: ${supply} WPT${C.reset}`);
+
+  if (await spt.cap() === BigInt(wptSupplyCap)) ok(`ProjectToken.cap = ${wptSupplyCap} WPT`);
+  else bad(`ProjectToken.cap không bằng ${wptSupplyCap}`);
 
   const issuance = await readSc02State(spt);
   ok(`SC-02.initialSupplyMinted = ${issuance.initialSupplyMinted}`);

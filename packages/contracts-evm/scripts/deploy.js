@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Triển khai bộ hợp đồng RWA ĐIỆN GIÓ + xuất địa chỉ/ABI sang packages/shared.
 //
 //   npx hardhat run scripts/deploy.js --network localhost
@@ -85,8 +86,7 @@ async function main() {
     "Wind Power Token",
     "WPT",
     0,
-    admin,
-  ]);
+    admin, wptSupplyCap]);
   await wpt.waitForDeployment();
 
   const vnd = await ethers.deployContract("VNDToken", [admin]);

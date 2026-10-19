@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
@@ -26,8 +27,7 @@ describe("SC-09 - ERC-3643 core", function () {
       "Wind Project Token",
       "WPT",
       0,
-      admin.address,
-    ]);
+      admin.address, wptSupplyCap]);
     const registry = await ethers.deployContract("IdentityRegistry", [admin.address]);
     const compliance = await ethers.deployContract("ModularCompliance", [admin.address]);
     const allowAll = await ethers.deployContract("AllowAllModule");
@@ -243,8 +243,7 @@ describe("SC-09 - ERC-3643 core", function () {
         "Wind Project Token",
         "WPT",
         0,
-        admin.address,
-      ]);
+        admin.address, wptSupplyCap]);
       await project.waitForDeployment();
       await expect(project.mintInitialSupply(spv.address, 1))
         .to.be.revertedWithCustomError(project, "IdentityRegistryNotSet");

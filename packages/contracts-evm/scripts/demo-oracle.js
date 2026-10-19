@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 const { ethers } = require("hardhat");
 const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
 
@@ -11,7 +12,7 @@ async function main() {
   const [bank, oem, auditor, invA, invB] = await ethers.getSigners();
 
   // Triển khai
-  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
+  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address, wptSupplyCap]);
   const registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
   const compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
   const allowAll = await ethers.deployContract("AllowAllModule");

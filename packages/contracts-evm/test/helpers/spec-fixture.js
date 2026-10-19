@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../../shared/src/token-parameters.json");
 /**
  * Fixture dùng chung cho spec test P4 / P7 / P12 (EVM).
  *
@@ -24,7 +25,8 @@ async function deploySpecFixture() {
     "Wind Project Token",
     EXPECTED_PROJECT_SYMBOL,
     0,
-    admin.address
+    admin.address,
+    wptSupplyCap
   );
   await project.waitForDeployment();
 

@@ -27,6 +27,11 @@ ABI; không thêm thư viện hoặc thay chữ ký hàm. Bộ cũ và sáu ca m
 chuyển nhưng vẫn báo `transferred`/`destroyed`; thiếu compliance revert rõ. HolderCountModule chỉ
 cho kiểm thử, gắn trước mint và chỉ nhận callback từ compliance đã cấu hình.
 
+**SC-10 — CH-1 đã duyệt.** WPT có `cap` immutable theo constructor (đơn vị nhỏ nhất), chặn mọi
+mint nếu tổng cung mới vượt cap; burn rồi chỉ được mint bù trong trần, không reset cờ SC-02.
+Cấu hình 20.000.000 WPT ở `shared/src/token-parameters.json` là nguồn chung cho app, scripts và
+fixture (deploy hiện dùng decimals 0). Cập nhật deploy, ước phí và verify; không có setter cap.
+
 Bổ sung CI SC-09: `evm-issuance.test.ts` đọc artifact `RejectAllModule` bằng `readFile` khi
 chạy hàm deploy trong ca Hardhat, không import JSON lúc nạp tệp. Job A không biên dịch hợp đồng
 vẫn typecheck và thu thập được các ca bỏ qua. Không thay adapter, ABI hoặc logic hợp đồng.

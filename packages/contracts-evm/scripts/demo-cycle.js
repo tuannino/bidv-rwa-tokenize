@@ -1,3 +1,4 @@
+const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Chạy trọn một chu kỳ trên mạng in-process (hardhat) để minh họa.
 //   npx hardhat run scripts/demo-cycle.js
 const { ethers } = require("hardhat");
@@ -8,7 +9,7 @@ const f = (x) => x.toLocaleString("vi-VN");
 async function main() {
   const [bank, invA, invB] = await ethers.getSigners();
 
-  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address]);
+  const wpt = await ethers.deployContract("ProjectToken", ["Wind Power Token", "WPT", 0, bank.address, wptSupplyCap]);
   const registry = await ethers.deployContract("IdentityRegistry", [bank.address]);
   const compliance = await ethers.deployContract("ModularCompliance", [bank.address]);
   const allowAll = await ethers.deployContract("AllowAllModule");
