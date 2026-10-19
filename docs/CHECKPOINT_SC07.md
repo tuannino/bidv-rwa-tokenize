@@ -6,7 +6,7 @@
 | Nhánh | `feat/sc-07-vault-thanh-toan`, từ `dev` @ `3342c2e` (PR #55) |
 | Spec | `docs/sc-07-vault-thanh-toan/{requirements,tasks}.md` bản 2.1; DS-01 bản 4 |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Mã và kiểm chứng local hoàn tất; chờ Supervisor nghiệm thu và Owner bảo đảm tag được push sau merge |
+| Tiến độ | Hoàn tất; tag K4 đã xác minh trên `origin`; chờ Supervisor nghiệm thu PR |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -20,15 +20,13 @@
 | 4 | Ứng dụng R1–R6; Job A, Hardhat thật, quét bí mật | ✅ | mục 3 · 4 · chi tiết kiểm chứng mục 4–8 |
 | 5 | K1 đến K4 và ca 25 | ✅ | mục 2.3 · 5 · Phụ lục A |
 | 6 | `tech-report.md` ghi công thức, vai, tin cậy, khác biệt FE-21 và điểm khôi phục | ✅ | mục 5 |
-| 7 | Owner tạo/push tag K4; xác nhận lịch sử bền OP-06 nếu đóng task | 🔶 | mục 7 |
+| 7 | Owner tạo/push tag K4; xác nhận lịch sử bền OP-06 nếu đóng task | ✅ | mục 7 |
 
-**Kết luận:** 6 ✅ · 1 🔶 · 0 ❌. Phần coder của SC-07 hoàn tất; không triển khai Sepolia trong task.
+**Kết luận:** 7 ✅ · 0 🔶 · 0 ❌. SC-07 hoàn tất; không triển khai Sepolia trong task.
 
 ### 0.2 Việc cần Owner quyết/chạy
 
-- Tag `poc-spv-vi-thuong-20261019` đã có cục bộ và trỏ đúng `3342c2e`; sau merge, bảo đảm tag này đã
-  được push lên remote.
-- OP-06 đã được Sếp xác nhận lịch sử bền và chuyển `done`; không còn việc xác nhận OP-06.
+- Không có. Tag K4 đã xác minh trên `origin`; OP-06 đã được Sếp xác nhận lịch sử bền và chuyển `done`.
 
 ## 1. Kết quả chính và giao diện khóa cho SC-03
 
@@ -93,8 +91,7 @@ checkpoint và quét bí mật.
 ## 5. Tài liệu, trạng thái và sai lệch
 
 `tech-report.md` bản 4.16 và README hợp đồng đã cập nhật; sơ đồ luồng sinh lại sau khi dòng mã thay
-đổi. Spec 2.1 từ ZIP được chép đúng nội dung. `SC-07` giữ `inProgress` cho tới khi checkpoint này được
-nghiệm thu; khi merge, trạng thái chuyển `done` theo quy trình của dự án.
+đổi. Spec 2.1 từ ZIP được chép đúng nội dung. Sau khi đủ bảy điều kiện, `SC-07` chuyển sang `done`.
 
 Sai lệch nền: `run-local-all.sh` trên commit nền có một ca `evm-issuance` để sót address book sau khi
 xóa biến môi trường. Commit nhận task sửa teardown xóa cả hai nguồn cấu hình; không đổi production.
@@ -106,16 +103,13 @@ Không có sai lệch chức năng so với QĐ-A–QĐ-H hay phần “Không l
 - Không gỡ năm marker chặn SC-03; không làm hợp đồng khớp lệnh, giao diện ghi vault hoặc mock vault.
 - Nghiệp vụ vẫn qua `ILedgerPort`, quyền qua `can()`; task không thêm đường ký nên không đi vòng `ISigner`.
 
-## 7. Việc Owner sau merge
+## 7. Xác nhận Owner và tag K4
 
-Tag K4 đã tồn tại trong checkout cục bộ và trỏ đúng `3342c2e`; trạng thái remote chưa được xác minh.
-Sau merge, Owner bảo đảm tag được push:
+Sếp xác nhận OP-06 hoàn tất và tag K4 đã có trên remote. Đối chiếu trực tiếp `origin`:
 
 ```bash
-$ git rev-list -n 1 poc-spv-vi-thuong-20261019
-3342c2e2de0bed06856a9a1060b3ce91890df87d
-
-git push origin poc-spv-vi-thuong-20261019
+$ git ls-remote --tags origin refs/tags/poc-spv-vi-thuong-20261019
+3342c2e2de0bed06856a9a1060b3ce91890df87d	refs/tags/poc-spv-vi-thuong-20261019
 ```
 
 OP-05, sau SC-03, triển khai lại chain `evm`: đăng ký vault, Mint đầu vào vault, đặt payout wallet

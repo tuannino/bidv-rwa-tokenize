@@ -2262,10 +2262,10 @@ giữ đúng tập chữ ký/chỉ mục này.
 
 ### Điểm khôi phục phương án ví thường (K4)
 
-Trạng thái cuối trước SC-07 là commit `3342c2e`. Tag cục bộ `poc-spv-vi-thuong-20261019` đã trỏ đúng
-commit đó; sau khi SC-07 merge, Chủ dự án bảo đảm tag được push lên remote. Tag là điểm xem/chạy lại
-phương án cũ, không phải nhánh phát triển song song; code mới chỉ đi tiếp với vault. Khôi phục bằng
-`git checkout 3342c2e` (hoặc tag trên) và dùng đúng bộ địa chỉ `evm` của commit đó:
+Trạng thái cuối trước SC-07 là commit `3342c2e`. Tag `poc-spv-vi-thuong-20261019` đã được xác minh
+trên `origin` và trỏ đúng commit đó. Tag là điểm xem/chạy lại phương án cũ, không phải nhánh phát triển
+song song; code mới chỉ đi tiếp với vault. Khôi phục bằng `git checkout 3342c2e` (hoặc tag trên) và
+dùng đúng bộ địa chỉ `evm` của commit đó:
 
 | Hợp đồng | Địa chỉ Sepolia tại điểm khôi phục |
 |---|---|

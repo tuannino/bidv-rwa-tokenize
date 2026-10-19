@@ -173,9 +173,13 @@ Nút giữ phiên đã được dừng bằng SIGINT trước lệnh `down`; kh�
 ## 7. Checkpoint
 
 ```text
+$ git ls-remote --tags origin refs/tags/poc-spv-vi-thuong-20261019
+3342c2e2de0bed06856a9a1060b3ce91890df87d	refs/tags/poc-spv-vi-thuong-20261019
+exit 0
+
 $ node scripts/check-checkpoint.mjs docs/CHECKPOINT_SC07.md docs/sc-07-vault-thanh-toan/requirements.md
 ĐẠT     docs/CHECKPOINT_SC07.md
-  mục 0: 21/60 dòng · bảng đối chiếu 7 dòng / 7 điều kiện · 6 ✅ 1 🔶 0 ❌ · cả tệp 135/800 dòng
+  mục 0: 19/60 dòng · bảng đối chiếu 7 dòng / 7 điều kiện · 7 ✅ 0 🔶 0 ❌ · cả tệp 129/800 dòng
 exit 0
 ```
 
