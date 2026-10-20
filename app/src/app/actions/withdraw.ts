@@ -21,6 +21,16 @@ export async function listMyWithdrawRequestsAction(input: unknown) {
   return listMyWithdrawRequests(input);
 }
 
+/**
+ * Mở màn rút (QĐ-E): đối soát lệnh dở rồi đọc danh sách trong CÙNG một lượt gọi (HF-01).
+ * Next xếp hàng server action nối tiếp, nên hai action riêng là hai lượt Worker chờ nhau.
+ * Kết quả đối soát không dùng ở màn này, như trước; lỗi đối soát không chặn việc đọc danh sách.
+ */
+export async function reconcileAndListMyWithdrawRequestsAction(input: unknown) {
+  await reconcileWithdrawRequests(input);
+  return listMyWithdrawRequests(input);
+}
+
 export async function reconcileWithdrawRequestsAction(input: unknown) {
   return reconcileWithdrawRequests(input);
 }
