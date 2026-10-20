@@ -12,6 +12,7 @@ import {
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { createPostgresMockLedgerStateStore } from '@/lib/ledger/postgres-mock-state.store';
 import { getProjectStore, getTokenRequestStore, resetStoreCache } from '@/lib/store';
+import { settlementOrder } from './helpers/settlement-order';
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const previousDatabaseUrl = process.env.DATABASE_URL;
@@ -37,6 +38,7 @@ describe('mã hoá MockLedgerState', () => {
     state.priceHydrated = true;
     state.paymentBalances.set('0xabc', 789n);
     state.paymentAllowances.set('0xabc', 321n);
+    state.settledOrders.set('3f2504e0-4f89-11d3-9a0c-0305e82c3301', `0x${'a'.repeat(64)}`);
     state.snapshots.set(1, {
       balances: new Map([['0xabc', 123n]]),
       totalSupply: 123n,
@@ -49,6 +51,13 @@ describe('mã hoá MockLedgerState', () => {
     state.navRate = 777n;
 
     expect(decodeMockLedgerState(encodeMockLedgerState(state))).toEqual(state);
+  });
+
+  it('đọc được JSON Neon cũ chưa có settledOrders và coi là tập rỗng', () => {
+    const encoded = encodeMockLedgerState(createDefaultMockLedgerState());
+    delete encoded.settledOrders;
+
+    expect(decodeMockLedgerState(encoded).settledOrders).toEqual(new Map());
   });
 });
 
@@ -135,8 +144,8 @@ function sharedStateStoreContract(label: string, makeStore: () => MockLedgerStat
       );
 
       const results = await Promise.allSettled([
-        first.executePurchase(INVESTOR, 60n),
-        second.executePurchase(INVESTOR, 60n),
+        first.executePurchase(await settlementOrder(first, INVESTOR, 60n)),
+        second.executePurchase(await settlementOrder(second, INVESTOR, 60n)),
       ]);
 
       expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);

@@ -1,8 +1,10 @@
-# Runbook Sepolia — triển khai lại SC-09/SC-10 và lập–duyệt Mint/Burn
+# Runbook Sepolia — OP-05 triển khai bộ SC-09/SC-10/SC-07/SC-03
 
-Sau khi SC-10 merge, triển khai lại một lần theo các bước dưới: WPT có cap immutable
+Sau khi SC-03 merge, OP-05 triển khai lại một lần theo các bước dưới: WPT có cap immutable
 **20.000.000 WPT** (decimals 0), lấy từ `packages/shared/src/token-parameters.json`. Constructor
-ProjectToken thêm cap; deploy/ước phí/verify đã đồng bộ. Không dùng bộ bytecode trước SC-10.
+ProjectToken thêm cap; vault và `OrderSettlement` dùng giá ban đầu cùng nguồn
+`packages/shared/src/token-parameters.json`. Deploy/ước phí/verify đã đồng bộ. Không dùng bộ
+bytecode hoặc address book trước SC-03.
 
 Bộ SC-02 đã triển khai ngày 08/10/2026 là **bản trước SC-09** và không còn đủ điều kiện cho app mới:
 thiếu `IdentityRegistry`, `ModularCompliance`, `AllowAllModule`, ERC-2612 permit và bề mặt ERC-3643.
@@ -66,8 +68,8 @@ npx hardhat compile
 npx hardhat run scripts/preflight-sepolia.js --network sepolia
 ```
 
-Preflight kiểm chainId **11155111**, hai khóa cùng ví, ví không phải mẫu, và số dư đủ cho bảy
-constructor, bốn giao dịch liên kết ERC-3643, cấp vai snapshot, đăng ký danh tính SPV, Mint lần đầu,
+Preflight kiểm chainId **11155111**, hai khóa cùng ví, ví không phải mẫu, và số dư đủ cho chín
+constructor, liên kết ERC-3643, đăng ký/cấp vai vault và matcher, cấp vai snapshot, Mint lần đầu,
 Mint bổ sung, Burn. Thiếu phí: trả mã 1 và in
 **đúng lệnh** cấp số dư cần có. Chép lệnh đó, chạy thêm `--dry-run` trước, rồi chạy bản không có cờ.
 `SẴN SÀNG` chỉ có nghĩa đủ điều kiện triển khai; không xác nhận bộ địa chỉ cũ đã có SC-09.
@@ -83,8 +85,8 @@ node scripts/fund-sepolia.js SIGNER_ADDRESS --for deploy
 Gas được **đo trên bytecode đã biên dịch trong Hardhat cục bộ riêng**, không gửi giao dịch testnet
 để đo, không đổi địa chỉ trong shared. Nhân với `maxFeePerGas` hiện tại của Sepolia (hoặc `gasPrice`
 khi RPC không có EIP-1559), cộng **20%** dự phòng. Đây là ước lượng theo trạng thái mẫu và calldata
-mẫu; kiểm/cấp lại trước từng bước nếu phí mạng thay đổi. `deploy` gồm bảy constructor, liên kết
-registry/compliance/module và cấp `SNAPSHOT_ROLE`; không gồm đăng ký SPV và vòng nghiệp vụ.
+mẫu; kiểm/cấp lại trước từng bước nếu phí mạng thay đổi. `deploy` gồm chín constructor, liên kết
+registry/compliance/module/vault/matcher và cấp các vai; không gồm đăng ký ví nhà đầu tư và vòng nghiệp vụ.
 Preflight cộng đủ các bước này.
 
 `--eth <số>` là **số dư cần có**, không phải số chuyển thêm. Ví đích có đủ thì không gửi;
@@ -99,12 +101,13 @@ npx hardhat run scripts/deploy.js --network sepolia
 npx hardhat run scripts/verify-deployment.js --network sepolia
 ```
 
-Đầu ra deploy phải ghi chainId 11155111, deployer khớp ví ký và **bảy** địa chỉ mới. Verify trước
+Đầu ra deploy phải ghi chainId 11155111, deployer khớp ví ký và **chín** địa chỉ mới. Verify trước
 đăng ký/mint phải đọc được `initialSupplyMinted = false`,
 `spvWallet = 0x0000000000000000000000000000000000000000`, tổng cung 0, phiên bản
 `4.1.6-poc`, domain permit của WPT/VNDB, ví ký có các vai token và
-`IdentityRegistry.AGENT_ROLE`. Phần liên kết phải xác nhận registry, compliance, bound token và
-`AllowAllModule` đều khớp trước khi kết luận `BẢN DEPLOY SC-09 HỢP LỆ`.
+`IdentityRegistry.AGENT_ROLE`. Phần liên kết phải xác nhận registry, compliance, bound token,
+`AllowAllModule`, vault trỏ đúng hai token, `MATCHER_ROLE` chỉ cấp cho `OrderSettlement`, giá dương
+và ví ký giữ ba vai matcher trước khi kết luận bản deploy hợp lệ.
 Verify role hiện kiểm địa chỉ `deployer` trong file, nên phải đối chiếu nó với ví ký preflight.
 
 Từ gốc repo, tạo commit triển khai riêng trên nhánh vận hành do chủ dự án chọn, rồi push. Kiểm diff
@@ -121,6 +124,33 @@ git push origin TEN_NHANH_VAN_HANH
 Chỉ dùng **cách B: tệp địa chỉ đã commit**. App import JSON lúc build, Cloudflare không cần đọc
 filesystem runtime. Xóa mọi `NEXT_PUBLIC_ADDR_EVM_*` cũ trong môi trường local/Build/Worker: env
 vẫn có quyền ghi đè tệp và có thể khiến app gọi nhầm bytecode cũ. Không chép địa chỉ vào nhiều nơi.
+
+### 3.1. Kiểm một nguồn giá R7 sau deploy/reset
+
+Trong Hardhat console Sepolia, đọc giá thật và địa chỉ matcher từ address book vừa commit:
+
+```javascript
+const book = require('../shared/src/addresses.json');
+const a = book.chains.evm.contracts;
+const settlement = await ethers.getContractAt('OrderSettlement', a.OrderSettlement);
+console.log('OrderSettlement:', a.OrderSettlement, 'price:', String(await settlement.price()));
+```
+
+Giá phải bằng `wptIssuePriceVnd` trong `packages/shared/src/token-parameters.json` ngay sau deploy.
+Với PostgreSQL/Neon đang giữ dữ liệu cũ, kiểm riêng dòng hiển thị của chain `evm`:
+
+```sql
+SELECT "key", "value", "updatedBy", "updatedAt"
+FROM "SystemConfig"
+WHERE "key" = 'wpt.issue_price_vnd.evm';
+```
+
+Sau khi app dùng address book mới, `getIssuePrice('evm')` lấy `priceVnd` từ hợp đồng; nếu dòng DB
+khác thì vẫn trả giá on-chain và `warning = "giá trên hợp đồng khác giá đã cấu hình"`, đồng thời giữ
+`configuredPriceVnd` để người vận hành đối chiếu. Không sửa một phía bằng SQL: dùng nghiệp vụ đổi giá
+(`setIssuePrice`, giao diện FE-07 khi có) để cập nhật chain trước rồi DB, hoặc reset database trình diễn
+nếu OP-05 đã chốt bỏ toàn bộ dữ liệu cũ. Với `evm-local.sh reset`, làm lại đúng kiểm tra này cho chain
+`hardhat-local`; address book mới không tự xoá dòng cấu hình cũ.
 
 Verify source Etherscan là tùy chọn. Nếu dùng, xem constructor trong `scripts/deploy.js`;
 không bật `USE_LOCAL_SOLC` khi biên dịch bản cần verify source.
@@ -159,6 +189,7 @@ Chủ dự án điền `app/.env.local` (bị Git bỏ qua) qua trình soạn th
 NEXT_PUBLIC_DEFAULT_CHAIN=evm
 RPC_EVM=
 SERVER_SIGNER_PRIVATE_KEY_EVM=
+ORDER_SETTLEMENT_EVENT_BLOCK_CHUNK=5000
 USE_MOCK_DB=false
 DATABASE_URL=postgresql://bidv:bidv@localhost:5432/bidv_rwa
 ENABLE_DEMO_TOKEN_MINT=false
@@ -220,6 +251,7 @@ PENDING không đồng nghĩa thất bại, kiểm trên explorer trước khi t
 | `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker runtime **Secret** | Khóa ví deployer có các vai token và `IdentityRegistry.AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variable**, tùy chọn | RPC công khai cho ví trình duyệt; không đặt RPC có key bí mật |
 | `NEXT_PUBLIC_DEFAULT_CHAIN` | **Build variable**, tùy chọn | `evm` nếu muốn Sepolia mặc định; giữ mock vẫn chọn được Sepolia khi có RPC_EVM |
+| `ORDER_SETTLEMENT_EVENT_BLOCK_CHUNK` | Worker runtime variable, tùy chọn | Số block mỗi lượt quét `OrderSettled`; mặc định 5.000, giảm nếu RPC giới hạn `eth_getLogs` |
 | `USE_MOCK_DB` | `app/wrangler.json` | `false`; Worker dùng binding Hyperdrive |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`; đăng ký dự án WPT Sepolia, không tự mint |
 | `ENABLE_DEMO_TOKEN_MINT` | `app/wrangler.json` | `false`; dùng luồng lập–duyệt |

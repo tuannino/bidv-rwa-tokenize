@@ -8,6 +8,7 @@ import {
   identityRegistryAbi,
   modularComplianceAbi,
   spvPaymentVaultAbi,
+  orderSettlementAbi,
   vndTokenAbi,
 } from '@bidv/shared';
 
@@ -64,6 +65,7 @@ describe.each([
   ['IdentityRegistry', identityRegistryAbi as unknown as AbiEntry[]],
   ['ModularCompliance', modularComplianceAbi as unknown as AbiEntry[]],
   ['SpvPaymentVault', spvPaymentVaultAbi as unknown as AbiEntry[]],
+  ['OrderSettlement', orderSettlementAbi as unknown as AbiEntry[]],
 ])('ABI tối giản %s khớp contract thật', (contract, minimalAbi) => {
   const generated = loadGenerated(contract);
   const generatedSignatures = new Set(generated.map(signature));

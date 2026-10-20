@@ -1,4 +1,4 @@
-const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
+const { wptIssuePriceVnd, wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // Triển khai bộ hợp đồng RWA ĐIỆN GIÓ + xuất địa chỉ/ABI sang packages/shared.
 //
 //   npx hardhat run scripts/deploy.js --network localhost
@@ -132,6 +132,14 @@ async function main() {
   ]);
   await vault.waitForDeployment();
 
+  // 5) Matcher thứ chín: đặt ngay sau vault để giữ nguyên tám địa chỉ trước.
+  const settlement = await ethers.deployContract("OrderSettlement", [
+    await vault.getAddress(),
+    admin,
+    wptIssuePriceVnd,
+  ]);
+  await settlement.waitForDeployment();
+
   await (await wpt.setIdentityRegistry(await identityRegistry.getAddress())).wait();
   await (await wpt.setCompliance(await modularCompliance.getAddress())).wait();
   await (await modularCompliance.bindToken(await wpt.getAddress())).wait();
@@ -141,6 +149,10 @@ async function main() {
   await (await identityRegistry.registerIdentity(vaultAddress, 704)).wait();
   for (const roleName of ["CONFIG_ROLE", "WITHDRAWER_ROLE", "PAUSER_ROLE"]) {
     await (await vault.grantRole(await vault[roleName](), admin)).wait();
+  }
+  await (await vault.grantRole(await vault.MATCHER_ROLE(), await settlement.getAddress())).wait();
+  for (const roleName of ["OPERATOR_ROLE", "PRICE_ROLE", "PAUSER_ROLE"]) {
+    await (await settlement.grantRole(await settlement[roleName](), admin)).wait();
   }
 
   // 5) Distributor cần chốt snapshot trên WPT
@@ -158,6 +170,7 @@ async function main() {
     ModularCompliance: await modularCompliance.getAddress(),
     AllowAllModule: await allowAllModule.getAddress(),
     SpvPaymentVault: vaultAddress,
+    OrderSettlement: await settlement.getAddress(),
   };
 
   // 6) Xuất sang packages/shared
@@ -177,6 +190,7 @@ async function main() {
     "ModularCompliance",
     "AllowAllModule",
     "SpvPaymentVault",
+    "OrderSettlement",
   ]) {
     await exportAbi(name);
   }

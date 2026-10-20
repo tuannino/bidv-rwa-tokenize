@@ -177,6 +177,10 @@ export interface ILedgerPurchase {
   paymentBalanceOf(wallet: string): Promise<bigint>;
   /** Mức ủy quyền VNDB mà `owner` đã cấp cho hợp đồng khớp lệnh. */
   paymentAllowanceOf(owner: string): Promise<bigint>;
+  /** Mức ủy quyền WPT mà `owner` đã cấp cho hợp đồng khớp lệnh. */
+  wptAllowanceOf(owner: string): Promise<bigint>;
+  /** Tra dấu quyết toán theo mã lệnh để phục hồi an toàn sau lỗi/timeout. */
+  findOrderSettlement(orderId: string): Promise<OrderSettlementLookup>;
   /**
    * Phát hành `amount` VNDB vào ví `to` (BE-16) — CHỈ cho chức năng nạp VNDB của bản trình diễn.
    *
@@ -200,7 +204,7 @@ export interface ILedgerPurchase {
    *
    * @flow purchase:10 | chuyển VNDB và WPT trong cùng một giao dịch
    */
-  executePurchase(investor: string, wptAmount: bigint): Promise<TxResult>;
+  executePurchase(order: SettlementOrder): Promise<TxResult>;
 
   /**
    * Khớp lệnh BÁN (BE-14): chuyển WPT (nhà đầu tư -> ví SPV) và chuyển VNDB (ví SPV -> nhà
@@ -214,8 +218,20 @@ export interface ILedgerPurchase {
    * Nhà đầu tư thiếu WPT, ví SPV thiếu VNDB, hoặc một bên không chuyển nhượng được thì thất bại
    * và KHÔNG để lại trạng thái nửa vời (cùng ràng buộc với `executePurchase`).
    */
-  executeSale(investor: string, wptAmount: bigint): Promise<TxResult>;
+  executeSale(order: SettlementOrder): Promise<TxResult>;
 }
+
+export interface SettlementOrder {
+  orderId: string;
+  investor: string;
+  wptAmount: bigint;
+  vndAmount: bigint;
+}
+
+export type OrderSettlementLookup =
+  | { status: 'NOT_SETTLED' }
+  | { status: 'SETTLED'; txHash: string; blockNumber: bigint }
+  | { status: 'SETTLED_TX_UNKNOWN' };
 
 // =============================================================================
 //  4. CHỐT QUYỀN (SNAPSHOT)

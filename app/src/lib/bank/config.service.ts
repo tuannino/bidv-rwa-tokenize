@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { z } from 'zod';
-import type { ChainKey } from '@bidv/shared';
+import { findContractAddress, type ChainKey } from '@bidv/shared';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { getLedger } from '@/lib/ledger';
 import { assertCanConfigure } from '@/lib/rbac/config-role';
@@ -62,8 +62,12 @@ const setIssuePriceSchema = z.object({
 export type SetIssuePriceInput = z.input<typeof setIssuePriceSchema>;
 
 export interface IssuePriceView {
-  /** Giá một WPT, đơn vị VND. Chuỗi vì bigint không qua được biên server -> client. */
+  /** Giá một WPT đang có hiệu lực; trên EVM có OrderSettlement đây là giá đọc từ chain. */
   priceVnd: string;
+  /** Giá lưu trong database, để vận hành nhìn thấy độ lệch sau deploy/reset. */
+  configuredPriceVnd: string;
+  /** Cảnh báo R7; null khi hai nguồn khớp hoặc chain không dùng OrderSettlement. */
+  warning: string | null;
   /** Vai đã đặt giá lần cuối; `null` khi còn dùng mặc định trong mã. */
   updatedBy: string | null;
   updatedAt: string | null;
@@ -90,11 +94,22 @@ export interface SetIssuePriceView extends IssuePriceView {
  */
 export async function getIssuePrice(chain: ChainKey): Promise<IssuePriceView> {
   const row = await getConfigStore().getConfig(issuePriceConfigKey(chain));
+  const configuredPrice = row ? BigInt(row.value) : await readIssuePriceVnd(chain);
+  const onChainPrice = findContractAddress(chain, 'OrderSettlement')
+    ? await getLedger(chain).quotePurchase(1n)
+    : null;
+  const effectivePrice = onChainPrice ?? configuredPrice;
+  const warning =
+    onChainPrice !== null && onChainPrice !== configuredPrice
+      ? 'giá trên hợp đồng khác giá đã cấu hình'
+      : null;
   if (!row) {
     // Lùi về mặc định qua CÙNG một hàm mà `getLedger` dùng, không tự lấy hằng số ở đây: hai
     // nhánh lùi về mặc định viết rời nhau sẽ lệch, và lệch ở nhánh ít chạy nhất.
     return {
-      priceVnd: (await readIssuePriceVnd(chain)).toString(),
+      priceVnd: effectivePrice.toString(),
+      configuredPriceVnd: configuredPrice.toString(),
+      warning,
       updatedBy: null,
       updatedAt: null,
       configured: false,
@@ -102,7 +117,9 @@ export async function getIssuePrice(chain: ChainKey): Promise<IssuePriceView> {
     };
   }
   return {
-    priceVnd: BigInt(row.value).toString(),
+    priceVnd: effectivePrice.toString(),
+    configuredPriceVnd: configuredPrice.toString(),
+    warning,
     updatedBy: row.updatedBy,
     updatedAt: row.updatedAt,
     configured: true,
@@ -230,6 +247,8 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
 
     return ok({
       priceVnd: saved.value,
+      configuredPriceVnd: saved.value,
+      warning: null,
       previousPriceVnd: previous.toString(),
       updatedBy: saved.updatedBy,
       updatedAt: saved.updatedAt,

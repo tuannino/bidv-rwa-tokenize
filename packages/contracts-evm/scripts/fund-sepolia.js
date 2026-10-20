@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
+const { wptIssuePriceVnd, wptSupplyCap } = require("../../shared/src/token-parameters.json");
 // CH-3: chỉ bù số dư thiếu. Không ký trên chain khác Sepolia hoặc nạp ví mẫu công khai.
 const path = require('path');
 const { execFile } = require('node:child_process');
@@ -90,6 +90,14 @@ async function measureLocalGas() {
   ]);
   await token.waitForDeployment();
   await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment(), vault.waitForDeployment()]);
+  const settlementFactory = await hre.ethers.getContractFactory('OrderSettlement');
+  deploy += await admin.estimateGas(await settlementFactory.getDeployTransaction(
+    await vault.getAddress(), admin.address, wptIssuePriceVnd,
+  ));
+  const settlement = await hre.ethers.deployContract('OrderSettlement', [
+    await vault.getAddress(), admin.address, wptIssuePriceVnd,
+  ]);
+  await settlement.waitForDeployment();
   deploy += await token.setIdentityRegistry.estimateGas(await registry.getAddress());
   await (await token.setIdentityRegistry(await registry.getAddress())).wait();
   deploy += await token.setCompliance.estimateGas(await compliance.getAddress());
@@ -102,6 +110,10 @@ async function measureLocalGas() {
   deploy += await registry.registerIdentity.estimateGas(await vault.getAddress(), 704);
   for (const roleName of ['CONFIG_ROLE', 'WITHDRAWER_ROLE', 'PAUSER_ROLE']) {
     deploy += await vault.grantRole.estimateGas(await vault[roleName](), admin.address);
+  }
+  deploy += await vault.grantRole.estimateGas(await vault.MATCHER_ROLE(), await settlement.getAddress());
+  for (const roleName of ['OPERATOR_ROLE', 'PRICE_ROLE', 'PAUSER_ROLE']) {
+    deploy += await settlement.grantRole.estimateGas(await settlement[roleName](), admin.address);
   }
   // MINTER_ROLE/AGENT_ROLE đã có trong constructor, deploy.js không gửi thêm tx.
   const whitelist = await registry.registerIdentity.estimateGas(spv.address, 704);

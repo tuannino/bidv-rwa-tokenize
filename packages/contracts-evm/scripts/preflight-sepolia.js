@@ -12,11 +12,13 @@ const REQUIRED_CONTRACTS = [
   'IdentityRegistry',
   'ModularCompliance',
   'AllowAllModule',
+  'SpvPaymentVault',
+  'OrderSettlement',
 ];
 
 async function signerFunding(provider, address, estimates) {
   const [balance, fees] = await Promise.all([provider.getBalance(address), provider.getFeeData()]);
-  // Deploy gồm bảy constructor, liên kết ERC-3643 và cấp SNAPSHOT_ROLE;
+  // Deploy gồm chín constructor, liên kết ERC-3643, vault/matcher và cấp các vai;
   // thêm đăng ký danh tính SPV + Mint/Mint/Burn.
   const gas = estimates.deploy + estimates.whitelist + estimates.cycle;
   const required = feeBudget(gas, gasPriceOf(fees));
