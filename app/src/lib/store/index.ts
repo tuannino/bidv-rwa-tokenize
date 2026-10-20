@@ -139,11 +139,19 @@ export {
 
 export {
   assertVaultOperationKind,
+  assertWithdrawStatus,
   type AcquireVaultLockInput,
   type IVaultStore,
+  type NewWithdrawRequest,
   VAULT_OPERATION_KINDS,
   type VaultOperationKind,
   type VaultOperationLockRecord,
+  WITHDRAW_STATUSES,
+  WITHDRAW_TERMINAL_STATUSES,
+  WITHDRAW_TRANSITIONS,
+  type WithdrawRequestRecord,
+  type WithdrawStatus,
+  type WithdrawTransition,
 } from './vault.store.port';
 
 export { resetMemoryStore } from './memory.store';

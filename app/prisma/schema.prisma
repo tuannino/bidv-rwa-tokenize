@@ -553,6 +553,44 @@ model VaultOperationLock {
   acquiredAt DateTime @default(now()) @db.Timestamptz(3)
 }
 
+/// BE-13 QĐ-E: lệnh rút VNDB của Người bán từ vault về ví nhận đã đặt trên vault.
+/// ⚠️ App KHÔNG BAO GIỜ tự gửi lại một lệnh: `SENDING` mất mã giao dịch thì đối soát chuyển
+/// `NEEDS_REVIEW` cho Kiểm soát viên, không đoán.
+model WithdrawRequest {
+  id              String    @id @default(uuid())
+  chain           String
+  /// Mã chống trùng do màn sinh một lần cho mỗi lần xác nhận (như BE-17).
+  clientRequestId String
+  amount          Decimal   @db.Decimal(78, 0)
+  purpose         String
+  note            String?
+  /// Ví nhận chụp lúc tạo; sự kiện `Withdrawn` phải chuyển tới đúng ví này.
+  payoutWallet    String
+  /// Giá trị hợp lệ: WITHDRAW_STATUSES ở lib/store/vault.store.port.ts
+  status          String    @default("SENDING")
+  /// Bằng `chain` khi lệnh chưa kết thúc, NULL khi đã `COMPLETED`/`FAILED` (đặt trong cùng câu cập
+  /// nhật). Duy nhất: mỗi chain một lệnh đang dở; Postgres cho nhiều dòng NULL.
+  activeChain     String?
+  /// Block mới nhất lúc tạo lệnh: mốc quét sự kiện ứng viên khi mất mã giao dịch.
+  claimedBlock    Decimal?  @db.Decimal(78, 0)
+  txHash          String?
+  /// Lý do thất bại hoặc lý do chuyển người xem.
+  reason          String?
+  /// Mã tài khoản Người bán đã tạo lệnh.
+  createdBy       String
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  /// Mốc về trạng thái cuối.
+  completedAt     DateTime? @db.Timestamptz(3)
+
+  @@unique([chain, clientRequestId])
+  @@unique([activeChain])
+  /// Một mã giao dịch không gán cho hai lệnh rút (QĐ-F).
+  @@unique([txHash])
+  @@index([chain, createdBy, createdAt])
+  @@index([chain, status])
+}
+
 model Permission {
   id     String           @id @default(uuid())
   /// vd token:mint

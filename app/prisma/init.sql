@@ -262,6 +262,28 @@ CREATE TABLE "VaultOperationLock" (
 );
 
 -- CreateTable
+CREATE TABLE "WithdrawRequest" (
+    "id" TEXT NOT NULL,
+    "chain" TEXT NOT NULL,
+    "clientRequestId" TEXT NOT NULL,
+    "amount" DECIMAL(78,0) NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "note" TEXT,
+    "payoutWallet" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'SENDING',
+    "activeChain" TEXT,
+    "claimedBlock" DECIMAL(78,0),
+    "txHash" TEXT,
+    "reason" TEXT,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "completedAt" TIMESTAMPTZ(3),
+
+    CONSTRAINT "WithdrawRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Permission" (
     "id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
@@ -375,6 +397,21 @@ CREATE INDEX "TokenRequest_makerId_status_idx" ON "TokenRequest"("makerId", "sta
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TokenRequest_txHash_key" ON "TokenRequest"("txHash");
+
+-- CreateIndex
+CREATE INDEX "WithdrawRequest_chain_createdBy_createdAt_idx" ON "WithdrawRequest"("chain", "createdBy", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "WithdrawRequest_chain_status_idx" ON "WithdrawRequest"("chain", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WithdrawRequest_chain_clientRequestId_key" ON "WithdrawRequest"("chain", "clientRequestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WithdrawRequest_activeChain_key" ON "WithdrawRequest"("activeChain");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WithdrawRequest_txHash_key" ON "WithdrawRequest"("txHash");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");

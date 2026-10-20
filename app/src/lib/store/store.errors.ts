@@ -234,6 +234,13 @@ export const UNIQUE_CONSTRAINTS: Readonly<
   KeeperRun_jobName_periodKey_key: { table: 'KeeperRun', columns: ['jobName', 'periodKey'] },
   Project_tokenSymbol_chain_key: { table: 'Project', columns: ['tokenSymbol', 'chain'] },
   TokenRequest_txHash_key: { table: 'TokenRequest', columns: ['txHash'] },
+  // BE-13 QĐ-E, QĐ-F: chống trùng kiểu BE-17, một lệnh rút đang dở mỗi chain, một mã giao dịch một lệnh.
+  WithdrawRequest_chain_clientRequestId_key: {
+    table: 'WithdrawRequest',
+    columns: ['chain', 'clientRequestId'],
+  },
+  WithdrawRequest_activeChain_key: { table: 'WithdrawRequest', columns: ['activeChain'] },
+  WithdrawRequest_txHash_key: { table: 'WithdrawRequest', columns: ['txHash'] },
 };
 
 /** Tên khoá ngoài trong `prisma/init.sql` → bảng + cột. */
