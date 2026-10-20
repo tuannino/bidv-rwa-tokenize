@@ -1,9 +1,9 @@
-# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 4)
+# DS-01: Kiến trúc hợp đồng đợt 6 (đã duyệt, bản 5)
 
 | | |
 |---|---|
 | Người viết | Supervisor |
-| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-14 (mục 7). **Bản 3 ngày 19/10/2026**: QĐ-15 đến QĐ-19 theo góp ý thiết kế (mục 8). **Bản 4 ngày 19/10/2026**: QĐ-20 đến QĐ-26 khi chốt spec SC-07 (mục 9) |
+| Trạng thái | **Đã duyệt** ngày 08/10/2026 (CH-1 đến CH-5, mục 5). **Bản 2 ngày 15/10/2026**: huỷ QĐ-8, thêm QĐ-9 đến QĐ-14 (mục 7). **Bản 3 ngày 19/10/2026**: QĐ-15 đến QĐ-19 theo góp ý thiết kế (mục 8). **Bản 4 ngày 19/10/2026**: QĐ-20 đến QĐ-26 khi chốt spec SC-07 (mục 9). **Bản 5 ngày 20/10/2026**: QĐ-27 đến QĐ-31 khi chốt spec SC-06, cập nhật QĐ-13 (mục 10) |
 | Áp cho | SC-09 (tầng token ERC-3643 và permit), SC-07 (vault thanh toán), SC-03 (khớp lệnh), FE-05 (ủy quyền của Nhà đầu tư), OP-05 (Sepolia lần hai); ảnh hưởng SC-06, BE-18, BE-13 ở đợt 7 |
 | Nền | `dev` @ `e4dd889` |
 
@@ -252,6 +252,30 @@ về phía an toàn, không viết cứng con số nghiệp vụ trong mã.
 (phần trăm số dư lúc rút) và mô phỏng khoá DS-01 trên chain mock gộp vào BE-13. `periodRef` trên chuỗi là
 bộ đếm độc lập; ánh xạ với `periodKey` của database thuộc SC-06. Address book lưu `deployBlock` để đọc sự
 kiện.
+
+## 10. Bổ sung bản 5 (chủ dự án chốt 20/10/2026, khi chốt spec SC-06)
+
+**QĐ-27. `ProfitDistributor` là quỹ chia một chiều.** Tiền vào bằng chuyển VNDB thường; chỉ `_claim` (trả cho người
+được chia) chuyển tiền ra. Sổ dự trữ `totalReserved` tách tiền đang nợ các kỳ khỏi phần chưa phân bổ. Kỳ mới tạo bằng
+`createDistributionFromPool(period)` lấy đúng phần chưa phân bổ.
+
+**QĐ-28. Phần còn lại sau hạn nhận trở về quỹ.** `closeDistribution(id)` thay `sweepDust(id, to)`: không chuyển tiền,
+phần còn lại vào kỳ chia sau. Ví không nhận kịp trong hạn mất phần kỳ đó.
+
+**QĐ-29. Mã kỳ chống trùng trên chuỗi, có tiền tố chain.** Nhãn kỳ dùng một lần (`DuplicatePeriod`), tra ngược bằng
+`distributionIdOfPeriod`; ứng dụng giữ chỗ kỳ (`OPENING`) và phục hồi khi mất biên nhận. Mã kỳ có tiền tố chain
+(`mock:2026-Q1`).
+
+**QĐ-30. Phần của SPV được chia vào vault**, ví SPV có trong danh sách người nhận ở mọi chain (thực thi QĐ-12).
+Tiến trình tự động (BE-07) mở kỳ theo phần chưa phân bổ, không theo mốc số dư.
+
+**QĐ-31. Kỳ hết hạn và kỳ đóng có trạng thái kết thúc riêng** (`EXPIRED`, `CLOSED`), không chặn kỳ mới; phần chưa
+trả không bao giờ ghi là đã trả. SC-05 gộp vào SC-06.
+
+**Cập nhật QĐ-13.** Số "đã chia kỳ trước" được **tự động** đẩy vào `closePeriod` của vault thanh toán ngay khi mở kỳ
+chia, đúng một lần cho mỗi kỳ (giữ chỗ mã kỳ vault, đối soát sự kiện trước khi gửi lại). Đây là tiền **đã dành cho
+kỳ** (gồm phần SPV), không phải tiền đã tới tay người nhận. Kiểm soát viên vẫn đặt tỷ lệ và chế độ khoá, thấy lịch sử
+công khai trên `/vault`; script `vault-admin.js close-period` không dùng khi luồng tự động đang chạy.
 
 ## 6. Không thuộc tài liệu này
 
