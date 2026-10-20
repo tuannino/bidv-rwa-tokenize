@@ -472,12 +472,12 @@ describe('placeOrder', () => {
       orderId: victimId,
     });
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.id).not.toBe(victimId);
-    expect(result.data.status).toBe('COMPLETED');
+    // FE-05 QĐ-F: schema đặt lệnh là schema CHẶT, nên trường lạ `orderId` không còn bị lặng lẽ bỏ qua
+    // mà làm cả yêu cầu bị loại. Ranh giới BE-17 giữ nguyên và chặt hơn: lệnh nạn nhân không bị đụng,
+    // không giao dịch nào được gửi.
+    expect(result).toMatchObject({ ok: false, code: 'VALIDATION' });
     expect((await getOrderStore().findOrder(victimId))?.status).toBe('CHECKING');
-    expect(fault.sendCount).toBe(1);
+    expect(fault.sendCount).toBe(0);
   });
 
   it('quyết toán lỗi vẫn trả lệnh đã lưu cùng trạng thái và lý do cuối', async () => {

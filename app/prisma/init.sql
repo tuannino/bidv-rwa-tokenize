@@ -66,6 +66,7 @@ CREATE TABLE "PurchaseOrder" (
     "reconciledAt" TIMESTAMPTZ(3),
     "settlingAt" TIMESTAMPTZ(3),
     "completedAt" TIMESTAMPTZ(3),
+    "permit" JSONB,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 

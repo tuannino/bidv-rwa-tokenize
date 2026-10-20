@@ -7,7 +7,7 @@ import { SignerUnavailableError, type ISigner } from './signer.port';
  *
  * Nhận provider EIP-1193 từ ngoài vào (wagmi connector) để file này không phụ thuộc React.
  *
- * @pending FE-05 | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ
+ * @pending FE-09 | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ
  */
 export function createWalletSigner(provider: EIP1193Provider | undefined): ISigner {
   const requireProvider = (): EIP1193Provider => {

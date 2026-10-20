@@ -34,10 +34,12 @@
     "SC-09",
     "SC-10",
     "SC-07",
-    "SC-03"
+    "SC-03",
+    "SC-06",
+    "SC-05"
   ],
   "inProgress": [
-    "SC-06"
+    "FE-05"
   ],
   "planned": [
     "AU-01",
@@ -47,7 +49,6 @@
     "BE-10",
     "BE-11",
     "FE-04",
-    "FE-05",
     "FE-07",
     "FE-08",
     "FE-09",
@@ -57,7 +58,6 @@
     "IN-01",
     "IN-02",
     "SC-04",
-    "SC-05",
     "OP-05",
     "SC-08",
     "BE-18",
@@ -73,7 +73,7 @@
     "FE-24": "màn Thông tin tài khoản dùng chung bốn vai"
   },
   "_mergedTasks": {
-    "_why": "Chủ dự án chốt 20/10/2026 (SC-06 CH-4): SC-05 gộp vào SC-06. SC-05 giữ trong danh sách cho tới khi SC-06 xong để marker cũ còn hợp lệ, rồi chuyển done cùng SC-06.",
+    "_why": "Chủ dự án chốt 20/10/2026 (SC-06 CH-4): SC-05 gộp vào SC-06. SC-05 giữ trong danh sách cho tới khi SC-06 xong để marker cũ còn hợp lệ, rồi chuyển done cùng SC-06. Đã chuyển done cùng SC-06 (PR #58 merge) khi nhận FE-05.",
     "SC-05": "gộp vào SC-06: distributeBatch mang distributionId, gỡ @blocked SC-05"
   }
 }

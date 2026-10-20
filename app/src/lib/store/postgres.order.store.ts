@@ -6,6 +6,8 @@ import type { Role } from '@/lib/rbac';
 import {
   assertOrderSide,
   assertOrderStatus,
+  decodeOrderPermit,
+  encodeOrderPermit,
   ORDER_SIDES,
   ORDER_STATUS_STAMPS,
   type CompletedSummary,
@@ -43,6 +45,8 @@ interface OrderRow {
   reconciledAt: Date | null;
   settlingAt: Date | null;
   completedAt: Date | null;
+  /** `pg` trả JSONB đã phân tích sẵn; khuôn vẫn phải kiểm lại (`decodeOrderPermit`). */
+  permit: unknown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +69,7 @@ const toOrder = (row: OrderRow): OrderRecord => ({
   reconciledAt: isoOrNull(row.reconciledAt),
   settlingAt: isoOrNull(row.settlingAt),
   completedAt: isoOrNull(row.completedAt),
+  permit: decodeOrderPermit(row.permit, row.id),
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
@@ -86,8 +91,8 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
       const rows = await mapPgConstraintError(() =>
         query<OrderRow>(
           `INSERT INTO "PurchaseOrder"
-             ("id","chain","investorWallet","clientRequestId","wptAmount","vndAmount","status","actorRole","side","updatedAt"${stamp ? `,"${stamp}"` : ''})
-           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8,CURRENT_TIMESTAMP${stamp ? ',CURRENT_TIMESTAMP' : ''})
+             ("id","chain","investorWallet","clientRequestId","wptAmount","vndAmount","status","actorRole","side","permit","updatedAt"${stamp ? `,"${stamp}"` : ''})
+           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,CURRENT_TIMESTAMP${stamp ? ',CURRENT_TIMESTAMP' : ''})
            RETURNING *`,
           [
             order.chain,
@@ -98,6 +103,7 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
             status,
             order.actorRole,
             assertOrderSide(order.side ?? 'BUY'),
+            order.permit ? JSON.stringify(encodeOrderPermit(order.permit)) : null,
           ],
         ),
       );

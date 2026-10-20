@@ -7,6 +7,8 @@ import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
 import { getOrderStore, getStore, UniqueConstraintError } from '@/lib/store';
 import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
+import type { OrderPermit } from '@/lib/store/order.store.port';
+import { readOrderPermitWindow } from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
 import { err, ok, type ErrorCode, type Result } from './result';
 import {
@@ -15,8 +17,17 @@ import {
   orderDailyStatsSchema,
   orderQuerySchema,
   placeOrderSchema,
+  preparePermitSchema,
   previewPurchaseSchema,
 } from './schemas';
+import {
+  buildOrderPermitTypedData,
+  isPermitChain,
+  permitTokenOf,
+  settlementSpender,
+  splitPermitSignature,
+  verifyOrderPermitSignature,
+} from './permit';
 import {
   INTERVENTION_ORDER_STATUSES,
   type OrderSide,
@@ -162,7 +173,14 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
     assertCan(await currentRole(), 'order:place');
 
     // KHÔNG truyền `quotedVndAmount`: chưa có lệnh nào nên không có giá cũ để so.
-    const checks = await runOrderChecks(getLedger(chain), { side, investorWallet, wptAmount });
+    // FE-05 QĐ-F: trên chain thật, ủy quyền SẼ cấp bằng chữ ký lúc đặt lệnh, nên phép kiểm ủy quyền
+    // không được khoá nút xác nhận; mọi phép kiểm khác giữ nguyên.
+    const checks = await runOrderChecks(getLedger(chain), {
+      side,
+      investorWallet,
+      wptAmount,
+      allowanceSource: isPermitChain(chain) ? { kind: 'will-sign' } : { kind: 'actual' },
+    });
     const blockers = checks.results.filter((r) => !r.ok).map((r) => r.id);
 
     return ok({
@@ -205,18 +223,63 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
   }
-  const { chain, investorWallet, wptAmount, side, clientRequestId } = parsed.data;
+  const { chain, investorWallet, wptAmount, side, clientRequestId, permit } = parsed.data;
   const sidePrefix = SIDE_PREFIX[side];
 
   try {
     // `authorize` ghi audit cho CẢ hai kết cục (ALLOWED và DENIED) rồi mới ném — R1.4.
     const role = await authorize('order:place', investorWallet, chain);
     const orderStore = getOrderStore();
+    const ledger = getLedger(chain);
 
+    // KHÔNG tạo bản ghi khi từ chối. Nhưng VẪN ghi sổ kiểm toán: một lần đặt lệnh bị từ chối là
+    // việc đã xảy ra, và không còn bản ghi lệnh nào để lần lại nó nữa. Lý do KHÔNG chứa chữ ký.
+    const reject = async (code: ErrorCode, reason: string): Promise<Result<OrderView>> => {
+      await getStore().appendAudit({
+        actorRole: role,
+        action: 'order:place',
+        target: investorWallet,
+        outcome: 'FAILURE',
+        detail: `từ chối đặt lệnh ${sidePrefix}${wptAmount} WPT trước khi tạo bản ghi — ${reason}`,
+        chain,
+      });
+      return err(code, reason);
+    };
+
+    let signed: OrderPermit | null = null;
+    if (!isPermitChain(chain)) {
+      if (permit) {
+        return await reject(
+          'VALIDATION',
+          `Chain "${chain}" không dùng chữ ký ủy quyền; gửi lệnh không kèm trường permit.`,
+        );
+      }
+    } else {
+      // FE-05 QĐ-C: trên chain thật mọi lệnh mới qua cổng công khai PHẢI có chữ ký. Không có cờ,
+      // tham số hay hàm nào khác cho phép bỏ qua bước này.
+      if (!permit) {
+        return await reject('VALIDATION', 'Lệnh trên chain thật cần chữ ký ủy quyền từ ví.');
+      }
+      const verdict = await verifyPlacementPermit(ledger, {
+        chain,
+        side,
+        investorWallet,
+        wptAmount,
+        permit,
+      });
+      if (!verdict.ok) return await reject('VALIDATION', verdict.reason);
+      signed = verdict.permit;
+    }
+
+    // QĐ-D bước 4 (BE-17): gửi lại cùng một yêu cầu trả lệnh đã có, kể cả khi chữ ký của lần đầu
+    // đã được dùng. Đặt SAU khi kiểm chữ ký: một chữ ký không khớp ví không được dùng để dò lệnh.
     const repeated = await orderStore.findOrderByClientRequest({ investorWallet, clientRequestId });
     if (repeated) return repeatedOrderResult(repeated, { chain, side, wptAmount });
 
-    const ledger = getLedger(chain);
+    if (signed) {
+      const usable = await classifyPlacementPermit(ledger, { side, investorWallet, permit: signed });
+      if (!usable.ok) return await reject('VALIDATION', usable.reason);
+    }
 
     // Báo giá và điều kiện đi qua CÙNG bộ kiểm với `executeOrder`, không có bản thứ hai:
     // hai bộ kiểm song song sẽ lệch nhau, và lúc đó đặt lệnh nhận "đủ điều kiện" cho một
@@ -224,23 +287,22 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     // MỘT lần — gọi `quotePurchase` thêm lần nữa là mở cửa cho hai giá khác nhau.
     //
     // KHÔNG truyền `quotedVndAmount`: lệnh chưa tồn tại nên không có giá cũ để so.
-    const checks = await runOrderChecks(ledger, { side, investorWallet, wptAmount });
+    // FE-05 QĐ-F: chữ ký đã kiểm ở trên thay cho ủy quyền thực tế; mock giữ ủy quyền thực tế.
+    const checks = await runOrderChecks(ledger, {
+      side,
+      investorWallet,
+      wptAmount,
+      allowanceSource: signed ? { kind: 'signed' } : { kind: 'actual' },
+    });
     const blocker = firstFailure(checks.results);
-    if (blocker) {
-      // KHÔNG tạo bản ghi. Nhưng VẪN ghi sổ kiểm toán: một lần đặt lệnh bị từ chối là
-      // việc đã xảy ra, và không còn bản ghi lệnh nào để lần lại nó nữa.
-      await getStore().appendAudit({
-        actorRole: role,
-        action: 'order:place',
-        target: investorWallet,
-        outcome: 'FAILURE',
-        detail: `từ chối đặt lệnh ${sidePrefix}${wptAmount} WPT trước khi tạo bản ghi — ${blocker.reason}`,
-        chain,
-      });
-      return err(blocker.code, blocker.reason);
-    }
+    if (blocker) return await reject(blocker.code, blocker.reason);
 
     const vndAmount = checks.vndAmount;
+    if (signed && side === 'BUY' && signed.value !== vndAmount) {
+      // Giá đổi đúng giữa lúc kiểm chữ ký và lúc chạy bộ kiểm: số đã ký không còn là số của lệnh.
+      return await reject('VALIDATION', PERMIT_REASONS.valueChanged);
+    }
+
     let order: OrderRecord;
     try {
       order = await orderStore.createOrder({
@@ -251,6 +313,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
         wptAmount: wptAmount.toString(),
         vndAmount: vndAmount.toString(),
         actorRole: role,
+        permit: signed,
       });
     } catch (error) {
       if (!isClientRequestConflict(error)) throw error;
@@ -274,6 +337,192 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     });
 
     return await autoSettleCreatedOrder(order, role);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/** Câu trả lời cho nhà đầu tư khi chữ ký bị từ chối. Không câu nào chứa chữ ký hay nonce. */
+const PERMIT_REASONS = {
+  valueChanged: 'Giá đã đổi hoặc số lệnh đã đổi so với số đã ký, ký lại.',
+  mismatch: 'Chữ ký không khớp ví hoặc nội dung lệnh, ký lại.',
+  expiring: 'Chữ ký sắp hết hạn, ký lại.',
+  used: 'Chữ ký đã được dùng, ký lại.',
+  invalid: 'Chữ ký không hợp lệ.',
+  storedUnusable: 'Chữ ký ủy quyền đã hết hạn hoặc đã dùng, đặt lệnh lại để ký mới.',
+} as const;
+
+type PermitVerdict = { ok: true; permit: OrderPermit } | { ok: false; reason: string };
+
+/**
+ * FE-05 QĐ-D bước 2 và 3: tính LẠI số của lệnh rồi dựng lại typed data từ dữ liệu máy chủ tự có
+ * (domain đọc từ chuỗi, `token`/`spender` theo chiều lệnh và address book, `owner` là ví đặt
+ * lệnh, `value` vừa tính). Chỉ `nonce` và `deadline` lấy từ payload, vì đó là số đã ký. Chữ ký
+ * phải khôi phục đúng về ví đặt lệnh.
+ */
+async function verifyPlacementPermit(
+  ledger: ILedgerPort,
+  input: {
+    chain: ChainKey;
+    side: OrderSide;
+    investorWallet: string;
+    wptAmount: bigint;
+    permit: { value: string; deadline: string; nonce: string; signature: string };
+  },
+): Promise<PermitVerdict> {
+  const { chain, side, investorWallet, wptAmount, permit } = input;
+  settlementSpender(chain);
+  const value = side === 'BUY' ? await ledger.quotePurchase(wptAmount) : wptAmount;
+  if (BigInt(permit.value) !== value) return { ok: false, reason: PERMIT_REASONS.valueChanged };
+
+  const nonce = BigInt(permit.nonce);
+  const deadline = BigInt(permit.deadline);
+  const signature = permit.signature as `0x${string}`;
+  const { token, spender, typedData } = await buildOrderPermitTypedData({
+    chain,
+    side,
+    owner: investorWallet,
+    value,
+    nonce,
+    deadline,
+  });
+  if (!(await verifyOrderPermitSignature(typedData, signature))) {
+    return { ok: false, reason: PERMIT_REASONS.mismatch };
+  }
+  return {
+    ok: true,
+    permit: { token, spender, value, nonce, deadline, ...splitPermitSignature(signature) },
+  };
+}
+
+/**
+ * FE-05 QĐ-D bước 5 và 6: chữ ký đã khớp còn dùng được không. Thời hạn tính theo timestamp block
+ * mới nhất; nonce so giữa số ĐÃ KÝ và số hiện tại trên chuỗi:
+ *
+ *   bằng                 chữ ký chưa dùng: nhận
+ *   nhỏ hơn, ủy quyền đủ chữ ký đã bị gửi trước (hoặc ủy quyền có sẵn): nhận
+ *   nhỏ hơn, thiếu       chữ ký đã cũ: ký lại
+ *   lớn hơn              chữ ký không hợp lệ
+ */
+async function classifyPlacementPermit(
+  ledger: ILedgerPort,
+  input: { side: OrderSide; investorWallet: string; permit: OrderPermit },
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const { side, investorWallet, permit } = input;
+  const [latest, window] = await Promise.all([ledger.latestBlockTimestamp(), readOrderPermitWindow()]);
+  if (permit.deadline < latest + BigInt(window.minRemainingSeconds)) {
+    return { ok: false, reason: PERMIT_REASONS.expiring };
+  }
+
+  const current = await ledger.permitNonce(permitTokenOf(side), investorWallet);
+  if (permit.nonce === current) return { ok: true };
+  if (permit.nonce > current) return { ok: false, reason: PERMIT_REASONS.invalid };
+
+  const allowance =
+    side === 'BUY'
+      ? await ledger.paymentAllowanceOf(investorWallet)
+      : await ledger.wptAllowanceOf(investorWallet);
+  return allowance >= permit.value ? { ok: true } : { ok: false, reason: PERMIT_REASONS.used };
+}
+
+/**
+ * Typed data đã chuẩn bị để ví ký (FE-05 QĐ-A bước 1). Mọi số là CHUỖI thập phân: `bigint` không
+ * qua được biên máy chủ sang trình duyệt; màn hình đổi lại sang `bigint` ngay trước khi ký.
+ */
+export interface PermitPreparationView {
+  chain: ChainKey;
+  side: OrderSide;
+  wptAmount: string;
+  /** Số VNDB của lệnh theo giá hiện tại: mua là số phải trả (chính là số ký), bán là số nhận về. */
+  vndAmount: string;
+  /** Token được ủy quyền: VNDB khi mua, WPT khi bán. */
+  tokenSymbol: 'VNDB' | 'WPT';
+  /** Số sẽ ký, đúng bằng số của lệnh. */
+  value: string;
+  nonce: string;
+  deadline: string;
+  /** `deadline` đổi ra giờ ISO để màn hình hiện "hiệu lực đến". */
+  deadlineAt: string;
+  typedData: {
+    domain: { name: string; version: string; chainId: number; verifyingContract: string };
+    types: PermitTypedDataTypes;
+    primaryType: 'Permit';
+    message: { owner: string; spender: string; value: string; nonce: string; deadline: string };
+  };
+}
+
+type PermitTypedDataTypes = Awaited<
+  ReturnType<typeof buildOrderPermitTypedData>
+>['typedData']['types'];
+
+/**
+ * CHUẨN BỊ CHỮ KÝ PERMIT (FE-05 QĐ-B) — không tạo lệnh, không ghi gì vào cơ sở dữ liệu.
+ *
+ * Kiểm quyền bằng `assertCan` như `previewPurchase`: hàm chỉ đọc chuỗi, và lần ghi sổ kiểm toán có
+ * ý nghĩa là lần đặt lệnh ngay sau đó. `value` tính theo giá HIỆN TẠI; giá đổi trước khi đặt lệnh
+ * thì `placeOrder` từ chối và nhà đầu tư ký lại.
+ */
+export async function preparePermit(input: unknown): Promise<Result<PermitPreparationView>> {
+  const parsed = preparePermitSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, investorWallet, wptAmount, side } = parsed.data;
+
+  try {
+    assertCan(await currentRole(), 'order:place');
+    if (!isPermitChain(chain)) {
+      return err('VALIDATION', `Chain "${chain}" không dùng chữ ký ủy quyền; đặt lệnh không cần ký.`);
+    }
+    // Lỗi cấu hình nêu trước mọi lời gọi chuỗi: thiếu OrderSettlement thì không có bên được chi.
+    settlementSpender(chain);
+
+    const ledger = getLedger(chain);
+    const vndAmount = await ledger.quotePurchase(wptAmount);
+    const value = side === 'BUY' ? vndAmount : wptAmount;
+    const [nonce, latest, window] = await Promise.all([
+      ledger.permitNonce(permitTokenOf(side), investorWallet),
+      ledger.latestBlockTimestamp(),
+      readOrderPermitWindow(),
+    ]);
+    const deadline = latest + BigInt(window.ttlSeconds);
+    const { typedData } = await buildOrderPermitTypedData({
+      chain,
+      side,
+      owner: investorWallet,
+      value,
+      nonce,
+      deadline,
+    });
+
+    return ok({
+      chain,
+      side,
+      wptAmount: wptAmount.toString(),
+      vndAmount: vndAmount.toString(),
+      tokenSymbol: side === 'BUY' ? 'VNDB' : 'WPT',
+      value: value.toString(),
+      nonce: nonce.toString(),
+      deadline: deadline.toString(),
+      deadlineAt: new Date(Number(deadline) * 1000).toISOString(),
+      typedData: {
+        domain: {
+          name: typedData.domain.name,
+          version: typedData.domain.version,
+          chainId: Number(typedData.domain.chainId),
+          verifyingContract: typedData.domain.verifyingContract,
+        },
+        types: typedData.types,
+        primaryType: typedData.primaryType,
+        message: {
+          owner: typedData.message.owner,
+          spender: typedData.message.spender,
+          value: value.toString(),
+          nonce: nonce.toString(),
+          deadline: deadline.toString(),
+        },
+      },
+    });
   } catch (error) {
     return toResult(error);
   }
@@ -369,7 +618,8 @@ const SIDE_PREFIX: Record<OrderSide, string> = { BUY: '', SELL: 'bán ' };
  * so hai con số nên giao diện hiện được "đang có / cần có", còn ba phép còn lại không so số.
  */
 export type OrderCheckResult =
-  | { id: OrderCheckId; ok: true }
+  /** `detail` chỉ có khi phép kiểm đạt theo một nguồn khác ủy quyền thực tế (FE-05 QĐ-F). */
+  | { id: OrderCheckId; ok: true; detail?: string }
   | {
       id: OrderCheckId;
       ok: false;
@@ -454,7 +704,26 @@ export interface OrderCheckInput {
    * kiểm luôn đạt, tức là một phép kiểm không nói gì.
    */
   quotedVndAmount?: bigint;
+  /**
+   * Nguồn ủy quyền cho phép kiểm `allowance` / `wptAllowance` (FE-05 QĐ-F), do MÁY CHỦ tự suy theo
+   * ngữ cảnh gọi, không bao giờ từ dữ liệu client. Vắng mặt là ủy quyền thực tế (mock, lệnh cũ).
+   */
+  allowanceSource?: AllowanceSource;
 }
+
+/**
+ * Bốn nguồn ủy quyền (FE-05 QĐ-F, QĐ-G). Chỉ chữ ký ĐÃ KIỂM mới thay được ủy quyền thực tế:
+ *
+ *   actual     ủy quyền thực tế trên chuỗi (mock; lệnh trước FE-05)
+ *   will-sign  xem trước trên chain thật: sẽ cấp bằng chữ ký lúc đặt lệnh, không khoá nút xác nhận
+ *   signed     đặt lệnh trên chain thật: chữ ký đã qua bước kiểm nonce của `placeOrder`
+ *   stored     quyết toán, phục hồi: đạt khi ủy quyền thực tế đủ HOẶC chữ ký đã lưu còn dùng được
+ */
+export type AllowanceSource =
+  | { kind: 'actual' }
+  | { kind: 'will-sign' }
+  | { kind: 'signed' }
+  | { kind: 'stored'; hasPermit: boolean; permitUsable: boolean };
 
 /**
  * BỘ PHÉP KIỂM TRƯỚC KHI GỬI GIAO DỊCH (QĐ-2), dừng ở lần trượt đầu tiên — DÙNG CHUNG cho hai
@@ -486,6 +755,7 @@ async function runOrderChecks(
   input: OrderCheckInput,
 ): Promise<OrderChecks> {
   const { side, investorWallet, wptAmount, quotedVndAmount } = input;
+  const allowanceSource = input.allowanceSource ?? { kind: 'actual' };
   const results: OrderCheckResult[] = [];
 
   // --- QĐ-3: giá đổi giữa lúc đặt và lúc khớp -------------------------------------
@@ -518,7 +788,9 @@ async function runOrderChecks(
   const vndAmount = quotedNow;
 
   if (side === 'SELL') {
-    results.push(...(await runSaleBalanceChecks(ledger, investorWallet, wptAmount, vndAmount)));
+    results.push(
+      ...(await runSaleBalanceChecks(ledger, investorWallet, wptAmount, vndAmount, allowanceSource)),
+    );
     return { vndAmount, results };
   }
 
@@ -540,22 +812,9 @@ async function runOrderChecks(
   results.push(passed('paymentBalance'));
 
   // --- 2. Mức ủy quyền VNDB --------------------------------------------------------
-  const allowance = await ledger.paymentAllowanceOf(investorWallet);
-  if (allowance < vndAmount) {
-    results.push(
-      failed(
-        'allowance',
-        'INSUFFICIENT_ALLOWANCE',
-        `Ủy quyền VNDB không đủ: cần ${vndAmount}, đã cấp ${allowance}. ` +
-          `Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.`,
-        `Nhà đầu tư xác nhận trong ví của mình cho phép hệ thống trừ tối đa ${vndAmount} VNDB. ` +
-          'Đây là bước xác nhận thanh toán, làm một lần trước khi khớp lệnh.',
-        { actual: allowance, required: vndAmount },
-      ),
-    );
-    return { vndAmount, results };
-  }
-  results.push(passed('allowance'));
+  const allowance = await allowanceCheck(ledger, 'allowance', allowanceSource, investorWallet, vndAmount);
+  results.push(allowance);
+  if (!allowance.ok) return { vndAmount, results };
 
   // --- 3. Tồn WPT trong ví thanh toán SPV ------------------------------------------
   const spv = await ledger.spvWallet();
@@ -620,6 +879,7 @@ async function runSaleBalanceChecks(
   investorWallet: string,
   wptAmount: bigint,
   vndAmount: bigint,
+  allowanceSource: AllowanceSource,
 ): Promise<OrderCheckResult[]> {
   // --- 1. Số WPT nhà đầu tư đang giữ ----------------------------------------------
   const held = await ledger.balanceOf(investorWallet);
@@ -635,27 +895,21 @@ async function runSaleBalanceChecks(
     ];
   }
 
-  const wptAllowance = await ledger.wptAllowanceOf(investorWallet);
-  if (wptAllowance < wptAmount) {
-    return [
-      passed('holding'),
-      failed(
-        'wptAllowance',
-        'INSUFFICIENT_ALLOWANCE',
-        `Ủy quyền WPT không đủ: cần ${wptAmount}, đã cấp ${wptAllowance}. ` +
-          'Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.',
-        `Nhà đầu tư xác nhận trong ví cho phép hợp đồng khớp lệnh chuyển tối đa ${wptAmount} WPT.`,
-        { actual: wptAllowance, required: wptAmount },
-      ),
-    ];
-  }
+  const wptAllowance = await allowanceCheck(
+    ledger,
+    'wptAllowance',
+    allowanceSource,
+    investorWallet,
+    wptAmount,
+  );
+  if (!wptAllowance.ok) return [passed('holding'), wptAllowance];
 
   // --- 2. Thanh khoản VNDB của ví thanh toán người bán -----------------------------
   const spv = await ledger.spvWallet();
   if (!spv) {
     return [
       passed('holding'),
-      passed('wptAllowance'),
+      wptAllowance,
       failed(
         'sellerLiquidity',
         'INSUFFICIENT_SELLER_LIQUIDITY',
@@ -668,7 +922,7 @@ async function runSaleBalanceChecks(
   if (liquidity < vndAmount) {
     return [
       passed('holding'),
-      passed('wptAllowance'),
+      wptAllowance,
       failed(
         'sellerLiquidity',
         'INSUFFICIENT_SELLER_LIQUIDITY',
@@ -685,7 +939,7 @@ async function runSaleBalanceChecks(
   if (!transferable.allowed) {
     return [
       passed('holding'),
-      passed('wptAllowance'),
+      wptAllowance,
       passed('sellerLiquidity'),
       failed(
         'transferable',
@@ -696,7 +950,82 @@ async function runSaleBalanceChecks(
       ),
     ];
   }
-  return [passed('holding'), passed('wptAllowance'), passed('sellerLiquidity'), passed('transferable')];
+  return [passed('holding'), wptAllowance, passed('sellerLiquidity'), passed('transferable')];
+}
+
+/**
+ * Phép kiểm ủy quyền theo nguồn (FE-05 QĐ-F, QĐ-G), dùng chung cho VNDB (mua) và WPT (bán).
+ *
+ * Chữ ký chỉ thay được ủy quyền thực tế khi máy chủ ĐÃ KIỂM nó (`signed`) hoặc chữ ký đã lưu còn
+ * dùng được (`stored` + `permitUsable`). Có chữ ký mà không dùng được thì rơi về ủy quyền thực tế,
+ * và câu trượt nói rõ phải ký lại.
+ */
+async function allowanceCheck(
+  ledger: ILedgerPort,
+  id: 'allowance' | 'wptAllowance',
+  source: AllowanceSource,
+  investorWallet: string,
+  required: bigint,
+): Promise<OrderCheckResult> {
+  const unit = id === 'allowance' ? 'VNDB' : 'WPT';
+  if (source.kind === 'will-sign') {
+    return {
+      id,
+      ok: true,
+      detail: `Sẽ cấp bằng chữ ký ví khi đặt lệnh: cho phép chi đúng ${required} ${unit} cho lệnh này.`,
+    };
+  }
+  if (source.kind === 'signed') {
+    return { id, ok: true, detail: `Đã cấp bằng chữ ký ví vừa kiểm: ${required} ${unit}.` };
+  }
+  if (source.kind === 'stored' && source.permitUsable) {
+    return { id, ok: true, detail: `Chữ ký ủy quyền đã lưu còn hiệu lực: ${required} ${unit}.` };
+  }
+
+  const actual =
+    id === 'allowance'
+      ? await ledger.paymentAllowanceOf(investorWallet)
+      : await ledger.wptAllowanceOf(investorWallet);
+  if (actual >= required) return passed(id);
+
+  const resign = source.kind === 'stored' && source.hasPermit ? ` ${PERMIT_REASONS.storedUnusable}` : '';
+  return failed(
+    id,
+    'INSUFFICIENT_ALLOWANCE',
+    `Ủy quyền ${unit} không đủ: cần ${required}, đã cấp ${actual}. ` +
+      'Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.' +
+      resign,
+    id === 'allowance'
+      ? `Nhà đầu tư xác nhận trong ví của mình cho phép hệ thống trừ tối đa ${required} VNDB. ` +
+          'Đây là bước xác nhận thanh toán, làm một lần trước khi khớp lệnh.'
+      : `Nhà đầu tư xác nhận trong ví cho phép hợp đồng khớp lệnh chuyển tối đa ${required} WPT.`,
+    { actual, required },
+  );
+}
+
+/**
+ * Chữ ký đã lưu của lệnh còn dùng được để quyết toán không (FE-05 QĐ-G): nonce ĐÃ KÝ bằng nonce
+ * hiện tại và còn ít nhất `order.permit_min_remaining_seconds` so với block mới nhất. Lệnh không có
+ * chữ ký (mock, trước FE-05) thì không đọc gì thêm.
+ */
+async function storedPermitState(
+  ledger: ILedgerPort,
+  order: OrderRecord,
+): Promise<{ hasPermit: boolean; permitUsable: boolean }> {
+  if (!order.permit || !isPermitChain(order.chain)) {
+    return { hasPermit: order.permit !== null, permitUsable: false };
+  }
+  const [nonce, latest, window] = await Promise.all([
+    ledger.permitNonce(permitTokenOf(order.side), order.investorWallet),
+    ledger.latestBlockTimestamp(),
+    readOrderPermitWindow(),
+  ]);
+  return {
+    hasPermit: true,
+    permitUsable:
+      order.permit.nonce === nonce &&
+      order.permit.deadline >= latest + BigInt(window.minRemainingSeconds),
+  };
 }
 
 /**
@@ -832,11 +1161,16 @@ async function settleStoredOrder(
   // --- 4. Bốn phép kiểm đọc ----------------------------------------------------
   // Truyền `vndAmount` ĐÃ CHỐT ở lệnh, nên đường này — và chỉ đường này — kiểm thêm
   // "giá đã đổi chưa". Xem trước và đặt lệnh không có giá cũ để so.
+  // FE-05 QĐ-G: chữ ký đã lưu chỉ được dùng khi còn dùng được; không thì rơi về ủy quyền thực tế.
+  const permitState = await storedPermitState(ledger, checking);
   const checks = await runOrderChecks(ledger, {
     side: checking.side,
     investorWallet: checking.investorWallet,
     wptAmount: BigInt(checking.wptAmount),
     quotedVndAmount: BigInt(checking.vndAmount),
+    allowanceSource: isPermitChain(checking.chain)
+      ? { kind: 'stored', ...permitState }
+      : { kind: 'actual' },
   });
   const check = firstFailure(checks.results);
   if (check) {
@@ -873,7 +1207,8 @@ async function settleStoredOrder(
   }
 
   // --- 6..9. Gửi giao dịch, lưu mã, chờ biên nhận -------------------------------
-  return sendAndSettle(txnStore, orderStore, ledger, executing, executorRole, path);
+  const permit = permitState.permitUsable ? executing.permit : null;
+  return sendAndSettle(txnStore, orderStore, ledger, executing, executorRole, path, permit);
 }
 
 /**
@@ -1184,6 +1519,8 @@ async function sendAndSettle(
   order: OrderRecord,
   executorRole: Role,
   path: ExecutionPath,
+  /** Chữ ký đã lưu và còn dùng được (FE-05 QĐ-G); `null` thì khớp bằng ủy quyền thực tế. */
+  permit: OrderPermit | null,
 ): Promise<Result<OrderExecutionView>> {
   const { id, chain, investorWallet } = order;
   const wptAmount = BigInt(order.wptAmount);
@@ -1197,6 +1534,9 @@ async function sendAndSettle(
       investor: investorWallet,
       wptAmount,
       vndAmount: BigInt(order.vndAmount),
+      ...(permit
+        ? { permit: { value: permit.value, deadline: permit.deadline, v: permit.v, r: permit.r, s: permit.s } }
+        : {}),
     };
     pending =
       order.side === 'SELL'

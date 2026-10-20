@@ -7,6 +7,7 @@ async function signPermit(token, owner, spender, value, deadline, signer = owner
   const { chainId } = await ethers.provider.getNetwork();
   const typedData = buildPermitTypedData({
     tokenName: await token.name(),
+    version: (await token.eip712Domain()).version,
     chainId,
     verifyingContract: await token.getAddress(),
     owner: owner.address,

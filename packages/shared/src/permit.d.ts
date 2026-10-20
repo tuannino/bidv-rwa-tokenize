@@ -2,6 +2,8 @@ export type PermitAddress = `0x${string}`;
 
 export interface PermitTypedDataInput {
   tokenName: string;
+  /** Version EIP-712 đọc từ `eip712Domain()` của token. Bắt buộc, thiếu thì ném lỗi. */
+  version: string;
   chainId: number | bigint;
   verifyingContract: PermitAddress;
   owner: PermitAddress;
@@ -14,7 +16,7 @@ export interface PermitTypedDataInput {
 export interface PermitTypedData {
   domain: {
     name: string;
-    version: '1';
+    version: string;
     chainId: number | bigint;
     verifyingContract: PermitAddress;
   };

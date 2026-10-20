@@ -193,6 +193,19 @@ export interface ILedgerPurchase {
   /** Tra dấu quyết toán theo mã lệnh để phục hồi an toàn sau lỗi/timeout. */
   findOrderSettlement(orderId: string): Promise<OrderSettlementLookup>;
   /**
+   * Timestamp của block MỚI NHẤT, đơn vị giây (FE-05 CH-2). EVM đọc block `latest`; mock trả giờ
+   * máy chủ. Thời hạn chữ ký permit tính theo đồng hồ CHUỖI vì hợp đồng so `deadline` với
+   * `block.timestamp`, và Hardhat tua được thời gian còn giờ máy chủ thì không.
+   */
+  latestBlockTimestamp(): Promise<bigint>;
+  /**
+   * Domain EIP-712 THÔ của token qua `eip712Domain()` (ERC-5267), CHƯA kiểm. Tầng nghiệp vụ
+   * (`readPermitDomain`) kiểm khuôn trước khi dựng typed data. Mock và stellar không có permit.
+   */
+  permitDomain(token: PermitToken): Promise<PermitDomain>;
+  /** Nonce permit hiện tại của `owner` trên token (`nonces(owner)`). */
+  permitNonce(token: PermitToken, owner: string): Promise<bigint>;
+  /**
    * Phát hành `amount` VNDB vào ví `to` (BE-16) — CHỈ cho chức năng nạp VNDB của bản trình diễn.
    *
    * Chain thật gọi `VNDToken.mint`, đòi ví ký có vai `MINTER_ROLE`; thiếu vai thì lỗi phải NÊU
@@ -237,6 +250,36 @@ export interface SettlementOrder {
   investor: string;
   wptAmount: bigint;
   vndAmount: bigint;
+  /**
+   * Chữ ký permit đã kiểm của nhà đầu tư (FE-05 QĐ-G). Có thì adapter EVM gọi `buyWithPermit` /
+   * `sellWithPermit`; không có thì `buy` / `sell` (lệnh trước FE-05, dựa vào ủy quyền thực tế).
+   * Mock bỏ qua trường này.
+   */
+  permit?: SettlementPermit;
+}
+
+/** Phần chữ ký mà `OrderSettlement` cần: `value` phải đúng số của lệnh (`PermitValueMismatch`). */
+export interface SettlementPermit {
+  value: bigint;
+  deadline: bigint;
+  v: number;
+  r: `0x${string}`;
+  s: `0x${string}`;
+}
+
+/** Token nhận chữ ký permit: `payment` là VNDB (lệnh mua), `project` là WPT (lệnh bán). */
+export type PermitToken = 'payment' | 'project';
+
+/** Kết quả `eip712Domain()` (ERC-5267) nguyên văn từ chuỗi. */
+export interface PermitDomain {
+  /** Một byte cờ dạng `0x..`; khuôn hỗ trợ là `0x0f` (name, version, chainId, verifyingContract). */
+  fields: `0x${string}`;
+  name: string;
+  version: string;
+  chainId: bigint;
+  verifyingContract: string;
+  salt: `0x${string}`;
+  extensions: readonly bigint[];
 }
 
 export type OrderSettlementLookup =

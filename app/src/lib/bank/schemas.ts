@@ -112,10 +112,34 @@ const orderIntentSchema = z.object({
    * KHÔNG có trường giá: giá lấy từ cấu hình ở cả hai chiều, nhà đầu tư không nhập giá.
    */
   side: z.enum(ORDER_SIDES).default('BUY'),
-});
+})
+  // FE-05 QĐ-F: schema CHẶT. Nguồn ủy quyền của bộ kiểm do máy chủ tự suy ra; client gửi kèm một
+  // trường lạ (kể cả một trường tự đặt kiểu "đã ủy quyền") thì cả yêu cầu bị loại, không lặng lẽ bỏ.
+  .strict();
+
+const decimalUint = z.string().regex(/^\d{1,78}$/, 'Phải là số nguyên không dấu dạng chuỗi thập phân.');
+
+/**
+ * Chữ ký permit trình duyệt gửi kèm lệnh trên chain thật (FE-05 QĐ-A). Ba số là chuỗi thập phân
+ * (bigint không qua được biên máy chủ), chữ ký là 65 byte hex. `token`, `spender` KHÔNG có ở đây:
+ * máy chủ tự suy theo chiều lệnh và address book, không nhận từ trình duyệt.
+ */
+export const orderPermitSchema = z
+  .object({
+    value: decimalUint,
+    deadline: decimalUint,
+    nonce: decimalUint,
+    signature: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{130}$/, 'Chữ ký phải là 0x + 130 ký tự hex (65 byte).'),
+  })
+  .strict();
+
 export const placeOrderSchema = orderIntentSchema.extend({
   /** BE-17 — sinh một lần khi người dùng xác nhận, giữ nguyên qua mọi lần gửi lại. */
   clientRequestId: z.uuid('Mã chống trùng phải là UUID.'),
+  /** FE-05: bắt buộc trên chain thật, cấm trên mock — `placeOrder` kiểm theo chain. */
+  permit: orderPermitSchema.optional(),
 });
 /** `z.input` để form gửi `wptAmount` dạng chuỗi; server nhận `bigint` sau parse. */
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
@@ -131,6 +155,9 @@ export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
  */
 export const previewPurchaseSchema = orderIntentSchema;
 export type PreviewPurchaseInput = z.input<typeof previewPurchaseSchema>;
+
+/** Chuẩn bị chữ ký permit (FE-05 QĐ-A bước 1): đúng bốn trường ý định lệnh, không hơn. */
+export const preparePermitSchema = orderIntentSchema;
 
 /**
  * ID lệnh: UUID, không phải chuỗi tự do.

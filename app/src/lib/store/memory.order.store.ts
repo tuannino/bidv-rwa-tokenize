@@ -5,6 +5,8 @@ import { memoryState } from './memory.state';
 import {
   assertOrderSide,
   assertOrderStatus,
+  decodeOrderPermit,
+  encodeOrderPermit,
   ORDER_SIDES,
   ORDER_STATUS_STAMPS,
   type CompletedSummary,
@@ -117,8 +119,14 @@ export function createMemoryOrderStore(): IOrderStore {
         );
       }
       const now = new Date().toISOString();
+      const id = randomUUID();
+      // Đi qua đúng khuôn JSON của bản Postgres (mã hoá rồi đọc lại), để chữ ký sai khuôn bị từ
+      // chối ở đây y như ở đó, không "xanh ở bộ nhớ, đỏ ở Postgres".
+      const permit = order.permit
+        ? decodeOrderPermit(JSON.parse(JSON.stringify(encodeOrderPermit(order.permit))), id)
+        : null;
       const record: OrderRecord = {
-        id: randomUUID(),
+        id,
         chain: order.chain,
         investorWallet: order.investorWallet,
         clientRequestId,
@@ -133,6 +141,7 @@ export function createMemoryOrderStore(): IOrderStore {
         reconciledAt: null,
         settlingAt: null,
         completedAt: null,
+        permit,
         createdAt: now,
         updatedAt: now,
       };

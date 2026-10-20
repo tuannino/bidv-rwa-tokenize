@@ -509,6 +509,23 @@ export function createMockLedger(
       return MAX_UINT256;
     },
 
+    async latestBlockTimestamp() {
+      // Mock không có block: giờ máy chủ là đồng hồ của nó (FE-05 CH-2).
+      return BigInt(Math.floor(Date.now() / 1000));
+    },
+
+    /**
+     * Mock không có chữ ký permit (FE-05 QĐ-A): đặt lệnh trên mock không hỏi ký. Hai hàm này chỉ
+     * tồn tại để mock đủ cổng; tầng nghiệp vụ chặn mock trước khi tới đây.
+     */
+    async permitDomain() {
+      return reject('permitDomain', 'Chain mock không dùng chữ ký permit; đặt lệnh trên mock không cần ký.');
+    },
+
+    async permitNonce() {
+      return reject('permitNonce', 'Chain mock không dùng chữ ký permit; đặt lệnh trên mock không cần ký.');
+    },
+
     async findOrderSettlement(orderId) {
       orderRefFromOrderId(orderId);
       return read('findOrderSettlement', (s) => {

@@ -16,6 +16,7 @@ import {
 import type { ILedgerPort, SettlementOrder, TxResult } from '@/lib/ledger/ledger.port';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { resetServerEnvCache } from '@/lib/config/env';
+import { placeSignedOrder } from './helpers/permit-signer';
 
 const fault = vi.hoisted(() => ({
   mode: null as
@@ -190,13 +191,13 @@ live('SC-03 — app khớp lệnh và đối soát trên nút Hardhat thật', (
     resetSignerCache();
   });
 
-  async function createOrder(status: 'CHECKING' | 'EXECUTING', amount = 1n) {
+  async function createOrder(status: 'CHECKING' | 'EXECUTING', amount = 1n, side: 'BUY' | 'SELL' = 'BUY') {
     const { getOrderStore } = await import('@/lib/store');
     return getOrderStore().createOrder({
       chain: 'hardhat-local',
       investorWallet: INVESTOR,
       clientRequestId: crypto.randomUUID(),
-      side: 'BUY',
+      side,
       status,
       wptAmount: amount.toString(),
       vndAmount: (amount * PRICE).toString(),
@@ -211,12 +212,10 @@ live('SC-03 — app khớp lệnh và đối soát trên nút Hardhat thật', (
       vaultWpt: await directLedger.balanceOf(vault),
       vaultVndb: await directLedger.paymentBalanceOf(vault),
     };
-    const { placeOrder } = await import('@/lib/bank/purchase.service');
+    // FE-05 QĐ-C: lệnh mới trên chain thật phải kèm chữ ký permit; nút Hardhat ký hộ ví nhà đầu tư.
     actAs('INVESTOR');
-    const buy = await placeOrder({
-      chain: 'hardhat-local',
+    const { result: buy } = await placeSignedOrder(HARDHAT_RPC!, {
       investorWallet: INVESTOR,
-      clientRequestId: crypto.randomUUID(),
       side: 'BUY',
       wptAmount: '100',
     });
@@ -224,10 +223,8 @@ live('SC-03 — app khớp lệnh và đối soát trên nút Hardhat thật', (
     if (!buy.ok) return;
     expect(buy.data.status).toBe('COMPLETED');
 
-    const sale = await placeOrder({
-      chain: 'hardhat-local',
+    const { result: sale } = await placeSignedOrder(HARDHAT_RPC!, {
       investorWallet: INVESTOR,
-      clientRequestId: crypto.randomUUID(),
       side: 'SELL',
       wptAmount: '40',
     });
@@ -240,19 +237,20 @@ live('SC-03 — app khớp lệnh và đối soát trên nút Hardhat thật', (
     );
     expect(await directLedger.balanceOf(vault)).toBe(before.vaultWpt - 60n);
     expect(await directLedger.paymentBalanceOf(vault)).toBe(before.vaultVndb + 60n * PRICE);
+
+    // FE-05 QĐ-H: permit GHI ĐÈ mức ủy quyền rồi lệnh dùng hết, nên ủy quyền approve sẵn ở beforeAll
+    // đã về 0. Các ca R5, R6 phía dưới dựng lệnh kiểu cũ (không chữ ký) cần ủy quyền thực tế: cấp lại.
+    await writeAs(INVESTOR, vndb, ERC20_APPROVE_ABI, 'approve', [settlement, 2_000_000_000n]);
+    await writeAs(INVESTOR, wpt, ERC20_APPROVE_ABI, 'approve', [settlement, 5_000n]);
   });
 
   it('bán thiếu allowance WPT bị chặn ở R4 trước khi gửi', async () => {
+    // FE-05: lệnh mới đã đi qua chữ ký nên không còn thiếu ủy quyền lúc đặt. R4 vẫn giữ cho lệnh
+    // KHÔNG có chữ ký (lệnh trước FE-05) khi quyết toán: ủy quyền thực tế thiếu thì REJECTED, không gửi.
     await writeAs(INVESTOR, wpt, ERC20_APPROVE_ABI, 'approve', [settlement, 0n]);
-    const { placeOrder } = await import('@/lib/bank/purchase.service');
-    actAs('INVESTOR');
-    const result = await placeOrder({
-      chain: 'hardhat-local',
-      investorWallet: INVESTOR,
-      clientRequestId: crypto.randomUUID(),
-      side: 'SELL',
-      wptAmount: '1',
-    });
+    const order = await createOrder('CHECKING', 1n, 'SELL');
+    const { executeOrder } = await import('@/lib/bank/purchase.service');
+    const result = await executeOrder({ chain: 'hardhat-local', orderId: order.id });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe('INSUFFICIENT_ALLOWANCE');
     expect(fault.sendCount).toBe(0);

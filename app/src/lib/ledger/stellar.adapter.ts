@@ -97,6 +97,15 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async findOrderSettlement(): Promise<never> {
       return todoNeeds('findOrderSettlement', 'sự kiện quyết toán và contract khớp lệnh bản Soroban (SC-03)');
     },
+    async latestBlockTimestamp(): Promise<bigint> {
+      return todoNeeds('latestBlockTimestamp', 'đọc ledger mới nhất của Soroban RPC (FE-05)');
+    },
+    async permitDomain(): Promise<never> {
+      return todoNeeds('permitDomain', 'cơ chế ủy quyền bằng chữ ký cho token Soroban (FE-05)');
+    },
+    async permitNonce(): Promise<bigint> {
+      return todoNeeds('permitNonce', 'cơ chế ủy quyền bằng chữ ký cho token Soroban (FE-05)');
+    },
     async mintPayment(): Promise<TxResult> {
       return todoNeeds('mintPayment', 'token thanh toán VNDB bản Soroban và vai phát hành trên token đó');
     },

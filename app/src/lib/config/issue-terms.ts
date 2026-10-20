@@ -140,6 +140,12 @@ export const CONFIG_KEYS = {
    * bằng biến môi trường `ENABLE_DEMO_PAYMENT_MINT`, để người đổi được cấu hình cũng không tự bật.
    */
   demoPaymentMintMaxVnd: 'demo.payment_mint_max_vnd',
+
+  // --- FE-05: chữ ký permit của nhà đầu tư khi đặt lệnh trên chain thật -----------
+  /** Thời hạn chữ ký, tính từ timestamp block mới nhất lúc chuẩn bị. Xem `ORDER_PERMIT_TTL_SECONDS`. */
+  orderPermitTtlSeconds: 'order.permit_ttl_seconds',
+  /** Thời gian còn lại tối thiểu của chữ ký khi đặt lệnh và trước khi gửi. */
+  orderPermitMinRemainingSeconds: 'order.permit_min_remaining_seconds',
 } as const;
 
 /**
@@ -229,6 +235,19 @@ export const DEMO_PAYMENT_QUICK_AMOUNTS = [
   { label: 'Nhà đầu tư mẫu', amountVnd: 500_000_000 },
   { label: 'Ví người bán', amountVnd: DEMO_PAYMENT_MINT_MAX_VND },
 ] as const;
+
+/**
+ * Thời hạn chữ ký permit (FE-05 CH-2), đơn vị giây: 30 phút tính từ timestamp block MỚI NHẤT lúc
+ * chuẩn bị, không theo giờ máy chủ (Hardhat tua được thời gian, giờ máy chủ thì không). Đủ cho
+ * nhà đầu tư đọc hộp xác nhận và ký; ngắn để một chữ ký bị lộ không còn giá trị lâu.
+ */
+export const ORDER_PERMIT_TTL_SECONDS = 1_800;
+
+/**
+ * Thời gian còn lại tối thiểu của chữ ký (FE-05 CH-2), đơn vị giây. Dưới mức này thì từ chối đặt
+ * lệnh hoặc không gửi giao dịch: giao dịch có thể vào block sau khi chữ ký hết hạn.
+ */
+export const ORDER_PERMIT_MIN_REMAINING_SECONDS = 120;
 
 /** Mã token của dự án điện gió duy nhất trong PoC. */
 export const WPT_TOKEN_SYMBOL = 'WPT';
