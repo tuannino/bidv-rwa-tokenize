@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Task | SC-06 (gộp SC-05, CH-4) |
-| Nhánh | `feat/sc-06-chia-loi-nhuan`, từ `dev` @ `725f2c1` (PR #56); làm song song SC-03, **chưa rebase** |
+| Nhánh | `feat/sc-06-chia-loi-nhuan`, làm từ `dev` @ `725f2c1` (PR #56) song song SC-03; **đã rebase lên `dev` @ `bb02cd6`** (PR #57, SC-03) |
 | Spec | `docs/sc-06-chia-loi-nhuan/{requirements,tasks}.md` bản 2.1; DS-01 bản 5 |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Mã và kiểm chứng xong trên nền `725f2c1`; chờ SC-03 merge để rebase, chạy lại và mở PR |
+| Tiến độ | Mã xong; kiểm chứng chạy lại toàn bộ trên nền `bb02cd6` sau rebase; chờ Supervisor nghiệm thu PR |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -20,12 +20,13 @@
 | 4 | Triển khai theo QĐ-J; kiểm chứng chung (ca 21) | ✅ | mục 2, chi tiết kiểm chứng mục 1 đến 11 |
 | 5 | `tech-report.md` mục chia lợi nhuận; DS-01 bản 5 ghi QĐ-13 cập nhật | ✅ | mục 4 |
 
-**Kết luận:** 5 ✅, 0 🔶, 0 ❌. Đạt trên nền `725f2c1`. Sau khi SC-03 merge phải rebase, chạy lại
-bộ kiểm chứng mục 2 và cập nhật checkpoint trước khi mở PR (mục 5).
+**Kết luận:** 5 ✅, 0 🔶, 0 ❌. Đạt trên nền `bb02cd6` (đã gồm SC-03); kết quả trước rebase trên
+`725f2c1` cũng đạt. Rebase và xử lý xung đột ở mục 5.
 
 ### 0.2 Việc cần Owner quyết/chạy
 
-- Không có việc cần quyết. Việc chạy: báo khi SC-03 merge để Em rebase và mở PR (mục 5).
+- Không có việc cần quyết. Việc chạy: Supervisor nghiệm thu PR; khi nghiệm thu chuyển `SC-06` và
+  `SC-05` sang `done` trong `.kiro/task-status.json` (mục 3.2).
 
 ---
 
@@ -66,22 +67,29 @@ thái có điều kiện ở cả bộ nhớ và Postgres; `ADDED_COLUMNS` cho c
 | 15a đến d, 17, 18, 19, 20 (mock) | `app/test/sc-06-distribution-flow.test.ts` (13 ca) |
 | 21 | chi tiết kiểm chứng mục 1 đến 11 và 13 (bộ mặc định cuối task: 7 PASS, 0 FAIL) |
 
-Số đo chính (đầu ra nguyên văn ở chi tiết kiểm chứng): hợp đồng 141 passing (nền 132, +9 ca mới, đổi
-tên 4 ca cũ); job A 872 đạt, 33 bỏ qua, 6 phần đạt, artifacts phục hồi; job C 4 PASS, E2E hardhat 16
-đạt; nút thật `evm-issuance` 13 đạt và `sc-06-distribution-evm` + `vault` 16 đạt;
-`verify-deployment` "BẢN DEPLOY HỢP LỆ" với `totalReserved = 0`; Postgres thật 223 đạt; không còn
-điểm chặn SC-05; quét bí mật sạch.
+Số đo chính sau rebase (đầu ra nguyên văn ở chi tiết kiểm chứng): hợp đồng 156 passing (nền
+`bb02cd6` 147, +9 ca mới, đổi tên 4 ca cũ); job A 887 đạt, 43 bỏ qua, 6 phần đạt, artifacts phục
+hồi; job C 4 PASS, E2E hardhat 16 đạt; `verify-deployment` "BẢN DEPLOY HỢP LỆ" với
+`totalReserved = 0` và `OrderSettlement` nối đúng; nút thật chạy từng tệp: `evm-issuance` 13,
+`vault` 6, `evm-order-settlement` (SC-03) 10, `sc-06-distribution-evm` 10 đều đạt; Postgres thật
+224 đạt cho bốn tệp lưu trữ và luồng, toàn bộ vitest trên Postgres 964 đạt, 36 bỏ qua; không còn
+điểm chặn SC-05; quét bí mật sạch. Lần chạy gộp ba tệp nút thật trong một lệnh bị đỏ 2 ca do các
+tệp chạy song song trên cùng chuỗi (mục 3.3).
 
 ```text
-$ git diff --unified=0 725f2c1 -- packages/contracts-evm/test | grep -E "^\+\s*it\(" | wc -l
+$ git diff --unified=0 bb02cd6 -- packages/contracts-evm/test | grep -E "^\+\s*it\(" | wc -l
 13
-$ git diff --unified=0 725f2c1 -- packages/contracts-evm/test | grep -E "^-\s*it\(" | wc -l
+$ git diff --unified=0 bb02cd6 -- packages/contracts-evm/test | grep -E "^-\s*it\(" | wc -l
 4
-$ git grep -c "@blocked SC-05" 725f2c1 -- app/src
-725f2c1:app/src/lib/ledger/evm.adapter.ts:1
+$ git grep -c "@blocked SC-05" bb02cd6 -- app/src
+bb02cd6:app/src/lib/ledger/evm.adapter.ts:1
+$ git diff --stat 725f2c1 bb02cd6 -- packages/contracts-evm/contracts/ProfitDistributor.sol packages/contracts-evm/test/sc-06-chia-loi-nhuan.test.js | wc -l
+0
 ```
 
-13 dòng `it(` thêm trừ 4 dòng đổi tên = 9 ca mới; 132 + 9 = 141.
+13 dòng `it(` thêm trừ 4 dòng đổi tên = 9 ca mới; 147 + 9 = 156. SC-03 không sửa
+`ProfitDistributor.sol` hay tệp test SC-06, nên kết quả đột biến 11a đến 11g (chạy trước rebase) vẫn
+áp dụng nguyên.
 
 ## 3. Sai lệch, lựa chọn khi làm và ca cũ phải sửa
 
@@ -122,28 +130,34 @@ dựng sẵn); Playwright cần liên kết `chromium_headless_shell-1243` sang 
 Lần chạy job C đầu đỏ vì thiếu trình duyệt, lần job A thứ hai đỏ vì sơ đồ `distribute` lệch số dòng
 sau một lần sửa mã; đã sinh lại và chạy lại toàn bộ, kết quả trong chi tiết kiểm chứng là lần cuối.
 
+Sau rebase, lần đầu chạy `sc-06-distribution-evm`, `vault` và `evm-order-settlement` trong MỘT lệnh
+vitest bị đỏ 2 ca: vitest chạy các tệp song song trên cùng nút, ca SC-06 chuyển 600 WPT cho đúng ví
+nhà đầu tư mà ca SC-03 đang đo (660 thay 60) và chia VNDB vào vault giữa lúc ca vault đo (10.000.000
+thay 0). Checkpoint SC-03 và SC-07 đều chạy từng tệp một lệnh; chạy lại như vậy trên chuỗi dựng mới
+thì cả bốn tệp đạt (chi tiết kiểm chứng mục 7 đến 7f, giữ cả lần đỏ). Các tệp test nút thật chia sẻ
+trạng thái chuỗi nên phải chạy lần lượt.
+
 ## 4. Tài liệu
 
-`docs/tech-report.md` bản 4.17: đầu trang, đoạn tóm tắt SC-06, bảng cổng 3.1 (42 method), hợp đồng
+`docs/tech-report.md` bản 4.18 (SC-03 là 4.17): đầu trang, đoạn tóm tắt SC-06, bảng cổng 3.1 (44 method gồm cả SC-03, số dòng tệp ledger cập nhật sau rebase), hợp đồng
 3.8, tham số 3.13 (mốc chỉ còn hiển thị), BE-07 3.14, **mục mới 3.24**, luồng 4.5, nợ P1, lộ trình
 P3; mục điểm cắm và sơ đồ `distribute`, `purchase` sinh lại bằng công cụ. `docs/ds-01-kien-truc-hop-dong/design.md`
 bản 5 (mục 10, QĐ-27 đến QĐ-31, QĐ-13 cập nhật). `packages/contracts-evm/README.md`: bảng hợp đồng,
-số ca 141, cách dùng `distribution-admin.js`, cảnh báo không dùng `vault-admin.js close-period` khi
+số ca 156, cách dùng `distribution-admin.js`, cảnh báo không dùng `vault-admin.js close-period` khi
 luồng tự động chạy.
 
-## 5. Phối hợp với SC-03 (rebase sau khi SC-03 merge)
+## 5. Phối hợp với SC-03 (đã rebase)
 
-Chưa có nhánh SC-03 trên remote, nên điểm xung đột dưới đây dò theo phạm vi spec SC-03 bản 2.2.
+SC-03 merge vào `dev` ở `bb02cd6` (PR #57). Nhánh rebase lên đó; xung đột thực tế và cách xử lý:
 
-| Tệp | Khả năng | Cách xử lý |
+| Tệp | Xung đột thực tế | Cách xử lý |
 |---|---|---|
-| `ledger.port.ts` | thấp: SC-06 sửa nhóm vault, nhóm 5, `LedgerError`; SC-03 sửa nhóm khớp lệnh | giữ cả hai |
-| `evm.adapter.ts` | vừa: khối import ABI và kiểu, `REVERT_MESSAGES` (SC-06 thêm ở mục ProfitDistributor) | giữ cả hai |
-| `mock.adapter.ts`, `mock-state.store.ts` | cao: cả hai thêm trường vào trạng thái mock và mã hoá/giải mã | giữ cả hai trường; chạy lại ca chuyển đổi mock cũ |
-| `stellar.adapter.ts`, `ledger/index.ts` | thấp | giữ cả hai |
-| `verify-deployment.js` | thấp: SC-06 ở mục 4, SC-03 thêm mục OrderSettlement | giữ cả hai |
-| `docs/flows/purchase.md`, `distribute.md`, mục điểm cắm tech-report | chắc chắn (tệp sinh) | sinh lại bằng `gen-flow-diagram.mjs` và `scan-pending.mjs --write-report` |
-| `docs/tech-report.md`, `.kiro/task-status.json` | cao (đầu trang, bảng 3.1, nợ P1) | gộp tay |
+| `ledger.port.ts`, `stellar.adapter.ts`, `ledger/index.ts`, `verify-deployment.js` | không | tự gộp |
+| `evm.adapter.ts` | khối import ABI | giữ cả hai: `orderRefFromOrderId, orderSettlementAbi, profitDistributorAbi` |
+| `mock.adapter.ts`, `mock-state.store.ts` | không (tự gộp) | trường lệnh đã quyết toán của SC-03 và `distributionLedger` của SC-06 cùng tồn tại; ca chuyển đổi mock cũ (ca 13) và `mock-ledger-state-store` đạt |
+| `packages/contracts-evm/README.md` | bảng hợp đồng, số ca | giữ cả hai dòng; số ca 156 khớp `npx hardhat test` |
+| `docs/flows/purchase.md`, mục điểm cắm tech-report | có (tệp sinh) | sinh lại bằng `gen-flow-diagram.mjs` và `scan-pending.mjs --write-report`; `--check` đạt |
+| `docs/tech-report.md` | đầu trang, nợ P1, bảng 3.1, lộ trình P3 | gộp tay, bản 4.18 |
 
-Sau rebase: chạy lại toàn bộ mục 2 (gồm job C, vì SC-03 thêm hợp đồng thứ chín vào hardhat-local),
-cập nhật checkpoint, đẩy nhánh và mở PR vào `dev`.
+Sau rebase đã chạy lại toàn bộ mục 2 (gồm job C với hợp đồng thứ chín `OrderSettlement` và test nút
+thật của SC-03); kết quả ở chi tiết kiểm chứng.
