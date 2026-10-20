@@ -21,7 +21,7 @@ import {
  *   1. R4.2 — không có trạng thái "đã trả tiền chưa nhận token". Sai chỗ này là mô tả
  *      sai bản chất nguyên khối của giao dịch, kéo theo mã đối soát cho tình huống
  *      không tồn tại.
- *   2. R4.1 — một chiều. Cho quay lui là phá cơ chế chống gửi giao dịch hai lần.
+ *   2. R4.1 — một chiều, trừ đúng cạnh phục hồi SC-03 có khóa chống trùng on-chain.
  *   3. R4.3 — chuyển sai bị từ chối. Hở chỗ này thì một lệnh COMPLETED có thể bị đẩy
  *      lại vào EXECUTING và gửi giao dịch lần hai.
  */
@@ -30,7 +30,7 @@ import {
 const EXPECTED_TRANSITIONS: Record<string, readonly string[]> = {
   PLACED: ['CHECKING', 'EXPIRED'],
   CHECKING: ['EXECUTING', 'REJECTED'],
-  EXECUTING: ['COMPLETED', 'FAILED'],
+  EXECUTING: ['COMPLETED', 'FAILED', 'CHECKING'],
   COMPLETED: [],
   REJECTED: [],
   FAILED: [],
@@ -89,9 +89,10 @@ describe('bảng chuyển tiếp khớp design.md mục 1', () => {
 });
 
 describe('R4.1 — một chiều, không quay lui', () => {
-  it('mọi chuyển tiếp hợp lệ đều tăng thứ hạng', () => {
+  it('mọi chuyển tiếp hợp lệ đều tăng thứ hạng, trừ đúng cạnh phục hồi EXECUTING -> CHECKING', () => {
     for (const from of ORDER_STATUSES) {
       for (const to of ORDER_TRANSITIONS[from]) {
+        if (from === 'EXECUTING' && to === 'CHECKING') continue;
         expect(orderRank(to), `${from} -> ${to} phải tiến lên`).toBeGreaterThan(orderRank(from));
       }
     }
@@ -113,7 +114,7 @@ describe('R4.1 — một chiều, không quay lui', () => {
 });
 
 describe('R4.3 — canTransitionOrder', () => {
-  it('cho qua đúng 6 cặp hợp lệ', () => {
+  it('cho qua đúng 7 cặp hợp lệ', () => {
     const valid: ReadonlyArray<[OrderStatus, OrderStatus]> = [
       ['PLACED', 'CHECKING'],
       ['PLACED', 'EXPIRED'],
@@ -121,11 +122,12 @@ describe('R4.3 — canTransitionOrder', () => {
       ['CHECKING', 'REJECTED'],
       ['EXECUTING', 'COMPLETED'],
       ['EXECUTING', 'FAILED'],
+      ['EXECUTING', 'CHECKING'],
     ];
     for (const [from, to] of valid) {
       expect(canTransitionOrder(from, to), `${from} -> ${to}`).toBe(true);
     }
-    // 7 trạng thái => 49 cặp; đúng 6 cặp hợp lệ, 43 cặp còn lại phải bị từ chối.
+    // 7 trạng thái => 49 cặp; đúng 7 cặp hợp lệ, 42 cặp còn lại phải bị từ chối.
     const total = ORDER_STATUSES.flatMap((from) =>
       ORDER_STATUSES.map((to) => canTransitionOrder(from, to)),
     ).filter(Boolean).length;

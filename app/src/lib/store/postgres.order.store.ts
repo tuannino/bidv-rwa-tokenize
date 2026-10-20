@@ -139,6 +139,7 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
         sets.push(`"reason" = $${params.length}`);
       }
       params.push(from);
+      const emptyTxCondition = transition.requireEmptyTxHash ? ' AND "txHash" IS NULL' : '';
 
       // Điều kiện trạng thái nằm TRONG câu UPDATE: cơ sở dữ liệu làm trọng tài, nên hai
       // tiến trình cùng chạy chỉ một bên đổi được. Đọc rồi ghi thành hai bước thì cả hai
@@ -146,7 +147,7 @@ export function createPostgresOrderStore(query: PgQuery = pgQuery): IOrderStore 
       const rows = await mapPgConstraintError(() =>
         query<OrderRow>(
           `UPDATE "PurchaseOrder" SET ${sets.join(', ')}
-            WHERE "id" = $1 AND "status" = ANY($${params.length}::text[])
+            WHERE "id" = $1 AND "status" = ANY($${params.length}::text[])${emptyTxCondition}
             RETURNING *`,
           params,
         ),

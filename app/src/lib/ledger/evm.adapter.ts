@@ -20,6 +20,8 @@ import {
   getContractAddress,
   identityRegistryAbi,
   modularComplianceAbi,
+  orderRefFromOrderId,
+  orderSettlementAbi,
   projectTokenAbi,
   spvPaymentVaultAbi,
   VIETNAM_COUNTRY_CODE,
@@ -28,6 +30,7 @@ import {
   type ContractName,
 } from '@bidv/shared';
 import { rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
+import { serverEnv } from '@/lib/config/env';
 import type { ISigner } from '@/lib/signer';
 import { normalizeEvmAddress } from './address';
 import {
@@ -53,11 +56,10 @@ import {
  * và KHÔNG tốn một tx thất bại on-chain — khớp requirements AC#2.
  *
  * ----------------------------------------------------------------------------
- * NỢ CÓ CHỦ ĐÍCH — 10 method chưa nối được
+ * NỢ CÓ CHỦ ĐÍCH — các method còn marker @blocked
  *
- * `ILedgerPort` mô tả ba luồng đã chốt, nhưng hợp đồng cho hai luồng khớp lệnh và
- * tất toán CHƯA có trên `dev`. Theo `docs/be-01-ledger-port/design.md` mục 5,
- * những method đó ném `LedgerNotImplementedError` kèm gợi ý nêu rõ thứ còn thiếu,
+ * Khớp lệnh đã nối vào OrderSettlement ở SC-03. Những method chia lợi nhuận/tất toán
+ * còn thiếu quyết định hợp đồng tiếp tục ném `LedgerNotImplementedError` kèm gợi ý rõ,
  * thay vì nối tạm vào một contract có ngữ nghĩa gần gần.
  *
  * Mỗi method như vậy có một marker điểm chặn ở ngay trên khai báo của nó, nêu đúng task
@@ -117,7 +119,7 @@ const REVERT_MESSAGES: Record<string, string> = {
     'Ví ký giao dịch không có quyền on-chain cho thao tác này (thiếu role).',
   ERC20InsufficientBalance: 'Số dư token không đủ cho thao tác này.',
   ERC20InsufficientAllowance:
-    'Mức ủy quyền token không đủ — chủ ví phải approve cho hợp đồng trước.',
+    'Mức ủy quyền VNDB/WPT của ví nhà đầu tư không đủ — chủ ví phải approve cho OrderSettlement trước.',
   ERC20InvalidReceiver: 'Địa chỉ nhận không hợp lệ.',
 
   // --- ProjectToken: phát hành theo ví SPV (SC-02) ---
@@ -145,6 +147,9 @@ const REVERT_MESSAGES: Record<string, string> = {
   PayoutWalletNotSet: 'Vault chưa cấu hình ví nhận tiền rút.',
   PayoutWalletNotVerified: 'Ví nhận tiền rút chưa được xác minh trong sổ danh tính.',
   ExceedsWithdrawable: 'Số tiền rút vượt phần VNDB hiện được phép rút.',
+  PriceMismatch: 'Thành tiền VNDB đã chốt không khớp số lượng WPT nhân giá hiện hành trên hợp đồng.',
+  PermitValueMismatch: 'Giá trị permit phải bằng đúng số token của lệnh.',
+  EnforcedPause: 'Hợp đồng khớp lệnh đang tạm dừng.',
 };
 
 function translateRevert(raw: string): string {
@@ -295,7 +300,12 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           reverted.data?.errorName ??
           reverted.signature ??
           reverted.shortMessage;
-        const translated = translateRevert(raw);
+        const translated =
+          raw === 'ERC20InsufficientAllowance' &&
+          (operation === 'executePurchase' || operation === 'executeSale')
+            ? `Mức ủy quyền ${operation === 'executePurchase' ? 'VNDB' : 'WPT'} không đủ; ` +
+              `ví nhà đầu tư phải approve cho OrderSettlement (${addressOf('OrderSettlement')}).`
+            : translateRevert(raw);
         const message = sc02Operations.has(operation)
           ? `ProjectToken (${addressOf('ProjectToken')}) từ chối ${operation}. ` +
             `Nguyên nhân: ${translated} Cách xử lý: ${sc02Action(raw)}`
@@ -560,10 +570,10 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     // =========================================================================
     //  KHỚP LỆNH MUA
     // =========================================================================
-    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: giá bán một WPT nằm trong hợp đồng đó, chưa contract nào giữ */
     async quotePurchase(wptAmount) {
       assertPositiveAmount(chain, 'quotePurchase', wptAmount);
-      return pendingContract('quotePurchase', 'hợp đồng khớp lệnh (SC-03)');
+      const price = await readOn<bigint>('quotePurchase', 'OrderSettlement', orderSettlementAbi, 'price', []);
+      return wptAmount * price;
     },
 
     /**
@@ -572,11 +582,10 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
      * khác thì giá báo cho nhà đầu tư và giá thật sự trừ là hai con số, tức là dựng lại chính
      * lỗi mà `setPurchasePrice` được thêm vào để dẹp — nhưng lần này có vẻ "đã xong".
      *
-     * @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa contract nào giữ giá bán một WPT nên không có hàm ghi nào để gọi
      */
     async setPurchasePrice(pricePerWpt) {
       assertPositiveAmount(chain, 'setPurchasePrice', pricePerWpt);
-      return pendingContract('setPurchasePrice', 'hợp đồng khớp lệnh (SC-03)');
+      return writeOn('setPurchasePrice', 'OrderSettlement', orderSettlementAbi, 'setPrice', [pricePerWpt]);
     },
 
     /** Đọc được ngay: VNDToken đã deploy, địa chỉ có trong packages/shared. */
@@ -591,10 +600,67 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
      * chỉ hợp đồng khớp lệnh — chưa tồn tại. Truyền một địa chỉ khác vào sẽ trả về
      * một con số có vẻ hợp lệ nhưng vô nghĩa, tệ hơn là báo lỗi.
      *
-     * @blocked SC-03 | thiếu địa chỉ hợp đồng khớp lệnh để làm `spender`; `VNDToken.allowance` thì đã có trong ABI
      */
-    async paymentAllowanceOf() {
-      return pendingContract('paymentAllowanceOf', 'địa chỉ hợp đồng khớp lệnh (SC-03)');
+    async paymentAllowanceOf(owner) {
+      return readOn<bigint>('paymentAllowanceOf', 'VNDToken', vndTokenAbi, 'allowance', [
+        normalizeEvmAddress(owner),
+        addressOf('OrderSettlement'),
+      ]);
+    },
+
+    async wptAllowanceOf(owner) {
+      return read<bigint>('wptAllowanceOf', 'allowance', [
+        normalizeEvmAddress(owner),
+        addressOf('OrderSettlement'),
+      ]);
+    },
+
+    async findOrderSettlement(orderId) {
+      const orderRef = orderRefFromOrderId(orderId);
+      const settled = await readOn<boolean>(
+        'findOrderSettlement',
+        'SpvPaymentVault',
+        spvPaymentVaultAbi,
+        'isOrderSettled',
+        [orderRef],
+      );
+      if (!settled) return { status: 'NOT_SETTLED' as const };
+
+      const deployBlock = addressBook[chain]?.deployBlock;
+      if (deployBlock === undefined) {
+        throw new LedgerError(
+          chain,
+          'findOrderSettlement',
+          'Thiếu block triển khai trong address book; không thể tìm sự kiện OrderSettled an toàn.',
+        );
+      }
+      try {
+        const lower = BigInt(deployBlock);
+        const chunk = BigInt(serverEnv().orderSettlementEventBlockChunk);
+        let toBlock = await reader().getBlockNumber();
+        while (toBlock >= lower) {
+          const fromBlock = toBlock - lower + 1n > chunk ? toBlock - chunk + 1n : lower;
+          const logs = (await reader().getContractEvents({
+            address: addressOf('SpvPaymentVault'),
+            abi: spvPaymentVaultAbi as Abi,
+            eventName: 'OrderSettled',
+            args: { orderRef } as never,
+            fromBlock,
+            toBlock,
+          })) as Array<{ transactionHash: Hex; blockNumber: bigint; logIndex: number }>;
+          if (logs.length > 0) {
+            const found = logs.sort(
+              (left, right) => Number(right.blockNumber - left.blockNumber) || right.logIndex - left.logIndex,
+            )[0];
+            return { status: 'SETTLED' as const, txHash: found.transactionHash, blockNumber: found.blockNumber };
+          }
+          if (fromBlock === lower) break;
+          toBlock = fromBlock - 1n;
+        }
+        return { status: 'SETTLED_TX_UNKNOWN' as const };
+      } catch (error) {
+        return fail('findOrderSettlement', error);
+      }
     },
 
     /**
@@ -630,16 +696,24 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       );
     },
 
-    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa có nơi đổi VNDB lấy WPT trong cùng một giao dịch */
-    async executePurchase(investor, wptAmount) {
-      assertPositiveAmount(chain, 'executePurchase', wptAmount);
-      return pendingContract('executePurchase', 'hợp đồng khớp lệnh (SC-03)');
+    async executePurchase(order) {
+      assertPositiveAmount(chain, 'executePurchase', order.wptAmount);
+      return writeOn('executePurchase', 'OrderSettlement', orderSettlementAbi, 'buy', [
+        orderRefFromOrderId(order.orderId),
+        normalizeEvmAddress(order.investor),
+        order.wptAmount,
+        order.vndAmount,
+      ]);
     },
 
-    /** @blocked SC-03 | thiếu hợp đồng khớp lệnh: chưa có nơi đổi WPT lấy VNDB trong cùng một giao dịch (chiều bán, BE-14) */
-    async executeSale(investor, wptAmount) {
-      assertPositiveAmount(chain, 'executeSale', wptAmount);
-      return pendingContract('executeSale', 'hợp đồng khớp lệnh (SC-03)');
+    async executeSale(order) {
+      assertPositiveAmount(chain, 'executeSale', order.wptAmount);
+      return writeOn('executeSale', 'OrderSettlement', orderSettlementAbi, 'sell', [
+        orderRefFromOrderId(order.orderId),
+        normalizeEvmAddress(order.investor),
+        order.wptAmount,
+        order.vndAmount,
+      ]);
     },
 
     // =========================================================================

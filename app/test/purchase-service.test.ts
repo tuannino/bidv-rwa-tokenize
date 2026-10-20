@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
-import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
+import type { ILedgerPort, SettlementOrder, TxResult } from '@/lib/ledger/ledger.port';
+import { settlementOrder } from './helpers/settlement-order';
 
 /**
  * Nghiệp vụ lệnh mua WPT — chín ca ở `tasks.md` bước 7.
@@ -23,8 +24,16 @@ import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
  */
 
 const fault = vi.hoisted(() => ({
-  /** `throw`: ném lỗi ledger khi gửi. `receipt-failed`: gửi được nhưng biên nhận FAILED. */
-  mode: null as null | 'throw' | 'receipt-failed' | 'balance-drops-before-auto-settle',
+  /** Các lỗi cố ý để kiểm cửa đối soát R5 ở mọi giai đoạn gửi/chờ. */
+  mode: null as
+    | null
+    | 'throw'
+    | 'throw-after-settle'
+    | 'receipt-failed'
+    | 'receipt-throws-after-settle'
+    | 'settled-tx-unknown'
+    | 'settlement-lookup-throws'
+    | 'balance-drops-before-auto-settle',
   /** Đếm số lần `executePurchase` thực sự được gọi — chốt của ca 7.7. */
   sendCount: 0,
   paymentBalanceReads: 0,
@@ -44,9 +53,13 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
           fault.paymentBalanceReads += 1;
           return fault.paymentBalanceReads === 1 ? balance : 0n;
         },
-        async executePurchase(investor: string, wptAmount: bigint): Promise<TxResult> {
+        async executePurchase(order: SettlementOrder): Promise<TxResult> {
           fault.sendCount += 1;
-          if (fault.mode === 'throw') {
+          if (
+            fault.mode === 'throw' ||
+            fault.mode === 'settled-tx-unknown' ||
+            fault.mode === 'settlement-lookup-throws'
+          ) {
             throw new actual.LedgerError(
               real.chain,
               'executePurchase',
@@ -57,10 +70,14 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
             // Gửi được: có mã giao dịch thật, nhưng chuỗi sẽ trả về FAILED.
             return { txHash: `0x${'f'.repeat(64)}`, status: 'PENDING' };
           }
-          return real.executePurchase(investor, wptAmount);
+          if (fault.mode === 'throw-after-settle') {
+            await real.executePurchase(order);
+            throw new Error('RPC mất phản hồi sau khi giao dịch đã được ghi vào block.');
+          }
+          return real.executePurchase(order);
         },
         // BE-14 — cùng kịch bản hỏng cho chiều bán, cùng bộ đếm số lần gửi.
-        async executeSale(investor: string, wptAmount: bigint): Promise<TxResult> {
+        async executeSale(order: SettlementOrder): Promise<TxResult> {
           fault.sendCount += 1;
           if (fault.mode === 'throw') {
             throw new actual.LedgerError(
@@ -72,13 +89,21 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
           if (fault.mode === 'receipt-failed') {
             return { txHash: `0x${'e'.repeat(64)}`, status: 'PENDING' };
           }
-          return real.executeSale(investor, wptAmount);
+          return real.executeSale(order);
         },
         async waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult> {
+          if (fault.mode === 'receipt-throws-after-settle') {
+            throw new Error('Hết thời gian chờ biên nhận.');
+          }
           if (fault.mode === 'receipt-failed') {
             return { txHash, status: 'FAILED', reason: 'Giao dịch bị revert on-chain.' };
           }
           return real.waitReceipt(txHash, timeoutMs);
+        },
+        async findOrderSettlement(orderId: string) {
+          if (fault.mode === 'settled-tx-unknown') return { status: 'SETTLED_TX_UNKNOWN' } as const;
+          if (fault.mode === 'settlement-lookup-throws') throw new Error('RPC tra sự kiện tạm thời lỗi.');
+          return real.findOrderSettlement(orderId);
         },
       };
     },
@@ -967,6 +992,45 @@ describe('7.6 — khớp lệnh thất bại', () => {
 });
 
 // =============================================================================
+//  SC-03 R5 — SỰ THẬT TRÊN CHUỖI THẮNG LỖI CỤC BỘ
+// =============================================================================
+describe('SC-03 R5 — tra chuỗi trước khi ghi FAILED/REJECTED', () => {
+  it.each([
+    ['lỗi trả về sau khi gửi', 'throw-after-settle'],
+    ['hết thời gian chờ biên nhận', 'receipt-throws-after-settle'],
+  ] as const)('%s: lệnh đã settle được chốt COMPLETED với mã giao dịch gốc', async (_name, mode) => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('3');
+    fault.mode = mode;
+
+    const result = await executeOrder({ chain: CHAIN, orderId });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('COMPLETED');
+    expect((await getOrderStore().findOrder(orderId))?.txHash).toBe(result.data.txHash);
+    expect((await getStore().findTxnByHash(CHAIN, result.data.txHash))?.status).toBe('CONFIRMED');
+    const audit = await getStore().listAudit({ limit: 30 });
+    expect(audit.find((entry) => entry.outcome === 'SUCCESS')?.detail).toContain('đối soát từ chuỗi');
+  });
+
+  it.each([
+    ['đã settle nhưng chưa tìm thấy event', 'settled-tx-unknown', /đã quyết toán trên chuỗi.*chưa tìm thấy mã/i],
+    ['RPC tra cứu lỗi', 'settlement-lookup-throws', /không tra được trạng thái quyết toán/i],
+  ] as const)('%s: giữ nguyên EXECUTING, tuyệt đối không ghi FAILED', async (_name, mode, message) => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('3');
+    fault.mode = mode;
+
+    const result = await executeOrder({ chain: CHAIN, orderId });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(message);
+    expect((await getOrderStore().findOrder(orderId))?.status).toBe('EXECUTING');
+  });
+});
+
+// =============================================================================
 //  7.7 — CHỈ GỬI MỘT GIAO DỊCH
 // =============================================================================
 describe('7.7 — một lệnh chỉ gửi đúng một giao dịch', () => {
@@ -1059,7 +1123,9 @@ describe('BE-17 — can thiệp lệnh kẹt', () => {
       vndAmount: (2n * PRICE).toString(),
       actorRole: 'INVESTOR',
     });
-    const sent = await ledger.executePurchase(ALICE, 2n);
+    const sent = await ledger.executePurchase(
+      await settlementOrder(ledger, ALICE, 2n, { orderId: order.id }),
+    );
     await getOrderStore().attachOrderTxHash({ id: order.id, txHash: sent.txHash });
     fault.sendCount = 0;
     actAs('TELLER');
@@ -1072,7 +1138,7 @@ describe('BE-17 — can thiệp lệnh kẹt', () => {
     expect((await getStore().findTxnByHash(CHAIN, sent.txHash))?.status).toBe('CONFIRMED');
   });
 
-  it('EXECUTING chưa có mã dừng để đối soát tay và không phát giao dịch', async () => {
+  it('EXECUTING chưa có mã, chain chống trùng thấy chưa quyết toán thì phục hồi và phát đúng một giao dịch', async () => {
     await seedReadyToBuy();
     const order = await getOrderStore().createOrder({
       chain: CHAIN,
@@ -1088,11 +1154,84 @@ describe('BE-17 — can thiệp lệnh kẹt', () => {
 
     const result = await executeOrder({ chain: CHAIN, orderId: order.id });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/Cần đối soát tay.*không gửi lại/i);
+    expect(result.ok).toBe(true);
+    expect(fault.sendCount).toBe(1);
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('COMPLETED');
+    expect((await getOrderStore().findOrder(order.id))?.txHash).not.toBeNull();
+  });
+
+  it('EXECUTING mất mã nhưng orderRef đã quyết toán thì chốt từ chuỗi, không phát lại', async () => {
+    const ledger = await seedReadyToBuy();
+    const order = await getOrderStore().createOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      clientRequestId: crypto.randomUUID(),
+      side: 'BUY',
+      status: 'EXECUTING',
+      wptAmount: '2',
+      vndAmount: (2n * PRICE).toString(),
+      actorRole: 'INVESTOR',
+    });
+    const original = await ledger.executePurchase(
+      await settlementOrder(ledger, ALICE, 2n, { orderId: order.id }),
+    );
+    fault.sendCount = 0;
+    actAs('TELLER');
+
+    const result = await executeOrder({ chain: CHAIN, orderId: order.id });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.txHash).toBe(original.txHash);
     expect(fault.sendCount).toBe(0);
-    expect((await getOrderStore().findOrder(order.id))?.status).toBe('EXECUTING');
-    expect((await getOrderStore().findOrder(order.id))?.txHash).toBeNull();
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('COMPLETED');
+  });
+
+  it('hai lần phục hồi EXECUTING mất mã chạy song song chỉ phát một giao dịch', async () => {
+    await seedReadyToBuy();
+    const order = await getOrderStore().createOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      clientRequestId: crypto.randomUUID(),
+      side: 'BUY',
+      status: 'EXECUTING',
+      wptAmount: '2',
+      vndAmount: (2n * PRICE).toString(),
+      actorRole: 'INVESTOR',
+    });
+    actAs('TELLER');
+
+    const results = await Promise.all([
+      executeOrder({ chain: CHAIN, orderId: order.id }),
+      executeOrder({ chain: CHAIN, orderId: order.id }),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(fault.sendCount).toBe(1);
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('COMPLETED');
+  });
+
+  it('giá đổi trước lúc phục hồi: chạy lại bộ kiểm, REJECTED và không gửi', async () => {
+    const ledger = await seedReadyToBuy();
+    const order = await getOrderStore().createOrder({
+      chain: CHAIN,
+      investorWallet: ALICE,
+      clientRequestId: crypto.randomUUID(),
+      side: 'BUY',
+      status: 'EXECUTING',
+      wptAmount: '2',
+      vndAmount: (2n * PRICE).toString(),
+      actorRole: 'INVESTOR',
+    });
+    await ledger.setPurchasePrice(PRICE * 2n);
+    actAs('TELLER');
+
+    const result = await executeOrder({ chain: CHAIN, orderId: order.id });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('PRICE_CHANGED');
+    expect(fault.sendCount).toBe(0);
+    expect((await getOrderStore().findOrder(order.id))?.status).toBe('REJECTED');
   });
 
   it('audit phân biệt rõ tự động và can thiệp tay', async () => {
@@ -1381,7 +1520,12 @@ describe('BE-14 ca 1 — bán thành công', () => {
     expect(preview.data.side).toBe('SELL');
     expect(preview.data.vndAmount).toBe((3n * PRICE).toString());
     expect(preview.data.canPlaceOrder).toBe(true);
-    expect(preview.data.checks.map((c) => c.id)).toEqual(['holding', 'sellerLiquidity', 'transferable']);
+    expect(preview.data.checks.map((c) => c.id)).toEqual([
+      'holding',
+      'wptAllowance',
+      'sellerLiquidity',
+      'transferable',
+    ]);
   });
 });
 

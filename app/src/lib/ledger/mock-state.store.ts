@@ -22,6 +22,11 @@ export interface MockLedgerState {
   priceHydrated: boolean;
   paymentBalances: Map<string, bigint>;
   paymentAllowances: Map<string, bigint>;
+  /**
+   * Mã lệnh -> mã giao dịch giả. Với Postgres, trường này nằm trong cùng một dòng JSONB
+   * của chain nên mỗi lần ghi sẽ ghi lại cả khối; chấp nhận được ở quy mô bản trình diễn.
+   */
+  settledOrders: Map<string, string>;
   snapshots: Map<number, MockSnapshotRecord>;
   lastSnapshotId: number;
   profitPool: bigint;
@@ -52,6 +57,7 @@ export function createDefaultMockLedgerState(): MockLedgerState {
     priceHydrated: false,
     paymentBalances: new Map(),
     paymentAllowances: new Map(),
+    settledOrders: new Map(),
     snapshots: new Map(),
     lastSnapshotId: 0,
     profitPool: 0n,
@@ -73,6 +79,7 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
     priceHydrated: source.priceHydrated,
     paymentBalances: new Map(source.paymentBalances),
     paymentAllowances: new Map(source.paymentAllowances),
+    settledOrders: new Map(source.settledOrders),
     snapshots: new Map(
       [...source.snapshots].map(([id, snapshot]) => [
         id,
@@ -110,6 +117,7 @@ export type EncodedMockLedgerState = {
   priceHydrated: boolean;
   paymentBalances: Record<string, string>;
   paymentAllowances: Record<string, string>;
+  settledOrders?: Record<string, string>;
   snapshots: Record<string, EncodedSnapshot>;
   lastSnapshotId: number;
   profitPool: string;
@@ -138,6 +146,7 @@ export function encodeMockLedgerState(state: Readonly<MockLedgerState>): Encoded
     priceHydrated: state.priceHydrated,
     paymentBalances: encodeBigintMap(state.paymentBalances),
     paymentAllowances: encodeBigintMap(state.paymentAllowances),
+    settledOrders: Object.fromEntries([...state.settledOrders].sort(([left], [right]) => left.localeCompare(right))),
     snapshots: Object.fromEntries(
       [...state.snapshots.entries()]
         .sort(([left], [right]) => left - right)
@@ -233,6 +242,11 @@ export function decodeMockLedgerState(value: unknown): MockLedgerState {
     priceHydrated: booleanValue(root.priceHydrated, 'priceHydrated'),
     paymentBalances: decodeBigintMap(root.paymentBalances, 'paymentBalances'),
     paymentAllowances: decodeBigintMap(root.paymentAllowances, 'paymentAllowances'),
+    // Tương thích trạng thái Neon có trước SC-03: thiếu trường = chưa lệnh nào quyết toán.
+    settledOrders: new Map(
+      Object.entries(root.settledOrders === undefined ? {} : record(root.settledOrders, 'settledOrders'))
+        .map(([orderId, txHash]) => [orderId, stringValue(txHash, `settledOrders.${orderId}`)]),
+    ),
     snapshots,
     lastSnapshotId: integerValue(root.lastSnapshotId, 'lastSnapshotId'),
     profitPool: bigintValue(root.profitPool, 'profitPool'),

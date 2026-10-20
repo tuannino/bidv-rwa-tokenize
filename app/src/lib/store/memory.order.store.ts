@@ -166,6 +166,7 @@ export function createMemoryOrderStore(): IOrderStore {
       // Trạng thái hiện tại không nằm trong `from` -> KHÔNG dòng nào bị ảnh hưởng, đúng
       // như câu UPDATE có điều kiện của bản Postgres.
       if (!found || !from.includes(found.status)) return null;
+      if (transition.requireEmptyTxHash && found.txHash !== null) return null;
 
       assertTxHashFree(transition.txHash, found.id);
 

@@ -17,9 +17,14 @@ import { assertStatus, type StoreKind } from './store.errors';
  * Bảy trạng thái, lấy ĐÚNG theo mô hình đã chốt ở BE-02 (R1.2) — không tự định nghĩa lại:
  *
  *     PLACED ──► CHECKING ──► EXECUTING ──► COMPLETED
- *        │          │             └──► FAILED
+ *        │          │          ▲  │ └──► FAILED
+ *        │          │          └──┘
  *        │          └──► REJECTED
  *        └──► EXPIRED
+ *
+ * Cạnh quay lại EXECUTING -> CHECKING chỉ dùng khi txHash rỗng và chain có khóa chống
+ * trùng theo orderRef: service tra chuỗi thấy NOT_SETTLED rồi store cập nhật có điều kiện
+ * `txHash IS NULL`. Đây là đường phục hồi SC-03, không phải đường nghiệp vụ thông thường.
  *
  * ⚠️ KHÔNG thêm trạng thái mô tả "đã trả tiền nhưng chưa nhận token". Chuyển VNDB và
  * chuyển WPT nằm trong CÙNG MỘT giao dịch on-chain (`ILedgerPort.executePurchase`), nên
@@ -145,6 +150,8 @@ export interface OrderTransition {
   /** Chỉ ghi khi khác `undefined` — `null` nghĩa là XOÁ giá trị cũ, có ý nghĩa riêng. */
   txHash?: string | null;
   reason?: string | null;
+  /** Thêm điều kiện `txHash IS NULL`; dùng riêng cho phục hồi EXECUTING mất mã ở SC-03. */
+  requireEmptyTxHash?: boolean;
 }
 
 /** Bộ lọc danh sách lệnh. Mọi trường tuỳ chọn; vắng mặt = không lọc theo trường đó. */

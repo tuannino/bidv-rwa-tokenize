@@ -17,7 +17,8 @@
  * ============================================================================
  *  PLACED ──► CHECKING ──► EXECUTING ──► COMPLETED
  *     │          │             │
- *     │          │             └──► FAILED
+ *     │          │             ├──► FAILED
+ *     │          ◄─────────────┘  (SC-03: chỉ khi txHash rỗng và chuỗi xác nhận chưa quyết toán)
  *     │          └──► REJECTED
  *     └──► EXPIRED
  * ============================================================================
@@ -54,7 +55,7 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   /** Đang kiểm số dư VNDB, ủy quyền, tồn WPT của ví SPV. CHƯA gửi giao dịch. */
   CHECKING: ['EXECUTING', 'REJECTED'],
   /** Đã chiếm quyền gửi giao dịch. Từ đây trở đi có thể đã tốn phí. */
-  EXECUTING: ['COMPLETED', 'FAILED'],
+  EXECUTING: ['COMPLETED', 'FAILED', 'CHECKING'],
   COMPLETED: [],
   REJECTED: [],
   FAILED: [],

@@ -7,6 +7,7 @@ import { LedgerError, LedgerNotImplementedError } from '@/lib/ledger/ledger.port
 import { createStellarLedger } from '@/lib/ledger/stellar.adapter';
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { InvalidAddressError } from '@/lib/ledger/address';
+import { settlementOrder } from './helpers/settlement-order';
 
 /**
  * BE-16: thay `simulateContract` của viem để dựng đúng lần revert "thiếu vai" của `VNDToken.mint`
@@ -257,7 +258,7 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost },
     });
 
-    await ledger.executePurchase(INVESTOR, 2n);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 2n));
 
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
     expect(await ledger.paymentBalanceOf(SPV)).toBe(cost);
@@ -296,7 +297,7 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost },
     });
 
-    await ledger.executePurchase(INVESTOR, 10n);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n));
 
     expect(await ledger.balanceOf(INVESTOR)).toBe(10n);
     expect(await ledger.balanceOf(SPV)).toBe(990n);
@@ -305,6 +306,33 @@ describe('R2 — khớp lệnh mua', () => {
     expect(await ledger.paymentAllowanceOf(INVESTOR)).toBe(0n);
     // Khớp lệnh KHÔNG phát hành thêm: tổng cung giữ nguyên.
     expect((await ledger.tokenInfo()).totalSupply).toBe(1_000n);
+  });
+
+  it('gửi lại cùng orderId bị chặn trước cả phép kiểm allowance đã bị tiêu hết', async () => {
+    const ledger = await issuedLedger(1_000n);
+    const order = await settlementOrder(ledger, INVESTOR, 10n);
+    seedMockLedger({
+      paymentBalances: { [INVESTOR]: order.vndAmount },
+      paymentAllowances: { [INVESTOR]: order.vndAmount },
+    });
+
+    await ledger.executePurchase(order);
+
+    await expect(ledger.executePurchase(order)).rejects.toThrow(/đã được quyết toán/);
+  });
+
+  it('từ chối số VNDB đã chốt không khớp giá hiện tại và không chuyển token', async () => {
+    const ledger = await issuedLedger(1_000n);
+    const order = await settlementOrder(ledger, INVESTOR, 10n, { vndAmount: 10n * PRICE });
+    seedMockLedger({
+      paymentBalances: { [INVESTOR]: order.vndAmount * 2n },
+      paymentAllowances: { [INVESTOR]: order.vndAmount * 2n },
+    });
+    await ledger.setPurchasePrice(PRICE * 2n);
+
+    await expect(ledger.executePurchase(order)).rejects.toThrow(/không khớp giá hiện tại/);
+    expect(await ledger.balanceOf(INVESTOR)).toBe(0n);
+    expect(await ledger.balanceOf(SPV)).toBe(1_000n);
   });
 
   // design mục 3, dòng "Khớp lệnh khi nhà đầu tư thiếu VNDB"
@@ -316,7 +344,7 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost },
     });
 
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/Số dư VNDB không đủ/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/Số dư VNDB không đủ/);
     expect(await ledger.balanceOf(INVESTOR)).toBe(0n);
     expect(await ledger.balanceOf(SPV)).toBe(1_000n);
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(cost - 1n);
@@ -331,7 +359,7 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost - 1n },
     });
 
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/Ủy quyền VNDB không đủ/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/Ủy quyền VNDB không đủ/);
     expect(await ledger.balanceOf(INVESTOR)).toBe(0n);
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(cost);
   });
@@ -345,7 +373,7 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost },
     });
 
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/SPV không đủ WPT/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/SPV không đủ WPT/);
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(cost);
     expect(await ledger.paymentAllowanceOf(INVESTOR)).toBe(cost);
     expect(await ledger.balanceOf(SPV)).toBe(5n);
@@ -366,7 +394,7 @@ describe('R2 — khớp lệnh mua', () => {
       totalSupply: (await ledger.tokenInfo()).totalSupply,
     };
 
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(LedgerError);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(LedgerError);
 
     expect({
       wptInvestor: await ledger.balanceOf(INVESTOR),
@@ -383,7 +411,7 @@ describe('R2 — khớp lệnh mua', () => {
     await ledger.whitelist(INVESTOR);
     seedMockLedger({ paymentBalances: { [INVESTOR]: 10n * PRICE }, paymentAllowances: { [INVESTOR]: 10n * PRICE } });
 
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/Chưa phát hành nguồn cung/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/Chưa phát hành nguồn cung/);
   });
 
   it('CHẶN khớp lệnh cho ví chưa KYC hoặc đang bị băng', async () => {
@@ -394,16 +422,16 @@ describe('R2 — khớp lệnh mua', () => {
       paymentAllowances: { [INVESTOR]: cost, [OTHER]: cost },
     });
 
-    await expect(ledger.executePurchase(OTHER, 10n)).rejects.toThrow(/chưa KYC/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, OTHER, 10n))).rejects.toThrow(/chưa KYC/);
 
     await ledger.freeze(INVESTOR, true);
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/đóng băng/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/đóng băng/);
     expect(await ledger.balanceOf(SPV)).toBe(1_000n);
   });
 
   it('CHẶN khớp lệnh số lượng <= 0', async () => {
     const ledger = await issuedLedger(1_000n);
-    await expect(ledger.executePurchase(INVESTOR, 0n)).rejects.toThrow(/lớn hơn 0/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 0n))).rejects.toThrow(/lớn hơn 0/);
   });
 });
 
@@ -420,7 +448,7 @@ describe('BE-14 — executeSale: WPT về ví SPV, VNDB về nhà đầu tư, c�
     const ledger = await issuedLedger(1_000n);
     const cost = held * PRICE;
     seedMockLedger({ paymentBalances: { [INVESTOR]: cost }, paymentAllowances: { [INVESTOR]: cost } });
-    await ledger.executePurchase(INVESTOR, held);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, held));
     return ledger;
   }
 
@@ -436,7 +464,7 @@ describe('BE-14 — executeSale: WPT về ví SPV, VNDB về nhà đầu tư, c�
     const ledger = await investorHolding(10n);
     const before = await balances(ledger);
 
-    await ledger.executeSale(INVESTOR, 4n);
+    await ledger.executeSale(await settlementOrder(ledger, INVESTOR, 4n));
 
     const proceeds = 4n * PRICE;
     expect(await balances(ledger)).toEqual({
@@ -452,7 +480,7 @@ describe('BE-14 — executeSale: WPT về ví SPV, VNDB về nhà đầu tư, c�
     const ledger = await investorHolding(3n);
     const before = await balances(ledger);
 
-    await expect(ledger.executeSale(INVESTOR, 4n)).rejects.toThrow(/Số dư WPT không đủ/);
+    await expect(ledger.executeSale(await settlementOrder(ledger, INVESTOR, 4n))).rejects.toThrow(/Số dư WPT không đủ/);
     expect(await balances(ledger)).toEqual(before);
   });
 
@@ -462,7 +490,7 @@ describe('BE-14 — executeSale: WPT về ví SPV, VNDB về nhà đầu tư, c�
     seedMockLedger({ paymentBalances: { [SPV]: PRICE } });
     const before = await balances(ledger);
 
-    await expect(ledger.executeSale(INVESTOR, 2n)).rejects.toThrow(/SPV không đủ VNDB/);
+    await expect(ledger.executeSale(await settlementOrder(ledger, INVESTOR, 2n))).rejects.toThrow(/SPV không đủ VNDB/);
     expect(await balances(ledger)).toEqual(before);
   });
 });
@@ -570,7 +598,7 @@ describe('R4 — chốt quyền và đọc số dư theo thời điểm', () => 
     expect(await ledger.balanceOfAt(INVESTOR, snapshotId)).toBe(0n);
     expect(await ledger.balanceOfAt(SPV, snapshotId)).toBe(1_000n);
 
-    await ledger.executePurchase(INVESTOR, 10n);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n));
 
     // Số dư hiện thời đổi...
     expect(await ledger.balanceOf(INVESTOR)).toBe(10n);
@@ -751,7 +779,7 @@ describe('R6 — tất toán', () => {
 
     const check = await ledger.canTransfer(SPV, INVESTOR, 10n);
     expect(check.allowed === false && check.reason).toMatch(/tất toán/);
-    await expect(ledger.executePurchase(INVESTOR, 10n)).rejects.toThrow(/tất toán/);
+    await expect(ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 10n))).rejects.toThrow(/tất toán/);
     expect(await ledger.balanceOf(SPV)).toBe(1_000n);
   });
 

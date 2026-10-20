@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { ChainKey, TxStatus } from '@bidv/shared';
+import { findContractAddress, type ChainKey, type TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
 import { getBankSigner } from '@/lib/signer';
 import { assertCan, can, type Role } from '@/lib/rbac';
@@ -345,6 +345,7 @@ export const ORDER_CHECK_IDS = [
   'supply',
   // BE-14 — hai phép riêng của chiều bán.
   'holding',
+  'wptAllowance',
   'sellerLiquidity',
   'transferable',
 ] as const;
@@ -611,7 +612,7 @@ async function runOrderChecks(
  * Ba phép kiểm riêng của CHIỀU BÁN (BE-14), chạy SAU phép kiểm giá chung của `runOrderChecks`.
  * Trả danh sách đã chạy, dừng ở phép trượt đầu tiên — cùng quy ước với chiều mua.
  *
- * Thứ tự là thứ tự ai sửa được: nhà đầu tư có đủ token không -> người bán có đủ tiền trả không
+ * Thứ tự là thứ tự ai sửa được: nhà đầu tư có đủ token không -> đã ủy quyền WPT chưa -> người bán có đủ tiền trả không
  * -> chuyển được không.
  */
 async function runSaleBalanceChecks(
@@ -634,11 +635,27 @@ async function runSaleBalanceChecks(
     ];
   }
 
+  const wptAllowance = await ledger.wptAllowanceOf(investorWallet);
+  if (wptAllowance < wptAmount) {
+    return [
+      passed('holding'),
+      failed(
+        'wptAllowance',
+        'INSUFFICIENT_ALLOWANCE',
+        `Ủy quyền WPT không đủ: cần ${wptAmount}, đã cấp ${wptAllowance}. ` +
+          'Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.',
+        `Nhà đầu tư xác nhận trong ví cho phép hợp đồng khớp lệnh chuyển tối đa ${wptAmount} WPT.`,
+        { actual: wptAllowance, required: wptAmount },
+      ),
+    ];
+  }
+
   // --- 2. Thanh khoản VNDB của ví thanh toán người bán -----------------------------
   const spv = await ledger.spvWallet();
   if (!spv) {
     return [
       passed('holding'),
+      passed('wptAllowance'),
       failed(
         'sellerLiquidity',
         'INSUFFICIENT_SELLER_LIQUIDITY',
@@ -651,6 +668,7 @@ async function runSaleBalanceChecks(
   if (liquidity < vndAmount) {
     return [
       passed('holding'),
+      passed('wptAllowance'),
       failed(
         'sellerLiquidity',
         'INSUFFICIENT_SELLER_LIQUIDITY',
@@ -667,6 +685,7 @@ async function runSaleBalanceChecks(
   if (!transferable.allowed) {
     return [
       passed('holding'),
+      passed('wptAllowance'),
       passed('sellerLiquidity'),
       failed(
         'transferable',
@@ -677,7 +696,7 @@ async function runSaleBalanceChecks(
       ),
     ];
   }
-  return [passed('holding'), passed('sellerLiquidity'), passed('transferable')];
+  return [passed('holding'), passed('wptAllowance'), passed('sellerLiquidity'), passed('transferable')];
 }
 
 /**
@@ -762,8 +781,8 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
     // `authorize` ghi audit cho cả lần bị chặn rồi mới ném (R1.4 / ca kiểm thử 7.9).
     const executorRole = await authorize('order:execute', order.investorWallet, chain);
 
-    // Ba nhánh BE-17 phải tường minh. CHECKING chắc chắn chưa gửi nên được chạy tiếp;
-    // EXECUTING có mã chỉ đối soát; EXECUTING mất mã tuyệt đối không phát lại.
+    // Ba nhánh BE-17 phải tường minh. CHECKING được chạy tiếp; EXECUTING có mã chỉ
+    // đối soát; EXECUTING mất mã tra dấu chống trùng trước khi quyết định phục hồi.
     if (order.status === 'CHECKING') {
       return await settleStoredOrder(order, executorRole, 'MANUAL');
     }
@@ -771,11 +790,7 @@ export async function executeOrder(input: unknown): Promise<Result<OrderExecutio
       return await reconcileExecutingOrder(order, executorRole);
     }
 
-    const reason =
-      'Lệnh đang EXECUTING nhưng chưa lưu được mã giao dịch; giao dịch có thể đã lên chuỗi. ' +
-      'Cần đối soát tay, tuyệt đối không gửi lại.';
-    await auditExecution(getStore(), order, executorRole, 'MANUAL', 'FAILURE', reason);
-    return err('ORDER_STATE', reason);
+    return await recoverExecutingWithoutTx(order, executorRole);
   } catch (error) {
     return toResult(error);
   }
@@ -825,22 +840,21 @@ async function settleStoredOrder(
   });
   const check = firstFailure(checks.results);
   if (check) {
-    // REJECTED: CHƯA gửi giao dịch nào, chưa tốn phí, nhà đầu tư đặt lại được ngay.
-    await orderStore.transitionOrder({
-      id: orderId,
-      from: ['CHECKING'],
-      to: 'REJECTED',
-      reason: check.reason,
-    });
-    await auditExecution(
+    return finalizeOrderFailure(
       txnStore,
+      orderStore,
+      ledger,
       checking,
       executorRole,
       path,
-      'FAILURE',
-      `bị từ chối trước khi gửi tx — ${check.reason}`,
+      {
+        from: ['CHECKING'],
+        to: 'REJECTED',
+        reason: check.reason,
+        code: check.code,
+        detail: `bị từ chối trước khi gửi tx — ${check.reason}`,
+      },
     );
-    return err(check.code, check.reason);
   }
 
   // --- 5. Cập nhật CÓ ĐIỀU KIỆN sang EXECUTING ---------------------------------
@@ -880,7 +894,29 @@ async function reconcileExecutingOrder(
   const ledger = getLedger(order.chain);
   const txHash = order.txHash!;
 
-  const receipt = await ledger.waitReceipt(txHash, receiptTimeoutFor(order.chain));
+  let receipt: TxResult;
+  try {
+    receipt = await ledger.waitReceipt(txHash, receiptTimeoutFor(order.chain));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi đối soát giao dịch.';
+    return finalizeOrderFailure(
+      txnStore,
+      orderStore,
+      ledger,
+      order,
+      executorRole,
+      'MANUAL',
+      {
+        from: ['EXECUTING'],
+        to: 'FAILED',
+        reason,
+        txHash,
+        code: 'LEDGER',
+        detail: `đối soát tx ${txHash} thất bại — ${reason}`,
+        originalError: error,
+      },
+    );
+  }
   const existingTxn = await txnStore.findTxnByHash(order.chain, txHash);
   if (existingTxn) {
     await txnStore.updateTxnStatus(existingTxn.id, receipt.status, receipt.reason);
@@ -901,52 +937,233 @@ async function reconcileExecutingOrder(
 
   if (receipt.status !== 'CONFIRMED') {
     const reason = receipt.reason ?? `Giao dịch khớp lệnh kết thúc ở trạng thái ${receipt.status}.`;
-    await orderStore.transitionOrder({
-      id: order.id,
-      from: ['EXECUTING'],
-      to: 'FAILED',
-      reason,
-      txHash,
-    });
-    await auditExecution(
+    return finalizeOrderFailure(
       txnStore,
+      orderStore,
+      ledger,
       order,
       executorRole,
       'MANUAL',
-      'FAILURE',
-      `đối soát tx ${txHash} ${receipt.status} — ${reason}`,
+      {
+        from: ['EXECUTING'],
+        to: 'FAILED',
+        reason,
+        txHash,
+        code: 'LEDGER',
+        detail: `đối soát tx ${txHash} ${receipt.status} — ${reason}`,
+      },
     );
-    return err('LEDGER', reason);
+  }
+
+  return completeOrderFromChain(
+    txnStore,
+    orderStore,
+    ledger,
+    order,
+    executorRole,
+    'MANUAL',
+    txHash,
+    `đối soát tx ${txHash} ${receipt.status}, không phát lại giao dịch`,
+  );
+}
+
+interface OrderFailure {
+  from: readonly OrderStatus[];
+  to: Extract<OrderStatus, 'FAILED' | 'REJECTED'>;
+  reason: string;
+  txHash?: string;
+  code: ErrorCode;
+  detail: string;
+  originalError?: unknown;
+}
+
+/**
+ * Một cửa DUY NHẤT ghi FAILED/REJECTED cho lệnh mua bán.
+ *
+ * Với chain có khóa chống trùng, sự thật trên chuỗi thắng lỗi cục bộ. Viem có thể ném ở
+ * bước mô phỏng, lúc chờ biên nhận hoặc sau khi RPC đã nhận giao dịch; phân loại theo tên
+ * lỗi vì thế không an toàn. Tra orderRef ngay tại cửa ghi thất bại bảo đảm một lệnh đã chuyển
+ * tài sản không bao giờ bị ghi FAILED/REJECTED trong database.
+ */
+async function finalizeOrderFailure(
+  txnStore: ITxnStore,
+  orderStore: IOrderStore,
+  ledger: ILedgerPort,
+  order: OrderRecord,
+  executorRole: Role,
+  path: ExecutionPath,
+  failure: OrderFailure,
+): Promise<Result<OrderExecutionView>> {
+  if (supportsOrderSettlementLookup(order.chain)) {
+    let lookup: Awaited<ReturnType<ILedgerPort['findOrderSettlement']>>;
+    try {
+      lookup = await ledger.findOrderSettlement(order.id);
+    } catch (error) {
+      const reason =
+        `Không tra được trạng thái quyết toán của lệnh ${order.id}; giữ nguyên trạng thái để tránh ghi sai: ` +
+        (error instanceof Error ? error.message : 'lỗi RPC không xác định.');
+      await auditExecution(txnStore, order, executorRole, path, 'FAILURE', reason);
+      return err('LEDGER', reason);
+    }
+
+    if (lookup.status === 'SETTLED') {
+      return completeOrderFromChain(
+        txnStore,
+        orderStore,
+        ledger,
+        order,
+        executorRole,
+        path,
+        lookup.txHash,
+        `đối soát từ chuỗi sau lỗi cục bộ — ${failure.reason}`,
+      );
+    }
+    if (lookup.status === 'SETTLED_TX_UNKNOWN') {
+      const reason =
+        `Lệnh ${order.id} đã quyết toán trên chuỗi, chưa tìm thấy mã giao dịch; ` +
+        'giữ nguyên trạng thái để đối soát.';
+      await auditExecution(txnStore, order, executorRole, path, 'FAILURE', reason);
+      return err('LEDGER', reason);
+    }
+  }
+
+  await orderStore.transitionOrder({
+    id: order.id,
+    from: failure.from,
+    to: failure.to,
+    reason: failure.reason,
+    txHash: failure.txHash,
+  });
+  await auditExecution(txnStore, order, executorRole, path, 'FAILURE', failure.detail);
+  return failure.originalError === undefined
+    ? err(failure.code, failure.reason)
+    : toResult(failure.originalError);
+}
+
+function supportsOrderSettlementLookup(chain: ChainKey): boolean {
+  return chain === 'mock' || Boolean(findContractAddress(chain, 'OrderSettlement'));
+}
+
+/** Chốt database, sổ giao dịch và audit từ dấu OrderSettled đã tìm thấy trên chuỗi. */
+async function completeOrderFromChain(
+  txnStore: ITxnStore,
+  orderStore: IOrderStore,
+  ledger: ILedgerPort,
+  order: OrderRecord,
+  executorRole: Role,
+  path: ExecutionPath,
+  txHash: string,
+  detail: string,
+): Promise<Result<OrderExecutionView>> {
+  const existingTxn = await txnStore.findTxnByHash(order.chain, txHash);
+  if (existingTxn) {
+    await txnStore.updateTxnStatus(existingTxn.id, 'CONFIRMED');
+  } else {
+    await txnStore.saveTxn({
+      chain: order.chain,
+      operation: order.side === 'SELL' ? 'sale' : 'purchase',
+      txHash,
+      status: 'CONFIRMED',
+      fromWallet: order.side === 'SELL' ? order.investorWallet : null,
+      toWallet: order.side === 'SELL' ? null : order.investorWallet,
+      amount: order.wptAmount,
+      reason: null,
+      actorRole: executorRole,
+      actorAddress: await bankAddressOrNull(order.chain),
+    });
   }
 
   const completed = await orderStore.transitionOrder({
     id: order.id,
-    from: ['EXECUTING'],
+    from: [order.status],
     to: 'COMPLETED',
     txHash,
+    reason: null,
   });
-  await auditExecution(
-    txnStore,
-    order,
-    executorRole,
-    'MANUAL',
-    'SUCCESS',
-    `đối soát tx ${txHash} ${receipt.status}, không phát lại giao dịch`,
-  );
+  const current = completed ?? (await orderStore.findOrder(order.id));
+  if (!current || current.status !== 'COMPLETED' || current.txHash !== txHash) {
+    return err(
+      'ORDER_STATE',
+      `Lệnh ${order.id} đã quyết toán trên chuỗi nhưng trạng thái database vừa thay đổi; cần đối soát lại.`,
+    );
+  }
 
+  await auditExecution(txnStore, current, executorRole, path, 'SUCCESS', `${detail}; đối soát từ chuỗi`);
   const [balanceAfter, paymentBalanceAfter] = await Promise.all([
     ledger.balanceOf(order.investorWallet),
     ledger.paymentBalanceOf(order.investorWallet),
   ]);
-  const finalOrder = completed ?? (await orderStore.findOrder(order.id)) ?? order;
   return ok({
-    ...toOrderView(finalOrder),
+    ...toOrderView(current),
     txHash,
-    status: finalOrder.status,
-    txStatus: receipt.status,
+    status: 'COMPLETED',
+    txStatus: 'CONFIRMED',
     balanceAfter: balanceAfter.toString(),
     paymentBalanceAfter: paymentBalanceAfter.toString(),
   });
+}
+
+/** Phục hồi duy nhất cạnh EXECUTING(txHash rỗng) -> CHECKING mà SC-03 cho phép. */
+async function recoverExecutingWithoutTx(
+  order: OrderRecord,
+  executorRole: Role,
+): Promise<Result<OrderExecutionView>> {
+  const txnStore = getStore();
+  const orderStore = getOrderStore();
+  const ledger = getLedger(order.chain);
+
+  if (!supportsOrderSettlementLookup(order.chain)) {
+    const reason =
+      'Lệnh đang EXECUTING nhưng chưa lưu được mã giao dịch; chain này không có khóa chống trùng để gửi lại an toàn. ' +
+      'Cần đối soát tay, tuyệt đối không gửi lại.';
+    await auditExecution(txnStore, order, executorRole, 'MANUAL', 'FAILURE', reason);
+    return err('ORDER_STATE', reason);
+  }
+
+  let lookup: Awaited<ReturnType<ILedgerPort['findOrderSettlement']>>;
+  try {
+    lookup = await ledger.findOrderSettlement(order.id);
+  } catch (error) {
+    const reason =
+      `Không tra được trạng thái quyết toán của lệnh ${order.id}; giữ nguyên EXECUTING: ` +
+      (error instanceof Error ? error.message : 'lỗi RPC không xác định.');
+    await auditExecution(txnStore, order, executorRole, 'MANUAL', 'FAILURE', reason);
+    return err('LEDGER', reason);
+  }
+  if (lookup.status === 'SETTLED') {
+    return completeOrderFromChain(
+      txnStore,
+      orderStore,
+      ledger,
+      order,
+      executorRole,
+      'MANUAL',
+      lookup.txHash,
+      'phục hồi lệnh EXECUTING mất mã giao dịch',
+    );
+  }
+  if (lookup.status === 'SETTLED_TX_UNKNOWN') {
+    const reason =
+      `Lệnh ${order.id} đã quyết toán trên chuỗi, chưa tìm thấy mã giao dịch; giữ nguyên EXECUTING.`;
+    await auditExecution(txnStore, order, executorRole, 'MANUAL', 'FAILURE', reason);
+    return err('LEDGER', reason);
+  }
+
+  const checking = await orderStore.transitionOrder({
+    id: order.id,
+    from: ['EXECUTING'],
+    to: 'CHECKING',
+    txHash: null,
+    reason: null,
+    requireEmptyTxHash: true,
+  });
+  if (!checking) {
+    return err(
+      'ORDER_STATE',
+      `Lệnh ${order.id} vừa được một tiến trình khác phục hồi. Không gửi giao dịch lần hai.`,
+    );
+  }
+  return settleStoredOrder(checking, executorRole, 'MANUAL');
 }
 
 /**
@@ -975,22 +1192,34 @@ async function sendAndSettle(
   try {
     // --- 6. Khớp lệnh: VNDB và WPT trong CÙNG một giao dịch ----------------------
     // Hai chiều, hai hàm cổng, CÙNG một luồng trạng thái và CÙNG một cách xử lý lỗi.
+    const settlementOrder = {
+      orderId: id,
+      investor: investorWallet,
+      wptAmount,
+      vndAmount: BigInt(order.vndAmount),
+    };
     pending =
       order.side === 'SELL'
-        ? await ledger.executeSale(investorWallet, wptAmount)
-        : await ledger.executePurchase(investorWallet, wptAmount);
+        ? await ledger.executeSale(settlementOrder)
+        : await ledger.executePurchase(settlementOrder);
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi giao dịch.';
-    await orderStore.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
-    await auditExecution(
+    return finalizeOrderFailure(
       txnStore,
+      orderStore,
+      ledger,
       order,
       executorRole,
       path,
-      'FAILURE',
-      `gửi giao dịch thất bại — ${reason}`,
+      {
+        from: ['EXECUTING'],
+        to: 'FAILED',
+        reason,
+        code: 'LEDGER',
+        detail: `gửi giao dịch thất bại — ${reason}`,
+        originalError: error,
+      },
     );
-    return toResult(error);
   }
 
   // --- 7. Lưu mã giao dịch NGAY KHI CÓ, trước khi chờ biên nhận -----------------
@@ -1014,22 +1243,50 @@ async function sendAndSettle(
   });
 
   // --- 8. Chờ biên nhận, timeout THEO CHAIN ------------------------------------
-  const receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
+  let receipt: TxResult;
+  try {
+    receipt = await ledger.waitReceipt(pending.txHash, receiptTimeoutFor(chain));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi chờ biên nhận.';
+    return finalizeOrderFailure(
+      txnStore,
+      orderStore,
+      ledger,
+      order,
+      executorRole,
+      path,
+      {
+        from: ['EXECUTING'],
+        to: 'FAILED',
+        reason,
+        txHash: pending.txHash,
+        code: 'LEDGER',
+        detail: `chờ biên nhận tx ${pending.txHash} thất bại — ${reason}`,
+        originalError: error,
+      },
+    );
+  }
   await txnStore.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
 
   // --- 9. COMPLETED hoặc FAILED + ghi sổ kiểm toán -----------------------------
   if (receipt.status !== 'CONFIRMED') {
     const reason = receipt.reason ?? `Giao dịch khớp lệnh kết thúc ở trạng thái ${receipt.status}.`;
-    await orderStore.transitionOrder({ id, from: ['EXECUTING'], to: 'FAILED', reason });
-    await auditExecution(
+    return finalizeOrderFailure(
       txnStore,
+      orderStore,
+      ledger,
       order,
       executorRole,
       path,
-      'FAILURE',
-      `tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+      {
+        from: ['EXECUTING'],
+        to: 'FAILED',
+        reason,
+        txHash: receipt.txHash,
+        code: 'LEDGER',
+        detail: `tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+      },
     );
-    return err('LEDGER', reason);
   }
 
   const completed = await orderStore.transitionOrder({

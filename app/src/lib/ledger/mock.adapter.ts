@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { ChainKey } from '@bidv/shared';
+import { orderRefFromOrderId, type ChainKey } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey, normalizeEvmAddress } from './address';
 import {
@@ -39,6 +39,7 @@ const TOKEN: Omit<TokenInfo, 'totalSupply'> = {
 
 /** Giá mặc định vẫn suy ra từ nguồn duy nhất; state-store chỉ chịu trách nhiệm lưu nó. */
 const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
+const MAX_UINT256 = (1n << 256n) - 1n;
 
 /** Chỉ dùng cho test/demo runner: về trạng thái trắng. */
 export function resetMockLedger(
@@ -463,6 +464,21 @@ export function createMockLedger(
       return read('paymentAllowanceOf', (s) => allowance(s, normalized));
     },
 
+    async wptAllowanceOf() {
+      // Mock không mô phỏng ủy quyền WPT; chain EVM mới là nơi approve/permit được thực thi.
+      return MAX_UINT256;
+    },
+
+    async findOrderSettlement(orderId) {
+      orderRefFromOrderId(orderId);
+      return read('findOrderSettlement', (s) => {
+        const txHash = s.settledOrders.get(orderId.toLowerCase());
+        return txHash
+          ? { status: 'SETTLED' as const, txHash, blockNumber: 0n }
+          : { status: 'NOT_SETTLED' as const };
+      });
+    },
+
     /**
      * Như `VNDToken.mint`: cộng số dư, KHÔNG kiểm KYC / đóng băng (contract không kiểm). Vai
      * `MINTER_ROLE` không mô phỏng được vì mock không có người ký.
@@ -489,11 +505,17 @@ export function createMockLedger(
      * đúng R2.5 "không để lại trạng thái nửa vời" trong một hàm không có transaction:
      * nếu trừ VNDB rồi mới phát hiện SPV thiếu WPT thì tiền đã bay mà token chưa về.
      */
-    async executePurchase(investor, wptAmount) {
-      assertPositiveAmount(chain, 'executePurchase', wptAmount);
-      const buyer = normalizeEvmAddress(investor);
+    async executePurchase(order) {
+      const orderId = order.orderId.toLowerCase();
+      orderRefFromOrderId(orderId);
+      if (await read('executePurchase', (s) => s.settledOrders.has(orderId))) {
+        reject('executePurchase', `Mã lệnh ${order.orderId} đã được quyết toán.`);
+      }
       const configured = await configuredPrice();
       return mutate('executePurchase', (s) => {
+        if (s.settledOrders.has(orderId)) reject('executePurchase', `Mã lệnh ${order.orderId} đã được quyết toán.`);
+        assertPositiveAmount(chain, 'executePurchase', order.wptAmount);
+        const buyer = normalizeEvmAddress(order.investor);
         requireNotSettling(s, 'executePurchase');
         const price = hydratePrice(s, configured);
         if (!s.initialSupplyMinted || !s.spvWallet) {
@@ -504,22 +526,27 @@ export function createMockLedger(
         requireNotFrozen(s, 'executePurchase', spv, 'Ví thanh toán SPV');
         requireWhitelisted(s, 'executePurchase', buyer, 'Nhà đầu tư');
         requireWhitelisted(s, 'executePurchase', spv, 'Ví thanh toán SPV');
-        const cost = wptAmount * price;
+        const cost = order.wptAmount * price;
+        if (order.vndAmount !== cost) {
+          reject('executePurchase', `Thành tiền lệnh ${order.vndAmount} VNDB không khớp giá hiện tại ${cost} VNDB.`);
+        }
         if (paymentBalance(s, buyer) < cost) {
           reject('executePurchase', `Số dư VNDB không đủ: cần ${cost}, ví ${buyer} chỉ có ${paymentBalance(s, buyer)}.`);
         }
         if (allowance(s, buyer) < cost) {
           reject('executePurchase', `Ủy quyền VNDB không đủ: cần ${cost}, đã cấp ${allowance(s, buyer)}. Nhà đầu tư phải approve cho hợp đồng khớp lệnh trước.`);
         }
-        if (balance(s, spv) < wptAmount) {
-          reject('executePurchase', `Ví thanh toán SPV không đủ WPT: cần ${wptAmount}, chỉ còn ${balance(s, spv)}.`);
+        if (balance(s, spv) < order.wptAmount) {
+          reject('executePurchase', `Ví thanh toán SPV không đủ WPT: cần ${order.wptAmount}, chỉ còn ${balance(s, spv)}.`);
         }
         setPaymentBalance(s, buyer, paymentBalance(s, buyer) - cost);
         setPaymentBalance(s, spv, paymentBalance(s, spv) + cost);
         s.paymentAllowances.set(addressKey(buyer), allowance(s, buyer) - cost);
-        setBalance(s, spv, balance(s, spv) - wptAmount);
-        setBalance(s, buyer, balance(s, buyer) + wptAmount);
-        return confirmed(s);
+        setBalance(s, spv, balance(s, spv) - order.wptAmount);
+        setBalance(s, buyer, balance(s, buyer) + order.wptAmount);
+        const tx = confirmed(s);
+        s.settledOrders.set(orderId, tx.txHash);
+        return tx;
       });
     },
 
@@ -530,15 +557,20 @@ export function createMockLedger(
      * ví SPV thiếu VNDB thì token của nhà đầu tư chưa hề rời ví. Cùng nguồn giá với
      * `quotePurchase`, nên số VNDB đã báo lúc đặt lệnh và số thật sự trả là một.
      *
-     * KHÔNG kiểm uỷ quyền WPT: hợp đồng khớp lệnh thật (SC-03) sẽ cần nhà đầu tư cấp quyền
-     * chuyển WPT, nhưng `ILedgerPort` chưa có hàm đọc uỷ quyền WPT và spec BE-14 không yêu cầu.
-     * Đã ghi câu hỏi mở trong checkpoint BE-14.
+     * Mock không mô phỏng thao tác approve WPT nên `wptAllowanceOf` trả mức tối đa. Phép kiểm
+     * vẫn chạy ở service để cùng luồng với EVM, nơi allowance thật được đọc từ ProjectToken.
      */
-    async executeSale(investor, wptAmount) {
-      assertPositiveAmount(chain, 'executeSale', wptAmount);
-      const seller = normalizeEvmAddress(investor);
+    async executeSale(order) {
+      const orderId = order.orderId.toLowerCase();
+      orderRefFromOrderId(orderId);
+      if (await read('executeSale', (s) => s.settledOrders.has(orderId))) {
+        reject('executeSale', `Mã lệnh ${order.orderId} đã được quyết toán.`);
+      }
       const configured = await configuredPrice();
       return mutate('executeSale', (s) => {
+        if (s.settledOrders.has(orderId)) reject('executeSale', `Mã lệnh ${order.orderId} đã được quyết toán.`);
+        assertPositiveAmount(chain, 'executeSale', order.wptAmount);
+        const seller = normalizeEvmAddress(order.investor);
         requireNotSettling(s, 'executeSale');
         const price = hydratePrice(s, configured);
         if (!s.initialSupplyMinted || !s.spvWallet) {
@@ -549,18 +581,23 @@ export function createMockLedger(
         requireNotFrozen(s, 'executeSale', spv, 'Ví thanh toán SPV');
         requireWhitelisted(s, 'executeSale', seller, 'Nhà đầu tư');
         requireWhitelisted(s, 'executeSale', spv, 'Ví thanh toán SPV');
-        const proceeds = wptAmount * price;
-        if (balance(s, seller) < wptAmount) {
-          reject('executeSale', `Số dư WPT không đủ: cần ${wptAmount}, ví ${seller} chỉ có ${balance(s, seller)}.`);
+        const proceeds = order.wptAmount * price;
+        if (order.vndAmount !== proceeds) {
+          reject('executeSale', `Thành tiền lệnh ${order.vndAmount} VNDB không khớp giá hiện tại ${proceeds} VNDB.`);
+        }
+        if (balance(s, seller) < order.wptAmount) {
+          reject('executeSale', `Số dư WPT không đủ: cần ${order.wptAmount}, ví ${seller} chỉ có ${balance(s, seller)}.`);
         }
         if (paymentBalance(s, spv) < proceeds) {
           reject('executeSale', `Ví thanh toán SPV không đủ VNDB: cần ${proceeds}, chỉ còn ${paymentBalance(s, spv)}.`);
         }
-        setBalance(s, seller, balance(s, seller) - wptAmount);
-        setBalance(s, spv, balance(s, spv) + wptAmount);
+        setBalance(s, seller, balance(s, seller) - order.wptAmount);
+        setBalance(s, spv, balance(s, spv) + order.wptAmount);
         setPaymentBalance(s, spv, paymentBalance(s, spv) - proceeds);
         setPaymentBalance(s, seller, paymentBalance(s, seller) + proceeds);
-        return confirmed(s);
+        const tx = confirmed(s);
+        s.settledOrders.set(orderId, tx.txHash);
+        return tx;
       });
     },
 

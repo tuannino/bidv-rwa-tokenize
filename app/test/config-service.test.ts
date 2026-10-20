@@ -10,6 +10,7 @@ import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getConfigStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { settlementOrder } from './helpers/settlement-order';
 
 /**
  * BE-04 — GIÁ HIỂN THỊ VÀ GIÁ KHỚP LỆNH LUÔN LÀ MỘT CON SỐ.
@@ -136,7 +137,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
     // dư và ca này đỏ vì một lý do khác hẳn điều nó đang kiểm.
     const cost = 2n * BigInt(NEAR_PRICE_2);
     seedMockLedger({ paymentBalances: { [INVESTOR]: cost }, paymentAllowances: { [INVESTOR]: cost } });
-    await ledger.executePurchase(INVESTOR, 2n);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 2n));
 
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(0n);
     expect(await ledger.balanceOf(INVESTOR)).toBe(2n);
@@ -159,7 +160,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
 
   it('đổi giá chain mock không làm đổi giá hardhat-local', async () => {
     const { getIssuePrice, setIssuePrice } = await services();
-    const hardhatBefore = await getIssuePrice('hardhat-local');
+    const hardhatBefore = await getConfigStore().getConfig(issuePriceConfigKey('hardhat-local'));
 
     const changed = await setIssuePrice({
       chain: CHAIN,
@@ -169,7 +170,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
 
     expect(changed.ok, changed.ok ? '' : changed.error).toBe(true);
     expect((await getIssuePrice(CHAIN)).priceVnd).toBe(NEAR_PRICE);
-    expect((await getIssuePrice('hardhat-local')).priceVnd).toBe(hardhatBefore.priceVnd);
+    expect(await getConfigStore().getConfig(issuePriceConfigKey('hardhat-local'))).toEqual(hardhatBefore);
     expect(await getConfigStore().listConfigHistory({ key: issuePriceConfigKey('hardhat-local') }))
       .toEqual([]);
   });

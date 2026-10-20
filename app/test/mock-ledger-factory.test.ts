@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { settlementOrder } from './helpers/settlement-order';
 
 const pgClientConstructed = vi.hoisted(() => vi.fn());
 
@@ -53,8 +54,8 @@ describe('factory kho mock dùng cùng USE_MOCK_DB với kho nghiệp vụ', () 
     await ledger.whitelist(INVESTOR);
     await ledger.mintPayment(INVESTOR, 1_000_000n);
     await ledger.mintInitialSupply(SPV, 10n);
-    await ledger.executePurchase(INVESTOR, 2n);
-    await ledger.executeSale(INVESTOR, 1n);
+    await ledger.executePurchase(await settlementOrder(ledger, INVESTOR, 2n));
+    await ledger.executeSale(await settlementOrder(ledger, INVESTOR, 1n));
     await ledger.burn(SPV, 1n);
 
     expect(await ledger.balanceOf(INVESTOR)).toBe(1n);
