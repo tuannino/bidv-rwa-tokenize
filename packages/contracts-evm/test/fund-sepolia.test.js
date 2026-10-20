@@ -1,6 +1,6 @@
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
-const { assertSepolia, assertTarget, planFunding, feeBudget, parseArgs, fund, safeFundingMessage } = require('../scripts/fund-sepolia');
+const { OPERATIONS, CYCLE_OPERATIONS, SENDER, assertSepolia, assertTarget, planFunding, feeBudget, parseArgs, fund, estimateOperationGas, withCycleTotal, safeFundingMessage } = require('../scripts/fund-sepolia');
 const samples = require('../../shared/src/sample-wallets.json');
 const target = '0x1234567890123456789012345678901234567890';
 const provider = (chainId = 11155111n, balance = 0n) => ({
@@ -13,7 +13,7 @@ describe('OP-04 — cấp phí Sepolia', function () {
     await expect(fund({ target, eth: '1' }, { provider: provider(31337n) })).to.be.rejectedWith('11155111');
   });
   it('từ chối ví mẫu từ nguồn chung và Hardhat #0, kể cả khác hoa thường', function () {
-    for (const address of [...Object.values(samples.wallets), '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266']) {
+    for (const address of [...Object.values(samples.wallets), samples.hardhatAccount0]) {
       expect(() => assertTarget(address.toLowerCase())).to.throw('Hardhat');
     }
     expect(() => assertTarget(ethers.ZeroAddress)).to.throw('địa chỉ');
@@ -33,8 +33,8 @@ describe('OP-04 — cấp phí Sepolia', function () {
     expect(result.missing).to.equal(0n);
   });
   it('--dry-run thiếu phí cũng không đọc khóa hoặc gửi giao dịch', async function () {
-    const result = await fund({ target, operation: 'mint', dryRun: true }, {
-      provider: provider(), estimates: { mint: 100n }, log: () => {},
+    const result = await fund({ target, operation: 'payment-mint', dryRun: true }, {
+      provider: provider(), estimates: { 'payment-mint': { gas: 100n, txs: 1 } }, log: () => {},
       makeWallet: () => { throw new Error('không được tạo signer'); },
     });
     expect(result.missing).to.equal(1200n);
@@ -55,8 +55,8 @@ describe('OP-04 — cấp phí Sepolia', function () {
     expect(result.hash).to.equal('0xtest');
   });
   it('tham số phải chọn một chế độ và số ETH phải dương', function () {
-    expect(parseArgs([target, '--for', 'mint', '--dry-run']).operation).to.equal('mint');
-    for (const args of [[target], [target, '--eth', '1', '--for', 'mint'], [target, '--eth', '-1'], [target, '--eth', '0'], [target, '--for', 'lạ'], [target, '--eth', '1', '--lạ']]) {
+    expect(parseArgs([target, '--for', 'demo-cycle', '--dry-run']).operation).to.equal('demo-cycle');
+    for (const args of [[target], [target, '--eth', '1', '--for', 'trade'], [target, '--for', 'cycle'], [target, '--for', 'mint'], [target, '--eth', '-1'], [target, '--eth', '0'], [target, '--for', 'lạ'], [target, '--eth', '1', '--lạ']]) {
       expect(() => parseArgs(args)).to.throw();
     }
   });
@@ -85,15 +85,58 @@ describe('OP-04 — cấp phí Sepolia', function () {
 
 describe('OP-04 — preflight phí ví ký', function () {
   const { signerFunding } = require('../scripts/preflight-sepolia');
-  const estimates = { deploy: 1000n, whitelist: 100n, cycle: 400n };
+  const estimates = withCycleTotal(Object.fromEntries(OPERATIONS.filter((op) => op !== 'demo-cycle')
+    .map((op) => [op, { gas: op === 'deploy' ? 1000n : op === 'whitelist' ? 100n : 50n, txs: 1 }])));
   it('thiếu phí in lệnh nạp tổng số dư yêu cầu, script sẽ chỉ bù phần thiếu', async function () {
     const result = await signerFunding(provider(11155111n, 1n), target, estimates);
     expect(result.enough).to.equal(false);
-    expect(result.required).to.equal(18000n);
-    expect(result.command).to.equal(`node scripts/fund-sepolia.js ${target} --eth 0.000000000000018`);
-    expect(parseArgs(result.command.split(' ').slice(2)).eth).to.equal('0.000000000000018');
+    // deploy 1000 + whitelist 100 + demo-cycle 7 x 50, giá 10 wei, dự phòng 20%.
+    expect(result.required).to.equal(17400n);
+    expect(result.command).to.equal(`node scripts/fund-sepolia.js ${target} --eth 0.0000000000000174`);
+    expect(parseArgs(result.command.split(' ').slice(2)).eth).to.equal('0.0000000000000174');
+    expect(result.table).to.include('| demo-cycle | 7 | 350 |');
   });
-  it('báo đủ khi số dư ví ký đủ deploy + whitelist + một vòng Mint/Mint/Burn', async function () {
-    expect((await signerFunding(provider(11155111n, 18000n), target, estimates)).enough).to.equal(true);
+  it('báo đủ khi số dư ví ký đủ deploy + whitelist + một vòng trình diễn', async function () {
+    expect((await signerFunding(provider(11155111n, 17400n), target, estimates)).enough).to.equal(true);
+  });
+});
+
+describe('OP-05 ca 2: ước phí theo thao tác và theo ví gửi', function () {
+  this.timeout(120_000);
+  // Bảng QĐ-E. `deploy` đếm từ deploy.js: 9 constructor, 4 liên kết ERC-3643, 1 đăng ký vault, 3 vai
+  // vault, 1 MATCHER_ROLE, 3 vai matcher, 1 SNAPSHOT_ROLE; MINTER/AGENT đã có từ constructor.
+  const TXS = { deploy: 22, whitelist: 2, 'vault-config': 3, 'mint-initial': 1, 'payment-mint': 1, trade: 2, 'profit-mint': 1, distribute: 3, withdraw: 1 };
+  let estimates;
+  before(async function () { estimates = await estimateOperationGas(); });
+
+  it('mỗi thao tác có gas lớn hơn 0 khi mô phỏng, số giao dịch khớp bảng; demo-cycle bằng tổng', function () {
+    expect(OPERATIONS).to.deep.equal([...Object.keys(TXS), 'demo-cycle']);
+    for (const [op, txs] of Object.entries(TXS)) {
+      expect(estimates[op].txs, op).to.equal(txs);
+      expect(estimates[op].gas > 0n, op).to.equal(true);
+    }
+    const sum = CYCLE_OPERATIONS.reduce((acc, op) => ({ gas: acc.gas + estimates[op].gas, txs: acc.txs + estimates[op].txs }), { gas: 0n, txs: 0 });
+    expect(estimates['demo-cycle']).to.deep.equal(sum);
+    expect(estimates['demo-cycle'].txs).to.equal(12);
+  });
+
+  it('bảng in theo thao tác, mỗi dòng ghi ví gửi; --dry-run không cần khoá tổng', async function () {
+    const lines = [];
+    const result = await fund({ target, operation: 'demo-cycle', dryRun: true }, {
+      provider: provider(), estimates, log: (line) => lines.push(line), key: '',
+      makeWallet: () => { throw new Error('không được tạo signer'); },
+    });
+    const table = lines.find((line) => line.startsWith('| Thao tác'));
+    expect(table).to.include('Ví gửi');
+    for (const op of [...CYCLE_OPERATIONS, 'demo-cycle']) {
+      expect(table).to.match(new RegExp(`\\| ${op} \\| ${estimates[op].txs} \\| ${estimates[op].gas} \\| [0-9.]+ \\| ${SENDER} \\|`));
+    }
+    expect(result.required).to.equal(feeBudget(estimates['demo-cycle'].gas, 10n));
+    expect(result.hash).to.equal(undefined);
+    expect(lines.join('\n')).to.include('DRY-RUN');
+  });
+
+  it('bỏ thao tác cũ cycle, mint, burn', function () {
+    for (const op of ['cycle', 'mint', 'burn']) expect(OPERATIONS).not.to.include(op);
   });
 });
