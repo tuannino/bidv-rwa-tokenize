@@ -753,6 +753,10 @@ async function syncVaultClose(
   const ref = BigInt(current.vaultPeriodRef!);
   const last = (await ledger.vaultStatus())?.lastPeriodRef ?? 0n;
   if (last !== ref - 1n) {
+    // Tiến trình khác có thể vừa chốt đúng mã này giữa lần đối soát trên và lần đọc vault:
+    // đối soát lại trước khi kết luận CONFLICT.
+    const settled = await reconcileVaultClose(ctx, current.id);
+    if (settled) return settled;
     const moved = await store.transitionVaultClose({
       id: current.id,
       from: current.vaultCloseStatus!,

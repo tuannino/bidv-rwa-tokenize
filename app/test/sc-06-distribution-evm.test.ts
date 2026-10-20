@@ -436,18 +436,22 @@ live('SC-06 ca 14 đến 19 — nghiệp vụ chia lợi nhuận trên Hardhat t
     expect(expired.batches).toBe(0);
     expect(expired.expired).toBe(1);
 
-    const output = execFileSync('npx', ['hardhat', 'run', 'scripts/distribution-admin.js', '--network', 'localhost'], {
-      cwd: CONTRACTS_DIR,
-      env: {
-        ...process.env,
-        LOCAL_RPC_URL: HARDHAT_RPC,
-        DISTRIBUTION_ADMIN_ACTION: 'close',
-        DISTRIBUTION_PERIOD_KEY: period.periodKey,
-        DISTRIBUTION_ADMIN_CONFIRM: 'yes',
-      },
-      encoding: 'utf8',
-    });
-    expect(output).toContain('CONFIRMED');
+    const runScript = (confirm: boolean) =>
+      execFileSync('npx', ['hardhat', 'run', 'scripts/distribution-admin.js', '--network', 'localhost'], {
+        cwd: CONTRACTS_DIR,
+        env: {
+          ...process.env,
+          LOCAL_RPC_URL: HARDHAT_RPC,
+          DISTRIBUTION_ADMIN_ACTION: 'close',
+          DISTRIBUTION_PERIOD_KEY: period.periodKey,
+          DISTRIBUTION_ADMIN_CONFIRM: confirm ? 'yes' : '',
+        },
+        encoding: 'utf8',
+      });
+    // Mặc định chỉ in kế hoạch, không gửi gì.
+    expect(runScript(false)).toContain('DRY-RUN');
+    expect((await ledger.distributionState(period.distributionId!)).closed).toBe(false);
+    expect(runScript(true)).toContain('CONFIRMED');
 
     const closed = await distributeOk(period.id);
     expect(closed.period.status).toBe('CLOSED');
