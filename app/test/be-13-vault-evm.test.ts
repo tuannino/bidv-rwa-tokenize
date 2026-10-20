@@ -33,7 +33,7 @@ const live = HARDHAT_RPC ? describe.sequential : describe.skip;
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Hex;
 const ADMIN_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
-live('BE-13 ca 7 — Kiểm soát viên cấu hình, Người bán rút qua service trên nút Hardhat thật', () => {
+live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service trên nút Hardhat thật', () => {
   const vault = getContractAddress('hardhat-local', 'SpvPaymentVault') as Hex;
   const ledger = createEvmLedger('hardhat-local', signer);
   const keys = ['RPC_HARDHAT', 'SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL', 'USE_MOCK_DB', 'DEMO_ROLE', 'DEMO_ACTOR'] as const;
@@ -148,7 +148,7 @@ live('BE-13 ca 7 — Kiểm soát viên cấu hình, Người bán rút qua serv
   }, 120_000);
 });
 
-live('BE-13 — cổng cấu hình và rút vault trên nút Hardhat thật', () => {
+live('BE-13: cổng cấu hình và rút vault trên nút Hardhat thật', () => {
   const oldRpc = process.env.RPC_HARDHAT;
   const vaultAddress = getContractAddress('hardhat-local', 'SpvPaymentVault') as Hex;
   const ledger = createEvmLedger('hardhat-local', signer);

@@ -183,7 +183,7 @@ describe('RBAC — can(role, action)', () => {
 });
 
 /**
- * BE-13 ca 1 (phần RBAC) — QĐ-A: vai lạ KHÔNG có quyền nào.
+ * BE-13 ca 1 (phần RBAC), QĐ-A: vai lạ KHÔNG có quyền nào.
  *
  * Thay cho `FALLBACK_ROLE` của FE-20 (quy vai lạ về `SELLER`). Từ BE-13 cả bốn vai đều có quyền
  * ghi (Người bán có `vault:withdraw`), nên quy vai lạ về BẤT KỲ vai nào cũng là cho một cookie gõ

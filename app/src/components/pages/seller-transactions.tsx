@@ -14,7 +14,7 @@ import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.
 import { nf } from './seller-overview';
 
 /**
- * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8–9, BE-13 QĐ-I) — CHỈ ĐỌC.
+ * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8 đến 9, BE-13 QĐ-I): CHỈ ĐỌC.
  *
  * Lệnh mua bán của nhà đầu tư gộp với lệnh rút của Người bán. Lọc và phân trang làm ở
  * `listSellerTransactions`, màn này chỉ gửi bộ lọc và hiển thị.

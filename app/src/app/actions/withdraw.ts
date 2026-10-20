@@ -9,7 +9,7 @@ import {
 } from '@/lib/bank/withdraw.service';
 
 /**
- * Server actions lệnh rút vault (BE-13) — vỏ mỏng quanh `withdraw.service`. Quyền (`vault:withdraw`,
+ * Server actions lệnh rút vault (BE-13): vỏ mỏng quanh `withdraw.service`. Quyền (`vault:withdraw`,
  * `vault:read`, `vault:reconcile`) kiểm TRONG service: server action gọi được bằng POST trực tiếp.
  */
 

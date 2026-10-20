@@ -111,7 +111,7 @@ async function runStep(ledger: ILedgerPort, step: Step, price: { value: bigint }
   }
 }
 
-describe('BE-13 ca 12 — địa chỉ vault mock', () => {
+describe('BE-13 ca 12: địa chỉ vault mock', () => {
   it('là 20 byte cuối của keccak256 nhãn cố định, khác ví nhận NB001', () => {
     const hash = keccak256(toHex('bidv-rwa-tokenize:mock:SpvPaymentVault'));
     expect(MOCK_VAULT_ADDRESS).toBe(getAddress(`0x${hash.slice(-40)}`));
@@ -126,7 +126,7 @@ describe('BE-13 ca 12 — địa chỉ vault mock', () => {
   });
 });
 
-describe('BE-13 ca 12 — bảng số khoá: vault mock và hàm thuần khớp hợp đồng', () => {
+describe('BE-13 ca 12: bảng số khoá: vault mock và hàm thuần khớp hợp đồng', () => {
   beforeEach(() => resetMockLedger());
 
   for (const scenario of TABLE.scenarios) {
@@ -165,7 +165,7 @@ describe('BE-13 ca 12 — bảng số khoá: vault mock và hàm thuần khớp 
   });
 });
 
-describe('BE-13 ca 12 — cấu hình, rút và chốt kỳ chạy trên mock', () => {
+describe('BE-13 ca 12: cấu hình, rút và chốt kỳ chạy trên mock', () => {
   beforeEach(() => resetMockLedger());
 
   it('cấu hình được trước Mint đầu; vault vừa khởi tạo ở UNSET và đã whitelist', async () => {
@@ -257,7 +257,7 @@ describe('BE-13 ca 12 — cấu hình, rút và chốt kỳ chạy trên mock', 
   });
 });
 
-describe('BE-13 ca 12 — dòng MockLedgerState cũ thiếu trường vault', () => {
+describe('BE-13 ca 12: dòng MockLedgerState cũ thiếu trường vault', () => {
   const legacy = () => {
     const encoded = encodeMockLedgerState(createDefaultMockLedgerState()) as Record<string, unknown>;
     delete encoded.vault;

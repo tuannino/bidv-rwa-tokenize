@@ -30,7 +30,7 @@ export function can(role: unknown, action: Action): boolean {
   return isRole(role) && ROLE_PERMISSIONS[role].includes(action);
 }
 
-/** Như `can` nhưng ném `ForbiddenError` — dùng làm guard đầu server action. Vai lạ ghi là `UNKNOWN`. */
+/** Như `can` nhưng ném `ForbiddenError`, dùng làm guard đầu server action. Vai lạ ghi là `UNKNOWN`. */
 export function assertCan(role: unknown, action: Action): asserts role is Role {
   if (!isRole(role)) throw new ForbiddenError(UNKNOWN_ROLE, action);
   if (!can(role, action)) throw new ForbiddenError(role, action);

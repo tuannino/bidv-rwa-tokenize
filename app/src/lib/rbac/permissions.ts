@@ -265,9 +265,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'txn:read',
   ],
   /**
-   * Người bán — vai MỚI của FE-20.
+   * Người bán: vai MỚI của FE-20.
    *
-   * Xem khu vực của mình, xem số dư và giao dịch của ví mình, xem TOÀN BỘ sổ lệnh (BE-14 — bên
+   * Xem khu vực của mình, xem số dư và giao dịch của ví mình, xem TOÀN BỘ sổ lệnh (BE-14: bên
    * đối ứng của mọi lệnh mua và bán). KHÔNG spread `READ_ONLY` nên không có `audit:read`,
    * `reconcile:read`. BE-13: ĐÚNG MỘT quyền ghi, `vault:withdraw` (tự rút, không qua duyệt).
    */

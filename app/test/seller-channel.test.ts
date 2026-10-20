@@ -135,7 +135,7 @@ describe('ca 1 — Tổng quan đủ sáu khối, số liệu lấy từ nghiệ
       tradingFeePercent: WPT_TRADING_FEE_PERCENT,
     });
 
-    // khối 5, 6 — ví: BE-13 QĐ-G, mock có vault nên khoá theo vault; vault UNSET khoá toàn bộ.
+    // khối 5, 6, ví: BE-13 QĐ-G, mock có vault nên khoá theo vault; vault UNSET khoá toàn bộ.
     expect(view.spvWallet?.toLowerCase()).toBe(SPV.toLowerCase());
     expect(view.wallet).toMatchObject({
       paymentWallet: SPV,
