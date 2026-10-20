@@ -207,6 +207,10 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async vaultWithdrawalReceipt(): Promise<never> {
       return todoNeeds('vaultWithdrawalReceipt', 'sự kiện rút của vault thanh toán SPV bản Soroban');
     },
+    // Không có vault thì không có lịch sử cấu hình: trạng thái hợp lệ, như `vaultPeriodCloses`.
+    async vaultConfigEvents() {
+      return [];
+    },
 
     // --- Đọc / giao dịch ---
     async balanceOf(): Promise<bigint> {

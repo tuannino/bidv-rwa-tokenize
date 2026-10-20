@@ -107,6 +107,8 @@ afterEach(() => {
 });
 
 describe('BE-13 ca 1 (phần rút): chỉ SELLER tạo lệnh rút, chỉ CONTROLLER xử lý NEEDS_REVIEW', () => {
+  // "UNKNOWN", "", "null" là giá trị vai hỏng: `currentRole()` đưa về vai mặc định (TELLER, QĐ-A giữ
+  // nguyên), vai đó không có `vault:withdraw`. `can` với vai lạ kiểm ở rbac.test.ts.
   for (const role of ['CONTROLLER', 'TELLER', 'INVESTOR', 'UNKNOWN', '', 'null']) {
     it(`vai "${role}" tạo lệnh rút: FORBIDDEN, không gửi gì`, async () => {
       actAs(role);

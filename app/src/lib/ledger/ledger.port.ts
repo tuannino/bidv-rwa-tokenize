@@ -100,6 +100,23 @@ export interface VaultWithdrawalFilter {
   amount?: bigint;
 }
 
+/**
+ * Tham số cấu hình vault trong lịch sử (BE-13 QĐ-C1). `PENDING_PERCENT_RATE` là `PercentRateSet` với
+ * `pending = true`: sau kỳ đầu, tỷ lệ mới chỉ ghi chờ tới lần chốt kỳ kế tiếp.
+ */
+export type VaultConfigParam = 'LOCK_MODE' | 'PERCENT_RATE' | 'PENDING_PERCENT_RATE' | 'FIXED_LOCK' | 'PAYOUT_WALLET';
+
+/** Một sự kiện cấu hình của vault, đọc từ chuỗi. `value` là chuỗi: chế độ, phần vạn, VNDB hoặc địa chỉ. */
+export interface VaultConfigEvent {
+  param: VaultConfigParam;
+  value: string;
+  txHash: string;
+  blockNumber: bigint;
+  logIndex: number;
+  /** Giây từ epoch của block chứa sự kiện. */
+  timestamp: number;
+}
+
 export interface ILedgerVault {
   vaultStatus(): Promise<VaultStatus | null>;
   vaultPeriodCloses(limit: number): Promise<VaultPeriodClose[]>;
@@ -135,6 +152,12 @@ export interface ILedgerVault {
    * nhận (chưa vào block hoặc mã lạ). Không chờ: người gọi đã chờ bằng `waitReceipt`.
    */
   vaultWithdrawalReceipt(txHash: string): Promise<VaultWithdrawalReceipt | null>;
+  /**
+   * Bốn sự kiện cấu hình (`LockModeChanged`, `PercentRateSet`, `FixedLockSet`, `PayoutWalletSet`) từ
+   * `fromBlock` (mặc định block triển khai), cũ nhất trước (BE-13 QĐ-C1). Gồm cả thay đổi ngoài app.
+   * Chain không có vault trả rỗng.
+   */
+  vaultConfigEvents(filter?: { fromBlock?: bigint }): Promise<VaultConfigEvent[]>;
 }
 
 // =============================================================================

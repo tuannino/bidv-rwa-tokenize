@@ -49,6 +49,7 @@ import {
   type TokenInfo,
   type TransferCheck,
   type TxResult,
+  type VaultConfigEvent,
   type VaultLockMode,
   type VaultPeriodClose,
   type VaultWithdrawal,
@@ -1301,6 +1302,58 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           return null;
         }
         return fail('vaultWithdrawalReceipt', error);
+      }
+    },
+
+    async vaultConfigEvents(filter = {}) {
+      const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
+      if (!vaultAddress) return [];
+      const deployBlock = addressBook[chain]?.deployBlock;
+      const fromBlock = filter.fromBlock ?? (deployBlock === undefined ? undefined : BigInt(deployBlock));
+      if (fromBlock === undefined) {
+        throw new LedgerError(
+          chain,
+          'vaultConfigEvents',
+          'Thiếu block triển khai trong address book; không quét lịch sử cấu hình vault từ block 0.',
+        );
+      }
+      try {
+        const logs = (await reader().getContractEvents({
+          address: normalizeEvmAddress(vaultAddress) as Hex,
+          abi: spvPaymentVaultAbi as Abi,
+          fromBlock,
+          toBlock: 'latest',
+        })) as Array<{
+          eventName: string;
+          args: { mode?: number; amount?: bigint; bps?: bigint; pending?: boolean; wallet?: string };
+          transactionHash: Hex;
+          blockNumber: bigint;
+          logIndex: number;
+        }>;
+        const modes: VaultLockMode[] = ['UNSET', 'FIXED', 'PERCENT'];
+        const events = logs.flatMap((log): Array<Omit<VaultConfigEvent, 'timestamp'>> => {
+          const base = { txHash: log.transactionHash, blockNumber: log.blockNumber, logIndex: log.logIndex };
+          switch (log.eventName) {
+            case 'LockModeChanged':
+              return [{ ...base, param: 'LOCK_MODE', value: modes[Number(log.args.mode)] ?? String(log.args.mode) }];
+            case 'FixedLockSet':
+              return [{ ...base, param: 'FIXED_LOCK', value: String(log.args.amount ?? 0n) }];
+            case 'PercentRateSet':
+              return [{ ...base, param: log.args.pending ? 'PENDING_PERCENT_RATE' : 'PERCENT_RATE', value: String(log.args.bps ?? 0n) }];
+            case 'PayoutWalletSet':
+              return [{ ...base, param: 'PAYOUT_WALLET', value: normalizeEvmAddress(log.args.wallet ?? '0x0000000000000000000000000000000000000000') }];
+            default:
+              return [];
+          }
+        });
+        events.sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex);
+        const timestamps = new Map<bigint, number>();
+        for (const blockNumber of new Set(events.map((event) => event.blockNumber))) {
+          timestamps.set(blockNumber, Number((await reader().getBlock({ blockNumber })).timestamp));
+        }
+        return events.map((event) => ({ ...event, timestamp: timestamps.get(event.blockNumber) ?? 0 }));
+      } catch (error) {
+        return fail('vaultConfigEvents', error);
       }
     },
 

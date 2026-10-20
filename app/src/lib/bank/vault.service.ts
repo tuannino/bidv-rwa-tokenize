@@ -10,10 +10,11 @@ import {
   normalizeEvmAddress,
   receiptTimeoutFor,
   type ILedgerPort,
+  type VaultConfigParam,
   type VaultLockMode,
   type VaultStatus,
 } from '@/lib/ledger';
-import { can } from '@/lib/rbac';
+import { can, type Role } from '@/lib/rbac';
 import { currentActorId } from '@/lib/rbac/session';
 import { readVaultDefaultPercentBps } from '@/lib/store/config-values';
 import { getStore, getVaultStore } from '@/lib/store';
@@ -352,5 +353,87 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
       failedStep: [failedLabel],
       payoutChanged: [String(payoutChanged)],
     });
+  }
+}
+
+// =============================================================================
+//  LỊCH SỬ CẤU HÌNH (BE-13 QĐ-C1)
+// =============================================================================
+
+const historySchema = z.object({
+  chain: chainSchema,
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+/** Giá trị trước sự kiện đầu tiên của mỗi tham số: vault vừa triển khai. */
+const INITIAL_CONFIG_VALUE: Readonly<Record<VaultConfigParam, string | null>> = {
+  LOCK_MODE: 'UNSET',
+  PERCENT_RATE: '0',
+  PENDING_PERCENT_RATE: null,
+  FIXED_LOCK: '0',
+  PAYOUT_WALLET: null,
+};
+
+export interface VaultConfigHistoryRow {
+  param: VaultConfigParam;
+  /** `null` khi tham số chưa từng có giá trị (ví nhận chưa đặt, chưa có tỷ lệ chờ). */
+  oldValue: string | null;
+  newValue: string;
+  txHash: string;
+  blockNumber: string;
+  timestamp: number;
+  /**
+   * Người thao tác, tra theo mã giao dịch trong `Txn`: giao dịch app gửi mang vai và ví ký; không
+   * thấy thì `OUTSIDE_APP` ("ngoài app", ví dụ chạy `vault-admin.js`).
+   */
+  actor: { source: 'APP'; role: Role; signer: string | null } | { source: 'OUTSIDE_APP' };
+}
+
+export interface VaultConfigHistoryPage {
+  rows: VaultConfigHistoryRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Mọi lần thay đổi cấu hình vault, mới nhất trước (QĐ-C1). Nguồn sự thật là sự kiện trên chuỗi nên
+ * thay đổi bằng script cũng hiện ra; giá trị cũ suy từ sự kiện trước đó cùng tham số. Hai vai vận
+ * hành xem bằng `vault:read`.
+ */
+export async function getVaultConfigHistory(input: unknown): Promise<Result<VaultConfigHistoryPage>> {
+  const parsed = historySchema.safeParse(input);
+  if (!parsed.success) return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  const { chain, page, pageSize } = parsed.data;
+  try {
+    await authorize('vault:read', null, chain);
+    const events = await getLedger(chain).vaultConfigEvents();
+    const last = new Map<VaultConfigParam, string | null>();
+    const withOld = events.map((event) => {
+      const oldValue = last.has(event.param) ? last.get(event.param)! : INITIAL_CONFIG_VALUE[event.param];
+      last.set(event.param, event.value);
+      return { event, oldValue };
+    });
+    const newestFirst = withOld.reverse();
+    const slice = newestFirst.slice((page - 1) * pageSize, page * pageSize);
+    const store = getStore();
+    const rows = await Promise.all(
+      slice.map(async ({ event, oldValue }): Promise<VaultConfigHistoryRow> => {
+        const txn = await store.findTxnByHash(chain, event.txHash);
+        return {
+          param: event.param,
+          oldValue,
+          newValue: event.value,
+          txHash: event.txHash,
+          blockNumber: event.blockNumber.toString(),
+          timestamp: event.timestamp,
+          actor: txn ? { source: 'APP', role: txn.actorRole, signer: txn.actorAddress } : { source: 'OUTSIDE_APP' },
+        };
+      }),
+    );
+    return ok({ rows, total: newestFirst.length, page, pageSize });
+  } catch (error) {
+    return toResult(error);
   }
 }

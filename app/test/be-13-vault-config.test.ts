@@ -49,7 +49,9 @@ const { resetServerEnvCache } = await import('@/lib/config/env');
 const { getLedger } = await import('@/lib/ledger');
 const { resetMockLedger } = await import('@/lib/ledger/mock.adapter');
 const { getVaultStore, getConfigStore, getStore, resetMemoryStore, resetStoreCache } = await import('@/lib/store');
-const { getVaultOverview, saveVaultConfig, vaultConfigLockTakeOverBefore } = await import('@/lib/bank/vault.service');
+const { getVaultConfigHistory, getVaultOverview, saveVaultConfig, vaultConfigLockTakeOverBefore } = await import(
+  '@/lib/bank/vault.service'
+);
 const { bpsToPercent, percentToBps, planVaultConfig } = await import('@/lib/bank/vault-config');
 const { createMemoryVaultStore } = await import('@/lib/store/memory.vault.store');
 
@@ -100,6 +102,8 @@ afterEach(() => {
 });
 
 describe('BE-13 ca 1 (phần cấu hình): chỉ CONTROLLER lưu được cấu hình khoá', () => {
+  // "UNKNOWN" và "" là giá trị vai hỏng: `currentRole()` đưa về vai mặc định của bản demo (TELLER,
+  // QĐ-A giữ nguyên), vai đó cũng không có `vault:configure`. `can` với vai lạ kiểm ở rbac.test.ts.
   for (const role of ['SELLER', 'TELLER', 'INVESTOR', 'UNKNOWN', '']) {
     it(`vai "${role}": FORBIDDEN, không giao dịch nào, có dòng audit DENIED`, async () => {
       actAs(role);
@@ -317,6 +321,52 @@ describe('BE-13 ca 5: tỷ lệ chờ áp sau kỳ đầu', () => {
     expect(planVaultConfig(current, { percentBps: 2_000n, fixedLock: null, payoutWallet: PAYOUT })).toEqual([
       { kind: 'setPercentRate', bps: 2_000n, previous: 3_000n },
     ]);
+  });
+});
+
+describe('BE-13 ca 5b (QĐ-C1): lịch sử cấu hình', () => {
+  it('ba lần lưu và một thay đổi ngoài app: đủ từng thay đổi, giá trị cũ và mới đúng, người thao tác đúng', async () => {
+    await saveOk({ percent: '20' });
+    await saveOk({ percent: '25' });
+    await saveOk({ percent: '25', fixedLock: '500' });
+    // Như chạy `vault-admin.js`: gọi thẳng chuỗi, không qua app nên không có dòng Txn.
+    await getLedger(CHAIN).setVaultPercentRate(3_000n);
+
+    const history = await getVaultConfigHistory({ chain: CHAIN });
+    expect(history.ok, history.ok ? '' : history.error).toBe(true);
+    if (!history.ok) return;
+    const app = { source: 'APP', role: 'CONTROLLER', signer: '0x0000000000000000000000000000000000000001' };
+    expect(history.data.total).toBe(7);
+    expect(history.data.rows.map(({ param, oldValue, newValue, actor }) => ({ param, oldValue, newValue, actor }))).toEqual([
+      { param: 'PERCENT_RATE', oldValue: '2500', newValue: '3000', actor: { source: 'OUTSIDE_APP' } },
+      { param: 'LOCK_MODE', oldValue: 'PERCENT', newValue: 'FIXED', actor: app },
+      { param: 'FIXED_LOCK', oldValue: '0', newValue: '500', actor: app },
+      { param: 'PERCENT_RATE', oldValue: '2000', newValue: '2500', actor: app },
+      { param: 'LOCK_MODE', oldValue: 'UNSET', newValue: 'PERCENT', actor: app },
+      { param: 'PERCENT_RATE', oldValue: '0', newValue: '2000', actor: app },
+      { param: 'PAYOUT_WALLET', oldValue: null, newValue: PAYOUT, actor: app },
+    ]);
+    // Mới nhất trước theo block; mỗi dòng có mã giao dịch và thời điểm.
+    const blocks = history.data.rows.map((row) => BigInt(row.blockNumber));
+    expect([...blocks].sort((a, b) => (a < b ? 1 : -1))).toEqual(blocks);
+    expect(history.data.rows.every((row) => /^0x[0-9a-f]{64}$/.test(row.txHash) && row.timestamp > 0)).toBe(true);
+
+    const page2 = await getVaultConfigHistory({ chain: CHAIN, page: 2, pageSize: 3 });
+    expect(page2.ok && page2.data.rows.map((row) => row.param)).toEqual(['PERCENT_RATE', 'LOCK_MODE', 'PERCENT_RATE']);
+  });
+
+  it('sau kỳ đầu, đổi tỷ lệ ghi thành "tỷ lệ chờ áp"; vai vận hành xem được, vai khác bị chặn', async () => {
+    await saveOk({ percent: '20' });
+    await getLedger(CHAIN).closeVaultPeriod(1n, 1_000n);
+    await saveOk({ percent: '30' });
+    actAs('TELLER');
+    const history = await getVaultConfigHistory({ chain: CHAIN, pageSize: 1 });
+    expect(history.ok && history.data.rows[0]).toMatchObject({ param: 'PENDING_PERCENT_RATE', oldValue: null, newValue: '3000' });
+    for (const role of ['SELLER', 'INVESTOR']) {
+      actAs(role);
+      const denied = await getVaultConfigHistory({ chain: CHAIN });
+      expect(denied.ok || denied.code).toBe('FORBIDDEN');
+    }
   });
 });
 

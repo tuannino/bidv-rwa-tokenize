@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
 import { ExternalLink, Loader2 } from 'lucide-react';
-import { getVaultOverviewAction, saveVaultConfigAction } from '@/app/actions/vault';
+import { getVaultConfigHistoryAction, getVaultOverviewAction, saveVaultConfigAction } from '@/app/actions/vault';
 import {
   listWithdrawReviewsAction,
   reconcileWithdrawRequestsAction,
@@ -12,7 +12,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { VaultConfigFormView, VaultConfigStepView, VaultOverviewView, VaultStatusView } from '@/lib/bank/vault.service';
+import type {
+  VaultConfigFormView,
+  VaultConfigHistoryPage,
+  VaultConfigHistoryRow,
+  VaultConfigStepView,
+  VaultOverviewView,
+  VaultStatusView,
+} from '@/lib/bank/vault.service';
 import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 
@@ -267,7 +274,102 @@ function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey;
   );
 }
 
-/** Trạng thái vault, lịch sử chốt kỳ, cấu hình khoá và lệnh rút cần xem xét. */
+const PARAM_LABEL: Record<VaultConfigHistoryRow['param'], string> = {
+  LOCK_MODE: 'Chế độ khoá',
+  PERCENT_RATE: 'Tỷ lệ khoá',
+  PENDING_PERCENT_RATE: 'Tỷ lệ chờ áp',
+  FIXED_LOCK: 'Số khoá cố định',
+  PAYOUT_WALLET: 'Ví nhận tiền rút',
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  CONTROLLER: 'Kiểm soát viên',
+  TELLER: 'Giao dịch viên',
+  SELLER: 'Người bán',
+  INVESTOR: 'Nhà đầu tư',
+};
+
+function configValue(param: VaultConfigHistoryRow['param'], value: string | null): string {
+  if (value === null) return 'Chưa có';
+  if (param === 'LOCK_MODE') return MODE_LABEL[value as keyof typeof MODE_LABEL] ?? value;
+  if (param === 'PERCENT_RATE' || param === 'PENDING_PERCENT_RATE') return percent(value);
+  if (param === 'FIXED_LOCK') return `${amount(value)} VNDB`;
+  return value;
+}
+
+const HISTORY_PAGE_SIZE = 10;
+
+/**
+ * "Lịch sử cấu hình" (BE-13 QĐ-C1): mỗi dòng một thay đổi đọc từ sự kiện trên chuỗi, mới nhất trước.
+ * Thay đổi không do app gửi (ví dụ `vault-admin.js`) ghi người thao tác là "ngoài app".
+ */
+function VaultConfigHistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadKey: number }) {
+  const [page, setPage] = useState(1);
+  const [loaded, setLoaded] = useState<{ key: string; data: VaultConfigHistoryPage | null; error: string | null } | null>(null);
+  const key = `${chain}:${page}:${reloadKey}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    void getVaultConfigHistoryAction({ chain, page, pageSize: HISTORY_PAGE_SIZE }).then((result) => {
+      if (cancelled) return;
+      setLoaded(result.ok ? { key, data: result.data, error: null } : { key, data: null, error: result.error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chain, page, key]);
+
+  const data = loaded?.data ?? null;
+  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">Lịch sử cấu hình</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        {loaded?.error ? (
+          <p role="alert" className="text-sm text-destructive">{loaded.error}</p>
+        ) : data === null ? (
+          <p className="text-sm text-muted-foreground">Đang đọc…</p>
+        ) : data.rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Vault chưa có thay đổi cấu hình nào.</p>
+        ) : (
+          <Table aria-label="Lịch sử cấu hình">
+            <TableHeader><TableRow>
+              <TableHead>Block</TableHead><TableHead>Thời điểm</TableHead><TableHead>Tham số</TableHead>
+              <TableHead>Giá trị cũ</TableHead><TableHead>Giá trị mới</TableHead><TableHead>Giao dịch</TableHead>
+              <TableHead>Người thao tác</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>{data.rows.map((row) => {
+              const url = explorerTxUrl(chain, row.txHash);
+              return <TableRow key={`${row.txHash}:${row.param}`} data-param={row.param}>
+                <TableCell className="font-mono text-xs">{row.blockNumber}</TableCell>
+                <TableCell className="text-xs">{new Date(row.timestamp * 1000).toLocaleString('vi-VN')}</TableCell>
+                <TableCell>{PARAM_LABEL[row.param]}</TableCell>
+                <TableCell className="font-mono text-xs">{configValue(row.param, row.oldValue)}</TableCell>
+                <TableCell className="font-mono text-xs">{configValue(row.param, row.newValue)}</TableCell>
+                <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-mono text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
+                <TableCell className="text-xs">
+                  {row.actor.source === 'OUTSIDE_APP' ? 'Ngoài app' : `${ROLE_LABEL[row.actor.role] ?? row.actor.role}${row.actor.signer ? ` (ví ký ${short(row.actor.signer)})` : ''}`}
+                </TableCell>
+              </TableRow>;
+            })}</TableBody>
+          </Table>
+        )}
+        {data && data.total > data.pageSize && (
+          <nav className="flex items-center justify-between text-sm" aria-label="Phân trang lịch sử cấu hình">
+            <span className="text-muted-foreground">Trang {data.page}/{pages}, {data.total} thay đổi</span>
+            <div className="flex gap-2">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Trang trước</Button>
+              <Button variant="outline" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>Trang sau</Button>
+            </div>
+          </nav>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Trạng thái vault, lịch sử chốt kỳ, cấu hình khoá, lịch sử cấu hình và lệnh rút cần xem xét. */
 export function VaultStatusPage() {
   const { chain } = useSelectedChain();
   const [reloadKey, setReloadKey] = useState(0);
@@ -350,6 +452,8 @@ export function VaultStatusPage() {
               onSaved={() => setReloadKey((value) => value + 1)}
             />
           )}
+
+          <VaultConfigHistoryCard key={`history:${chain}`} chain={chain} reloadKey={reloadKey} />
 
           <WithdrawReviewCard
             key={`review:${chain}`}

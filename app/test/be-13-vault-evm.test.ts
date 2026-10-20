@@ -1,4 +1,6 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SAMPLE_WALLETS, getContractAddress, spvPaymentVaultAbi } from '@bidv/shared';
 import { createPublicClient, createWalletClient, http, type Abi, type Account, type Hex } from 'viem';
@@ -114,6 +116,36 @@ live('BE-13 ca 7 — Kiểm soát viên cấu hình, Người bán rút qua serv
     expect(audits.some((row) => row.action === 'vault:withdraw' && row.outcome === 'SUCCESS' && row.detail?.includes('hoàn tất'))).toBe(true);
     expect(await getVaultStore().findOperationLock('hardhat-local')).toBeNull();
   });
+
+  it('ca 5b (QĐ-C1): hai lần lưu nữa và một lần đổi bằng vault-admin.js; lịch sử đủ, dòng script ghi "ngoài app"', async () => {
+    const { getVaultConfigHistory, saveVaultConfig } = await import('@/lib/bank/vault.service');
+    await actAs('CONTROLLER', 'KSV001');
+    for (const input of [{ percent: '25', fixedLock: '' }, { percent: '25', fixedLock: '500' }]) {
+      const saved = await saveVaultConfig({ chain: 'hardhat-local', payoutWallet: PAYOUT, ...input });
+      expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
+    }
+    // Script khẩn cấp: cùng ví admin #0 ký nhưng không đi qua app, nên không có dòng Txn.
+    execFileSync('npx', ['hardhat', 'run', 'scripts/vault-admin.js', '--network', 'localhost'], {
+      cwd: path.resolve(__dirname, '../../packages/contracts-evm'),
+      env: { ...process.env, VAULT_ADMIN_ACTION: 'set-rate', VAULT_PERCENT_BPS: '3000', VAULT_ADMIN_CONFIRM: 'yes' },
+      stdio: 'pipe',
+    });
+
+    const history = await getVaultConfigHistory({ chain: 'hardhat-local' });
+    expect(history.ok, history.ok ? '' : history.error).toBe(true);
+    if (!history.ok) return;
+    const app = { source: 'APP', role: 'CONTROLLER', signer: ADMIN };
+    expect(history.data.rows.slice(0, 7).map(({ param, oldValue, newValue, actor }) => ({ param, oldValue, newValue, actor }))).toEqual([
+      { param: 'PERCENT_RATE', oldValue: '2500', newValue: '3000', actor: { source: 'OUTSIDE_APP' } },
+      { param: 'LOCK_MODE', oldValue: 'PERCENT', newValue: 'FIXED', actor: app },
+      { param: 'FIXED_LOCK', oldValue: '0', newValue: '500', actor: app },
+      { param: 'PERCENT_RATE', oldValue: '2000', newValue: '2500', actor: app },
+      { param: 'LOCK_MODE', oldValue: 'UNSET', newValue: 'PERCENT', actor: app },
+      { param: 'PERCENT_RATE', oldValue: '0', newValue: '2000', actor: app },
+      { param: 'PAYOUT_WALLET', oldValue: null, newValue: PAYOUT, actor: app },
+    ]);
+    expect(history.data.rows.every((row) => row.timestamp > 0)).toBe(true);
+  }, 120_000);
 });
 
 live('BE-13 — cổng cấu hình và rút vault trên nút Hardhat thật', () => {

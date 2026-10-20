@@ -22,6 +22,7 @@ import {
   type TokenInfo,
   type TransferCheck,
   type TxResult,
+  type VaultConfigParam,
   type VaultPeriodClose,
   type VaultStatus,
   type VaultWithdrawal,
@@ -362,6 +363,13 @@ export function createMockLedger(
 
   const requireNonNegative = (operation: string, value: bigint, label: string): void => {
     if (value < 0n) reject(operation, `${label} không được âm.`);
+  };
+
+  /** Ghi giao dịch cấu hình kèm sự kiện bền, như bốn sự kiện cấu hình của hợp đồng (QĐ-C1). */
+  const configured = (s: MockLedgerState, param: VaultConfigParam, value: string): TxResult => {
+    const tx = confirmed(s);
+    s.vault.configEvents.push({ param, value, txHash: tx.txHash, blockNumber: s.nonce, timestamp: Math.floor(Date.now() / 1000) });
+    return tx;
   };
 
   return {
@@ -972,11 +980,11 @@ export function createMockLedger(
           s.vault.percentRateBps = bps;
           s.vault.pendingPercentRateBps = 0n;
           s.vault.hasPendingRate = false;
-        } else {
-          s.vault.pendingPercentRateBps = bps;
-          s.vault.hasPendingRate = true;
+          return configured(s, 'PERCENT_RATE', bps.toString());
         }
-        return confirmed(s);
+        s.vault.pendingPercentRateBps = bps;
+        s.vault.hasPendingRate = true;
+        return configured(s, 'PENDING_PERCENT_RATE', bps.toString());
       });
     },
 
@@ -984,7 +992,7 @@ export function createMockLedger(
       requireNonNegative('setVaultFixedLock', amount, 'Số khoá cố định');
       return mutate('setVaultFixedLock', (s) => {
         s.vault.fixedLockAmount = amount;
-        return confirmed(s);
+        return configured(s, 'FIXED_LOCK', amount.toString());
       });
     },
 
@@ -992,7 +1000,7 @@ export function createMockLedger(
       if ((mode as string) === 'UNSET') reject('setVaultLockMode', 'Không thể đặt chế độ khoá về Chưa cấu hình.');
       return mutate('setVaultLockMode', (s) => {
         s.vault.lockMode = mode;
-        return confirmed(s);
+        return configured(s, 'LOCK_MODE', mode);
       });
     },
 
@@ -1005,7 +1013,7 @@ export function createMockLedger(
           reject('setVaultPayoutWallet', 'Ví nhận tiền rút chưa được xác minh trong sổ danh tính.');
         }
         s.vault.payoutWallet = normalized;
-        return confirmed(s);
+        return configured(s, 'PAYOUT_WALLET', normalized);
       });
     },
 
@@ -1040,6 +1048,15 @@ export function createMockLedger(
               (amount === undefined || event.amount === amount),
           )
           .map(toVaultWithdrawal),
+      );
+    },
+
+    async vaultConfigEvents(filter = {}) {
+      const fromBlock = filter.fromBlock ?? 0n;
+      return read('vaultConfigEvents', (s) =>
+        s.vault.configEvents
+          .filter((event) => BigInt(event.blockNumber) >= fromBlock)
+          .map((event) => ({ ...event, blockNumber: BigInt(event.blockNumber), logIndex: 0 })),
       );
     },
 

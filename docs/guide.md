@@ -349,6 +349,10 @@ bán chỉ rút được phần vượt khoá, tiền luôn về ví nhận do K
 Sau kỳ chia đầu, tỷ lệ mới chỉ có hiệu lực ở lần chốt kỳ kế tiếp: màn hiện **Tỷ lệ đang áp** và
 **Tỷ lệ chờ áp**. Giao dịch viên vào cùng màn chỉ xem, không lưu được.
 
+Mục **Lịch sử cấu hình** liệt kê mọi lần thay đổi (đọc từ sự kiện trên chuỗi, mới nhất trước): block,
+tham số, giá trị cũ, giá trị mới, mã giao dịch và người thao tác. Thay đổi bằng `vault-admin.js` hiện
+người thao tác là **Ngoài app**.
+
 ### 7.2 Người bán rút VNDB
 
 1. Đổi sang **Người bán** → **Tạo lệnh rút**. Ô **Mạng** và **Ví nhận** chỉ đọc; số **Phần được rút**

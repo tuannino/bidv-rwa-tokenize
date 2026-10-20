@@ -40,7 +40,10 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
     await expect(page.getByLabel('Kết quả lưu cấu hình')).toContainText(
       /Đã lưu cấu hình lên chuỗi|Chuỗi đã đúng cấu hình này/,
     );
-    await expect(page.getByText('Khoá số tiền cố định', { exact: true })).toBeVisible();
+    await expect(page.getByText('Khoá số tiền cố định', { exact: true }).first()).toBeVisible();
+    // QĐ-C1: lịch sử cấu hình đọc từ sự kiện trên chuỗi có dòng đổi chế độ sang khoá cố định.
+    const history = page.getByRole('table', { name: 'Lịch sử cấu hình' });
+    await expect(history.locator('tbody tr[data-param="LOCK_MODE"]').first()).toContainText('Khoá số tiền cố định');
     await expect(page.getByText(PAYOUT, { exact: true }).first()).toBeVisible();
   });
 

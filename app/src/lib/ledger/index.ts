@@ -36,6 +36,8 @@ export {
   type SnapshotResult,
   type TokenInfo,
   type TransferCheck,
+  type VaultConfigEvent,
+  type VaultConfigParam,
   type VaultLockMode,
   type VaultPeriodClose,
   type VaultStatus,

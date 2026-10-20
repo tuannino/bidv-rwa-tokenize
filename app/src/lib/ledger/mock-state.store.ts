@@ -3,7 +3,7 @@ import 'server-only';
 import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey } from './address';
-import type { VaultLockMode } from './ledger.port';
+import type { VaultConfigParam, VaultLockMode } from './ledger.port';
 
 export interface MockSnapshotRecord {
   balances: Map<string, bigint>;
@@ -57,6 +57,15 @@ export interface MockVaultPeriodClose {
   timestamp: number;
 }
 
+/** Sự kiện cấu hình bền của vault mock (BE-13 QĐ-C1), như bốn sự kiện cấu hình của hợp đồng. */
+export interface MockVaultConfigEvent {
+  param: VaultConfigParam;
+  value: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;
+}
+
 /** Biến trạng thái của `SpvPaymentVault`, ngang hàng từng biến của hợp đồng (BE-13 QĐ-G). */
 export interface MockVaultState {
   lockMode: VaultLockMode;
@@ -72,6 +81,7 @@ export interface MockVaultState {
   paused: boolean;
   withdrawals: MockVaultWithdrawal[];
   periodCloses: MockVaultPeriodClose[];
+  configEvents: MockVaultConfigEvent[];
 }
 
 /** Toàn bộ nguồn sự thật của chain mock. Không thêm state ở ngoài kiểu này. */
@@ -135,6 +145,7 @@ export function createDefaultMockVaultState(): MockVaultState {
     paused: false,
     withdrawals: [],
     periodCloses: [],
+    configEvents: [],
   };
 }
 
@@ -204,6 +215,7 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
       ...source.vault,
       withdrawals: source.vault.withdrawals.map((event) => ({ ...event })),
       periodCloses: source.vault.periodCloses.map((event) => ({ ...event })),
+      configEvents: source.vault.configEvents.map((event) => ({ ...event })),
     },
   };
 }
@@ -264,6 +276,8 @@ type EncodedVaultState = {
   paused: boolean;
   withdrawals: EncodedVaultWithdrawal[];
   periodCloses: EncodedVaultPeriodClose[];
+  /** Thiếu ở dòng ghi trước QĐ-C1: đọc ra rỗng. */
+  configEvents?: MockVaultConfigEvent[];
 };
 
 export type EncodedMockLedgerState = {
@@ -345,6 +359,7 @@ function encodeVault(vault: Readonly<MockVaultState>): EncodedVaultState {
       rateBps: event.rateBps.toString(),
       percentLocked: event.percentLocked.toString(),
     })),
+    configEvents: vault.configEvents.map((event) => ({ ...event })),
   };
 }
 
@@ -463,6 +478,13 @@ function arrayValue(value: unknown, label: string): unknown[] {
 }
 
 const LOCK_MODES: readonly VaultLockMode[] = ['UNSET', 'FIXED', 'PERCENT'];
+const CONFIG_PARAMS: readonly VaultConfigParam[] = [
+  'LOCK_MODE',
+  'PERCENT_RATE',
+  'PENDING_PERCENT_RATE',
+  'FIXED_LOCK',
+  'PAYOUT_WALLET',
+];
 
 function decodeVault(value: unknown): MockVaultState {
   const root = record(value, 'vault');
@@ -511,6 +533,22 @@ function decodeVault(value: unknown): MockVaultState {
         timestamp: integerValue(item.timestamp, `${label}.timestamp`),
       };
     }),
+    configEvents: (root.configEvents === undefined ? [] : arrayValue(root.configEvents, 'vault.configEvents')).map(
+      (raw, index) => {
+        const label = `vault.configEvents.${index}`;
+        const item = record(raw, label);
+        if (!CONFIG_PARAMS.includes(item.param as VaultConfigParam)) {
+          throw new Error(`MockLedgerState.${label}.param không hợp lệ.`);
+        }
+        return {
+          param: item.param as VaultConfigParam,
+          value: stringValue(item.value, `${label}.value`),
+          txHash: stringValue(item.txHash, `${label}.txHash`),
+          blockNumber: integerValue(item.blockNumber, `${label}.blockNumber`),
+          timestamp: integerValue(item.timestamp, `${label}.timestamp`),
+        };
+      },
+    ),
   };
 }
 

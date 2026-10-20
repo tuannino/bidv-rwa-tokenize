@@ -64,6 +64,16 @@ export const spvPaymentVaultAbi = [
       { name: 'operator', type: 'address', indexed: true },
     ],
   },
+  // BE-13 QĐ-C1: bốn sự kiện cấu hình là nguồn sự thật của lịch sử cấu hình.
+  { type: 'event', name: 'LockModeChanged', inputs: [{ name: 'mode', type: 'uint8', indexed: false }] },
+  { type: 'event', name: 'FixedLockSet', inputs: [{ name: 'amount', type: 'uint256', indexed: false }] },
+  {
+    type: 'event', name: 'PercentRateSet', inputs: [
+      { name: 'bps', type: 'uint256', indexed: false },
+      { name: 'pending', type: 'bool', indexed: false },
+    ],
+  },
+  { type: 'event', name: 'PayoutWalletSet', inputs: [{ name: 'wallet', type: 'address', indexed: false }] },
   {
     type: 'event', name: 'Withdrawn', inputs: [
       { name: 'to', type: 'address', indexed: true },
