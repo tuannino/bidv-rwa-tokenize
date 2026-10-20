@@ -462,12 +462,12 @@ export interface OrderCheckInput {
  *
  *   - Mua (bốn phép, giữ nguyên từ BE-02): số dư VNDB -> ủy quyền VNDB -> tồn WPT ví SPV ->
  *     chuyển nhượng chiều SPV -> nhà đầu tư.
- *   - Bán (ba phép): số WPT nhà đầu tư đang giữ -> thanh khoản VNDB của ví thanh toán người bán
- *     -> chuyển nhượng chiều nhà đầu tư -> SPV.
+ *   - Bán (bốn phép): số WPT nhà đầu tư đang giữ -> ủy quyền WPT -> thanh khoản VNDB của ví
+ *     thanh toán người bán -> chuyển nhượng chiều nhà đầu tư -> SPV.
  *
  * Phần mô tả bốn phép mua dưới đây giữ nguyên từ BE-02.
  *
- * Cả bốn đều là hàm ĐỌC, không tốn phí. Hợp đồng cũng kiểm lại, nhưng kiểm ở đây có hai
+ * Các phép đều là hàm ĐỌC, không tốn phí. Hợp đồng cũng kiểm lại, nhưng kiểm ở đây có hai
  * giá trị mà hợp đồng không cho được: thông báo nêu đúng điều kiện nào thiếu và thiếu bao
  * nhiêu, và không đốt phí vào một giao dịch chắc chắn bị revert.
  *
@@ -609,7 +609,7 @@ async function runOrderChecks(
 }
 
 /**
- * Ba phép kiểm riêng của CHIỀU BÁN (BE-14), chạy SAU phép kiểm giá chung của `runOrderChecks`.
+ * Bốn phép kiểm riêng của CHIỀU BÁN (BE-14/SC-03), chạy SAU phép kiểm giá chung của `runOrderChecks`.
  * Trả danh sách đã chạy, dừng ở phép trượt đầu tiên — cùng quy ước với chiều mua.
  *
  * Thứ tự là thứ tự ai sửa được: nhà đầu tư có đủ token không -> đã ủy quyền WPT chưa -> người bán có đủ tiền trả không
