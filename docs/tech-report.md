@@ -9,14 +9,22 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.21 |
+| Phiên bản tài liệu | 4.22 |
 | Cập nhật lần cuối | 2026-10-21 |
-| Nhánh / commit | `feat/fe-08-duyet-chia`, từ `dev` @ `1eed914` (PR #62, HF-01 đã merge; nhánh tạo từ `dd00e12` rồi rebase); spec `docs/fe-08-duyet-chia-loi-nhuan/` bản 2.1 |
+| Nhánh / commit | `feat/op-05-runbook` (PR A), từ `dev` @ `7d058de` (PR #61, FE-08 đã merge); spec `docs/op-05-sepolia-lan-hai/` bản 3 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
-| Hoàn thành mới ở bản này | **BE-13**: Người bán rút VNDB từ vault, Kiểm soát viên cấu hình khoá vault (PR #60, xem 3.26) |
-| Đang thực hiện | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, chốt cứng vault trước khi trả, keeper chỉ tiếp tục kỳ đã duyệt, màn `/distribution` (xem 3.27); chờ Supervisor nghiệm thu PR |
-| Phase kế tiếp | **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
-| Người cập nhật | Claude Code (FE-08, thực thi theo chỉ định của Owner). Supervisor rà soát |
+| Hoàn thành mới ở bản này | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, màn `/distribution` mở bằng một action (PR #61, xem 3.27) |
+| Đang thực hiện | **OP-05**: PR A xong phần coder (liên kết ví trong hồ sơ 3.28, ước phí theo thao tác, chặn `dod-verify-sepolia.js`, runbook `docs/TESTNET_SEPOLIA.md`, kiểm thử vòng nghiệp vụ, diễn tập); còn PR B (Sếp: địa chỉ, ABI, Hyperdrive mới), vòng nghiệp vụ trên Sepolia và PR C |
+| Phase kế tiếp | Sếp chạy runbook OP-05 bước 0 đến 14 trên Sepolia với database Neon và Hyperdrive mới; AU-01 trả nợ ví liên kết |
+| Người cập nhật | Claude Code (OP-05 PR A, thực thi theo chỉ định của Owner). Supervisor rà soát |
+
+**4.21 lên 4.22 (OP-05 PR A): chuẩn bị Sepolia lần hai.** Người dùng tự liên kết ví vào hồ sơ theo chain
+(bảng `ProfileWallet`, `linkProfileWalletAction`, khối "Ví liên kết" trên `/account`); `previewTrade` tra hồ sơ
+theo chain, `evm` không có ví mặc định; nợ kỹ thuật ở 3.28 và 1.6.C. `fund-sepolia.js` mô phỏng thật cả vòng
+trình diễn và in bảng ước phí theo thao tác, ví gửi; bỏ thao tác `cycle`, `mint`, `burn` cũ.
+`dod-verify-sepolia.js` thoát lỗi trên bộ có vault (CH-7). Runbook `docs/TESTNET_SEPOLIA.md` viết lại một mạch
+bước 0 đến 14 kèm cutover database Neon và Hyperdrive mới (`docs/DEPLOYMENT.md`), kiểm chỉ đọc
+`scripts/op05-db-check.sql`. Không sửa hợp đồng.
 
 **4.20 lên 4.21 (FE-08): Kiểm soát viên duyệt rồi mới chia.** Quyền `distribution:approve` chỉ
 `CONTROLLER`; ba action ghi (duyệt, duyệt lại số thực tế, tiếp tục) thay bốn action mở, xem trước, chia,
