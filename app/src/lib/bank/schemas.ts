@@ -386,6 +386,17 @@ export type DistributionOverviewInput = z.input<typeof distributionOverviewSchem
 export const listDistributionPeriodsSchema = z.object({ chain: chainSchema, ...pageFields });
 export type ListDistributionPeriodsInput = z.input<typeof listDistributionPeriodsSchema>;
 
+/**
+ * Một lần mở màn chia (FE-08, hiệu năng): chain, trang lịch sử và số dòng lịch chạy. Mỗi phần vẫn
+ * đi qua schema của riêng nó trong service.
+ */
+export const distributionPageSchema = z.object({
+  chain: chainSchema,
+  ...pageFields,
+  runLimit: z.coerce.number().int().min(1).max(200).default(20),
+});
+export type DistributionPageInput = z.input<typeof distributionPageSchema>;
+
 export const listDistributionPayoutsSchema = z.object({
   chain: chainSchema,
   periodId: periodIdSchema,

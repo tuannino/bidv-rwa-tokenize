@@ -25,13 +25,16 @@ import {
 } from './distribution.service';
 import {
   DISTRIBUTION_JOB_NAME,
+  listDistributionRuns,
   runApprovedPeriod,
   type ApprovedRoundOutcome,
+  type DistributionRunLogView,
 } from './distribution-trigger.service';
 import { err, ok, type ErrorCode, type Result } from './result';
 import {
   approveDistributionSchema,
   distributionOverviewSchema,
+  distributionPageSchema,
   distributionPeriodSchema,
   listDistributionPayoutsSchema,
   listDistributionPeriodsSchema,
@@ -736,4 +739,49 @@ export async function listDistributionPayouts(input: unknown): Promise<Result<Pa
   } catch (error) {
     return toResult(error);
   }
+}
+
+// =============================================================================
+//  MỘT LẦN MỞ MÀN: một server action, ba phần độc lập
+// =============================================================================
+
+/**
+ * Ba phần màn `/distribution` cần khi mở. Mỗi phần là một `Result` RIÊNG: phần này lỗi (mất kết
+ * nối chuỗi, thiếu quyền) không kéo theo phần khác, màn hiện lỗi đúng khối của nó.
+ */
+export interface DistributionPageView {
+  overview: Result<DistributionOverviewView>;
+  periods: Result<PageView<DistributionHistoryRow>>;
+  runs: Result<DistributionRunLogView[]>;
+}
+
+/** Bắt cả lỗi ném ra ngoài ý muốn, để một phần không làm hỏng cả lượt. */
+async function settle<T>(run: () => Promise<Result<T>>): Promise<Result<T>> {
+  try {
+    return await run();
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+/**
+ * Dữ liệu một lần mở màn chia: tổng quan, trang lịch sử kỳ, lịch chạy (FE-08, yêu cầu hiệu năng).
+ *
+ * Next xếp hàng server action nối tiếp, mỗi action là một lượt Worker (bài học HF-01): ba action khi
+ * mở là ba lượt chờ nhau. Hàm này chạy ba phần trong MỘT lượt, song song. Nghiệp vụ và quyền giữ
+ * nguyên: mỗi phần gọi đúng service cũ, và service đó tự kiểm quyền của nó (`reconcile:read`) như
+ * khi gọi riêng; không có kiểm quyền gộp nào ở đây.
+ */
+export async function getDistributionPage(input: unknown): Promise<Result<DistributionPageView>> {
+  const parsed = distributionPageSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, page, pageSize, runLimit } = parsed.data;
+  const [overview, periods, runs] = await Promise.all([
+    settle(() => getDistributionOverview({ chain })),
+    settle(() => listDistributionPeriods({ chain, page, pageSize })),
+    settle(() => listDistributionRuns({ limit: runLimit })),
+  ]);
+  return ok({ overview, periods, runs });
 }

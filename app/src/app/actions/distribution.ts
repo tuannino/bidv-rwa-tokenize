@@ -4,6 +4,7 @@ import {
   approveDistribution,
   continueDistribution,
   getDistributionOverview,
+  getDistributionPage,
   listDistributionPayouts,
   listDistributionPeriods,
   reapproveDistribution,
@@ -26,9 +27,19 @@ import { getDistributionPeriod } from '@/lib/bank/distribution.service';
  * của chúng giữ cho tiến trình định kỳ và kiểm thử, và lõi chia từ chối mọi kỳ chưa duyệt.
  */
 
-/** @flow distribute:1 | nhận yêu cầu xem tổng quan màn chia: quỹ, dự kiến, kỳ hoạt động */
+/** Tổng quan riêng (quỹ, dự kiến, kỳ hoạt động); màn dùng `getDistributionPageAction`. */
 export async function getDistributionOverviewAction(input: unknown) {
   return getDistributionOverview(input);
+}
+
+/**
+ * Một lần mở màn chia: ba phần (tổng quan, trang lịch sử, lịch chạy) trong MỘT lượt Worker, mỗi phần
+ * một `Result` riêng với quyền riêng. Màn chỉ gọi action này khi mở và khi tải lại sau một thao tác.
+ *
+ * @flow distribute:1 | nhận yêu cầu mở màn chia: tổng quan, trang lịch sử và lịch chạy trong một lượt
+ */
+export async function getDistributionPageAction(input: unknown) {
+  return getDistributionPage(input);
 }
 
 /** @flow distribute:3 | nhận lần duyệt chia của Kiểm soát viên kèm số VNDB đã xem trên màn */

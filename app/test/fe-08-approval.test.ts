@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAddress, keccak256, toHex } from 'viem';
 import { MOCK_PROFIT_DISTRIBUTOR_ADDRESS, MOCK_VAULT_ADDRESS, profitDistributorAddressFor } from '@bidv/shared';
@@ -255,6 +257,7 @@ describe('FE-08 ca 1: chỉ CONTROLLER duyệt, duyệt lại, tiếp tục; hai
       'reapproveDistributionAction',
       'continueDistributionAction',
       'getDistributionOverviewAction',
+      'getDistributionPageAction',
       'listDistributionPeriodsAction',
       'listDistributionPayoutsAction',
       'listDistributionRunsAction',
@@ -759,5 +762,87 @@ describe('FE-08: địa chỉ quỹ chia logic trên mock', () => {
     expect(await ledger.profitPoolBalance()).toBe(1_234n);
     expect(await ledger.unallocatedProfit()).toBe(1_234n);
     expect(await ledger.paymentBalanceOf(MOCK_PROFIT_DISTRIBUTOR_ADDRESS)).toBe(1_234n);
+  });
+});
+
+// ===========================================================================
+//  Hiệu năng: màn chia mở bằng MỘT action (sau HF-01)
+// ===========================================================================
+describe('FE-08 hiệu năng: mở màn chia bằng một action, ba phần độc lập', () => {
+  const page = { chain: CHAIN, page: 1, pageSize: 10, runLimit: 20 };
+
+  it('màn gọi đúng một action khi mở; không gọi lại ba action đọc cũ', () => {
+    const source = readFileSync(join(__dirname, '..', 'src/components/pages/distribution-approval.tsx'), 'utf8');
+    expect(source.match(/getDistributionPageAction\(/g)).toHaveLength(1);
+    expect(source).not.toContain('getDistributionOverviewAction');
+    expect(source).not.toContain('listDistributionRunsAction');
+    // Trang lịch sử chỉ gọi action riêng khi người xem đổi sang trang khác trang 1.
+    expect(source).toMatch(/if \(next === 1\) return;\s*void listDistributionPeriodsAction\(/);
+    const effects = source.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[[^\]]*\]\);/g) ?? [];
+    const loaders = effects.filter((body) => /Action\(/.test(body));
+    expect(loaders).toHaveLength(2);
+    expect(loaders.filter((body) => body.includes('getDistributionPageAction'))).toHaveLength(1);
+    expect(loaders.filter((body) => body.includes('listDistributionPayoutsAction'))).toHaveLength(1);
+  });
+
+  it.each(['TELLER', 'CONTROLLER'])('vai %s: một lượt trả đủ ba phần, đúng bằng ba lần đọc riêng', async (role) => {
+    await seedOp05();
+    await approveOk('1000000');
+    actAs(role);
+
+    const result = await actions.getDistributionPageAction(page);
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    const { overview, periods, runs } = result.data;
+    expect(overview).toEqual(await approval.getDistributionOverview({ chain: CHAIN }));
+    expect(periods).toEqual(await approval.listDistributionPeriods({ chain: CHAIN, page: 1, pageSize: 10 }));
+    expect(runs).toEqual(await actions.listDistributionRunsAction({ limit: 20 }));
+    expect(periods.ok && periods.data.total).toBe(1);
+    expect(runs.ok && runs.data.length).toBeGreaterThan(0);
+    expect(overview.ok && overview.data.viewerCanApprove).toBe(role === 'CONTROLLER');
+  });
+
+  it.each(['SELLER', 'INVESTOR'])('vai %s: mỗi phần tự kiểm quyền, cả ba FORBIDDEN', async (role) => {
+    actAs(role);
+    const result = await actions.getDistributionPageAction(page);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const part of [result.data.overview, result.data.periods, result.data.runs]) {
+      expect(!part.ok && part.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('lịch chạy lỗi: tổng quan và lịch sử vẫn trả đủ', async () => {
+    await seedOp05();
+    vi.spyOn(getKeeperStore(), 'listRuns').mockRejectedValue(new Error('keeper store sập'));
+
+    const result = await actions.getDistributionPageAction(page);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.runs.ok).toBe(false);
+    expect(result.data.overview.ok, result.data.overview.ok ? '' : result.data.overview.error).toBe(true);
+    expect(result.data.periods.ok && result.data.periods.data.total).toBe(0);
+  });
+
+  it('lịch sử lỗi: tổng quan và lịch chạy vẫn trả đủ', async () => {
+    await seedOp05();
+    vi.spyOn(getDistributionStore(), 'countPeriods').mockRejectedValue(new Error('distribution store sập'));
+
+    const result = await actions.getDistributionPageAction(page);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.periods.ok).toBe(false);
+    expect(result.data.overview.ok, result.data.overview.ok ? '' : result.data.overview.error).toBe(true);
+    expect(result.data.runs.ok).toBe(true);
+  });
+
+  it('dữ liệu vào sai: VALIDATION cho cả lượt', async () => {
+    for (const input of [{ chain: 'khong-co' }, { chain: CHAIN, runLimit: 0 }, { chain: CHAIN, pageSize: 1000 }]) {
+      const result = await actions.getDistributionPageAction(input);
+      expect(!result.ok && result.code, JSON.stringify(input)).toBe('VALIDATION');
+    }
   });
 });

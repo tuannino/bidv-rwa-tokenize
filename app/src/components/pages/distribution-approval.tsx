@@ -6,10 +6,9 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import {
   approveDistributionAction,
   continueDistributionAction,
-  getDistributionOverviewAction,
+  getDistributionPageAction,
   listDistributionPayoutsAction,
   listDistributionPeriodsAction,
-  listDistributionRunsAction,
   reapproveDistributionAction,
 } from '@/app/actions/distribution';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,7 @@ import type {
   ActivePeriodView,
   DistributionApprovalView,
   DistributionHistoryRow,
-  DistributionOverviewView,
+  DistributionPageView,
   PageView,
   PayoutRowView,
 } from '@/lib/bank/distribution-approval.service';
@@ -30,6 +29,10 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 
 /**
  * Màn CHIA LỢI NHUẬN (FE-08 QĐ-F).
+ *
+ * Hiệu năng: khi mở và khi tải lại sau một thao tác, màn gọi ĐÚNG MỘT server action
+ * (`getDistributionPageAction`, ba phần với kết quả riêng); Next xếp hàng action nối tiếp nên ba action
+ * là ba lượt Worker chờ nhau (HF-01). Đổi trang lịch sử, xem hồ sơ một kỳ mới gọi action riêng.
  *
  * Mọi con số do máy chủ trả về (quỹ, dự kiến theo `shareOf`, kỳ hoạt động, lý do chưa duyệt được);
  * màn chỉ hiển thị và định dạng. Kiểm soát viên duyệt TỔNG SỐ của kỳ; danh sách dự kiến chỉ để
@@ -241,28 +244,32 @@ function PayoutsTable({ chain, periodId }: { chain: ChainKey; periodId: string }
   );
 }
 
-function HistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadKey: number }) {
+const HISTORY_PAGE_SIZE = 10;
+
+function HistoryCard({
+  chain,
+  initial,
+  runLog,
+}: {
+  chain: ChainKey;
+  /** Trang 1 của lịch sử, đọc cùng lượt mở màn. */
+  initial: Result<PageView<DistributionHistoryRow>>;
+  runLog: Result<DistributionRunLogView[]>;
+}) {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
-  const [data, setData] = useState<{ key: string; result: Result<PageView<DistributionHistoryRow>> } | null>(null);
-  const [runs, setRuns] = useState<{ key: string; result: Result<DistributionRunLogView[]> } | null>(null);
-  const key = `${chain}:${page}:${reloadKey}`;
+  const [data, setData] = useState<{ page: number; result: Result<PageView<DistributionHistoryRow>> } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void listDistributionPeriodsAction({ chain, page, pageSize: 10 }).then((result) => {
-      if (!cancelled) setData({ key, result });
-    });
-    void listDistributionRunsAction({ limit: 20 }).then((result) => {
-      if (!cancelled) setRuns({ key, result });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [chain, page, key]);
+  /** Đổi trang là thao tác của người xem: lúc đó mới gọi action riêng cho trang lịch sử. */
+  function goTo(next: number) {
+    setPage(next);
+    if (next === 1) return;
+    void listDistributionPeriodsAction({ chain, page: next, pageSize: HISTORY_PAGE_SIZE }).then((result) =>
+      setData({ page: next, result }),
+    );
+  }
 
-  const result = data?.key === key ? data.result : null;
-  const runLog = runs?.key === key ? runs.result : null;
+  const result = page === 1 ? initial : data?.page === page ? data.result : null;
   const pages = result?.ok ? Math.max(1, Math.ceil(result.data.total / result.data.pageSize)) : 1;
   return (
     <Card aria-label="Lịch sử kỳ chia">
@@ -303,9 +310,9 @@ function HistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadKey: number 
               ))}</TableBody>
             </Table>
             <div className="flex items-center gap-2 text-sm">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Trang trước</Button>
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goTo(page - 1)}>Trang trước</Button>
               <span>Trang {page}/{pages} ({result.data.total} kỳ)</span>
-              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Trang sau</Button>
+              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => goTo(page + 1)}>Trang sau</Button>
             </div>
             {selected && <PayoutsTable key={selected} chain={chain} periodId={selected} />}
           </>
@@ -313,7 +320,7 @@ function HistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadKey: number 
 
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">Lịch chạy (20 lượt gần nhất)</h3>
-          {!runLog ? null : !runLog.ok ? (
+          {!runLog.ok ? (
             <p role="alert" className="text-sm text-destructive">{runLog.error}</p>
           ) : runLog.data.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có lượt chạy nào.</p>
@@ -344,7 +351,7 @@ function HistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadKey: number 
 export function DistributionApprovalPage() {
   const { chain } = useSelectedChain();
   const [reloadKey, setReloadKey] = useState(0);
-  const [loaded, setLoaded] = useState<{ key: string; result: Result<DistributionOverviewView> } | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; result: Result<DistributionPageView> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | { kind: 'approve' | 'reapprove'; amount: string; periodId?: string }>(null);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
@@ -352,7 +359,8 @@ export function DistributionApprovalPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void getDistributionOverviewAction({ chain }).then((result) => {
+    // ĐÚNG MỘT action khi mở và khi tải lại: ba phần, mỗi phần một kết quả riêng.
+    void getDistributionPageAction({ chain, page: 1, pageSize: HISTORY_PAGE_SIZE, runLimit: 20 }).then((result) => {
       if (!cancelled) setLoaded({ key, result });
     });
     return () => {
@@ -360,7 +368,9 @@ export function DistributionApprovalPage() {
     };
   }, [chain, key]);
 
-  const fresh = loaded?.key === key ? loaded.result : null;
+  const pageData = loaded?.key === key ? loaded.result : null;
+  // Lỗi của cả lượt (dữ liệu vào sai) thì mọi khối cùng hiện lỗi đó; còn lại mỗi khối một kết quả.
+  const fresh = pageData === null ? null : pageData.ok ? pageData.data.overview : pageData;
   const data = fresh?.ok ? fresh.data : null;
 
   async function run(action: () => Promise<Result<DistributionApprovalView>>) {
@@ -487,7 +497,9 @@ export function DistributionApprovalPage() {
             />
           )}
 
-          <HistoryCard key={chain} chain={chain} reloadKey={reloadKey} />
+          {pageData?.ok && (
+            <HistoryCard key={key} chain={chain} initial={pageData.data.periods} runLog={pageData.data.runs} />
+          )}
 
           <ConfirmDialog
             open={confirm !== null}
