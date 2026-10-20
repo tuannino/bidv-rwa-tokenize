@@ -1,8 +1,17 @@
 import 'server-only';
 
-import { CHAINS, findContractAddress, type ChainKey, type ContractName } from '@bidv/shared';
+import { parseSignature, verifyTypedData } from 'viem';
+import {
+  buildPermitTypedData,
+  CHAINS,
+  findContractAddress,
+  type ChainKey,
+  type ContractName,
+  type PermitTypedData,
+} from '@bidv/shared';
 import { getLedger, LedgerError, normalizeEvmAddress } from '@/lib/ledger';
-import type { PermitDomain, PermitToken } from '@/lib/ledger';
+import type { PermitDomain, PermitToken, SettlementPermit } from '@/lib/ledger';
+import type { OrderSide } from './purchase.state';
 
 /**
  * Domain EIP-712 của token nhận chữ ký permit (FE-05 QĐ-B).
@@ -92,4 +101,93 @@ export async function readPermitDomain(
   token: PermitToken,
 ): Promise<VerifiedPermitDomain> {
   return assertSupportedPermitDomain(chain, token, await getLedger(chain).permitDomain(token));
+}
+
+/**
+ * Chain dùng chữ ký permit khi đặt lệnh (FE-05): chuỗi EVM thật (`hardhat-local`, `evm`). Mock giữ
+ * hành vi cũ (không ký); stellar chưa có cơ chế tương đương.
+ */
+export function isPermitChain(chain: ChainKey): boolean {
+  return CHAINS[chain].family === 'evm';
+}
+
+/** Token được ủy quyền theo chiều lệnh: lệnh mua chi VNDB, lệnh bán chi WPT. */
+export const permitTokenOf = (side: OrderSide): PermitToken => (side === 'BUY' ? 'payment' : 'project');
+
+/** Bên được chi (`spender`): địa chỉ `OrderSettlement` trong address book, không nhận từ trình duyệt. */
+export function settlementSpender(chain: ChainKey): `0x${string}` {
+  const address = findContractAddress(chain, 'OrderSettlement');
+  if (!address) {
+    throw new LedgerError(
+      chain,
+      'preparePermit',
+      `Chain "${chain}" chưa có địa chỉ OrderSettlement trong address book; chưa đặt lệnh bằng chữ ký được. ` +
+        'Triển khai bộ hợp đồng có OrderSettlement rồi nạp lại địa chỉ.',
+    );
+  }
+  return normalizeEvmAddress(address) as `0x${string}`;
+}
+
+export interface OrderPermitMessage {
+  chain: ChainKey;
+  side: OrderSide;
+  owner: string;
+  value: bigint;
+  nonce: bigint;
+  deadline: bigint;
+}
+
+/**
+ * Typed data ERC-2612 của một lệnh: domain đọc và kiểm từ chuỗi, `token`/`spender` theo chiều lệnh
+ * và address book. Dùng CHUNG cho lúc chuẩn bị (trả cho ví ký) và lúc kiểm (dựng lại để so), nên
+ * hai bên không thể dựng hai bản khác nhau.
+ */
+export async function buildOrderPermitTypedData(message: OrderPermitMessage): Promise<{
+  token: `0x${string}`;
+  spender: `0x${string}`;
+  typedData: PermitTypedData;
+}> {
+  const token = permitTokenOf(message.side);
+  const spender = settlementSpender(message.chain);
+  const domain = await readPermitDomain(message.chain, token);
+  const typedData = buildPermitTypedData({
+    tokenName: domain.name,
+    version: domain.version,
+    chainId: domain.chainId,
+    verifyingContract: domain.verifyingContract,
+    owner: normalizeEvmAddress(message.owner) as `0x${string}`,
+    spender,
+    value: message.value,
+    nonce: message.nonce,
+    deadline: message.deadline,
+  });
+  return { token: domain.verifyingContract, spender, typedData };
+}
+
+/**
+ * Kiểm chữ ký với typed data dựng lại (FE-05 QĐ-D bước 3): địa chỉ khôi phục phải đúng
+ * `typedData.message.owner`. Chữ ký sai khuôn (không khôi phục được) cũng là "không khớp".
+ */
+export async function verifyOrderPermitSignature(
+  typedData: PermitTypedData,
+  signature: `0x${string}`,
+): Promise<boolean> {
+  try {
+    return await verifyTypedData({
+      address: typedData.message.owner,
+      domain: typedData.domain,
+      types: typedData.types,
+      primaryType: typedData.primaryType,
+      message: typedData.message,
+      signature,
+    });
+  } catch {
+    return false;
+  }
+}
+
+/** Tách chữ ký 65 byte thành `v, r, s` cho `OrderSettlement.buyWithPermit`. */
+export function splitPermitSignature(signature: `0x${string}`): Pick<SettlementPermit, 'v' | 'r' | 's'> {
+  const { r, s, v, yParity } = parseSignature(signature);
+  return { r, s, v: v === undefined ? yParity + 27 : Number(v) };
 }

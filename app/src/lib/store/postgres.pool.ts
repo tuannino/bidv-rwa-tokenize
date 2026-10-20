@@ -204,9 +204,28 @@ const EXPECTED_TYPES = namesFromInitSql(/CREATE TYPE "([^"]+)"/g);
 const EXPECTED_INDEXES = namesFromInitSql(/CREATE (?:UNIQUE )?INDEX "([^"]+)"/g);
 const EXPECTED_CONSTRAINTS = namesFromInitSql(/CONSTRAINT "([^"]+)"/g);
 
+/**
+ * Cột thêm sau khi bảng đã tồn tại, dạng `Bảng.cột`, rút từ chính `ADDED_COLUMNS`.
+ *
+ * Phải nằm trong phép kiểm "đã sẵn sàng" (FE-05 ca 12). Trước đây phép kiểm chỉ đếm bảng, kiểu,
+ * chỉ mục và ràng buộc: một database đang chạy đã đủ những thứ đó nhưng thiếu cột mới (ví dụ cột
+ * `permit`, hay sáu cột `DistributionPeriod` của SC-06 vốn không kèm chỉ mục nào) bị coi là sẵn
+ * sàng, nên `addMissingColumns` không bao giờ chạy và truy vấn đầu tiên chạm cột mới thì lỗi.
+ */
+function addedColumnNames(): string[] {
+  return ADDED_COLUMNS.map((statement) => {
+    const match = /"([^"]+)" ADD COLUMN IF NOT EXISTS "([^"]+)"/.exec(statement);
+    if (!match) {
+      throw new Error(`ADDED_COLUMNS có câu không theo khuôn ALTER ... ADD COLUMN IF NOT EXISTS: ${statement}`);
+    }
+    return `${match[1]}.${match[2]}`;
+  });
+}
+
 /** Một lượt catalog xác nhận lược đồ hiện tại đã chứa mọi đối tượng mà mã đang cần. */
 async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
   const timestampColumns = TIMESTAMP_COLUMNS.map(([table, column]) => `${table}.${column}`);
+  const addedColumns = addedColumnNames();
   const { rows } = await client.query<{ ready: boolean }>(
     `SELECT
        (SELECT count(*) FROM pg_class c
@@ -231,7 +250,12 @@ async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
           WHERE table_schema = 'public'
             AND table_name || '.' || column_name = ANY($9::text[])
             AND data_type = 'timestamp without time zone'
-       ) AS ready`,
+       )
+       AND
+       (SELECT count(*) FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name || '.' || column_name = ANY($10::text[])) = $11
+       AS ready`,
     [
       EXPECTED_TABLES,
       EXPECTED_TABLES.length,
@@ -242,6 +266,8 @@ async function schemaObjectsReady(client: ClientBase): Promise<boolean> {
       EXPECTED_CONSTRAINTS,
       EXPECTED_CONSTRAINTS.length,
       timestampColumns,
+      addedColumns,
+      addedColumns.length,
     ],
   );
   return rows[0]?.ready === true;
@@ -348,6 +374,8 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultPeriodRef" INTEGER`,
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultCloseStatus" TEXT`,
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultCloseTxHash" TEXT`,
+  // FE-05: chữ ký permit của nhà đầu tư lưu cùng lệnh. Lệnh có trước FE-05 để trống (không có chữ ký).
+  `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "permit" JSONB`,
 ];
 
 async function addMissingColumns(client: ClientBase): Promise<void> {

@@ -8,6 +8,7 @@ import {
   createWalletClient,
   http,
   parseEventLogs,
+  toFunctionSelector,
   type Abi,
   type Account,
   type Hex,
@@ -179,6 +180,41 @@ function translateRevert(raw: string): string {
   return `Contract từ chối: ${raw}`;
 }
 
+/**
+ * Hàng gửi giao dịch theo (chain, ví ký), dùng chung cho mọi adapter trong tiến trình.
+ *
+ * Hai lời gọi ghi đồng thời từ CÙNG một ví máy chủ (ví dụ hai lệnh đặt cùng lúc, FE-05 ca 7b) mà
+ * không xếp hàng thì cùng đọc một nonce giao dịch, và lời gọi sau bị RPC từ chối "nonce too low":
+ * lệnh hỏng vì một lý do không liên quan tới nghiệp vụ. Xếp hàng mô phỏng + gửi (KHÔNG gồm chờ biên
+ * nhận) làm lời gọi sau mô phỏng trên trạng thái đã có giao dịch trước, nên nó nhận đúng lỗi nghiệp
+ * vụ (ví dụ chữ ký đã dùng) thay vì lỗi nonce. Chỉ trong một tiến trình: nhiều instance cùng ví ký
+ * vẫn cần hàng đợi ở tầng custody, việc của khâu triển khai.
+ *
+ * `factory` dựng adapter mới ở mỗi `getLedger`, nên hàng đợi phải ở mức module, không ở adapter.
+ */
+const sendQueues = new Map<string, Promise<void>>();
+
+/**
+ * Selector của `ERC20InsufficientAllowance`. Lỗi này do TOKEN ném bên trong `OrderSettlement`, nên ABI
+ * khớp lệnh không giải được tên và viem chỉ đưa ra 4 byte; nhận diện theo selector để câu lỗi vẫn
+ * nói đúng nguyên nhân (FE-05 ca 7b: chữ ký đã dùng, ký lại).
+ */
+const ERC20_INSUFFICIENT_ALLOWANCE = toFunctionSelector('ERC20InsufficientAllowance(address,uint256,uint256)');
+
+function inSendQueue<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = sendQueues.get(key) ?? Promise.resolve();
+  const run = previous.then(task);
+  const done = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  sendQueues.set(key, done);
+  void done.then(() => {
+    if (sendQueues.get(key) === done) sendQueues.delete(key);
+  });
+  return run;
+}
+
 export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   const rpcUrl = rpcUrlFor(chain);
   const viemChain = viemChainFor(chain);
@@ -312,10 +348,11 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           reverted.signature ??
           reverted.shortMessage;
         const translated =
-          raw === 'ERC20InsufficientAllowance' &&
+          (raw === 'ERC20InsufficientAllowance' || raw === ERC20_INSUFFICIENT_ALLOWANCE) &&
           (operation === 'executePurchase' || operation === 'executeSale')
-            ? `Mức ủy quyền ${operation === 'executePurchase' ? 'VNDB' : 'WPT'} không đủ; ` +
-              `ví nhà đầu tư phải approve cho OrderSettlement (${addressOf('OrderSettlement')}).`
+            ? `Mức ủy quyền ${operation === 'executePurchase' ? 'VNDB' : 'WPT'} không đủ cho ` +
+              `OrderSettlement (${addressOf('OrderSettlement')}): chữ ký ủy quyền đã hết hạn hoặc đã dùng ` +
+              '(đặt lệnh lại để ký mới), hoặc lệnh không có chữ ký mà ví chưa approve đủ.'
             : translateRevert(raw);
         const message = sc02Operations.has(operation)
           ? `ProjectToken (${addressOf('ProjectToken')}) từ chối ${operation}. ` +
@@ -373,14 +410,16 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   ): Promise<TxResult> => {
     try {
       const { client, account } = await writer();
-      const { request } = await reader().simulateContract({
-        account,
-        address: addressOf(contract),
-        abi: abi as Abi,
-        functionName: functionName as never,
-        args: args as never,
+      const txHash = await inSendQueue(`${chain}:${account.address.toLowerCase()}`, async () => {
+        const { request } = await reader().simulateContract({
+          account,
+          address: addressOf(contract),
+          abi: abi as Abi,
+          functionName: functionName as never,
+          args: args as never,
+        });
+        return client.writeContract(request as never);
       });
-      const txHash = await client.writeContract(request as never);
       return { txHash, status: 'PENDING' };
     } catch (error) {
       await onError(error);

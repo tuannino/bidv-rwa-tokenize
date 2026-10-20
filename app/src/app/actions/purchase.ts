@@ -4,6 +4,7 @@ import {
   executeOrder,
   listOrders,
   placeOrder,
+  preparePermit,
   previewPurchase,
 } from '@/lib/bank/purchase.service';
 
@@ -26,7 +27,7 @@ import {
  * nghiệp vụ cho Tổng quan Người bán; thêm action khi có màn thứ hai cần gọi thẳng (bảng điều khiển
  * vận hành, chưa có mã task).
  *
- * ⚠️ Service có SÁU hàm, tệp này chỉ có BỐN action — thiếu `expireStaleOrders` (và `orderDailyStats`,
+ * ⚠️ Service có BẢY hàm, tệp này chỉ có NĂM action — thiếu `expireStaleOrders` (và `orderDailyStats`,
  * lý do ở trên), và đó là chủ
  * đích chứ không phải bỏ sót. Dọn lệnh treo chỉ có MỘT đường vào: tiến trình theo lịch của
  * BE-07 gọi thẳng service. Server action cũng là một điểm vào HTTP, nên mở nó ở đây sẽ phá
@@ -46,6 +47,14 @@ export async function previewPurchaseAction(input: unknown) {
  */
 export async function placeOrderAction(input: unknown) {
   return placeOrder(input);
+}
+
+/**
+ * FE-05 QĐ-A bước 1: máy chủ dựng typed data permit (domain đọc từ chuỗi, số đúng bằng số của lệnh)
+ * để ví nhà đầu tư ký. Không tạo lệnh, không ghi gì; kiểm quyền nằm trong service như mọi action ở đây.
+ */
+export async function preparePermitAction(input: unknown) {
+  return preparePermit(input);
 }
 
 export async function executeOrderAction(input: unknown) {

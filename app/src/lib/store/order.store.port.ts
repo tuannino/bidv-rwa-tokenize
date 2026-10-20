@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import { assertStatus, type StoreKind } from './store.errors';
@@ -119,8 +120,94 @@ export interface OrderRecord {
   reconciledAt: string | null;
   settlingAt: string | null;
   completedAt: string | null;
+  /**
+   * Chữ ký permit đã kiểm lúc đặt lệnh (FE-05 QĐ-E); `null` với lệnh mock, lệnh trước FE-05,
+   * hoặc dòng lưu hỏng. Đây là QUYỀN CHI còn hiệu lực: chỉ đường quyết toán đọc, không trường nào
+   * của `OrderView`, phản hồi API, audit hay log được lấy từ đây.
+   */
+  permit: OrderPermit | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Chữ ký permit của một lệnh, dạng dùng trong mã (số là `bigint`). */
+export interface OrderPermit {
+  /** Token được ủy quyền: VNDToken (lệnh mua) hoặc ProjectToken (lệnh bán). */
+  token: `0x${string}`;
+  /** Bên được chi: `OrderSettlement`. */
+  spender: `0x${string}`;
+  value: bigint;
+  deadline: bigint;
+  /** Nonce ĐÃ KÝ, không phải nonce hiện tại trên chuỗi. */
+  nonce: bigint;
+  v: number;
+  r: `0x${string}`;
+  s: `0x${string}`;
+}
+
+const lowerAddress = z.string().regex(/^0x[0-9a-f]{40}$/);
+const lowerBytes32 = z.string().regex(/^0x[0-9a-f]{64}$/);
+const decimal = z.string().regex(/^\d{1,78}$/);
+
+/**
+ * Khuôn JSON CỐ ĐỊNH của cột `permit` (FE-05 QĐ-E): địa chỉ và `r`/`s` là hex chữ thường, ba số là
+ * chuỗi thập phân, `v` là số. Không lưu `bigint` trực tiếp (JSON không có kiểu đó). `strict` để
+ * một dòng mang trường lạ cũng bị coi là hỏng thay vì đọc nửa vời.
+ */
+const storedOrderPermitSchema = z
+  .object({
+    token: lowerAddress,
+    spender: lowerAddress,
+    value: decimal,
+    deadline: decimal,
+    nonce: decimal,
+    v: z.number().int().min(0).max(255),
+    r: lowerBytes32,
+    s: lowerBytes32,
+  })
+  .strict();
+
+export type StoredOrderPermit = z.infer<typeof storedOrderPermitSchema>;
+
+/** Đổi chữ ký sang khuôn lưu trữ. Dùng ở cả hai bản cổng để khuôn chỉ có một nơi định nghĩa. */
+export function encodeOrderPermit(permit: OrderPermit): StoredOrderPermit {
+  return storedOrderPermitSchema.parse({
+    token: permit.token.toLowerCase(),
+    spender: permit.spender.toLowerCase(),
+    value: permit.value.toString(),
+    deadline: permit.deadline.toString(),
+    nonce: permit.nonce.toString(),
+    v: permit.v,
+    r: permit.r.toLowerCase(),
+    s: permit.s.toLowerCase(),
+  });
+}
+
+/**
+ * Đọc lại cột `permit`: kiểm khuôn TRƯỚC rồi mới đổi sang `bigint`. Dữ liệu hỏng thì coi như lệnh
+ * không có chữ ký (đường quyết toán quay về ủy quyền thực tế) và ghi lỗi KHÔNG kèm nội dung cột:
+ * nội dung đó có thể là một chữ ký còn hiệu lực.
+ */
+export function decodeOrderPermit(raw: unknown, orderId: string): OrderPermit | null {
+  if (raw === null || raw === undefined) return null;
+  const parsed = storedOrderPermitSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.error(
+      `[order-store] lệnh ${orderId}: cột permit sai khuôn, coi như lệnh không có chữ ký ủy quyền.`,
+    );
+    return null;
+  }
+  const p = parsed.data;
+  return {
+    token: p.token as `0x${string}`,
+    spender: p.spender as `0x${string}`,
+    value: BigInt(p.value),
+    deadline: BigInt(p.deadline),
+    nonce: BigInt(p.nonce),
+    v: p.v,
+    r: p.r as `0x${string}`,
+    s: p.s as `0x${string}`,
+  };
 }
 
 export interface NewOrder {
@@ -135,6 +222,8 @@ export interface NewOrder {
   actorRole: Role;
   /** Mặc định `PLACED`. Nhận tham số để test dựng sẵn lệnh ở trạng thái giữa luồng. */
   status?: OrderStatus;
+  /** Chữ ký permit đã kiểm (FE-05 QĐ-E). Vắng mặt hoặc `null` = lệnh không có chữ ký. */
+  permit?: OrderPermit | null;
 }
 
 /**

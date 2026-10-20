@@ -143,6 +143,10 @@ model PurchaseOrder {
   reconciledAt   DateTime? @db.Timestamptz(3)
   settlingAt     DateTime? @db.Timestamptz(3)
   completedAt    DateTime? @db.Timestamptz(3)
+  /// FE-05 QĐ-E: chữ ký permit của nhà đầu tư (token, spender, value, deadline, nonce, v, r, s),
+  /// khuôn JSON cố định ở lib/store/order.store.port.ts. Null với lệnh mock và lệnh trước FE-05.
+  /// Đây là QUYỀN CHI còn hiệu lực: không đưa ra OrderView, API, audit hay log.
+  permit         Json?
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 

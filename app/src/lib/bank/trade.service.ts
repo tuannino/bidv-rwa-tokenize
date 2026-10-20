@@ -2,7 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
-import { getLedger } from '@/lib/ledger';
+import { getLedger, LedgerNotImplementedError, type ILedgerPort } from '@/lib/ledger';
 import { assertCan, can } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
@@ -299,7 +299,7 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
     const [whitelisted, frozen, settling, spv, projects] = await Promise.all([
       ledger.isWhitelisted(investorWallet),
       ledger.isFrozen(investorWallet),
-      ledger.isSettlementMode(),
+      settlementModeOrUnknown(ledger),
       ledger.spvWallet(),
       getProjectStore().listProjects({ chain }),
     ]);
@@ -346,10 +346,24 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
   }
 }
 
+/**
+ * Cờ "đang tất toán" của chuỗi, hoặc `null` khi chuỗi CHƯA CÓ cờ đó (EVM: chờ SC-04 quyết cờ nằm
+ * ở hợp đồng nào). Chủ dự án chốt 20/10/2026 (FE-05): chưa có cờ thì xem trước dựa vào trạng thái
+ * dự án, không chặn cả màn giao dịch. Chỉ bắt đúng lỗi "chưa hiện thực"; lỗi RPC vẫn nổ ra.
+ */
+async function settlementModeOrUnknown(ledger: ILedgerPort): Promise<boolean | null> {
+  try {
+    return await ledger.isSettlementMode();
+  } catch (error) {
+    if (error instanceof LedgerNotImplementedError) return null;
+    throw error;
+  }
+}
+
 function tokenCondition(
   project: ProjectRecord | null,
   spv: string | null,
-  settling: boolean,
+  settling: boolean | null,
 ): TradeCondition {
   if (!project) {
     return condition('token', false, 'Chuỗi này chưa có dự án nào được token hoá.', 'Chọn chuỗi có dự án đang mở bán.');
@@ -368,6 +382,14 @@ function tokenCondition(
       false,
       `${project.tokenSymbol} đang ở giai đoạn tất toán hoặc đã đóng: giao dịch thông thường tạm dừng.`,
       'Theo dõi thông báo tất toán của ngân hàng.',
+    );
+  }
+  if (settling === null) {
+    return condition(
+      'token',
+      true,
+      `${project.tokenSymbol} đã phát hành và đang mở giao dịch. Chuỗi này chưa có cờ tất toán trên ` +
+        'hợp đồng (chờ SC-04), nên trạng thái tất toán dựa vào trạng thái dự án.',
     );
   }
   return condition('token', true, `${project.tokenSymbol} đã phát hành và đang mở giao dịch.`);
