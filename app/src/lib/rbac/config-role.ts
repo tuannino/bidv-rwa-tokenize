@@ -1,5 +1,5 @@
 import { ForbiddenError, assertCan } from './can';
-import { FALLBACK_ROLE, ROLES, isRole, type Role } from './permissions';
+import { ROLES, isRole, type Role } from './permissions';
 
 /**
  * LỚP THỨ HAI cho việc đổi tham số hệ thống: vai có được đổi **cấu hình** hay không.
@@ -49,10 +49,9 @@ export const CONFIG_ROLES: Record<Role, boolean> = {
   CONTROLLER: false,
 };
 
-/** Vai có được đổi tham số hệ thống không. Vai lạ quy về `FALLBACK_ROLE` — nguyên tắc đóng. */
+/** Vai có được đổi tham số hệ thống không. Vai lạ thì không (BE-13 QĐ-A, nguyên tắc đóng). */
 export function isConfigRole(role: unknown): boolean {
-  const resolved: Role = isRole(role) ? role : FALLBACK_ROLE;
-  return CONFIG_ROLES[resolved];
+  return isRole(role) && CONFIG_ROLES[role];
 }
 
 /**
@@ -93,7 +92,7 @@ export class NotConfigRoleError extends ForbiddenError {
  * (trái LUẬT #3); bỏ `isConfig` thì quyền quản trị ví tự động kéo theo quyền ấn định giá bán.
  */
 export function assertCanConfigure(role: unknown): asserts role is Role {
-  const resolved: Role = isRole(role) ? role : FALLBACK_ROLE;
-  assertCan(resolved, 'treasury:manage');
-  if (!isConfigRole(resolved)) throw new NotConfigRoleError(resolved);
+  // Vai lạ dừng ngay ở `assertCan` với nhãn `UNKNOWN` (BE-13 QĐ-A).
+  assertCan(role, 'treasury:manage');
+  if (!isConfigRole(role)) throw new NotConfigRoleError(role);
 }
