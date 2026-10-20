@@ -74,8 +74,14 @@ export function Sidebar({
     chain: string;
     counts: PendingWorkCounts;
   } | null>(null);
+  // HF-01: `pendingWork` do Server Component đọc cho chain mặc định ở MỖI lần kết xuất (kể cả
+  // điều hướng phía client và `router.refresh()`), nên với chain mặc định nó đã là số mới nhất.
+  // Chỉ chain khác mới cần gọi action. Gọi thêm cho chain mặc định là một lượt Worker thừa,
+  // và vì Next xếp hàng server action nối tiếp, nó còn đẩy lùi mọi action dữ liệu của trang.
+  const needsFetch = chain !== config.defaultChain;
 
   useEffect(() => {
+    if (!needsFetch) return;
     let cancelled = false;
     void getPendingWorkAction(chain).then((result) => {
       if (cancelled || !result.ok) return;
@@ -84,16 +90,14 @@ export function Sidebar({
     return () => {
       cancelled = true;
     };
-  }, [chain, pendingWork.approval, pendingWork.draft]);
+  }, [needsFetch, chain, pendingWork.approval, pendingWork.draft]);
 
-  // `pendingWork` được Server Component đọc cho chain mặc định trước khi client biết lựa chọn
-  // đang lưu trong localStorage. Chỉ dùng nó ở lần render đầu; sau khi đã nhận dữ liệu của một
-  // chain, lúc đổi chain phải hiện 0 trong lúc chờ thay vì làm số của chain cũ xuất hiện dưới
-  // chain mới. Phản hồi cũ cũng bị chặn bởi cờ `cancelled` phía trên.
-  const activePendingWork = loadedCounts?.chain === chain
-    ? loadedCounts.counts
-    : loadedCounts === null && chain === config.defaultChain
-      ? pendingWork
+  // Đổi sang chain khác thì hiện 0 trong lúc chờ, không để số của chain cũ xuất hiện dưới chain
+  // mới. Phản hồi cũ bị chặn bởi cờ `cancelled` phía trên.
+  const activePendingWork = !needsFetch
+    ? pendingWork
+    : loadedCounts?.chain === chain
+      ? loadedCounts.counts
       : NO_COUNTS;
 
   /**
@@ -114,6 +118,7 @@ export function Sidebar({
       <div className="flex items-center px-4 py-4 border-b border-border">
         <Link
           href={firstHref}
+          prefetch={false}
           className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
           <BidvLogo variant="full" />
@@ -222,6 +227,9 @@ function NavLink({
   return (
     <Link
       href={item.href}
+      // HF-01: mỗi lượt prefetch là một lần kết xuất server có truy vấn DB; menu có 4 đến 6 mục
+      // nên mỗi lần mở trang tốn thêm chừng đó lượt Worker. Bấm mới tải.
+      prefetch={false}
       className={cn(
         "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
         active

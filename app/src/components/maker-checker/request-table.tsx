@@ -47,7 +47,7 @@ export function RequestTable({
           <TableRow key={row.id} data-request-id={row.id}>
             <TableCell className="font-mono text-xs">
               {detailHref ? (
-                <Link className="text-primary underline-offset-4 hover:underline" href={detailHref(row.id)}>
+                <Link prefetch={false} className="text-primary underline-offset-4 hover:underline" href={detailHref(row.id)}>
                   {row.id.slice(0, 8)}
                 </Link>
               ) : (

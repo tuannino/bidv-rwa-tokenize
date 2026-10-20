@@ -228,7 +228,7 @@ export function OpsTransactionsPage() {
                 {data.rows.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
-                      <Link href={`/transactions/${order.id}`} title={order.id} className="font-mono text-xs text-primary hover:underline">
+                      <Link prefetch={false} href={`/transactions/${order.id}`} title={order.id} className="font-mono text-xs text-primary hover:underline">
                         {order.id.slice(0, 8)}
                       </Link>
                     </TableCell>

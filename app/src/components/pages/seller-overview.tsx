@@ -132,10 +132,10 @@ export function SellerOverviewPage() {
           </p>
         </div>
         <nav className="flex gap-2" aria-label="Lối tắt">
-          <Link href="/seller/transactions" className={buttonVariants({ variant: 'outline' })}>
+          <Link prefetch={false} href="/seller/transactions" className={buttonVariants({ variant: 'outline' })}>
             Danh sách giao dịch <ArrowRight aria-hidden="true" />
           </Link>
-          <Link href="/seller/withdraw" className={buttonVariants()}>
+          <Link prefetch={false} href="/seller/withdraw" className={buttonVariants()}>
             Tạo lệnh rút <ArrowRight aria-hidden="true" />
           </Link>
         </nav>

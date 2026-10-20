@@ -185,7 +185,7 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
                     </TableCell>
                     <TableCell className="text-xs">{formatDateTime(order.updatedAt)}</TableCell>
                     <TableCell>
-                      <Link href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
+                      <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
                         Chi tiết
                       </Link>
                     </TableCell>

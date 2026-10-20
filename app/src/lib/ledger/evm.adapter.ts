@@ -218,6 +218,9 @@ function inSendQueue<T>(key: string, task: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Số lời đọc tối đa trong một lô JSON-RPC (HF-01); nhỏ để không chạm giới hạn lô của RPC công cộng. */
+const RPC_READ_BATCH_SIZE = 20;
+
 export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   const rpcUrl = rpcUrlFor(chain);
   const viemChain = viemChainFor(chain);
@@ -226,7 +229,13 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
   let walletClient: WalletClient | undefined;
 
   const reader = (): PublicClient => {
-    publicClient ??= createPublicClient({ chain: viemChain, transport: http(rpcUrl) });
+    // HF-01: gom các lời đọc phát ra cùng lúc (Promise.all) thành một yêu cầu JSON-RPC dạng lô.
+    // Một lượt Worker chỉ mở được 6 kết nối ra ngoài cùng lúc; tám lời đọc rời nhau phải xếp hàng.
+    // Chỉ áp cho client đọc; client ghi giữ nguyên để mỗi giao dịch có lỗi và biên nhận riêng.
+    publicClient ??= createPublicClient({
+      chain: viemChain,
+      transport: http(rpcUrl, { batch: { batchSize: RPC_READ_BATCH_SIZE } }),
+    });
     return publicClient;
   };
 

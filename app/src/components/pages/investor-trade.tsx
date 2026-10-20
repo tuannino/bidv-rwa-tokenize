@@ -550,7 +550,7 @@ function TrackedOrder({ order, chain }: { order: OrderView; chain: string }) {
         <CardTitle className="text-base">
           Lệnh {SIDE_LABELS[order.side].toLowerCase()} vừa gửi: {ORDER_STATUS_LABELS[order.status]}
         </CardTitle>
-        <Link href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
+        <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
           Xem chi tiết
         </Link>
       </CardHeader>
@@ -581,7 +581,7 @@ function ConnectWalletPrompt() {
       <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
       <p className="max-w-xs text-xs text-muted-foreground">
         Kết nối ví ở góc trên phải, hoặc mở{' '}
-        <Link href="/wallet" className="text-primary underline-offset-4 hover:underline">
+        <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
           Ví của tôi
         </Link>{' '}
         để đặt lệnh mua hoặc bán token.

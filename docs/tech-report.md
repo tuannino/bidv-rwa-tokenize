@@ -558,6 +558,10 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Luồng demo phụ thuộc hardhat node thường trú | Mặc định phải là `mock`, để free-tier chạy được |
 | Kiểm "không có X" (`toHaveCount(0)`) ngay sau khi mở trang | Xanh ăn may khi khối dữ liệu chưa tải. Đợi mốc "đã tải" rồi mới kiểm vắng mặt (OP-03, xem `lessons.md`) |
 | Giả định API Next.js theo bản cũ | Next.js 16 có breaking change. Đọc `node_modules/next/dist/docs/` và `app/AGENTS.md` **trước khi** sửa `app/` |
+| Màn tự tải dữ liệu bằng nhiều server action trong `useEffect` | Next xếp hàng server action **nối tiếp**: 4 action là 4 lượt Worker chờ nhau (HF-01 đo 2,0 đến 4,1 giây ở `/seller/withdraw`). Mỗi màn gọi tối đa **một** action khi mở; việc đi liền nhau thì gộp vào một action |
+| Client gọi lại dữ liệu mà Server Component đã đọc sẵn | Dùng số từ server; chỉ gọi action khi tham số khác bản server đã đọc (ví dụ menu chỉ gọi số việc chờ khi chain khác chain mặc định, HF-01) |
+| `Link` trong menu để prefetch mặc định | Mỗi prefetch là một lần kết xuất server có truy vấn DB. Menu đặt `prefetch={false}` (HF-01, kiểm ở `test/hf-01-hieu-nang.test.ts`) |
+| Nhiều lời đọc RPC rời trong một `Promise.all` | Một lượt Worker chỉ mở 6 kết nối ra ngoài cùng lúc. Client đọc EVM gom lô JSON-RPC (`batchSize` 20); client ghi không gom (HF-01) |
 | Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` từng mất sạch `packages/` và `app/src/lib/`. Cách đúng duy nhất: `git revert <sha-của-commit-revert>`. Không merge lại, không cherry-pick — `branching.md` §6 |
 | Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
 | Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền; kỹ thuật đúng là `git rebase --onto <đích> <nền> <nhánh>`. Nhưng **chỉ dùng sau khi Owner đồng ý** đổi nền |
@@ -653,6 +657,8 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P2** | Bốn màn Nhà đầu tư (`trade`, `orders` và hai màn chi tiết) chép lặp `chain === 'mock' ? mockWallet : address`. Khi hoàn thiện Mock ở `d45b596`, việc chép lặp làm sót hai màn chi tiết; OP-02 v3 vá đủ bằng cùng khuôn | Gom đoạn phân giải ví về một hook dùng chung khi task tiếp theo đụng nhóm màn này; không mở task riêng và không gom trong OP-02 |
 | ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **Hàng đợi gửi giao dịch của adapter EVM chỉ trong một tiến trình** (FE-05). Hai instance serverless cùng ví ký vẫn có thể lấy trùng nonce giao dịch | Hàng đợi ở tầng custody (Phase 5, Fireblocks) hoặc chọn nonce có khoá dùng chung |
+| **P1** | **Màn còn tải bằng nhiều action nối tiếp khi mở** (HF-01 đo bằng `grep -c "Action(" src/components/pages/*.tsx`): `/vault` gọi 3 action khi mở (tổng quan, lịch sử cấu hình quét sự kiện từ block triển khai, lệnh cần xem xét); `investor-trade` gọi 2 đến 3 | Task PERF-01: mỗi màn một action khi mở hoặc Server Component đọc sẵn; lịch sử cấu hình có mốc block lưu sẵn thay vì quét từ block triển khai mỗi lần |
+| **P2** | **Khởi động nguội Worker khoảng 1,1 đến 1,5 giây** (HF-01 đo bằng `wrangler dev` cục bộ, bản 14/10 và bản `dd00e12` như nhau); gói `handler.mjs` 17 MB | Thu gọn gói: tách thư viện chỉ dùng ở client, bỏ mã chain không bật; đo lại sau mỗi lần |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **Màn giao dịch trên chain thật coi "chưa có cờ tất toán" là chưa tất toán** (FE-05, chủ dự án chốt 20/10/2026): `isSettlementMode` của EVM còn chờ SC-04, xem trước và bối cảnh màn giao dịch dựa vào trạng thái dự án | Gỡ khi SC-04 quyết cờ tất toán; `settlementModeOrUnknown` ở `trade.service.ts` là chỗ duy nhất cần sửa |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
@@ -1669,10 +1675,10 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:336` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được, giữ nguyên ba nhánh quyết định và nguyên phần chia ở `runDistributionCycle` |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1109` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1115` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1120` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1126` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1118` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1124` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1129` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1135` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 

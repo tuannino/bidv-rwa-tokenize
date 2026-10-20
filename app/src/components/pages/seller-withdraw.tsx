@@ -5,8 +5,7 @@ import { explorerTxUrl } from '@bidv/shared';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import {
   createWithdrawRequestAction,
-  listMyWithdrawRequestsAction,
-  reconcileWithdrawRequestsAction,
+  reconcileAndListMyWithdrawRequestsAction,
 } from '@/app/actions/withdraw';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,12 +61,10 @@ export function SellerWithdrawPage() {
   useEffect(() => {
     let cancelled = false;
     // Mở lại màn là một lần đối soát (QĐ-E): lệnh dở được chốt theo chuỗi trước khi hiển thị.
-    void reconcileWithdrawRequestsAction({ chain })
-      .then(() => listMyWithdrawRequestsAction({ chain }))
-      .then((result) => {
-        if (cancelled) return;
-        setRequests(result.ok ? { key: chain, rows: result.data, error: null } : { key: chain, rows: [], error: result.error });
-      });
+    void reconcileAndListMyWithdrawRequestsAction({ chain }).then((result) => {
+      if (cancelled) return;
+      setRequests(result.ok ? { key: chain, rows: result.data, error: null } : { key: chain, rows: [], error: result.error });
+    });
     return () => {
       cancelled = true;
     };
