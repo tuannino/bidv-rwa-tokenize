@@ -14,7 +14,7 @@
 
 | # | Điều kiện hoàn thành | Trạng thái | Bằng chứng |
 |---|---|---|---|
-| 1 | PR A: ca 1 đến 9, `CHECKPOINT_OP05.md` phần coder, mục "Kết quả chạy Sepolia" để trống | ✅ | mục 2; chi tiết kiểm chứng mục 1 đến 10; mục 6 để trống |
+| 1 | PR A: ca 1 đến 9, `CHECKPOINT_OP05.md` phần coder, mục "Kết quả chạy Sepolia" để trống | ✅ | mục 2; chi tiết kiểm chứng mục 1 đến 12; mục 6 để trống |
 | 2 | PR B merge; kiểm khói và kiểm database mới đạt (bước 10, 11) | ❌ | mục 0.2; runbook bước 4 đến 11 |
 | 3 | Vòng nghiệp vụ khớp bảng số dư kỳ vọng; Supervisor đọc chuỗi Sepolia xác nhận; PR C chuyển `done` | ❌ | mục 0.2; runbook bước 12 đến 14; ca 4 đã khớp trên Hardhat (mục 2) |
 
@@ -65,7 +65,10 @@ vọng của spec khớp **từng ô** trên nút Hardhat, không có lệch nà
 | 8 | tech-report 3.28 đủ năm ý, bảng nợ 1.6.C có dòng P1 | đạt |
 | 9 | `run-local-all.sh`, job A, job C, nút thật từng tệp, quét bí mật | xem số đo dưới |
 
-Số đo chính (đầu ra nguyên văn ở `docs/CHECKPOINT_OP05_VERIFICATION_DETAIL.md`): VERIFY_SUMMARY
+Số đo chính (đầu ra nguyên văn ở `docs/CHECKPOINT_OP05_VERIFICATION_DETAIL.md`): `run-local-all.sh` 7 PASS, hợp đồng
+162 passing (nền 158, thêm 4 ca), vitest 1093 đạt, 83 bỏ qua (nền 1075 đạt); job A đạt, artifacts phục hồi; job
+C 4 PASS, E2E hardhat 26 đạt; nút thật `op-05-demo-cycle-evm` 8 đạt; quét bí mật sạch; diễn tập xong thì
+`git status --short` rỗng; không sửa hợp đồng.
 
 ## 3. Sai lệch, lựa chọn khi làm
 
