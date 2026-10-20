@@ -138,11 +138,12 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       ledger.quotePurchase(1n),
       readIssuePriceVnd(chain),
       readTokenTerms(),
-      ledger.isSettlementMode(),
+      // Cùng quyết định với xem trước (FE-05): chain chưa có cờ tất toán thì không chặn cả màn.
+      settlementModeOrUnknown(ledger),
     ]);
 
     const project = projects[0] ?? null;
-    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, !settling) : null;
+    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, settling !== true) : null;
     const undistributed = token ? BigInt(token.undistributed) : 0n;
 
     return ok({

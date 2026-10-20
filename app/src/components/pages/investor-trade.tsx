@@ -15,11 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { listOrdersAction, placeOrderAction } from '@/app/actions/purchase';
+import { listOrdersAction, placeOrderAction, preparePermitAction } from '@/app/actions/purchase';
 import { getTradeContextAction, previewTradeAction } from '@/app/actions/trade';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount } from '@/lib/format';
-import type { OrderView } from '@/lib/bank/purchase.service';
+import type { OrderView, PermitPreparationView } from '@/lib/bank/purchase.service';
+import { CHAINS } from '@bidv/shared';
+import { WrongChainBanner } from '@/components/wallet/wrong-chain-banner';
+import { useWalletStatus } from '@/lib/hooks/use-wallet-status';
+import { signPermitWithWallet } from '@/lib/signer/wallet-permit';
+import { isUserRejection } from '@/lib/wallet/switch-error';
 import type { InvestorTokenInfo, TradeContextView } from '@/lib/bank/trade.service';
 import type { OrderSide } from '@/lib/store/order.store.port';
 import { SettlementProgress } from '@/components/trading/settlement-progress';
@@ -53,9 +58,24 @@ const TRACK_INTERVAL_MS = 3_000;
 
 type Keyed<T> = { key: string; value: T };
 
+/**
+ * Bước của nút ký trên chain thật (FE-05 QĐ-I): chuẩn bị typed data, chờ người dùng ký trong ví,
+ * gửi lệnh. `idle` là chưa làm gì hoặc vừa quay lại hộp xác nhận.
+ */
+type SignPhase = 'idle' | 'preparing' | 'signing' | 'sending';
+
+const SIGN_PHASE_LABELS: Record<Exclude<SignPhase, 'idle'>, string> = {
+  preparing: 'Đang chuẩn bị…',
+  signing: 'Đang chờ ký trong ví…',
+  sending: 'Đang gửi lệnh…',
+};
+
 export function InvestorTradePage({ mockWallet }: { mockWallet: string | null }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { chain } = useSelectedChain();
+  // FE-05: chain EVM thật đặt lệnh bằng chữ ký permit của ví; mock giữ nguyên hành vi cũ.
+  const needsPermit = CHAINS[chain].family === 'evm';
+  const walletStatus = useWalletStatus();
   // Chain mock không ký giao dịch: dùng đúng ví trong hồ sơ của phiên để bản demo chạy không cần
   // extension. Chain thật vẫn chỉ tin địa chỉ do connector ví cung cấp.
   const wallet = chain === 'mock' ? mockWallet : address;
@@ -70,6 +90,11 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [tracked, setTracked] = useState<OrderView | null>(null);
   const requestRef = useRef<{ intent: string; id: string } | null>(null);
+  const [signPhase, setSignPhase] = useState<SignPhase>('idle');
+  /** Typed data đã chuẩn bị, gắn với ý định lệnh để không ký số của một lệnh khác. */
+  const [prepared, setPrepared] = useState<Keyed<PermitPreparationView> | null>(null);
+  /** Câu báo trong hộp xác nhận (huỷ ký, lỗi chuẩn bị/ký); khác `submitError` hiện ngoài hộp. */
+  const [dialogNote, setDialogNote] = useState<string | null>(null);
 
   // --- Bối cảnh: token, số dư, giá, trần hai chiều -------------------------------
   const contextKey = wallet ? `${chain}|${wallet}|${contextTick}` : null;
@@ -141,22 +166,79 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
     };
   }, [trackingId, chain, wallet]);
 
+  const intent = wallet && amount ? `${chain}|${wallet.toLowerCase()}|${side}|${amount}` : null;
+  const freshPrepared = prepared && prepared.key === intent ? prepared.value : null;
+
+  /** FE-05 QĐ-A bước 1: máy chủ dựng typed data đúng số của lệnh. `null` khi không chuẩn bị được. */
+  async function preparePermit(): Promise<PermitPreparationView | null> {
+    if (!wallet || !amount || !intent) return null;
+    setSignPhase('preparing');
+    const result = await preparePermitAction({ chain, investorWallet: wallet, wptAmount: amount, side });
+    setSignPhase('idle');
+    if (!result.ok) {
+      setDialogNote(result.error);
+      return null;
+    }
+    setPrepared({ key: intent, value: result.data });
+    return result.data;
+  }
+
+  function openConfirm() {
+    setDialogNote(null);
+    setConfirmOpen(true);
+    // Chuẩn bị ngay khi mở hộp để câu xác nhận nêu đúng số sẽ ký và giờ hết hạn.
+    if (needsPermit && !freshPrepared) void preparePermit();
+  }
+
   async function submit() {
-    if (!wallet || !amount) return;
-    const intent = `${chain}|${wallet.toLowerCase()}|${side}|${amount}`;
+    if (!wallet || !amount || !intent) return;
+    // BE-17: một mã chống trùng cho MỘT ý định lệnh, giữ qua mọi lần thử lại, kể cả khi ký lại.
     if (requestRef.current?.intent !== intent) {
       requestRef.current = { intent, id: crypto.randomUUID() };
     }
+    const clientRequestId = requestRef.current.id;
     setSubmitting(true);
     setSubmitError(null);
+    setDialogNote(null);
+
+    let permit: { value: string; deadline: string; nonce: string; signature: string } | undefined;
+    if (needsPermit) {
+      const data = freshPrepared ?? (await preparePermit());
+      if (!data) {
+        setSubmitting(false);
+        return;
+      }
+      setSignPhase('signing');
+      try {
+        const provider = (await connector?.getProvider()) as Parameters<typeof signPermitWithWallet>[0];
+        const signature = await signPermitWithWallet(provider, data.typedData);
+        permit = { value: data.value, deadline: data.deadline, nonce: data.nonce, signature };
+      } catch (error) {
+        // Từ chối ký là lựa chọn của người dùng, không phải sự cố: quay lại hộp xác nhận, không gửi gì.
+        setDialogNote(
+          isUserRejection(error)
+            ? 'Bạn đã huỷ ký. Chưa có lệnh nào được gửi.'
+            : `Không ký được: ${error instanceof Error ? error.message : 'lỗi ví không xác định.'}`,
+        );
+        setSignPhase('idle');
+        setSubmitting(false);
+        return;
+      }
+      setSignPhase('sending');
+    }
+
     const result = await placeOrderAction({
       chain,
       investorWallet: wallet,
       wptAmount: amount,
       side,
-      clientRequestId: requestRef.current.id,
+      clientRequestId,
+      ...(permit ? { permit } : {}),
     });
+    setSignPhase('idle');
     setSubmitting(false);
+    // Chữ ký đã dùng cho lần gửi này; lần thử sau chuẩn bị lại (nonce, giá, hạn có thể đã đổi).
+    setPrepared(null);
     setConfirmOpen(false);
     if (!result.ok) {
       setSubmitError(result.error);
@@ -167,6 +249,8 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
     setQuantity('');
     setContextTick((tick) => tick + 1);
   }
+
+  const walletBlocked = needsPermit && !walletStatus.canSign;
 
   if (!wallet || (chain !== 'mock' && !isConnected)) return <ConnectWalletPrompt />;
 
@@ -258,7 +342,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
               <TradeCheckBlock preview={preview} />
 
               <div className="space-y-1">
-                <Button className="w-full" disabled={blockReason !== null} onClick={() => setConfirmOpen(true)}>
+                <Button className="w-full" disabled={blockReason !== null} onClick={openConfirm}>
                   Xác nhận lệnh {SIDE_LABELS[side].toLowerCase()}
                 </Button>
                 {blockReason && <p className="text-xs text-muted-foreground">{blockReason}</p>}
@@ -288,17 +372,86 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             <Row label="Giá" mono>{ctx ? `${formatAmount(ctx.priceVnd)} VNDB` : 'Chưa có'}</Row>
             <Row label="Tổng giá trị" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
           </dl>
+          {needsPermit && (
+            <PermitNotice
+              prepared={freshPrepared}
+              preparing={signPhase === 'preparing'}
+              walletStatus={walletStatus}
+            />
+          )}
+          {dialogNote && (
+            <p className="text-sm text-destructive" role="alert" data-testid="sign-note">
+              {dialogNote}
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
               Quay lại
             </Button>
-            <Button onClick={() => void submit()} disabled={submitting || blockReason !== null}>
-              {submitting ? 'Đang gửi…' : 'Gửi lệnh'}
+            <Button
+              onClick={() => void submit()}
+              disabled={submitting || blockReason !== null || walletBlocked || signPhase === 'preparing'}
+            >
+              {signPhase !== 'idle'
+                ? SIGN_PHASE_LABELS[signPhase]
+                : needsPermit
+                  ? 'Ký và đặt lệnh'
+                  : submitting
+                    ? 'Đang gửi…'
+                    : 'Gửi lệnh'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Câu xác nhận chữ ký trên chain thật (FE-05 QĐ-I): số và token sẽ ký, giờ hết hạn, không tốn phí.
+ * Ví sai mạng thì hiện ngay dải cảnh báo dùng chung, nút ký bị khoá theo `canSign`.
+ */
+function PermitNotice({
+  prepared,
+  preparing,
+  walletStatus,
+}: {
+  prepared: PermitPreparationView | null;
+  preparing: boolean;
+  walletStatus: ReturnType<typeof useWalletStatus>;
+}) {
+  const { status, switchToExpected, switching, switchError } = walletStatus;
+  if (status.kind === 'wrong-chain' || status.kind === 'chain-mismatch') {
+    return (
+      <WrongChainBanner
+        currentLabel={status.kind === 'wrong-chain' ? `chain ID ${status.current}` : status.walletChain}
+        expectedLabel={status.kind === 'wrong-chain' ? status.expectedLabel : status.appChain}
+        onSwitch={() => void switchToExpected()}
+        switching={switching}
+        error={switchError}
+      />
+    );
+  }
+  if (!walletStatus.canSign) {
+    return <p className="text-sm text-destructive">{walletStatus.blockedReason}</p>;
+  }
+  if (!prepared) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        {preparing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        Đang chuẩn bị nội dung chữ ký ủy quyền…
+      </p>
+    );
+  }
+  const until = new Date(prepared.deadlineAt).toLocaleString('vi-VN');
+  return (
+    <p className="rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="permit-notice">
+      Bạn sẽ ký cho phép hệ thống chi đúng{' '}
+      <span className="font-mono font-semibold">
+        {formatAmount(prepared.value)} {prepared.tokenSymbol}
+      </span>{' '}
+      cho lệnh này, hiệu lực đến {until}; không tốn phí giao dịch.
+    </p>
   );
 }
 

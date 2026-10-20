@@ -64,7 +64,9 @@ export default defineConfig({
     ON_HARDHAT
       ? {
           name: 'hardhat',
-          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts', 'chain-scope.spec.ts'],
+          // FE-05: `permit-order.spec.ts` ĐỨNG SAU `mint.spec.ts` (Playwright chạy tệp theo thứ tự tên):
+          // nó cần nguồn cung trong vault mà luồng lập duyệt của `mint.spec.ts` phát hành.
+          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts', 'chain-scope.spec.ts', 'permit-order.spec.ts'],
           use: { ...devices['Desktop Chrome'] },
         }
       : { name: 'mock', use: { ...devices['Desktop Chrome'] } },
