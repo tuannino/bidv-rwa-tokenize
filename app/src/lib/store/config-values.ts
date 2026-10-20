@@ -9,6 +9,8 @@ import {
   DISTRIBUTION_MAX_BATCHES_PER_RUN_MAX,
   DISTRIBUTION_MIN_NEW_BALANCE,
   DISTRIBUTION_STUCK_AFTER_RUNS,
+  ORDER_PERMIT_MIN_REMAINING_SECONDS,
+  ORDER_PERMIT_TTL_SECONDS,
   WPT_ANNUAL_YIELD_PERCENT,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
@@ -254,4 +256,30 @@ export async function readDemoPaymentMintMax(): Promise<bigint> {
   const value = row?.value.trim();
   const parsed = value && UINT.test(value) ? BigInt(value) : 0n;
   return parsed > 0n ? parsed : BigInt(DEMO_PAYMENT_MINT_MAX_VND);
+}
+
+/** Cửa sổ thời gian của chữ ký permit (FE-05 CH-2), đơn vị giây. */
+export interface OrderPermitWindow {
+  ttlSeconds: number;
+  minRemainingSeconds: number;
+}
+
+/**
+ * Hai tham số thời hạn chữ ký permit, đọc CÙNG nhau vì chúng ràng buộc lẫn nhau: thời gian còn lại
+ * tối thiểu không nhỏ hơn thời hạn thì mọi chữ ký vừa ký đã bị từ chối. Cặp giá trị như vậy là lỗi
+ * cấu hình, lùi cả hai về mặc định thay vì khoá toàn bộ luồng đặt lệnh trên chain thật.
+ */
+export async function readOrderPermitWindow(): Promise<OrderPermitWindow> {
+  const [ttlSeconds, minRemainingSeconds] = await Promise.all([
+    readBoundedInt(CONFIG_KEYS.orderPermitTtlSeconds, ORDER_PERMIT_TTL_SECONDS, 60, 86_400),
+    readBoundedInt(
+      CONFIG_KEYS.orderPermitMinRemainingSeconds,
+      ORDER_PERMIT_MIN_REMAINING_SECONDS,
+      0,
+      3_600,
+    ),
+  ]);
+  return minRemainingSeconds < ttlSeconds
+    ? { ttlSeconds, minRemainingSeconds }
+    : { ttlSeconds: ORDER_PERMIT_TTL_SECONDS, minRemainingSeconds: ORDER_PERMIT_MIN_REMAINING_SECONDS };
 }

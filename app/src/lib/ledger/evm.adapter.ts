@@ -41,6 +41,8 @@ import {
   receiptTimeoutFor,
   type ChainDistribution,
   type ILedgerPort,
+  type PermitToken,
+  type SettlementOrder,
   type SnapshotResult,
   type TokenInfo,
   type TransferCheck,
@@ -422,6 +424,36 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     }
   };
 
+  /** Đọc trên token nhận permit: VNDB cho lệnh mua, WPT cho lệnh bán (FE-05). */
+  const readPermitToken = <T>(
+    operation: string,
+    token: PermitToken,
+    functionName: string,
+    args: readonly unknown[],
+  ): Promise<T> =>
+    token === 'payment'
+      ? readOn<T>(operation, 'VNDToken', vndTokenAbi, functionName, args)
+      : readOn<T>(operation, 'ProjectToken', projectTokenAbi, functionName, args);
+
+  /**
+   * Hàm và tham số khớp lệnh theo chiều (FE-05 QĐ-G): có chữ ký permit thì `buyWithPermit` /
+   * `sellWithPermit`, không có thì `buy` / `sell` (lệnh trước FE-05, dựa vào ủy quyền thực tế).
+   */
+  const settlementCall = (
+    side: 'buy' | 'sell',
+    order: SettlementOrder,
+  ): [functionName: string, args: readonly unknown[]] => {
+    const args = [
+      orderRefFromOrderId(order.orderId),
+      normalizeEvmAddress(order.investor),
+      order.wptAmount,
+      order.vndAmount,
+    ] as const;
+    if (!order.permit) return [side, args];
+    const { value, deadline, v, r, s } = order.permit;
+    return [`${side}WithPermit`, [...args, { value, deadline, v, r, s }]];
+  };
+
   const readDistributor = <T>(operation: string, functionName: string, args: readonly unknown[]) =>
     readOn<T>(operation, 'ProfitDistributor', profitDistributorAbi, functionName, args);
 
@@ -720,6 +752,26 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       ]);
     },
 
+    async latestBlockTimestamp() {
+      try {
+        return (await reader().getBlock()).timestamp;
+      } catch (error) {
+        return fail('latestBlockTimestamp', error);
+      }
+    },
+
+    async permitDomain(token) {
+      const [fields, name, version, chainId, verifyingContract, salt, extensions] =
+        await readPermitToken<
+          readonly [Hex, string, string, bigint, Hex, Hex, readonly bigint[]]
+        >('permitDomain', token, 'eip712Domain', []);
+      return { fields, name, version, chainId, verifyingContract, salt, extensions };
+    },
+
+    async permitNonce(token, owner) {
+      return readPermitToken<bigint>('permitNonce', token, 'nonces', [normalizeEvmAddress(owner)]);
+    },
+
     async findOrderSettlement(orderId) {
       const orderRef = orderRefFromOrderId(orderId);
       const settled = await readOn<boolean>(
@@ -803,22 +855,12 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
 
     async executePurchase(order) {
       assertPositiveAmount(chain, 'executePurchase', order.wptAmount);
-      return writeOn('executePurchase', 'OrderSettlement', orderSettlementAbi, 'buy', [
-        orderRefFromOrderId(order.orderId),
-        normalizeEvmAddress(order.investor),
-        order.wptAmount,
-        order.vndAmount,
-      ]);
+      return writeOn('executePurchase', 'OrderSettlement', orderSettlementAbi, ...settlementCall('buy', order));
     },
 
     async executeSale(order) {
       assertPositiveAmount(chain, 'executeSale', order.wptAmount);
-      return writeOn('executeSale', 'OrderSettlement', orderSettlementAbi, 'sell', [
-        orderRefFromOrderId(order.orderId),
-        normalizeEvmAddress(order.investor),
-        order.wptAmount,
-        order.vndAmount,
-      ]);
+      return writeOn('executeSale', 'OrderSettlement', orderSettlementAbi, ...settlementCall('sell', order));
     },
 
     // =========================================================================

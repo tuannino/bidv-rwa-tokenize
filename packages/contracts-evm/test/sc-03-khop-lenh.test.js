@@ -13,7 +13,7 @@ async function signPermit(token, owner, spender, value, deadline) {
   const { buildPermitTypedData } = await import("../../shared/src/permit.js");
   const { chainId } = await ethers.provider.getNetwork();
   const typed = buildPermitTypedData({
-    tokenName: await token.name(), chainId, verifyingContract: await token.getAddress(),
+    tokenName: await token.name(), version: (await token.eip712Domain()).version, chainId, verifyingContract: await token.getAddress(),
     owner: owner.address, spender, value, nonce: await token.nonces(owner.address), deadline,
   });
   return ethers.Signature.from(await owner.signTypedData(typed.domain, typed.types, typed.message));

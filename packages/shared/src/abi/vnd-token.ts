@@ -98,6 +98,23 @@ export const vndTokenAbi = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    // ERC-5267 (FE-05 QĐ-B): domain EIP-712 THẬT của token cho chữ ký permit. Không dùng
+    // `version()` của ProjectToken: đó là phiên bản nghiệp vụ, không phải version EIP-712.
+    type: 'function',
+    name: 'eip712Domain',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [
+      { name: 'fields', type: 'bytes1' },
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+      { name: 'salt', type: 'bytes32' },
+      { name: 'extensions', type: 'uint256[]' },
+    ],
+  },
+  {
     type: 'function',
     name: 'DOMAIN_SEPARATOR',
     stateMutability: 'view',
