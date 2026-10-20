@@ -252,9 +252,10 @@ afterEach(() => {
 describe('ca 1 — số dư không tăng thì không mở kỳ, không chia', () => {
   it('ghi một vòng chạy không có việc và không chạm chuỗi để ghi', async () => {
     await seedHolder(holderWallets(1)[0], 10n);
-    // Mốc đúng bằng số dư: trạng thái sau một kỳ đã tất toán, phần dư còn lại 7 VNDB.
+    // SC-06 QĐ-I: căn cứ là phần CHƯA PHÂN BỔ của quỹ. Quỹ trống thì không có tiền mới, dù mốc
+    // hiển thị là bao nhiêu.
     await setConfigValue(CONFIG_KEYS.distributionLastSettledBalance, '7', 'bigint');
-    setProfitPool(7n);
+    setProfitPool(0n);
 
     const view = await cycleOk();
 
@@ -312,8 +313,8 @@ describe('ca 2 — số dư tăng thì tự mở kỳ và chia, không cần ng�
 
     const periods = await listPeriods();
     expect(periods).toHaveLength(1);
-    // `auto-` + ngày UTC + số thứ tự trong ngày.
-    expect(periods[0].periodKey).toMatch(/^auto-\d{4}-\d{2}-\d{2}-\d{2}$/);
+    // SC-06 CH-6: tiền tố chain + `auto-` + ngày UTC + số thứ tự trong ngày.
+    expect(periods[0].periodKey).toMatch(/^mock:auto-\d{4}-\d{2}-\d{2}-\d{2}$/);
     expect(periods[0].periodKey).toBe(view.periodKey);
     expect(periods[0]).toMatchObject({ status: 'COMPLETED', totalAmount: '1000001' });
   });
@@ -488,47 +489,58 @@ describe('ca 5 — số dư tăng dưới ngưỡng tối thiểu thì không m�
 });
 
 // ===========================================================================
-//  CA 6 — số dư giảm
+//  CA 6 — quỹ hụt so với dự trữ (SC-06 QĐ-I thay "số dư giảm so với mốc")
 // ===========================================================================
-describe('ca 6 — số dư giảm thì dừng và ghi cảnh báo', () => {
-  it('từ chối với mã PERIOD_STATE và không mở kỳ nào', async () => {
-    await seedHolder(holderWallets(1)[0], 10n);
-    await setConfigValue(CONFIG_KEYS.distributionLastSettledBalance, '5000', 'bigint');
+describe('ca 6 — quỹ hụt so với tổng dự trữ thì dừng và ghi cảnh báo', () => {
+  /**
+   * Kỳ chia dở giữ 6.001 VNDB dự trữ; rồi quỹ bị rút xuống 1.000 (trên chuỗi thật: đốt VNDB trong
+   * quỹ bằng BURNER_ROLE). Mốc số dư hiển thị không liên quan: đặt 0 để chắc nó không quyết định.
+   */
+  async function shortfall() {
+    for (const wallet of holderWallets(6)) await seedHolder(wallet, 1n);
+    setProfitPool(6_001n);
+    await setConfigValue(CONFIG_KEYS.distributionBatchSize, '2', 'number');
+    await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
+    await cycleOk();
     setProfitPool(1_000n);
+  }
+
+  it('từ chối với mã INSUFFICIENT_PROFIT_POOL, không gửi lô và không mở kỳ mới', async () => {
+    await shortfall();
+    const calls = fault.batchCalls;
 
     const result = await runDistributionCycle({ chain: CHAIN });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.code).toBe('PERIOD_STATE');
-    expect(result.error).toContain('THẤP HƠN mốc đã xử lý');
-    expect(await listPeriods()).toHaveLength(0);
+    expect(result.code).toBe('INSUFFICIENT_PROFIT_POOL');
+    expect(result.error).toContain('THẤP HƠN tổng dự trữ');
+    expect(fault.batchCalls).toBe(calls);
+    expect(await listPeriods()).toHaveLength(1);
   });
 
   it('để lại dòng mốc chạy THẤT BẠI và một bản ghi kiểm toán', async () => {
-    await setConfigValue(CONFIG_KEYS.distributionLastSettledBalance, '5000', 'bigint');
-    setProfitPool(1_000n);
+    await shortfall();
 
     await runDistributionCycle({ chain: CHAIN });
 
-    const runs = await listRuns();
+    const runs = (await listRuns()).filter((run) => run.status === 'FAILED');
     expect(runs).toHaveLength(1);
-    expect(runs[0].status).toBe('FAILED');
-    expect(runs[0].error).toContain('THẤP HƠN mốc đã xử lý');
+    expect(runs[0].error).toContain('THẤP HƠN tổng dự trữ');
 
     const audit = await distributionAudit();
-    expect(audit.some((row) => row.outcome === 'FAILURE' && row.detail?.includes('THẤP HƠN'))).toBe(
-      true,
-    );
+    expect(
+      audit.some((row) => row.outcome === 'FAILURE' && row.detail?.includes('THẤP HƠN tổng dự trữ')),
+    ).toBe(true);
   });
 
-  it('mốc số dư giữ nguyên, KHÔNG hạ xuống theo số dư thật', async () => {
+  it('số dư thấp hơn mốc hiển thị KHÔNG còn là bất thường khi quỹ đủ dự trữ', async () => {
     await setConfigValue(CONFIG_KEYS.distributionLastSettledBalance, '5000', 'bigint');
-    setProfitPool(1_000n);
+    setProfitPool(0n);
 
-    await runDistributionCycle({ chain: CHAIN });
+    const view = await cycleOk();
 
-    // Hạ mốc xuống 1.000 sẽ làm lần nạp sau bị tính thừa 4.000 VNDB vào tiền mới.
+    expect(view.outcome).toBe('NO_NEW_FUNDS');
     expect(await readMark()).toBe('5000');
   });
 });
@@ -853,8 +865,10 @@ describe('ví lợi nhuận thiếu tiền giữa kỳ thì dừng, không chia 
     expect(result.code).toBe('INSUFFICIENT_PROFIT_POOL');
     expect(fault.batchCalls).toBe(batchesAfterFirstRun);
 
-    const failedRun = (await listRuns()).find((run) => run.periodKey.endsWith('#2'));
-    expect(failedRun?.status).toBe('FAILED');
+    // SC-06 QĐ-I: quỹ hụt được phát hiện TRƯỚC khi chọn kỳ, nên vòng dừng ở khoá vòng rỗng,
+    // không chiếm khoá `#2` của kỳ.
+    const failedRun = (await listRuns()).find((run) => run.status === 'FAILED');
+    expect(failedRun?.periodKey.startsWith('idle#')).toBe(true);
     expect(failedRun?.error).toContain('phải nạp bù');
   });
 });

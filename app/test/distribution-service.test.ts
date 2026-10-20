@@ -288,10 +288,10 @@ describe('ca 1 — hai ví 70 và 30 phần trăm nhận đúng số tiền', ()
     await seedHolder(BOB, 30n);
     fundProfitPool(1_000_000n);
 
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     expect(period).toMatchObject({
-      periodKey: '2026-Q1',
+      periodKey: 'mock:2026-Q1',
       chain: CHAIN,
       totalAmount: '1000000',
       totalSupplyAt: '100',
@@ -306,7 +306,7 @@ describe('ca 1 — hai ví 70 và 30 phần trăm nhận đúng số tiền', ()
     await seedHolder(ALICE, 70n);
     await seedHolder(BOB, 30n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const preview = await previewDistribution({ chain: CHAIN, periodId: period.id });
 
@@ -332,7 +332,7 @@ describe('ca 1 — hai ví 70 và 30 phần trăm nhận đúng số tiền', ()
     await seedHolder(ALICE, 1n);
     await seedHolder(BOB, 9_999n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const preview = await previewDistribution({ chain: CHAIN, periodId: period.id });
     expect(preview.ok).toBe(true);
@@ -350,7 +350,7 @@ describe('ca 2 — ví mua WPT sau thời điểm chốt được chia 0', () =>
   it('ví xuất hiện sau ảnh chụp có mặt trong danh sách nhưng phần chia bằng 0', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(500_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     // Mua SAU khi đã chốt quyền: tổng cung trên chuỗi tăng, nhưng ảnh chụp không đổi.
     await seedHolder(BOB, 400n);
@@ -376,7 +376,7 @@ describe('ca 2 — ví mua WPT sau thời điểm chốt được chia 0', () =>
   it('tổng cung của kỳ là tổng cung TẠI ảnh chụp, không phải tổng cung hiện tại', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(500_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     await seedHolder(BOB, 400n);
 
@@ -401,7 +401,7 @@ describe('xem trước là hàm đọc', () => {
     await seedHolder(ALICE, 70n);
     await seedHolder(BOB, 30n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const before = await snapshotStores();
     const preview = await previewDistribution({ chain: CHAIN, periodId: period.id });
@@ -439,7 +439,7 @@ describe('ca 4 — ví chia lợi nhuận không có tiền thì không mở đ�
     await seedHolder(ALICE, 100n);
     // KHÔNG nạp quỹ.
 
-    const result = await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    const result = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -461,7 +461,7 @@ describe('ca 4 — ví chia lợi nhuận không có tiền thì không mở đ�
   it('lần bị từ chối được ghi vào sổ kiểm toán', async () => {
     await seedHolder(ALICE, 100n);
 
-    await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     const audit = await getStore().listAudit({ limit: 10 });
     const failure = audit.find(
@@ -475,7 +475,7 @@ describe('ca 4 — ví chia lợi nhuận không có tiền thì không mở đ�
     // Có tiền trong quỹ nhưng chưa ai nắm WPT.
     fundProfitPool(1_000_000n);
 
-    const result = await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    const result = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -491,9 +491,9 @@ describe('ca 5 — mã kỳ trùng thì từ chối', () => {
   it('lần mở thứ hai bị từ chối, chỉ còn một kỳ và không tốn ảnh chụp thứ hai', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    await openPeriodOk('2026-Q1');
+    await openPeriodOk('mock:2026-Q1');
 
-    const second = await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    const second = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     expect(second.ok).toBe(false);
     if (second.ok) return;
@@ -515,11 +515,14 @@ describe('ca 5 — mã kỳ trùng thì từ chối', () => {
   it('lần đọc trước khi ghi bị vô hiệu thì ràng buộc duy nhất vẫn chặn', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    await openPeriodOk('2026-Q1');
+    await openPeriodOk('mock:2026-Q1');
 
     vi.spyOn(getDistributionStore(), 'findPeriodByKey').mockResolvedValue(null);
+    // SC-06: kỳ đầu đã giữ toàn bộ quỹ; nạp thêm để lần thứ hai đi qua phép kiểm quỹ và tới
+    // đúng chốt đang kiểm là ràng buộc duy nhất.
+    fundProfitPool(2_000_000n);
 
-    const second = await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    const second = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     expect(second.ok).toBe(false);
     if (second.ok) return;
@@ -533,13 +536,15 @@ describe('ca 5 — mã kỳ trùng thì từ chối', () => {
   it('mã kỳ khác thì mở được kỳ thứ hai với ảnh chụp mới', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    const first = await openPeriodOk('2026-Q1');
+    const first = await openPeriodOk('mock:2026-Q1');
 
     fundProfitPool(2_000_000n);
-    const second = await openPeriodOk('2026-Q2');
+    const second = await openPeriodOk('mock:2026-Q2');
 
     expect(second.snapshotId).toBe(first.snapshotId + 1);
-    expect(second.totalAmount).toBe('2000000');
+    // SC-06 QĐ-A: kỳ sau chỉ lấy phần chưa phân bổ (2.000.000 trừ 1.000.000 kỳ đầu còn nợ),
+    // không lấy lại phần kỳ trước còn nợ như trước SC-06.
+    expect(second.totalAmount).toBe('1000000');
   });
 });
 
@@ -550,9 +555,9 @@ describe('đọc trạng thái kỳ', () => {
   it('tra được theo mã kỳ, không chỉ theo mã trong cơ sở dữ liệu', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
-    const byKey = await getDistributionPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+    const byKey = await getDistributionPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
     expect(byKey.ok, byKey.ok ? '' : byKey.error).toBe(true);
     if (!byKey.ok) return;
@@ -565,7 +570,7 @@ describe('đọc trạng thái kỳ', () => {
     const both = await getDistributionPeriod({
       chain: CHAIN,
       periodId: '00000000-0000-4000-8000-000000000000',
-      periodKey: '2026-Q1',
+      periodKey: 'mock:2026-Q1',
     });
     const neither = await getDistributionPeriod({ chain: CHAIN });
 
@@ -585,7 +590,7 @@ describe('đọc trạng thái kỳ', () => {
   it('kỳ của chuỗi khác bị từ chối', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const other = await getDistributionPeriod({ chain: 'hardhat-local', periodId: period.id });
 
@@ -601,7 +606,7 @@ describe('đọc trạng thái kỳ', () => {
       const { can } = await import('@/lib/rbac');
       await seedHolder(ALICE, 100n);
       fundProfitPool(1_000_000n);
-      const period = await openPeriodOk('2026-Q1');
+      const period = await openPeriodOk('mock:2026-Q1');
 
       actAs(role);
       const result = await getDistributionPeriod({ chain: CHAIN, periodId: period.id });
@@ -632,7 +637,7 @@ describe('ca 3 — tổng đã chia cộng phần dư bằng đúng tổng tiề
   async function openThreeWayPeriod() {
     for (const wallet of HOLDERS_3) await seedHolder(wallet, 1n);
     fundProfitPool(POOL);
-    return openPeriodOk('2026-Q1');
+    return openPeriodOk('mock:2026-Q1');
   }
 
   it('tổng hồ sơ cộng phần dư bằng tổng tiền, và phần dư ghi nhận cho ví chỉ định', async () => {
@@ -664,14 +669,14 @@ describe('ca 3 — tổng đã chia cộng phần dư bằng đúng tổng tiề
     }
 
     /**
-     * Phần dư CÒN TRONG VÍ LỢI NHUẬN, chưa chuyển cho ví chỉ định.
+     * Phần dư CÒN TRONG QUỸ, thuộc dự trữ của kỳ, không chuyển cho ví chỉ định.
      *
-     * Đây là giới hạn đã biết, không phải lỗi: `distributeBatch` tự tính phần từng ví nên tầng
-     * nghiệp vụ không có đường bảo nó trả thêm cho một ví, và hàm quét phần dư (`sweepDust` của
-     * contract) chưa có trong `ILedgerPort`. Ca này khoá lại hành vi hiện tại để lần nối
-     * `sweepDust` phải sửa cả test — chứ không để phần dư âm thầm đổi đích.
+     * SC-06 QĐ-28: quỹ chia là một chiều, không có hàm quét phần dư ra ngoài. Phần dư về quỹ chưa
+     * phân bổ khi kỳ đóng sau hạn nhận, rồi được chia ở kỳ sau. Ca này khoá hành vi đó: phần dư
+     * không bao giờ âm thầm đổi đích.
      */
     expect(await getLedger(CHAIN).profitPoolBalance()).toBe(DUST);
+    expect(await getLedger(CHAIN).reservedProfit()).toBe(DUST);
   });
 
   it('chưa cấu hình ví nhận phần dư thì phần dư giữ lại trong ví lợi nhuận', async () => {
@@ -708,7 +713,7 @@ describe('ca 3 — tổng đã chia cộng phần dư bằng đúng tổng tiề
 describe(`ca 6 — ${HOLDERS} ví với lô ${DISTRIBUTION_BATCH_SIZE} thì gửi ${EXPECTED_BATCHES} lô`, () => {
   it('gọi distributeBatch đúng số lần, không ví nào bị sót và không ví nào lặp', async () => {
     const wallets = await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const run = await distributeOk(period.id);
 
@@ -736,7 +741,7 @@ describe(`ca 6 — ${HOLDERS} ví với lô ${DISTRIBUTION_BATCH_SIZE} thì gử
 
   it('mọi ví nhận đúng phần của mình và kỳ chuyển sang COMPLETED', async () => {
     const wallets = await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const run = await distributeOk(period.id);
 
@@ -761,7 +766,7 @@ describe(`ca 6 — ${HOLDERS} ví với lô ${DISTRIBUTION_BATCH_SIZE} thì gử
    */
   it('lập đủ hồ sơ chờ TRƯỚC khi gửi lô đầu tiên', async () => {
     await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const store = getDistributionStore();
     const original = store.createPayouts.bind(store);
@@ -780,7 +785,7 @@ describe(`ca 6 — ${HOLDERS} ví với lô ${DISTRIBUTION_BATCH_SIZE} thì gử
 
   it('gọi lại khi đã hoàn tất thì bị từ chối, không gửi thêm lô nào', async () => {
     await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
     await distributeOk(period.id);
     const callsAfterFirstRun = fault.batchCalls;
 
@@ -799,7 +804,7 @@ describe(`ca 6 — ${HOLDERS} ví với lô ${DISTRIBUTION_BATCH_SIZE} thì gử
 describe('ca 7 — chạy lại chỉ chia cho ví chưa nhận', () => {
   it('lô giữa thất bại thì hai lô kia vẫn chi, kỳ ở lại DISTRIBUTING', async () => {
     const wallets = await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     // Lô thứ hai gửi được nhưng biên nhận trả FAILED.
     fault.failBatch = 2;
@@ -835,7 +840,7 @@ describe('ca 7 — chạy lại chỉ chia cho ví chưa nhận', () => {
 
   it('lần chạy thứ hai chỉ gửi ví chưa nhận, và không ai nhận hai lần', async () => {
     const wallets = await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     fault.failBatch = 2;
     fault.failMode = 'receipt-failed';
@@ -879,7 +884,7 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
     async (role) => {
       await seedHolder(ALICE, 100n);
       fundProfitPool(1_000_000n);
-      const period = await openPeriodOk('2026-Q1');
+      const period = await openPeriodOk('mock:2026-Q1');
 
       actAs(role);
       const result = await distributePeriod({ chain: CHAIN, periodId: period.id });
@@ -909,7 +914,7 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
       fundProfitPool(1_000_000n);
 
       actAs(role);
-      const result = await openPeriod({ chain: CHAIN, periodKey: '2026-Q1' });
+      const result = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q1' });
 
       expect(result.ok).toBe(false);
       if (result.ok) return;
@@ -921,7 +926,7 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
   it('vai không có quyền cũng không xem trước được', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     actAs('CONTROLLER');
     const preview = await previewDistribution({ chain: CHAIN, periodId: period.id });
@@ -955,7 +960,7 @@ describe('đột biến 1 — lô ném lỗi thì không ví nào trong lô bị
    */
   it('chưa hồ sơ nào ở PAID tại thời điểm lô đang được gửi', async () => {
     await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const statusesAtSend: string[] = [];
     fault.onBatch = async (wallets) => {
@@ -974,7 +979,7 @@ describe('đột biến 1 — lô ném lỗi thì không ví nào trong lô bị
 
   it('hồ sơ của lô lỗi ở FAILED, không phải PAID, và chưa nhận đồng nào', async () => {
     await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     // Ném lỗi khi GỬI: không có mã giao dịch nào, nên không thể suy ra là đã chi.
     fault.failBatch = 2;
@@ -998,7 +1003,7 @@ describe('đột biến 1 — lô ném lỗi thì không ví nào trong lô bị
 
   it('chạy lại chia ĐÚNG phần cho những ví đó, mỗi ví một lần', async () => {
     const wallets = await seedManyHolders();
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     fault.failBatch = 2;
     fault.failMode = 'throw';
@@ -1039,7 +1044,7 @@ describe('đột biến 2 — đổi distribution.batch_size thì số lô đổ
   it(`lô ${ALT_BATCH_SIZE} thì gửi ${ALT_BATCHES} lô, mỗi ví vẫn nhận đúng phần của mình`, async () => {
     const wallets = await seedManyHolders();
     await setBatchSize(ALT_BATCH_SIZE);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const run = await distributeOk(period.id);
 
@@ -1062,7 +1067,7 @@ describe('đột biến 2 — đổi distribution.batch_size thì số lô đổ
     // `0` là giá trị nguy hiểm nhất: vòng chia lô không sinh ra lô nào, nên hàm chạy xong, báo
     // thành công, và KHÔNG ai được chia đồng nào.
     await setBatchSize(0);
-    const period = await openPeriodOk('2026-Q1');
+    const period = await openPeriodOk('mock:2026-Q1');
 
     const run = await distributeOk(period.id);
 

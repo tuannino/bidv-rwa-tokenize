@@ -428,6 +428,82 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
         columns: ['periodKey'],
       });
     });
+
+    // SC-06 QĐ-F: giữ chỗ OPENING, hoàn tất và bỏ giữ chỗ đều là cập nhật có điều kiện.
+    const link = (id: string, distributionId: number) => ({
+      id,
+      distributionId,
+      distributorAddress: WALLET_B,
+      snapshotId: 3,
+      totalAmount: '500',
+      totalSupplyAt: '100',
+    });
+
+    it('SC-06: hai lần giữ chỗ cùng mã đồng thời chỉ một bên thắng', async () => {
+      const periodKey = `mock:${randomUUID()}`;
+      const results = await Promise.allSettled([
+        store.distribution.reservePeriod({ periodKey, chain: 'mock' }),
+        store.distribution.reservePeriod({ periodKey, chain: 'mock' }),
+      ]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      const lost = results.find((result) => result.status === 'rejected') as PromiseRejectedResult;
+      expect(lost.reason).toBeInstanceOf(UniqueConstraintError);
+      const found = await store.distribution.findPeriodByKey(periodKey);
+      expect(found).toMatchObject({ status: 'OPENING', snapshotId: 0, totalAmount: '0', distributionId: null });
+    });
+
+    it('SC-06: hoàn tất chỉ từ OPENING, lần sau không ghi đè; xoá chỉ được kỳ OPENING', async () => {
+      const reserved = await store.distribution.reservePeriod({ periodKey: `mock:${randomUUID()}`, chain: 'mock' });
+      const withTx = await store.distribution.setOpenTxHash({ id: reserved.id, openTxHash: '0xabc' });
+      expect(withTx?.openTxHash).toBe('0xabc');
+
+      const done = await store.distribution.completeOpening(link(reserved.id, 7));
+      expect(done).toMatchObject({ status: 'OPEN', distributionId: 7, totalAmount: '500', snapshotId: 3 });
+      expect(await store.distribution.completeOpening({ ...link(reserved.id, 8), totalAmount: '9' })).toBeNull();
+      expect((await store.distribution.findPeriod(reserved.id))?.distributionId).toBe(7);
+      expect(await store.distribution.setOpenTxHash({ id: reserved.id, openTxHash: '0xdef' })).toBeNull();
+      expect(await store.distribution.deleteOpeningPeriod(reserved.id)).toBe(false);
+
+      const other = await store.distribution.reservePeriod({ periodKey: `mock:${randomUUID()}`, chain: 'mock' });
+      expect(await store.distribution.deleteOpeningPeriod(other.id)).toBe(true);
+      expect(await store.distribution.findPeriod(other.id)).toBeNull();
+    });
+
+    /**
+     * Thứ tự giữ chỗ tính trên MỌI kỳ đã nối chuỗi của cùng chain, và bản Postgres không xoá dữ
+     * liệu giữa các lần chạy. Ca này vì vậy dùng chain `stellar` (không ca nào khác nối kỳ ở đó)
+     * và đưa cả hai kỳ về `DONE` trước khi kết thúc, để lần chạy sau không bị chính nó chặn.
+     */
+    it('SC-06 QĐ-G: giữ chỗ mã kỳ vault theo thứ tự mở kỳ, giành quyền gửi chỉ một bên thắng', async () => {
+      const first = await store.distribution.reservePeriod({ periodKey: `stellar:${randomUUID()}`, chain: 'stellar' });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const second = await store.distribution.reservePeriod({ periodKey: `stellar:${randomUUID()}`, chain: 'stellar' });
+      expect(await store.distribution.reserveVaultClose({ id: first.id, vaultPeriodRef: 1 })).toBeNull();
+      await store.distribution.completeOpening(link(first.id, 1));
+      await store.distribution.completeOpening(link(second.id, 2));
+
+      // Kỳ sau chưa giữ chỗ được khi kỳ trước chưa DONE.
+      expect(await store.distribution.reserveVaultClose({ id: second.id, vaultPeriodRef: 2 })).toBeNull();
+      const both = await Promise.all([
+        store.distribution.reserveVaultClose({ id: first.id, vaultPeriodRef: 1 }),
+        store.distribution.reserveVaultClose({ id: first.id, vaultPeriodRef: 1 }),
+      ]);
+      expect(both.filter(Boolean)).toHaveLength(1);
+
+      const claims = await Promise.all([
+        store.distribution.transitionVaultClose({ id: first.id, from: 'PENDING', expectedTxHash: null, to: 'SENT', txHash: null }),
+        store.distribution.transitionVaultClose({ id: first.id, from: 'PENDING', expectedTxHash: null, to: 'SENT', txHash: null }),
+      ]);
+      expect(claims.filter(Boolean)).toHaveLength(1);
+      expect(
+        await store.distribution.transitionVaultClose({ id: first.id, from: 'SENT', expectedTxHash: '0xkhac', to: 'DONE' }),
+      ).toBeNull();
+      await store.distribution.transitionVaultClose({ id: first.id, from: 'SENT', to: 'DONE', txHash: '0x01' });
+
+      const next = await store.distribution.reserveVaultClose({ id: second.id, vaultPeriodRef: 2 });
+      expect(next).toMatchObject({ vaultPeriodRef: 2, vaultCloseStatus: 'PENDING' });
+      await store.distribution.transitionVaultClose({ id: second.id, from: 'PENDING', to: 'DONE' });
+    });
   });
 
   // -------------------------------------------------------------------------
