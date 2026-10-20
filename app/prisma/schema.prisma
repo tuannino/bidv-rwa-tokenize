@@ -537,6 +537,22 @@ model TokenRequest {
   @@index([makerId, status])
 }
 
+/// BE-13 QĐ-D: khoá vận hành vault bền theo chain. Một dòng mỗi chain: lấy khoá bằng MỘT câu
+/// INSERT (trùng khoá chính thì thua), nhả bằng DELETE có điều kiện theo `refId`. Mỗi lần lưu cấu
+/// hình (`CONFIG`) và mỗi lệnh rút (`WITHDRAW`) giữ khoá trong suốt các giao dịch của nó.
+/// Khoá `CONFIG` quá thời gian chờ biên nhận thì lần lưu cấu hình kế tiếp tiếp quản; khoá
+/// `WITHDRAW` không tự hết hạn.
+model VaultOperationLock {
+  chain      String   @id
+  /// Giá trị hợp lệ: VAULT_OPERATION_KINDS ở lib/store/vault.store.port.ts
+  kind       String
+  /// Mã của lần lưu cấu hình hoặc của lệnh rút đang giữ khoá.
+  refId      String
+  /// Mã tài khoản đã lấy khoá.
+  actor      String
+  acquiredAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
 model Permission {
   id     String           @id @default(uuid())
   /// vd token:mint

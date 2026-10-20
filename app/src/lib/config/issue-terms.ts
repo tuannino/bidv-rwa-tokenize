@@ -146,6 +146,10 @@ export const CONFIG_KEYS = {
   orderPermitTtlSeconds: 'order.permit_ttl_seconds',
   /** Thời gian còn lại tối thiểu của chữ ký khi đặt lệnh và trước khi gửi. */
   orderPermitMinRemainingSeconds: 'order.permit_min_remaining_seconds',
+
+  // --- BE-13: cấu hình khoá vault ------------------------------------------------
+  /** Tỷ lệ PERCENT điền sẵn khi vault `UNSET`, phần vạn. Xem `VAULT_DEFAULT_PERCENT_BPS`. */
+  vaultDefaultPercentBps: 'vault.default_percent_bps',
 } as const;
 
 /**
@@ -225,6 +229,13 @@ export const DISTRIBUTION_STUCK_AFTER_RUNS = 3;
  * tư mẫu. Đủ cho một lần trình diễn, còn gõ thừa một số không là bị chặn.
  */
 export const DEMO_PAYMENT_MINT_MAX_VND = 1_000_000_000;
+
+/**
+ * Tỷ lệ khoá PERCENT điền sẵn trên màn cấu hình khi vault còn `UNSET` (BE-13 QĐ-C), đơn vị phần
+ * vạn: 2000 = 20%, mặc định chủ dự án chốt 20/10. Chỉ là giá trị gợi ý trên màn; vault chỉ đổi
+ * khi Kiểm soát viên bấm lưu.
+ */
+export const VAULT_DEFAULT_PERCENT_BPS = 2_000;
 
 /**
  * Gợi ý nhanh trên màn nạp VNDB (BE-16), đơn vị VNDB. 500 triệu cho nhà đầu tư mẫu theo tài liệu

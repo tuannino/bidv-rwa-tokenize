@@ -251,6 +251,17 @@ CREATE TABLE "TokenRequest" (
 );
 
 -- CreateTable
+CREATE TABLE "VaultOperationLock" (
+    "chain" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "refId" TEXT NOT NULL,
+    "actor" TEXT NOT NULL,
+    "acquiredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "VaultOperationLock_pkey" PRIMARY KEY ("chain")
+);
+
+-- CreateTable
 CREATE TABLE "Permission" (
     "id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
