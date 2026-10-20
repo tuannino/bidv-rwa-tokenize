@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
+import { getAddress, keccak256, toHex } from 'viem';
+import { MOCK_PROFIT_DISTRIBUTOR_ADDRESS, MOCK_VAULT_ADDRESS, profitDistributorAddressFor } from '@bidv/shared';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
 import { CONFIG_KEYS, WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
@@ -738,5 +739,25 @@ describe('FE-08 ca 11: chain không có vault (stellar)', () => {
     expect(overview.ok && overview.data.approveBlockers.join(' ')).toMatch(/không hỗ trợ luồng chia đã duyệt/);
     const audit = await approveAudit();
     expect(audit.some((row) => row.outcome === 'FAILURE' && row.chain === 'stellar')).toBe(true);
+  });
+});
+
+// ===========================================================================
+//  Địa chỉ quỹ chia trên mock (phục vụ e2e ca 13 và người trình diễn)
+// ===========================================================================
+describe('FE-08: địa chỉ quỹ chia logic trên mock', () => {
+  it('là 20 byte cuối của keccak256 nhãn cố định, khác vault; chain thật trả địa chỉ triển khai', () => {
+    const hash = keccak256(toHex('bidv-rwa-tokenize:mock:ProfitDistributor'));
+    expect(MOCK_PROFIT_DISTRIBUTOR_ADDRESS).toBe(getAddress(`0x${hash.slice(-40)}`));
+    expect(MOCK_PROFIT_DISTRIBUTOR_ADDRESS.toLowerCase()).not.toBe(MOCK_VAULT_ADDRESS.toLowerCase());
+    expect(profitDistributorAddressFor('mock')).toBe(MOCK_PROFIT_DISTRIBUTOR_ADDRESS);
+  });
+
+  it('nạp VNDB vào địa chỉ đó là nạp quỹ chia: số dư địa chỉ bằng số dư quỹ', async () => {
+    const ledger = getLedger(CHAIN);
+    await ledger.mintPayment(MOCK_PROFIT_DISTRIBUTOR_ADDRESS, 1_234n);
+    expect(await ledger.profitPoolBalance()).toBe(1_234n);
+    expect(await ledger.unallocatedProfit()).toBe(1_234n);
+    expect(await ledger.paymentBalanceOf(MOCK_PROFIT_DISTRIBUTOR_ADDRESS)).toBe(1_234n);
   });
 });
