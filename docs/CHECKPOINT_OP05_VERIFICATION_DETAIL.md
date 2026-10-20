@@ -296,15 +296,170 @@ Lệnh: `USE_LOCAL_SOLC=1 bash run.sh` (kịch bản theo khuôn tasks.md bướ
 
 ```text
 $ bash scripts/evm-local.sh reset
+⚠️  Vừa reset chuỗi: KHỞI ĐỘNG LẠI app nếu đang chạy, nếu không dữ liệu trong bộ nhớ của app lệch chuỗi mới.
+
+# Bước 6
 $ npx hardhat run scripts/deploy.js --network localhost
+Mạng: localhost (chainId=31337) -> chainKey="hardhat-local"
+Người triển khai (ngân hàng): 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+=== ĐỊA CHỈ HỢP ĐỒNG ===
+ProjectToken         0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44
+VNDToken             0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+ProfitDistributor    0x4A679253410272dd5232B3Ff7cF5dbB88f295319
+Redemption           0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+IdentityRegistry     0x09635F643e140090A9A8Dcd712eD6285858ceBef
+ModularCompliance    0xc5a5C42992dECbae36851359345FE25997F5C42d
+AllowAllModule       0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+SpvPaymentVault      0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E
+OrderSettlement      0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690
+
+Đã ghi: ../shared/src/addresses.json
+Đã ghi ABI đối chiếu: ../shared/generated/
 $ npx hardhat run scripts/verify-deployment.js --network localhost
+KIỂM BẢN DEPLOY — localhost (chainKey="hardhat-local")
+deployer ghi trong file: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   ProjectToken có bytecode tại 0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44
+  OK   VNDToken có bytecode tại 0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+  OK   ProfitDistributor có bytecode tại 0x4A679253410272dd5232B3Ff7cF5dbB88f295319
+  OK   Redemption có bytecode tại 0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+  OK   IdentityRegistry có bytecode tại 0x09635F643e140090A9A8Dcd712eD6285858ceBef
+  OK   ModularCompliance có bytecode tại 0xc5a5C42992dECbae36851359345FE25997F5C42d
+  OK   AllowAllModule có bytecode tại 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  OK   SpvPaymentVault có bytecode tại 0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E
+  OK   OrderSettlement có bytecode tại 0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690
+
+1. Token
+  OK   ProjectToken symbol = WPT (Wind Power Token), decimals 0
+  OK   ProjectToken.version = 4.1.6-poc
+  OK   ProjectToken ERC-2612 domain đã khởi tạo
+  tổng cung hiện tại: 0 WPT
+  OK   ProjectToken.cap = 20000000 WPT
+  OK   SC-02.initialSupplyMinted = false
+  OK   SC-02.spvWallet = 0x0000000000000000000000000000000000000000
+  OK   SC-02.totalSupply = 0
+  OK   VNDToken symbol = VNDB (Vietnam Dong Bank token), decimals 0
+  OK   VNDToken ERC-2612 domain đã khởi tạo
+
+2. Role on-chain của ví ngân hàng (deployer)
+  OK   MINTER_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   AGENT_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   SNAPSHOT_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   PAUSER_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   IdentityRegistry.AGENT_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+3. Liên kết giữa các contract
+  OK   ProfitDistributor.projectToken khớp
+  OK   ProfitDistributor.payoutToken khớp VNDToken
+  OK   Redemption.projectToken khớp
+  OK   Redemption.payoutToken khớp VNDToken
+  OK   Redemption.rate = 1000000 (VND cho 1 WPT)
+  OK   ProjectToken.identityRegistry khớp IdentityRegistry
+  OK   ProjectToken.compliance khớp ModularCompliance
+  OK   ModularCompliance đã gắn đúng ProjectToken
+  OK   AllowAllModule đã gắn vào ModularCompliance
+
+4. Điều kiện cho P7 (chia lợi tức)
+  OK   ProfitDistributor có SNAPSHOT_ROLE (chốt kỳ được)
+  OK   ProfitDistributor.totalReserved = 0 (chưa kỳ nào giữ tiền)
+  OK   ProfitDistributor.unallocatedBalance = 0 (phần quỹ chưa thuộc kỳ nào)
+
+5. Vault thanh toán SPV (SC-07)
+  OK   SpvPaymentVault có bytecode tại 0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E
+  OK   SpvPaymentVault.projectToken khớp
+  OK   SpvPaymentVault.paymentToken khớp VNDB
+  OK   SpvPaymentVault đã đăng ký danh tính
+  OK   CONFIG_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   WITHDRAWER_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   PAUSER_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   MATCHER_ROLE chỉ cấp cho OrderSettlement
+  OK   lockMode = UNSET
+
+6. Khớp lệnh SC-03
+  OK   OrderSettlement.vault khớp
+  OK   OrderSettlement.projectToken khớp
+  OK   OrderSettlement.paymentToken khớp
+  OK   OrderSettlement.price = 100000
+  OK   OPERATOR_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   PRICE_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  OK   PAUSER_ROLE -> 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+BẢN DEPLOY HỢP LỆ — ERC-3643/permit và vault hiện có đã nối đúng.
 $ npx hardhat console --network localhost   # gõ 06-gia-r7.js; chains.evm thay bằng chains['hardhat-local']
+const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+const settlement = await ethers.getContractAt('OrderSettlement', a.OrderSettlement);
+console.log('OrderSettlement:', a.OrderSettlement, 'price:', String(await settlement.price()));
+.exit
+Welcome to Node.js v22.22.0.
+Type ".help" for more information.
+> const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+> const settlement = await ethers.getContractAt('OrderSettlement', a.OrderSettlement);
+> console.log('OrderSettlement:', a.OrderSettlement, 'price:', String(await settlement.price()));
+OrderSettlement: 0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690 price: 100000
+> .exit
+
+# Bước 7
 $ npx hardhat console --network localhost   # gõ 07-whitelist.js; chains.evm thay bằng chains['hardhat-local']
+const { assertTarget } = require('./scripts/fund-sepolia');
+const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+const registry = await ethers.getContractAt('IdentityRegistry', a.IdentityRegistry);
+for (const wallet of [process.env.PAYOUT_WALLET, process.env.INVESTOR_WALLET]) {
+  assertTarget(wallet);
+  if (await registry.isVerified(wallet)) { console.log(wallet, 'đã đăng ký, bỏ qua'); continue; }
+  const tx = await registry.registerIdentity(wallet, 704);
+  console.log(wallet, 'tx', tx.hash, 'status', (await tx.wait()).status);
+for (const wallet of [process.env.PAYOUT_WALLET, process.env.INVESTOR_WALLET]) console.log(wallet, 'isVerified', await registry.isVerified(wallet));
+.exit
+Welcome to Node.js v22.22.0.
+Type ".help" for more information.
+> const { assertTarget } = require('./scripts/fund-sepolia');
+> const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+> const registry = await ethers.getContractAt('IdentityRegistry', a.IdentityRegistry);
+> for (const wallet of [process.env.PAYOUT_WALLET, process.env.INVESTOR_WALLET]) {
+...   assertTarget(wallet);
+...   if (await registry.isVerified(wallet)) { console.log(wallet, 'đã đăng ký, bỏ qua'); continue; }
+...   const tx = await registry.registerIdentity(wallet, 704);
+...   console.log(wallet, 'tx', tx.hash, 'status', (await tx.wait()).status);
+... }
+0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd tx 0x368448873c491726e5520df88e90f0f736baa72fd25c77342772f79bc7217e61 status 1
+0xB3a5B799F05F98f78FE58a7f14CD9A400696d033 tx 0xf14abc80a71c7ba386a5c90241c5e2e947748ba1609e22b3de991a7b1fdb68ef status 1
+> for (const wallet of [process.env.PAYOUT_WALLET, process.env.INVESTOR_WALLET]) console.log(wallet, 'isVerified', await registry.isVerified(wallet));
+0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd isVerified true
+0xB3a5B799F05F98f78FE58a7f14CD9A400696d033 isVerified true
+> .exit
+
+# Lượt 13.6
 $ npx hardhat console --network localhost   # gõ 13-6-mint-loi-nhuan.js; chains.evm thay bằng chains['hardhat-local']
+const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+const vnd = await ethers.getContractAt('VNDToken', a.VNDToken);
+const tx = await vnd.mint(a.ProfitDistributor, 1_000_000n);
+console.log('tx', tx.hash, 'status', (await tx.wait()).status);
+const pool = await ethers.getContractAt('ProfitDistributor', a.ProfitDistributor);
+console.log('unallocated', String(await pool.unallocatedBalance()));
+.exit
+Welcome to Node.js v22.22.0.
+Type ".help" for more information.
+> const a = require('../shared/src/addresses.json').chains['hardhat-local'].contracts;
+> const vnd = await ethers.getContractAt('VNDToken', a.VNDToken);
+> const tx = await vnd.mint(a.ProfitDistributor, 1_000_000n);
+> console.log('tx', tx.hash, 'status', (await tx.wait()).status);
+tx 0x6bffa0d1b940c680bf7602dcf89845c0d7648795521a9bcfbbc2a84c9673ac98 status 1
+> const pool = await ethers.getContractAt('ProfitDistributor', a.ProfitDistributor);
+> console.log('unallocated', String(await pool.unallocatedBalance()));
+unallocated 1000000
+> .exit
+
+# Chặn dod-verify-sepolia.js (CH-7)
+nonce ví ký trước: N=48
 $ npx hardhat run scripts/dod-verify-sepolia.js --network localhost
+
+  LỖI: Từ chối: bộ hợp đồng có vault, dùng runbook OP-05 (docs/TESTNET_SEPOLIA.md).
 exit=1
+nonce ví ký sau: N=48
+[evm-local] đã dừng nút (pid 6780)
 exit=0
 $ git status --short   # phải rỗng
+(hết git status)
 ```
 
 ## 8. Ca 8: tech-report
