@@ -193,6 +193,18 @@ export const ACTIONS = [
    * theo mã tài khoản, nằm ở `token-request.service.ts`, vì bảng quyền chỉ biết vai.
    */
   'order:approve',
+
+  /**
+   * ===================== BE-13: vault thanh toán SPV =====================
+   *
+   * Ba quyền GHI trên vault, tách theo người chịu trách nhiệm. Đọc vẫn bằng `vault:read`.
+   */
+  /** Lưu cấu hình khoá (tỷ lệ, số khoá cố định) và ví nhận tiền. CHỈ CONTROLLER. */
+  'vault:configure',
+  /** Tạo lệnh rút VNDB từ vault về ví nhận. CHỈ SELLER: Người bán tự rút, không qua duyệt (07/10). */
+  'vault:withdraw',
+  /** Xử lý lệnh rút `NEEDS_REVIEW` (không xác định được kết cục). CHỈ CONTROLLER. */
+  'vault:reconcile',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -201,23 +213,13 @@ export function isRole(value: unknown): value is Role {
 }
 
 /**
- * Vai trò dùng khi không xác định được (nguyên tắc đóng: quyền thấp nhất).
- *
- * FE-20 đổi sang `SELLER`; vai kiểm toán cũ vốn giữ chỗ này đã gỡ. Trong bốn vai mới, `SELLER`
- * có bộ quyền NHỎ NHẤT: không một hành động ghi nào, và không đọc sổ kiểm toán hay báo cáo đối
- * soát (`audit:read`, `reconcile:read`). `CONTROLLER` cũng sạch quyền ghi nhưng đọc được hai thứ
- * đó, nên chọn nó làm nơi quy về sẽ biến một cookie gõ sai thành quyền xem sổ kiểm toán.
- *
- * BE-14: `SELLER` nhận thêm `order:read:all` (spec việc 12: Người bán xem toàn bộ lệnh — họ là
- * bên đối ứng của mọi lệnh). Owner đã chọn GIỮ fallback là `SELLER`, chấp nhận vai lạ đọc được
- * sổ lệnh toàn hệ, vẫn KHÔNG có quyền ghi nào. Lý do chấp nhận: bộ đổi vai hiện chưa phải xác
- * thực (ai cũng tự đặt cookie vai khác được), nên lớp này chỉ chặn lỗi gõ cho tới AU-01. Xem
- * `docs/CHECKPOINT_BE14.md`.
- *
- * ⚠️ Đây là quyết định FE-20 phải tự ra vì `requirements.md` không nói tới; đã ghi vào
- * mục câu hỏi mở của `docs/CHECKPOINT_FE20.md`.
+ * Nhãn của vai KHÔNG xác định được (cookie hỏng, giá trị lạ). BE-13 QĐ-A: vai lạ **không có quyền
+ * nào**, không mượn bộ quyền của vai thật nào. Trước BE-13 vai lạ quy về `SELLER`; từ khi cả bốn vai
+ * đều có quyền ghi (Người bán có `vault:withdraw`), quy về bất kỳ vai nào cũng là cho một cookie gõ
+ * sai một quyền ghi. Nhãn này chỉ để ghi lỗi và sổ kiểm toán, không phải một vai trong `ROLES`.
  */
-export const FALLBACK_ROLE: Role = 'SELLER';
+export const UNKNOWN_ROLE = 'UNKNOWN' as const;
+export type RoleOrUnknown = Role | typeof UNKNOWN_ROLE;
 
 /**
  * Nhóm quyền chỉ-đọc dùng chung cho hai vai phía ngân hàng (TELLER, CONTROLLER).
@@ -263,16 +265,21 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'txn:read',
   ],
   /**
-   * Người bán — vai MỚI của FE-20, và là `FALLBACK_ROLE`.
+   * Người bán: vai MỚI của FE-20.
    *
-   * Bộ quyền nhỏ nhất trong bốn vai: xem khu vực của mình, xem số dư và giao dịch của ví
-   * mình, xem TOÀN BỘ sổ lệnh (BE-14 — bên đối ứng của mọi lệnh mua và bán). KHÔNG một hành
-   * động ghi nào, và KHÔNG spread `READ_ONLY` nên không có `audit:read`, `reconcile:read`.
-   *
-   * Nghiệp vụ tạo lệnh rút của Người bán chưa có ở backend (BE-12 chỉ làm Mint/Burn), nên chưa
-   * cấp quyền ghi nào cho nó.
+   * Xem khu vực của mình, xem số dư và giao dịch của ví mình, xem TOÀN BỘ sổ lệnh (BE-14: bên
+   * đối ứng của mọi lệnh mua và bán). KHÔNG spread `READ_ONLY` nên không có `audit:read`,
+   * `reconcile:read`. BE-13: ĐÚNG MỘT quyền ghi, `vault:withdraw` (tự rút, không qua duyệt).
    */
-  SELLER: ['seller:read', 'wallet:connect', 'balance:read', 'txn:read', 'order:read', 'order:read:all'],
+  SELLER: [
+    'seller:read',
+    'wallet:connect',
+    'balance:read',
+    'txn:read',
+    'order:read',
+    'order:read:all',
+    'vault:withdraw',
+  ],
   /**
    * Giao dịch viên — `BANK_ADMIN` cũ đổi tên, cộng cổng khu vực.
    *
@@ -321,5 +328,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
    * ⚠️ `ops:approve:read` và `order:approve` ở đây và KHÔNG ở `TELLER`: người duyệt không
    * phải người lập. KHÔNG có `order:draft`: Kiểm soát viên không tự lập lệnh mình sẽ duyệt.
    */
-  CONTROLLER: ['ops:approve:read', 'order:approve', ...READ_ONLY],
+  CONTROLLER: [
+    'ops:approve:read',
+    'order:approve',
+    // BE-13: Kiểm soát viên cấu hình khoá vault và xử lý lệnh rút cần xem xét; KHÔNG tự rút.
+    'vault:configure',
+    'vault:reconcile',
+    ...READ_ONLY,
+  ],
 };

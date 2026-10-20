@@ -8,6 +8,7 @@ import { CONFIG_KEYS, DEMO_PAYMENT_MINT_MAX_VND } from '@/lib/config/issue-terms
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getConfigStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 
 /**
  * BE-16 — nạp VNDB mô phỏng. Mức kiểm chứng CAO: chức năng này tạo ra tiền.
@@ -237,7 +238,8 @@ describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đườ
 });
 
 describe('ca 8 — sau khi nạp, lệnh mua tự khớp', () => {
-  const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+  // BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`.
+  const SPV = MOCK_VAULT_ADDRESS;
 
   it('trần mua từ 0 lên đúng số dư mới / giá; đặt lệnh, khớp lệnh, số dư đổi đúng', async () => {
     const { issueInitialSupply } = await import('@/lib/bank/issuance.service');

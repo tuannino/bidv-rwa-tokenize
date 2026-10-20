@@ -2,7 +2,7 @@ import 'server-only';
 
 import { readStep } from '@/lib/diagnostics/read-trace';
 
-import { findContractAddress, type ChainKey, type TxResult, type TxStatus } from '@bidv/shared';
+import { vaultAddressFor, type ChainKey, type TxResult, type TxStatus } from '@bidv/shared';
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
 import { getBankSigner } from '@/lib/signer';
@@ -52,9 +52,12 @@ export async function signerAddressOrNull(chain: ChainKey): Promise<string | nul
   }
 }
 
-/** Guard cục bộ dùng ở cả lúc lập/duyệt và ngay trước khi gửi Mint đầu. */
+/**
+ * Guard cục bộ dùng ở cả lúc lập/duyệt và ngay trước khi gửi Mint đầu. Chain mock có vault logic
+ * riêng nên cùng luật (BE-13 QĐ-G).
+ */
 export function vaultMintTargetError(chain: ChainKey, wallet: string): string | null {
-  const vault = findContractAddress(chain, 'SpvPaymentVault');
+  const vault = vaultAddressFor(chain);
   if (!vault || vault.toLowerCase() === wallet.toLowerCase()) return null;
   return `Chain "${chain}" đã triển khai vault thanh toán SPV; ví nhận Mint đầu phải là vault (${vault}), không phải ${wallet}.`;
 }

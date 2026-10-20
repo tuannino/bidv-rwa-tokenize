@@ -1,0 +1,37 @@
+{
+  "description": "BE-13 QĐ-G: bảng số khoá vault dùng chung cho hợp đồng (be-13-vault-lock-parity.test.js), hàm thuần và vault mock (app/test/be-13-mock-vault.test.ts). Sau mỗi bước, ba nơi phải ra đúng các số trong `expect`.",
+  "scenarios": [
+    {
+      "name": "op05",
+      "note": "Bảng số OP-05: PERCENT 20%, mua 100, bán 40, chốt kỳ 1.000.000, rút 50%. Giá 100.000 VNDB/WPT.",
+      "price": "100000",
+      "steps": [
+        { "op": "setPercentRate", "bps": "2000", "expect": { "netProceeds": "0", "vndbBalance": "0", "locked": "0", "withdrawable": "0" } },
+        { "op": "setLockMode", "mode": "PERCENT", "expect": { "netProceeds": "0", "vndbBalance": "0", "locked": "0", "withdrawable": "0" } },
+        { "op": "buy", "wpt": "100", "expect": { "netProceeds": "10000000", "vndbBalance": "10000000", "locked": "2000000", "withdrawable": "8000000" } },
+        { "op": "sell", "wpt": "40", "expect": { "netProceeds": "6000000", "vndbBalance": "6000000", "locked": "1200000", "withdrawable": "4800000" } },
+        { "op": "closePeriod", "periodRef": "1", "distributedPrev": "1000000", "expect": { "netProceeds": "6000000", "vndbBalance": "6000000", "locked": "200000", "withdrawable": "5800000", "percentLocked": "200000" } },
+        { "op": "withdrawHalf", "expect": { "netProceeds": "6000000", "vndbBalance": "3100000", "locked": "200000", "withdrawable": "2900000", "withdrawn": "2900000" } }
+      ]
+    },
+    {
+      "name": "rounding-pending",
+      "note": "Làm tròn xuống như Math.mulDiv, netProceeds chặn ở 0 khi bán theo giá cao hơn, FIXED đổi sang PERCENT trước kỳ đầu, tỷ lệ chờ sau kỳ đầu, khoá vượt số dư.",
+      "price": "13",
+      "steps": [
+        { "op": "fund", "amount": "100", "expect": { "netProceeds": "0", "vndbBalance": "100", "locked": "100", "withdrawable": "0" } },
+        { "op": "setFixedLock", "amount": "7", "expect": { "netProceeds": "0", "vndbBalance": "100", "locked": "100", "withdrawable": "0" } },
+        { "op": "setLockMode", "mode": "FIXED", "expect": { "netProceeds": "0", "vndbBalance": "100", "locked": "7", "withdrawable": "93" } },
+        { "op": "buy", "wpt": "10", "expect": { "netProceeds": "130", "vndbBalance": "230", "locked": "7", "withdrawable": "223" } },
+        { "op": "setPercentRate", "bps": "3333", "expect": { "netProceeds": "130", "vndbBalance": "230", "locked": "7", "withdrawable": "223", "percentRateBps": "3333" } },
+        { "op": "setLockMode", "mode": "PERCENT", "expect": { "netProceeds": "130", "vndbBalance": "230", "locked": "43", "withdrawable": "187" } },
+        { "op": "setPrice", "price": "20", "expect": { "netProceeds": "130", "vndbBalance": "230", "locked": "43", "withdrawable": "187" } },
+        { "op": "sell", "wpt": "9", "expect": { "netProceeds": "0", "vndbBalance": "50", "locked": "0", "withdrawable": "50" } },
+        { "op": "closePeriod", "periodRef": "1", "distributedPrev": "997", "expect": { "netProceeds": "0", "vndbBalance": "50", "locked": "332", "withdrawable": "0", "percentLocked": "332" } },
+        { "op": "setPercentRate", "bps": "1000", "expect": { "netProceeds": "0", "vndbBalance": "50", "locked": "332", "withdrawable": "0", "percentRateBps": "3333", "pendingPercentRateBps": "1000" } },
+        { "op": "closePeriod", "periodRef": "2", "distributedPrev": "300", "expect": { "netProceeds": "0", "vndbBalance": "50", "locked": "30", "withdrawable": "20", "percentLocked": "30", "percentRateBps": "1000" } },
+        { "op": "withdraw", "amount": "20", "expect": { "netProceeds": "0", "vndbBalance": "30", "locked": "30", "withdrawable": "0", "withdrawn": "20" } }
+      ]
+    }
+  ]
+}

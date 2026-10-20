@@ -42,6 +42,9 @@ export type ErrorCode =
   | 'REQUEST_STATE' // yêu cầu không còn ở trạng thái cho phép thao tác (đã được xử lý)
   | 'SELF_APPROVAL' // người lập tự duyệt / tự từ chối yêu cầu của mình
   | 'PAYMENT_MINT_LIMIT' // BE-16: số VNDB một lần nạp vượt trần cấu hình
+  // --- Vault (BE-13) ---
+  | 'VAULT_BUSY' // chain đang có thao tác vault khác giữ khoá vận hành (QĐ-D)
+  | 'WITHDRAW_STATE' // lệnh rút không ở trạng thái cho phép thao tác, hoặc mã chống trùng khác nội dung
   | 'UNKNOWN';
 
 export type Result<T> =
@@ -93,6 +96,9 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   SELF_APPROVAL: 403,
   /** BE-16: 409 cùng lập luận nhóm lệnh mua — dữ liệu hợp lệ nhưng vượt trần đang cấu hình. */
   PAYMENT_MINT_LIMIT: 409,
+  /** BE-13: thử lại sau khi thao tác đang giữ khoá kết thúc; dữ liệu vào không sai. */
+  VAULT_BUSY: 409,
+  WITHDRAW_STATE: 409,
 
   UNKNOWN: 500,
 };

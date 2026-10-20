@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import addresses from '../../packages/shared/src/addresses.json';
+import { MOCK_VAULT_ADDRESS } from '../../packages/shared/src/mock-vault';
 
 /**
  * E2E luồng MINT qua giao diện (T1.6).
@@ -12,11 +13,11 @@ import addresses from '../../packages/shared/src/addresses.json';
 // Hardhat account #1 — dùng cho cả mock lẫn hardhat-local.
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const ON_HARDHAT = process.env.E2E_CHAIN === 'hardhat-local';
-// Mock chưa triển khai vault nên giữ ví SPV mẫu NB001. Hardhat-local phải Mint đầu vào đúng vault
-// vừa triển khai; đọc address book để test luôn đi cùng địa chỉ tất định của deploy.js.
+// Mint đầu phải vào vault: mock dùng vault logic (BE-13 QĐ-G, trước đó là ví mẫu NB001);
+// hardhat-local đọc address book để test luôn đi cùng địa chỉ tất định của deploy.js.
 const SPV = ON_HARDHAT
   ? addresses.chains['hardhat-local'].contracts.SpvPaymentVault
-  : '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+  : MOCK_VAULT_ADDRESS;
 const HARDHAT_RPC = `http://127.0.0.1:${process.env.EVM_LOCAL_PORT ?? 8545}`;
 
 async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {

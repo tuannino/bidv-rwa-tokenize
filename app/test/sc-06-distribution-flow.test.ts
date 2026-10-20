@@ -441,3 +441,35 @@ describe('SC-06 ca 20: mã kỳ theo chain', () => {
     expect(read.ok && read.data.period.id).toBe(legacy.id);
   });
 });
+
+describe('BE-13 QĐ-G: SC-06 QĐ-G nay áp cả chain mock', () => {
+  it('mở kỳ đẩy số đã dành cho kỳ vào closePeriod của vault mock, mã kỳ vault tăng tuần tự', async () => {
+    await holders();
+    await deposit(1_000_000n);
+    const first = await openOk('mock:Q1');
+    // Trước BE-13 mock không có vault: `vaultCloseStatus` để `null` (NOT_APPLICABLE).
+    expect(first).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 1 });
+    expect(await getLedger(CHAIN).findVaultPeriodClose(1n)).toMatchObject({
+      periodRef: 1n,
+      distributedPrev: BigInt(first.totalAmount),
+    });
+
+    await distributeOk(first.id);
+    await deposit(500_000n);
+    const second = await openOk('mock:Q2');
+    expect(second).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 2 });
+    const status = await getLedger(CHAIN).vaultStatus();
+    expect(status?.lastPeriodRef).toBe(2n);
+    expect(status?.lastDistributedPrev).toBe(BigInt(second.totalAmount));
+    expect((await getLedger(CHAIN).vaultPeriodCloses(10)).map((close) => close.periodRef)).toEqual([2n, 1n]);
+  });
+
+  it('BE-07 tự mở kỳ trên mock cũng chốt kỳ vault đúng một lần', async () => {
+    await holders();
+    await deposit(1_000_000n);
+    const cycle = await cycleOk();
+    const period = await getDistributionPeriod({ chain: CHAIN, periodId: cycle.periodId! });
+    expect(period.ok && period.data.period).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 1 });
+    expect(await getLedger(CHAIN).vaultPeriodCloses(10)).toHaveLength(1);
+  });
+});

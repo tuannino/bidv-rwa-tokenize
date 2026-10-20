@@ -11,13 +11,13 @@ import {
   DISTRIBUTION_STUCK_AFTER_RUNS,
   ORDER_PERMIT_MIN_REMAINING_SECONDS,
   ORDER_PERMIT_TTL_SECONDS,
+  VAULT_DEFAULT_PERCENT_BPS,
   WPT_ANNUAL_YIELD_PERCENT,
   WPT_ISSUE_PRICE_VND,
   WPT_PRICE_CHANGE_THRESHOLD,
   WPT_REMAINING_LIFETIME_YEARS,
   WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
-import type { WithdrawPolicy } from '@/lib/bank/withdraw-limit';
 import type { ChainKey } from '@bidv/shared';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { getConfigStore } from './index';
@@ -207,42 +207,7 @@ export async function readDistributionSettledBalance(): Promise<bigint> {
   return value && /^\d+$/.test(value) ? BigInt(value) : 0n;
 }
 
-// =============================================================================
-//  FE-21 — HẠN MỨC RÚT CỦA NGƯỜI BÁN
-// =============================================================================
-
 const UINT = /^\d+$/;
-
-/**
- * Chính sách khoá số dư khi Người bán rút. `null` = chưa cấu hình hoặc giá trị hỏng.
- *
- * KHÁC các tham số phía trên: KHÔNG lùi về mặc định trong mã. Hạn mức là con số quyết định bao
- * nhiêu tiền rời ví, nên một mặc định ở đây là một hạn mức không ai chọn. Thiếu hay hỏng thì
- * màn rút báo "chưa cấu hình" và khoá nút — trạng thái duy nhất không cần ai quyết.
- */
-export async function readSellerWithdrawPolicy(): Promise<WithdrawPolicy | null> {
-  const store = getConfigStore();
-  const [mode, value] = await Promise.all([
-    store.getConfig(CONFIG_KEYS.sellerWithdrawLimitMode),
-    store.getConfig(CONFIG_KEYS.sellerWithdrawLimitValue),
-  ]);
-  const raw = value?.value.trim();
-  if (!raw || !UINT.test(raw)) return null;
-
-  const amount = BigInt(raw);
-  if (mode?.value.trim() === 'FIXED') return { mode: 'FIXED', lockedVnd: amount.toString() };
-  if (mode?.value.trim() === 'PERCENT' && amount <= 100n) {
-    return { mode: 'PERCENT', lockedPercent: Number(amount) };
-  }
-  return null;
-}
-
-/** Phí một lần rút, VNDB. `null` = chưa cấu hình — cùng lập luận, không có mặc định. */
-export async function readSellerWithdrawFee(): Promise<bigint | null> {
-  const row = await getConfigStore().getConfig(CONFIG_KEYS.sellerWithdrawFeeVnd);
-  const value = row?.value.trim();
-  return value && UINT.test(value) ? BigInt(value) : null;
-}
 
 /**
  * Trần một lần nạp VNDB mô phỏng (BE-16), đơn vị VNDB.
@@ -256,6 +221,17 @@ export async function readDemoPaymentMintMax(): Promise<bigint> {
   const value = row?.value.trim();
   const parsed = value && UINT.test(value) ? BigInt(value) : 0n;
   return parsed > 0n ? parsed : BigInt(DEMO_PAYMENT_MINT_MAX_VND);
+}
+
+/**
+ * Tỷ lệ PERCENT điền sẵn trên màn cấu hình khoá khi vault `UNSET` (BE-13 QĐ-C), phần vạn. Giá trị
+ * lạ hoặc ngoài 1..10000 -> lùi về mặc định: đây chỉ là gợi ý trên màn, không phải số lên chuỗi.
+ */
+export async function readVaultDefaultPercentBps(): Promise<number> {
+  const row = await getConfigStore().getConfig(CONFIG_KEYS.vaultDefaultPercentBps);
+  const value = row?.value.trim();
+  const parsed = value && UINT.test(value) ? Number(value) : 0;
+  return parsed >= 1 && parsed <= 10_000 ? parsed : VAULT_DEFAULT_PERCENT_BPS;
 }
 
 /** Cửa sổ thời gian của chữ ký permit (FE-05 CH-2), đơn vị giây. */

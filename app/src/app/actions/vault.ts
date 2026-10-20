@@ -1,8 +1,18 @@
 'use server';
 
-import { getVaultOverview } from '@/lib/bank/vault.service';
+import { getVaultConfigHistory, getVaultOverview, saveVaultConfig } from '@/lib/bank/vault.service';
 
 /** Vỏ transport mỏng; quyền `vault:read` được kiểm lại trong service. */
 export async function getVaultOverviewAction(input: unknown) {
   return getVaultOverview(input);
+}
+
+/** Vỏ transport mỏng; quyền `vault:configure` và khoá vận hành nằm trong service (BE-13 QĐ-C). */
+export async function saveVaultConfigAction(input: unknown) {
+  return saveVaultConfig(input);
+}
+
+/** Lịch sử cấu hình vault (BE-13 QĐ-C1); quyền `vault:read` kiểm trong service. */
+export async function getVaultConfigHistoryAction(input: unknown) {
+  return getVaultConfigHistory(input);
 }

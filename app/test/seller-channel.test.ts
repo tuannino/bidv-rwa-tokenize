@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  CONFIG_KEYS,
   WPT_ANNUAL_YIELD_PERCENT,
   WPT_REMAINING_LIFETIME_YEARS,
   WPT_TRADING_FEE_PERCENT,
 } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
-import { computeWithdrawLimit, quoteWithdraw } from '@/lib/bank/withdraw-limit';
+import { quoteWithdraw } from '@/lib/bank/withdraw-limit';
+import { vaultLockedAmount, vaultWithdrawable } from '@/lib/ledger/vault-lock';
 import { getConfigStore, getOrderStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 
 /**
  * FE-21 — kênh Người bán, tầng nghiệp vụ. Chuỗi `mock`, bộ lưu trữ trong bộ nhớ.
@@ -16,7 +17,8 @@ import { getConfigStore, getOrderStore, resetMemoryStore, resetStoreCache } from
  */
 
 const CHAIN = 'mock';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+/** BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`. */
+const SPV = MOCK_VAULT_ADDRESS;
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 function actAs(role: string) {
@@ -133,18 +135,21 @@ describe('ca 1 — Tổng quan đủ sáu khối, số liệu lấy từ nghiệ
       tradingFeePercent: WPT_TRADING_FEE_PERCENT,
     });
 
-    // khối 5, 6 — ví: chưa cấu hình hạn mức thì không tự đặt
+    // khối 5, 6, ví: BE-13 QĐ-G, mock có vault nên khoá theo vault; vault UNSET khoá toàn bộ.
     expect(view.spvWallet?.toLowerCase()).toBe(SPV.toLowerCase());
     expect(view.wallet).toMatchObject({
       paymentWallet: SPV,
       paymentVnd: '5000',
       profitPoolVnd: '700',
-      lockedVnd: null,
-      withdrawableVnd: null,
-      policy: null,
+      lockedVnd: '5000',
+      withdrawableVnd: '0',
+      policy: { source: 'on-chain', lockMode: 'UNSET' },
+      payoutWallet: null,
+      withdrawalsPaused: false,
       warning: null,
-      withdrawFeeVnd: null,
     });
+    // BE-13 QĐ-H: không còn trường phí rút.
+    expect(view.wallet).not.toHaveProperty('withdrawFeeVnd');
   });
 });
 
@@ -166,7 +171,7 @@ describe('ca 2 — Danh sách giao dịch lọc theo từng tiêu chí và phân
     expect((await list({})).total).toBe(3);
     expect((await list({ q: a.id })).rows.map((r) => r.id)).toEqual([a.id]);
     expect((await list({ q: other.slice(2, 12).toLowerCase() })).total).toBe(1);
-    expect((await list({ status: 'PLACED' })).rows.map((r) => r.wptAmount)).toEqual(['2']);
+    expect((await list({ status: 'PLACED' })).rows.map((r) => (r.type === 'WITHDRAW' ? null : r.wptAmount))).toEqual(['2']);
     expect((await list({ type: 'BUY' })).total).toBe(3);
 
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
@@ -212,15 +217,21 @@ describe('BE-14 — lệnh bán tách khỏi lệnh mua ở kênh Người bán'
 });
 
 describe('ca 3 — vượt hạn mức thì báo vượt', () => {
-  it('quoteWithdraw: đúng bằng hạn mức thì được, hơn một đồng thì vượt; trừ phí ra số nhận', () => {
-    expect(quoteWithdraw('600', '600', '10')).toEqual({ receivedVnd: '590', exceedsLimit: false });
-    expect(quoteWithdraw('601', '600', '10').exceedsLimit).toBe(true);
-    expect(quoteWithdraw('5', '600', '10').receivedVnd).toBeNull();
-    expect(quoteWithdraw('abc', '600', '10')).toEqual({ receivedVnd: null, exceedsLimit: false });
+  // BE-13 QĐ-H (ca 13): gỡ phí; số nhận bằng số rút. Trước BE-13 ca này trừ phí 10 ra số nhận 590.
+  it('quoteWithdraw: đúng bằng phần được rút thì được, hơn một đồng thì vượt; số nhận bằng số rút', () => {
+    expect(quoteWithdraw('600', '600')).toEqual({ receivedVnd: '600', exceedsLimit: false });
+    expect(quoteWithdraw('601', '600').exceedsLimit).toBe(true);
+    expect(quoteWithdraw('5', '600').receivedVnd).toBe('5');
+    expect(quoteWithdraw('0', '600').receivedVnd).toBeNull();
+    expect(quoteWithdraw('abc', '600')).toEqual({ receivedVnd: null, exceedsLimit: false });
   });
 });
 
 describe('ca 4 — đổi chế độ hạn mức trong cấu hình thì hạn mức đổi theo', () => {
+  /*
+   * BE-13 QĐ-G, QĐ-H (ca 13): khoá đọc từ vault; ba khoá cấu hình FE-21 có giá trị trong database
+   * không ảnh hưởng gì (trước BE-13 ca này khẳng định FIXED 250 và PERCENT 30 lấy từ cấu hình).
+   */
   it('FIXED khoá số cố định, PERCENT khoá phần trăm số dư; giá trị hỏng = chưa cấu hình', async () => {
     await issueAndDistribute(10n, 0n);
     seedMockLedger({ paymentBalances: { [SPV]: 1_000n } });
@@ -231,29 +242,34 @@ describe('ca 4 — đổi chế độ hạn mức trong cấu hình thì hạn m
       return r.data.wallet;
     };
 
-    await setConfig(CONFIG_KEYS.sellerWithdrawLimitMode, 'FIXED');
-    await setConfig(CONFIG_KEYS.sellerWithdrawLimitValue, '250');
-    await setConfig(CONFIG_KEYS.sellerWithdrawFeeVnd, '5');
-    expect(await wallet()).toMatchObject({ lockedVnd: '250', withdrawableVnd: '750', withdrawFeeVnd: '5' });
+    await setConfig('seller.withdraw_limit_mode', 'FIXED');
+    await setConfig('seller.withdraw_limit_value', '250');
+    await setConfig('seller.withdraw_fee_vnd', '5');
+    expect(await wallet()).toMatchObject({ lockedVnd: '1000', withdrawableVnd: '0' });
+    expect(await wallet()).not.toHaveProperty('withdrawFeeVnd');
 
-    await setConfig(CONFIG_KEYS.sellerWithdrawLimitMode, 'PERCENT');
-    await setConfig(CONFIG_KEYS.sellerWithdrawLimitValue, '30');
+    const ledger = (await import('@/lib/ledger')).getLedger(CHAIN);
+    await ledger.setVaultFixedLock(250n);
+    await ledger.setVaultLockMode('FIXED');
     expect(await wallet()).toMatchObject({
-      lockedVnd: '300',
-      withdrawableVnd: '700',
-      policy: { source: 'config', policy: { mode: 'PERCENT', lockedPercent: 30 } },
+      lockedVnd: '250',
+      withdrawableVnd: '750',
+      policy: { source: 'on-chain', lockMode: 'FIXED', fixedLockAmount: '250' },
     });
 
-    await setConfig(CONFIG_KEYS.sellerWithdrawLimitValue, '130');
-    expect((await wallet()).withdrawableVnd).toBeNull();
+    await ledger.setVaultPercentRate(3_000n);
+    await ledger.setVaultLockMode('PERCENT');
+    // Chưa có lệnh mua nào qua vault: netProceeds = 0 nên khoá 0, như hợp đồng.
+    expect(await wallet()).toMatchObject({ lockedVnd: '0', withdrawableVnd: '1000' });
   });
 
-  it('phần khoá không vượt số dư, làm tròn lên', () => {
-    expect(computeWithdrawLimit('100', { mode: 'FIXED', lockedVnd: '500' })).toEqual({
-      lockedVnd: '100',
-      withdrawableVnd: '0',
-    });
-    expect(computeWithdrawLimit('101', { mode: 'PERCENT', lockedPercent: 10 }).lockedVnd).toBe('11');
+  // BE-13 QĐ-H: `computeWithdrawLimit` (làm tròn lên, khoá không vượt số dư) bị gỡ; luật nay là của
+  // hợp đồng: khoá CÓ THỂ vượt số dư, phần được rút chặn ở 0, PERCENT làm tròn xuống.
+  it('phần khoá theo hợp đồng: có thể vượt số dư, phần được rút chặn ở 0, PERCENT làm tròn xuống', () => {
+    const base = { fixedLockAmount: 500n, percentRateBps: 1_000n, netProceeds: 101n, lastPeriodRef: 0n, percentLocked: 0n };
+    expect(vaultLockedAmount({ ...base, lockMode: 'FIXED', vndbBalance: 100n })).toBe(500n);
+    expect(vaultWithdrawable({ ...base, lockMode: 'FIXED', vndbBalance: 100n })).toBe(0n);
+    expect(vaultLockedAmount({ ...base, lockMode: 'PERCENT', vndbBalance: 101n })).toBe(10n);
   });
 });
 

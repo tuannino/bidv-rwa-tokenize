@@ -206,7 +206,8 @@ dựng, sao lưu/khôi phục và nguồn tài liệu chính nằm ở [DEPLOYME
 
 | Đối tượng | Giá trị |
 |---|---|
-| Ví thanh toán SPV | `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65` |
+| Vault thanh toán SPV (địa chỉ logic, không ví nào có khoá) | `0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2` |
+| Ví nhận tiền rút của Người bán NB001 | `0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65` |
 | Ví Nhà đầu tư NDT001 | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` |
 | Token | `WPT` |
 | Trần phát hành | `20.000.000 WPT` |
@@ -218,12 +219,16 @@ khác nhau. Khi `USE_MOCK_DB=false`, cả hai dùng PostgreSQL: mock ledger nằ
 `MockLedgerState`, bền qua restart và dùng chung giữa Worker isolate. Không xoá riêng lịch sử `Txn`
 để “reset ledger”; runbook làm mới toàn bộ Neon nằm trong [DEPLOYMENT.md](DEPLOYMENT.md#làm-mới-neon-sau-khi-triển-khai-op-07).
 
-## 2. Whitelist ví SPV và Nhà đầu tư
+## 2. Whitelist ví nhận NB001 và Nhà đầu tư
+
+Từ BE-13, chain Mock có **vault thanh toán mô phỏng** ở địa chỉ logic trong bảng trên: vault được
+whitelist sẵn từ lúc khởi tạo (như `deploy.js` trên chuỗi thật) và Mint đầu phải vào đúng địa chỉ
+này. Ví NB001 nay là **ví nhận tiền rút** của Người bán.
 
 Thực hiện khi đang ở vai **Giao dịch viên** và chain **Mock**:
 
 1. Vào trực tiếp đường dẫn `/mint`. Đây là màn dữ liệu thử, chủ ý không nằm trong menu theo tài liệu yêu cầu.
-2. Nhập ví SPV ở bảng trên vào ô **Ví nhà đầu tư**.
+2. Nhập ví nhận NB001 ở bảng trên vào ô **Ví nhà đầu tư**.
 3. Bấm **1 · KYC + Whitelist**.
 4. Chờ thông báo có `whitelist=true` và trạng thái ví bên phải hiện **Đã whitelist**.
 5. Thay bằng ví Nhà đầu tư NDT001 rồi lặp lại hai bước trên.
@@ -234,14 +239,14 @@ vòng qua bước Kiểm soát viên duyệt.
 Nếu KYC thất bại ngay ở local, kiểm `app/.env.local` có `USE_MOCK_DB=true`, dừng và chạy lại server
 sau khi sửa. `USE_MOCK_DB=false` chỉ dùng khi đã có Postgres và `DATABASE_URL` hoạt động.
 
-## 3. Phát hành toàn bộ WPT vào ví SPV
+## 3. Phát hành toàn bộ WPT vào vault
 
 ### 3.1 Giao dịch viên lập yêu cầu Mint
 
 1. Chọn **Giao dịch viên · GDV001** → menu **Lập lệnh**.
 2. Trong thẻ **Tạo token**, nhập `WPT` vào **Mã hoặc ký hiệu token**.
-3. Chờ khối thông tin token tải xong. Ở lần phát hành đầu, nhập ví SPV vào **Ví đích (ví thanh toán
-   SPV)**.
+3. Chờ khối thông tin token tải xong. Ở lần phát hành đầu, nhập địa chỉ vault ở bảng trên vào
+   **Ví đích (ví thanh toán SPV)**. Nhập ví khác thì khối kiểm tra báo phải là vault.
 4. Nhập **Số lượng** bằng **Số còn được phát hành**. Trạng thái trắng là `20000000`.
 5. Nhập **Lý do**, ví dụ `Phát hành toàn bộ nguồn cung để demo`.
 6. Chờ mọi dòng trong **Khối kiểm tra trước khi lập** đạt; nút **Gửi yêu cầu tạo token** sẽ mở.
@@ -254,7 +259,7 @@ hiển thị. Nếu số này bằng 0 thì nguồn cung đã chạm trần, b�
 
 1. Đổi vai ở góc trên phải sang **Kiểm soát viên · KSV001**.
 2. Mở **Phê duyệt lệnh**. Trong **Hàng chờ tạo token**, tìm mã vừa ghi.
-3. Bấm mã yêu cầu để mở **Chi tiết yêu cầu**; đối chiếu loại `MINT`, ví SPV, số lượng và lý do.
+3. Bấm mã yêu cầu để mở **Chi tiết yêu cầu**; đối chiếu loại `MINT`, địa chỉ vault, số lượng và lý do.
 4. Bấm **Chấp nhận**.
 5. Chờ thông báo **Đã chấp nhận**, trạng thái **Hoàn tất** và nhật ký có dòng **Chấp nhận, hoàn tất
    trên chuỗi**.
@@ -327,9 +332,43 @@ Chỉ khi tiến trình bị gián đoạn, cột **Hành động** mới đổi
 Sau hai lệnh: NDT001 có `1 WPT` và `900.000 VNDB`; chưa phân phối là `19.999.999 WPT`. Số VNDB
 còn lại ở SPV là `100.000`, đủ phản ánh dòng tiền ròng của một WPT còn lưu hành.
 
-## 7. Huỷ một phần token chưa phân phối
+## 7. Kiểm soát viên cấu hình khoá vault, Người bán rút VNDB (BE-13)
 
-### 7.1 Giao dịch viên lập yêu cầu Burn
+Vault giữ VNDB thu từ lệnh mua. Phần bị khoá do hợp đồng tính (trên Mock là cùng công thức); Người
+bán chỉ rút được phần vượt khoá, tiền luôn về ví nhận do Kiểm soát viên đặt.
+
+### 7.1 Kiểm soát viên cấu hình khoá
+
+1. Đổi sang **Kiểm soát viên** → menu **Vault**. Vault mới ở chế độ **Chưa cấu hình, khoá toàn bộ**.
+2. Trong mục **Cấu hình khoá**: ô tỷ lệ đã điền sẵn `20` (khoá cấu hình `vault.default_percent_bps`).
+   Để trống **Số khoá cố định** thì khoá theo tỷ lệ; nhập số thì khoá cố định đúng số đó (ưu tiên).
+3. Nhập ví nhận NB001 vào **Ví nhận tiền rút** rồi bấm **Lưu cấu hình khoá**.
+4. Kết quả liệt kê từng giao dịch đã gửi theo đúng thứ tự (ví nhận, tỷ lệ, chế độ). Các ô **Chế độ
+   khoá**, **Đang khoá**, **Có thể rút** cập nhật ngay.
+
+Sau kỳ chia đầu, tỷ lệ mới chỉ có hiệu lực ở lần chốt kỳ kế tiếp: màn hiện **Tỷ lệ đang áp** và
+**Tỷ lệ chờ áp**. Giao dịch viên vào cùng màn chỉ xem, không lưu được.
+
+Mục **Lịch sử cấu hình** liệt kê mọi lần thay đổi (đọc từ sự kiện trên chuỗi, mới nhất trước): block,
+tham số, giá trị cũ, giá trị mới, mã giao dịch và người thao tác. Thay đổi bằng `vault-admin.js` hiện
+người thao tác là **Ngoài app**.
+
+### 7.2 Người bán rút VNDB
+
+1. Đổi sang **Người bán** → **Tạo lệnh rút**. Ô **Mạng** và **Ví nhận** chỉ đọc; số **Phần được rút**
+   là `withdrawable` của vault. Sau mục 6 với tỷ lệ 20%: thu ròng `100.000`, khoá `20.000`, rút được `80.000`.
+2. Nhập số tiền (ví dụ `50000`) và mục đích, bấm **Tạo lệnh rút**.
+3. Nhập mã một lần sáu chữ số bất kỳ (bản thử chưa gửi mã thật) rồi **Xác nhận**.
+4. Bảng **Yêu cầu rút của tôi** hiện lệnh **Hoàn tất** kèm mã giao dịch; màn **Danh sách giao dịch**
+   có dòng loại **Rút**. Không có phí: số nhận bằng số rút.
+
+Lệnh không xác định được (mất mã giao dịch, biên nhận không có sự kiện khớp) chuyển **Cần Kiểm soát
+viên xem**: Kiểm soát viên mở mục **Lệnh rút cần xem xét** trên màn Vault, xác nhận bằng mã giao
+dịch đúng hoặc đánh dấu thất bại có lý do. Hệ thống không bao giờ tự gửi lại một lệnh rút.
+
+## 8. Huỷ một phần token chưa phân phối
+
+### 8.1 Giao dịch viên lập yêu cầu Burn
 
 1. Đổi sang **Giao dịch viên** → **Lập lệnh**.
 2. Trong thẻ **Huỷ token**, nhập `WPT` và chờ thông tin token tải xong.
@@ -340,7 +379,7 @@ còn lại ở SPV là `100.000`, đủ phản ánh dòng tiền ròng của m�
 Không chọn **Toàn bộ nguồn cung** khi còn `1 WPT` lưu hành: lựa chọn đó chỉ hợp lệ khi không còn
 token ở ví Nhà đầu tư và còn yêu cầu đánh dấu xác nhận phá hủy toàn bộ.
 
-### 7.2 Kiểm soát viên duyệt Burn
+### 8.2 Kiểm soát viên duyệt Burn
 
 1. Đổi sang **Kiểm soát viên** → **Phê duyệt lệnh**.
 2. Tìm mã trong **Hàng chờ huỷ token**, mở chi tiết và bấm **Chấp nhận**.
@@ -349,7 +388,7 @@ token ở ví Nhà đầu tư và còn yêu cầu đánh dấu xác nhận phá 
 Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19.999.900 WPT`, Chưa phân phối
 `19.999.899 WPT`, Đang lưu hành `1 WPT`.
 
-## 8. Các lỗi thường gặp
+## 9. Các lỗi thường gặp
 
 | Hiện tượng | Nguyên nhân và cách xử lý |
 |---|---|
@@ -359,6 +398,8 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | Sepolia báo chưa có dự án WPT | Bật `ENABLE_SEPOLIA_DEMO_PROJECT=true`, dựng/khởi động lại app trước vòng giao dịch đầu. |
 | Đọc WPT báo `The request took too long to respond` trên máy có proxy | Dừng app và chạy `npm run start:proxy`; giữ cấu hình RPC Sepolia. |
 | MetaMask chưa hiện WPT | Chọn Sepolia và đúng tài khoản SPV; import hợp đồng WPT với decimals 0 theo mục 1.1. |
+| Nút **Tạo lệnh rút** bị khóa | Vault chưa có ví nhận (Kiểm soát viên đặt ở màn Vault), vault đang tạm dừng rút, hoặc số tiền vượt **Phần được rút**. |
+| Lưu cấu hình hoặc rút báo "Vault đang có thao tác khác" | Một lần lưu cấu hình hay một lệnh rút khác đang giữ khoá vận hành của chain; chờ xong rồi thử lại. Lệnh rút **Cần Kiểm soát viên xem** giữ khoá tới khi được xử lý. |
 | Nút gửi Mint/Burn bị khóa | Đọc dòng **Chưa gửi được** và điều kiện không đạt; thường do chưa whitelist SPV, thiếu lý do, vượt số còn phát hành/chưa phân phối. |
 | Lệnh mua không đạt | Phải whitelist NDT001, nạp VNDB, phát hành WPT vào SPV và dùng đúng ví hồ sơ ở bảng đầu tài liệu. |
 | Lệnh ở **Đang xử lý** nhưng không có mã giao dịch | Không bấm hay gọi lại đường phát giao dịch. Giao dịch có thể đã lên chuỗi; màn Vận hành sẽ hiện **Cần đối soát tay**. |
@@ -368,7 +409,7 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | “Đang đọc thông tin token…” quá 15 giây trên Worker | Kiểm Hyperdrive có dùng Neon **Direct hostname** (không `-pooler`), quyền DB đủ và bản deploy có đường kiểm catalog OP-06. Giao diện mới phải kết thúc loading bằng thông báo quá hạn thay vì quay mãi. |
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
-## 9. Chuyển sang môi trường thật
+## 10. Chuyển sang môi trường thật
 
 Chain `mock` không cần khóa ký; bản trình diễn mặc định chạy được mà không cấu hình khóa.
 Chain thật (`hardhat-local`, `evm`) vẫn cần khóa ký theo chain: `SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL` /
@@ -388,7 +429,7 @@ thực (AU-01). SC-02 đã hoàn tất và Mint/Burn Sepolia đã được kiể
 mua/bán trên Sepolia vẫn cần SC-03. Các kết quả testnet này chưa thay thế nghiệm thu production.
 
 
-## 10. Chẩn đoán lượt đọc WPT chậm (bổ sung OP-06)
+## 11. Chẩn đoán lượt đọc WPT chậm (bổ sung OP-06)
 
 Màn Lập lệnh tra cứu qua `GET /api/token-info?chain=evm&tokenSymbol=WPT`, độc lập với hàng chờ
 Server Actions của danh sách yêu cầu. GET giữ nguyên quyền `ops:read` và không cache kết quả.

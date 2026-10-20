@@ -9,14 +9,21 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.19 |
+| Phiên bản tài liệu | 4.20 |
 | Cập nhật lần cuối | 2026-10-20 |
-| Nhánh / commit | `feat/fe-05-ky-permit`, từ `dev` @ `bf23cde` (PR #58, SC-06 đã merge); spec `docs/fe-05-ky-permit/` bản 2 |
-| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24) |
-| Hoàn thành mới ở bản này | **SC-06** (gộp SC-05): quỹ chia lợi nhuận một chiều, nối luồng chia lên EVM (PR #58, xem 3.24) |
-| Đang thực hiện | **FE-05**: nhà đầu tư ký `permit` bằng ví khi đặt lệnh trên chain thật, máy chủ kiểm chữ ký (xem 3.25 và 4.2); chờ Supervisor nghiệm thu PR |
+| Nhánh / commit | `feat/be-13-rut-vault`, từ `dev` @ `15a5d9a` (PR #59, FE-05 đã merge); spec `docs/be-13-rut-vault/` bản 2.1 |
+| Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
+| Hoàn thành mới ở bản này | **FE-05**: nhà đầu tư ký `permit` khi đặt lệnh trên chain thật (PR #59, xem 3.25) |
+| Đang thực hiện | **BE-13**: Người bán rút VNDB từ vault qua hệ thống, Kiểm soát viên cấu hình khoá vault, vault mô phỏng trên mock, RBAC đóng cho vai lạ (xem 3.26); chờ Supervisor nghiệm thu PR |
 | Phase kế tiếp | **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
-| Người cập nhật | Claude Code (FE-05, thực thi theo chỉ định của Owner). Supervisor rà soát |
+| Người cập nhật | Claude Code (BE-13, thực thi theo chỉ định của Owner). Supervisor rà soát |
+
+**4.19 lên 4.20 (BE-13): Người bán rút VNDB từ vault, Kiểm soát viên cấu hình khoá.** RBAC đóng cho
+vai lạ (bỏ `FALLBACK_ROLE`), ba quyền mới `vault:configure`, `vault:withdraw`, `vault:reconcile`. Cấu
+hình khoá trên `/vault` gửi giao dịch theo bảng chuyển tiếp (FIXED ưu tiên PERCENT), lịch sử mọi lần
+thay đổi đọc từ sự kiện trên chuỗi. Lệnh rút giữ khoá vận hành bền theo chain, không bao giờ tự gửi
+lại; ca không xác định chuyển `NEEDS_REVIEW` cho Kiểm soát viên. Chain mock có vault mô phỏng cùng
+công thức khoá với hợp đồng. Gỡ hạn mức và phí rút kiểu FE-21. Không sửa hợp đồng. Chi tiết ở 3.26.
 
 **4.18 lên 4.19 (FE-05): ký permit khi đặt lệnh trên chain thật.** Máy chủ dựng typed data ERC-2612
 đúng số của lệnh (`preparePermit`, domain đọc từ `eip712Domain()` và kiểm khuôn), ví nhà đầu tư ký,
@@ -657,6 +664,10 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`app/src/empty.ts` + alias `@x402/*` trong `next.config.ts` là vá cho phụ thuộc của bên thứ ba.** `@x402/*` là `peerDependencies` **tùy chọn** của `@coinbase/cdp-sdk` nên npm không cài, nhưng mã cdp-sdk vẫn `import` chúng và cdp-sdk có trong đồ thị module của app theo chuỗi `providers.tsx → @rainbow-me/rainbowkit → @wagmi/connectors/baseAccount → @base-org/account → @coinbase/cdp-sdk`. Bỏ alias ra thì `next build` FAIL 8 lỗi *Module not found* ở 5 specifier | Đã thu gọn tối đa ở MC-01 Bước 7: `empty.ts` còn **1 export** (`toClientEvmSigner`, import tĩnh duy nhất mà build đòi), alias Turbopack còn **1 dòng wildcard**. **ĐIỀU KIỆN XÓA:** khi `cd app && npm ls @coinbase/cdp-sdk` trả về rỗng — tức wagmi/connectors không còn kéo `@base-org/account`. Lúc đó gỡ cả hai khối alias, xóa `app/src/empty.ts`, chạy lại `npm run build` + `npm run cf:build` để xác minh |
 | **P1** | **Cờ `isConfig` có HAI nguồn và chỉ một nguồn được đọc.** Lớp quyền thứ hai của `setIssuePrice` đọc bảng hằng số `CONFIG_ROLES` trong mã (`app/src/lib/rbac/config-role.ts`), trong khi cột `Role.isConfig` trong cơ sở dữ liệu đã có dữ liệu (`SEED_ROLE_ROWS` nạp đủ bốn vai) mà **chưa lời gọi nào đọc**. Hệ quả: đổi cờ trong cơ sở dữ liệu không có tác dụng gì, và người vận hành không có cách nào biết — đo bằng `git grep -n "isConfig" -- app/src \| grep -v config-role` | Chờ **AU-01** (SIWE + phiên thật) và **AU-02** (vai đọc từ cơ sở dữ liệu). Khi AU-02 xong thì `isConfigRole()` đọc cột `Role.isConfig`, còn `CONFIG_ROLES` chỉ còn là dữ liệu khởi tạo. **Đừng** đọc cột đó sớm hơn: chưa có phiên thật thì vai lấy từ cookie do client đặt được, nên thêm một lần tra cơ sở dữ liệu chỉ làm chậm mà không chặn được ai |
 | **P2** | **`SystemConfigHistory` không có thứ tự tuyệt đối.** Hai lần ghi trùng mốc tới từng phần nghìn giây thì thứ tự tương đối KHÔNG xác định — cả hai bản hiện thực phá thế bằng `id`, một uuid ngẫu nhiên chứ không phải thứ tự chèn. Đã gây một ca kiểm đỏ tuỳ lần chạy ở BE-04 (xem mục C phần bài học) | Thêm một cột số thứ tự tăng dần (`seq BIGSERIAL` ở Postgres, số đếm ở bản bộ nhớ) **khi làm task nào đụng tới bảng này** — không mở task riêng, vì tình huống chỉ xảy ra khi hai lần đổi tham số cách nhau dưới một phần nghìn giây. Tới lúc đó phải sửa cả `listConfigHistory` ở hai bản và bỏ cảnh báo trong doc của cổng |
+| **P1** *(đề nghị, Supervisor chốt mức)* | **Rút vault "đúng một lần" chưa chứng minh được trên chuỗi** (BE-13 QĐ-J). Sự kiện `Withdrawn` không mang mã lệnh; mất mã giao dịch thì phải người xem (`NEEDS_REVIEW`). App chỉ cam kết không tự gửi lại | Khi có đợt sửa hợp đồng (trước production): `withdraw(requestRef, expectedPayout, amount)`, sự kiện có `requestRef`, `processedWithdrawals`, kiểm ví nhận ngay lúc thực thi |
+| **P1** | **Mã một lần của lệnh rút chỉ kiểm dạng sáu chữ số** (BE-13 CH-2, URD cho phép trong PoC) | AU-01 |
+| **P1** *(đề nghị, Supervisor chốt mức)* | **Rút bằng script ngoài app** (BE-13 QĐ-J): `vault-admin.js` vẫn rút và đổi cấu hình được nếu có khoá; thay đổi cấu hình hiện "ngoài app" trong lịch sử, lệnh rút bằng script làm đối soát của app phải chuyển người xem | Gỡ vai rút khỏi ví dùng cho script khi có Fireblocks (IN-04) |
+| **P1** | **Token chỉ là token thử** (BE-13 QĐ-J): rút không qua duyệt, mã một lần giả; chỉ chấp nhận được với tiền thử | AU-01, mã một lần thật trước khi dùng tiền thật |
 
 ### D. Cách làm việc
 
@@ -958,13 +969,19 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 28 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
 | 29 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
 | 30 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
-| 31 | `ILedgerVault` | `vaultStatus` | ✅ (trả `null`) | ✅ | ✅ (trả `null`) | SC-07; mock/Stellar chưa triển khai vault |
-| 32 | | `vaultPeriodCloses` | ✅ (mảng rỗng) | ✅ | ✅ (mảng rỗng) | EVM quét từ `deployBlock`, không quét block 0 |
-| 32a | | `closeVaultPeriod` (SC-06) | ⏳ (không áp dụng) | ✅ | ⏳ | đẩy số đã chia vào vault, cần `CONFIG_ROLE` |
-| 32b | | `findVaultPeriodClose` (SC-06) | ✅ (`null`) | ✅ | ✅ (`null`) | lọc `PeriodClosed` theo `periodRef` indexed |
+| 31 | `ILedgerVault` | `vaultStatus` | ✅ (vault mô phỏng, BE-13) | ✅ | ✅ (trả `null`) | SC-07; mock có vault logic `MOCK_VAULT_ADDRESS` từ BE-13 |
+| 32 | | `vaultPeriodCloses` | ✅ | ✅ | ✅ (mảng rỗng) | EVM quét từ `deployBlock`, không quét block 0; mock đọc sự kiện bền trong state |
+| 32a | | `closeVaultPeriod` (SC-06) | ✅ (BE-13) | ✅ | ⏳ | đẩy số đã chia vào vault, cần `CONFIG_ROLE` |
+| 32b | | `findVaultPeriodClose` (SC-06) | ✅ | ✅ | ✅ (`null`) | lọc `PeriodClosed` theo `periodRef` indexed |
+| 32c | | `setVaultPercentRate`, `setVaultFixedLock`, `setVaultLockMode`, `setVaultPayoutWallet` (BE-13) | ✅ | ✅ | ⏳ | trả PENDING; `setVaultLockMode` không nhận `UNSET` |
+| 32d | | `withdrawFromVault(amount)` (BE-13) | ✅ | ✅ | ⏳ | tiền về `payoutWallet` của vault, cần `WITHDRAWER_ROLE` |
+| 32e | | `findVaultWithdrawals({ fromBlock, to, amount })` (BE-13) | ✅ | ✅ | ⏳ | sự kiện ứng viên khi mất mã giao dịch |
+| 32f | | `vaultWithdrawalReceipt(txHash)` (BE-13) | ✅ | ✅ | ⏳ | biên nhận kèm `Withdrawn` của chính vault; chưa có thì `null` |
+| 32g | | `vaultConfigEvents({ fromBlock })` (BE-13 QĐ-C1) | ✅ | ✅ | ✅ (mảng rỗng) | bốn sự kiện cấu hình từ `deployBlock` |
 | 33 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
 | 34 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
 | 35 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 35a | | `latestBlockNumber` (BE-13) | ✅ (bộ đếm `nonce`) | ✅ (`cacheTime: 0`) | ⏳ | mốc `claimedBlock` của lệnh rút |
 
 **Bốn method tất toán (27–30) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
 `Redemption` lẫn `ProjectToken` đã deploy; thiếu là câu trả lời cho "cờ *đang tất toán* nằm ở
@@ -1190,7 +1207,7 @@ không có đường nào để vai trò "bù" cho cờ. Đừng gọi `can(role
 dùng `can()` để ẩn/hiện nút), còn file này `server-only` vì phải đọc env. Đưa vào barrel là làm mọi
 component `import ... from '@/lib/rbac'` fail build.
 
-**Lưu ý:** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; role lạ **quy về `FALLBACK_ROLE`** = `SELLER` (bộ quyền nhỏ nhất), không cho qua. Đây là nguyên tắc đóng, giữ nguyên khi mở rộng. FE-20 đổi từ vai kiểm toán cũ sang `SELLER` vì đó là vai duy nhất vừa sạch quyền ghi vừa **không** đọc được sổ kiểm toán và báo cáo đối soát; quy một cookie gõ sai về `CONTROLLER` là biến một lỗi chính tả thành quyền xem sổ kiểm toán. ⚠️ **BE-14:** `SELLER` nhận `order:read:all`, nên vai lạ nay đọc được **sổ lệnh** toàn hệ. Owner chọn giữ fallback vì bộ đổi vai chưa phải xác thực (ai cũng tự đặt cookie `TELLER` được), lớp này chỉ chặn lỗi gõ cho tới AU-01; phương án đổi fallback sang `INVESTOR` bị loại vì `INVESTOR` có quyền ghi (`order:place`). Khi AU-01 có phiên đăng nhập thật thì xem lại.
+**Lưu ý (BE-13 QĐ-A):** `can(role: unknown, ...)` nhận `unknown` có chủ ý để dữ liệu ngoài vào an toàn; vai lạ **không có quyền nào**: `can` trả `false`, `permissionsOf` trả rỗng, `assertCan` ném `ForbiddenError` ghi vai là `UNKNOWN` (`UNKNOWN_ROLE`, kiểu `RoleOrUnknown`). `FALLBACK_ROLE` đã gỡ: trước BE-13 vai lạ mượn quyền của `SELLER`, mà từ BE-14 `SELLER` đọc được sổ lệnh toàn hệ và từ BE-13 có quyền ghi `vault:withdraw`. Cùng nguyên tắc ở `config-role.ts` và `demo-payment.ts`. `currentRole()` KHÔNG đổi: cookie thiếu hoặc hỏng vẫn lấy vai mặc định của bản demo (đó là lựa chọn vai của phiên PoC, không phải phép kiểm quyền).
 
 ⚠️ **`READ_ONLY` là bẫy.** Hằng private
 `READ_ONLY = ['balance:read','txn:read','audit:read','order:read','order:read:all','reconcile:read']`
@@ -1219,7 +1236,7 @@ quyền của vai nào.
 | `token-request.service.ts` | **Lập–duyệt yêu cầu Mint/Burn** (BE-12). Lập chỉ ghi `PENDING`; duyệt kiểm lại toàn bộ điều kiện, chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện rồi mới gửi giao dịch; chặn người lập tự duyệt/từ chối — xem 4.3. FE-22 thêm các phép đọc cho hai màn. FE-27 bắt mọi phép list/detail/stats và badge menu nhận chain; mở URL yêu cầu thuộc chain khác trả `REQUEST_CHECK` trước khi có thể duyệt/từ chối | `previewTokenRequest()`, `createTokenRequest()`, `approveTokenRequest()`, `rejectTokenRequest()`, `listTokenRequests()`, `getPendingWork()`, `getTokenInfo()`, `getDraftStats()`, `getApprovalStats()`, `getTokenRequestDetail()`, `startOfVietnamDay()` |
 | `config.service.ts` | Tham số hệ thống: đổi giá phát hành (BE-04). FE-27 tách mỗi chain một giá; vẫn giữ thứ tự **đẩy xuống ledger trước, ghi cơ sở dữ liệu sau** — xem 3.12 | `getIssuePrice()`, `setIssuePrice()` |
 | `seller.service.ts` | **Kênh Người bán, chỉ đọc** (FE-21). Cổng `seller:read` kiểm lại trong service. Dữ liệu "của mình" = sổ lệnh và số dư của ví SPV — xem 3.16 | `getSellerOverview()`, `listSellerTransactions()` |
-| `withdraw-limit.ts` | Hạn mức rút — hàm **thuần**, dùng được cả hai phía; chính sách đọc từ cấu hình, không có trong tệp | `computeWithdrawLimit()`, `quoteWithdraw()` |
+| `withdraw-limit.ts` | Báo giá một lần rút, hàm **thuần**; từ BE-13 phần được rút là `withdrawable` của vault, không phí, số nhận bằng số rút | `quoteWithdraw()` |
 | `portfolio.service.ts` | Vị thế nhà đầu tư (chỉ đọc) | `getPortfolio()`, `getWalletTransactions()`, `getTokenSummary()` |
 | `purchase.service.ts` | Nghiệp vụ lệnh mua WPT (BE-02) + xem trước điều kiện (BE-03) + chiều bán (BE-14) + **tự quyết toán, chống trùng và can thiệp an toàn** (BE-17) + **chữ ký permit trên chain thật** (FE-05). Hai chiều và hai đường quyết toán dùng chung `runOrderChecks`/`settleStoredOrder` — xem 4.2 và 3.25 | `previewPurchase()`, `preparePermit()`, `placeOrder()`, `executeOrder()`, `listOrders()`, `orderDailyStats()`, `expireStaleOrders()` |
 | `permit.ts` (FE-05) | Domain permit đọc từ chuỗi và kiểm khuôn; dựng typed data theo chiều lệnh; kiểm và tách chữ ký. Một nơi dựng typed data cho cả lúc chuẩn bị lẫn lúc kiểm | `readPermitDomain()`, `assertSupportedPermitDomain()`, `buildOrderPermitTypedData()`, `verifyOrderPermitSignature()`, `splitPermitSignature()`, `isPermitChain()` |
@@ -1631,13 +1648,12 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**18 điểm cắm · 4 điểm chặn**, nhóm theo task đang chờ.
+**17 điểm cắm · 4 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
-| `BE-05` | cắm | `app/src/lib/store/index.ts:191` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
-| `BE-13` | cắm | `app/src/components/pages/seller-withdraw.tsx:75` | biểu mẫu, hạn mức đọc từ cấu hình, khoá nút khi vượt hạn mức, hộp mã một lần và bảng yêu cầu đã chạy trên dữ liệu tạm — BE-13 chỉ thay thân hàm này bằng lời gọi server action tạo lệnh, kiểm mã và đọc yêu cầu rút |
+| `BE-05` | cắm | `app/src/lib/store/index.ts:212` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:41` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:49` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
 | `FE-07` | cắm | `app/src/app/actions/config.ts:19` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
@@ -1653,10 +1669,10 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:336` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được, giữ nguyên ba nhánh quyết định và nguyên phần chia ở `runDistributionCycle` |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1070` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1076` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1081` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1087` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1109` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1115` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1120` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1126` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -1811,9 +1827,8 @@ Mười bảy **nhóm khoá logic** khai ở `CONFIG_KEYS` (`lib/config/issue-te
 | `distribution.min_new_balance` | `bigint` | `DISTRIBUTION_MIN_NEW_BALANCE` = 1.000 | **không** | `readDistributionMinNewBalance()` |
 | `distribution.stuck_after_runs` | `number` | `DISTRIBUTION_STUCK_AFTER_RUNS` = 3 | **không** | `readDistributionStuckAfterRuns()` |
 | `distribution.last_settled_balance` | `bigint` | **0** | **không** | `readDistributionSettledBalance()` |
-| `seller.withdraw_limit_mode` | `string` (`FIXED` \| `PERCENT`) | **không có** | **không** | `readSellerWithdrawPolicy()` |
-| `seller.withdraw_limit_value` | `string` (số nguyên: VNDB, hoặc phần trăm 0–100) | **không có** | **không** | `readSellerWithdrawPolicy()` |
-| `seller.withdraw_fee_vnd` | `string` (số nguyên VNDB) | **không có** | **không** | `readSellerWithdrawFee()` |
+| ~~`seller.withdraw_limit_mode`, `seller.withdraw_limit_value`, `seller.withdraw_fee_vnd`~~ | | | | **Gỡ ở BE-13 QĐ-H**: không mã nào đọc; dòng cũ trong database để yên |
+| `vault.default_percent_bps` (BE-13) | `number` (phần vạn 1 đến 10.000) | `VAULT_DEFAULT_PERCENT_BPS` = 2.000 | có | `readVaultDefaultPercentBps()`: chỉ điền sẵn ô tỷ lệ khi vault `UNSET` |
 | `demo.payment_mint_max_vnd` (BE-16) | `bigint` | `DEMO_PAYMENT_MINT_MAX_VND` = 1.000.000.000 | có | `readDemoPaymentMintMax()` |
 | `order.permit_ttl_seconds` (FE-05) | `number` (60 đến 86.400) | `ORDER_PERMIT_TTL_SECONDS` = 1.800 | **không** | `readOrderPermitWindow()` |
 | `order.permit_min_remaining_seconds` (FE-05) | `number` (0 đến 3.600) | `ORDER_PERMIT_MIN_REMAINING_SECONDS` = 120 | **không** | `readOrderPermitWindow()` |
@@ -2033,27 +2048,27 @@ Có phép kiểm chốt **cả hai chiều**: mã còn, và menu không có.
 
 ## 3.16. Kênh Người bán (FE-21)
 
-Ba màn trong khu vực `(seller)`, cổng `seller:read`. Hai màn đầu **chỉ đọc**; màn thứ ba có phần
-ghi nhưng phần đó chờ BE-13.
+Ba màn trong khu vực `(seller)`, cổng `seller:read`. Hai màn đầu **chỉ đọc**; màn thứ ba ghi qua
+nghiệp vụ rút thật của BE-13 (quyền `vault:withdraw`, xem 3.26).
 
 | Màn | Tệp giao diện | Nguồn số |
 |---|---|---|
 | `/seller` Tổng quan (6 khối) | `components/pages/seller-overview.tsx` | `getSellerOverview()` |
 | `/seller/transactions` | `components/pages/seller-transactions.tsx` | `listSellerTransactions()` — lọc mã lệnh/ví, loại, trạng thái, khoảng ngày; phân trang |
-| `/seller/withdraw` | `components/pages/seller-withdraw.tsx` | số dư, phần khoá, hạn mức, phí: `getSellerOverview()`; tạo lệnh + mã một lần + bảng yêu cầu: **dữ liệu tạm**, `@pending BE-13` |
+| `/seller/withdraw` | `components/pages/seller-withdraw.tsx` | số dư, phần khoá, phần được rút, ví nhận: `getSellerOverview()` (vault trên chuỗi); tạo lệnh, đối soát khi mở màn, bảng yêu cầu: `withdraw.service` (BE-13) |
 
 **"Dữ liệu của mình" là ví SPV.** Mọi lệnh mua WPT đều khớp với ví thanh toán SPV, nên sổ lệnh của
 Người bán là sổ lệnh của chuỗi đang chọn. Vai `SELLER` không có `order:read:all` và không cần: hai hàm
 của `seller.service` kiểm `seller:read`, vai khác gọi thẳng server action nhận `FORBIDDEN`.
 
 **Màn hình không cộng trừ số liệu nào** (yêu cầu 16). Năm chỉ tiêu nguồn cung đi qua
-`readSupplyMetrics()`; phần khoá và hạn mức qua `computeWithdrawLimit()` ở máy chủ. Riêng "số tiền
-nhận được" và "vượt hạn mức" ở màn rút tính lúc gõ bằng `quoteWithdraw()` — cùng một hàm thuần, không
-viết lại công thức ở component.
+`readSupplyMetrics()`; phần khoá và phần được rút đọc thẳng từ vault (`lockedAmount`, `withdrawable`
+do hợp đồng tính; mock dùng cùng hàm thuần `vault-lock.ts`). Riêng "số tiền nhận được" và "vượt phần
+được rút" ở màn rút tính lúc gõ bằng `quoteWithdraw()`.
 
-⚠️ **Hạn mức rút không có mặc định trong mã.** Chưa cấu hình (hoặc giá trị hỏng) thì ba con số hiện
-"—" và nút Tạo lệnh rút bị khoá. Cùng lập luận với `distribution.dust_wallet`: một mặc định là một
-hạn mức không ai chọn. `PERCENT` làm tròn **lên** phần khoá — lệch một đồng thì lệch về phía giữ lại.
+**BE-13 QĐ-H gỡ hạn mức và phí kiểu FE-21.** Không còn `computeWithdrawLimit`, phí trong
+`quoteWithdraw`, hay nguồn `source: 'config'`; chain không có vault thì không rút được. Màn hiện "Phí
+ngân hàng ngoài chuỗi: chưa áp dụng (POC)".
 
 ⚠️ **Lọc và phân trang làm trong bộ nhớ** trên tối đa 500 lệnh mới nhất (`ORDER_SCAN_LIMIT`, có
 chú thích `ponytail:`). Sổ lệnh vượt mức đó thì cần thêm offset và bộ lọc ngày vào `IOrderStore`.
@@ -2063,8 +2078,7 @@ chú thích `ponytail:`). Sổ lệnh vượt mức đó thì cần thêm offset
 
 | Muốn | Đụng vào đâu |
 |---|---|
-| Nối nghiệp vụ rút (BE-13) | Thay thân `confirm` trong `seller-withdraw.tsx` (có marker) bằng server action; thêm quyền ghi cho `SELLER` ở `ROLE_PERMISSIONS` |
-| Thêm loại giao dịch (bán lại, rút) | `SELLER_TXN_TYPES` + nhánh lấy dữ liệu trong `listSellerTransactions()`; khối "bán" của Tổng quan đang là `sell: null` |
+| Thêm loại giao dịch | `SELLER_TXN_TYPES`, `SELLER_TXN_STATUSES` và một nhánh của union `SellerTxnRow` trong `listSellerTransactions()`; BE-13 đã thêm `WITHDRAW` |
 
 ## 3.17. Màn Lập lệnh và Phê duyệt lệnh (FE-22)
 
@@ -2324,10 +2338,11 @@ có thể đổi ví nhận rồi rút. Giai đoạn sau phải tách khoá ho�
 
 ### Ứng dụng và lịch sử
 
-`ILedgerVault` chỉ đọc trạng thái và sự kiện `PeriodClosed`. EVM bắt đầu quét từ `deployBlock` trong
-address book; thiếu mốc thì báo rõ thay cho quét từ block 0. Mock/Stellar trả `null` và mảng rỗng.
-Màn `/vault` dành cho TELLER/CONTROLLER (`vault:read`), không có nút ghi. Các thao tác quản trị chỉ
-qua `vault-admin.js`, mặc định dry-run và cần `VAULT_ADMIN_CONFIRM=yes` để gửi giao dịch.
+Ở SC-07, `ILedgerVault` chỉ đọc trạng thái và sự kiện `PeriodClosed`. EVM bắt đầu quét từ `deployBlock`
+trong address book; thiếu mốc thì báo rõ thay cho quét từ block 0. Stellar trả `null` và mảng rỗng.
+Màn `/vault` dành cho TELLER/CONTROLLER (`vault:read`). **Từ BE-13** (3.26): cổng có thêm cấu hình,
+rút và lịch sử cấu hình; mock có vault mô phỏng; Kiểm soát viên cấu hình trên `/vault`; `vault-admin.js`
+(mặc định dry-run, `VAULT_ADMIN_CONFIRM=yes` để gửi) chỉ còn cho trường hợp khẩn cấp.
 
 Giao diện công khai dành cho SC-03 được khóa ở bản spec 2.1: `projectToken()`, `paymentToken()`,
 `isOrderSettled(bytes32)`, `MATCHER_ROLE()`, lỗi `OrderAlreadySettled(bytes32)` và sự kiện
@@ -2516,6 +2531,93 @@ sang nút Hardhat; nó đứng sau `mint.spec.ts` vì cần nguồn cung trong v
 **Chain chưa có cờ tất toán** (EVM chờ SC-04): xem trước và bối cảnh màn giao dịch coi là chưa tất
 toán và dựa vào trạng thái dự án, theo chốt của chủ dự án ngày 20/10/2026 (`settlementModeOrUnknown`
 ở `trade.service.ts`; xem nợ 1.6.C).
+
+## 3.26. Rút VNDB từ vault và cấu hình khoá vault (BE-13)
+
+Spec `docs/be-13-rut-vault/` bản 2.1. Không sửa `SpvPaymentVault`. Ba quyền mới: `vault:configure`,
+`vault:reconcile` cho `CONTROLLER`; `vault:withdraw` cho `SELLER`. Vai vận hành đọc bằng `vault:read`.
+
+### Cấu hình khoá (QĐ-C) và lịch sử (QĐ-C1)
+
+`saveVaultConfig` (`lib/bank/vault.service.ts`, phần thuần ở `vault-config.ts`): ba ô tỷ lệ PERCENT
+(lớn hơn 0, không quá 100, tối đa hai chữ số thập phân, đổi sang phần vạn bằng xử lý CHUỖI), số khoá cố
+định (để trống được), ví nhận (khác 0, khác vault, đã whitelist). Có số cố định thì đích là FIXED.
+Máy chủ đọc trạng thái chuỗi rồi chỉ gửi giao dịch còn khác, đúng thứ tự:
+
+| Từ | Đến | Thứ tự |
+|---|---|---|
+| `UNSET` | PERCENT | `setPercentRate`, rồi `setLockMode(PERCENT)` |
+| `UNSET`, PERCENT | FIXED | `setFixedLock`, rồi `setLockMode(FIXED)` (không gửi tỷ lệ) |
+| FIXED | PERCENT | `setPercentRate` nếu khác, rồi `setLockMode(PERCENT)`; **không** `setFixedLock(0)` |
+| giữ chế độ | | chỉ setter của giá trị đổi |
+
+`setPayoutWallet` đứng trước, độc lập. Giá trị luôn lên chuỗi trước khi đổi chế độ, nên chế độ hiện
+hành không bao giờ mang giá trị 0. Từng giao dịch: lưu `Txn` trước khi chờ (`trackTxn`), chờ xong mới
+gửi bước sau, audit giá trị cũ và mới. Lỗi giữa chừng trả `LEDGER` kèm `fieldErrors.completedSteps`,
+`failedStep`, `payoutChanged`; lần lưu sau đọc lại chuỗi nên chỉ gửi phần thiếu. Sau kỳ đầu,
+`setPercentRate` chỉ ghi tỷ lệ chờ: màn hiện "Tỷ lệ đang áp" và "Tỷ lệ chờ áp", kế hoạch so với tỷ lệ chờ.
+Vault `UNSET` thì ô tỷ lệ điền sẵn `vault.default_percent_bps`.
+
+**Lịch sử cấu hình** (`getVaultConfigHistory`, mục "Lịch sử cấu hình" trên `/vault`): nguồn sự thật là
+bốn sự kiện `LockModeChanged`, `PercentRateSet` (cờ `pending` tách tham số "tỷ lệ chờ áp"),
+`FixedLockSet`, `PayoutWalletSet` qua `vaultConfigEvents`; giá trị cũ suy từ sự kiện trước cùng tham
+số; người thao tác tra `Txn` theo mã giao dịch (vai và ví ký), không thấy thì "ngoài app" (ví dụ chạy
+`vault-admin.js`). Người thao tác là VAI, chưa phải tài khoản: bảng `Txn` không có cột tài khoản (AU-01).
+
+### Khoá vận hành bền theo chain (QĐ-D)
+
+Bảng `VaultOperationLock` (khoá chính `chain`, `kind` `CONFIG`/`WITHDRAW`, `refId`, `actor`,
+`acquiredAt`). Lấy bằng MỘT câu `INSERT ... ON CONFLICT DO UPDATE ... WHERE` (chỉ tiếp quản khi cả
+hai là `CONFIG` và khoá cũ lấy trước mốc `now - receiptTimeoutFor(chain)`), nhả bằng `DELETE` theo
+`refId`. Khoá `WITHDRAW` không tự hết hạn: nhả khi lệnh về trạng thái cuối. Biên nhận cấu hình chưa về
+(hết thời gian chờ) thì giữ khoá cho lần sau tiếp quản. Bản bộ nhớ và Postgres chạy chung một hợp đồng
+kiểm thử (`be-13-vault-config.test.ts`).
+
+### Lệnh rút (QĐ-E) và xử lý `NEEDS_REVIEW` (QĐ-F)
+
+Bảng `WithdrawRequest`: duy nhất `(chain, clientRequestId)`, `activeChain` (một lệnh chưa kết thúc mỗi
+chain; về trạng thái cuối thì đặt `NULL` trong cùng câu), `txHash`. Ánh xạ lỗi trùng ở `store.errors.ts`.
+
+    (tạo) ──► SENDING ──► SENT ──► COMPLETED
+                 │          ├────► FAILED
+                 │          └────► NEEDS_REVIEW ──► COMPLETED / FAILED (Kiểm soát viên)
+                 ├────► FAILED        (revert khi mô phỏng, chắc chắn chưa lên chuỗi)
+                 └────► NEEDS_REVIEW  (mất mã giao dịch)
+
+`createWithdrawRequest` (`lib/bank/withdraw.service.ts`): quyền, mã một lần đúng sáu chữ số (không
+lưu, không vào audit hay lỗi), tra `clientRequestId`, lấy khoá `WITHDRAW`, kiểm vault, số tiền, ví nhận,
+tạm dừng, `amount <= withdrawable` đọc trên chuỗi, tạo `SENDING` với `claimedBlock`, gửi, lưu mã (`SENT`)
+TRƯỚC khi chờ. `COMPLETED` chỉ khi biên nhận thành công VÀ có `Withdrawn(to = ví nhận, amount)` của
+chính vault. App **không bao giờ gửi lại**. `reconcileWithdrawRequests` (vai vận hành bấm, Người bán mở
+màn): `SENDING` quá thời gian chờ luôn sang `NEEDS_REVIEW` kèm sự kiện ứng viên (từ `claimedBlock`, đúng
+ví nhận, số tiền, ví ký máy chủ), không tự `COMPLETED`; idempotent. `resolveWithdrawRequest`
+(`vault:reconcile`): `COMPLETED` cần mã có biên nhận và sự kiện khớp, chưa gán lệnh khác, bổ sung `Txn`
+nếu chưa có; `FAILED` cần lý do; gọi lại không thêm `Txn` hay audit.
+
+### Vault mô phỏng trên mock (QĐ-G)
+
+Địa chỉ logic `MOCK_VAULT_ADDRESS` (`packages/shared/src/mock-vault.ts`, 20 byte cuối của
+`keccak256("bidv-rwa-tokenize:mock:SpvPaymentVault")`), whitelist sẵn; `NB001` là ví nhận mặc định của
+Người bán. `vaultAddressFor(chain)` đưa luật R6 (Mint đầu phải vào vault) sang cả mock.
+`MockLedgerState.vault` giữ đủ biến của hợp đồng cùng sự kiện rút, chốt kỳ, cấu hình bền; "block" là
+bộ đếm `nonce`. Dòng JSONB cũ thiếu trường đọc ra vault `UNSET`. Công thức khoá là hàm thuần dùng chung
+`lib/ledger/vault-lock.ts`; bảng số `packages/contracts-evm/test/fixtures/be13-vault-lock-table.json`
+chạy trên hợp đồng thật, hàm thuần và vault mock (ca 12). Mua bán qua vault mock cộng trừ
+`netProceeds`; `closeVaultPeriod` chạy thật nên SC-06 QĐ-G áp cả mock.
+
+### Màn hình (QĐ-I)
+
+`/seller/withdraw`: server action, mạng và ví nhận chỉ đọc, khoá nút khi chưa có ví nhận, bảng "Yêu
+cầu rút của tôi". `/seller/transactions`: `SellerTxnRow` là union theo `type` (`BUY`/`SELL` mang
+`OrderStatus`, `WITHDRAW` mang trạng thái rút), sắp theo thời điểm tạo rồi `id`, lọc trạng thái theo
+đúng tập của loại. `/vault`: "Cấu hình khoá", "Lịch sử cấu hình", "Lệnh rút cần xem xét" kèm nút đối soát.
+
+### Cách mở rộng
+
+| Muốn | Đụng vào đâu |
+|---|---|
+| Thêm tham số cấu hình vault | setter ở `ILedgerVault` (ba adapter), một dòng trong `planVaultConfig` theo đúng thứ tự giá trị trước chế độ, một tham số trong `VaultConfigParam` và `vaultConfigEvents` |
+| Rút "đúng một lần chứng minh được" | Cần đợt sửa hợp đồng (nợ QĐ-J ở 1.6.C); khi đó sự kiện có `requestRef`, đối soát mới được tự kết luận |
 
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
 

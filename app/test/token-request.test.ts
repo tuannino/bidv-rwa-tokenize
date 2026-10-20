@@ -3,6 +3,7 @@ import { WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getStore, getTokenRequestStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 
 /**
  * BE-12 — LẬP–DUYỆT YÊU CẦU MINT / BURN.
@@ -16,7 +17,8 @@ import { getStore, getTokenRequestStore, resetMemoryStore, resetStoreCache } fro
  */
 
 const CHAIN = 'mock';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+/** BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`. */
+const SPV = MOCK_VAULT_ADDRESS;
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const CAP = BigInt(WPT_TOTAL_SUPPLY);
 

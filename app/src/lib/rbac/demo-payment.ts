@@ -2,7 +2,7 @@ import 'server-only';
 
 import { serverEnv } from '@/lib/config/env';
 import { ForbiddenError, assertCan, can } from './can';
-import { FALLBACK_ROLE, isRole, type Role } from './permissions';
+import { UNKNOWN_ROLE, isRole, type Role, type RoleOrUnknown } from './permissions';
 
 /**
  * Chốt chặn HAI LỚP cho hai chức năng CHỈ DÀNH CHO MÔI TRƯỜNG THỬ:
@@ -39,7 +39,7 @@ import { FALLBACK_ROLE, isRole, type Role } from './permissions';
  * không phải vai: người vận hành đọc log cần biết đi bật cờ, chứ không đi đổi vai người dùng.
  */
 export class DemoPaymentMintDisabledError extends ForbiddenError {
-  constructor(role: Role) {
+  constructor(role: RoleOrUnknown) {
     super(role, 'demo:mint-payment');
     this.name = 'DemoPaymentMintDisabledError';
     this.message =
@@ -55,7 +55,7 @@ export class DemoPaymentMintDisabledError extends ForbiddenError {
  * hành thật: chỗ đó là màn Lập lệnh, không phải đi bật cờ.
  */
 export class DemoTokenMintDisabledError extends ForbiddenError {
-  constructor(role: Role) {
+  constructor(role: RoleOrUnknown) {
     super(role, 'demo:mint-token');
     this.name = 'DemoTokenMintDisabledError';
     this.message =
@@ -64,14 +64,14 @@ export class DemoTokenMintDisabledError extends ForbiddenError {
   }
 }
 
-/** Vai trò lạ quy về `FALLBACK_ROLE` — cùng nguyên tắc đóng với `can()`. */
-const resolveRole = (role: unknown): Role => (isRole(role) ? role : FALLBACK_ROLE);
+/** Vai lạ ghi là `UNKNOWN` và không có quyền nào, cùng nguyên tắc đóng với `can()` (BE-13 QĐ-A). */
+const resolveRole = (role: unknown): RoleOrUnknown => (isRole(role) ? role : UNKNOWN_ROLE);
 
 /** Một chức năng môi trường thử: cờ nào, quyền nào, lỗi gì khi cờ tắt. */
 interface DemoGate {
   flagOn: () => boolean;
   action: 'demo:mint-payment' | 'demo:mint-token';
-  disabledError: (role: Role) => ForbiddenError;
+  disabledError: (role: RoleOrUnknown) => ForbiddenError;
 }
 
 const PAYMENT_GATE: DemoGate = {
@@ -92,7 +92,7 @@ const allows = (gate: DemoGate, role: unknown): boolean => gate.flagOn() && can(
 function assertGate(gate: DemoGate, role: unknown): asserts role is Role {
   const resolved = resolveRole(role);
   if (!gate.flagOn()) throw gate.disabledError(resolved);
-  assertCan(resolved, gate.action);
+  assertCan(role, gate.action);
 }
 
 /**

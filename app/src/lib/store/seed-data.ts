@@ -10,6 +10,7 @@ import {
   WPT_TOKEN_SYMBOL,
   WPT_TOTAL_SUPPLY,
   WPT_TRADING_FEE_PERCENT,
+  VAULT_DEFAULT_PERCENT_BPS,
 } from '@/lib/config/issue-terms';
 import { CONFIG_ROLES, CONFIG_ROLE_NAMES } from '@/lib/rbac/config-role';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
@@ -85,6 +86,12 @@ export const SEED_CONFIG_ROWS: readonly SeedConfigRow[] = [
     key: CONFIG_KEYS.distributionBatchSize,
     // `number` vì đây là số đếm ví trong một lô, không phải số tiền.
     value: String(DISTRIBUTION_BATCH_SIZE),
+    type: 'number',
+  },
+  {
+    key: CONFIG_KEYS.vaultDefaultPercentBps,
+    // `number`: phần vạn 1..10000, không phải số tiền.
+    value: String(VAULT_DEFAULT_PERCENT_BPS),
     type: 'number',
   },
   {

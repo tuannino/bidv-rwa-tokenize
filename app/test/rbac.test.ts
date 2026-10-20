@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ACTIONS,
-  FALLBACK_ROLE,
   ForbiddenError,
+  UNKNOWN_ROLE,
   ROLES,
   assertCan,
   can,
@@ -20,13 +20,13 @@ import {
   canMintDemoPayment,
   canMintDemoToken,
 } from '@/lib/rbac/demo-payment';
+import { assertCanConfigure, isConfigRole } from '@/lib/rbac/config-role';
 
 /**
  * FE-20 ca 1 — danh sách vai trò là bốn giá trị theo tài liệu yêu cầu.
  *
  * Kiểm CẢ HAI chiều: bốn vai mới có mặt, và hai vai đã gỡ không còn. Chỉ kiểm chiều "có mặt"
- * thì một lần thêm lại `AUDITOR` vào `ROLES` sẽ lọt — mà thêm lại là đủ để `FALLBACK_ROLE`
- * quay về một vai không có trong tài liệu yêu cầu, tức phân quyền nói khác tài liệu.
+ * thì một lần thêm lại `AUDITOR` vào `ROLES` sẽ lọt, tức phân quyền nói khác tài liệu.
  */
 describe('RBAC — bốn vai trò theo tài liệu yêu cầu (FE-20 ca 1)', () => {
   it('đúng bốn vai: INVESTOR, SELLER, TELLER, CONTROLLER', () => {
@@ -36,7 +36,7 @@ describe('RBAC — bốn vai trò theo tài liệu yêu cầu (FE-20 ca 1)', () 
   it('hai vai cũ KHÔNG còn trong danh sách', () => {
     for (const removed of ['BANK_ADMIN', 'COMPLIANCE', 'AUDITOR']) {
       expect((ROLES as readonly string[]).includes(removed), `${removed} đã gỡ`).toBe(false);
-      // Và không còn là vai hợp lệ, nên cookie mang giá trị cũ bị quy về FALLBACK_ROLE.
+      // Và không còn là vai hợp lệ, nên cookie mang giá trị cũ không có quyền nào (BE-13 QĐ-A).
       expect(isRole(removed), `${removed} không còn hợp lệ`).toBe(false);
     }
   });
@@ -159,14 +159,13 @@ describe('RBAC — can(role, action)', () => {
     }
   });
 
-  it('role lạ bị quy về quyền thấp nhất, KHÔNG mặc định cho qua', () => {
+  it('role lạ KHÔNG mặc định cho qua', () => {
     // Đây là điểm dễ sai nhất: fail-open ở kiểm quyền là lỗ hổng thật.
     for (const value of ['admin', 'ADMIN', '', null, undefined, 42, {}]) {
       expect(can(value, 'token:mint'), `${String(value)} không được mint`).toBe(false);
     }
-    // Vai lạ vẫn ĐỌC được phần của chính mình — fallback là "quyền thấp nhất", không phải
-    // "không quyền". Chi tiết ở describe về FALLBACK_ROLE phía dưới.
-    expect(can('nguoi-la', 'balance:read')).toBe(true);
+    // BE-13 QĐ-A: vai lạ không còn đọc được gì (trước đây mượn quyền đọc của SELLER).
+    expect(can('nguoi-la', 'balance:read')).toBe(false);
   });
 
   it('assertCan ném ForbiddenError kèm role + action', () => {
@@ -184,41 +183,53 @@ describe('RBAC — can(role, action)', () => {
 });
 
 /**
- * FE-20 — `FALLBACK_ROLE` là `SELLER`, và vì sao không phải `CONTROLLER`.
+ * BE-13 ca 1 (phần RBAC), QĐ-A: vai lạ KHÔNG có quyền nào.
  *
- * Cả hai vai đều sạch quyền ghi, nên "không có quyền ghi" KHÔNG phải tiêu chí phân biệt.
- * Thứ phân biệt là dữ liệu TOÀN HỆ: `CONTROLLER` đọc được sổ kiểm toán, sổ lệnh mọi ví và
- * báo cáo đối soát. Quy một cookie gõ sai về đó là biến một lỗi chính tả thành quyền xem
- * dữ liệu toàn hệ.
+ * Thay cho `FALLBACK_ROLE` của FE-20 (quy vai lạ về `SELLER`). Từ BE-13 cả bốn vai đều có quyền
+ * ghi (Người bán có `vault:withdraw`), nên quy vai lạ về BẤT KỲ vai nào cũng là cho một cookie gõ
+ * sai một quyền ghi. Đột biến 16a ("`can` quy vai lạ về `SELLER`") phải làm các ca dưới đỏ.
  */
-describe('RBAC — FALLBACK_ROLE (FE-20)', () => {
-  /**
-   * BE-14: `order:read:all` RA KHỎI danh sách này. Người bán xem toàn bộ sổ lệnh (spec việc 12)
-   * và Owner chọn giữ fallback là `SELLER`, nên vai lạ đọc được sổ lệnh — vẫn không đọc được sổ
-   * kiểm toán, báo cáo đối soát, và không có quyền ghi nào. Xem `docs/CHECKPOINT_BE14.md`.
-   */
-  const SYSTEM_WIDE_READS = ['audit:read', 'reconcile:read'] as const;
+describe('BE-13 ca 1: RBAC đóng cho vai lạ (QĐ-A)', () => {
+  const STRANGE = ['UNKNOWN', 'nguoi-la', 'seller', 'BANK_ADMIN', '', ' ', null, undefined, 42, 0, {}, [], 'SELLER ', '{"role":"SELLER"}'];
 
-  it('FALLBACK_ROLE là SELLER', () => {
-    expect(FALLBACK_ROLE).toBe('SELLER');
-  });
-
-  it('vai lạ KHÔNG đọc được dữ liệu toàn hệ', () => {
-    for (const action of SYSTEM_WIDE_READS) {
-      expect(can('nguoi-la', action), `vai lạ không được ${action}`).toBe(false);
+  it('can sai với MỌI quyền, permissionsOf rỗng', () => {
+    for (const value of STRANGE) {
+      expect(permissionsOf(value), JSON.stringify(value)).toEqual([]);
+      for (const action of ACTIONS) {
+        expect(can(value, action), `${JSON.stringify(value)} / ${action}`).toBe(false);
+      }
     }
   });
 
-  it('SELLER có bộ quyền NHỎ NHẤT trong bốn vai', () => {
-    // Nếu một vai khác teo xuống nhỏ hơn SELLER thì FALLBACK_ROLE phải xem lại, và phép
-    // kiểm này là chỗ buộc phải xem lại — chứ không phải phát hiện lúc có sự cố.
-    const sellerCount = permissionsOf('SELLER').length;
-    for (const role of ROLES) {
-      if (role === 'SELLER') continue;
-      expect(
-        permissionsOf(role).length,
-        `${role} phải nhiều quyền hơn SELLER, nếu không thì FALLBACK_ROLE sai`,
-      ).toBeGreaterThan(sellerCount);
+  it('assertCan ném ForbiddenError ghi vai là UNKNOWN, không mượn tên vai thật', () => {
+    for (const value of STRANGE) {
+      try {
+        assertCan(value, 'vault:withdraw');
+        expect.unreachable(`${JSON.stringify(value)} không được qua`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenError);
+        expect((error as ForbiddenError).role).toBe(UNKNOWN_ROLE);
+      }
+    }
+  });
+
+  it('ba quyền vault mới: chỉ CONTROLLER cấu hình và xử lý NEEDS_REVIEW, chỉ SELLER rút', () => {
+    const holders = (action: Action) => ROLES.filter((role) => can(role, action));
+    expect(holders('vault:configure')).toEqual(['CONTROLLER']);
+    expect(holders('vault:reconcile')).toEqual(['CONTROLLER']);
+    expect(holders('vault:withdraw')).toEqual(['SELLER']);
+  });
+
+  it('SELLER vẫn KHÔNG đọc được dữ liệu toàn hệ', () => {
+    for (const action of ['audit:read', 'reconcile:read'] as const) {
+      expect(can('SELLER', action), action).toBe(false);
+    }
+  });
+
+  it('lớp hai (cấu hình, dữ liệu thử) cũng đóng với vai lạ', () => {
+    for (const value of STRANGE) {
+      expect(isConfigRole(value), JSON.stringify(value)).toBe(false);
+      expect(() => assertCanConfigure(value)).toThrow(ForbiddenError);
     }
   });
 });
@@ -408,6 +419,13 @@ const FE22_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   },
 ];
 
+/** BE-13 QĐ-B: ba quyền ghi trên vault thanh toán SPV. */
+const BE13_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  { action: 'vault:configure', allowed: ['CONTROLLER'], why: 'Kiểm soát viên cấu hình khoá và ví nhận' },
+  { action: 'vault:withdraw', allowed: ['SELLER'], why: 'Người bán tự rút, không qua duyệt (chốt 07/10)' },
+  { action: 'vault:reconcile', allowed: ['CONTROLLER'], why: 'xử lý lệnh rút không xác định được kết cục' },
+];
+
 /**
  * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
  * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
@@ -439,10 +457,13 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'order:draft',
   'order:approve',
   'demo:mint-token',
+  'vault:configure',
+  'vault:withdraw',
+  'vault:reconcile',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -462,11 +483,12 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...FE20_AREA_GATES.map((row) => row.action),
       ...BE12_ACTIONS.map((row) => row.action),
       ...FE22_ACTIONS.map((row) => row.action),
+      ...BE13_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
       missing,
-      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS, FE20_AREA_GATES, BE12_ACTIONS hoặc FE22_ACTIONS: ${missing.join(', ')}`,
+      `thêm dòng cho các action này vào NEW_ACTIONS, BE02_ACTIONS, FE20_AREA_GATES, BE12_ACTIONS, FE22_ACTIONS hoặc BE13_ACTIONS: ${missing.join(', ')}`,
     ).toEqual([]);
   });
 
@@ -493,26 +515,24 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
     }
   });
 
-  it('vai trò lạ quy về FALLBACK_ROLE: không một quyền GHI nào', () => {
+  it('vai trò lạ: không một quyền GHI nào, và từ BE-13 cũng không quyền ĐỌC nào', () => {
     for (const value of ['admin', 'ADMIN', 'BANK-ADMIN', 'AUDITOR', '', null, undefined, 42, {}, []]) {
       for (const action of ALL_WRITE_ACTIONS) {
         expect(can(value, action), `${String(value)} không được ${action}`).toBe(false);
       }
     }
-    // Nhưng vẫn đọc được phần của chính mình — fallback là "quyền thấp nhất", không phải
-    // "không quyền". Dữ liệu toàn hệ thì không: xem describe về FALLBACK_ROLE.
-    expect(can('nguoi-la', 'balance:read')).toBe(true);
-    expect(can('nguoi-la', 'txn:read')).toBe(true);
+    // BE-13 QĐ-A: trước đây vai lạ mượn quyền đọc của SELLER; nay không còn.
+    expect(can('nguoi-la', 'balance:read')).toBe(false);
+    expect(can('nguoi-la', 'txn:read')).toBe(false);
   });
 
-  it('SELLER không có quyền GHI nào; CONTROLLER chỉ có đúng một là order:approve', () => {
-    for (const action of ALL_WRITE_ACTIONS) {
-      expect(can('SELLER', action), `SELLER không được ${action}`).toBe(false);
-    }
-    // Kiểm soát viên duyệt việc của người khác, không tự làm: ngoài quyền duyệt không có
-    // một quyền ghi nào, kể cả `token:mint` mà lần duyệt dẫn tới.
+  it('SELLER chỉ có đúng một quyền GHI là vault:withdraw; CONTROLLER chỉ duyệt và cấu hình, xử lý vault', () => {
+    // BE-13: Người bán tự rút VNDB từ vault, ngoài ra không có quyền ghi nào.
+    expect(ALL_WRITE_ACTIONS.filter((action) => can('SELLER', action))).toEqual(['vault:withdraw']);
+    // Kiểm soát viên duyệt việc của người khác, không tự làm: ngoài quyền duyệt và hai quyền
+    // vault (cấu hình khoá, xử lý lệnh rút cần xem xét) không có quyền ghi nào, kể cả tự rút.
     const writes = ALL_WRITE_ACTIONS.filter((action) => can('CONTROLLER', action));
-    expect(writes).toEqual(['order:approve']);
+    expect(writes).toEqual(['order:approve', 'vault:configure', 'vault:reconcile']);
   });
 
   it('BE-12 việc 4 — không vai nào có cả quyền lập lẫn quyền duyệt', () => {

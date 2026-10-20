@@ -4,6 +4,7 @@ import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { SEED_PROJECT_CHAINS } from '@/lib/store/seed-data';
 import { getProjectStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 
 /**
  * BE-04 CA 4 — PHÁT HÀNH ĐÚNG TRẦN TỪ BẢNG DỰ ÁN; BE-12 CA 7 — NHIỀU LẦN TỚI KHI CHẠM TRẦN.
@@ -19,7 +20,8 @@ import { getProjectStore, getStore, resetMemoryStore, resetStoreCache } from '@/
  */
 
 const CHAIN = 'mock';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+/** BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`. */
+const SPV = MOCK_VAULT_ADDRESS;
 const INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 function actAs(role: string) {
@@ -361,9 +363,11 @@ describe('ca 4 — điều kiện biên', () => {
     expect((await (await mockLedger()).tokenInfo()).totalSupply).toBe(0n);
   });
 
-  it('ví SPV chưa whitelist thì ledger từ chối, bảng dự án KHÔNG bị đánh dấu đã phát hành', async () => {
+  it('ví SPV bị ledger từ chối thì bảng dự án KHÔNG bị đánh dấu đã phát hành', async () => {
     const { issueInitialSupply } = await services();
-    // Cố ý KHÔNG whitelist.
+    // BE-13 QĐ-G: vault mock được whitelist từ lúc khởi tạo như `deploy.js`, nên không còn dựng
+    // được "vault chưa whitelist". Đóng băng vault cho ledger từ chối cùng chỗ (`requireNotFrozen`).
+    await (await mockLedger()).freeze(SPV, true);
 
     const result = await issueInitialSupply({ chain: CHAIN, spvWallet: SPV });
 

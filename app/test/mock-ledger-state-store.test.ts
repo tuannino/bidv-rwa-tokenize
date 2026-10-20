@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { getLedger } from '@/lib/ledger';
 import { LedgerError } from '@/lib/ledger/ledger.port';
@@ -11,6 +12,7 @@ import {
 } from '@/lib/ledger/mock-state.store';
 import { createMockLedger, resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { createPostgresMockLedgerStateStore } from '@/lib/ledger/postgres-mock-state.store';
+import { pgQuery } from '@/lib/store/postgres.pool';
 import { getProjectStore, getTokenRequestStore, resetStoreCache } from '@/lib/store';
 import { settlementOrder } from './helpers/settlement-order';
 
@@ -194,6 +196,27 @@ describe.skipIf(!TEST_DATABASE_URL)('Postgres MockLedgerState', () => {
 
   sharedStateStoreContract('Postgres', () => createPostgresMockLedgerStateStore('mock'));
 
+  it('BE-13 ca 12: dòng JSONB cũ thiếu vault đọc ra vault UNSET và ghi lại kèm vault', async () => {
+    const legacy = encodeMockLedgerState(createDefaultMockLedgerState()) as Record<string, unknown>;
+    delete legacy.vault;
+    legacy.whitelisted = [];
+    const store = createPostgresMockLedgerStateStore('mock');
+    await resetMockLedger(store);
+    await pgQuery(
+      `INSERT INTO "MockLedgerState" ("chain","version","state","updatedAt")
+       VALUES ('mock',0,$1::jsonb,CURRENT_TIMESTAMP)`,
+      [JSON.stringify(legacy)],
+    );
+    const ledger = createMockLedger('mock', { stateStore: store });
+    expect(await ledger.vaultStatus()).toMatchObject({ lockMode: 'UNSET', payoutWallet: null });
+    expect(await ledger.isWhitelisted(MOCK_VAULT_ADDRESS)).toBe(true);
+    await ledger.setVaultFixedLock(5n);
+    const rows = await pgQuery<{ state: { vault?: { fixedLockAmount: string } } }>(
+      `SELECT "state" FROM "MockLedgerState" WHERE "chain" = 'mock'`,
+    );
+    expect(rows[0]?.state.vault?.fixedLockAmount).toBe('5');
+  });
+
   it('whitelist + lập ở A, xoá cache tiến trình, duyệt ở B vẫn thành công', async () => {
     const regressionWallet = '0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd';
     const tokenSymbol = `OP07${Date.now().toString(36).slice(-8)}`.toUpperCase();
@@ -220,7 +243,9 @@ describe.skipIf(!TEST_DATABASE_URL)('Postgres MockLedgerState', () => {
       chain: 'mock',
       tokenSymbol,
       amount: '700',
-      wallet: regressionWallet,
+      // BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic. Whitelist ví hồi quy ở A vẫn được
+      // kiểm lại ở B (dưới) để giữ ý nghĩa "trạng thái đi qua Postgres, không qua bộ nhớ tiến trình".
+      wallet: MOCK_VAULT_ADDRESS,
       reason: 'hồi quy OP-07 qua Worker isolate',
       documentRef: 'OP07-REGRESSION',
       effectiveDate: '2026-10-14',
@@ -240,7 +265,7 @@ describe.skipIf(!TEST_DATABASE_URL)('Postgres MockLedgerState', () => {
     expect(approved.ok, approved.ok ? '' : approved.error).toBe(true);
     if (!approved.ok) return;
     expect(approved.data.status).toBe('COMPLETED');
-    expect(approved.data.wallet).toBe(regressionWallet);
+    expect(approved.data.wallet).toBe(MOCK_VAULT_ADDRESS);
     expect((await getLedger('mock').tokenInfo()).totalSupply).toBe(700n);
     expect((await getTokenRequestStore().findRequest(requestId))?.status).toBe('COMPLETED');
   });

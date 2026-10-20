@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { MOCK_VAULT_ADDRESS } from '../../packages/shared/src/mock-vault';
 
 /**
  * E2E màn Lập lệnh và Phê duyệt lệnh (FE-22).
@@ -11,8 +12,8 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
  * Không chốt cứng tổng cung: các tệp e2e khác chạy trên cùng máy chủ và có thể đã phát hành.
  */
 
-// Hardhat account #4 — ví thanh toán SPV dùng trong các test phía máy chủ.
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+// BE-13 QĐ-G: Mint đầu trên mock vào vault logic (trước BE-13 là ví NB001, Hardhat account #4).
+const SPV = MOCK_VAULT_ADDRESS;
 const AMOUNT = 1234;
 
 async function actAs(context: BrowserContext, baseURL: string, role: 'TELLER' | 'CONTROLLER') {

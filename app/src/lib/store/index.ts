@@ -25,6 +25,9 @@ import type { ITxnStore } from './store.port';
 import { createMemoryTokenRequestStore } from './memory.token-request.store';
 import { createPostgresTokenRequestStore } from './postgres.token-request.store';
 import type { ITokenRequestStore } from './token-request.store.port';
+import { createMemoryVaultStore } from './memory.vault.store';
+import { createPostgresVaultStore } from './postgres.vault.store';
+import type { IVaultStore } from './vault.store.port';
 
 export {
   type AuditRecord,
@@ -134,6 +137,23 @@ export {
   type TokenRequestType,
 } from './token-request.store.port';
 
+export {
+  assertVaultOperationKind,
+  assertWithdrawStatus,
+  type AcquireVaultLockInput,
+  type IVaultStore,
+  type NewWithdrawRequest,
+  VAULT_OPERATION_KINDS,
+  type VaultOperationKind,
+  type VaultOperationLockRecord,
+  WITHDRAW_STATUSES,
+  WITHDRAW_TERMINAL_STATUSES,
+  WITHDRAW_TRANSITIONS,
+  type WithdrawRequestRecord,
+  type WithdrawStatus,
+  type WithdrawTransition,
+} from './vault.store.port';
+
 export { resetMemoryStore } from './memory.store';
 
 /**
@@ -158,6 +178,7 @@ const cache: {
   config?: IConfigStore;
   project?: IProjectStore;
   tokenRequest?: ITokenRequestStore;
+  vault?: IVaultStore;
 } = {};
 
 const wantsMemoryStore = (): boolean => serverEnv().useMockDb;
@@ -238,6 +259,15 @@ export function getTokenRequestStore(): ITokenRequestStore {
 }
 
 /**
+ * Cổng vận hành vault (BE-13): khoá vận hành bền theo chain. Trọng tài chống hai thao tác vault
+ * song song là câu ghi lấy khoá, không phải phép đọc trước trong nghiệp vụ.
+ */
+export function getVaultStore(): IVaultStore {
+  cache.vault ??= wantsMemoryStore() ? createMemoryVaultStore() : createPostgresVaultStore();
+  return cache.vault;
+}
+
+/**
  * Xoá cache của MỌI cổng.
  *
  * Một hàm cho tất cả, không phải một hàm mỗi cổng: test đổi `USE_MOCK_DB` rồi chỉ xoá cache
@@ -253,4 +283,5 @@ export function resetStoreCache(): void {
   cache.config = undefined;
   cache.project = undefined;
   cache.tokenRequest = undefined;
+  cache.vault = undefined;
 }

@@ -1,7 +1,9 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { MOCK_VAULT_ADDRESS } from '../../packages/shared/src/mock-vault';
 
 const CHAIN = 'mock';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+// BE-13 QĐ-G: Mint đầu trên mock vào vault logic, không còn vào ví NB001.
+const SPV = MOCK_VAULT_ADDRESS;
 const ALICE = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 type TestRole = 'INVESTOR' | 'SELLER' | 'TELLER' | 'CONTROLLER';

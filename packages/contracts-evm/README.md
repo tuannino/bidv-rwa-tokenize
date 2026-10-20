@@ -39,17 +39,29 @@ Triển khai local dùng `bash scripts/evm-local.sh reset` từ gốc repo; scri
 Vault được triển khai thứ tám, đăng ký danh tính, cấp `CONFIG_ROLE`, `WITHDRAWER_ROLE` và
 `PAUSER_ROLE` cho khoá máy chủ; `payoutWallet` chưa đặt và chế độ `UNSET` (khoá toàn bộ).
 `OrderSettlement` được triển khai thứ chín; vault cấp `MATCHER_ROLE` duy nhất cho hợp đồng này,
-còn khoá máy chủ giữ `OPERATOR_ROLE`, `PRICE_ROLE`, `PAUSER_ROLE`. Quản trị vault bằng script
-an toàn mặc định:
+còn khoá máy chủ giữ `OPERATOR_ROLE`, `PRICE_ROLE`, `PAUSER_ROLE`.
+
+**Đường chính (BE-13) là màn `/vault` của app:** Kiểm soát viên cấu hình tỷ lệ khoá, số khoá cố định
+và ví nhận; Người bán rút ở `/seller/withdraw`. App giữ khoá vận hành bền theo chain, gửi giao dịch
+theo bảng chuyển tiếp, lưu `Txn` và audit, và ghi lịch sử mọi lần thay đổi cấu hình từ sự kiện trên
+chuỗi. Script `vault-admin.js` chỉ còn cho trường hợp khẩn cấp, an toàn mặc định (in kế hoạch, cần
+`VAULT_ADMIN_CONFIRM=yes` mới gửi). Script đọc lệnh từ biến môi trường:
 
 ```bash
-npx hardhat run scripts/vault-admin.js --network localhost -- status
-npx hardhat run scripts/vault-admin.js --network localhost -- set-rate 2000       # chỉ in kế hoạch
-VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-rate 2000
-VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-mode PERCENT
-VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- close-period 1 50000000
-VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-payout 0x...
+npx hardhat run scripts/vault-admin.js --network localhost                                   # status
+VAULT_ADMIN_ACTION=set-rate VAULT_PERCENT_BPS=2000 npx hardhat run scripts/vault-admin.js --network localhost   # chỉ in kế hoạch
+VAULT_ADMIN_ACTION=set-rate VAULT_PERCENT_BPS=2000 VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost
+VAULT_ADMIN_ACTION=set-mode VAULT_LOCK_MODE=PERCENT VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost
+VAULT_ADMIN_ACTION=close-period VAULT_PERIOD_REF=1 VAULT_DISTRIBUTED_PREV=50000000 VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost
+VAULT_ADMIN_ACTION=set-payout VAULT_PAYOUT_WALLET=0x... VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost
 ```
+
+⚠️ BE-13: **không chạy script khi app đang giữ khoá vận hành** (màn `/vault` báo "Vault đang có thao
+tác khác", hoặc có lệnh rút chưa kết thúc): giao dịch của script chen giữa các bước app đang gửi. Thay
+đổi cấu hình bằng script vẫn hiện trong "Lịch sử cấu hình" với người thao tác "ngoài app". Một lần rút
+bằng script ngoài app (ví giữ `WITHDRAWER_ROLE`) không gắn với lệnh nào của app: sự kiện `Withdrawn`
+không mang mã lệnh, nên đối soát của app phải chuyển lệnh mất mã giao dịch sang người xem thay vì tự
+kết luận (nợ QĐ-J trong `docs/tech-report.md` 1.6.C).
 
 ⚠️ SC-06: ứng dụng tự đẩy số đã dành cho kỳ chia vào `closePeriod` khi mở kỳ (đúng một lần mỗi kỳ,
 đối soát sự kiện `PeriodClosed`). **Không dùng `close-period` khi luồng tự động đang chạy**: chốt chen
