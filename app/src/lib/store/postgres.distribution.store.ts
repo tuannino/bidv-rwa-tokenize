@@ -2,8 +2,11 @@ import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
 import {
+  assertDistributionApprovalStatus,
   assertDistributionPayoutStatus,
   assertDistributionPeriodStatus,
+  ACTIVE_PERIOD_STATUSES,
+  type DistributionApprovalStatus,
   type DistributionPayoutRecord,
   type DistributionPayoutStatus,
   type DistributionPeriodRecord,
@@ -29,6 +32,14 @@ import {
  * mã nguồn này.
  */
 
+/**
+ * FE-08 QĐ-B: biểu thức `activeChain` theo trạng thái trong cùng câu cập nhật. Danh sách trạng
+ * thái hoạt động lấy từ hằng số của cổng, không phải từ input.
+ */
+const ACTIVE_STATUS_SQL = ACTIVE_PERIOD_STATUSES.map((status) => `'${status}'`).join(',');
+const activeChainSql = (statusExpr: string) =>
+  `CASE WHEN ${statusExpr} IN (${ACTIVE_STATUS_SQL}) THEN "chain" ELSE NULL END`;
+
 interface PeriodRow {
   id: string;
   periodKey: string;
@@ -45,6 +56,13 @@ interface PeriodRow {
   vaultPeriodRef: number | null;
   vaultCloseStatus: string | null;
   vaultCloseTxHash: string | null;
+  approvalStatus: string | null;
+  expectedAmount: string | null;
+  approvedAmount: string | null;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  reapprovedFrom: string | null;
+  activeChain: string | null;
 }
 
 const toPeriod = (row: PeriodRow): DistributionPeriodRecord => ({
@@ -63,6 +81,13 @@ const toPeriod = (row: PeriodRow): DistributionPeriodRecord => ({
   vaultPeriodRef: row.vaultPeriodRef,
   vaultCloseStatus: row.vaultCloseStatus as VaultCloseStatus | null,
   vaultCloseTxHash: row.vaultCloseTxHash,
+  approvalStatus: row.approvalStatus as DistributionApprovalStatus | null,
+  expectedAmount: row.expectedAmount,
+  approvedAmount: row.approvedAmount,
+  approvedBy: row.approvedBy,
+  approvedAt: row.approvedAt?.toISOString() ?? null,
+  reapprovedFrom: row.reapprovedFrom,
+  activeChain: row.activeChain as ChainKey | null,
 });
 
 interface PayoutRow {
@@ -99,8 +124,9 @@ export function createPostgresDistributionStore(query: PgQuery = pgQuery): IDist
       const rows = await mapPgConstraintError(() =>
         query<PeriodRow>(
           `INSERT INTO "DistributionPeriod"
-             ("id","periodKey","snapshotId","totalAmount","totalSupplyAt","status","chain")
-           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6)
+             ("id","periodKey","snapshotId","totalAmount","totalSupplyAt","status","chain","activeChain")
+           VALUES (gen_random_uuid()::text,$1,$2,$3,$4,$5,$6,
+                   CASE WHEN $5 IN (${ACTIVE_STATUS_SQL}) THEN $6 ELSE NULL END)
            RETURNING *`,
           [
             period.periodKey,
@@ -115,14 +141,21 @@ export function createPostgresDistributionStore(query: PgQuery = pgQuery): IDist
       return toPeriod(rows[0]);
     },
 
-    async reservePeriod({ periodKey, chain }) {
+    async reservePeriod({ periodKey, chain, approval }) {
       const rows = await mapPgConstraintError(() =>
         query<PeriodRow>(
           `INSERT INTO "DistributionPeriod"
-             ("id","periodKey","snapshotId","totalAmount","totalSupplyAt","status","chain")
-           VALUES (gen_random_uuid()::text,$1,0,0,0,'OPENING',$2)
+             ("id","periodKey","snapshotId","totalAmount","totalSupplyAt","status","chain","activeChain",
+              "expectedAmount","approvedBy","approvedAt")
+           VALUES (gen_random_uuid()::text,$1,0,0,0,'OPENING',$2,$2,$3::numeric,$4::text,
+                   CASE WHEN $4::text IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END)
            RETURNING *`,
-          [periodKey, chain],
+          [
+            periodKey,
+            chain,
+            approval ? assertAmount('expectedAmount', approval.expectedAmount) : null,
+            approval?.approvedBy ?? null,
+          ],
         ),
       );
       return toPeriod(rows[0]);
@@ -221,29 +254,77 @@ export function createPostgresDistributionStore(query: PgQuery = pgQuery): IDist
     },
 
     async listPeriods(options = {}) {
-      const { chain, status, limit = 50 } = options;
+      const { chain, status, limit = 50, offset = 0 } = options;
       const rows = await query<PeriodRow>(
         `SELECT * FROM "DistributionPeriod"
           WHERE ($1::text IS NULL OR "chain" = $1)
             AND ($2::text IS NULL OR "status" = $2)
           ORDER BY "openedAt" DESC, "id" DESC
-          LIMIT $3`,
-        [chain ?? null, status ?? null, limit],
+          LIMIT $3 OFFSET $4`,
+        [chain ?? null, status ?? null, limit, offset],
       );
       return rows.map(toPeriod);
     },
 
+    async countPeriods(options = {}) {
+      const rows = await query<{ count: string }>(
+        `SELECT count(*)::text AS "count" FROM "DistributionPeriod" WHERE ($1::text IS NULL OR "chain" = $1)`,
+        [options.chain ?? null],
+      );
+      return Number(rows[0]?.count ?? 0);
+    },
+
+    async findActivePeriod(chain) {
+      const rows = await query<PeriodRow>(
+        `SELECT * FROM "DistributionPeriod" WHERE "activeChain" = $1`,
+        [chain],
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
+    },
+
+    async setApproval(input) {
+      const params: unknown[] = [input.id, input.from, assertDistributionApprovalStatus(input.approvalStatus)];
+      const sets = ['"approvalStatus" = $3'];
+      const amountColumn = (column: string, value: string | null | undefined) => {
+        if (value === undefined) return;
+        params.push(value === null ? null : assertAmount(column, value));
+        sets.push(`"${column}" = $${params.length}::numeric`);
+      };
+      amountColumn('approvedAmount', input.approvedAmount);
+      amountColumn('reapprovedFrom', input.reapprovedFrom);
+      if (input.approvedBy !== undefined) {
+        params.push(input.approvedBy);
+        sets.push(`"approvedBy" = $${params.length}`);
+      }
+      if (input.approvedAt !== undefined) {
+        params.push(input.approvedAt);
+        sets.push(`"approvedAt" = $${params.length}::timestamptz`);
+      }
+      // Điều kiện và cập nhật trong MỘT câu: hai bên cùng ghi kết luận thì chỉ một bên khớp.
+      const rows = await query<PeriodRow>(
+        `UPDATE "DistributionPeriod" SET ${sets.join(', ')}
+          WHERE "id" = $1 AND "activeChain" IS NOT NULL
+            AND "approvalStatus" IS NOT DISTINCT FROM $2::text
+          RETURNING *`,
+        params,
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
+    },
+
     async setPeriodStatus({ id, status, completedAt }) {
       const params: unknown[] = [id, assertDistributionPeriodStatus(status)];
-      const sets = ['"status" = $2'];
+      // FE-08: `activeChain` đổi trong CÙNG câu với trạng thái.
+      const sets = ['"status" = $2', `"activeChain" = ${activeChainSql('$2::text')}`];
       if (completedAt !== undefined) {
         params.push(completedAt);
         sets.push(`"completedAt" = $${params.length}::timestamptz`);
       }
 
-      const rows = await query<PeriodRow>(
-        `UPDATE "DistributionPeriod" SET ${sets.join(', ')} WHERE "id" = $1 RETURNING *`,
-        params,
+      const rows = await mapPgConstraintError(() =>
+        query<PeriodRow>(
+          `UPDATE "DistributionPeriod" SET ${sets.join(', ')} WHERE "id" = $1 RETURNING *`,
+          params,
+        ),
       );
       return rows[0] ? toPeriod(rows[0]) : null;
     },
@@ -323,16 +404,24 @@ export function createPostgresDistributionStore(query: PgQuery = pgQuery): IDist
       return updated[0] ? toPayout(updated[0]) : null;
     },
 
+    async countPayouts({ periodId }) {
+      const rows = await query<{ count: string }>(
+        `SELECT count(*)::text AS "count" FROM "DistributionPayout" WHERE "periodId" = $1`,
+        [periodId],
+      );
+      return Number(rows[0]?.count ?? 0);
+    },
+
     async listPayouts(options = {}) {
-      const { periodId, investorWallet, status, limit = 50 } = options;
+      const { periodId, investorWallet, status, limit = 50, offset = 0 } = options;
       const found = await query<PayoutRow>(
         `SELECT * FROM "DistributionPayout"
           WHERE ($1::text IS NULL OR "periodId" = $1)
             AND ($2::text IS NULL OR lower("investorWallet") = lower($2))
             AND ($3::text IS NULL OR "status" = $3)
           ORDER BY "createdAt" DESC, "id" DESC
-          LIMIT $4`,
-        [periodId ?? null, investorWallet ?? null, status ?? null, limit],
+          LIMIT $4 OFFSET $5`,
+        [periodId ?? null, investorWallet ?? null, status ?? null, limit, offset],
       );
       return found.map(toPayout);
     },

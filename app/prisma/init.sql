@@ -90,6 +90,13 @@ CREATE TABLE "DistributionPeriod" (
     "vaultPeriodRef" INTEGER,
     "vaultCloseStatus" TEXT,
     "vaultCloseTxHash" TEXT,
+    "approvalStatus" TEXT,
+    "expectedAmount" DECIMAL(78,0),
+    "approvedAmount" DECIMAL(78,0),
+    "approvedBy" TEXT,
+    "approvedAt" TIMESTAMPTZ(3),
+    "reapprovedFrom" DECIMAL(78,0),
+    "activeChain" TEXT,
 
     CONSTRAINT "DistributionPeriod_pkey" PRIMARY KEY ("id")
 );
@@ -152,6 +159,7 @@ CREATE TABLE "KeeperRun" (
     "finishedAt" TIMESTAMPTZ(3),
     "status" TEXT NOT NULL DEFAULT 'RUNNING',
     "error" TEXT,
+    "triggerSource" TEXT NOT NULL DEFAULT 'KEEPER',
 
     CONSTRAINT "KeeperRun_pkey" PRIMARY KEY ("id")
 );
@@ -337,6 +345,9 @@ CREATE INDEX "DistributionPeriod_status_openedAt_idx" ON "DistributionPeriod"("s
 
 -- CreateIndex
 CREATE INDEX "DistributionPeriod_chain_openedAt_idx" ON "DistributionPeriod"("chain", "openedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DistributionPeriod_activeChain_key" ON "DistributionPeriod"("activeChain");
 
 -- CreateIndex
 CREATE INDEX "DistributionPayout_investorWallet_createdAt_idx" ON "DistributionPayout"("investorWallet", "createdAt");

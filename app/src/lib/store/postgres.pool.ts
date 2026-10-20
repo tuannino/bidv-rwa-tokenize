@@ -376,7 +376,40 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultCloseTxHash" TEXT`,
   // FE-05: chữ ký permit của nhà đầu tư lưu cùng lệnh. Lệnh có trước FE-05 để trống (không có chữ ký).
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "permit" JSONB`,
+  // FE-08: duyệt chia lưu bền trên kỳ, một kỳ hoạt động mỗi chain, nguồn kích hoạt của vòng chạy.
+  // Kỳ có trước FE-08 để trống phần duyệt (`approvalStatus` rỗng: phải duyệt lại mới được trả);
+  // `activeChain` của kỳ cũ còn hoạt động điền ở `BACKFILL_STATEMENTS`.
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "approvalStatus" TEXT`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "expectedAmount" DECIMAL(78,0)`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "approvedAmount" DECIMAL(78,0)`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "approvedBy" TEXT`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "approvedAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "reapprovedFrom" DECIMAL(78,0)`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "activeChain" TEXT`,
+  `ALTER TABLE IF EXISTS "KeeperRun" ADD COLUMN IF NOT EXISTS "triggerSource" TEXT NOT NULL DEFAULT 'KEEPER'`,
 ];
+
+/**
+ * Điền cột vừa thêm mà giá trị suy ra được từ cột cũ. Chạy SAU `init.sql` (bảng chắc chắn đã có,
+ * chỉ mục duy nhất đã dựng), trong cùng transaction với việc thêm cột. Chạy lại là no-op.
+ *
+ * FE-08: kỳ cũ còn hoạt động giữ chỗ hoạt động của chain mình, nên kỳ mới không chen được và kỳ
+ * cũ hiện ra để Kiểm soát viên duyệt lại. Chỉ kỳ MỞ SỚM NHẤT mỗi chain: dữ liệu trước FE-08 có thể
+ * có hai kỳ dở cùng chain (mở tay khi kỳ khác còn dở), điền cả hai thì chỉ mục duy nhất nổ và cả
+ * ứng dụng không khởi động được.
+ */
+const BACKFILL_STATEMENTS: readonly string[] = [
+  `UPDATE "DistributionPeriod" p SET "activeChain" = p."chain"
+     FROM (SELECT DISTINCT ON ("chain") "id" FROM "DistributionPeriod"
+            WHERE "status" IN ('OPENING','OPEN','DISTRIBUTING')
+            ORDER BY "chain", "openedAt", "id") oldest
+    WHERE p."id" = oldest."id" AND p."activeChain" IS NULL
+      AND NOT EXISTS (SELECT 1 FROM "DistributionPeriod" q WHERE q."activeChain" = p."chain")`,
+];
+
+async function backfillColumns(client: ClientBase): Promise<void> {
+  for (const statement of BACKFILL_STATEMENTS) await client.query(statement);
+}
 
 async function addMissingColumns(client: ClientBase): Promise<void> {
   for (const statement of ADDED_COLUMNS) await client.query(statement);
@@ -514,6 +547,7 @@ async function ensureSchema(client: ClientBase): Promise<void> {
         await readStep('db.schema.columns', () => addMissingColumns(client));
         await readStep('db.schema.ddl', () => applyInitSql(client, INIT_SQL));
         await readStep('db.schema.timestamps', () => migrateTimestampColumns(client));
+        await readStep('db.schema.backfill', () => backfillColumns(client));
       }
     }
     await readStep('db.schema.seed', () => seedInitialData(client));

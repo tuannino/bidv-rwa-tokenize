@@ -387,13 +387,30 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
   //  7.5 — mở cùng một kỳ hai lần
   // -------------------------------------------------------------------------
   describe('kỳ chia lợi nhuận', () => {
+    /**
+     * FE-08: kỳ ở trạng thái cuối (`activeChain = null`) để ca về `periodKey` không vướng ràng
+     * buộc "một kỳ hoạt động mỗi chain"; ràng buộc đó kiểm riêng ở `fe-08-store.test.ts`.
+     */
     const newPeriod = (periodKey: string) => ({
       periodKey,
       snapshotId: 1,
       totalAmount: '1000000',
       totalSupplyAt: '100',
       chain: 'mock' as const,
+      status: 'COMPLETED' as const,
     });
+
+    /**
+     * FE-08: chain chưa có kỳ hoạt động để ca giữ chỗ dùng. Bản Postgres không xoá dữ liệu nên
+     * phải hỏi; `stellar` để riêng cho ca QĐ-G bên dưới. Mỗi ca tự đưa kỳ của mình về trạng thái
+     * cuối hoặc xoá kỳ `OPENING` trước khi kết thúc.
+     */
+    const freeChain = async () => {
+      for (const chain of CHAIN_ORDER.filter((key) => key !== 'stellar')) {
+        if (!(await store.distribution.findActivePeriod(chain))) return chain;
+      }
+      throw new Error('mọi chain đều đang có kỳ hoạt động; dọn database kiểm thử');
+    };
 
     it('mở cùng một periodKey hai lần bị từ chối (R2.2)', async () => {
       const periodKey = `ky-${randomUUID()}`;
@@ -440,20 +457,23 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
     });
 
     it('SC-06: hai lần giữ chỗ cùng mã đồng thời chỉ một bên thắng', async () => {
-      const periodKey = `mock:${randomUUID()}`;
+      const chain = await freeChain();
+      const periodKey = `${chain}:${randomUUID()}`;
       const results = await Promise.allSettled([
-        store.distribution.reservePeriod({ periodKey, chain: 'mock' }),
-        store.distribution.reservePeriod({ periodKey, chain: 'mock' }),
+        store.distribution.reservePeriod({ periodKey, chain }),
+        store.distribution.reservePeriod({ periodKey, chain }),
       ]);
       expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
       const lost = results.find((result) => result.status === 'rejected') as PromiseRejectedResult;
       expect(lost.reason).toBeInstanceOf(UniqueConstraintError);
       const found = await store.distribution.findPeriodByKey(periodKey);
       expect(found).toMatchObject({ status: 'OPENING', snapshotId: 0, totalAmount: '0', distributionId: null });
+      expect(await store.distribution.deleteOpeningPeriod(found!.id)).toBe(true);
     });
 
     it('SC-06: hoàn tất chỉ từ OPENING, lần sau không ghi đè; xoá chỉ được kỳ OPENING', async () => {
-      const reserved = await store.distribution.reservePeriod({ periodKey: `mock:${randomUUID()}`, chain: 'mock' });
+      const chain = await freeChain();
+      const reserved = await store.distribution.reservePeriod({ periodKey: `${chain}:${randomUUID()}`, chain });
       const withTx = await store.distribution.setOpenTxHash({ id: reserved.id, openTxHash: '0xabc' });
       expect(withTx?.openTxHash).toBe('0xabc');
 
@@ -463,8 +483,10 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       expect((await store.distribution.findPeriod(reserved.id))?.distributionId).toBe(7);
       expect(await store.distribution.setOpenTxHash({ id: reserved.id, openTxHash: '0xdef' })).toBeNull();
       expect(await store.distribution.deleteOpeningPeriod(reserved.id)).toBe(false);
+      // FE-08: kỳ về trạng thái cuối mới nhường chỗ hoạt động của chain cho kỳ sau.
+      await store.distribution.setPeriodStatus({ id: reserved.id, status: 'COMPLETED', completedAt: new Date().toISOString() });
 
-      const other = await store.distribution.reservePeriod({ periodKey: `mock:${randomUUID()}`, chain: 'mock' });
+      const other = await store.distribution.reservePeriod({ periodKey: `${chain}:${randomUUID()}`, chain });
       expect(await store.distribution.deleteOpeningPeriod(other.id)).toBe(true);
       expect(await store.distribution.findPeriod(other.id)).toBeNull();
     });
@@ -475,11 +497,20 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
      * và đưa cả hai kỳ về `DONE` trước khi kết thúc, để lần chạy sau không bị chính nó chặn.
      */
     it('SC-06 QĐ-G: giữ chỗ mã kỳ vault theo thứ tự mở kỳ, giành quyền gửi chỉ một bên thắng', async () => {
+      // FE-08: mỗi chain một kỳ hoạt động, nên kỳ đầu về COMPLETED (vault chưa DONE) rồi mới mở kỳ
+      // sau; thứ tự giữ chỗ vault vẫn tính trên mọi kỳ đã nối chuỗi, kể cả kỳ đã ở trạng thái cuối.
+      // Kỳ `stellar:<uuid>` còn OPEN từ các lần chạy trước FE-08 là của chính ca này: database được
+      // nâng lược đồ cho kỳ sớm nhất giữ chỗ hoạt động, nên đóng nó trước.
+      const leftover = await store.distribution.findActivePeriod('stellar');
+      if (leftover && /^stellar:[0-9a-f-]{36}$/.test(leftover.periodKey)) {
+        await store.distribution.setPeriodStatus({ id: leftover.id, status: 'CLOSED', completedAt: new Date().toISOString() });
+      }
       const first = await store.distribution.reservePeriod({ periodKey: `stellar:${randomUUID()}`, chain: 'stellar' });
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      const second = await store.distribution.reservePeriod({ periodKey: `stellar:${randomUUID()}`, chain: 'stellar' });
       expect(await store.distribution.reserveVaultClose({ id: first.id, vaultPeriodRef: 1 })).toBeNull();
       await store.distribution.completeOpening(link(first.id, 1));
+      await store.distribution.setPeriodStatus({ id: first.id, status: 'COMPLETED', completedAt: new Date().toISOString() });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const second = await store.distribution.reservePeriod({ periodKey: `stellar:${randomUUID()}`, chain: 'stellar' });
       await store.distribution.completeOpening(link(second.id, 2));
 
       // Kỳ sau chưa giữ chỗ được khi kỳ trước chưa DONE.
@@ -503,6 +534,7 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       const next = await store.distribution.reserveVaultClose({ id: second.id, vaultPeriodRef: 2 });
       expect(next).toMatchObject({ vaultPeriodRef: 2, vaultCloseStatus: 'PENDING' });
       await store.distribution.transitionVaultClose({ id: second.id, from: 'PENDING', to: 'DONE' });
+      await store.distribution.setPeriodStatus({ id: second.id, status: 'COMPLETED', completedAt: new Date().toISOString() });
     });
   });
 
@@ -510,6 +542,7 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
   //  7.2 — chia trùng cho một nhà đầu tư
   // -------------------------------------------------------------------------
   describe('chi tiết chia lợi nhuận', () => {
+    // FE-08: kỳ ở trạng thái cuối để nhiều kỳ cùng chain cùng tồn tại (một kỳ hoạt động mỗi chain).
     const openPeriod = () =>
       store.distribution.openPeriod({
         periodKey: `ky-${randomUUID()}`,
@@ -517,6 +550,7 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
         totalAmount: '1000000',
         totalSupplyAt: '100',
         chain: 'mock',
+        status: 'COMPLETED',
       });
 
     const payout = (wallet: string) => ({ investorWallet: wallet, balanceAt: '10', amount: '100' });

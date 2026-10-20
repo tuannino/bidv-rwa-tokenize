@@ -4,7 +4,7 @@ import type { ChainKey } from '@bidv/shared';
 import { CONFIG_KEYS } from '@/lib/config/issue-terms';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, type Role } from '@/lib/rbac';
-import { currentRole } from '@/lib/rbac/session';
+import { currentActorId, currentRole } from '@/lib/rbac/session';
 import {
   getConfigStore,
   getDistributionStore,
@@ -12,7 +12,12 @@ import {
   getStore,
   UniqueConstraintError,
 } from '@/lib/store';
-import type { DistributionPeriodRecord, ITxnStore, KeeperRunRecord } from '@/lib/store';
+import type {
+  DistributionPeriodRecord,
+  ITxnStore,
+  KeeperRunRecord,
+  KeeperTriggerSource,
+} from '@/lib/store';
 import {
   readDistributionMinNewBalance,
   readDistributionSettledBalance,
@@ -20,18 +25,21 @@ import {
 } from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
 import {
-  distributePeriod,
-  MAX_RECIPIENT_SCAN,
-  openPeriod,
+  chainContext,
   reconcileChainPeriods,
+  runDistributionRound,
+  type ChainContext,
   type DistributionRunView,
 } from './distribution.service';
 import { err, ok, type Result } from './result';
 import { distributionCycleSchema, keeperRunQuerySchema } from './schemas';
 
 /**
- * TIẾN TRÌNH TỰ ĐỘNG CHIA LỢI NHUẬN — phát hiện ví lợi nhuận nhận tiền rồi chia, không cần
- * người bấm.
+ * TIẾN TRÌNH TỰ ĐỘNG CHIA LỢI NHUẬN: dọn kỳ dở và tiếp tục kỳ ĐÃ DUYỆT, không cần người bấm.
+ *
+ * FE-08 QĐ-E (CH-3): keeper KHÔNG BAO GIỜ mở kỳ. Mở kỳ là Kiểm soát viên duyệt đúng số
+ * (`distribution-approval.service.ts`); keeper chỉ chia tiếp kỳ `APPROVED`, còn lại báo
+ * `AWAITING_APPROVAL`. Tự mở kỳ theo ngưỡng để dành task sau (nợ QĐ-H).
  *
  * ## Hai ràng buộc kỹ thuật quyết định toàn bộ thiết kế
  *
@@ -42,7 +50,7 @@ import { distributionCycleSchema, keeperRunQuerySchema } from './schemas';
  * và kích hoạt. "Tự động" ở đây nghĩa là không cần người bấm, KHÔNG phải là hợp đồng tự chạy.
  *
  * **2. Chưa có Indexer.** Chưa đọc được sự kiện on-chain, nên việc phát hiện tiền vào làm
- * bằng cách HỎI ĐỊNH KỲ phần chưa phân bổ của quỹ. Đường nâng cấp ghi ở `detectNewFunds`.
+ * bằng cách HỎI ĐỊNH KỲ phần chưa phân bổ của quỹ. Đường nâng cấp ghi ở `decideCycle`.
  *
  * ## Căn cứ là phần CHƯA PHÂN BỔ của quỹ, không phải mốc số dư (SC-06 QĐ-I)
  *
@@ -74,17 +82,11 @@ export const DISTRIBUTION_JOB_NAME = 'distribution-trigger';
 /**
  * Dấu tách giữa mã kỳ và số vòng trong `KeeperRun.periodKey`.
  *
- * Phải là ký tự KHÔNG hợp lệ trong mã kỳ chia (`periodKeySchema` chỉ cho chữ, số và `. _ -`),
- * nếu không thì `auto-2026-01-01-01#2` và một mã kỳ tên `auto-2026-01-01-01#2` do người đặt
+ * Phải là ký tự KHÔNG hợp lệ trong mã kỳ chia (`periodKeySchema` chỉ cho chữ, số và `. _ - :`),
+ * nếu không thì `mock:2026-01-01-01#2` và một mã kỳ tên `mock:2026-01-01-01#2` do người đặt
  * sẽ không phân biệt được, và số vòng tách ra sai.
  */
 const RUN_KEY_SEPARATOR = '#';
-
-/**
- * Tiền tố mã kỳ do tiến trình tự sinh, đứng sau tiền tố chain (SC-06 CH-6): `<chain>:auto-`.
- * Phân biệt với kỳ do cán bộ ngân hàng tự đặt tên.
- */
-const AUTO_PERIOD_PREFIX = 'auto-';
 
 /** Khoá vòng chạy khi không có kỳ nào phải xử lý. Xem `idleRunKey`. */
 const IDLE_RUN_PREFIX = 'idle';
@@ -106,7 +108,7 @@ const MAX_KEEPER_RUN_SCAN = 1_000;
 // =============================================================================
 
 /**
- * Kết cục của một vòng chạy. Sáu giá trị này đều là kết cục BÌNH THƯỜNG.
+ * Kết cục của một vòng chạy. Mọi giá trị này đều là kết cục BÌNH THƯỜNG.
  *
  * Tình huống bất thường (quỹ hụt so với tổng dự trữ, SC-06 QĐ-I) KHÔNG có mặt ở đây: nó trả về
  * `Result` lỗi. Lý do là người gọi phải xử lý khác nhau :
@@ -126,7 +128,18 @@ export type DistributionCycleOutcome =
   /** Đã chia một phần; còn ví chưa nhận, lượt sau chia tiếp đúng kỳ đó. */
   | 'PARTIAL'
   /** SC-06: kỳ dở đã hết hạn nhận hoặc đã đóng trên chuỗi; chuyển `EXPIRED`/`CLOSED`, không chia. */
-  | 'PERIOD_ENDED';
+  | 'PERIOD_ENDED'
+  /**
+   * FE-08 QĐ-E: có việc nhưng cần Kiểm soát viên: kỳ hoạt động chưa duyệt hoặc `AMOUNT_CHANGED`,
+   * hoặc không có kỳ hoạt động mà phần chưa phân bổ đã tới ngưỡng. Keeper không trả, không mở kỳ.
+   */
+  | 'AWAITING_APPROVAL'
+  /** FE-08: kỳ hoạt động vẫn `OPENING` sau bước dọn; vòng sau phục hồi. */
+  | 'OPENING_PENDING'
+  /** FE-08 QĐ-D: kỳ đã duyệt nhưng chốt kỳ vault chưa xong; không gửi lô. */
+  | 'VAULT_PENDING'
+  /** FE-08 QĐ-D: kỳ vault `CONFLICT`, cần xử lý tay; không gửi lô. */
+  | 'VAULT_CONFLICT';
 
 export interface DistributionCycleView {
   chain: ChainKey;
@@ -138,7 +151,7 @@ export interface DistributionCycleView {
    * mọi số tiền trong `DistributionPeriodView`.
    */
   poolBalance: string;
-  /** SC-06: phần chưa phân bổ ở đầu vòng: căn cứ mở kỳ mới. */
+  /** SC-06: phần chưa phân bổ ở đầu vòng: số Kiểm soát viên sẽ duyệt cho kỳ mới. */
   unallocatedBalance: string;
   /** SC-06: tổng dự trữ của các kỳ chưa đóng ở đầu vòng. */
   reservedBalance: string;
@@ -152,8 +165,6 @@ export interface DistributionCycleView {
   runNo: number;
   periodId: string | null;
   periodKey: string | null;
-  /** `true` khi kỳ được MỞ trong chính vòng này. */
-  periodOpened: boolean;
   /** Số lô đã gửi trong vòng này. */
   batches: number;
   /** Số hồ sơ chuyển sang `PAID` trong vòng này. */
@@ -180,6 +191,8 @@ export interface DistributionRunLogView {
   finishedAt: string | null;
   /** Lý do thất bại, hoặc `null`. */
   error: string | null;
+  /** FE-08: `MANUAL` (Kiểm soát viên) hoặc `KEEPER`. */
+  triggerSource: KeeperTriggerSource;
 }
 
 // =============================================================================
@@ -248,59 +261,6 @@ function scanLimitError<T>(what: string, limit: number): Result<T> {
 const isResultError = (value: unknown): value is Result<never> =>
   typeof value === 'object' && value !== null && 'ok' in value && value.ok === false;
 
-/**
- * Kỳ CHƯA hoàn tất của chuỗi đang xét; `null` nghĩa là mọi kỳ đã xong.
- *
- * Lấy kỳ MỞ SỚM NHẤT khi có nhiều hơn một. Tình huống đó chỉ xảy ra khi cán bộ ngân hàng mở
- * kỳ bằng tay ở FE-08 trong lúc một kỳ khác còn dở — tiến trình này không bao giờ mở kỳ thứ
- * hai. Chọn kỳ cũ nhất để một kỳ bị bỏ quên không bị các kỳ mới chen lên trước mãi.
- */
-async function findUnfinishedPeriod(
-  chain: ChainKey,
-): Promise<DistributionPeriodRecord | null | Result<never>> {
-  const periods = await getDistributionStore().listPeriods({ chain, limit: MAX_RECIPIENT_SCAN });
-  if (periods.length >= MAX_RECIPIENT_SCAN) {
-    return scanLimitError('Danh sách kỳ chia', MAX_RECIPIENT_SCAN);
-  }
-
-  // SC-06: kỳ EXPIRED/CLOSED là trạng thái kết thúc, không chặn kỳ mới.
-  const unfinished = periods.filter(
-    (period) =>
-      period.status === 'OPENING' || period.status === 'OPEN' || period.status === 'DISTRIBUTING',
-  );
-  if (unfinished.length === 0) return null;
-
-  return unfinished.reduce((oldest, period) =>
-    period.openedAt < oldest.openedAt ? period : oldest,
-  );
-}
-
-/**
- * Mã kỳ tự sinh: `<chain>:auto-<ngày UTC>-<số thứ tự trong ngày>`, ví dụ
- * `mock:auto-2026-09-27-01` (SC-06 CH-6: tiền tố chain).
- *
- * Ngày theo UTC, không theo giờ địa phương: tiến trình định kỳ có thể chạy ở múi giờ khác
- * máy sinh mã trước đó, và khi đó "số thứ tự trong ngày" đếm trên hai ngày khác nhau sẽ cho
- * ra mã đã dùng — `openPeriod` từ chối, tiến trình đứng.
- *
- * Tiền tố chain làm số thứ tự tự đếm riêng từng chain mà vẫn không trùng `periodKey` (duy nhất
- * toàn hệ). Kỳ giữ chỗ bị xoá vì chuỗi từ chối thì mã đó được sinh lại ở vòng sau.
- *
- * Hai vòng đồng thời cố ý sinh ra CÙNG một mã: chốt chặn là ràng buộc duy nhất ở `KeeperRun`
- * và ở `periodKey`, không phải sự khác nhau của mã.
- */
-async function nextAutoPeriodKey(chain: ChainKey, now: Date): Promise<string | Result<never>> {
-  const prefix = `${chain}:${AUTO_PERIOD_PREFIX}${now.toISOString().slice(0, 10)}-`;
-
-  const periods = await getDistributionStore().listPeriods({ limit: MAX_RECIPIENT_SCAN });
-  if (periods.length >= MAX_RECIPIENT_SCAN) {
-    return scanLimitError('Danh sách kỳ chia', MAX_RECIPIENT_SCAN);
-  }
-
-  const used = periods.filter((period) => period.periodKey.startsWith(prefix)).length;
-  return `${prefix}${String(used + 1).padStart(2, '0')}`;
-}
-
 /** Số vòng ĐÃ có của một kỳ. Vòng tiếp theo là số này cộng một. */
 async function countRuns(periodKey: string): Promise<number | Result<never>> {
   const runs = await getKeeperStore().listRuns({
@@ -316,38 +276,64 @@ async function countRuns(periodKey: string): Promise<number | Result<never>> {
 }
 
 // =============================================================================
-//  PHÁT HIỆN TIỀN VÀO
+//  QUYẾT ĐỊNH CỦA MỘT VÒNG (FE-08 QĐ-E: keeper KHÔNG BAO GIỜ mở kỳ)
 // =============================================================================
 
-/** Việc phải làm sau khi đọc phần chưa phân bổ. */
+/** Việc phải làm sau khi đọc kỳ hoạt động và phần chưa phân bổ. */
 type Decision =
   | { kind: 'continue'; period: DistributionPeriodRecord }
-  | { kind: 'open' }
-  | { kind: 'idle'; outcome: 'NO_NEW_FUNDS' | 'BELOW_MIN_NEW_BALANCE'; message: string };
+  | {
+      kind: 'idle';
+      outcome: 'NO_NEW_FUNDS' | 'BELOW_MIN_NEW_BALANCE' | 'AWAITING_APPROVAL' | 'OPENING_PENDING';
+      periodKey: string | null;
+      message: string;
+    };
 
 /**
- * Quyết định vòng này làm gì từ PHẦN CHƯA PHÂN BỔ của quỹ (SC-06 QĐ-I).
+ * Quyết định vòng này làm gì (FE-08 QĐ-E, CH-3).
  *
- * Kỳ đang dở (`OPENING`, `OPEN`, `DISTRIBUTING`) được xét TRƯỚC: tiến trình không mở kỳ thứ hai
- * khi còn kỳ dở. Không có kỳ dở thì mở khi `unallocatedProfit() >= distribution.min_new_balance`.
- * Phần chưa phân bổ đã trừ phần các kỳ còn nợ, nên phần lẻ của kỳ cũ không bị hiểu nhầm là tiền
- * mới, còn tiền được giải phóng khi đóng kỳ thì được tính lại đúng.
+ * - Kỳ hoạt động `APPROVED`: chia tiếp đúng kỳ đó.
+ * - Kỳ hoạt động chưa duyệt, `AMOUNT_CHANGED`, hoặc kỳ cũ chưa có lần duyệt: `AWAITING_APPROVAL`,
+ *   không trả gì.
+ * - Kỳ còn `OPENING` sau bước dọn: `OPENING_PENDING`, chờ vòng sau phục hồi.
+ * - Không có kỳ hoạt động: `NO_NEW_FUNDS`, `BELOW_MIN_NEW_BALANCE`, hoặc `AWAITING_APPROVAL` khi phần
+ *   chưa phân bổ tới ngưỡng. KHÔNG mở kỳ: mở kỳ là quyết định của Kiểm soát viên (nợ QĐ-H).
  *
- * @pending IN-02 | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được, giữ nguyên ba nhánh quyết định và nguyên phần chia ở `runDistributionCycle`
- * @flow distribute:13 | đọc phần chưa phân bổ của quỹ, quyết định mở kỳ mới hay chia tiếp kỳ dở
+ * @pending IN-02 | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được; kết cục vẫn là `AWAITING_APPROVAL` cho tới khi Kiểm soát viên duyệt
+ * @flow distribute:18 | đọc kỳ hoạt động và phần chưa phân bổ: chỉ tiếp tục kỳ APPROVED, còn lại AWAITING_APPROVAL, không bao giờ mở kỳ
  */
-async function detectNewFunds(
-  chain: ChainKey,
-  unallocated: bigint,
-): Promise<Decision | Result<never>> {
-  const unfinished = await findUnfinishedPeriod(chain);
-  if (isResultError(unfinished)) return unfinished;
-  if (unfinished) return { kind: 'continue', period: unfinished };
+async function decideCycle(chain: ChainKey, unallocated: bigint): Promise<Decision> {
+  const active = await getDistributionStore().findActivePeriod(chain);
+  if (active) {
+    if (active.status === 'OPENING') {
+      return {
+        kind: 'idle',
+        outcome: 'OPENING_PENDING',
+        periodKey: active.periodKey,
+        message:
+          `Kỳ "${active.periodKey}" vẫn đang mở trên chuỗi sau bước dọn (chưa đọc được kỳ). ` +
+          `Vòng sau phục hồi; không gửi gì thêm.`,
+      };
+    }
+    if (active.approvalStatus === 'APPROVED') return { kind: 'continue', period: active };
+    return {
+      kind: 'idle',
+      outcome: 'AWAITING_APPROVAL',
+      periodKey: active.periodKey,
+      message:
+        active.approvalStatus === 'AMOUNT_CHANGED'
+          ? `Kỳ "${active.periodKey}" lấy ${active.totalAmount} VNDB trên chuỗi, khác số đã duyệt ` +
+            `${active.expectedAmount} VNDB. Chờ Kiểm soát viên duyệt lại; keeper không trả gì.`
+          : `Kỳ "${active.periodKey}" chưa có lần duyệt nào của Kiểm soát viên. Chờ duyệt; keeper ` +
+            `không trả gì.`,
+    };
+  }
 
   if (unallocated === 0n) {
     return {
       kind: 'idle',
       outcome: 'NO_NEW_FUNDS',
+      periodKey: null,
       message: 'Quỹ chia lợi nhuận không có phần chưa phân bổ: không có tiền mới.',
     };
   }
@@ -357,14 +343,22 @@ async function detectNewFunds(
     return {
       kind: 'idle',
       outcome: 'BELOW_MIN_NEW_BALANCE',
+      periodKey: null,
       message:
         `Quỹ chia lợi nhuận có ${unallocated} VNDB chưa phân bổ, chưa tới ngưỡng ` +
-        `${minNewBalance} VNDB nên chưa mở kỳ. Một kỳ chia tốn một ảnh chụp trên chuỗi ` +
+        `${minNewBalance} VNDB nên chưa đề nghị duyệt. Một kỳ chia tốn một ảnh chụp trên chuỗi ` +
         `cộng một giao dịch cho mỗi lô, không đáng cho vài đồng lẻ.`,
     };
   }
 
-  return { kind: 'open' };
+  return {
+    kind: 'idle',
+    outcome: 'AWAITING_APPROVAL',
+    periodKey: null,
+    message:
+      `Quỹ chia lợi nhuận có ${unallocated} VNDB chưa phân bổ, từ ngưỡng ${minNewBalance} VNDB. ` +
+      `Chờ Kiểm soát viên duyệt chia; keeper không tự mở kỳ.`,
+  };
 }
 
 // =============================================================================
@@ -378,19 +372,14 @@ async function detectNewFunds(
  * cấu hình và việc ghi để màn hình còn hiển thị được lịch sử "kỳ nào để lại bao nhiêu phần lẻ".
  *
  * Mốc mới là `totalAmount - đã chi` của kỳ vừa xong, tức đúng phần dư làm tròn còn nằm lại
- * trong ví lợi nhuận. Nhờ vậy lượt sau thấy số dư đúng bằng mốc và kết luận "không có tiền
- * mới" — phần dư KHÔNG bị hiểu lầm là một lần nạp tiền.
+ * trong ví lợi nhuận.
  *
- * ⚠️ KHÔNG lấy mốc bằng cách đọc lại `profitPoolBalance` sau khi chia, dù nghe có vẻ tương
- * đương. Giữa lúc mở kỳ và lúc chia xong, SPV có thể đã nạp thêm tiền; đọc lại số dư sẽ đưa
- * cả số tiền mới đó vào mốc, và hệ quả là nó vĩnh viễn không được chia cho ai. Tính từ con số
- * của kỳ thì phần vượt quá mốc còn nguyên trong ví và lượt sau nhận ra nó là tiền mới.
+ * ⚠️ KHÔNG lấy mốc bằng cách đọc lại `profitPoolBalance` sau khi chia: SPV có thể đã nạp thêm tiền
+ * giữa lúc mở kỳ và lúc chia xong, và số đó sẽ lẫn vào mốc.
  *
- * ⚠️ Chỉ gọi khi `outstanding === 0`. Khi đó mọi hồ sơ đã `PAID` nên "đã chi" bằng đúng tổng
- * phân bổ, và hiệu số là phần dư. Gọi giữa lúc còn hồ sơ chưa chi sẽ ghi một mốc cao hơn số
- * dư thật, rồi lượt sau kết luận "số dư giảm" và dừng hẳn.
+ * ⚠️ Chỉ gọi khi `outstanding === 0`.
  *
- * @flow distribute:14 | ghi mốc số dư đã xử lý sau khi kỳ chia xong trọn vẹn
+ * @flow distribute:16 | ghi mốc số dư đã xử lý sau khi kỳ chia xong trọn vẹn
  */
 async function settleBalanceMark(run: DistributionRunView, role: Role): Promise<bigint> {
   const nextMark = BigInt(run.period.totalAmount) - BigInt(run.paidAmount);
@@ -412,7 +401,7 @@ async function settleBalanceMark(run: DistributionRunView, role: Role): Promise<
 //  GHI VẾT
 // =============================================================================
 
-/** Ghi sổ kiểm toán cho một vòng chạy — gom lại để không lặp sáu chỗ. */
+/** Ghi sổ kiểm toán cho một vòng chạy: gom lại để không lặp nhiều chỗ. */
 async function auditCycle(
   txnStore: ITxnStore,
   role: Role,
@@ -435,10 +424,7 @@ async function auditCycle(
  * Đóng một dòng `KeeperRun`.
  *
  * ⚠️ `error` CHỈ mang thông báo khi vòng thất bại. Tóm tắt của một vòng thành công đi vào SỔ
- * KIỂM TOÁN, không nhồi vào cột này: cột tên `error` và tài liệu của nó nói "thông báo lỗi khi
- * thất bại", nên đặt một câu tóm tắt thành công vào đó làm mọi truy vấn kiểu "vòng nào có lỗi"
- * trả về cả những vòng chạy đúng. `KeeperRun` chưa có cột tóm tắt — đã ghi thành câu hỏi mở
- * trong checkpoint BE-07.
+ * KIỂM TOÁN, không nhồi vào cột này.
  */
 async function closeRun(
   run: KeeperRunRecord | null,
@@ -454,37 +440,167 @@ async function closeRun(
 }
 
 // =============================================================================
-//  MỘT VÒNG CHẠY
+//  MỘT LƯỢT CHIA CỦA KỲ ĐÃ DUYỆT: dùng chung cho Kiểm soát viên và keeper
+// =============================================================================
+
+/** Kết cục một lượt chia của kỳ đã duyệt. */
+export type ApprovedRoundOutcome =
+  /** Một lượt khác (người hoặc keeper) đang giữ đúng số vòng này của kỳ. */
+  | 'ALREADY_RUNNING'
+  /** Chốt kỳ vault chưa xong (`PENDING`, `SENT`, chờ kỳ trước): không gửi lô, lượt sau đối soát. */
+  | 'VAULT_PENDING'
+  /** Kỳ vault `CONFLICT`: khoá chia, cần xử lý tay. */
+  | 'VAULT_CONFLICT'
+  | 'DISTRIBUTED'
+  | 'PARTIAL'
+  | 'PERIOD_ENDED';
+
+export interface ApprovedRoundView {
+  outcome: ApprovedRoundOutcome;
+  runId: string | null;
+  runNo: number;
+  run: DistributionRunView | null;
+  stuck: boolean;
+  /** Mốc số dư sau lượt; khác mốc cũ chỉ khi kỳ vừa chia xong trọn vẹn. */
+  nextSettledBalance: string;
+  message: string;
+}
+
+/**
+ * Chạy MỘT lượt chia cho kỳ `APPROVED` (FE-08 QĐ-D): chiếm số vòng `<mã kỳ>#<n>` trong `KeeperRun`
+ * với nguồn kích hoạt, gọi lõi `runDistributionRound` (chốt vault, gửi tối đa
+ * `distribution.max_batches_per_run` lô), đóng dòng `KeeperRun`, ghi sổ kiểm toán.
+ *
+ * Số vòng là trọng tài giữa Kiểm soát viên bấm tiếp tục và keeper: hai bên đếm ra cùng số vòng
+ * thì ràng buộc duy nhất `(jobName, periodKey)` loại một bên TRƯỚC khi nó gửi gì.
+ *
+ * KHÔNG kiểm quyền: người gọi đã kiểm và truyền vai, người thao tác trong `ctx`.
+ *
+ * @flow distribute:12 | chiếm số vòng KeeperRun kèm nguồn MANUAL hoặc KEEPER, chạy lõi một lượt chia, đóng vòng và ghi sổ
+ */
+export async function runApprovedPeriod(
+  ctx: ChainContext,
+  period: DistributionPeriodRecord,
+  triggerSource: KeeperTriggerSource,
+): Promise<Result<ApprovedRoundView>> {
+  const { chain, role, txnStore } = ctx;
+  const settledBalance = await readDistributionSettledBalance();
+  const previousRuns = await countRuns(period.periodKey);
+  if (isResultError(previousRuns)) return previousRuns;
+  const runNo = previousRuns + 1;
+  const runKey = runKeyOf(period.periodKey, runNo);
+  const who = triggerSource === 'MANUAL' ? `Kiểm soát viên ${ctx.actor}` : 'tiến trình định kỳ';
+
+  const claimed = await claimRun(runKey, triggerSource);
+  if (!claimed) {
+    return ok({
+      outcome: 'ALREADY_RUNNING',
+      runId: null,
+      runNo,
+      run: null,
+      stuck: false,
+      nextSettledBalance: settledBalance.toString(),
+      message:
+        `Một lượt khác đã giữ chỗ chạy "${runKey}". Lượt này dừng ngay và KHÔNG chia gì: hai lượt ` +
+        `cùng chia một kỳ sẽ gửi cùng một lô hai lần.`,
+    });
+  }
+
+  try {
+    const distributed = await runDistributionRound(ctx, period.id);
+    if (!distributed.ok) {
+      await closeRun(claimed, true, distributed.error);
+      return distributed;
+    }
+    const run = distributed.data;
+
+    const ended = run.period.status === 'EXPIRED' || run.period.status === 'CLOSED';
+    const vaultBlocked = run.vault !== 'DONE' && run.vault !== 'NOT_APPLICABLE' && !ended;
+    const completed = !vaultBlocked && run.outstanding === 0;
+    const nextSettled = completed && !ended ? await settleBalanceMark(run, role) : settledBalance;
+
+    const stuckAfterRuns = await readDistributionStuckAfterRuns();
+    const stuck = !completed && !ended && runNo >= stuckAfterRuns;
+
+    const outcome: ApprovedRoundOutcome = ended
+      ? 'PERIOD_ENDED'
+      : run.vault === 'CONFLICT'
+        ? 'VAULT_CONFLICT'
+        : vaultBlocked
+          ? 'VAULT_PENDING'
+          : completed
+            ? 'DISTRIBUTED'
+            : 'PARTIAL';
+
+    const key = period.periodKey;
+    const message = {
+      PERIOD_ENDED:
+        `Kỳ "${key}" đã ${run.period.status === 'CLOSED' ? 'đóng' : 'hết hạn nhận'} trên chuỗi ở vòng ` +
+        `${runNo}: ${run.expired} hồ sơ chưa nhận chuyển EXPIRED, ${run.reconciled} đối soát từ chuỗi, ` +
+        `không gửi lô.`,
+      VAULT_CONFLICT:
+        `Kỳ "${key}": kỳ vault CONFLICT, cần xử lý tay. Không gửi lô nào; khoá chia cho tới khi xử lý.`,
+      VAULT_PENDING:
+        `Kỳ "${key}": đang chốt kỳ vault (${run.vault}). Không gửi lô nào; lần tiếp tục sau đối soát ` +
+        `rồi đi tiếp.`,
+      DISTRIBUTED:
+        `Kỳ "${key}" hoàn tất ở vòng ${runNo}: ${run.batches} lô, ${run.paid} hồ sơ đã chi, ` +
+        `${run.failed} thất bại; mốc số dư chuyển từ ${settledBalance} sang ${nextSettled}.`,
+      PARTIAL:
+        `Kỳ "${key}" chia dở ở vòng ${runNo}: ${run.batches}/${run.maxBatches} lô, ${run.paid} hồ ` +
+        `sơ đã chi, ${run.failed} thất bại, còn ${run.outstanding} phải chi. Tiếp tục để chia nốt.`,
+      ALREADY_RUNNING: '',
+    }[outcome];
+    const stuckNote = stuck
+      ? ` CẢNH BÁO: kỳ này đã qua ${runNo} vòng (ngưỡng ${stuckAfterRuns}) mà chưa chia xong. ` +
+        `Hoặc lô đang lỗi lặp lại, hoặc số ví lớn hơn mức ` +
+        `distribution.max_batches_per_run × distribution.batch_size dự tính. Cần người xem.`
+      : '';
+    const failed = stuck || outcome === 'VAULT_CONFLICT';
+
+    await closeRun(claimed, failed, failed ? message + stuckNote : null);
+    await auditCycle(
+      txnStore,
+      role,
+      chain,
+      runKey,
+      failed ? 'FAILURE' : 'SUCCESS',
+      `lượt chia (${who}): ${message}${stuckNote}`,
+    );
+
+    return ok({
+      outcome,
+      runId: claimed.id,
+      runNo,
+      run,
+      stuck,
+      nextSettledBalance: nextSettled.toString(),
+      message: message + stuckNote,
+    });
+  } catch (error) {
+    // Đóng dòng `KeeperRun` cho lỗi KHÔNG lường trước: bỏ qua thì dòng `RUNNING` ở lại mãi.
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
+    await closeRun(claimed, true, reason).catch(() => undefined);
+    throw error;
+  }
+}
+
+// =============================================================================
+//  MỘT VÒNG CHẠY CỦA KEEPER
 // =============================================================================
 
 /**
- * Chạy MỘT vòng: phát hiện tiền vào, mở kỳ nếu cần, chia tối đa số lô cấu hình, kết thúc.
+ * Chạy MỘT vòng của tiến trình định kỳ (FE-08 QĐ-E): dọn, đọc quỹ, chỉ tiếp tục kỳ đã duyệt.
  *
  * ## Thứ tự các bước
  *
- * 1. Kiểm quyền `distribution:execute`.
- * 2. DỌN (SC-06): phục hồi kỳ `OPENING`, thử lại phần vault của các kỳ chưa chốt vault.
+ * 1. Kiểm quyền `distribution:execute` (vai mặc định của bản demo, nợ QĐ-H).
+ * 2. DỌN (SC-06): phục hồi kỳ `OPENING` (kèm so số đã duyệt), thử lại phần vault của kỳ được phép.
  * 3. ĐỌC quỹ, dự trữ, phần chưa phân bổ; quỹ hụt thì dừng; quyết định việc phải làm.
- * 4. CHIẾM chỗ chạy bằng `startRun`: từ đây mới gửi giao dịch chia.
- * 5. Mở kỳ (nếu là kỳ mới) rồi chia theo lô, bằng cách gọi lại BE-06.
- * 6. Cập nhật mốc số dư (chỉ để hiển thị) nếu kỳ đã xong trọn vẹn.
- * 7. Đóng dòng `KeeperRun` và ghi sổ kiểm toán.
+ * 4. Kỳ hoạt động `APPROVED`: một lượt chia với `triggerSource = KEEPER` (`runApprovedPeriod`).
+ * 5. Còn lại: ghi vòng rỗng với kết cục (`AWAITING_APPROVAL`, ...). KHÔNG BAO GIỜ mở kỳ.
  *
- * Bước 3 nằm TRƯỚC bước 4, khác với lời khuyên "gọi `startRun` trước khi làm việc" ở
- * `keeper.store.port.ts`, và đây là chủ đích: khoá chiếm chỗ mang mã kỳ, nên phải biết kỳ nào
- * trước khi xin khoá. Không mất gì vì bước 3 chỉ ĐỌC: hai vòng đồng thời cùng đọc ra cùng một
- * kết luận, rồi cùng xin một khoá, và ràng buộc duy nhất loại một vòng TRƯỚC khi vòng đó ghi
- * dòng nào hay gửi giao dịch nào.
- *
- * Bước 2 cũng an toàn khi hai vòng chạy đồng thời: mở kỳ trên chuỗi chống trùng nhãn, và đẩy
- * vault giành quyền gửi bằng chuyển trạng thái có điều kiện.
- *
- * ## Vì sao không kiểm quỹ đủ cho phần còn phải chia theo từng kỳ
- *
- * Quỹ giữ sổ dự trữ: phần còn nợ của mỗi kỳ chưa đóng không nhỏ hơn tổng hồ sơ chưa trả của kỳ
- * đó. Phép kiểm "quỹ không hụt so với tổng dự trữ" ở bước 3 vì vậy đã bao mọi kỳ cùng lúc.
- *
- * @flow distribute:12 | chạy một vòng: dọn kỳ OPENING và phần vault, phát hiện phần chưa phân bổ, chiếm chỗ chạy, mở kỳ, chia theo lô
+ * @flow distribute:17 | chạy một vòng keeper: dọn kỳ OPENING và phần vault, đọc quỹ, chỉ tiếp tục kỳ đã APPROVED, không bao giờ mở kỳ
  */
 export async function runDistributionCycle(
   input: unknown,
@@ -501,9 +617,10 @@ export async function runDistributionCycle(
   try {
     // `authorize` ghi sổ kiểm toán cho cả hai kết cục rồi mới ném.
     const role = await authorize('distribution:execute', null, chain);
+    const actor = await currentActorId(role);
 
     // --- 0. Dọn: phục hồi kỳ OPENING, thử lại phần vault (SC-06 QĐ-F, QĐ-G) --
-    const housekeeping = await reconcileChainPeriods(chain, role);
+    const housekeeping = await reconcileChainPeriods(chain, role, actor);
     if (housekeeping.recovered > 0 || housekeeping.errors.length > 0) {
       await auditCycle(
         txnStore,
@@ -517,7 +634,7 @@ export async function runDistributionCycle(
       );
     }
 
-    // --- 1. ĐỌC: quỹ, dự trữ, phần chưa phân bổ và việc phải làm -------------
+    // --- 1. ĐỌC: quỹ, dự trữ, phần chưa phân bổ ------------------------------
     const ledger = getLedger(chain);
     const poolBalance = await ledger.profitPoolBalance();
     const reservedBalance = await ledger.reservedProfit();
@@ -535,7 +652,6 @@ export async function runDistributionCycle(
       runNo: 0,
       periodId: null as string | null,
       periodKey: null as string | null,
-      periodOpened: false,
       batches: 0,
       paid: 0,
       failed: 0,
@@ -552,140 +668,56 @@ export async function runDistributionCycle(
         `chia tiếp sẽ để những ví ở lô sau không bao giờ nhận được. SPV phải nạp bù ` +
         `${reservedBalance - poolBalance} VNDB.`;
       const runKey = idleRunKey(new Date());
-      claimed = await claimRun(runKey);
+      claimed = await claimRun(runKey, 'KEEPER');
       if (!claimed) return ok(alreadyRunning(base, runKey));
       await closeRun(claimed, true, message);
       await auditCycle(txnStore, role, chain, runKey, 'FAILURE', `vòng chạy tự động: ${message}`);
-      // Bất thường về TIỀN trả về lỗi chứ không phải một `ok` mang cờ: người gọi phải báo
-      // người vận hành, không phải ghi nhật ký rồi chờ lượt sau.
       return err('INSUFFICIENT_PROFIT_POOL', message);
     }
 
-    const decision = await detectNewFunds(chain, unallocatedBalance);
-    if (isResultError(decision)) return decision;
+    const decision = await decideCycle(chain, unallocatedBalance);
 
-    // --- 3. Không có việc -> vòng rỗng --------------------------------------
+    // --- 3. Không có kỳ được phép chia -> vòng rỗng --------------------------
     if (decision.kind === 'idle') {
       const runKey = idleRunKey(new Date());
 
-      claimed = await claimRun(runKey);
+      claimed = await claimRun(runKey, 'KEEPER');
       if (!claimed) return ok(alreadyRunning(base, runKey));
 
       await closeRun(claimed, false, decision.message);
-      await auditCycle(
-        txnStore,
-        role,
-        chain,
-        runKey,
-        'SUCCESS',
-        `vòng chạy tự động: ${decision.message}`,
-      );
+      await auditCycle(txnStore, role, chain, runKey, 'SUCCESS', `vòng chạy tự động: ${decision.message}`);
 
       return ok({
         ...base,
         outcome: decision.outcome,
         runId: claimed.id,
+        periodKey: decision.periodKey,
         message: decision.message,
       });
     }
 
-    // --- 3. Xác định kỳ và CHIẾM chỗ chạy -----------------------------------
-    const isNewPeriod = decision.kind === 'open';
-
-    const periodKey = isNewPeriod
-      ? await nextAutoPeriodKey(chain, new Date())
-      : decision.period.periodKey;
-    if (isResultError(periodKey)) return periodKey;
-
-    const previousRuns = await countRuns(periodKey);
-    if (isResultError(previousRuns)) return previousRuns;
-
-    const runNo = previousRuns + 1;
-    const runKey = runKeyOf(periodKey, runNo);
-
-    claimed = await claimRun(runKey);
-    if (!claimed) return ok(alreadyRunning({ ...base, periodKey, runNo }, runKey));
-
-    // --- 4. Mở kỳ (nếu mới) -------------------------------------------------
-    let periodId: string;
-    if (isNewPeriod) {
-      const opened = await openPeriod({ chain, periodKey });
-      if (!opened.ok) {
-        await closeRun(claimed, true, opened.error);
-        return opened;
-      }
-      periodId = opened.data.id;
-    } else {
-      // Quỹ đủ cho phần còn phải chia đã được bảo đảm ở bước 2: dự trữ của kỳ không nhỏ hơn
-      // tổng hồ sơ chưa trả, và quỹ không hụt so với tổng dự trữ.
-      periodId = decision.period.id;
-    }
-
-    // --- 5. Chia theo lô, giới hạn số lô do BE-06 đọc từ tham số hệ thống ---
-    const distributed = await distributePeriod({ chain, periodId });
-    if (!distributed.ok) {
-      await closeRun(claimed, true, distributed.error);
-      return distributed;
-    }
-    const run = distributed.data;
-
-    // --- 6. Mốc số dư (hiển thị): CHỈ khi kỳ đã chia xong toàn bộ -----------
-    const ended = run.period.status === 'EXPIRED' || run.period.status === 'CLOSED';
-    const completed = run.outstanding === 0;
-    const nextSettled =
-      completed && !ended ? await settleBalanceMark(run, role) : settledBalance;
-
-    // --- 7. Cảnh báo kỳ treo ------------------------------------------------
-    const stuckAfterRuns = await readDistributionStuckAfterRuns();
-    const stuck = !completed && runNo >= stuckAfterRuns;
-
-    const message = ended
-      ? `Kỳ "${periodKey}" đã ${run.period.status === 'CLOSED' ? 'đóng' : 'hết hạn nhận'} trên ` +
-        `chuỗi ở vòng ${runNo}: ${run.expired} hồ sơ chưa nhận chuyển EXPIRED, ${run.reconciled} ` +
-        `đối soát từ chuỗi, không gửi lô. Vòng sau được mở kỳ mới.`
-      : completed
-        ? `Kỳ "${periodKey}" hoàn tất ở vòng ${runNo}: ${run.batches} lô, ${run.paid} hồ sơ đã ` +
-          `chi, ${run.failed} thất bại; mốc số dư chuyển từ ${settledBalance} sang ${nextSettled}.`
-        : `Kỳ "${periodKey}" chia dở ở vòng ${runNo}: ${run.batches}/${run.maxBatches} lô, ` +
-          `${run.paid} hồ sơ đã chi, ${run.failed} thất bại, còn ${run.outstanding} phải chi. ` +
-          `Lượt sau chia tiếp đúng kỳ này.`;
-
-    const stuckNote = stuck
-      ? ` CẢNH BÁO: kỳ này đã qua ${runNo} vòng (ngưỡng ${stuckAfterRuns}) mà chưa chia xong. ` +
-        `Hoặc lô đang lỗi lặp lại, hoặc số ví lớn hơn mức ` +
-        `distribution.max_batches_per_run × distribution.batch_size dự tính. Cần người xem.`
-      : '';
-
-    await closeRun(claimed, stuck, stuck ? message + stuckNote : null);
-    await auditCycle(
-      txnStore,
-      role,
-      chain,
-      runKey,
-      stuck ? 'FAILURE' : 'SUCCESS',
-      `vòng chạy tự động: ${message}${stuckNote}`,
-    );
+    // --- 4. Kỳ đã duyệt: một lượt chia với nguồn KEEPER ----------------------
+    const ctx = chainContext(chain, role, actor);
+    const round = await runApprovedPeriod(ctx, decision.period, 'KEEPER');
+    if (!round.ok) return round;
+    const { run } = round.data;
 
     return ok({
       ...base,
-      outcome: ended ? 'PERIOD_ENDED' : completed ? 'DISTRIBUTED' : 'PARTIAL',
-      nextSettledBalance: nextSettled.toString(),
-      runId: claimed.id,
-      runNo,
-      periodId,
-      periodKey,
-      periodOpened: isNewPeriod,
-      batches: run.batches,
-      paid: run.paid,
-      failed: run.failed,
-      outstanding: run.outstanding,
-      stuck,
-      message: message + stuckNote,
+      outcome: round.data.outcome,
+      nextSettledBalance: round.data.nextSettledBalance,
+      runId: round.data.runId,
+      runNo: round.data.runNo,
+      periodId: decision.period.id,
+      periodKey: decision.period.periodKey,
+      batches: run?.batches ?? 0,
+      paid: run?.paid ?? 0,
+      failed: run?.failed ?? 0,
+      outstanding: run?.outstanding ?? 0,
+      stuck: round.data.stuck,
+      message: round.data.message,
     });
   } catch (error) {
-    // Đóng dòng `KeeperRun` cho lỗi KHÔNG lường trước, nếu vòng này đã chiếm được chỗ. Bỏ qua
-    // việc này sẽ để lại một dòng `RUNNING` vĩnh viễn, và nó chặn mọi lượt sau của cùng kỳ và
-    // cùng số vòng — tiến trình tự khoá chính nó vì một lỗi nhất thời.
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
     await closeRun(claimed, true, reason).catch(() => undefined);
     return toResult(error);
@@ -693,11 +725,15 @@ export async function runDistributionCycle(
 }
 
 /** Chiếm chỗ chạy; `null` nghĩa là một vòng khác đã giữ đúng khoá này. */
-async function claimRun(runKey: string): Promise<KeeperRunRecord | null> {
+async function claimRun(
+  runKey: string,
+  triggerSource: KeeperTriggerSource,
+): Promise<KeeperRunRecord | null> {
   try {
     return await getKeeperStore().startRun({
       jobName: DISTRIBUTION_JOB_NAME,
       periodKey: runKey,
+      triggerSource,
     });
   } catch (error) {
     /**
@@ -735,10 +771,10 @@ function alreadyRunning(
  * gọi một bản ghi kiểm toán sẽ nhấn chìm sổ bằng hàng trăm dòng "đã cho phép xem", và sổ mất
  * khả năng dùng để đối chiếu trách nhiệm. Cùng lập luận với `getDistributionPeriod` của BE-06.
  *
- * Quyền là `reconcile:read` — dữ liệu toàn hệ, nên ba vai phía ngân hàng đọc được, còn nhà đầu
- * tư thì không.
+ * Quyền là `reconcile:read`: dữ liệu toàn hệ, nên hai vai vận hành đọc được, còn nhà đầu tư và
+ * Người bán thì không. `periodKey` lọc đúng các vòng của một kỳ (lịch sử kỳ trên màn chia).
  *
- * @pending FE-08 | đã sẵn đầu cuối: kiểm quyền `reconcile:read`, đọc bảng `KeeperRun` của công việc chia tự động, tách khoá ghép thành `periodKey` + `runNo` nên màn hình không phải tự bóc chuỗi. FE-08 chỉ cần gọi rồi dựng bảng lịch chạy; `status` `FAILED` kèm `error` khác null là dòng cần người xem, và nhiều dòng cùng `periodKey` với `runNo` tăng dần là một kỳ đang chia nhiều vòng
+ * @flow distribute:24 | kiểm quyền reconcile:read, đọc lịch chạy KeeperRun kèm nguồn kích hoạt MANUAL hoặc KEEPER
  */
 export async function listDistributionRuns(
   input: unknown,
@@ -754,6 +790,9 @@ export async function listDistributionRuns(
     const runs = await getKeeperStore().listRuns({
       jobName: DISTRIBUTION_JOB_NAME,
       limit: parsed.data.limit,
+      periodKeyPrefix: parsed.data.periodKey
+        ? `${parsed.data.periodKey}${RUN_KEY_SEPARATOR}`
+        : undefined,
     });
 
     return ok(
@@ -764,6 +803,7 @@ export async function listDistributionRuns(
         startedAt: run.startedAt,
         finishedAt: run.finishedAt,
         error: run.error,
+        triggerSource: run.triggerSource,
       })),
     );
   } catch (error) {

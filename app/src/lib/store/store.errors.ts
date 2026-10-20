@@ -223,6 +223,8 @@ export const UNIQUE_CONSTRAINTS: Readonly<
     columns: ['investorWallet', 'clientRequestId'],
   },
   DistributionPeriod_periodKey_key: { table: 'DistributionPeriod', columns: ['periodKey'] },
+  // FE-08 QĐ-B: mỗi chain tối đa một kỳ hoạt động.
+  DistributionPeriod_activeChain_key: { table: 'DistributionPeriod', columns: ['activeChain'] },
   DistributionPayout_periodId_investorWallet_key: {
     table: 'DistributionPayout',
     columns: ['periodId', 'investorWallet'],

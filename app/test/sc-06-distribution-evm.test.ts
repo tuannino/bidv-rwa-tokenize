@@ -219,6 +219,7 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
   let ledger: ILedgerPort;
   let service: typeof import('@/lib/bank/distribution.service');
   let trigger: typeof import('@/lib/bank/distribution-trigger.service');
+  let approval: typeof import('@/lib/bank/distribution-approval.service');
   const saved = {
     rpc: process.env.RPC_HARDHAT,
     key: process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL,
@@ -242,6 +243,7 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     await ensureHolders(ledger);
     service = await import('@/lib/bank/distribution.service');
     trigger = await import('@/lib/bank/distribution-trigger.service');
+    approval = await import('@/lib/bank/distribution-approval.service');
     await getOrderStore().createOrder({
       chain: CHAIN,
       investorWallet: INVESTOR,
@@ -271,10 +273,22 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     resetStoreCache();
   });
 
+  /**
+   * Mở kỳ bằng đường cũ rồi ghi kỳ đã duyệt đúng số trên chuỗi ở cổng lưu trữ (FE-08: lõi chia đòi
+   * `APPROVED`). Luồng duyệt thật trên nút này kiểm ở `fe-08-approval-evm.test.ts`.
+   */
   async function openOk(periodKey: string) {
     const result = await service.openPeriod({ chain: CHAIN, periodKey });
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
     if (!result.ok) throw new Error(result.error);
+    await getDistributionStore().setApproval({
+      id: result.data.id,
+      from: null,
+      approvalStatus: 'APPROVED',
+      approvedAmount: result.data.totalAmount,
+      approvedBy: 'kiem-thu',
+      approvedAt: new Date().toISOString(),
+    });
     return result.data;
   }
 
@@ -310,16 +324,18 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
       totalAmount: unallocated.toString(),
       totalSupplyAt: onChain.totalSupplyAt.toString(),
       snapshotId: onChain.snapshotId,
-      vaultCloseStatus: 'DONE',
-      vaultPeriodRef: Number(vaultBefore.lastPeriodRef + 1n),
+      // FE-08 QĐ-D: chốt kỳ vault là cửa trước lô đầu tiên, không còn chạy lúc mở kỳ.
+      vaultCloseStatus: null,
     });
     expect((await getDistributionStore().findPeriod(period.id))!.distributorAddress).toBe(DISTRIBUTOR);
-    const vaultAfterOpen = (await ledger.vaultStatus())!;
-    expect(vaultAfterOpen.lastPeriodRef).toBe(vaultBefore.lastPeriodRef + 1n);
-    expect(vaultAfterOpen.lastDistributedPrev).toBe(unallocated);
+    expect((await ledger.vaultStatus())!.lastPeriodRef).toBe(vaultBefore.lastPeriodRef);
 
     const run = await distributeOk(period.id);
     expect(run.period.status).toBe('COMPLETED');
+    expect(run.period).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: Number(vaultBefore.lastPeriodRef + 1n) });
+    const vaultAfter = (await ledger.vaultStatus())!;
+    expect(vaultAfter.lastPeriodRef).toBe(vaultBefore.lastPeriodRef + 1n);
+    expect(vaultAfter.lastDistributedPrev).toBe(unallocated);
     const share = async (wallet: string) =>
       (onChain.amount * (await ledger.balanceOfAt(wallet, onChain.snapshotId))) / onChain.totalSupplyAt;
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(investorVndb + (await share(INVESTOR)));
@@ -343,8 +359,16 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     if (!recovered.ok) return;
     expect(recovered.data.distributionId).toBe((await ledger.findDistribution(key))!.distributionId);
     expect(await distributionsCount()).toBe(count + 1n);
-    expect(recovered.data.vaultCloseStatus).toBe('DONE');
-    await distributeOk(recovered.data.id);
+    expect(recovered.data.vaultCloseStatus).toBeNull();
+    await getDistributionStore().setApproval({
+      id: recovered.data.id,
+      from: null,
+      approvalStatus: 'APPROVED',
+      approvedAmount: recovered.data.totalAmount,
+      approvedBy: 'kiem-thu',
+      approvedAt: new Date().toISOString(),
+    });
+    expect((await distributeOk(recovered.data.id)).period.vaultCloseStatus).toBe('DONE');
   });
 
   it('ca 17: nhà đầu tư tự claim giữa hai vòng: chốt PAID đối soát từ chuỗi, không trả hai lần', async () => {
@@ -361,22 +385,27 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(balance);
   });
 
-  it('ca 16a: closePeriod lên chuỗi nhưng mất ghi database: retry đối soát PeriodClosed, DONE, không chốt thêm', async () => {
+  it('ca 16a: closePeriod lên chuỗi nhưng mất ghi database: lỗi nổ ra (FE-08 không nuốt), không lô nào; retry đối soát PeriodClosed, DONE, không chốt thêm', async () => {
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 200_000n));
     const before = (await ledger.vaultStatus())!.lastPeriodRef;
     const store = getDistributionStore();
+    const period = await openOk(nextKey());
     const original = store.transitionVaultClose.bind(store);
     vi.spyOn(store, 'transitionVaultClose').mockImplementation(async (input) => {
       if (input.to === 'SENT' && typeof input.txHash === 'string') throw new Error('mất kết nối');
       return original(input);
     });
 
-    const period = await openOk(nextKey());
-    expect(period.vaultCloseStatus).toBe('SENT');
+    // FE-08 QĐ-D: lỗi khi chốt vault trả về cho người gọi, lượt chia dừng trước lô đầu tiên.
+    const failed = await service.distributePeriod({ chain: CHAIN, periodId: period.id });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.error).toContain('mất kết nối');
+    expect((await store.findPeriod(period.id))!.vaultCloseStatus).toBe('SENT');
+    expect(await store.listPayouts({ periodId: period.id, status: 'PAID', limit: 10 })).toHaveLength(0);
     expect((await ledger.vaultStatus())!.lastPeriodRef).toBe(before + 1n);
     vi.restoreAllMocks();
 
-    const housekeeping = await service.reconcileChainPeriods(CHAIN, 'TELLER');
+    const housekeeping = await service.reconcileChainPeriods(CHAIN, 'TELLER', 'kiem-thu');
     expect(housekeeping.vault).toContain('DONE');
     expect((await store.findPeriod(period.id))!.vaultCloseStatus).toBe('DONE');
     expect((await ledger.vaultStatus())!.lastPeriodRef).toBe(before + 1n);
@@ -387,14 +416,17 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 200_000n));
     const before = (await ledger.vaultStatus())!.lastPeriodRef;
     const store = getDistributionStore();
-    vi.spyOn(store, 'transitionVaultClose').mockImplementationOnce(async () => null); // lần giành quyền đầu thua
     const period = await openOk(nextKey());
-    expect(period.vaultCloseStatus).toBe('PENDING');
+    vi.spyOn(store, 'transitionVaultClose').mockImplementationOnce(async () => null); // lần giành quyền đầu thua
+    // FE-08 QĐ-D: vault chưa DONE thì lượt chia dừng, không gửi lô.
+    const blocked = await distributeOk(period.id);
+    expect(blocked).toMatchObject({ vault: 'WAITING', batches: 0 });
+    expect((await store.findPeriod(period.id))!.vaultCloseStatus).toBe('PENDING');
     vi.restoreAllMocks();
 
     await Promise.all([
-      service.reconcileChainPeriods(CHAIN, 'TELLER'),
-      service.reconcileChainPeriods(CHAIN, 'TELLER'),
+      service.reconcileChainPeriods(CHAIN, 'TELLER', 'kiem-thu'),
+      service.reconcileChainPeriods(CHAIN, 'TELLER', 'kiem-thu'),
     ]);
 
     expect((await store.findPeriod(period.id))!.vaultCloseStatus).toBe('DONE');
@@ -406,25 +438,32 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     await distributeOk(period.id);
   });
 
-  it('ca 19: BE-07 trên chuỗi thật mở kỳ có tiền tố chain theo phần chưa phân bổ rồi dừng khi hết tiền mới', async () => {
+  it('ca 19: BE-07 trên chuỗi thật chờ duyệt (FE-08 QĐ-E); lần duyệt mở kỳ có tiền tố chain theo phần chưa phân bổ rồi keeper dừng khi hết tiền mới', async () => {
     await setBatchLimits(50, 10);
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 250_000n));
     const unallocated = await ledger.unallocatedProfit();
 
-    const first = await trigger.runDistributionCycle({ chain: CHAIN });
+    const waiting = await trigger.runDistributionCycle({ chain: CHAIN });
+    expect(waiting.ok && waiting.data.outcome).toBe('AWAITING_APPROVAL');
+
+    process.env.DEMO_ROLE = 'CONTROLLER';
+    resetServerEnvCache();
+    const first = await approval.approveDistribution({ chain: CHAIN, expectedAmount: unallocated.toString() });
+    process.env.DEMO_ROLE = 'TELLER';
+    resetServerEnvCache();
     expect(first.ok, first.ok ? '' : first.error).toBe(true);
     if (!first.ok) return;
     expect(first.data.outcome).toBe('DISTRIBUTED');
-    expect(first.data.periodKey).toMatch(/^hardhat-local:auto-/);
-    expect((await getDistributionStore().findPeriod(first.data.periodId!))!.totalAmount).toBe(
-      unallocated.toString(),
-    );
+    expect(first.data.period.periodKey).toMatch(/^hardhat-local:\d{4}-\d{2}-\d{2}-\d{2}$/);
+    expect(first.data.period.totalAmount).toBe(unallocated.toString());
 
     const second = await trigger.runDistributionCycle({ chain: CHAIN });
     expect(second.ok && second.data.outcome).toBe('NO_NEW_FUNDS');
   });
 
-  it('ca 18: quá hạn thì EXPIRED không gửi lô; đóng bằng distribution-admin.js thì CLOSED', async () => {
+  // FE-08 việc kèm: ca này chạy hai lần `hardhat run` nên vượt ngưỡng 5 giây mặc định (đo 21/10:
+  // 5,27 giây); ngưỡng riêng để bộ thường chạy không kèm `--testTimeout`.
+  it('ca 18: quá hạn thì EXPIRED không gửi lô; đóng bằng distribution-admin.js thì CLOSED', { timeout: 30_000 }, async () => {
     await setBatchLimits(1, 1);
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 100_000n));
     const period = await openOk(nextKey());
@@ -459,27 +498,33 @@ live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat th�
     expect(rows.map((row) => row.status).sort()).toEqual(['EXPIRED', 'PAID']);
   });
 
-  it('ca 16c, 16d: script chốt mã kỳ vault với số khác thì CONFLICT, không gửi thêm; kỳ sau chờ', async () => {
+  it('ca 16c, 16d: script chốt mã kỳ vault với số khác thì CONFLICT, không gửi lô; kỳ sau chờ', async () => {
     await setBatchLimits(50, 10);
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 200_000n));
     const store = getDistributionStore();
+    const opened = await openOk(nextKey());
     vi.spyOn(store, 'transitionVaultClose').mockImplementationOnce(async () => null);
-    const period = await openOk(nextKey());
+    expect((await distributeOk(opened.id)).vault).toBe('WAITING');
+    const period = (await store.findPeriod(opened.id))!;
     expect(period.vaultCloseStatus).toBe('PENDING');
     vi.restoreAllMocks();
 
     // Kiểm soát viên chạy script chen vào, chốt đúng mã đã giữ chỗ với số khác.
     await confirmed(ledger, ledger.closeVaultPeriod(BigInt(period.vaultPeriodRef!), 999n));
-    const housekeeping = await service.reconcileChainPeriods(CHAIN, 'TELLER');
+    const housekeeping = await service.reconcileChainPeriods(CHAIN, 'TELLER', 'kiem-thu');
     expect(housekeeping.vault).toContain('CONFLICT');
     expect((await store.findPeriod(period.id))!.vaultCloseStatus).toBe('CONFLICT');
     const ref = (await ledger.vaultStatus())!.lastPeriodRef;
     expect(ref).toBe(BigInt(period.vaultPeriodRef!));
+    // FE-08 QĐ-D: CONFLICT khoá chia, không lô nào được gửi.
+    const locked = await distributeOk(period.id);
+    expect(locked).toMatchObject({ vault: 'CONFLICT', batches: 0 });
 
-    // 16d: kỳ sau không chốt vault khi kỳ trước chưa DONE.
+    // 16d (FE-08): kỳ CONFLICT còn giữ chỗ hoạt động của chain nên kỳ sau không mở được, vault không đổi.
     await confirmed(ledger, ledger.mintPayment(DISTRIBUTOR, 100_000n));
-    const next = await openOk(nextKey());
-    expect(next.vaultCloseStatus).toBeNull();
+    const next = await service.openPeriod({ chain: CHAIN, periodKey: nextKey() });
+    expect(next.ok).toBe(false);
+    if (!next.ok) expect(next.error).toMatch(/đang có kỳ chia hoạt động/);
     expect((await ledger.vaultStatus())!.lastPeriodRef).toBe(ref);
   });
 });

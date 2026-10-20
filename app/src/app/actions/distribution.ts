@@ -1,90 +1,69 @@
 'use server';
 
 import {
-  listDistributionRuns,
-  runDistributionCycle,
-} from '@/lib/bank/distribution-trigger.service';
-import {
-  distributePeriod,
-  getDistributionPeriod,
-  openPeriod,
-  previewDistribution,
-} from '@/lib/bank/distribution.service';
+  approveDistribution,
+  continueDistribution,
+  getDistributionOverview,
+  listDistributionPayouts,
+  listDistributionPeriods,
+  reapproveDistribution,
+} from '@/lib/bank/distribution-approval.service';
+import { listDistributionRuns } from '@/lib/bank/distribution-trigger.service';
+import { getDistributionPeriod } from '@/lib/bank/distribution.service';
 
 /**
- * Server actions cho luồng CHIA LỢI NHUẬN — vỏ mỏng quanh `distribution.service`.
+ * Server actions cho luồng CHIA LỢI NHUẬN: vỏ mỏng quanh service.
  *
  * ⚠️ KHÔNG có guard quyền ở tệp này, và đó là chủ đích chứ không phải bỏ sót. Server action gọi
  * được bằng POST trực tiếp, không chỉ qua giao diện, nên guard đặt ở đây sẽ không áp cho transport
- * thứ hai — và người thêm transport đó không có lý do nào để đoán ra là mình phải tự thêm. Toàn bộ
- * kiểm quyền và ghi sổ kiểm toán nằm TRONG service.
+ * thứ hai. Toàn bộ kiểm quyền và ghi sổ kiểm toán nằm TRONG service.
  *
- * `input: unknown` là cố ý: validate bằng Zod trong service, một schema dùng chung cho form và
- * server. Khai kiểu hẹp ở đây sẽ tạo cảm giác đã kiểm dữ liệu trong khi chưa.
+ * `input: unknown` là cố ý: validate bằng Zod trong service.
  *
- * Bốn action ứng đúng bốn hàm của service, KHÔNG có action nào gộp "mở kỳ rồi chia luôn". Chốt
- * quyền và chi trả là HAI lần quyết định của con người: giữa hai bước đó, cán bộ ngân hàng phải
- * xem `previewDistribution` và đối chiếu số tiền. Một action gộp sẽ bỏ mất chính bước kiểm đó, và
- * lúc ấy `previewDistribution` chỉ còn là một màn hình không ai bắt buộc phải mở.
+ * FE-08 QĐ-A: người chỉ có ba hành động ghi, cả ba là `distribution:approve` (Kiểm soát viên):
+ * duyệt, duyệt lại số thực tế, tiếp tục kỳ đã duyệt. Bốn action cũ (mở kỳ, xem trước, chia, chạy
+ * một vòng tự động) ĐÃ GỠ: chúng cho Giao dịch viên mở kỳ và chia mà không có ai duyệt số. Service
+ * của chúng giữ cho tiến trình định kỳ và kiểm thử, và lõi chia từ chối mọi kỳ chưa duyệt.
  */
 
-/**
- * @flow distribute:1 | nhận yêu cầu mở kỳ chia, trước khi chốt quyền
- * @pending FE-08 | đã sẵn đầu cuối ở `openPeriod`: validate Zod, kiểm quyền `distribution:snapshot`, kiểm mã kỳ trùng và kiểm quỹ TRƯỚC khi chạm chuỗi nên lời gọi trượt không tốn ảnh chụp, chốt quyền qua `ILedgerPort.takeSnapshot`, đọc lại số dư quỹ để chắc contract chốt đúng con số đã ghi, lưu kỳ và ghi sổ kiểm toán cả bốn kết cục. Màn chia lợi nhuận chỉ cần gọi rồi hiển thị `Result`. FE-08 PHẢI hiện `snapshotId` và `totalAmount` trả về: đó là hai con số cán bộ ngân hàng dùng để đối chiếu trước khi bấm chia
- */
-export async function openPeriodAction(input: unknown) {
-  return openPeriod(input);
+/** @flow distribute:1 | nhận yêu cầu xem tổng quan màn chia: quỹ, dự kiến, kỳ hoạt động */
+export async function getDistributionOverviewAction(input: unknown) {
+  return getDistributionOverview(input);
+}
+
+/** @flow distribute:3 | nhận lần duyệt chia của Kiểm soát viên kèm số VNDB đã xem trên màn */
+export async function approveDistributionAction(input: unknown) {
+  return approveDistribution(input);
+}
+
+/** @flow distribute:8 | nhận lần duyệt lại số thực tế trên chuỗi của kỳ AMOUNT_CHANGED hoặc kỳ cũ chưa duyệt */
+export async function reapproveDistributionAction(input: unknown) {
+  return reapproveDistribution(input);
+}
+
+/** @flow distribute:10 | nhận yêu cầu tiếp tục kỳ đã duyệt: phục hồi, đối soát vault, chia lô còn lại */
+export async function continueDistributionAction(input: unknown) {
+  return continueDistribution(input);
+}
+
+/** @flow distribute:19 | nhận yêu cầu xem trang lịch sử kỳ chia */
+export async function listDistributionPeriodsAction(input: unknown) {
+  return listDistributionPeriods(input);
+}
+
+/** @flow distribute:21 | nhận yêu cầu xem trang hồ sơ trả từng ví của một kỳ */
+export async function listDistributionPayoutsAction(input: unknown) {
+  return listDistributionPayouts(input);
+}
+
+/** @flow distribute:23 | nhận yêu cầu xem lịch chạy, mới nhất trước */
+export async function listDistributionRunsAction(input: unknown) {
+  return listDistributionRuns(input);
 }
 
 /**
- * @flow distribute:3 | nhận yêu cầu xem trước phân bổ của một kỳ đã mở
- * @pending FE-08 | đã sẵn đầu cuối ở `previewDistribution`: dựng danh sách người nhận từ cơ sở dữ liệu, đọc số dư tại ảnh chụp, tính phần từng ví bằng ĐÚNG hàm mà lúc chia sẽ dùng, trả kèm `dust` và `dustWallet`. Hàm KHÔNG ghi một dòng nào, kể cả sổ kiểm toán, nên gọi bao nhiêu lần cũng được. FE-08 nên hiện cả ví được chia 0 thay vì lọc bỏ: vắng mặt và được chia 0 là hai thông tin khác nhau với người đối soát
- */
-export async function previewDistributionAction(input: unknown) {
-  return previewDistribution(input);
-}
-
-/**
- * @flow distribute:7 | nhận yêu cầu chia theo lô; gọi lại được để chia phần còn thiếu
- * @pending FE-08 | đã sẵn đầu cuối ở `distributePeriod`: kiểm quyền `distribution:execute`, lập đủ hồ sơ chờ TRƯỚC khi gửi giao dịch nào, chia lô theo tham số `distribution.batch_size`, ba trạng thái hồ sơ `PENDING`/`SENT`/`PAID` nên tiến trình chết giữa đường không để lại hồ sơ trông như đã chi, một lô lỗi không dừng các lô còn lại. Gọi lại CHỈ chia cho ví chưa nhận nên bấm hai lần không ai bị trả hai lần. FE-08 nên hiện `outstanding` và `failed`: khác 0 nghĩa là còn phải bấm chia lại
- */
-export async function distributePeriodAction(input: unknown) {
-  return distributePeriod(input);
-}
-
-/**
- * @flow distribute:9 | nhận yêu cầu đọc trạng thái và tiến độ chi trả của một kỳ
- * @pending FE-09 | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ
+ * @pending FE-09 | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên hai vai vận hành đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ
  */
 export async function getDistributionPeriodAction(input: unknown) {
   return getDistributionPeriod(input);
-}
-
-// =============================================================================
-//  TIẾN TRÌNH TỰ ĐỘNG CHIA (BE-07)
-// =============================================================================
-
-/**
- * KÍCH HOẠT TAY một vòng của tiến trình tự động chia — dùng khi lịch chạy bị trượt.
- *
- * Cùng một hàm nghiệp vụ với điểm vào của tiến trình định kỳ (`POST /api/keeper/distribution`),
- * không phải một đường riêng. Hai đường thực thi khác nhau cho cùng một việc sẽ lệch nhau ở
- * lần sửa đầu tiên, và lúc đó kết quả phụ thuộc việc ai bấm — người hay lịch.
- *
- * Khác biệt duy nhất giữa hai đường là CÁCH nhận diện người gọi: đường này dựa vào vai trong
- * phiên (`distribution:execute` kiểm trong service), đường kia dựa vào khoá bí mật vì tiến
- * trình định kỳ không có phiên nào.
- *
- * @flow distribute:11 | nhận yêu cầu chạy tay một vòng chia tự động, khi lịch chạy bị trượt
- * @pending FE-08 | đã sẵn đầu cuối ở `runDistributionCycle`: kiểm quyền `distribution:execute`, tự phát hiện tiền vào ví lợi nhuận, tự sinh mã kỳ, chống hai vòng chạy trùng bằng ràng buộc duy nhất của cơ sở dữ liệu, gọi lại nghiệp vụ BE-06 để mở kỳ và chia, chỉ ghi mốc số dư khi kỳ xong toàn bộ. FE-08 chỉ cần một nút "chạy ngay" rồi hiển thị `outcome` và `message`; `outcome` là `PARTIAL` nghĩa là còn phải chạy lại, `stuck` bằng true nghĩa là cần người xem
- */
-export async function runDistributionCycleAction(input: unknown) {
-  return runDistributionCycle(input);
-}
-
-/**
- * @pending FE-08 | vỏ mỏng quanh `listDistributionRuns` đã sẵn: kiểm quyền `reconcile:read`, trả lịch chạy mới nhất trước, đã tách khoá ghép thành `periodKey` + `runNo`. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán nên màn theo dõi gọi lại theo chu kỳ được
- */
-export async function listDistributionRunsAction(input: unknown) {
-  return listDistributionRuns(input);
 }

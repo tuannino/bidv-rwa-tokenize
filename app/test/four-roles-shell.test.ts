@@ -63,14 +63,14 @@ const URD_MENU: Record<Role, ReadonlyArray<{ group: string | null; labels: reado
   TELLER: [
     {
       group: 'Vận hành',
-      labels: ['Bảng điều khiển', 'Lập lệnh', 'Giao dịch', 'Chia lợi nhuận', 'Vault thanh toán SPV'],
+      labels: ['Bảng điều khiển', 'Lập lệnh', 'Giao dịch', 'Chia lợi nhuận (chỉ xem)', 'Vault thanh toán SPV'],
     },
     { group: 'Tài khoản', labels: ['Thông tin tài khoản'] },
   ],
   CONTROLLER: [
     {
       group: 'Vận hành',
-      labels: ['Bảng điều khiển', 'Giao dịch', 'Chia lợi nhuận (chỉ xem)', 'Vault thanh toán SPV'],
+      labels: ['Bảng điều khiển', 'Giao dịch', 'Chia lợi nhuận', 'Vault thanh toán SPV'],
     },
     { group: 'Kiểm soát', labels: ['Phê duyệt lệnh'] },
     { group: 'Tài khoản', labels: ['Thông tin tài khoản'] },

@@ -11,6 +11,11 @@ import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
  * BE-07 — TIẾN TRÌNH TỰ ĐỘNG CHIA LỢI NHUẬN. Chín ca kiểm thử và hai đột biến ở
  * `requirements.md`.
  *
+ * FE-08 QĐ-E (CH-3) đổi vai của tiến trình: keeper KHÔNG BAO GIỜ mở kỳ. Tiền mới thì báo
+ * `AWAITING_APPROVAL`; Kiểm soát viên duyệt (`approveDistribution`) mới mở kỳ và chạy lượt chia đầu;
+ * keeper chỉ chia tiếp kỳ đã `APPROVED`. Các ca dưới giữ nguyên tính chất BE-07 đang bảo vệ (không
+ * chia trùng, mốc số dư, lô lỗi) nhưng kỳ được mở bằng lần duyệt thay vì bởi keeper.
+ *
  * Chạy trên chain `mock`: adapter mock mô phỏng đúng ràng buộc của `ProfitDistributor` thật,
  * KỂ CẢ việc chia lợi nhuận làm GIẢM số dư ví lợi nhuận (`s.profitPool -= total`). Chi tiết đó
  * là trung tâm của cả tệp này — nó là lý do mốc số dư phải là "số dư dự kiến còn lại" chứ không
@@ -101,6 +106,7 @@ const {
 const { DISTRIBUTION_JOB_NAME, listDistributionRuns, runDistributionCycle } = await import(
   '@/lib/bank/distribution-trigger.service'
 );
+const { approveDistribution } = await import('@/lib/bank/distribution-approval.service');
 const { POST: keeperRoute } = await import('@/app/api/keeper/distribution/route');
 
 const CHAIN = 'mock';
@@ -166,6 +172,23 @@ async function cycleOk() {
 
 async function listRuns() {
   return getKeeperStore().listRuns({ jobName: DISTRIBUTION_JOB_NAME, limit: 100 });
+}
+
+/**
+ * FE-08: Kiểm soát viên duyệt đúng phần chưa phân bổ hiện tại. Lần duyệt mở kỳ và chạy MỘT lượt
+ * chia (nguồn `MANUAL`); trả về khung nhìn của lần duyệt, đỏ ngay tại đây nếu bị từ chối.
+ */
+async function approveOk() {
+  const amount = await getLedger(CHAIN).unallocatedProfit();
+  actAs('CONTROLLER');
+  try {
+    const result = await approveDistribution({ chain: CHAIN, expectedAmount: amount.toString() });
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) throw new Error('không duyệt được');
+    return result.data;
+  } finally {
+    actAs('TELLER');
+  }
 }
 
 async function listPeriods() {
@@ -283,9 +306,9 @@ describe('ca 1 — số dư không tăng thì không mở kỳ, không chia', ()
 });
 
 // ===========================================================================
-//  CA 2 — số dư tăng: mở đúng một kỳ, chia hết, cập nhật mốc
+//  CA 2: số dư tăng, keeper chờ duyệt; Kiểm soát viên duyệt thì mở đúng một kỳ, chia hết
 // ===========================================================================
-describe('ca 2 — số dư tăng thì tự mở kỳ và chia, không cần người bấm', () => {
+describe('ca 2: số dư tăng thì keeper chờ duyệt, Kiểm soát viên duyệt thì mở kỳ và chia', () => {
   /**
    * Ba ví nắm 1/2/3 trên tổng cung 6, quỹ 1.000.001 VNDB.
    *
@@ -302,27 +325,37 @@ describe('ca 2 — số dư tăng thì tự mở kỳ và chia, không cần ng�
     return [a, b, c] as const;
   }
 
-  it('mở đúng MỘT kỳ với mã tự sinh theo ngày và số thứ tự', async () => {
+  it('FE-08 QĐ-E: keeper thấy tiền mới thì AWAITING_APPROVAL, không mở kỳ, không gửi gì', async () => {
     await seedThreeHolders();
 
     const view = await cycleOk();
 
-    expect(view.outcome).toBe('DISTRIBUTED');
-    expect(view.periodOpened).toBe(true);
-    expect(view.runNo).toBe(1);
+    expect(view.outcome).toBe('AWAITING_APPROVAL');
+    expect(view.periodId).toBeNull();
+    expect(await listPeriods()).toHaveLength(0);
+    expect(fault.batchCalls).toBe(0);
+  });
+
+  it('lần duyệt mở đúng MỘT kỳ với mã theo ngày UTC và số thứ tự', async () => {
+    await seedThreeHolders();
+
+    const approved = await approveOk();
+
+    expect(approved.outcome).toBe('DISTRIBUTED');
+    expect(approved.runNo).toBe(1);
 
     const periods = await listPeriods();
     expect(periods).toHaveLength(1);
-    // SC-06 CH-6: tiền tố chain + `auto-` + ngày UTC + số thứ tự trong ngày.
-    expect(periods[0].periodKey).toMatch(/^mock:auto-\d{4}-\d{2}-\d{2}-\d{2}$/);
-    expect(periods[0].periodKey).toBe(view.periodKey);
-    expect(periods[0]).toMatchObject({ status: 'COMPLETED', totalAmount: '1000001' });
+    // Tiền tố chain + ngày UTC + số thứ tự trong ngày.
+    expect(periods[0].periodKey).toMatch(/^mock:\d{4}-\d{2}-\d{2}-\d{2}$/);
+    expect(periods[0].periodKey).toBe(approved.period.periodKey);
+    expect(periods[0]).toMatchObject({ status: 'COMPLETED', totalAmount: '1000001', approvalStatus: 'APPROVED' });
   });
 
   it('tiền tới đúng ví theo tỷ lệ nắm giữ, đối chiếu số dư THẬT trên chuỗi', async () => {
     const [a, b, c] = await seedThreeHolders();
 
-    await cycleOk();
+    await approveOk();
 
     expect(await paymentBalances([a, b, c])).toEqual([166_666n, 333_333n, 500_000n]);
   });
@@ -330,17 +363,16 @@ describe('ca 2 — số dư tăng thì tự mở kỳ và chia, không cần ng�
   it('cập nhật mốc số dư bằng phần dư còn lại trong ví, không phải bằng tổng đã nhận', async () => {
     await seedThreeHolders();
 
-    const view = await cycleOk();
+    await approveOk();
 
     // 1.000.001 - 999.999 = 2 đồng phần dư nằm lại trong ví chia lợi nhuận.
-    expect(view.nextSettledBalance).toBe('2');
     expect(await readMark()).toBe('2');
     expect(await getLedger(CHAIN).profitPoolBalance()).toBe(2n);
   });
 
-  it('vòng kế tiếp thấy phần dư KHÔNG phải tiền mới nên không mở kỳ thứ hai', async () => {
+  it('vòng keeper kế tiếp thấy phần dư KHÔNG phải tiền mới nên không đề nghị kỳ thứ hai', async () => {
     await seedThreeHolders();
-    await cycleOk();
+    await approveOk();
 
     const second = await cycleOk();
 
@@ -348,17 +380,18 @@ describe('ca 2 — số dư tăng thì tự mở kỳ và chia, không cần ng�
     expect(await listPeriods()).toHaveLength(1);
   });
 
-  it('lần nạp tiếp theo mở kỳ MỚI với số thứ tự tăng', async () => {
+  it('lần nạp tiếp theo: keeper chờ duyệt, lần duyệt mở kỳ MỚI với số thứ tự tăng', async () => {
     await seedThreeHolders();
-    const first = await cycleOk();
+    const first = await approveOk();
 
     // SPV nạp thêm: 2 đồng phần dư cộng 600.000 mới.
     setProfitPool(600_002n);
-    const second = await cycleOk();
+    expect((await cycleOk()).outcome).toBe('AWAITING_APPROVAL');
+    const second = await approveOk();
 
     expect(second.outcome).toBe('DISTRIBUTED');
-    expect(second.periodKey).not.toBe(first.periodKey);
-    expect(second.periodKey?.endsWith('-02')).toBe(true);
+    expect(second.period.periodKey).not.toBe(first.period.periodKey);
+    expect(second.period.periodKey.endsWith('-02')).toBe(true);
     expect(await listPeriods()).toHaveLength(2);
   });
 });
@@ -381,31 +414,29 @@ describe('ca 3 và 4 — nhiều ví hơn số lô cho phép mỗi vòng', () =>
     await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '2', 'number');
   }
 
-  it('vòng một chia dở và mốc số dư KHÔNG đổi', async () => {
+  it('lượt đầu (lần duyệt) chia dở và mốc số dư KHÔNG đổi', async () => {
     await seedSixHolders();
     await limitToFourWalletsPerRun();
 
-    const first = await cycleOk();
+    const first = await approveOk();
 
     expect(first.outcome).toBe('PARTIAL');
-    expect(first.batches).toBe(2);
-    expect(first.paid).toBe(4);
-    expect(first.outstanding).toBe(2);
+    expect(first.run?.batches).toBe(2);
+    expect(first.run?.paid).toBe(4);
+    expect(first.run?.outstanding).toBe(2);
     // Chưa chia xong -> chưa được ghi mốc. Bảng còn TRỐNG, không phải ghi giá trị cũ.
     expect(await readMark()).toBe('chưa có dòng nào');
-    expect(first.nextSettledBalance).toBe('0');
   });
 
-  it('vòng hai chia tiếp ĐÚNG kỳ đang dở, không mở kỳ mới', async () => {
+  it('vòng keeper chia tiếp ĐÚNG kỳ đang dở, không mở kỳ mới', async () => {
     await seedSixHolders();
     await limitToFourWalletsPerRun();
-    const first = await cycleOk();
+    const first = await approveOk();
 
     const second = await cycleOk();
 
     expect(second.outcome).toBe('DISTRIBUTED');
-    expect(second.periodId).toBe(first.periodId);
-    expect(second.periodOpened).toBe(false);
+    expect(second.periodId).toBe(first.period.id);
     expect(second.runNo).toBe(2);
     expect(await listPeriods()).toHaveLength(1);
   });
@@ -414,7 +445,7 @@ describe('ca 3 và 4 — nhiều ví hơn số lô cho phép mỗi vòng', () =>
     const wallets = await seedSixHolders();
     await limitToFourWalletsPerRun();
 
-    await cycleOk();
+    await approveOk();
     expect(await readMark()).toBe('chưa có dòng nào');
 
     const second = await cycleOk();
@@ -424,14 +455,18 @@ describe('ca 3 và 4 — nhiều ví hơn số lô cho phép mỗi vòng', () =>
     expect(await paymentBalances(wallets)).toEqual([1_000n, 1_000n, 1_000n, 1_000n, 1_000n, 1_000n]);
   });
 
-  it('hai vòng của cùng một kỳ là hai dòng mốc chạy khác nhau', async () => {
+  it('hai vòng của cùng một kỳ là hai dòng mốc chạy khác nhau, ghi đúng nguồn kích hoạt', async () => {
     await seedSixHolders();
     await limitToFourWalletsPerRun();
-    await cycleOk();
+    await approveOk();
     await cycleOk();
 
     const runs = await listRuns();
     expect(runs).toHaveLength(2);
+    // FE-08: vòng 1 do Kiểm soát viên bấm duyệt, vòng 2 do keeper.
+    const byNo = new Map(runs.map((run) => [run.periodKey.split('#')[1], run.triggerSource]));
+    expect(byNo.get('1')).toBe('MANUAL');
+    expect(byNo.get('2')).toBe('KEEPER');
     // Khoá ghép `<mã kỳ>#<số vòng>` là thứ cho hai vòng nối tiếp cùng chạy được, trong khi
     // ràng buộc duy nhất vẫn chặn hai vòng ĐỒNG THỜI.
     expect(runs.map((run) => run.periodKey).sort()).toEqual(
@@ -477,14 +512,15 @@ describe('ca 5 — số dư tăng dưới ngưỡng tối thiểu thì không m�
     expect(await listPeriods()).toHaveLength(0);
   });
 
-  it('đúng ngưỡng thì mở kỳ', async () => {
+  it('đúng ngưỡng thì chờ Kiểm soát viên duyệt (FE-08: keeper không mở kỳ)', async () => {
     await seedHolder(holderWallets(1)[0], 10n);
     await setConfigValue(CONFIG_KEYS.distributionMinNewBalance, '5000', 'bigint');
     setProfitPool(5_000n);
 
     const view = await cycleOk();
 
-    expect(view.outcome).toBe('DISTRIBUTED');
+    expect(view.outcome).toBe('AWAITING_APPROVAL');
+    expect(await listPeriods()).toHaveLength(0);
   });
 });
 
@@ -501,7 +537,7 @@ describe('ca 6: quỹ hụt so với tổng dự trữ thì dừng và ghi cản
     setProfitPool(6_001n);
     await setConfigValue(CONFIG_KEYS.distributionBatchSize, '2', 'number');
     await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
-    await cycleOk();
+    await approveOk();
     setProfitPool(1_000n);
   }
 
@@ -563,17 +599,16 @@ describe('ca 7 — kỳ chưa xong sau số vòng cấu hình thì có cảnh b�
   it('vòng trong ngưỡng chưa cảnh báo', async () => {
     await seedSlowPeriod();
 
-    const first = await cycleOk();
+    const first = await approveOk();
 
     expect(first.outcome).toBe('PARTIAL');
-    expect(first.stuck).toBe(false);
     const runs = await listRuns();
     expect(runs[0]).toMatchObject({ status: 'SUCCESS', error: null });
   });
 
   it('vòng chạm ngưỡng thì ghi cảnh báo vào mốc chạy VÀ sổ kiểm toán', async () => {
     await seedSlowPeriod();
-    await cycleOk();
+    await approveOk();
 
     const second = await cycleOk();
 
@@ -603,7 +638,7 @@ describe('ca 7 — kỳ chưa xong sau số vòng cấu hình thì có cảnh b�
       'number',
     );
 
-    await cycleOk();
+    await approveOk();
     await cycleOk();
     const third = await cycleOk();
 
@@ -614,7 +649,8 @@ describe('ca 7 — kỳ chưa xong sau số vòng cấu hình thì có cảnh b�
   it('cảnh báo KHÔNG làm mất phần đã chia: các vòng sau vẫn chia tiếp tới hết', async () => {
     const wallets = await seedSlowPeriod();
 
-    for (let i = 0; i < 5; i += 1) await cycleOk();
+    await approveOk();
+    for (let i = 0; i < 4; i += 1) await cycleOk();
 
     expect(await paymentBalances(wallets)).toEqual([1_000n, 1_000n, 1_000n, 1_000n, 1_000n]);
     expect(await readMark()).toBe('0');
@@ -662,11 +698,18 @@ describe('ca 8 — vai không có distribution:execute bị chặn', () => {
 //  ĐỘT BIẾN 1 — hai vòng chạy ĐỒNG THỜI cùng một kỳ
 // ===========================================================================
 describe('đột biến 1 — hai vòng đồng thời không chia trùng', () => {
+  /**
+   * FE-08: keeper không mở kỳ, nên tranh chấp xảy ra trên kỳ ĐÃ DUYỆT còn dở. Hai ví, mỗi lô một
+   * ví, mỗi lượt một lô: lần duyệt chia ví thứ nhất, hai vòng keeper đồng thời tranh nhau ví thứ hai.
+   */
   async function seedTwoHolders() {
     const [a, b] = holderWallets(2);
     await seedHolder(a, 1n);
     await seedHolder(b, 1n);
     setProfitPool(1_000n);
+    await setConfigValue(CONFIG_KEYS.distributionBatchSize, '1', 'number');
+    await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
+    expect((await approveOk()).outcome).toBe('PARTIAL');
     return [a, b] as const;
   }
 
@@ -688,8 +731,9 @@ describe('đột biến 1 — hai vòng đồng thời không chia trùng', () =
     expect(outcomes).toEqual(['ALREADY_RUNNING', 'DISTRIBUTED']);
   });
 
-  it('chỉ mở MỘT kỳ và chỉ gửi số lô của một vòng', async () => {
+  it('chỉ một kỳ và chỉ gửi số lô của một vòng', async () => {
     await seedTwoHolders();
+    const before = fault.batchCalls;
     fault.onPoolBalance = barrier(2);
 
     await Promise.all([
@@ -698,8 +742,8 @@ describe('đột biến 1 — hai vòng đồng thời không chia trùng', () =
     ]);
 
     expect(await listPeriods()).toHaveLength(1);
-    // Hai ví, lô mặc định 50 -> đúng một lô. Hai vòng cùng chia sẽ là hai lô.
-    expect(fault.batchCalls).toBe(1);
+    // Còn một ví, lô 1 -> đúng một lô. Hai vòng cùng chia sẽ là hai lô.
+    expect(fault.batchCalls).toBe(before + 1);
   });
 
   it('tổng tiền đã chia KHÔNG vượt tổng tiền của kỳ', async () => {
@@ -727,9 +771,9 @@ describe('đột biến 1 — hai vòng đồng thời không chia trùng', () =
       runDistributionCycle({ chain: CHAIN }),
     ]);
 
+    // Vòng 1 là lần duyệt (MANUAL), vòng 2 là MỘT vòng keeper; không có dòng #2 thứ hai.
     const runs = await listRuns();
-    expect(runs).toHaveLength(1);
-    expect(runs[0].periodKey.endsWith('#1')).toBe(true);
+    expect(runs.map((run) => run.periodKey.split('#')[1]).sort()).toEqual(['1', '2']);
   });
 
   /**
@@ -749,7 +793,7 @@ describe('đột biến 1 — hai vòng đồng thời không chia trùng', () =
     await setConfigValue(CONFIG_KEYS.distributionBatchSize, '2', 'number');
     await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '2', 'number');
 
-    const first = await cycleOk();
+    const first = await approveOk();
     expect(first.outcome).toBe('PARTIAL');
     const batchesAfterFirstRun = fault.batchCalls;
 
@@ -787,11 +831,11 @@ describe('đột biến 2 — lô lỗi không đánh dấu nhầm, vòng sau ch
     await seedThreeOneEach();
     fault.failBatch = 2;
 
-    const view = await cycleOk();
+    const view = await approveOk();
 
     expect(view.outcome).toBe('PARTIAL');
-    expect(view.failed).toBe(1);
-    expect(view.outstanding).toBe(1);
+    expect(view.run?.failed).toBe(1);
+    expect(view.run?.outstanding).toBe(1);
     expect(await readMark()).toBe('chưa có dòng nào');
   });
 
@@ -799,7 +843,7 @@ describe('đột biến 2 — lô lỗi không đánh dấu nhầm, vòng sau ch
     await seedThreeOneEach();
     fault.failBatch = 2;
 
-    const view = await cycleOk();
+    const view = await approveOk();
 
     /**
      * Ví của lô lỗi lấy từ CHÍNH lời gọi đã gửi lô, không suy từ thứ tự tạo dữ liệu:
@@ -811,7 +855,7 @@ describe('đột biến 2 — lô lỗi không đánh dấu nhầm, vòng sau ch
     expect(await paymentBalances([failedWallet])).toEqual([0n]);
 
     const rows = await getDistributionStore().listPayouts({
-      periodId: view.periodId as string,
+      periodId: view.period.id,
       limit: 100,
     });
     const failedRow = rows.find(
@@ -824,13 +868,13 @@ describe('đột biến 2 — lô lỗi không đánh dấu nhầm, vòng sau ch
   it('vòng sau chia đúng cho ví còn thiếu, không trả lần hai cho ví đã nhận', async () => {
     const wallets = await seedThreeOneEach();
     fault.failBatch = 2;
-    const first = await cycleOk();
+    const first = await approveOk();
     const failedWallet = fault.batchWallets[1][0];
 
     fault.failBatch = null;
     const second = await cycleOk();
 
-    expect(second.periodId).toBe(first.periodId);
+    expect(second.periodId).toBe(first.period.id);
     expect(second.outcome).toBe('DISTRIBUTED');
     // Chỉ một lô nữa: đúng ví còn thiếu, không gửi lại hai ví đã nhận.
     expect(second.batches).toBe(1);
@@ -853,7 +897,7 @@ describe('ví lợi nhuận thiếu tiền giữa kỳ thì dừng, không chia 
     await setConfigValue(CONFIG_KEYS.distributionBatchSize, '1', 'number');
     await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
 
-    await cycleOk();
+    await approveOk();
     const batchesAfterFirstRun = fault.batchCalls;
 
     // Tiền rời ví lợi nhuận bằng một đường ngoài hệ thống, còn 500 trong khi cần 3.000.
@@ -961,8 +1005,21 @@ describe('ca 9 — route handler chỉ chạy khi có khoá bí mật đúng', (
     expect(wrongKey.error).toBe(noKey.error);
   });
 
-  it('khoá đúng thì chạy một vòng thật', async () => {
+  it('khoá đúng thì chạy một vòng thật: chưa duyệt thì chờ, kỳ đã duyệt dở thì chia tiếp', async () => {
     const [a, b] = await seedReadyToDistribute();
+    process.env.KEEPER_SECRET = SECRET;
+    resetServerEnvCache();
+
+    // FE-08 QĐ-E: tiền chưa duyệt thì endpoint không trả đồng nào.
+    const waiting = await callKeeper(SECRET);
+    const waitingPayload = (await waiting.json()) as { ok: boolean; data: { outcome: string } };
+    expect(waiting.status).toBe(200);
+    expect(waitingPayload.data.outcome).toBe('AWAITING_APPROVAL');
+    expect(await paymentBalances([a, b])).toEqual([0n, 0n]);
+
+    await setConfigValue(CONFIG_KEYS.distributionBatchSize, '1', 'number');
+    await setConfigValue(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
+    await approveOk();
     process.env.KEEPER_SECRET = SECRET;
     resetServerEnvCache();
 

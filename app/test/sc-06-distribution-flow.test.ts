@@ -67,6 +67,7 @@ const { distributePeriod, getDistributionPeriod, openPeriod, recoverOpeningPerio
   '@/lib/bank/distribution.service'
 );
 const { runDistributionCycle } = await import('@/lib/bank/distribution-trigger.service');
+const { approveDistribution } = await import('@/lib/bank/distribution-approval.service');
 
 const CHAIN = 'mock';
 const PRICE = BigInt(WPT_ISSUE_PRICE_VND);
@@ -102,11 +103,40 @@ async function setConfig(key: string, value: string, type: 'bigint' | 'number') 
   await getConfigStore().setConfig({ key, value, type, changedBy: 'TELLER' });
 }
 
+/**
+ * Mở kỳ bằng đường cũ rồi ghi kỳ đã duyệt đúng số trên chuỗi ở cổng lưu trữ (FE-08: lõi chia đòi
+ * `APPROVED`). Các ca SC-06 ở đây kiểm phần mở, đối soát và vòng đời; luồng duyệt kiểm ở FE-08.
+ */
 async function openOk(periodKey: string) {
   const result = await openPeriod({ chain: CHAIN, periodKey });
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   if (!result.ok) throw new Error(result.error);
+  const approved = await getDistributionStore().setApproval({
+    id: result.data.id,
+    from: null,
+    approvalStatus: 'APPROVED',
+    approvedAmount: result.data.totalAmount,
+    approvedBy: 'kiem-thu',
+    approvedAt: new Date().toISOString(),
+  });
+  expect(approved?.approvalStatus).toBe('APPROVED');
   return result.data;
+}
+
+/** FE-08 QĐ-E: kỳ mới chỉ mở bằng lần duyệt của Kiểm soát viên (một lượt chia đi kèm). */
+async function approveOk() {
+  const amount = await getLedger(CHAIN).unallocatedProfit();
+  process.env.DEMO_ROLE = 'CONTROLLER';
+  resetServerEnvCache();
+  try {
+    const result = await approveDistribution({ chain: CHAIN, expectedAmount: amount.toString() });
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    return result.data;
+  } finally {
+    process.env.DEMO_ROLE = 'TELLER';
+    resetServerEnvCache();
+  }
 }
 
 async function distributeOk(periodId: string) {
@@ -334,23 +364,23 @@ describe('SC-06 ca 18: vòng đời kỳ hết hạn và đã đóng', () => {
     expect(again.ok).toBe(false);
   });
 
-  it('BE-07: kỳ hết hạn không chặn tiến trình, vòng sau mở kỳ mới', async () => {
+  it('BE-07: kỳ hết hạn không chặn kỳ sau; FE-08: kỳ sau chờ duyệt rồi mới mở', async () => {
     await holders();
     await deposit(1_000_000n);
     await setConfig(CONFIG_KEYS.distributionBatchSize, '1', 'number');
     await setConfig(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
-    const first = await cycleOk();
+    const first = await approveOk();
     expect(first.outcome).toBe('PARTIAL');
 
     vi.setSystemTime(START.getTime() + MOCK_CLAIM_WINDOW_MS);
     const ended = await cycleOk();
     expect(ended.outcome).toBe('PERIOD_ENDED');
-    expect(ended.periodId).toBe(first.periodId);
+    expect(ended.periodId).toBe(first.period.id);
 
     await deposit(2_000n);
-    const next = await cycleOk();
-    expect(next.periodOpened).toBe(true);
-    expect(next.periodId).not.toBe(first.periodId);
+    expect((await cycleOk()).outcome).toBe('AWAITING_APPROVAL');
+    const next = await approveOk();
+    expect(next.period.id).not.toBe(first.period.id);
   });
 });
 
@@ -360,11 +390,14 @@ describe('SC-06 ca 19: BE-07 theo phần chưa phân bổ', () => {
     await seedHolder(B, 2n);
     const ledger = getLedger(CHAIN);
     const totals: bigint[] = [];
-    for (const amount of [1_000_001n, 2_000_002n, 3_000_001n]) {
+    for (const [index, amount] of [1_000_001n, 2_000_002n, 3_000_001n].entries()) {
       await deposit(amount);
-      const run = await cycleOk();
+      // Đồng hồ giả đứng yên: nhích một giây để khoá vòng rỗng `idle#<mốc>` không trùng vòng trước.
+      vi.setSystemTime(START.getTime() + (index + 1) * 1_000);
+      expect((await cycleOk()).outcome).toBe('AWAITING_APPROVAL');
+      const run = await approveOk();
       expect(run.outcome).toBe('DISTRIBUTED');
-      totals.push(BigInt((await getDistributionStore().findPeriod(run.periodId!))!.totalAmount));
+      totals.push(BigInt((await getDistributionStore().findPeriod(run.period.id))!.totalAmount));
     }
     // Mỗi kỳ lấy đúng số vừa nạp, không lấy lại phần lẻ đang nằm trong dự trữ của kỳ trước.
     expect(totals).toEqual([1_000_001n, 2_000_002n, 3_000_001n]);
@@ -372,6 +405,7 @@ describe('SC-06 ca 19: BE-07 theo phần chưa phân bổ', () => {
     const pool = await ledger.profitPoolBalance();
     expect(paid + pool).toBe(6_000_004n);
     expect(await ledger.reservedProfit()).toBe(pool);
+    vi.setSystemTime(START.getTime() + 10_000);
     expect((await cycleOk()).outcome).toBe('NO_NEW_FUNDS');
   });
 
@@ -380,18 +414,18 @@ describe('SC-06 ca 19: BE-07 theo phần chưa phân bổ', () => {
     await deposit(1_000_000n);
     await setConfig(CONFIG_KEYS.distributionBatchSize, '1', 'number');
     await setConfig(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
-    const first = await cycleOk(); // một ví nhận, ví kia chưa
+    const first = await approveOk(); // một ví nhận, ví kia chưa
     vi.setSystemTime(START.getTime() + MOCK_CLAIM_WINDOW_MS);
     await cycleOk(); // kỳ EXPIRED
-    const period = (await getDistributionStore().findPeriod(first.periodId!))!;
+    const period = (await getDistributionStore().findPeriod(first.period.id))!;
     const state = await getLedger(CHAIN).distributionState(period.distributionId!);
     const released = state.amount - state.claimed;
     await getLedger(CHAIN).closeDistribution(period.distributionId!);
 
-    const next = await cycleOk();
+    expect((await cycleOk()).outcome).toBe('AWAITING_APPROVAL');
+    const next = await approveOk();
 
-    expect(next.periodOpened).toBe(true);
-    const opened = (await getDistributionStore().findPeriod(next.periodId!))!;
+    const opened = (await getDistributionStore().findPeriod(next.period.id))!;
     expect(opened.totalAmount).toBe(released.toString());
     expect([400_000n, 600_000n]).toContain(released);
   });
@@ -401,10 +435,10 @@ describe('SC-06 ca 19: BE-07 theo phần chưa phân bổ', () => {
     await deposit(1_000_000n);
     await setConfig(CONFIG_KEYS.distributionBatchSize, '1', 'number');
     await setConfig(CONFIG_KEYS.distributionMaxBatchesPerRun, '1', 'number');
-    const first = await cycleOk();
+    const first = await approveOk();
     vi.setSystemTime(START.getTime() + MOCK_CLAIM_WINDOW_MS);
     await cycleOk(); // EXPIRED, phần chưa trả còn trong dự trữ, chưa đóng
-    const period = (await getDistributionStore().findPeriod(first.periodId!))!;
+    const period = (await getDistributionStore().findPeriod(first.period.id))!;
     const state = await getLedger(CHAIN).distributionState(period.distributionId!);
 
     const idle = await cycleOk();
@@ -426,8 +460,9 @@ describe('SC-06 ca 20: mã kỳ theo chain', () => {
     const wrongChain = await openPeriod({ chain: CHAIN, periodKey: 'evm:2026-Q1' });
     expect(wrongChain.ok).toBe(false);
 
-    const auto = await cycleOk();
-    expect(auto.periodKey).toMatch(/^mock:auto-\d{4}-\d{2}-\d{2}-01$/);
+    // FE-08: mã của lần duyệt là `<chain>:<ngày UTC>-NN`.
+    const approved = await approveOk();
+    expect(approved.period.periodKey).toMatch(/^mock:\d{4}-\d{2}-\d{2}-01$/);
 
     const legacy = await getDistributionStore().openPeriod({
       periodKey: '2025-Q4',
@@ -443,20 +478,22 @@ describe('SC-06 ca 20: mã kỳ theo chain', () => {
 });
 
 describe('BE-13 QĐ-G: SC-06 QĐ-G nay áp cả chain mock', () => {
-  it('mở kỳ đẩy số đã dành cho kỳ vào closePeriod của vault mock, mã kỳ vault tăng tuần tự', async () => {
+  it('lượt chia đầu đẩy số đã dành cho kỳ vào closePeriod của vault mock, mã kỳ vault tăng tuần tự', async () => {
     await holders();
     await deposit(1_000_000n);
     const first = await openOk('mock:Q1');
-    // Trước BE-13 mock không có vault: `vaultCloseStatus` để `null` (NOT_APPLICABLE).
-    expect(first).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 1 });
+    // FE-08 QĐ-D: chốt kỳ vault là cửa trước lô đầu tiên, không còn chạy lúc mở kỳ.
+    expect(first.vaultCloseStatus).toBeNull();
+    const firstRun = await distributeOk(first.id);
+    expect(firstRun.period).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 1 });
     expect(await getLedger(CHAIN).findVaultPeriodClose(1n)).toMatchObject({
       periodRef: 1n,
       distributedPrev: BigInt(first.totalAmount),
     });
 
-    await distributeOk(first.id);
     await deposit(500_000n);
-    const second = await openOk('mock:Q2');
+    const opened = await openOk('mock:Q2');
+    const second = (await distributeOk(opened.id)).period;
     expect(second).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 2 });
     const status = await getLedger(CHAIN).vaultStatus();
     expect(status?.lastPeriodRef).toBe(2n);
@@ -464,11 +501,11 @@ describe('BE-13 QĐ-G: SC-06 QĐ-G nay áp cả chain mock', () => {
     expect((await getLedger(CHAIN).vaultPeriodCloses(10)).map((close) => close.periodRef)).toEqual([2n, 1n]);
   });
 
-  it('BE-07 tự mở kỳ trên mock cũng chốt kỳ vault đúng một lần', async () => {
+  it('FE-08: lần duyệt trên mock chốt kỳ vault đúng một lần', async () => {
     await holders();
     await deposit(1_000_000n);
-    const cycle = await cycleOk();
-    const period = await getDistributionPeriod({ chain: CHAIN, periodId: cycle.periodId! });
+    const approved = await approveOk();
+    const period = await getDistributionPeriod({ chain: CHAIN, periodId: approved.period.id });
     expect(period.ok && period.data.period).toMatchObject({ vaultCloseStatus: 'DONE', vaultPeriodRef: 1 });
     expect(await getLedger(CHAIN).vaultPeriodCloses(10)).toHaveLength(1);
   });
