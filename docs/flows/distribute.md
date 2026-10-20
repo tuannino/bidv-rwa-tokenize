@@ -72,13 +72,13 @@ flowchart TD
 | 1 | `app/src/app/actions/distribution.ts:32` | `openPeriodAction()` | nhận yêu cầu mở kỳ chia, trước khi chốt quyền |
 | 2 | `app/src/lib/bank/distribution.service.ts:562` | `openPeriod()` | kiểm quyền distribution:snapshot, kiểm mã kỳ và quỹ chưa phân bổ, giữ chỗ OPENING rồi mở trên chuỗi |
 | 3 | `app/src/app/actions/distribution.ts:40` | `previewDistributionAction()` | nhận yêu cầu xem trước phân bổ của một kỳ đã mở |
-| 4 | `app/src/lib/bank/distribution.service.ts:884` | `previewDistribution()` | kiểm quyền, tính phân bổ theo ảnh chụp, KHÔNG ghi gì vào cơ sở dữ liệu |
+| 4 | `app/src/lib/bank/distribution.service.ts:888` | `previewDistribution()` | kiểm quyền, tính phân bổ theo ảnh chụp, KHÔNG ghi gì vào cơ sở dữ liệu |
 | 5 | `app/src/lib/bank/distribution.service.ts:302` | `collectRecipients()` | dựng danh sách người nhận từ cơ sở dữ liệu cộng ví SPV vì chuỗi không liệt kê được người nắm giữ |
 | 6 | `app/src/lib/bank/distribution.service.ts:228` | `allocate()` | đọc số dư từng ví tại ảnh chụp, tính phần chia nhân trước chia sau |
 | 7 | `app/src/app/actions/distribution.ts:48` | `distributePeriodAction()` | nhận yêu cầu chia theo lô; gọi lại được để chia phần còn thiếu |
-| 8 | `app/src/lib/bank/distribution.service.ts:1051` | `distributePeriod()` | kiểm quyền distribution:execute, đọc kỳ trên chuỗi, lập hồ sơ chờ, đối soát đã trả rồi gửi từng lô theo mã kỳ trên chuỗi |
+| 8 | `app/src/lib/bank/distribution.service.ts:1055` | `distributePeriod()` | kiểm quyền distribution:execute, đọc kỳ trên chuỗi, lập hồ sơ chờ, đối soát đã trả rồi gửi từng lô theo mã kỳ trên chuỗi |
 | 9 | `app/src/app/actions/distribution.ts:56` | `getDistributionPeriodAction()` | nhận yêu cầu đọc trạng thái và tiến độ chi trả của một kỳ |
-| 10 | `app/src/lib/bank/distribution.service.ts:1356` | `getDistributionPeriod()` | kiểm quyền reconcile:read, trả trạng thái kỳ và tiến độ chi trả |
+| 10 | `app/src/lib/bank/distribution.service.ts:1360` | `getDistributionPeriod()` | kiểm quyền reconcile:read, trả trạng thái kỳ và tiến độ chi trả |
 | 11 | `app/src/app/actions/distribution.ts:78` | `runDistributionCycleAction()` | nhận yêu cầu chạy tay một vòng chia tự động, khi lịch chạy bị trượt |
 | 12 | `app/src/lib/bank/distribution-trigger.service.ts:487` | `runDistributionCycle()` | chạy một vòng: dọn kỳ OPENING và phần vault, phát hiện phần chưa phân bổ, chiếm chỗ chạy, mở kỳ, chia theo lô |
 | 13 | `app/src/lib/bank/distribution-trigger.service.ts:337` | `detectNewFunds()` | đọc phần chưa phân bổ của quỹ, quyết định mở kỳ mới hay chia tiếp kỳ dở |
