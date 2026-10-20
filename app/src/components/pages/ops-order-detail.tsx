@@ -36,7 +36,7 @@ export function OpsOrderDetailPage({ orderId }: { orderId: string }) {
   const fresh = loaded?.key === requestKey ? loaded : null;
   return (
     <div className="space-y-4">
-      <Link href="/transactions" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+      <Link prefetch={false} href="/transactions" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Về danh sách giao dịch
       </Link>

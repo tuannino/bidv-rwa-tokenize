@@ -114,7 +114,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
           <h1 className="text-xl font-semibold">Chi tiết yêu cầu</h1>
           <p className="font-mono text-xs text-muted-foreground">{requestId}</p>
         </div>
-        <Link href="/approvals" className="flex items-center gap-1 text-sm text-primary hover:underline">
+        <Link prefetch={false} href="/approvals" className="flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Về danh sách
         </Link>

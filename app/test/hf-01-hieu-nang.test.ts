@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -11,11 +11,18 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(join(__dirname, '..', path), 'utf8');
 
 describe('HF-01: hạn chế lượt gọi Worker khi mở trang', () => {
-  it('ca 1: mọi Link trong menu bên trái tắt prefetch', () => {
-    const source = read('src/components/layout/sidebar.tsx');
-    const links = source.match(/<Link\b[^>]*>/gs) ?? [];
-    expect(links.length).toBeGreaterThan(0);
-    for (const tag of links) expect(tag).toContain('prefetch={false}');
+  it('ca 1: mọi Link của next/link trong src tắt prefetch (mỗi prefetch là một lần kết xuất server)', () => {
+    const files = (readdirSync(join(__dirname, '..', 'src'), { recursive: true }) as string[])
+      .filter((file) => file.endsWith('.tsx'))
+      .map((file) => join('src', file))
+      .filter((file) => /from ['"]next\/link['"]/.test(read(file)));
+    expect(files).toContain(join('src', 'components', 'layout', 'sidebar.tsx'));
+    const missing = files.flatMap((file) =>
+      (read(file).match(/<Link\b[^>]*>/gs) ?? [])
+        .filter((tag) => !tag.includes('prefetch={false}'))
+        .map((tag) => `${file}: ${tag.slice(0, 60)}`),
+    );
+    expect(missing).toEqual([]);
   });
 
   it('ca 2: menu không gọi action số việc chờ cho chain mặc định (đã có số từ server)', () => {

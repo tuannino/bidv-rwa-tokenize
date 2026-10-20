@@ -174,7 +174,7 @@ export function MintPage() {
         </p>
         <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
           Phát hành chính thức đi qua màn{' '}
-          <Link href="/draft" className="font-medium text-primary hover:underline">
+          <Link prefetch={false} href="/draft" className="font-medium text-primary hover:underline">
             Lập lệnh
           </Link>{' '}
           và Kiểm soát viên duyệt. Nút phát hành ở đây chỉ dành cho dữ liệu thử: cần quyền

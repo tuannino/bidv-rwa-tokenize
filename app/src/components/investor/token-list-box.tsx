@@ -35,7 +35,7 @@ export function TokenListBox() {
 
       <CardContent className="divide-y divide-border p-0">
         {MOCK_PROJECTS.map((project) => (
-          <Link
+          <Link prefetch={false}
             key={project.id}
             href={`/tokens/${project.tokenSymbol}`}
             className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-muted/60"
