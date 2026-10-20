@@ -39,6 +39,10 @@ export const spvPaymentVaultAbi = [
     type: 'function', name: 'setPayoutWallet', stateMutability: 'nonpayable',
     inputs: [{ name: 'wallet', type: 'address' }], outputs: [],
   },
+  {
+    type: 'function', name: 'withdraw', stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }], outputs: [],
+  },
   { type: 'function', name: 'pauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { type: 'function', name: 'unpauseWithdrawals', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   {
@@ -60,9 +64,16 @@ export const spvPaymentVaultAbi = [
       { name: 'operator', type: 'address', indexed: true },
     ],
   },
+  {
+    type: 'event', name: 'Withdrawn', inputs: [
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'operator', type: 'address', indexed: true },
+    ],
+  },
   ...[
     ['ZeroAddress', []], ['ZeroAmount', []], ['ZeroPrice', []], ['ZeroOrderRef', []],
-    ['InvalidLockMode', []], ['PayoutWalletNotSet', []],
+    ['InvalidLockMode', []], ['PayoutWalletNotSet', []], ['EnforcedPause', []],
     ['OrderAlreadySettled', [{ name: 'orderRef', type: 'bytes32' }]],
     ['AmountPriceMismatch', [
       { name: 'wpt', type: 'uint256' }, { name: 'vndb', type: 'uint256' },

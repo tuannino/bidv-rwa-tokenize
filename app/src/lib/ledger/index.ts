@@ -39,6 +39,9 @@ export {
   type VaultLockMode,
   type VaultPeriodClose,
   type VaultStatus,
+  type VaultWithdrawal,
+  type VaultWithdrawalFilter,
+  type VaultWithdrawalReceipt,
   type TxResult,
   type TxStatus,
 } from './ledger.port';
@@ -81,6 +84,8 @@ export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner(chain
       return createMockLedger(chain, {
         readInitialPrice: () => readIssuePriceVnd(chain),
         stateStore: getMockLedgerStateStore(chain),
+        // Người ký ghi vào `operator` của sự kiện vault mock, như `msg.sender` trên chuỗi (BE-13).
+        readOperator: () => signer.getAddress(),
       });
     case 'evm':
       return createEvmLedger(chain, signer);

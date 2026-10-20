@@ -9,6 +9,7 @@ import {
   http,
   parseEventLogs,
   toFunctionSelector,
+  TransactionReceiptNotFoundError,
   type Abi,
   type Account,
   type Hex,
@@ -50,6 +51,7 @@ import {
   type TxResult,
   type VaultLockMode,
   type VaultPeriodClose,
+  type VaultWithdrawal,
 } from './ledger.port';
 
 /**
@@ -348,7 +350,9 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           reverted.signature ??
           reverted.shortMessage;
         const translated =
-          (raw === 'ERC20InsufficientAllowance' || raw === ERC20_INSUFFICIENT_ALLOWANCE) &&
+          raw === 'EnforcedPause' && operation === 'withdrawFromVault'
+            ? 'Vault đang tạm dừng rút.'
+            : (raw === 'ERC20InsufficientAllowance' || raw === ERC20_INSUFFICIENT_ALLOWANCE) &&
           (operation === 'executePurchase' || operation === 'executeSale')
             ? `Mức ủy quyền ${operation === 'executePurchase' ? 'VNDB' : 'WPT'} không đủ cho ` +
               `OrderSettlement (${addressOf('OrderSettlement')}): chữ ký ủy quyền đã hết hạn hoặc đã dùng ` +
@@ -573,6 +577,40 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       return fail(operation, error);
     }
   };
+
+  /** Địa chỉ vault của chain; chưa triển khai thì ghi và đối soát vault là gọi sai chain (BE-13). */
+  const requireVault = (operation: string): string => {
+    const vault = findContractAddress(chain, 'SpvPaymentVault');
+    if (!vault) {
+      throw new LedgerError(
+        chain,
+        operation,
+        'Chain này chưa có vault thanh toán SPV trong address book; không áp dụng.',
+      );
+    }
+    return normalizeEvmAddress(vault);
+  };
+
+  const writeVault = (operation: string, functionName: string, args: readonly unknown[]) => {
+    requireVault(operation);
+    return writeOn(operation, 'SpvPaymentVault', spvPaymentVaultAbi, functionName, args);
+  };
+
+  type WithdrawnLog = {
+    args: { to?: string; amount?: bigint; operator?: string };
+    transactionHash: Hex;
+    blockNumber: bigint;
+    logIndex: number;
+  };
+
+  const toVaultWithdrawal = (log: WithdrawnLog): VaultWithdrawal => ({
+    to: normalizeEvmAddress(log.args.to ?? '0x0000000000000000000000000000000000000000'),
+    amount: log.args.amount ?? 0n,
+    operator: normalizeEvmAddress(log.args.operator ?? '0x0000000000000000000000000000000000000000'),
+    txHash: log.transactionHash,
+    blockNumber: log.blockNumber,
+    logIndex: log.logIndex,
+  });
 
   /** Gợi ý thống nhất cho các method còn chờ hợp đồng — nêu đúng thứ đang thiếu. */
   const pendingContract: (operation: string, needs: string) => never = (operation, needs) => {
@@ -1090,7 +1128,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     },
 
     // =========================================================================
-    //  VAULT THANH TOÁN SPV — chỉ đọc trong SC-07
+    //  VAULT THANH TOÁN SPV: đọc (SC-07), chốt kỳ (SC-06), cấu hình và rút (BE-13)
     // =========================================================================
     async vaultStatus() {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
@@ -1195,6 +1233,77 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       }
     },
 
+    /*
+     * Cấu hình khoá (BE-13 QĐ-C): CONFIG_ROLE cho ba setter khoá, DEFAULT_ADMIN_ROLE cho ví nhận;
+     * ví ký máy chủ giữ cả hai từ lúc triển khai. `simulateContract` trong `writeOn` bắt revert
+     * (`RateTooHigh`, `PayoutWalletNotVerified`, ...) trước khi gửi.
+     */
+    async setVaultPercentRate(bps) {
+      return writeVault('setVaultPercentRate', 'setPercentRate', [bps]);
+    },
+
+    async setVaultFixedLock(amount) {
+      return writeVault('setVaultFixedLock', 'setFixedLock', [amount]);
+    },
+
+    async setVaultLockMode(mode) {
+      // Thứ tự enum trong hợp đồng: UNSET = 0, FIXED = 1, PERCENT = 2.
+      const value = ({ FIXED: 1, PERCENT: 2 } as const)[mode];
+      if (value === undefined) {
+        throw new LedgerError(chain, 'setVaultLockMode', 'Không thể đặt chế độ khoá về Chưa cấu hình.');
+      }
+      return writeVault('setVaultLockMode', 'setLockMode', [value]);
+    },
+
+    async setVaultPayoutWallet(wallet) {
+      return writeVault('setVaultPayoutWallet', 'setPayoutWallet', [normalizeEvmAddress(wallet)]);
+    },
+
+    /** `withdraw` cần WITHDRAWER_ROLE; tiền luôn về `payoutWallet` đã đặt trên vault (QĐ-E). */
+    async withdrawFromVault(amount) {
+      return writeVault('withdrawFromVault', 'withdraw', [amount]);
+    },
+
+    async findVaultWithdrawals({ fromBlock, to, amount }) {
+      const vault = requireVault('findVaultWithdrawals');
+      try {
+        const logs = (await reader().getContractEvents({
+          address: vault as Hex,
+          abi: spvPaymentVaultAbi as Abi,
+          eventName: 'Withdrawn',
+          ...(to === undefined ? {} : { args: { to: normalizeEvmAddress(to) } }),
+          fromBlock,
+          toBlock: 'latest',
+        })) as WithdrawnLog[];
+        return logs
+          .map(toVaultWithdrawal)
+          .filter((event) => amount === undefined || event.amount === amount)
+          .sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex);
+      } catch (error) {
+        return fail('findVaultWithdrawals', error);
+      }
+    },
+
+    async vaultWithdrawalReceipt(txHash) {
+      const vault = requireVault('vaultWithdrawalReceipt');
+      try {
+        const receipt = await reader().getTransactionReceipt({ hash: txHash as Hex });
+        // Chỉ nhận sự kiện do CHÍNH vault phát: hợp đồng khác cùng chữ ký sự kiện không tính.
+        const logs = receipt.logs.filter((log) => log.address.toLowerCase() === vault.toLowerCase());
+        const events = parseEventLogs({ abi: spvPaymentVaultAbi, logs, eventName: 'Withdrawn' }) as unknown as WithdrawnLog[];
+        return {
+          txHash,
+          status: receipt.status === 'success' ? ('CONFIRMED' as const) : ('FAILED' as const),
+          withdrawals: events.map(toVaultWithdrawal),
+        };
+      } catch (error) {
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionReceiptNotFoundError)) {
+          return null;
+        }
+        return fail('vaultWithdrawalReceipt', error);
+      }
+    },
+
     // =========================================================================
     //  ĐỌC / GIAO DỊCH
     // =========================================================================
@@ -1231,6 +1340,15 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
             error instanceof BaseError ? error.shortMessage : String(error)
           }`,
         };
+      }
+    },
+
+    async latestBlockNumber() {
+      try {
+        // viem mặc định đệm số block vài giây; `claimedBlock` cần số mới nhất thật.
+        return await reader().getBlockNumber({ cacheTime: 0 });
+      } catch (error) {
+        return fail('latestBlockNumber', error);
       }
     },
   };

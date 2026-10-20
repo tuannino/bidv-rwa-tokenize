@@ -1,6 +1,9 @@
 import 'server-only';
 
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
+import { addressKey } from './address';
+import type { VaultLockMode } from './ledger.port';
 
 export interface MockSnapshotRecord {
   balances: Map<string, bigint>;
@@ -33,6 +36,44 @@ export interface MockDistributionLedger {
   totalReserved: bigint;
 }
 
+/** Sự kiện `Withdrawn` bền của vault mock; `blockNumber` là bộ đếm `nonce` lúc ghi. */
+export interface MockVaultWithdrawal {
+  to: string;
+  amount: bigint;
+  operator: string;
+  txHash: string;
+  blockNumber: number;
+}
+
+/** Sự kiện `PeriodClosed` bền của vault mock; `timestamp` là giây từ epoch. */
+export interface MockVaultPeriodClose {
+  periodRef: bigint;
+  distributedPrev: bigint;
+  rateBps: bigint;
+  percentLocked: bigint;
+  operator: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;
+}
+
+/** Biến trạng thái của `SpvPaymentVault`, ngang hàng từng biến của hợp đồng (BE-13 QĐ-G). */
+export interface MockVaultState {
+  lockMode: VaultLockMode;
+  fixedLockAmount: bigint;
+  percentRateBps: bigint;
+  pendingPercentRateBps: bigint;
+  hasPendingRate: boolean;
+  netProceeds: bigint;
+  lastPeriodRef: bigint;
+  lastDistributedPrev: bigint;
+  percentLocked: bigint;
+  payoutWallet?: string;
+  paused: boolean;
+  withdrawals: MockVaultWithdrawal[];
+  periodCloses: MockVaultPeriodClose[];
+}
+
 /** Toàn bộ nguồn sự thật của chain mock. Không thêm state ở ngoài kiểu này. */
 export interface MockLedgerState {
   balances: Map<string, bigint>;
@@ -57,6 +98,8 @@ export interface MockLedgerState {
   profitPool: bigint;
   settlementMode: boolean;
   navRate: bigint;
+  /** Vault thanh toán mock ở địa chỉ logic `MOCK_VAULT_ADDRESS`. */
+  vault: MockVaultState;
 }
 
 /** Callback phải đồng bộ để một mutate luôn nằm trọn trong cùng critical section/transaction. */
@@ -76,10 +119,32 @@ const emptyDistributionLedger = (): MockDistributionLedger => ({
   totalReserved: 0n,
 });
 
+/** Vault vừa triển khai: `UNSET` (khoá toàn bộ), chưa có ví nhận, chưa tạm dừng. */
+export function createDefaultMockVaultState(): MockVaultState {
+  return {
+    lockMode: 'UNSET',
+    fixedLockAmount: 0n,
+    percentRateBps: 0n,
+    pendingPercentRateBps: 0n,
+    hasPendingRate: false,
+    netProceeds: 0n,
+    lastPeriodRef: 0n,
+    lastDistributedPrev: 0n,
+    percentLocked: 0n,
+    payoutWallet: undefined,
+    paused: false,
+    withdrawals: [],
+    periodCloses: [],
+  };
+}
+
+/** `deploy.js` whitelist vault ngay khi triển khai để Mint đầu vào được; mock làm như vậy từ đầu. */
+const MOCK_VAULT_KEY = addressKey(MOCK_VAULT_ADDRESS);
+
 export function createDefaultMockLedgerState(): MockLedgerState {
   return {
     balances: new Map(),
-    whitelisted: new Set(),
+    whitelisted: new Set([MOCK_VAULT_KEY]),
     frozen: new Set(),
     totalSupply: 0n,
     nonce: 0,
@@ -96,6 +161,7 @@ export function createDefaultMockLedgerState(): MockLedgerState {
     profitPool: 0n,
     settlementMode: false,
     navRate: DEFAULT_WPT_PRICE_VND,
+    vault: createDefaultMockVaultState(),
   };
 }
 
@@ -134,6 +200,11 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
     profitPool: source.profitPool,
     settlementMode: source.settlementMode,
     navRate: source.navRate,
+    vault: {
+      ...source.vault,
+      withdrawals: source.vault.withdrawals.map((event) => ({ ...event })),
+      periodCloses: source.vault.periodCloses.map((event) => ({ ...event })),
+    },
   };
 }
 
@@ -160,6 +231,41 @@ type EncodedDistributionLedger = {
   totalReserved: string;
 };
 
+type EncodedVaultWithdrawal = {
+  to: string;
+  amount: string;
+  operator: string;
+  txHash: string;
+  blockNumber: number;
+};
+
+type EncodedVaultPeriodClose = {
+  periodRef: string;
+  distributedPrev: string;
+  rateBps: string;
+  percentLocked: string;
+  operator: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;
+};
+
+type EncodedVaultState = {
+  lockMode: VaultLockMode;
+  fixedLockAmount: string;
+  percentRateBps: string;
+  pendingPercentRateBps: string;
+  hasPendingRate: boolean;
+  netProceeds: string;
+  lastPeriodRef: string;
+  lastDistributedPrev: string;
+  percentLocked: string;
+  payoutWallet?: string;
+  paused: boolean;
+  withdrawals: EncodedVaultWithdrawal[];
+  periodCloses: EncodedVaultPeriodClose[];
+};
+
 export type EncodedMockLedgerState = {
   balances: Record<string, string>;
   whitelisted: string[];
@@ -179,6 +285,8 @@ export type EncodedMockLedgerState = {
   profitPool: string;
   settlementMode: boolean;
   navRate: string;
+  /** Thiếu ở dòng lưu trước BE-13: giải mã thành vault `UNSET` (QĐ-G). */
+  vault?: EncodedVaultState;
 };
 
 const sortedStrings = (values: Iterable<string>): string[] => [...values].sort();
@@ -216,6 +324,30 @@ function encodeDistributionLedger(ledger: MockDistributionLedger): EncodedDistri
   };
 }
 
+function encodeVault(vault: Readonly<MockVaultState>): EncodedVaultState {
+  return {
+    lockMode: vault.lockMode,
+    fixedLockAmount: vault.fixedLockAmount.toString(),
+    percentRateBps: vault.percentRateBps.toString(),
+    pendingPercentRateBps: vault.pendingPercentRateBps.toString(),
+    hasPendingRate: vault.hasPendingRate,
+    netProceeds: vault.netProceeds.toString(),
+    lastPeriodRef: vault.lastPeriodRef.toString(),
+    lastDistributedPrev: vault.lastDistributedPrev.toString(),
+    percentLocked: vault.percentLocked.toString(),
+    ...(vault.payoutWallet ? { payoutWallet: vault.payoutWallet } : {}),
+    paused: vault.paused,
+    withdrawals: vault.withdrawals.map((event) => ({ ...event, amount: event.amount.toString() })),
+    periodCloses: vault.periodCloses.map((event) => ({
+      ...event,
+      periodRef: event.periodRef.toString(),
+      distributedPrev: event.distributedPrev.toString(),
+      rateBps: event.rateBps.toString(),
+      percentLocked: event.percentLocked.toString(),
+    })),
+  };
+}
+
 export function encodeMockLedgerState(state: Readonly<MockLedgerState>): EncodedMockLedgerState {
   return {
     balances: encodeBigintMap(state.balances),
@@ -246,6 +378,7 @@ export function encodeMockLedgerState(state: Readonly<MockLedgerState>): Encoded
     profitPool: state.profitPool.toString(),
     settlementMode: state.settlementMode,
     navRate: state.navRate.toString(),
+    vault: encodeVault(state.vault),
   };
 }
 
@@ -321,6 +454,63 @@ function decodeDistributionLedger(value: unknown): MockDistributionLedger {
     ),
     nextDistributionId: integerValue(root.nextDistributionId, 'distributionLedger.nextDistributionId'),
     totalReserved: bigintValue(root.totalReserved, 'distributionLedger.totalReserved'),
+  };
+}
+
+function arrayValue(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`MockLedgerState.${label} phải là mảng.`);
+  return value;
+}
+
+const LOCK_MODES: readonly VaultLockMode[] = ['UNSET', 'FIXED', 'PERCENT'];
+
+function decodeVault(value: unknown): MockVaultState {
+  const root = record(value, 'vault');
+  const lockMode = root.lockMode;
+  if (!LOCK_MODES.includes(lockMode as VaultLockMode)) {
+    throw new Error('MockLedgerState.vault.lockMode phải là UNSET, FIXED hoặc PERCENT.');
+  }
+  const payoutWallet = root.payoutWallet;
+  if (payoutWallet !== undefined && typeof payoutWallet !== 'string') {
+    throw new Error('MockLedgerState.vault.payoutWallet phải là string hoặc không có.');
+  }
+  return {
+    lockMode: lockMode as VaultLockMode,
+    fixedLockAmount: bigintValue(root.fixedLockAmount, 'vault.fixedLockAmount'),
+    percentRateBps: bigintValue(root.percentRateBps, 'vault.percentRateBps'),
+    pendingPercentRateBps: bigintValue(root.pendingPercentRateBps, 'vault.pendingPercentRateBps'),
+    hasPendingRate: booleanValue(root.hasPendingRate, 'vault.hasPendingRate'),
+    netProceeds: bigintValue(root.netProceeds, 'vault.netProceeds'),
+    lastPeriodRef: bigintValue(root.lastPeriodRef, 'vault.lastPeriodRef'),
+    lastDistributedPrev: bigintValue(root.lastDistributedPrev, 'vault.lastDistributedPrev'),
+    percentLocked: bigintValue(root.percentLocked, 'vault.percentLocked'),
+    payoutWallet,
+    paused: booleanValue(root.paused, 'vault.paused'),
+    withdrawals: arrayValue(root.withdrawals, 'vault.withdrawals').map((raw, index) => {
+      const label = `vault.withdrawals.${index}`;
+      const item = record(raw, label);
+      return {
+        to: stringValue(item.to, `${label}.to`),
+        amount: bigintValue(item.amount, `${label}.amount`),
+        operator: stringValue(item.operator, `${label}.operator`),
+        txHash: stringValue(item.txHash, `${label}.txHash`),
+        blockNumber: integerValue(item.blockNumber, `${label}.blockNumber`),
+      };
+    }),
+    periodCloses: arrayValue(root.periodCloses, 'vault.periodCloses').map((raw, index) => {
+      const label = `vault.periodCloses.${index}`;
+      const item = record(raw, label);
+      return {
+        periodRef: bigintValue(item.periodRef, `${label}.periodRef`),
+        distributedPrev: bigintValue(item.distributedPrev, `${label}.distributedPrev`),
+        rateBps: bigintValue(item.rateBps, `${label}.rateBps`),
+        percentLocked: bigintValue(item.percentLocked, `${label}.percentLocked`),
+        operator: stringValue(item.operator, `${label}.operator`),
+        txHash: stringValue(item.txHash, `${label}.txHash`),
+        blockNumber: integerValue(item.blockNumber, `${label}.blockNumber`),
+        timestamp: integerValue(item.timestamp, `${label}.timestamp`),
+      };
+    }),
   };
 }
 
@@ -413,9 +603,15 @@ export function decodeMockLedgerState(value: unknown, now: number = Date.now()):
     throw new Error('MockLedgerState.spvWallet phải là string hoặc không có.');
   }
 
+  // Dòng JSONB lưu trước BE-13 không có vault: dựng vault vừa triển khai (`UNSET`) và whitelist
+  // địa chỉ vault như lúc triển khai, không báo lỗi (QĐ-G).
+  const whitelisted = new Set(stringArray(root.whitelisted, 'whitelisted'));
+  const vault = root.vault === undefined ? createDefaultMockVaultState() : decodeVault(root.vault);
+  if (root.vault === undefined) whitelisted.add(MOCK_VAULT_KEY);
+
   return {
     balances: decodeBigintMap(root.balances, 'balances'),
-    whitelisted: new Set(stringArray(root.whitelisted, 'whitelisted')),
+    whitelisted,
     frozen: new Set(stringArray(root.frozen, 'frozen')),
     totalSupply: bigintValue(root.totalSupply, 'totalSupply'),
     nonce: integerValue(root.nonce, 'nonce'),
@@ -436,6 +632,7 @@ export function decodeMockLedgerState(value: unknown, now: number = Date.now()):
     profitPool: bigintValue(root.profitPool, 'profitPool'),
     settlementMode: booleanValue(root.settlementMode, 'settlementMode'),
     navRate: bigintValue(root.navRate, 'navRate'),
+    vault,
   };
 }
 

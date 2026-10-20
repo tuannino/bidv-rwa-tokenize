@@ -74,6 +74,32 @@ export interface VaultPeriodClose {
   timestamp: number;
 }
 
+/** Một sự kiện `Withdrawn(to, amount, operator)` của vault (BE-13 QĐ-E). */
+export interface VaultWithdrawal {
+  to: string;
+  amount: bigint;
+  /** Ví đã gọi `withdraw`; trên chain thật là ví ký máy chủ giữ WITHDRAWER_ROLE. */
+  operator: string;
+  txHash: string;
+  blockNumber: bigint;
+  logIndex: number;
+}
+
+/** Biên nhận của một giao dịch rút: trạng thái và các sự kiện `Withdrawn` nằm trong nó. */
+export interface VaultWithdrawalReceipt {
+  txHash: string;
+  /** `CONFIRMED` là biên nhận `status = 1`, `FAILED` là revert. */
+  status: 'CONFIRMED' | 'FAILED';
+  withdrawals: VaultWithdrawal[];
+}
+
+export interface VaultWithdrawalFilter {
+  /** Quét từ block này (gồm cả nó), thường là `claimedBlock` của lệnh rút. */
+  fromBlock: bigint;
+  to?: string;
+  amount?: bigint;
+}
+
 export interface ILedgerVault {
   vaultStatus(): Promise<VaultStatus | null>;
   vaultPeriodCloses(limit: number): Promise<VaultPeriodClose[]>;
@@ -88,6 +114,27 @@ export interface ILedgerVault {
    * Dùng để đối soát trước khi gửi lại, không dựa vào `lastPeriodRef` (SC-06 QĐ-G).
    */
   findVaultPeriodClose(periodRef: bigint): Promise<VaultPeriodClose | null>;
+  /*
+   * Bốn setter cấu hình khoá (BE-13 QĐ-C). Trả mã giao dịch ngay (PENDING) để nghiệp vụ lưu `Txn`
+   * trước khi chờ biên nhận. Chain không có vault thanh toán thì ném lỗi "không áp dụng".
+   */
+  setVaultPercentRate(bps: bigint): Promise<TxResult>;
+  setVaultFixedLock(amount: bigint): Promise<TxResult>;
+  /** Chỉ `FIXED` hoặc `PERCENT`: hợp đồng không cho quay về `UNSET`. */
+  setVaultLockMode(mode: Exclude<VaultLockMode, 'UNSET'>): Promise<TxResult>;
+  setVaultPayoutWallet(wallet: string): Promise<TxResult>;
+  /** Gửi `withdraw(amount)` về ví nhận đã đặt trên vault (BE-13 QĐ-E). Trả PENDING. */
+  withdrawFromVault(amount: bigint): Promise<TxResult>;
+  /**
+   * Sự kiện `Withdrawn` từ `fromBlock`, lọc theo `to` và `amount` nếu có, cũ nhất trước. Dùng để
+   * liệt kê ỨNG VIÊN khi mất mã giao dịch; sự kiện không mang mã lệnh nên không tự kết luận.
+   */
+  findVaultWithdrawals(filter: VaultWithdrawalFilter): Promise<VaultWithdrawal[]>;
+  /**
+   * Biên nhận của `txHash` kèm các sự kiện `Withdrawn` của vault trong đó; `null` khi chưa có biên
+   * nhận (chưa vào block hoặc mã lạ). Không chờ: người gọi đã chờ bằng `waitReceipt`.
+   */
+  vaultWithdrawalReceipt(txHash: string): Promise<VaultWithdrawalReceipt | null>;
 }
 
 // =============================================================================
@@ -394,6 +441,11 @@ export interface ILedgerRead {
   balanceOf(wallet: string): Promise<bigint>;
   tokenInfo(): Promise<TokenInfo>;
   waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult>;
+  /**
+   * Số block MỚI NHẤT (BE-13 QĐ-E): mốc `claimedBlock` của lệnh rút để quét sự kiện ứng viên.
+   * Mock trả bộ đếm block bền trong state.
+   */
+  latestBlockNumber(): Promise<bigint>;
 }
 
 /**

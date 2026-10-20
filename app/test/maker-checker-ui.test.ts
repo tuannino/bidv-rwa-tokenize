@@ -19,6 +19,7 @@ import {
   submitBlockReason,
   type PreviewState,
 } from '@/components/maker-checker/gates';
+import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
 
 /**
  * FE-22 — màn Lập lệnh và Phê duyệt lệnh.
@@ -33,7 +34,8 @@ import {
  */
 
 const CHAIN = 'mock';
-const SPV = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+/** BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`. */
+const SPV = MOCK_VAULT_ADDRESS;
 const CAP = BigInt(WPT_TOTAL_SUPPLY);
 
 function actAs(role: string, actor?: string) {

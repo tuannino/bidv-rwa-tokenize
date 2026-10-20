@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  MOCK_VAULT_ADDRESS,
   addressBook,
   getContractAddress,
   spvPaymentVaultAbi,
@@ -20,7 +21,7 @@ import { getVaultOverview } from '@/lib/bank/vault.service';
 import { resetChainRegistryCache } from '@/lib/chains/registry';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { createEvmLedger } from '@/lib/ledger/evm.adapter';
-import { createMockLedger } from '@/lib/ledger/mock.adapter';
+import { createMockLedger, resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { createStellarLedger } from '@/lib/ledger/stellar.adapter';
 import { LedgerError } from '@/lib/ledger/ledger.port';
 import { can } from '@/lib/rbac';
@@ -52,10 +53,18 @@ describe('SC-07 — adapter rỗng, quyền và menu vault', () => {
     resetStoreCache();
   });
 
-  it('mock và stellar công khai trạng thái chưa triển khai thay vì ném lỗi', async () => {
+  it('stellar công khai trạng thái chưa triển khai; mock nay có vault mô phỏng ở UNSET (BE-13 QĐ-G)', async () => {
+    resetMockLedger();
     const mock = createMockLedger('mock');
     const stellar = createStellarLedger('stellar');
-    expect(await mock.vaultStatus()).toBeNull();
+    // Trước BE-13 mock trả `null`; nay vault logic tồn tại từ khi chain mock khởi tạo.
+    expect(await mock.vaultStatus()).toMatchObject({
+      address: MOCK_VAULT_ADDRESS,
+      lockMode: 'UNSET',
+      lockedAmount: 0n,
+      withdrawable: 0n,
+      payoutWallet: null,
+    });
     expect(await mock.vaultPeriodCloses(10)).toEqual([]);
     expect(await stellar.vaultStatus()).toBeNull();
     expect(await stellar.vaultPeriodCloses(10)).toEqual([]);
@@ -68,14 +77,19 @@ describe('SC-07 — adapter rỗng, quyền và menu vault', () => {
     expect(navHrefs(CONTROLLER_NAV)).toContain('/vault');
   });
 
-  it('service trả null trên mock và chặn vai không có quyền', async () => {
+  it('service trả vault mô phỏng trên mock và chặn vai không có quyền', async () => {
     process.env.USE_MOCK_DB = 'true';
     process.env.DEMO_ROLE = 'TELLER';
     resetServerEnvCache();
     resetMemoryStore();
     resetStoreCache();
+    resetMockLedger();
     const allowed = await getVaultOverview({ chain: 'mock' });
-    expect(allowed.ok && allowed.data).toMatchObject({ status: null, history: [] });
+    // Trước BE-13 là `status: null`; nay là vault mock ở UNSET (QĐ-G).
+    expect(allowed.ok && allowed.data).toMatchObject({
+      status: { address: MOCK_VAULT_ADDRESS, lockMode: 'UNSET' },
+      history: [],
+    });
 
     process.env.DEMO_ROLE = 'SELLER';
     resetServerEnvCache();

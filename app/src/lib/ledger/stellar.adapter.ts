@@ -185,6 +185,28 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async findVaultPeriodClose() {
       return null;
     },
+    // BE-13: ghi và đối soát vault là lỗi gọi sai chain, từ chối rõ ràng thay vì trả rỗng.
+    async setVaultPercentRate(): Promise<TxResult> {
+      return todoNeeds('setVaultPercentRate', 'vault thanh toán SPV bản Soroban');
+    },
+    async setVaultFixedLock(): Promise<TxResult> {
+      return todoNeeds('setVaultFixedLock', 'vault thanh toán SPV bản Soroban');
+    },
+    async setVaultLockMode(): Promise<TxResult> {
+      return todoNeeds('setVaultLockMode', 'vault thanh toán SPV bản Soroban');
+    },
+    async setVaultPayoutWallet(): Promise<TxResult> {
+      return todoNeeds('setVaultPayoutWallet', 'vault thanh toán SPV bản Soroban');
+    },
+    async withdrawFromVault(): Promise<TxResult> {
+      return todoNeeds('withdrawFromVault', 'vault thanh toán SPV bản Soroban');
+    },
+    async findVaultWithdrawals(): Promise<never> {
+      return todoNeeds('findVaultWithdrawals', 'sự kiện rút của vault thanh toán SPV bản Soroban');
+    },
+    async vaultWithdrawalReceipt(): Promise<never> {
+      return todoNeeds('vaultWithdrawalReceipt', 'sự kiện rút của vault thanh toán SPV bản Soroban');
+    },
 
     // --- Đọc / giao dịch ---
     async balanceOf(): Promise<bigint> {
@@ -195,6 +217,9 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     },
     async waitReceipt(): Promise<TxResult> {
       return todo('waitReceipt');
+    },
+    async latestBlockNumber(): Promise<bigint> {
+      return todoNeeds('latestBlockNumber', 'đọc ledger mới nhất của Soroban RPC (BE-13)');
     },
   };
 }

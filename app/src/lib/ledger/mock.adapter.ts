@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { orderRefFromOrderId, type ChainKey } from '@bidv/shared';
+import { MOCK_VAULT_ADDRESS, orderRefFromOrderId, type ChainKey } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey, normalizeEvmAddress } from './address';
 import {
@@ -10,6 +10,8 @@ import {
   type MockLedgerState,
   type MockLedgerStateStore,
   type MockSnapshotRecord,
+  type MockVaultPeriodClose,
+  type MockVaultWithdrawal,
 } from './mock-state.store';
 import {
   LedgerError,
@@ -20,7 +22,17 @@ import {
   type TokenInfo,
   type TransferCheck,
   type TxResult,
+  type VaultPeriodClose,
+  type VaultStatus,
+  type VaultWithdrawal,
 } from './ledger.port';
+import {
+  VAULT_BPS_DENOMINATOR,
+  netProceedsAfterSell,
+  vaultLockedAmount,
+  vaultPercentLockedAfterClose,
+  vaultWithdrawable,
+} from './vault-lock';
 
 /**
  * Ledger trong bộ nhớ — mint chạy KHÔNG cần chain. Dùng cho demo public/free-tier,
@@ -43,6 +55,10 @@ const TOKEN: Omit<TokenInfo, 'totalSupply'> = {
 /** Giá mặc định vẫn suy ra từ nguồn duy nhất; state-store chỉ chịu trách nhiệm lưu nó. */
 const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
 const MAX_UINT256 = (1n << 256n) - 1n;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+/** Nhãn ví ký của mock, trùng `createServerSigner('mock')`; dùng khi factory không truyền người ký. */
+const MOCK_OPERATOR = '0x0000000000000000000000000000000000000001';
+const VAULT_KEY = addressKey(MOCK_VAULT_ADDRESS);
 
 /** Chỉ dùng cho test/demo runner: về trạng thái trắng. */
 export function resetMockLedger(
@@ -72,6 +88,8 @@ export interface MockLedgerSeed {
   profitPool?: bigint;
   /** Giá bán 1 WPT tính bằng VNDB. */
   wptPriceVnd?: bigint;
+  /** Tạm dừng rút của vault mock, như `pauseWithdrawals` (cổng không có method này). */
+  vaultPaused?: boolean;
 }
 
 export function seedMockLedger(
@@ -90,6 +108,7 @@ export function seedMockLedger(
       s.wptPriceVnd = seed.wptPriceVnd;
       s.priceHydrated = true;
     }
+    if (seed.vaultPaused !== undefined) s.vault.paused = seed.vaultPaused;
   });
 }
 
@@ -113,6 +132,11 @@ function fakeTxHash(s: MockLedgerState): string {
 export interface MockLedgerOptions {
   readInitialPrice?: () => Promise<bigint>;
   stateStore?: MockLedgerStateStore;
+  /**
+   * Địa chỉ người ký ghi vào `operator` của sự kiện vault (`Withdrawn`, `PeriodClosed`), như
+   * `msg.sender` trên chuỗi. Factory truyền ví ký ngân hàng; thiếu thì dùng nhãn ví ký mock.
+   */
+  readOperator?: () => Promise<string | null>;
 }
 
 export function createMockLedger(
@@ -313,6 +337,32 @@ export function createMockLedger(
     expired: Date.now() >= record.claimDeadline,
     closed: record.closed,
   });
+
+  // ===========================================================================
+  //  VAULT MOCK (BE-13 QĐ-G): biến trạng thái và luật khoá như `SpvPaymentVault`
+  // ===========================================================================
+  const operatorAddress = async (): Promise<string> =>
+    normalizeEvmAddress((await options.readOperator?.()) ?? MOCK_OPERATOR);
+
+  const lockInput = (s: Readonly<MockLedgerState>) => ({
+    ...s.vault,
+    vndbBalance: paymentBalance(s, MOCK_VAULT_ADDRESS),
+  });
+
+  const toVaultWithdrawal = (event: MockVaultWithdrawal): VaultWithdrawal => ({
+    to: event.to,
+    amount: event.amount,
+    operator: event.operator,
+    txHash: event.txHash,
+    blockNumber: BigInt(event.blockNumber),
+    logIndex: 0,
+  });
+
+  const toVaultPeriodClose = (event: MockVaultPeriodClose): VaultPeriodClose => ({ ...event, blockNumber: BigInt(event.blockNumber) });
+
+  const requireNonNegative = (operation: string, value: bigint, label: string): void => {
+    if (value < 0n) reject(operation, `${label} không được âm.`);
+  };
 
   return {
     chain,
@@ -601,6 +651,8 @@ export function createMockLedger(
         s.paymentAllowances.set(addressKey(buyer), allowance(s, buyer) - cost);
         setBalance(s, spv, balance(s, spv) - order.wptAmount);
         setBalance(s, buyer, balance(s, buyer) + order.wptAmount);
+        // Như `settleBuy`: tiền vào vault cộng `netProceeds`. Dòng cũ có ví SPV khác vault thì bỏ qua.
+        if (addressKey(spv) === VAULT_KEY) s.vault.netProceeds += cost;
         const tx = confirmed(s);
         s.settledOrders.set(orderId, tx.txHash);
         return tx;
@@ -652,6 +704,8 @@ export function createMockLedger(
         setBalance(s, spv, balance(s, spv) + order.wptAmount);
         setPaymentBalance(s, spv, paymentBalance(s, spv) - proceeds);
         setPaymentBalance(s, seller, paymentBalance(s, seller) + proceeds);
+        // Như `settleSell`: trừ `netProceeds`, chặn ở 0.
+        if (addressKey(spv) === VAULT_KEY) s.vault.netProceeds = netProceedsAfterSell(s.vault.netProceeds, proceeds);
         const tx = confirmed(s);
         s.settledOrders.set(orderId, tx.txHash);
         return tx;
@@ -837,21 +891,172 @@ export function createMockLedger(
       return read('navRate', (s) => s.navRate);
     },
 
-    async vaultStatus() {
-      return null;
+    // =========================================================================
+    //  VAULT THANH TOÁN SPV (mô phỏng, BE-13 QĐ-G)
+    // =========================================================================
+    async vaultStatus(): Promise<VaultStatus> {
+      return read('vaultStatus', (s) => {
+        const input = lockInput(s);
+        return {
+          address: normalizeEvmAddress(MOCK_VAULT_ADDRESS),
+          wptBalance: balance(s, MOCK_VAULT_ADDRESS),
+          vndbBalance: input.vndbBalance,
+          lockMode: s.vault.lockMode,
+          fixedLockAmount: s.vault.fixedLockAmount,
+          percentRateBps: s.vault.percentRateBps,
+          pendingPercentRateBps: s.vault.hasPendingRate ? s.vault.pendingPercentRateBps : null,
+          netProceeds: s.vault.netProceeds,
+          lockedAmount: vaultLockedAmount(input),
+          withdrawable: vaultWithdrawable(input),
+          lastPeriodRef: s.vault.lastPeriodRef,
+          lastDistributedPrev: s.vault.lastDistributedPrev,
+          percentLocked: s.vault.percentLocked,
+          payoutWallet: s.vault.payoutWallet ?? null,
+          withdrawalsPaused: s.vault.paused,
+        };
+      });
     },
 
-    async vaultPeriodCloses() {
-      return [];
+    async vaultPeriodCloses(limit) {
+      if (limit <= 0) return [];
+      return read('vaultPeriodCloses', (s) =>
+        [...s.vault.periodCloses].reverse().slice(0, limit).map(toVaultPeriodClose),
+      );
     },
 
-    // SC-06 QĐ-G: chain mock không có vault thanh toán nên không có kỳ vault để chốt.
-    async closeVaultPeriod() {
-      return reject('closeVaultPeriod', 'Chain mock không có vault thanh toán SPV; không áp dụng.');
+    /** Như `closePeriod`: mã kỳ tuần tự, áp tỷ lệ chờ rồi chốt phần khoá theo số đã chia. */
+    async closeVaultPeriod(periodRef, distributedPrev) {
+      requireNonNegative('closeVaultPeriod', distributedPrev, 'Số đã chia kỳ trước');
+      const operator = await operatorAddress();
+      return mutate('closeVaultPeriod', (s) => {
+        const expected = s.vault.lastPeriodRef + 1n;
+        if (periodRef !== expected) {
+          reject('closeVaultPeriod', `Mã kỳ phải tăng tuần tự và không được chốt lại kỳ cũ (cần ${expected}, nhận ${periodRef}).`);
+        }
+        if (s.vault.hasPendingRate) {
+          s.vault.percentRateBps = s.vault.pendingPercentRateBps;
+          s.vault.pendingPercentRateBps = 0n;
+          s.vault.hasPendingRate = false;
+        }
+        s.vault.percentLocked = vaultPercentLockedAfterClose(distributedPrev, s.vault.percentRateBps);
+        s.vault.lastPeriodRef = periodRef;
+        s.vault.lastDistributedPrev = distributedPrev;
+        const tx = confirmed(s);
+        s.vault.periodCloses.push({
+          periodRef,
+          distributedPrev,
+          rateBps: s.vault.percentRateBps,
+          percentLocked: s.vault.percentLocked,
+          operator,
+          txHash: tx.txHash,
+          blockNumber: s.nonce,
+          timestamp: Math.floor(Date.now() / 1000),
+        });
+        return tx;
+      });
     },
 
-    async findVaultPeriodClose() {
-      return null;
+    async findVaultPeriodClose(periodRef) {
+      return read('findVaultPeriodClose', (s) => {
+        const found = s.vault.periodCloses.find((event) => event.periodRef === periodRef);
+        return found ? toVaultPeriodClose(found) : null;
+      });
+    },
+
+    /** Như `setPercentRate`: trước kỳ đầu có hiệu lực ngay, sau đó chỉ ghi tỷ lệ chờ. */
+    async setVaultPercentRate(bps) {
+      requireNonNegative('setVaultPercentRate', bps, 'Tỷ lệ khoá');
+      if (bps > VAULT_BPS_DENOMINATOR) reject('setVaultPercentRate', 'Tỷ lệ khoá không được vượt 100%.');
+      return mutate('setVaultPercentRate', (s) => {
+        if (s.vault.lastPeriodRef === 0n) {
+          s.vault.percentRateBps = bps;
+          s.vault.pendingPercentRateBps = 0n;
+          s.vault.hasPendingRate = false;
+        } else {
+          s.vault.pendingPercentRateBps = bps;
+          s.vault.hasPendingRate = true;
+        }
+        return confirmed(s);
+      });
+    },
+
+    async setVaultFixedLock(amount) {
+      requireNonNegative('setVaultFixedLock', amount, 'Số khoá cố định');
+      return mutate('setVaultFixedLock', (s) => {
+        s.vault.fixedLockAmount = amount;
+        return confirmed(s);
+      });
+    },
+
+    async setVaultLockMode(mode) {
+      if ((mode as string) === 'UNSET') reject('setVaultLockMode', 'Không thể đặt chế độ khoá về Chưa cấu hình.');
+      return mutate('setVaultLockMode', (s) => {
+        s.vault.lockMode = mode;
+        return confirmed(s);
+      });
+    },
+
+    /** Như `setPayoutWallet`: khác 0 và đã xác minh (mock: đã whitelist). */
+    async setVaultPayoutWallet(wallet) {
+      const normalized = normalizeEvmAddress(wallet);
+      if (addressKey(normalized) === ZERO_ADDRESS) reject('setVaultPayoutWallet', 'Ví nhận tiền rút không được là địa chỉ 0.');
+      return mutate('setVaultPayoutWallet', (s) => {
+        if (!s.whitelisted.has(addressKey(normalized))) {
+          reject('setVaultPayoutWallet', 'Ví nhận tiền rút chưa được xác minh trong sổ danh tính.');
+        }
+        s.vault.payoutWallet = normalized;
+        return confirmed(s);
+      });
+    },
+
+    /** Như `withdraw`: chặn khi tạm dừng, thiếu ví nhận, số 0 hoặc vượt phần được rút. */
+    async withdrawFromVault(amount) {
+      const operator = await operatorAddress();
+      return mutate('withdrawFromVault', (s) => {
+        if (s.vault.paused) reject('withdrawFromVault', 'Vault đang tạm dừng rút.');
+        const payout = s.vault.payoutWallet;
+        if (!payout) reject('withdrawFromVault', 'Vault chưa cấu hình ví nhận tiền rút.');
+        if (amount <= 0n) reject('withdrawFromVault', 'Số tiền rút phải lớn hơn 0.');
+        const available = vaultWithdrawable(lockInput(s));
+        if (amount > available) {
+          reject('withdrawFromVault', `Số tiền rút vượt phần VNDB hiện được phép rút (yêu cầu ${amount}, được rút ${available}).`);
+        }
+        setPaymentBalance(s, MOCK_VAULT_ADDRESS, paymentBalance(s, MOCK_VAULT_ADDRESS) - amount);
+        setPaymentBalance(s, payout, paymentBalance(s, payout) + amount);
+        const tx = confirmed(s);
+        s.vault.withdrawals.push({ to: payout, amount, operator, txHash: tx.txHash, blockNumber: s.nonce });
+        return tx;
+      });
+    },
+
+    async findVaultWithdrawals({ fromBlock, to, amount }) {
+      const target = to === undefined ? undefined : addressKey(normalizeEvmAddress(to));
+      return read('findVaultWithdrawals', (s) =>
+        s.vault.withdrawals
+          .filter(
+            (event) =>
+              BigInt(event.blockNumber) >= fromBlock &&
+              (target === undefined || addressKey(event.to) === target) &&
+              (amount === undefined || event.amount === amount),
+          )
+          .map(toVaultWithdrawal),
+      );
+    },
+
+    /** Mọi giao dịch mock đều thành công; mã chưa từng cấp (lớn hơn bộ đếm) là chưa có biên nhận. */
+    async vaultWithdrawalReceipt(txHash) {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return null;
+      return read('vaultWithdrawalReceipt', (s) => {
+        const issued = BigInt(txHash);
+        if (issued === 0n || issued > BigInt(s.nonce)) return null;
+        return {
+          txHash,
+          status: 'CONFIRMED' as const,
+          withdrawals: s.vault.withdrawals
+            .filter((event) => event.txHash.toLowerCase() === txHash.toLowerCase())
+            .map(toVaultWithdrawal),
+        };
+      });
     },
 
     // =========================================================================
@@ -868,6 +1073,11 @@ export function createMockLedger(
 
     async waitReceipt(txHash) {
       return read('waitReceipt', () => ({ txHash, status: 'CONFIRMED' as const }));
+    },
+
+    /** Mỗi giao dịch mock là một "block": bộ đếm `nonce` bền trong state. */
+    async latestBlockNumber() {
+      return read('latestBlockNumber', (s) => BigInt(s.nonce));
     },
   };
 }
