@@ -7,15 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { listSellerTransactionsAction } from '@/app/actions/seller';
-import type { SellerTxnPage } from '@/lib/bank/seller.service';
+import type { SellerTxnPage, SellerTxnRow } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
+import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.port';
 import { nf } from './seller-overview';
 
 /**
- * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8–9) — CHỈ ĐỌC.
+ * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8–9, BE-13 QĐ-I) — CHỈ ĐỌC.
  *
- * Lọc và phân trang làm ở `listSellerTransactions`, màn này chỉ gửi bộ lọc và hiển thị.
+ * Lệnh mua bán của nhà đầu tư gộp với lệnh rút của Người bán. Lọc và phân trang làm ở
+ * `listSellerTransactions`, màn này chỉ gửi bộ lọc và hiển thị.
  */
 
 const PAGE_SIZE = 20;
@@ -39,6 +41,26 @@ const STEP_LABELS: Record<OrderStatus, string> = {
   REJECTED: '2. Dừng ở kiểm tra',
   FAILED: '3. Dừng ở khớp lệnh',
   EXPIRED: '1. Hết hạn chờ',
+};
+
+/** Trạng thái lệnh rút (BE-13 QĐ-E). */
+export const WITHDRAW_STATUS_LABELS: Record<WithdrawStatus, string> = {
+  SENDING: 'Đang gửi',
+  SENT: 'Đã gửi, chờ biên nhận',
+  COMPLETED: 'Hoàn tất',
+  FAILED: 'Thất bại',
+  NEEDS_REVIEW: 'Cần Kiểm soát viên xem',
+};
+
+const TYPE_LABELS: Record<SellerTxnRow['type'], string> = { BUY: 'Mua', SELL: 'Bán', WITHDRAW: 'Rút' };
+
+/** Bộ lọc trạng thái nhận đúng tập trạng thái của loại đang lọc. */
+const statusOptions = (type: string): Array<[string, string]> => {
+  const orders = ORDER_STATUSES.map((s): [string, string] => [s, STATUS_LABELS[s]]);
+  const withdrawals = WITHDRAW_STATUSES.map((s): [string, string] => [s, `${WITHDRAW_STATUS_LABELS[s]} (rút)`]);
+  if (type === 'WITHDRAW') return WITHDRAW_STATUSES.map((s) => [s, WITHDRAW_STATUS_LABELS[s]]);
+  if (type === 'BUY' || type === 'SELL') return orders;
+  return [...orders, ...withdrawals.filter(([s]) => !(ORDER_STATUSES as readonly string[]).includes(s))];
 };
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString('vi-VN');
@@ -84,7 +106,13 @@ export function SellerTransactionsPage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   const set = (name: keyof Filters) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters((prev) => ({ ...prev, [name]: event.target.value }));
+    const value = event.target.value;
+    setFilters((prev) => {
+      const next = { ...prev, [name]: value };
+      // Đổi loại thì bỏ trạng thái không thuộc loại mới.
+      if (name === 'type' && next.status && !statusOptions(value).some(([s]) => s === next.status)) next.status = '';
+      return next;
+    });
     setPage(1);
   };
 
@@ -92,7 +120,9 @@ export function SellerTransactionsPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Danh sách giao dịch</h1>
-        <p className="text-sm text-muted-foreground">Lệnh mua token của nhà đầu tư khớp với ví Người bán. Màn chỉ đọc.</p>
+        <p className="text-sm text-muted-foreground">
+          Lệnh mua bán token của nhà đầu tư khớp với ví Người bán và lệnh rút VNDB của Người bán. Màn chỉ đọc.
+        </p>
       </header>
 
       <Card>
@@ -109,12 +139,13 @@ export function SellerTransactionsPage() {
               <option value="">Mọi loại</option>
               <option value="BUY">Mua</option>
               <option value="SELL">Bán</option>
+              <option value="WITHDRAW">Rút</option>
             </select>
             <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={FIELD}>
               <option value="">Mọi trạng thái</option>
-              {ORDER_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
+              {statusOptions(filters.type).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -137,7 +168,7 @@ export function SellerTransactionsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Mã lệnh</TableHead>
-                    <TableHead>Nhà đầu tư</TableHead>
+                    <TableHead>Nhà đầu tư / ví nhận</TableHead>
                     <TableHead>Loại</TableHead>
                     <TableHead className="text-right">Số token</TableHead>
                     <TableHead className="text-right">Số VNDB</TableHead>
@@ -148,25 +179,30 @@ export function SellerTransactionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-mono text-xs" title={row.id}>
-                        {row.id.slice(0, 8)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs" title={row.investorWallet}>
-                        {shortWallet(row.investorWallet)}
-                      </TableCell>
-                      <TableCell>{row.type === 'SELL' ? 'Bán' : 'Mua'}</TableCell>
-                      <TableCell className="text-right font-mono">{nf(row.wptAmount)}</TableCell>
-                      <TableCell className="text-right font-mono">{nf(row.vndAmount)}</TableCell>
-                      <TableCell>{STEP_LABELS[row.status]}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{STATUS_LABELS[row.status]}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">{fmtTime(row.createdAt)}</TableCell>
-                      <TableCell className="text-xs">{fmtTime(row.updatedAt)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {data.rows.map((row) => {
+                    const wallet = row.type === 'WITHDRAW' ? row.payoutWallet : row.investorWallet;
+                    return (
+                      <TableRow key={`${row.type}:${row.id}`} data-type={row.type}>
+                        <TableCell className="font-mono text-xs" title={row.id}>
+                          {row.id.slice(0, 8)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs" title={wallet}>
+                          {shortWallet(wallet)}
+                        </TableCell>
+                        <TableCell>{TYPE_LABELS[row.type]}</TableCell>
+                        <TableCell className="text-right font-mono">{row.type === 'WITHDRAW' ? '' : nf(row.wptAmount)}</TableCell>
+                        <TableCell className="text-right font-mono">{nf(row.vndAmount)}</TableCell>
+                        <TableCell>{row.type === 'WITHDRAW' ? row.purpose : STEP_LABELS[row.status]}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {row.type === 'WITHDRAW' ? WITHDRAW_STATUS_LABELS[row.status] : STATUS_LABELS[row.status]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">{fmtTime(row.createdAt)}</TableCell>
+                        <TableCell className="text-xs">{fmtTime(row.updatedAt)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )

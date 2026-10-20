@@ -81,6 +81,8 @@ export interface VaultOverviewView {
   historyError: string | null;
   /** `null` khi chain không có vault. */
   config: VaultConfigFormView | null;
+  /** Kiểm soát viên chốt được lệnh rút `NEEDS_REVIEW` (`vault:reconcile`, QĐ-F). */
+  canResolveWithdrawals: boolean;
 }
 
 /** Trạng thái công khai của vault. Chỉ đọc, nhưng vẫn kiểm quyền ở tầng máy chủ. */
@@ -95,7 +97,10 @@ export async function getVaultOverview(input: unknown): Promise<Result<VaultOver
     const role = await authorize('vault:read', null, chain);
     const ledger = getLedger(chain);
     const status = await ledger.vaultStatus();
-    if (status === null) return ok({ chain, status: null, history: [], historyError: null, config: null });
+    const canResolveWithdrawals = can(role, 'vault:reconcile');
+    if (status === null) {
+      return ok({ chain, status: null, history: [], historyError: null, config: null, canResolveWithdrawals });
+    }
 
     let history: VaultPeriodCloseView[] = [];
     let historyError: string | null = null;
@@ -134,6 +139,7 @@ export async function getVaultOverview(input: unknown): Promise<Result<VaultOver
         payoutWallet: status.payoutWallet ?? '',
         busy: busy ? { kind: busy.kind, acquiredAt: busy.acquiredAt } : null,
       },
+      canResolveWithdrawals,
     });
   } catch (error) {
     return toResult(error);

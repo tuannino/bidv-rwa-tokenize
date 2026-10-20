@@ -1,6 +1,6 @@
 # BE-13: các bước
 
-> Đọc trước: `.kiro/steering/efficiency.md`, `docs/be-13-rut-vault/requirements.md` (bản 2),
+> Đọc trước: `.kiro/steering/efficiency.md`, `docs/be-13-rut-vault/requirements.md` (bản 2.1),
 > `docs/ds-01-kien-truc-hop-dong/design.md` (QĐ-5, QĐ-13, QĐ-25, QĐ-26), `packages/contracts-evm/contracts/SpvPaymentVault.sol`,
 > `app/src/lib/rbac/{can,permissions,config-role,demo-payment}.ts`, `app/src/lib/ledger/{ledger.port,evm.adapter,mock.adapter,mock-state.store}.ts`,
 > `app/src/lib/bank/{vault,seller,distribution,issuance}.service.ts`, `app/src/lib/bank/withdraw-limit.ts`,
@@ -33,7 +33,7 @@ Commit: `feat(be-13): cổng cấu hình và rút vault, mô phỏng vault trên
 ## Bước 3: Khoá vận hành và cấu hình (QĐ-C, QĐ-D)
 
 Bảng `VaultOperationLock`, service cấu hình theo bảng chuyển tiếp, khoá `vault.default_percent_bps`, mục "Cấu hình
-khoá" trên `/vault`. Kiểm thử ca 2 đến 6.
+khoá" và "Lịch sử cấu hình" (QĐ-C1) trên `/vault`. Kiểm thử ca 2 đến 6, 5b.
 
 Commit: `feat(be-13): Kiểm soát viên cấu hình khoá vault, FIXED ưu tiên PERCENT`
 

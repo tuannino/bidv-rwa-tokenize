@@ -66,7 +66,8 @@ export default defineConfig({
           name: 'hardhat',
           // FE-05: `permit-order.spec.ts` ĐỨNG SAU `mint.spec.ts` (Playwright chạy tệp theo thứ tự tên):
           // nó cần nguồn cung trong vault mà luồng lập duyệt của `mint.spec.ts` phát hành.
-          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts', 'chain-scope.spec.ts', 'permit-order.spec.ts'],
+          // BE-13: `vault-withdraw.spec.ts` đứng sau `permit-order.spec.ts`: rút từ VNDB mà lệnh mua ở đó đưa vào vault.
+          testMatch: ['mint.spec.ts', 'wallet-connect.spec.ts', 'chain-scope.spec.ts', 'permit-order.spec.ts', 'vault-withdraw.spec.ts'],
           use: { ...devices['Desktop Chrome'] },
         }
       : { name: 'mock', use: { ...devices['Desktop Chrome'] } },

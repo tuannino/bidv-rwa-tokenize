@@ -5,7 +5,7 @@
 | Nhánh | `feat/be-13-rut-vault` từ `dev` @ `15a5d9a` (FE-05 đã merge) hoặc mới hơn |
 | Điểm | 10 (cấu hình khoá có khoá vận hành bền 3; lệnh rút, chống trùng, đối soát 3; mô phỏng vault trên mock, gỡ hạn mức và phí FE-21 3; RBAC đóng, tài liệu, kiểm thử chung 1) |
 | Mức kiểm chứng | **Cao** (chuyển tiền ra khỏi vault) |
-| Trạng thái spec | **Bản 2, ngày 20/10/2026**: chốt CH-1 đến CH-4 với chủ dự án; nhận góp ý Codex trên bản nháp 1 (mục cuối). Thay bản `docs/be-13-withdraw-service/` ngày 07/10 |
+| Trạng thái spec | **Bản 2.1, ngày 20/10/2026** (bổ sung QĐ-C1 lịch sử cấu hình, ca 5b, theo chủ dự án khi task đang làm). **Bản 2**: chốt CH-1 đến CH-4 với chủ dự án; nhận góp ý Codex trên bản nháp 1 (mục cuối). Thay bản `docs/be-13-withdraw-service/` ngày 07/10 |
 | Thứ tự | Trước FE-08; cả hai trước OP-05 |
 | Căn cứ | DS-01 QĐ-5, QĐ-13 bản 5, QĐ-25, QĐ-26; chủ dự án chốt 07/10 (Người bán tự rút, không phí) và 20/10 (FIXED ưu tiên rồi PERCENT, PERCENT mặc định 20% và cấu hình được; rút phải qua hệ thống; **không sửa `SpvPaymentVault`**) |
 
@@ -107,6 +107,20 @@ Vai vận hành đọc lệnh rút và cấu hình bằng `vault:read` sẵn có
 - Mỗi giao dịch lưu `Txn` trước khi chờ biên nhận; audit ghi ai, giá trị cũ, giá trị mới, tx.
 - Cổng chuỗi, nhóm `ILedgerVault`: `setVaultPercentRate`, `setVaultFixedLock`, `setVaultLockMode`,
   `setVaultPayoutWallet`.
+
+### QĐ-C1. Lịch sử mọi lần thay đổi cấu hình vault (bổ sung bản 2.1)
+
+Chủ dự án chốt: mọi tham số Kiểm soát viên cấu hình được phải có lịch sử cho mọi lần thay đổi. Tham số trong
+`SystemConfig` đã có lịch sử tự động (`setConfig` ghi `SystemConfigHistory`, gồm `vault.default_percent_bps`). Cấu hình
+vault nằm **trên hợp đồng** nên cần lịch sử riêng:
+
+- Mục "Lịch sử cấu hình" trên `/vault` (hai vai vận hành xem), mỗi dòng một thay đổi: thời điểm (block), tham số (chế độ,
+  tỷ lệ, tỷ lệ chờ áp, số cố định, ví nhận), giá trị cũ, giá trị mới, mã giao dịch, **người thao tác**.
+- Nguồn sự thật là **sự kiện trên chuỗi** (`LockModeChanged`, `PercentRateSet`, `FixedLockSet`, `PayoutWalletSet`, đọc từ
+  `deployBlock`); giá trị cũ suy ra từ sự kiện trước đó cùng tham số. Người thao tác lấy từ `Txn`/audit theo mã giao
+  dịch; không tìm thấy thì ghi **"ngoài app"** (ví dụ chạy `vault-admin.js`), để thay đổi bằng script cũng hiện ra.
+- Cổng chuỗi: `vaultConfigEvents({ fromBlock })` (mock trả từ danh sách sự kiện bền trong state).
+- Phân trang, mới nhất trước.
 
 ### QĐ-D. Khoá vận hành vault bền theo chain
 
@@ -237,6 +251,7 @@ Vai vận hành đọc lệnh rút và cấu hình bằng `vault:read` sẵn có
 | 3 | **Thứ tự theo chuyển tiếp:** đủ năm dòng của bảng QĐ-C, đọc thứ tự giao dịch thực gửi; FIXED sang PERCENT không có `setFixedLock(0)`; lỗi ở giao dịch đổi chế độ thì chế độ cũ còn nguyên, lần lưu sau chỉ gửi phần thiếu; đọc trạng thái chuỗi sau **từng** giao dịch: chế độ hiện hành không bao giờ mang giá trị 0 |
 | 4 | **Kiểm đầu vào:** tỷ lệ 0, trên 100, ba chữ số thập phân, chuỗi lạ; số cố định 0 hoặc âm; ví nhận bằng 0, bằng vault, chưa whitelist: đều từ chối trước khi gửi |
 | 5 | **Tỷ lệ chờ áp:** sau một lần chốt kỳ, đổi tỷ lệ thì màn hiện "chờ áp", `lockedAmount` chưa đổi; sau lần chốt kế tiếp thì áp |
+| 5b | **Lịch sử cấu hình:** sau ba lần lưu (UNSET sang PERCENT 20%, đổi 25%, sang FIXED) và một lần đổi bằng `vault-admin.js`: lịch sử đủ từng thay đổi, giá trị cũ và mới đúng, người thao tác đúng, dòng script ghi "ngoài app"; chạy trên nút thật và mock |
 | 6 | **Khoá vận hành:** hai lần lưu cấu hình đồng thời chỉ một bên gửi giao dịch; đang có lệnh rút dở thì lưu cấu hình bị chặn và ngược lại; khoá `CONFIG` treo quá hạn được tiếp quản; khoá `WITHDRAW` không tự hết hạn |
 | 7 | **Rút trên nút Hardhat thật:** PERCENT 20%, sau một lệnh mua 100 WPT (`withdrawable = 8.000.000`), rút 3.000.000: `COMPLETED`, ví nhận tăng đúng 3.000.000, `withdrawable` giảm đúng, `Txn` và audit có dòng, khoá đã nhả |
 | 8 | **Chặn trước khi gửi:** vượt `withdrawable` 1 đồng; chưa đặt ví nhận; tạm dừng; đã có lệnh dở; mã một lần sai dạng: đều từ chối, nonce ví ký không đổi, audit có dòng |
@@ -254,7 +269,7 @@ Ca chạy nhiều giao dịch hoặc tua thời gian trên nút thật đặt ng
 
 ## Điều kiện hoàn thành
 
-- [ ] QĐ-A đến QĐ-I (ca 1 đến 15). Đột biến (ca 16). Kiểm chứng chung (ca 17).
+- [ ] QĐ-A đến QĐ-I, QĐ-C1 (ca 1 đến 15, 5b). Đột biến (ca 16). Kiểm chứng chung (ca 17).
 - [ ] `tech-report.md`: RBAC đóng, cấu hình khoá và bảng chuyển tiếp, khoá vận hành, máy trạng thái rút, `NEEDS_REVIEW`,
       vault mock, gỡ FE-21, bảng nợ QĐ-J. `packages/contracts-evm/README.md`: đường chính là màn `/vault`, cảnh báo
       script. `docs/guide.md`: Kiểm soát viên cấu hình rồi Người bán rút.

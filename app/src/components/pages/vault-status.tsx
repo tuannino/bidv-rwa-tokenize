@@ -4,10 +4,16 @@ import { useEffect, useState } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { getVaultOverviewAction, saveVaultConfigAction } from '@/app/actions/vault';
+import {
+  listWithdrawReviewsAction,
+  reconcileWithdrawRequestsAction,
+  resolveWithdrawRequestAction,
+} from '@/app/actions/withdraw';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { VaultConfigFormView, VaultConfigStepView, VaultOverviewView, VaultStatusView } from '@/lib/bank/vault.service';
+import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 
 const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
@@ -143,7 +149,125 @@ function VaultConfigCard({
   );
 }
 
-/** Trạng thái vault, lịch sử chốt kỳ và mục cấu hình khoá (Kiểm soát viên lưu, vai khác chỉ xem). */
+/**
+ * "Lệnh rút cần xem xét" (BE-13 QĐ-F). Vai vận hành bấm đối soát; chỉ Kiểm soát viên chốt: xác nhận
+ * hoàn tất bằng mã giao dịch đúng (máy chủ đọc biên nhận và sự kiện) hoặc đánh dấu thất bại có lý do.
+ * Sự kiện ứng viên chỉ để xem: chúng không mang mã lệnh nên không chứng minh được thuộc lệnh nào.
+ */
+function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey; canResolve: boolean; onChanged: () => void }) {
+  const [rows, setRows] = useState<WithdrawReviewView[] | null>(null);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [inputs, setInputs] = useState<Record<string, { txHash: string; reason: string }>>({});
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const result = await listWithdrawReviewsAction({ chain });
+    if (result.ok) setRows(result.data);
+    else setMessage({ tone: 'error', text: result.error });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void listWithdrawReviewsAction({ chain }).then((result) => {
+      if (cancelled) return;
+      if (result.ok) setRows(result.data);
+      else setMessage({ tone: 'error', text: result.error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chain]);
+
+  const field = (id: string) => inputs[id] ?? { txHash: '', reason: '' };
+  const setField = (id: string, key: 'txHash' | 'reason', value: string) =>
+    setInputs((current) => ({ ...current, [id]: { ...field(id), [key]: value } }));
+
+  async function reconcile() {
+    setBusy(true);
+    const result = await reconcileWithdrawRequestsAction({ chain });
+    setBusy(false);
+    setMessage(result.ok ? { tone: 'ok', text: 'Đã đối soát các lệnh rút chưa kết thúc.' } : { tone: 'error', text: result.error });
+    await load();
+    onChanged();
+  }
+
+  async function resolve(id: string, outcome: 'COMPLETED' | 'FAILED') {
+    setBusy(true);
+    const { txHash, reason } = field(id);
+    const result = await resolveWithdrawRequestAction({ chain, id, outcome, txHash, reason });
+    setBusy(false);
+    setMessage(
+      result.ok
+        ? { tone: 'ok', text: `Lệnh rút ${id.slice(0, 8)} đã chốt: ${result.data.status === 'COMPLETED' ? 'hoàn tất' : 'thất bại'}.` }
+        : { tone: 'error', text: result.error },
+    );
+    await load();
+    onChanged();
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+        <CardTitle className="text-base">Lệnh rút cần xem xét</CardTitle>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void reconcile()}>
+          Đối soát lệnh rút
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {message && (
+          <p role={message.tone === 'error' ? 'alert' : 'status'} className={message.tone === 'error' ? 'text-sm text-destructive' : 'text-sm'}>
+            {message.text}
+          </p>
+        )}
+        {rows === null ? (
+          <p className="text-sm text-muted-foreground">Đang đọc…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Không có lệnh rút nào cần xem xét.</p>
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="space-y-2 rounded-lg border border-border p-3 text-sm" data-request={row.id}>
+              <p>
+                <span className="font-mono">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
+                <span className="font-mono">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
+              </p>
+              <p className="text-muted-foreground">{row.reason}</p>
+              <p className="text-xs text-muted-foreground">
+                Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này):{' '}
+                {row.candidates.length === 0 ? 'không có' : row.candidates.map((c) => `${short(c.txHash)} (block ${c.blockNumber})`).join(', ')}
+              </p>
+              {canResolve && (
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto]">
+                  <input
+                    aria-label={`Mã giao dịch xác nhận ${row.id}`}
+                    placeholder="Mã giao dịch 0x…"
+                    value={field(row.id).txHash}
+                    onChange={(e) => setField(row.id, 'txHash', e.target.value)}
+                    className={FIELD}
+                  />
+                  <Button type="button" disabled={busy} onClick={() => void resolve(row.id, 'COMPLETED')}>
+                    Xác nhận hoàn tất
+                  </Button>
+                  <input
+                    aria-label={`Lý do thất bại ${row.id}`}
+                    placeholder="Lý do, ví dụ đã kiểm explorer"
+                    value={field(row.id).reason}
+                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
+                    className={`${FIELD} font-sans`}
+                  />
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
+                    Đánh dấu thất bại
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Trạng thái vault, lịch sử chốt kỳ, cấu hình khoá và lệnh rút cần xem xét. */
 export function VaultStatusPage() {
   const { chain } = useSelectedChain();
   const [reloadKey, setReloadKey] = useState(0);
@@ -226,6 +350,13 @@ export function VaultStatusPage() {
               onSaved={() => setReloadKey((value) => value + 1)}
             />
           )}
+
+          <WithdrawReviewCard
+            key={`review:${chain}`}
+            chain={chain}
+            canResolve={data.canResolveWithdrawals}
+            onChanged={() => setReloadKey((value) => value + 1)}
+          />
 
           <Card>
             <CardHeader><CardTitle className="text-base">Lịch sử chốt kỳ (10 lần gần nhất)</CardTitle></CardHeader>

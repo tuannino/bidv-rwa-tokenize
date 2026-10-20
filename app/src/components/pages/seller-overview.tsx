@@ -28,12 +28,7 @@ export const nf = (value: string | null | undefined) => {
 };
 
 export const describePolicy = (policy: SellerWithdrawPolicy | null) => {
-  if (policy === null) return 'Chưa cấu hình hạn mức rút — chưa rút được.';
-  if (policy.source === 'config') {
-    return policy.policy.mode === 'FIXED'
-      ? `Nguồn cấu hình FE-21: khoá cố định ${nf(policy.policy.lockedVnd)} VNDB.`
-      : `Nguồn cấu hình FE-21: khoá ${policy.policy.lockedPercent}% số dư tại thời điểm rút, làm tròn lên.`;
-  }
+  if (policy === null) return 'Chain này chưa có vault thanh toán: chưa rút được.';
   if (policy.lockMode === 'UNSET') return 'Nguồn on-chain: chưa cấu hình, vault khoá toàn bộ.';
   if (policy.lockMode === 'FIXED') {
     return `Nguồn on-chain: khoá cố định ${nf(policy.fixedLockAmount)} VNDB.`;
@@ -47,6 +42,7 @@ export const describePolicy = (policy: SellerWithdrawPolicy | null) => {
 /** Đọc tổng quan theo chuỗi đang chọn. Dùng chung cho màn Tổng quan và màn Tạo lệnh rút. */
 export function useSellerOverview() {
   const { chain } = useSelectedChain();
+  const [reloadKey, setReloadKey] = useState(0);
   const [loaded, setLoaded] = useState<{
     key: string;
     data: SellerOverviewView | null;
@@ -66,10 +62,16 @@ export function useSellerOverview() {
     return () => {
       cancelled = true;
     };
-  }, [chain]);
+  }, [chain, reloadKey]);
 
   const fresh = loaded?.key === chain ? loaded : null;
-  return { data: fresh?.data ?? null, error: fresh?.error ?? null, loading: fresh === null };
+  return {
+    data: fresh?.data ?? null,
+    error: fresh?.error ?? null,
+    loading: fresh === null,
+    /** Đọc lại số dư sau một lệnh rút, giữ số cũ trên màn trong lúc chờ. */
+    reload: () => setReloadKey((value) => value + 1),
+  };
 }
 
 const TOKEN_STATUS_LABELS: Record<ProjectStatus, string> = {
