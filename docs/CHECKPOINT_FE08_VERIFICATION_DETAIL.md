@@ -1745,3 +1745,76 @@ $ USE_LOCAL_SOLC=1 bash scripts/run-local-all.sh
   => ĐẠT các phần đã chạy: arch markers checkpoint contracts app
 exit=0
 ```
+
+## 14. Sau rebase lên `dev` @ `1eed914` (HF-01) và gộp action màn chia
+
+Chạy trên mã của commit gộp action (cộng tài liệu). Chỉ phần bị ảnh hưởng, theo ghi chú Supervisor.
+
+```text
+$ git log --oneline -1 origin/dev
+1eed914 Merge pull request #62 from tuannino/fix/hf-01-hieu-nang
+exit=0
+
+$ git merge-base --is-ancestor origin/dev HEAD
+exit=0
+
+$ git diff --name-only origin/dev -- packages/contracts-evm/contracts
+exit=0
+
+$ cd app && npx tsc --noEmit -p .
+exit=0
+
+$ cd app && npx eslint src test
+exit=0
+
+$ cd app && npx vitest run test/fe-08-approval.test.ts test/hf-01-hieu-nang.test.ts test/pending-markers.test.ts test/distribution-trigger.test.ts test/rbac.test.ts
+ ✓ test/pending-markers.test.ts (24 tests) 106ms
+ ✓ test/rbac.test.ts (68 tests) 62ms
+ ✓ test/hf-01-hieu-nang.test.ts (4 tests) 27ms
+ ✓ test/fe-08-approval.test.ts (38 tests) 150ms
+ ✓ test/distribution-trigger.test.ts (46 tests) 180ms
+ Test Files  5 passed (5)
+      Tests  180 passed (180)
+exit=0
+
+$ cd app && npx vitest run
+ Test Files  54 passed | 8 skipped (62)
+      Tests  1075 passed | 75 skipped (1150)
+
+$ node scripts/gen-flow-diagram.mjs --check
+Sơ đồ khớp marker: distribute, issue, purchase. Không có tệp mồ côi.
+exit=0
+
+$ node scripts/scan-pending.mjs --check-report
+Khớp marker: mục điểm cắm trong docs/tech-report.md
+exit=0
+```
+
+### 14b. E2E mock
+
+```text
+$ bash scripts/run-local-all.sh build e2e
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+  ✓  70 [mock] › e2e/zz-distribution-approval.spec.ts:31:7 › FE-08 ca 13: Kiểm soát viên duyệt chia trên màn hình › chuẩn bị: SPV nạp 1.000.000 VNDB vào quỹ chia qua màn có sẵn (1.1s)
+  ✓  71 [mock] › e2e/zz-distribution-approval.spec.ts:45:7 › FE-08 ca 13: Kiểm soát viên duyệt chia trên màn hình › Giao dịch viên xem quỹ và dự kiến, không thấy nút duyệt (453ms)
+  ✓  72 [mock] › e2e/zz-distribution-approval.spec.ts:54:7 › FE-08 ca 13: Kiểm soát viên duyệt chia trên màn hình › Kiểm soát viên duyệt: hộp xác nhận nói rõ phạm vi, kỳ hoàn tất, lịch sử có người duyệt (1.0s)
+  7 skipped
+  65 passed (1.2m)
+  => PASS: APP - E2E (PLAYWRIGHT)
+    PASS  APP - BUILD BẢN PHÁT HÀNH
+    PASS  APP - E2E (PLAYWRIGHT)
+EXIT=0
+```
+
+### 14c. Đo lượt gọi khi mở `/distribution`
+
+```text
+$ cd app && npm run build && NEXT_PUBLIC_DEFAULT_CHAIN=mock USE_MOCK_DB=true USE_MOCK_KYC=true DEMO_ROLE=TELLER npx next start --port 3300
+$ node measure-distribution.mjs   # Playwright: mỗi vai một context, cookie bidv_channel và bidv_role, mở /distribution, chờ "Lịch sử kỳ chia", networkidle, thêm 1,5 giây
+# trước khi gộp (bản rebase)
+/distribution CONTROLLER {"ACTION":3,"RSC":0}
+/distribution TELLER {"ACTION":3,"RSC":0}
+# sau khi gộp
+/distribution CONTROLLER {"ACTION":1,"RSC":0}
+/distribution TELLER {"ACTION":1,"RSC":0}
+```

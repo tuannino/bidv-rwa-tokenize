@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Task | FE-08 |
-| Nhánh | `feat/fe-08-duyet-chia`, tạo từ `dev` @ `dd00e12` (PR #60, BE-13 đã merge) |
+| Nhánh | `feat/fe-08-duyet-chia`, tạo từ `dev` @ `dd00e12` (PR #60, BE-13 đã merge), rebase lên `dev` @ `1eed914` (PR #62, HF-01 đã merge) |
 | Spec | `docs/fe-08-duyet-chia-loi-nhuan/{requirements,tasks}.md` bản 2.1 |
 | Mức kiểm chứng | Cao |
-| Tiến độ | Bước 0 đến 4 xong. Chờ Supervisor nghiệm thu; Claude Code **không** merge vào `dev` |
+| Tiến độ | Bước 0 đến 4 xong; rebase sau HF-01 và gộp action màn chia xong (mục 6). Chờ Supervisor nghiệm thu; Claude Code **không** merge vào `dev` |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -18,7 +18,9 @@
 | 2 | `tech-report.md` (luồng duyệt, duyệt lại, chốt cứng vault, một kỳ hoạt động mỗi chain, keeper chỉ tiếp tục, bảng nợ QĐ-H); `docs/guide.md` (bước Kiểm soát viên duyệt chia) | ✅ | mục 4 |
 
 **Kết luận:** 2 ✅, 0 🔶, 0 ❌. Không sửa hợp đồng (chi tiết kiểm chứng mục 12). Một việc ngoài vùng mã
-spec liệt kê, Sếp đã chốt khi đang làm: địa chỉ quỹ chia logic trên mock (mục 3.1).
+spec liệt kê, Sếp đã chốt khi đang làm: địa chỉ quỹ chia logic trên mock (mục 3.1). Yêu cầu của
+Supervisor sau HF-01 đã xong (mục 6): rebase lên `dev` @ `1eed914`; `/distribution` mở bằng 1 action
+(trước 3), 0 yêu cầu `_rsc`, ba phần kết quả và quyền riêng, có kiểm chặn quay lại.
 
 ### 0.2 Việc cần Owner quyết/chạy
 
@@ -152,3 +154,57 @@ Kiểm soát viên duyệt và chia, bảng trạng thái khi kỳ chưa xong), 
 - [x] Mọi lời gọi chuỗi qua `ILedgerPort` (service mới chỉ gọi `getLedger`; địa chỉ quỹ mock nằm trong adapter mock).
 - [x] Mọi thao tác ký qua `ISigner` (mở kỳ, chốt vault, chia lô đi qua adapter EVM như SC-06).
 - [x] Mọi kiểm quyền qua RBAC (`authorize('distribution:approve')`, `assertCan('reconcile:read')`; không so tên vai).
+
+## 6. Rebase sau HF-01 và màn chia mở bằng một action
+
+**Rebase.** `git rebase origin/dev` (`1eed914`): năm commit FE-08 lên lại, chỉ hai tệp tài liệu xung
+đột, không tệp mã nào. `.kiro/task-status.json`: giữ cả hai bên (`done` có `HF-01` và `BE-13`,
+`inProgress` là `FE-08`). `docs/tech-report.md`: xung đột nằm trong bảng điểm cắm sinh tự động, lấy một
+bên rồi sinh lại bằng `node scripts/scan-pending.mjs --write-report`; phần chữ của HF-01 (bài học hiệu
+năng ở 1.6.A, nợ P1, P2 ở 1.6.C) giữ nguyên. Sau rebase `hf-01-hieu-nang.test.ts` và `pending-markers.test.ts`
+đạt.
+
+**Gộp action.** Trước: màn gọi `getDistributionOverviewAction`, `listDistributionPeriodsAction`,
+`listDistributionRunsAction` khi mở, Next xếp ba action nối tiếp nên là ba lượt Worker. Sau:
+`getDistributionPageAction` (điểm luồng `distribute:1`) gọi service `getDistributionPage`, chạy
+song song ba phần qua `Promise.all`, mỗi phần là một `Result` riêng (`overview`, `periods`, `runs`) và
+tự kiểm `reconcile:read` như trước, lỗi bất ngờ của một phần cũng gói thành `Result` lỗi của riêng phần
+đó. Dữ liệu vào sai (`distributionPageSchema`) trả `VALIDATION` cho cả lượt. Màn gọi action này khi mở và
+khi tải lại sau duyệt, duyệt lại, tiếp tục; chỉ khi người xem đổi trang lịch sử hoặc mở hồ sơ một kỳ mới
+gọi action riêng. Nghiệp vụ, quyền, sổ kiểm toán không đổi; ba action đọc cũ vẫn giữ cho lời gọi riêng.
+
+**Số đo** (Playwright trên bản `next build`, `next start` chain `mock`, đếm yêu cầu có header
+`next-action` và yêu cầu có `_rsc`, theo cách đo của HF-01):
+
+```text
+Trước (bản rebase, chưa gộp):
+/distribution CONTROLLER {"ACTION":3,"RSC":0}
+/distribution TELLER {"ACTION":3,"RSC":0}
+Sau:
+/distribution CONTROLLER {"ACTION":1,"RSC":0}
+/distribution TELLER {"ACTION":1,"RSC":0}
+```
+
+**Kiểm chặn quay lại** (`app/test/fe-08-approval.test.ts` "FE-08 hiệu năng", 8 ca): mã màn gọi
+`getDistributionPageAction(` đúng một lần, không còn `getDistributionOverviewAction`,
+`listDistributionRunsAction`, chỉ hai `useEffect` có gọi action (mở màn, hồ sơ một kỳ); hai vai vận hành
+nhận đủ ba phần và mỗi phần bằng đúng lần đọc riêng; `SELLER`, `INVESTOR` bị `FORBIDDEN` ở từng phần;
+lịch chạy lỗi thì tổng quan và lịch sử vẫn đạt; lịch sử lỗi thì tổng quan và lịch chạy vẫn đạt; dữ liệu
+vào sai trả `VALIDATION`. Đột biến: cho một phần lỗi kéo cả lượt (`if (!runs.ok) return runs;`) thì 3 ca
+đỏ; thêm lại lời gọi `getDistributionOverviewAction` vào màn thì ca mã nguồn đỏ; hoàn nguyên sạch.
+
+**Kiểm chứng gọn** (chỉ phần bị ảnh hưởng; đầu ra ở chi tiết kiểm chứng mục 14):
+
+| Lệnh | Kết quả |
+|---|---|
+| `cd app && npx tsc --noEmit -p .` | exit 0 |
+| `cd app && npx eslint src test` | exit 0 |
+| `cd app && npx vitest run test/fe-08-approval.test.ts test/hf-01-hieu-nang.test.ts test/pending-markers.test.ts test/distribution-trigger.test.ts test/rbac.test.ts` | 5 tệp, 180 đạt |
+| `cd app && npx vitest run` | 1075 đạt, 75 bỏ qua |
+| `node scripts/gen-flow-diagram.mjs --check`; `node scripts/scan-pending.mjs --check-report` | khớp |
+| `bash scripts/run-local-all.sh build e2e` (E2E mock, gồm `zz-distribution-approval.spec.ts`) | 2 PASS; E2E mock 65 đạt, 7 bỏ qua (3 ca màn chia đạt) |
+| Đo Playwright như trên | 1 action, 0 `_rsc` |
+
+Không chạy lại: hợp đồng (không đổi, `git diff origin/dev -- packages/contracts-evm/contracts` rỗng),
+nút Hardhat thật và Postgres (service ghi, lưu trữ, adapter không đổi; thay đổi chỉ là một hàm đọc gộp
+và màn hình).
