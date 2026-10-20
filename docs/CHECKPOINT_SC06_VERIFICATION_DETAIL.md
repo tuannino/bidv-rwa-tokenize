@@ -1282,3 +1282,29 @@ $ grep -n "periodKey     String               @unique" app/prisma/schema.prisma
   Không đạt: 0
 exit=0
 ```
+
+## 13. Bộ mặc định cuối task (`run-local-all.sh`, chạy một lần sau khi có checkpoint)
+
+Trích các dòng tổng kết của từng phần (đầu ra đầy đủ giống mục 1 và 2).
+
+```text
+$ USE_LOCAL_SOLC=1 bash scripts/run-local-all.sh
+  PASS: 20   FAIL: 0   WARN: 3
+  => ĐẠT nhưng có 3 cảnh báo cần xác nhận có chủ đích.
+  => PASS có cảnh báo: luật kiến trúc
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+    ✔ opex vượt doanh thu => lợi nhuận chia = 0 (không âm)
+  156 passing (9s)
+  => PASS: LỚP 1 - SPEC TEST CONTRACT EVM
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+ Test Files  45 passed | 3 skipped (48)
+      Tests  887 passed | 43 skipped (930)
+  => PASS: APP - VITEST
+  Đạt:     7
+  Không đạt: 0
+Tổng: 18 điểm cắm · 4 điểm chặn · 37 bước luồng
+  => ĐẠT các phần đã chạy: arch markers checkpoint contracts app
+exit=0
+```
