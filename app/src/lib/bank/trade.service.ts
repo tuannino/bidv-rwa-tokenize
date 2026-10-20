@@ -295,7 +295,7 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
     const role = await currentRole();
     const actorId = await currentActorId(role);
     const ownProfile = findOwnAccountProfile(role, actorId);
-    const investorProfile = findInvestorProfileByWallet(investorWallet);
+    const investorProfile = await findInvestorProfileByWallet(chain, investorWallet);
     const profileBelongsToSession = ownProfile === investorProfile;
     const [whitelisted, frozen, settling, spv, projects] = await Promise.all([
       ledger.isWhitelisted(investorWallet),

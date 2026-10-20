@@ -608,6 +608,25 @@ model WithdrawRequest {
   @@index([chain, status])
 }
 
+/// OP-05 QĐ-I: ví người dùng tự liên kết vào hồ sơ của mình, theo chain. App so ví đang kết nối với
+/// ví này ở điều kiện "Định danh" khi đặt lệnh. ⚠️ Liên kết KHÔNG chứng minh quyền sở hữu ví và KHÔNG
+/// whitelist trên chuỗi (nợ kỹ thuật, AU-01 trả).
+model ProfileWallet {
+  /// Mã hồ sơ của phiên (NDT001, NB001...), lấy từ phiên, không nhận từ trình duyệt.
+  actorId   String
+  chain     String
+  /// Địa chỉ ví đã chuẩn hoá checksum.
+  wallet    String
+  /// `wallet` viết thường: khoá duy nhất theo chain, để một ví không gắn vào hai hồ sơ.
+  walletKey String
+  /// Mã tài khoản đã sửa lần cuối.
+  updatedBy String
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([actorId, chain])
+  @@unique([chain, walletKey])
+}
+
 model Permission {
   id     String           @id @default(uuid())
   /// vd token:mint

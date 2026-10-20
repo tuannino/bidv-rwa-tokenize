@@ -9,7 +9,6 @@ const samples = require('../../shared/src/sample-wallets.json');
 const SEPOLIA_CHAIN_ID = 11155111n;
 // Dự phòng 20% cho biến động gas/phí và khác biệt calldata so với mô phỏng cục bộ.
 const FEE_MARGIN_PERCENT = 120n;
-const HARDHAT_ACCOUNT0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const OPERATIONS = ['deploy', 'mint-initial', 'mint', 'burn', 'whitelist', 'cycle'];
 const GAS_OUTPUT_PREFIX = 'OP04_GAS=';
 
@@ -23,7 +22,7 @@ function assertSepolia(chainId) {
 }
 function assertTarget(target) {
   if (!ethers.isAddress(target) || target.toLowerCase() === ethers.ZeroAddress) refuse('Địa chỉ đích không hợp lệ hoặc là địa chỉ 0.');
-  const blocked = [...Object.values(samples.wallets), HARDHAT_ACCOUNT0];
+  const blocked = [...Object.values(samples.wallets), samples.hardhatAccount0];
   if (blocked.some((address) => address.toLowerCase() === target.toLowerCase())) {
     refuse('Từ chối nạp SepoliaETH vào tài khoản mẫu công khai của Hardhat.');
   }

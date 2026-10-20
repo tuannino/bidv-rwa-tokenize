@@ -82,15 +82,15 @@ describe('FE-24 — nguồn hồ sơ bốn vai', () => {
     }
   });
 
-  it('khối trước lệnh tra đúng hồ sơ bằng ví, không khớp ví người bán', () => {
+  it('khối trước lệnh tra đúng hồ sơ bằng ví, không khớp ví người bán', async () => {
     const investor = findOwnAccountProfile('INVESTOR', ACTORS.INVESTOR);
     expect(investor?.kind).toBe('CUSTOMER');
     if (!investor || investor.kind !== 'CUSTOMER') return;
-    expect(findInvestorProfileByWallet(investor.wallet)?.actorId).toBe('NDT001');
+    expect((await findInvestorProfileByWallet('mock', investor.wallet))?.actorId).toBe('NDT001');
 
     const seller = findOwnAccountProfile('SELLER', ACTORS.SELLER);
     expect(seller?.kind).toBe('CUSTOMER');
     if (!seller || seller.kind !== 'CUSTOMER') return;
-    expect(findInvestorProfileByWallet(seller.wallet)).toBeNull();
+    expect(await findInvestorProfileByWallet('mock', seller.wallet)).toBeNull();
   });
 });

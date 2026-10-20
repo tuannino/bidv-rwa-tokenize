@@ -3,7 +3,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { InvestorTokenDetailPage } from '@/components/pages/investor-token-detail';
 import { findProjectBySymbol } from '@/lib/mock-data';
 import { readTokenTerms } from '@/lib/store/config-values';
-import { getOwnAccountProfile } from '@/lib/bank/account-profile.service';
+import { ownMockWallet } from '@/lib/bank/account-profile.service';
 
 /**
  * `/tokens/[symbol]` — chi tiết một dự án đã token hoá.
@@ -24,8 +24,7 @@ export default async function TokenDetailRoute({
   // Mã không tồn tại -> trang không tìm thấy của Next, không để lỗi kỹ thuật lộ ra.
   if (!project) notFound();
   const terms = await readTokenTerms();
-  const profile = await getOwnAccountProfile();
-  const mockWallet = profile.ok && profile.data.kind === 'CUSTOMER' ? profile.data.wallet : null;
+  const mockWallet = await ownMockWallet();
 
   return (
     <AppLayout

@@ -292,6 +292,18 @@ CREATE TABLE "WithdrawRequest" (
 );
 
 -- CreateTable
+CREATE TABLE "ProfileWallet" (
+    "actorId" TEXT NOT NULL,
+    "chain" TEXT NOT NULL,
+    "wallet" TEXT NOT NULL,
+    "walletKey" TEXT NOT NULL,
+    "updatedBy" TEXT NOT NULL,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ProfileWallet_pkey" PRIMARY KEY ("actorId","chain")
+);
+
+-- CreateTable
 CREATE TABLE "Permission" (
     "id" TEXT NOT NULL,
     "action" TEXT NOT NULL,
@@ -423,6 +435,9 @@ CREATE UNIQUE INDEX "WithdrawRequest_activeChain_key" ON "WithdrawRequest"("acti
 
 -- CreateIndex
 CREATE UNIQUE INDEX "WithdrawRequest_txHash_key" ON "WithdrawRequest"("txHash");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProfileWallet_chain_walletKey_key" ON "ProfileWallet"("chain", "walletKey");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");
