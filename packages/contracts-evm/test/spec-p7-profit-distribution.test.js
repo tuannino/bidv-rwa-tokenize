@@ -265,28 +265,32 @@ describe("SPEC P7 - Chia lợi tức", function () {
     });
   });
 
-  describe("Quét phần dư sau thời hạn nhận", function () {
-    it("P7-22: chưa hết hạn thì không quét được", async function () {
+  // SC-06 QĐ-C: sweepDust thay bằng closeDistribution; phần chưa nhận trở về quỹ, không rút ra.
+  describe("Đóng kỳ sau thời hạn nhận", function () {
+    it("P7-22: chưa hết hạn thì không đóng được", async function () {
       const { distributor, admin } = await withHolders();
       await distributor.connect(admin).createDistribution(1_000_000, "Q1-2026");
 
       await expect(
-        distributor.connect(admin).sweepDust(0, admin.address)
+        distributor.connect(admin).closeDistribution(0)
       ).to.be.revertedWith("chua het han nhan");
     });
 
-    it("P7-23: hết hạn thì thu được phần chưa ai nhận", async function () {
+    it("P7-23: hết hạn thì phần chưa ai nhận trở về quỹ chưa phân bổ", async function () {
       const { distributor, payout, admin, investorA } = await withHolders();
       await distributor.connect(admin).createDistribution(1_000_000, "Q1-2026");
       await distributor.connect(investorA).claim(0); // A nhận 700.000, còn 300.000
 
       await time.increase(181 * 24 * 60 * 60); // vượt claimWindow 180 ngày
 
-      const before = await payout.balanceOf(admin.address);
-      await distributor.connect(admin).sweepDust(0, admin.address);
-      const after = await payout.balanceOf(admin.address);
+      const fund = await distributor.getAddress();
+      const adminBefore = await payout.balanceOf(admin.address);
+      const fundBefore = await payout.balanceOf(fund);
+      await distributor.connect(admin).closeDistribution(0);
 
-      expect(after - before).to.equal(300_000n);
+      expect(await payout.balanceOf(admin.address)).to.equal(adminBefore);
+      expect(await payout.balanceOf(fund)).to.equal(fundBefore);
+      expect(await distributor.unallocatedBalance()).to.equal(300_000n);
     });
   });
 });

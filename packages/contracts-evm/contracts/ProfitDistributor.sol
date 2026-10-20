@@ -16,14 +16,23 @@ interface IProfitDistributorErrors {
  * @title ProfitDistributor
  * @notice Tính và chia lợi nhuận định kỳ cho người nắm giữ WPT, chi trả bằng VND.
  *
- *  Cơ chế (mô hình "pull theo snapshot" — chuẩn, an toàn gas, kiểm toán được):
- *   1. Ngân hàng gọi createDistribution(amount, "2026-Q1"):
+ *  Quỹ chia MỘT CHIỀU (SC-06, QĐ-27 đến QĐ-29):
+ *   1. SPV nạp VNDB bằng chuyển token thường vào địa chỉ hợp đồng. Không hàm nào của hợp đồng chạy.
+ *   2. Ngân hàng gọi createDistributionFromPool("<chain>:2026-Q1"):
  *      - chốt snapshot số dư WPT tại thời điểm đó (bức tranh sở hữu bất biến),
- *      - kéo `amount` VND từ ngân hàng vào hợp đồng làm quỹ chia của kỳ.
- *   2. Mỗi nhà đầu tư tự gọi claim(id) để nhận phần của mình:
- *         phần_nhận = amount * balanceOfAt(nhà_đầu_tư, snapshot) / totalSupplyAt(snapshot)
- *      (hoặc đại lý gọi distributeTo(id, [ví...]) để chia hộ hàng loạt).
- *   3. Sau thời hạn nhận, ngân hàng gọi sweepDust(id) để thu phần chưa nhận + phần lẻ do làm tròn.
+ *      - lấy ĐÚNG phần chưa phân bổ (số dư trừ `totalReserved`) làm quỹ của kỳ,
+ *      - nhãn kỳ dùng một lần, tra ngược được bằng distributionIdOfPeriod.
+ *   3. Người nắm giữ nhận phần của mình (claim), hoặc ngân hàng chia hộ (distributeTo):
+ *         phần_nhận = amount * balanceOfAt(người_nắm_giữ, snapshot) / totalSupplyAt(snapshot)
+ *   4. Sau thời hạn nhận, admin gọi closeDistribution(id): phần chưa trả THÔI được giữ cho kỳ và
+ *      trở về phần chưa phân bổ, để kỳ sau chia tiếp. Không có hàm nào chuyển tiền về SPV hay về
+ *      một địa chỉ tuỳ chọn: chỉ `_claim` chuyển VNDB ra khỏi hợp đồng.
+ *
+ *  Sổ dự trữ `totalReserved` = tổng (amount - claimed) của các kỳ chưa đóng. Nó tách tiền đang nợ
+ *  các kỳ khỏi tiền mới nạp, nên một kỳ mới không bao giờ lấy lại phần kỳ trước còn nợ.
+ *
+ *  Giả định tin cậy: `VNDToken.BURNER_ROLE` đốt được VNDB trong quỹ; khi đó số dư có thể xuống dưới
+ *  `totalReserved` và `unallocatedBalance()` trả 0. Ứng dụng phát hiện bằng so số dư với dự trữ.
  *
  *  Vì chia theo snapshot nên mua/bán WPT SAU thời điểm chốt không làm sai lệch phần được chia.
  */
@@ -35,7 +44,10 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     ProjectToken public immutable projectToken; // token quyền hưởng
     IERC20 public immutable payoutToken; // token chi trả (VND)
 
-    uint256 public claimWindow = 180 days; // thời hạn nhận trước khi được quét dư
+    uint256 public claimWindow = 180 days; // thời hạn nhận trước khi được đóng kỳ
+
+    /// @notice Tổng phần còn phải trả của các kỳ CHƯA đóng (QĐ-A).
+    uint256 public totalReserved;
 
     struct Distribution {
         uint256 snapshotId; // id snapshot đã chốt
@@ -51,6 +63,8 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     Distribution[] public distributions;
     // distributionId => (nhà đầu tư => đã nhận?)
     mapping(uint256 => mapping(address => bool)) public hasClaimed;
+    // keccak256(nhãn kỳ) => id + 1; 0 nghĩa là nhãn chưa dùng (QĐ-B). Chỉ kỳ tạo từ quỹ ghi vào đây.
+    mapping(bytes32 => uint256) private _periodIdPlusOne;
 
     event DistributionCreated(
         uint256 indexed id,
@@ -60,12 +74,15 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
         string period
     );
     event Claimed(uint256 indexed id, address indexed account, uint256 amount);
-    event DustSwept(uint256 indexed id, address indexed to, uint256 amount);
     event ClaimWindowUpdated(uint256 newWindow);
-    event DistributionClosed(uint256 indexed id, uint256 sweptAmount);
+    /// @param releasedAmount phần chưa trả trở về quỹ chưa phân bổ (không chuyển đi đâu).
+    event DistributionClosed(uint256 indexed id, uint256 releasedAmount);
 
     error ClaimWindowEnded(uint256 id, uint256 deadline);
     error DistributionOverdrawn(uint256 id, uint256 requested, uint256 remaining);
+    error EmptyPeriod();
+    error DuplicatePeriod(string period);
+    error NothingToDistribute();
 
     constructor(address projectToken_, address payoutToken_, address admin) {
         require(projectToken_ != address(0) && payoutToken_ != address(0) && admin != address(0), "zero addr");
@@ -86,10 +103,47 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
     }
 
     // =========================================================================
-    //  TẠO KỲ CHIA (chốt snapshot + nạp quỹ VND)
+    //  SỔ DỰ TRỮ
+    // =========================================================================
+    /// @notice Số dư VNDB chưa thuộc kỳ nào: căn cứ tạo kỳ mới. 0 nếu số dư nhỏ hơn dự trữ.
+    function unallocatedBalance() public view returns (uint256) {
+        uint256 balance = payoutToken.balanceOf(address(this));
+        return balance > totalReserved ? balance - totalReserved : 0;
+    }
+
+    /// @notice Tra kỳ theo nhãn đã dùng ở createDistributionFromPool (kể cả khi mất biên nhận).
+    function distributionIdOfPeriod(string calldata period) external view returns (bool exists, uint256 id) {
+        uint256 stored = _periodIdPlusOne[keccak256(bytes(period))];
+        if (stored == 0) return (false, 0);
+        return (true, stored - 1);
+    }
+
+    // =========================================================================
+    //  TẠO KỲ CHIA
     // =========================================================================
     /**
+     * @notice Tạo kỳ từ phần chưa phân bổ của quỹ (QĐ-B). Không kéo tiền từ người gọi.
+     * @dev Nhãn rỗng hoặc đã dùng thì revert: gửi lại cùng nhãn không thể tạo kỳ thứ hai.
+     */
+    function createDistributionFromPool(string calldata period)
+        external
+        onlyRole(DISTRIBUTOR_ROLE)
+        nonReentrant
+        returns (uint256 id)
+    {
+        if (bytes(period).length == 0) revert EmptyPeriod();
+        bytes32 key = keccak256(bytes(period));
+        if (_periodIdPlusOne[key] != 0) revert DuplicatePeriod(period);
+        uint256 amount = unallocatedBalance();
+        if (amount == 0) revert NothingToDistribute();
+
+        id = _newDistribution(amount, period);
+        _periodIdPlusOne[key] = id + 1;
+    }
+
+    /**
      * @notice Ngân hàng phải approve `amount` VND cho hợp đồng này trước khi gọi.
+     * @dev Giữ cho ProfitDistributorOracle và bộ cũ. Không ghi bảng chống trùng nhãn.
      * @return id Mã kỳ chia vừa tạo.
      */
     function createDistribution(uint256 amount, string memory period)
@@ -99,13 +153,15 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
         returns (uint256 id)
     {
         require(amount > 0, "amount = 0");
+        // kéo VND vào quỹ kỳ này
+        payoutToken.safeTransferFrom(msg.sender, address(this), amount);
+        id = _newDistribution(amount, period);
+    }
 
+    function _newDistribution(uint256 amount, string memory period) internal returns (uint256 id) {
         uint256 snapId = projectToken.snapshot();
         uint256 supply = projectToken.totalSupplyAt(snapId);
         require(supply > 0, "khong co WPT dang luu hanh");
-
-        // kéo VND vào quỹ kỳ này
-        payoutToken.safeTransferFrom(msg.sender, address(this), amount);
 
         id = distributions.length;
         distributions.push(
@@ -120,6 +176,7 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
                 closed: false
             })
         );
+        totalReserved += amount;
 
         emit DistributionCreated(id, snapId, amount, supply, period);
     }
@@ -182,31 +239,27 @@ contract ProfitDistributor is AccessControl, ReentrancyGuard {
 
         if (amount > 0) {
             d.claimed += amount;
+            totalReserved -= amount;
             payoutToken.safeTransfer(account, amount);
             emit Claimed(id, account, amount);
         }
     }
 
     // =========================================================================
-    //  QUÉT PHẦN DƯ (sau thời hạn nhận)
+    //  ĐÓNG KỲ (sau thời hạn nhận)
     // =========================================================================
-    /// @notice Thu phần chưa nhận + phần lẻ do làm tròn của kỳ `id` về `to`, sau khi hết hạn nhận.
-    function sweepDust(uint256 id, address to)
-        external
-        onlyRole(DISTRIBUTOR_ROLE)
-        nonReentrant
-    {
+    /**
+     * @notice Đóng kỳ `id` sau hạn nhận: phần chưa trả trở về quỹ chưa phân bổ (QĐ-C, QĐ-28).
+     * @dev KHÔNG chuyển tiền. `claimed` giữ nghĩa "đã trả"; người không nhận kịp mất phần kỳ này.
+     */
+    function closeDistribution(uint256 id) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         require(id < distributions.length, "ky khong ton tai");
         Distribution storage d = distributions[id];
         if (d.closed) revert IProfitDistributorErrors.DistributionClosed(id);
         require(block.timestamp >= d.claimDeadline, "chua het han nhan");
-        uint256 remaining = d.amount - d.claimed;
+        uint256 released = d.amount - d.claimed;
         d.closed = true;
-        d.claimed = d.amount;
-        if (remaining > 0) {
-            payoutToken.safeTransfer(to, remaining);
-            emit DustSwept(id, to, remaining);
-        }
-        emit DistributionClosed(id, remaining);
+        totalReserved -= released;
+        emit DistributionClosed(id, released);
     }
 }
