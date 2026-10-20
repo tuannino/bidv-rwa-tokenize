@@ -83,6 +83,12 @@ CREATE TABLE "DistributionPeriod" (
     "chain" TEXT NOT NULL,
     "openedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completedAt" TIMESTAMPTZ(3),
+    "distributorAddress" TEXT,
+    "distributionId" INTEGER,
+    "openTxHash" TEXT,
+    "vaultPeriodRef" INTEGER,
+    "vaultCloseStatus" TEXT,
+    "vaultCloseTxHash" TEXT,
 
     CONSTRAINT "DistributionPeriod_pkey" PRIMARY KEY ("id")
 );

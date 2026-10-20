@@ -29,6 +29,7 @@ export {
   type ILedgerSettlement,
   type ILedgerVault,
   type ILedgerRead,
+  type ChainDistribution,
   type SnapshotResult,
   type TokenInfo,
   type TransferCheck,

@@ -4,7 +4,9 @@ import { orderRefFromOrderId, type ChainKey } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey, normalizeEvmAddress } from './address';
 import {
+  MOCK_CLAIM_WINDOW_MS,
   memoryMockLedgerStateStore,
+  type MockDistributionRecord,
   type MockLedgerState,
   type MockLedgerStateStore,
   type MockSnapshotRecord,
@@ -12,6 +14,7 @@ import {
 import {
   LedgerError,
   assertPositiveAmount,
+  type ChainDistribution,
   type ILedgerPort,
   type SnapshotResult,
   type TokenInfo,
@@ -127,7 +130,8 @@ export function createMockLedger(
    * thì sau `if (!record) reject(...)` biến `record` vẫn còn `| undefined`.
    */
   const reject: (operation: string, message: string) => never = (operation, message) => {
-    throw new LedgerError(chain, operation, message);
+    // Mock từ chối theo đúng luật hợp đồng, nên tương đương một lần revert: chắc chắn không ghi.
+    throw new LedgerError(chain, operation, message, { reverted: true });
   };
 
   const storeFailure = (operation: string, error: unknown): never => {
@@ -273,6 +277,42 @@ export function createMockLedger(
     }
     return record;
   };
+
+  /** Mock không có địa chỉ hợp đồng; nhãn cố định theo chain để kỳ vẫn gắn được với "hợp đồng". */
+  const distributorLabel = `${chain}:ProfitDistributor`;
+
+  const unallocated = (s: Readonly<MockLedgerState>): bigint =>
+    s.profitPool > s.distributionLedger.totalReserved
+      ? s.profitPool - s.distributionLedger.totalReserved
+      : 0n;
+
+  /** Lấy kỳ chia theo mã, từ chối như `require(id < distributions.length, "ky khong ton tai")`. */
+  const requireDistribution = (
+    s: Readonly<MockLedgerState>,
+    operation: string,
+    distributionId: number,
+  ): MockDistributionRecord => {
+    const found = Number.isSafeInteger(distributionId)
+      ? s.distributionLedger.distributions.get(distributionId)
+      : undefined;
+    if (!found) reject(operation, `Kỳ chia ${distributionId} không tồn tại.`);
+    return found;
+  };
+
+  const toChainDistribution = (
+    distributionId: number,
+    record: MockDistributionRecord,
+  ): ChainDistribution => ({
+    distributor: distributorLabel,
+    distributionId,
+    snapshotId: record.snapshotId,
+    amount: record.amount,
+    claimed: record.claimed,
+    totalSupplyAt: record.totalSupplyAt,
+    claimDeadline: new Date(record.claimDeadline),
+    expired: Date.now() >= record.claimDeadline,
+    closed: record.closed,
+  });
 
   return {
     chain,
@@ -610,8 +650,6 @@ export function createMockLedger(
         s.snapshots.set(s.lastSnapshotId, {
           balances: new Map(s.balances),
           totalSupply: s.totalSupply,
-          distributable: s.profitPool,
-          paid: new Set(),
         });
         return { tx: confirmed(s), snapshotId: s.lastSnapshotId };
       });
@@ -635,27 +673,92 @@ export function createMockLedger(
       return read('profitPoolBalance', (s) => s.profitPool);
     },
 
+    async unallocatedProfit() {
+      return read('unallocatedProfit', (s) => unallocated(s));
+    },
+
+    async reservedProfit() {
+      return read('reservedProfit', (s) => s.distributionLedger.totalReserved);
+    },
+
     /**
-     * Chia cho MỘT lô ví. Adapter KHÔNG tự chia lô (R5.3).
-     *
-     * Phần mỗi ví = distributable * balanceOfAt / totalSupplyAt, chia lấy phần nguyên
-     * giống contract (phần lẻ đọng lại trong quỹ, contract thật quét bằng `sweepDust`).
+     * Ngang hàng `createDistributionFromPool` (SC-06 QĐ-B): nhãn dùng một lần, kỳ lấy ĐÚNG phần
+     * chưa phân bổ. Trước SC-06 mock lấy toàn bộ quỹ, kể cả phần kỳ trước còn nợ (tính trùng).
      */
-    async distributeBatch(snapshotId, wallets) {
-      return mutate('distributeBatch', (s) => {
-        const record = requireSnapshot(s, 'distributeBatch', snapshotId);
-        if (wallets.length === 0) reject('distributeBatch', 'Danh sách ví trống — tầng nghiệp vụ phải truyền vào ít nhất một ví.');
-        if (record.totalSupply === 0n) {
-          reject('distributeBatch', `Tổng cung WPT tại snapshot ${snapshotId} bằng 0 — không có quyền nào để chia.`);
+    async openDistribution(periodKey) {
+      return mutate('openDistribution', (s) => {
+        const ledger = s.distributionLedger;
+        if (periodKey.length === 0) reject('openDistribution', 'Mã kỳ chia không được để trống.');
+        if (ledger.byPeriod.has(periodKey)) {
+          reject('openDistribution', `Mã kỳ chia "${periodKey}" đã dùng; mỗi mã chỉ tạo được một kỳ.`);
         }
+        const amount = unallocated(s);
+        if (amount === 0n) {
+          reject('openDistribution', 'Quỹ chia lợi nhuận không có phần chưa phân bổ nào để mở kỳ.');
+        }
+        if (s.totalSupply === 0n) {
+          reject('openDistribution', 'Tổng cung WPT tại thời điểm chốt bằng 0 — không có quyền để chia.');
+        }
+        s.lastSnapshotId += 1;
+        s.snapshots.set(s.lastSnapshotId, { balances: new Map(s.balances), totalSupply: s.totalSupply });
+        const id = ledger.nextDistributionId;
+        ledger.nextDistributionId += 1;
+        ledger.distributions.set(id, {
+          snapshotId: s.lastSnapshotId,
+          period: periodKey,
+          amount,
+          claimed: 0n,
+          totalSupplyAt: s.totalSupply,
+          claimDeadline: Date.now() + MOCK_CLAIM_WINDOW_MS,
+          closed: false,
+          paid: new Set(),
+        });
+        ledger.byPeriod.set(periodKey, id);
+        ledger.totalReserved += amount;
+        return confirmed(s);
+      });
+    },
+
+    async findDistribution(periodKey) {
+      return read('findDistribution', (s) => {
+        const id = s.distributionLedger.byPeriod.get(periodKey);
+        if (id === undefined) return null;
+        return toChainDistribution(id, requireDistribution(s, 'findDistribution', id));
+      });
+    },
+
+    async distributionState(distributionId) {
+      return read('distributionState', (s) =>
+        toChainDistribution(distributionId, requireDistribution(s, 'distributionState', distributionId)),
+      );
+    },
+
+    /**
+     * Chia cho MỘT lô ví của kỳ `distributionId`. Adapter KHÔNG tự chia lô (R5.3).
+     *
+     * Phần mỗi ví = amount * balanceOfAt / totalSupplyAt, chia lấy phần nguyên giống contract;
+     * phần lẻ ở lại dự trữ của kỳ đến khi đóng kỳ rồi về quỹ chưa phân bổ.
+     */
+    async distributeBatch(distributionId, wallets) {
+      return mutate('distributeBatch', (s) => {
+        const record = requireDistribution(s, 'distributeBatch', distributionId);
+        if (record.closed) reject('distributeBatch', `Kỳ chia ${distributionId} đã đóng.`);
+        if (Date.now() >= record.claimDeadline) {
+          reject('distributeBatch', `Kỳ chia ${distributionId} đã hết thời hạn nhận.`);
+        }
+        if (wallets.length === 0) reject('distributeBatch', 'Danh sách ví trống — tầng nghiệp vụ phải truyền vào ít nhất một ví.');
+        const snapshot = requireSnapshot(s, 'distributeBatch', record.snapshotId);
         const payouts = new Map<string, bigint>();
         for (const wallet of wallets) {
           const key = addressKey(normalizeEvmAddress(wallet));
           if (record.paid.has(key) || payouts.has(key)) continue;
-          const held = record.balances.get(key) ?? 0n;
-          payouts.set(key, (record.distributable * held) / record.totalSupply);
+          const held = snapshot.balances.get(key) ?? 0n;
+          payouts.set(key, (record.amount * held) / record.totalSupplyAt);
         }
         const total = [...payouts.values()].reduce((sum, amount) => sum + amount, 0n);
+        if (record.claimed + total > record.amount) {
+          reject('distributeBatch', `Lô chia vượt phần còn lại của kỳ ${distributionId}.`);
+        }
         if (s.profitPool < total) {
           reject('distributeBatch', `Ví chia lợi nhuận không đủ tiền: cần ${total} VNDB cho lô này, chỉ có ${s.profitPool}. Nạp thêm quỹ hoặc giảm kích thước lô.`);
         }
@@ -663,7 +766,30 @@ export function createMockLedger(
           record.paid.add(key);
           if (amount > 0n) setPaymentBalance(s, key, paymentBalance(s, key) + amount);
         }
+        record.claimed += total;
+        s.distributionLedger.totalReserved -= total;
         s.profitPool -= total;
+        return confirmed(s);
+      });
+    },
+
+    async isDistributionPaid(distributionId, wallet) {
+      const key = addressKey(normalizeEvmAddress(wallet));
+      return read('isDistributionPaid', (s) =>
+        requireDistribution(s, 'isDistributionPaid', distributionId).paid.has(key),
+      );
+    },
+
+    /** Ngang hàng `closeDistribution`: chỉ sau hạn nhận, không chuyển tiền, trả phần còn lại về quỹ. */
+    async closeDistribution(distributionId) {
+      return mutate('closeDistribution', (s) => {
+        const record = requireDistribution(s, 'closeDistribution', distributionId);
+        if (record.closed) reject('closeDistribution', `Kỳ chia ${distributionId} đã đóng.`);
+        if (Date.now() < record.claimDeadline) {
+          reject('closeDistribution', 'Chưa hết thời hạn nhận lợi nhuận của kỳ này.');
+        }
+        record.closed = true;
+        s.distributionLedger.totalReserved -= record.amount - record.claimed;
         return confirmed(s);
       });
     },
@@ -700,6 +826,15 @@ export function createMockLedger(
 
     async vaultPeriodCloses() {
       return [];
+    },
+
+    // SC-06 QĐ-G: chain mock không có vault thanh toán nên không có kỳ vault để chốt.
+    async closeVaultPeriod() {
+      return reject('closeVaultPeriod', 'Chain mock không có vault thanh toán SPV; không áp dụng.');
+    },
+
+    async findVaultPeriodClose() {
+      return null;
     },
 
     // =========================================================================
