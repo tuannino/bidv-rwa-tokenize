@@ -9,13 +9,19 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.16 |
+| Phiên bản tài liệu | 4.17 |
 | Cập nhật lần cuối | 2026-10-20 |
-| Nhánh / commit | `feat/sc-07-vault-thanh-toan`, từ `dev` @ `3342c2e` (PR #55); spec `docs/sc-07-vault-thanh-toan/` bản 2.1 |
+| Nhánh / commit | `feat/sc-03-khop-lenh`, từ `dev` @ `725f2c1`; spec `docs/sc-03-khop-lenh/` bản 2.1 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23) |
-| Đang thực hiện | Không có task mã đang mở sau khi SC-07 hoàn tất local; chờ Supervisor nghiệm thu nhánh |
-| Phase kế tiếp | **SC-03** dùng giao diện vault đã khóa ở SC-07; sau đó **OP-05** triển khai lại bộ `evm` lên Sepolia |
+| Hoàn thành mới ở bản này | **SC-03** — khớp lệnh nguyên tử EVM và phục hồi theo `orderRef` (xem 4.2) |
+| Đang thực hiện | Không có task mã đang mở; SC-03 hoàn tất local và chờ Supervisor nghiệm thu PR |
+| Phase kế tiếp | **FE-05** ký `permit` trên giao diện; sau đó **OP-05** triển khai lại bộ `evm` lên Sepolia |
 | Người cập nhật | Codex (thực thi thay Kiro theo chỉ định của Owner) — Supervisor rà soát |
+
+**4.16 → 4.17 (SC-03).** `OrderSettlement` khớp mua/bán WPT nguyên tử hai chân qua vault,
+chống gửi trùng bằng `orderRef`, hỗ trợ ERC-2612 permit và giữ giá có hiệu lực trên chuỗi. Adapter
+EVM đã nối đủ mua/bán, allowance hai token và đối soát sự kiện; đường BE-17 tra chuỗi trước khi ghi
+thất bại và có đúng một cạnh phục hồi `EXECUTING` thiếu `txHash` về `CHECKING`. Xem 4.2.
 
 **SC-10 — vá quỹ kỳ.** `ProfitDistributor` lưu `claimDeadline` bất biến và `closed` theo kỳ;
 claim/lô vào kỳ đóng hoặc hết hạn revert, kiểm tổng chi không vượt quỹ trước trả. Sweep đóng được
@@ -250,7 +256,10 @@ Giao dịch viên lập → Kiểm soát viên duyệt. Production phải ghi đ
 `clientRequestId` dùng lại khi retry và kho lưu trữ chặn trùng theo `(investorWallet,
 clientRequestId)`. Không thêm vai, quyền, trạng thái hay method ledger. Đường tay giữ
 `order:execute` cho `TELLER`, nhưng tách ba nhánh an toàn: `CHECKING` được gửi, `EXECUTING` có
-`txHash` chỉ đối soát receipt, thiếu `txHash` thì không gửi lại. Xem 4.2.
+`txHash` chỉ đối soát receipt. Từ SC-03, `EXECUTING` thiếu `txHash` tra dấu `orderRef` trên chain:
+đã quyết toán thì chốt `COMPLETED`; chưa quyết toán thì cập nhật có điều kiện về `CHECKING`, chạy
+lại toàn bộ bộ kiểm rồi mới tranh quyền gửi. Kết quả chưa rõ hoặc RPC lỗi giữ nguyên trạng thái.
+Đây là cạnh quay lại duy nhất của máy trạng thái và chỉ dùng trên chain có khóa chống trùng. Xem 4.2.
 
 ## Quy ước ký hiệu token (BẮT BUỘC dùng thống nhất)
 
@@ -614,14 +623,14 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P1** | Chưa có xác thực thật. Vai trò lấy từ cookie do client đặt được | Phase 4: SIWE + phiên thật. **Trước đó tuyệt đối không deploy public khi chưa bật bảo vệ mật khẩu** |
 | **P1** | **Bộ contract trên Sepolia còn symbol `tVND` cũ.** Mã nguồn đã đổi sang `VNDB` nhưng bản đã deploy thì không đổi được — symbol nằm trong constructor | Deploy lại `VNDToken`, `ProfitDistributor`, `Redemption` (hai cái sau giữ địa chỉ VNDToken dạng `immutable`) rồi verify lại. `ProjectToken`/WPT không ảnh hưởng nên P4 vẫn đứng |
 | **P1** | **`ENABLE_DEMO_PAYMENT_MINT` mặc định bật cho bản trình diễn.** Đây là quyết định của chủ dự án ngày **07/10/2026**, không phải sơ suất | Trước triển khai thật: đặt `ENABLE_DEMO_PAYMENT_MINT=false` và gỡ màn **Nạp VNDB (trình diễn)**; không dùng tiền mô phỏng cho nghiệp vụ thật |
-| **P2** | **Chưa có tiến trình quét lệnh mua/bán kẹt.** BE-17 chỉ cung cấp đường can thiệp an toàn cho GDV; nếu không có người mở màn thì lệnh kẹt không tự được phát hiện | Gom vào tiến trình định kỳ đã có của **BE-07**: quét `CHECKING`/`EXECUTING`, chỉ cảnh báo hoặc gọi đúng nhánh can thiệp; không tự gửi lại lệnh `EXECUTING` thiếu `txHash` |
+| **P2** | **Chưa có tiến trình quét lệnh mua/bán kẹt.** BE-17/SC-03 cung cấp đường can thiệp an toàn cho GDV; nếu không có người mở màn thì lệnh kẹt không tự được phát hiện | Gom vào tiến trình định kỳ đã có của **BE-07**: quét `CHECKING`/`EXECUTING`, gọi đúng đường can thiệp. SC-03 đã cho phép phục hồi `EXECUTING` thiếu `txHash` sau khi tra khóa chống trùng trên chain; không tự viết một đường gửi lại riêng |
 | **P2** | **Lệnh kẹt ở `PLACED` không can thiệp được.** Đường can thiệp của BE-17 chỉ nhận lệnh `CHECKING`/`EXECUTING`; lệnh dừng ở `PLACED` (tự quyết toán lỗi ngay sau khi tạo, nay có dòng `console.error` kèm mã lệnh từ OP-03) chỉ được `expireStaleOrders` dọn sang Hết hạn khi quá hạn | Gắn vào task đụng tới tiến trình quét lệnh kẹt ở dòng trên: cho đường can thiệp nhận cả `PLACED`, hoặc tự quyết toán lại một lần trước khi để hết hạn |
-| **P2** | **Khoảng trống giữa phát giao dịch và lưu `txHash`.** Tiến trình chết sau khi adapter gửi nhưng trước `attachOrderTxHash` để lại `EXECUTING` không mã; BE-17 cố ý không gửi lại vì có thể trùng chuyển tài sản | Gắn vào **SC-03**: tách ký khỏi phát giao dịch trong `ILedgerPort`, lưu dấu vết nhận dạng giao dịch trước khi broadcast, rồi mới phát |
+| ~~P2~~ | ~~**Khoảng trống giữa phát giao dịch và lưu `txHash`.** Tiến trình chết sau khi adapter gửi nhưng trước `attachOrderTxHash` để lại `EXECUTING` không mã~~ | **ĐÃ XỬ LÝ ở SC-03:** `orderRef` được chốt trong vault; tra `isOrderSettled` rồi sự kiện `OrderSettled`. Đã quyết toán thì chốt từ chain; chưa thì cập nhật có điều kiện về `CHECKING` và chạy lại bộ kiểm. `SETTLED_TX_UNKNOWN`/lỗi RPC giữ nguyên, không ghi thất bại |
 | **P2** | Bốn màn Nhà đầu tư (`trade`, `orders` và hai màn chi tiết) chép lặp `chain === 'mock' ? mockWallet : address`. Khi hoàn thiện Mock ở `d45b596`, việc chép lặp làm sót hai màn chi tiết; OP-02 v3 vá đủ bằng cùng khuôn | Gom đoạn phân giải ví về một hook dùng chung khi task tiếp theo đụng nhóm màn này; không mở task riêng và không gom trong OP-02 |
 | ~~P2~~ | ~~Build Cloudflare fail ENOENT: Next sinh ra `.next/standalone/app/.next`, OpenNext đọc `.next/standalone/.next`~~ | **ĐÃ XỬ LÝ ở PR #12** (`app/scripts/flatten-standalone.mjs` + script `cf:build`). Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8, việc thêm/xóa nợ do Supervisor quyết |
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
-| **P1** | **8 trong 16 method mở rộng của `ILedgerPort` chưa nối được ở `evm.adapter`** — sau SC-02, ba method phát hành đã chạy thật; còn chờ contract khớp lệnh (SC-03), quyết định chữ ký để `distributeBatch` mang được mã kỳ xuống adapter (SC-05), và quyết định cờ tất toán/NAV nối vào contract nào (SC-04). Bảng đầy đủ ở 3.1; bảng sinh tự động theo marker ở 3.10 | Luồng phát hành/đốt đã chạy trên Hardhat; mua/bán, chia lợi nhuận và tất toán trên EVM vẫn chờ các task contract tương ứng. `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` → 8 |
+| **P1** | **5 method của `ILedgerPort` chưa nối được ở `evm.adapter`** — `distributeBatch` chờ quyết định chữ ký mang mã kỳ (SC-05); bốn method tất toán/NAV chờ SC-04. Khớp lệnh SC-03 đã chạy thật | Luồng phát hành/đốt và mua/bán đã chạy trên Hardhat; chia lợi nhuận/tất toán còn chờ task tương ứng. `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` → 5 |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Phát hiện tiền vào ví lợi nhuận bằng HỎI ĐỊNH KỲ, không bằng sự kiện on-chain** (BE-07). Hệ quả: (a) độ trễ bằng chu kỳ cron, (b) hai lần nạp giữa hai lượt hỏi bị gộp thành **một** kỳ chia, (c) không biết ai nạp và nạp lúc nào — chỉ biết số dư đã tăng. Nguyên nhân: IN-01/IN-02 (Indexer) chưa làm nên chưa đọc được sự kiện | IN-02 đổi **nguồn tín hiệu** sang sự kiện `Transfer` vào ví lợi nhuận, giữ nguyên bốn nhánh quyết định và toàn bộ phần chia. Điểm cắm đã đánh dấu `@pending IN-02` ngay trên `detectNewFunds` (`lib/bank/distribution-trigger.service.ts`) |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`KeeperRun` không có cột tóm tắt.** Lược đồ chỉ có `status` + `error`, nên "số lô đã chia, số ví còn lại" của mỗi vòng chỉ vào được cột `error` — mà cột đó tên là `error`, nhồi tóm tắt thành công vào sẽ làm mọi truy vấn "vòng nào có lỗi" trả về cả vòng chạy đúng. BE-07 vì vậy để `error` chỉ mang thông báo khi thất bại, còn tóm tắt mỗi vòng ghi vào **sổ kiểm toán** | Nếu Owner muốn tóm tắt nằm trong `KeeperRun`: thêm cột `summary String?` vào `KeeperRun`, `IKeeperStore.finishRun`, hai bản hiện thực và `store-constraints.test.ts`. Chưa làm vì vượt phạm vi Tác động của BE-07 |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
@@ -873,14 +882,14 @@ Chạy `npm run dev` không cấp biến vẫn dùng fallback như trước.
 
 | File | Vai trò |
 |---|---|
-| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (359 dòng) |
+| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (375 dòng) |
 | `index.ts` | Factory `getLedger(chain, signer)` — map chain → adapter |
-| `evm.adapter.ts` | Hiện thực EVM bằng viem (945 dòng) |
-| `mock.adapter.ts` | Ledger trong RAM, không cần chain (684 dòng) |
-| `stellar.adapter.ts` | Stub Soroban; riêng vault trả trạng thái chưa triển khai, các hàm khác ném lỗi rõ ràng (155 dòng) |
+| `evm.adapter.ts` | Hiện thực EVM bằng viem (1.019 dòng) |
+| `mock.adapter.ts` | Ledger mock trong RAM hoặc lưu bền qua state store (721 dòng) |
+| `stellar.adapter.ts` | Stub Soroban; riêng vault trả trạng thái chưa triển khai, các hàm khác ném lỗi rõ ràng (161 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
-### `ILedgerPort` — 8 nhóm, 33 method
+### `ILedgerPort` — 8 nhóm, 35 method
 
 Từ BE-01, `ILedgerPort` được tách thành các interface con theo nghiệp vụ trong cùng
 `ledger.port.ts`, rồi hợp lại bằng kế thừa kiểu. Tên `ILedgerPort` giữ nguyên và vẫn là
@@ -902,29 +911,31 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 10 | | `mintInitialSupply` | ✅ | ✅ | ⏳ | Phase 7 |
 | 11 | | `isInitialSupplyMinted` | ✅ | ✅ | ⏳ | Phase 7 |
 | 12 | | `spvWallet` | ✅ | ✅ | ⏳ | Phase 7 |
-| 13 | `ILedgerPurchase` | `quotePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 14 | | `setPurchasePrice` (BE-04) | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
+| 13 | `ILedgerPurchase` | `quotePurchase` | ✅ | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
+| 14 | | `setPurchasePrice` (BE-04) | ✅ | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
 | 15 | | `paymentBalanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 16 | | `paymentAllowanceOf` | ✅ | ⏳ | ⏳ | địa chỉ contract khớp lệnh (SC-03) |
-| 17 | | `mintPayment` (BE-16) | ✅ | ✅ | ⏳ | Phase 7 (token VNDB bản Soroban) |
-| 18 | | `executePurchase` | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 19 | | `executeSale` (BE-14) | ✅ | ⏳ | ⏳ | contract khớp lệnh (SC-03) |
-| 20 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
-| 21 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 22 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
-| 23 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
-| 24 | | `distributeBatch` | ✅ | ⏳ | ⏳ | chữ ký chưa mang được mã kỳ để tra `distributionId` (SC-05) |
-| 25 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
-| 26 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
-| 27 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
-| 28 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
-| 29 | `ILedgerVault` | `vaultStatus` | ✅ (trả `null`) | ✅ | ✅ (trả `null`) | SC-07; mock/Stellar chưa triển khai vault |
-| 30 | | `vaultPeriodCloses` | ✅ (mảng rỗng) | ✅ | ✅ (mảng rỗng) | EVM quét từ `deployBlock`, không quét block 0 |
-| 31 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
-| 32 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
-| 33 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 16 | | `paymentAllowanceOf` | ✅ | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
+| 17 | | `wptAllowanceOf` (SC-03) | ✅ (luôn đủ) | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
+| 18 | | `findOrderSettlement` (SC-03) | ✅ | ✅ | ⏳ | Soroban chưa có sự kiện quyết toán |
+| 19 | | `mintPayment` (BE-16) | ✅ | ✅ | ⏳ | Phase 7 (token VNDB bản Soroban) |
+| 20 | | `executePurchase` | ✅ | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
+| 21 | | `executeSale` (BE-14) | ✅ | ✅ | ⏳ | Soroban chưa có contract khớp lệnh |
+| 22 | `ILedgerSnapshot` | `takeSnapshot` | ✅ | ✅ | ⏳ | Phase 7 |
+| 23 | | `balanceOfAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 24 | | `totalSupplyAt` | ✅ | ✅ | ⏳ | Phase 7 |
+| 25 | `ILedgerDistribution` | `profitPoolBalance` | ✅ | ✅ | ⏳ | Phase 7 |
+| 26 | | `distributeBatch` | ✅ | ⏳ | ⏳ | chữ ký chưa mang được mã kỳ để tra `distributionId` (SC-05) |
+| 27 | `ILedgerSettlement` | `setSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 28 | | `isSettlementMode` | ✅ | ⏳ | ⏳ | quyết định cờ tất toán nằm ở contract nào (SC-04) |
+| 29 | | `setNavRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
+| 30 | | `navRate` | ✅ | ⏳ | ⏳ | quyết định NAV có phải `Redemption.rate` (SC-04) |
+| 31 | `ILedgerVault` | `vaultStatus` | ✅ (trả `null`) | ✅ | ✅ (trả `null`) | SC-07; mock/Stellar chưa triển khai vault |
+| 32 | | `vaultPeriodCloses` | ✅ (mảng rỗng) | ✅ | ✅ (mảng rỗng) | EVM quét từ `deployBlock`, không quét block 0 |
+| 33 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
+| 34 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
+| 35 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
 
-**Bốn method tất toán (25–28) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
+**Bốn method tất toán (27–30) chặn vì một QUYẾT ĐỊNH, không vì một contract chưa có.** Cả
 `Redemption` lẫn `ProjectToken` đã deploy; thiếu là câu trả lời cho "cờ *đang tất toán* nằm ở
 đâu" và "NAV có phải `Redemption.rate` hay không". Owner đã mở mã task **SC-04** cho quyết định
 đó, nên marker trong `evm.adapter.ts` ghi `@blocked SC-04` — xem bảng sinh tự động ở 3.10. Đừng
@@ -934,16 +945,17 @@ nối tạm vào `Redemption.paused`: nó **ngược hướng** với "bật gia
 = số lượng × **cùng** giá mà `quotePurchase` đọc — giá do ngân hàng cấu hình, một nguồn cho hai
 chiều. Thêm `quoteSale` là thêm nguồn giá thứ hai và hai nguồn sẽ lệch nhau. Mock kiểm đủ (WPT của
 nhà đầu tư, VNDB của ví SPV, KYC, đóng băng, tất toán) TRƯỚC khi ghi bốn bút toán; **không** kiểm uỷ
-quyền WPT vì cổng chưa có hàm đọc nó — câu hỏi mở cho SC-03 ở `docs/CHECKPOINT_BE14.md`.
+quyền WPT qua `wptAllowanceOf` trước khi hỏi thanh khoản VNDB của vault. Mock cố ý trả mức tối đa
+vì không mô phỏng bước approve; EVM đọc allowance WPT cấp cho `OrderSettlement`.
 
 **`mintPayment` thêm ở BE-16** cho chức năng nạp VNDB của bản trình diễn — đường tạo ra tiền, chỉ
 `lib/bank/demo-payment.service.ts` được gọi (sau hai lớp chặn, xem 3.19). Chain thật gọi `VNDToken.mint`
 (đã có trong ABI) và cần ví vận hành giữ `MINTER_ROLE`; thiếu vai thì adapter dịch custom error
 `AccessControlUnauthorizedAccount` thành câu nêu đúng **ví, vai và địa chỉ hợp đồng**, thay cho câu
 chung "thiếu role" của bảng dịch. ⚠️ **Bản mock cộng kèm mức ủy quyền** cho hợp đồng khớp lệnh bằng số
-vừa nạp: `VNDToken.mint` không làm vậy, trên chuỗi thật nhà đầu tư tự `approve` bằng ví. Đây là lệch
-contract **có chủ ý**, Owner chốt ở BE-16, vì mock không có đường nào để nhà đầu tư approve nên không
-cộng thì lệnh mua sau khi nạp vẫn chết ở phép kiểm ủy quyền. Gỡ khi có đường approve thật (SC-03).
+vừa nạp: `VNDToken.mint` không làm vậy, trên chuỗi thật nhà đầu tư tự `approve` hoặc dùng `permit`
+bằng ví. Đây là lệch contract **có chủ ý**, vì mock không mô phỏng chữ ký token; FE-05 sẽ cung cấp
+đường ký permit cho EVM.
 `evm.adapter` có thêm `writeOn()` — ghi lên một contract bất kỳ trong `packages/shared`, `write()` nay
 là `writeOn` trên `ProjectToken`.
 
@@ -1386,7 +1398,7 @@ Trạng thái kết nối ví ở client là chuyện khác, xem **3.9**.
 |---|---|
 | `src/types.ts` | `ChainKey`, `ChainFamily`, `TxStatus`, `ContractName`… **Không import gì nặng** (bị kéo vào bundle edge) |
 | `src/chains.ts` | Danh sách chain theo thứ tự `mock` (mặc định), `hardhat-local`, `evm`, `stellar`. Kèm `explorerTxUrl()` và `explorerAddressUrl()` — **trả `null`** khi chain không có explorer (`hardhat-local`, `mock`) để UI ẩn liên kết chứ không trỏ sang explorer chain khác |
-| `src/abi/` | ABI tối giản cho web: bốn hợp đồng cũ cùng `identity-registry.ts`, `modular-compliance.ts`, `allow-all-module.ts` |
+| `src/abi/` | ABI tối giản cho web: bốn hợp đồng cũ, ba hợp đồng ERC-3643, vault và matcher khớp lệnh |
 | `generated/` | ABI đầy đủ sinh từ Hardhat — chỉ để test đối chiếu, không ship lên web |
 | `src/addresses.ts` | Tra địa chỉ contract: **env thắng file**, hỗ trợ free-tier không đọc được filesystem |
 | `src/sample-wallets.json` | Ví của hai tài khoản khách hàng mẫu `NDT001`, `NB001` (OP-03). App đọc qua `SAMPLE_WALLETS`, `contracts-evm/scripts/seed-local.js` đọc thẳng tệp để whitelist trên chuỗi cục bộ — **một nguồn**, không chép địa chỉ lần hai |
@@ -1398,7 +1410,7 @@ custom error; ABI thiếu mục `error` thì viem không giải mã được và
 selector, ra message kiểu `reverted with the following signature: 0xe2517d3f` — vô nghĩa
 với cả người dùng lẫn người sửa lỗi.
 
-`app/test/abi-contract-sync.test.ts` đối chiếu **cả 8** ABI tối giản với `generated/`, nên
+`app/test/abi-contract-sync.test.ts` đối chiếu **cả 9** ABI tối giản với `generated/`, nên
 sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "function not found" lúc chạy.
 
 ## 3.8. `packages/contracts-evm/contracts/`
@@ -1413,7 +1425,8 @@ sửa contract mà quên sửa ABI thì test đỏ ngay, không đợi lỗi "fu
 | `ProfitDistributor.sol` | Chia lợi tức theo snapshot; deadline/closed và giới hạn quỹ riêng từng kỳ (SC-10) | `createDistribution`, `previewClaim`, `claim`, `claimMany`, `distributeTo`, `sweepDust` |
 | `ProfitDistributorOracle.sol` | Bản nối oracle | `createDistributionFromOracle`, `previewDistributableFromOracle` |
 | `Redemption.sol` | Hoàn vốn | `quote`, `redeem`, `fund`, `withdraw`, `setRate`, `setPaused` |
-| `SpvPaymentVault.sol` | Ví thanh toán SPV; giữ WPT/VNDB, khoá tiền và cung cấp điểm quyết toán cho SC-03 | `settleBuy`, `settleSell`, `withdraw`, `closePeriod`, `lockedAmount`, `withdrawable` |
+| `SpvPaymentVault.sol` | Ví thanh toán SPV; giữ WPT/VNDB, khoá tiền và giữ dấu chống trùng lệnh | `settleBuy`, `settleSell`, `isOrderSettled`, `withdraw`, `closePeriod`, `lockedAmount`, `withdrawable` |
+| `OrderSettlement.sol` | Matcher mua/bán nguyên tử hai chân, giá on-chain và ERC-2612 permit | `buy`, `sell`, `buyWithPermit`, `sellWithPermit`, `setPrice`, `pause` |
 | `oracle/EnergyOracle.sol` | Sản lượng điện → doanh thu | `submitReading`, `grossRevenueVnd`, `netRevenueVnd`, `distributableProfitVnd` |
 | `extensions/ERC20Snapshotable.sol` | Chụp số dư tại thời điểm | `balanceOfAt`, `totalSupplyAt` |
 
@@ -1524,7 +1537,7 @@ bỏ quên**. Ba từ khóa, đặt ngay trên khai báo, cú pháp cố định
 | `app/test/pending-markers.test.ts` | 20 ca chốt cơ chế: marker không lạc hậu, sơ đồ khớp marker, mục dưới đây khớp marker | Tầng 2 dựng **repo giả trong thư mục tạm** để chứng minh phép kiểm có răng, không chạm repo thật |
 | `scripts/evm-local.sh` | Chuỗi hardhat cục bộ `up`/`down`/`reset` (OP-03) | Không thuộc cơ chế marker. **Không bao giờ triển khai đè**: lệch bytecode hoặc nút có giao dịch lạ thì dừng, báo `reset`. Xem `docs/EVM_LOCAL.md` |
 | `packages/contracts-evm/scripts/fund-sepolia.js` | OP-04: `fund`, `estimateOperationGas`, `feeBudget`, `planFunding` cấp phí Sepolia | Đo gas trên bytecode cục bộ trong tiến trình Hardhat riêng, giá trần từ Sepolia, dự phòng 20%; chỉ bù phần thiếu, chặn ví mẫu và sai chain; `--dry-run` không cần khóa. Thêm thao tác thì bổ sung mô phỏng và kiểm thử; không dùng để ký trên chain khác |
-| `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04/SC-09: `signerFunding` kiểm phí triển khai bảy hợp đồng + liên kết registry/compliance/module + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
+| `packages/contracts-evm/scripts/preflight-sepolia.js` | OP-04/OP-05: `signerFunding` kiểm phí triển khai chín hợp đồng + liên kết registry/compliance/vault/matcher + whitelist + Mint/Mint/Burn | Ví triển khai phải trùng `SERVER_SIGNER_PRIVATE_KEY_EVM`; thiếu phí in lệnh cấp số dư yêu cầu. Không ghi hay ký Sepolia |
 | `app/scripts/local-proxy.mjs` | OP-04: bootstrap Node fetch qua proxy môi trường | Nạp riêng bằng `start:proxy`, giữ NO_PROXY và luôn bypass loopback; không log endpoint, không vào bundle Worker |
 | `scripts/smoke-test.mjs` | Kiểm khói một bản **đã triển khai** (OP-01/OP-04) | `--chain=evm` chỉ GET token qua EVM adapter, kiểm WPT decimals 0 và tổng cung hợp lệ. Không chứng minh SC-02 hay quyền ký; verify và Mint/Burn là kiểm riêng. Chạy **tay** — xem 2.7 và runbook Sepolia |
 
@@ -1593,11 +1606,11 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:344` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `profitPoolBalance` rồi so với mốc `distribution.last_settled_balance`, có chặn ngưỡng tối thiểu và có phát hiện số dư giảm. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào ví lợi nhuận do Indexer đọc được, giữ nguyên bốn nhánh quyết định và nguyên phần chia ở `runDistributionCycle`. Đổi được vì mốc số dư vẫn là thứ chốt "đã xử lý tới đâu", sự kiện chỉ thay việc hỏi định kỳ |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:850` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:856` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:861` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:867` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:832` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:849` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:855` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:860` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:866` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-05` | chặn | `app/src/lib/ledger/evm.adapter.ts:831` | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -2206,9 +2219,9 @@ tách được theo khoá, và tránh đổi giao diện store chỉ vì một n
 ## 3.23. Vault thanh toán SPV (SC-07)
 
 `SpvPaymentVault` là ví SPV duy nhất của bộ hợp đồng mới: Mint đầu phải vào vault; không duy trì
-song song phương án ví thường. Vault giữ WPT chưa bán và VNDB thu về, còn hợp đồng khớp lệnh SC-03
-sau này được cấp `MATCHER_ROLE` để gọi hai chân quyết toán nguyên tử. `deploy.js` cố ý không cấp vai
-này, nên bản vừa triển khai chưa có ai lấy tài sản qua `settleBuy`/`settleSell`.
+song song phương án ví thường. Vault giữ WPT chưa bán và VNDB thu về. Từ SC-03, `deploy.js` cấp
+`MATCHER_ROLE` duy nhất cho `OrderSettlement`; EOA không giữ vai này. Matcher kéo chân vào thẳng
+vault rồi gọi chân ra qua `settleBuy`/`settleSell` trong cùng giao dịch.
 
 ### Công thức khoá
 
@@ -2328,9 +2341,39 @@ components/pages/mint.tsx
 tự quyết toán ngay. Chiều mua chuyển VNDB (nhà đầu tư → SPV) và WPT (SPV → nhà đầu tư); chiều bán
 đảo hai dòng tiền. Mỗi chiều vẫn nằm trong **cùng một** giao dịch nguyên tử.
 
-**Ai ký:** ví **ngân hàng/SPV** qua `getBankSigner(chain)`, không phải ví nhà đầu tư — khác
-hẳn luồng REDEEM ở 4.3. Nhà đầu tư chỉ tham gia bằng một lần `approve` VNDB **trước đó**, từ
-ví của họ, ngoài phạm vi BE-02.
+**Ai ký:** ví **ngân hàng/SPV** qua `getBankSigner(chain)` gửi giao dịch khớp, không phải ví nhà
+đầu tư — khác hẳn luồng REDEEM ở 4.3. Nhà đầu tư phải cấp allowance VNDB khi mua hoặc WPT khi bán.
+`OrderSettlement` đã nhận ERC-2612 permit, nhưng app SC-03 vẫn dùng đường `buy`/`sell`; FE-05 mới
+ký permit từ ví nhà đầu tư và truyền chữ ký vào biến thể `WithPermit`.
+
+### Hợp đồng khớp lệnh SC-03
+
+`OrderSettlement` không giữ tài sản. Nó kéo chân vào thẳng tới `SpvPaymentVault`, rồi vault trả
+chân ra trong cùng giao dịch. Một chân revert thì toàn bộ thay đổi hoàn lại:
+
+| Chiều | Chân vào do `OrderSettlement` làm | Chân ra do vault làm |
+|---|---|---|
+| Mua | VNDB: nhà đầu tư → vault | WPT: vault → nhà đầu tư |
+| Bán | WPT: nhà đầu tư → vault | VNDB: vault → nhà đầu tư |
+
+Giá một WPT nằm ở `OrderSettlement.price`; `vndbAmount` đã chốt trong database phải đúng
+`wptAmount × price` hiện tại, nếu lệch thì lệnh revert thay vì âm thầm thu theo giá mới. Mã lệnh
+UUID được đổi thuận nghịch thành `bytes32 orderRef`; dấu đã quyết toán nằm trong vault. Vì vậy gửi
+lại cùng lệnh báo `OrderAlreadySettled`, và việc thay matcher không làm mất lịch sử chống trùng.
+
+`permit` phải cấp **đúng** số của lệnh. ERC-2612 ghi đè allowance, không cộng thêm, và nonce dùng
+theo thứ tự; nếu hai lệnh được ký liên tiếp nhưng khớp đảo thứ tự, chữ ký nonce sau có thể chưa dùng
+được. FE-05 phải ký/khớp theo thứ tự hoặc yêu cầu ký lại.
+
+Tạm thời trước SC-04, `pause` trên `OrderSettlement` là công tắc dừng khẩn cấp và thay cho việc chặn
+khớp khi đang tất toán. Quy trình thay phiên bản: pause bản cũ → vault thu `MATCHER_ROLE` bản cũ →
+deploy bản mới → vault cấp duy nhất `MATCHER_ROLE` cho bản mới; nhà đầu tư approve/permit lại địa chỉ
+mới. `orderRef` cũ vẫn ở vault.
+
+Biên tin cậy của PoC: một khóa máy chủ giữ `OPERATOR_ROLE`, `PRICE_ROLE`, `PAUSER_ROLE` và admin.
+Operator chọn lệnh/nhà đầu tư/số lượng; price role có thể đổi giá bất kỳ lúc nào. Permit không xác
+nhận các dữ liệu nghiệp vụ đó — bảo vệ của nhà đầu tư là giới hạn allowance và giá hiện hành trên
+hợp đồng. Production phải tách vai và bảo vệ khóa theo mô hình vận hành riêng.
 
 **Hai lối vào, một điểm hội tụ:** UI dùng Server Action, demo và e2e dùng `POST /api/purchase`.
 Payload đặt lệnh có `clientRequestId`; payload có `orderId` chỉ dành cho can thiệp của Giao dịch
@@ -2426,14 +2469,20 @@ không vào sổ lệnh nữa. Hai hệ quả:
 |---|---|---|
 | 1 | `autoSettleCreatedOrder(order)` | Đường tự động nhận object vừa tạo; không có API nhận mã lệnh tuỳ ý |
 | 2 | `settleStoredOrder()` | `PLACED → CHECKING`, chạy `runOrderChecks`, rồi chiếm `CHECKING → EXECUTING` có điều kiện |
-| 3 | `sendAndSettle()` | Gửi mua/bán, gắn `txHash`, lưu `Txn`, chờ receipt rồi chốt `COMPLETED`/`FAILED` |
+| 3 | `sendAndSettle()` | Gửi mua/bán, gắn `txHash`, lưu `Txn`, chờ receipt; trước mọi lần ghi thất bại phải tra `orderRef` trên chain |
 | 4 | `executeOrder({ orderId })` | Đường can thiệp kiểm `order:execute`; chỉ nhận `CHECKING` hoặc `EXECUTING` |
 | 5 | Can thiệp `CHECKING` | Chạy lại bộ kiểm, chiếm `EXECUTING`, **được gửi** giao dịch |
 | 6 | Can thiệp `EXECUTING` có `txHash` | Tra `ITxnStore.findTxnByHash`, **chỉ chờ/đối soát receipt**, không gửi lại |
-| 7 | Can thiệp `EXECUTING` thiếu `txHash` | Trả dấu cần đối soát tay; **không gửi lại** vì giao dịch có thể đã lên chuỗi |
+| 7 | Can thiệp `EXECUTING` thiếu `txHash` | Tra `findOrderSettlement`: đã khớp thì chốt từ chain; chưa khớp thì cập nhật có điều kiện về `CHECKING`, chạy lại bộ kiểm và tranh quyền gửi |
 | 8 | Audit | `order:auto-execute` phân biệt với `order:intervene` |
 
-**Bốn phép kiểm ở bước 4** (QĐ-2), dừng ở lần trượt đầu tiên, tất cả đều là hàm **đọc** nên
+Hàm chốt thất bại dùng chung xử lý bốn kết quả đối soát: `NOT_SETTLED` mới được ghi
+`FAILED`/`REJECTED`; `SETTLED` chuyển `COMPLETED` bằng tx hash từ sự kiện; `SETTLED_TX_UNKNOWN` và
+lỗi RPC giữ nguyên trạng thái để không tuyên bố thất bại khi tài sản có thể đã chuyển. Cạnh
+`EXECUTING(txHash rỗng) → CHECKING` là cạnh quay lại duy nhất của máy trạng thái, có điều kiện ở kho
+lưu trữ nên hai lượt can thiệp đồng thời chỉ một lượt thắng.
+
+**Các phép kiểm ở bước 4** (QĐ-2), dừng ở lần trượt đầu tiên, tất cả đều là hàm **đọc** nên
 không tốn phí:
 
 | # | `id` của phép kiểm | Lời gọi | Trượt thì trả mã |
@@ -2466,7 +2515,7 @@ Ai viết đường kiểm thứ hai thì ba ca đó đỏ.
 **Vị trí phép chuyển `CHECKING → EXECUTING` trong `settleStoredOrder` là điểm dễ sửa sai nhất.**
 Nó phải ở **sau** bộ kiểm và **trước** lời gọi gửi giao dịch:
 
-- Sau bốn phép kiểm, vì mọi lệnh trượt điều kiện mà đã chiếm `EXECUTING` thì không còn đường
+- Sau bộ kiểm, vì mọi lệnh trượt điều kiện mà đã chiếm `EXECUTING` thì không còn đường
   về `REJECTED` — lệnh sẽ bị đánh dấu là đã tốn phí trong khi chưa gửi gì.
 - Trước khi gửi, vì đó là **toàn bộ** cơ chế chống gửi hai lần. Không có bước này thì hai lời
   gọi đồng thời cùng thấy điều kiện đạt và cùng gửi, nhà đầu tư bị trừ tiền hai lần.
@@ -2495,7 +2544,7 @@ ba chỗ:
 
 | Chỗ | Mua | Bán |
 |---|---|---|
-| Phép kiểm sau `price` | `paymentBalance` → `allowance` → `supply` → `transferable` (SPV → nhà đầu tư) | `holding` (`INSUFFICIENT_HOLDING`) → `sellerLiquidity` (`paymentBalanceOf(spv)`, `INSUFFICIENT_SELLER_LIQUIDITY`) → `transferable` (nhà đầu tư → SPV) |
+| Phép kiểm sau `price` | `paymentBalance` → `allowance` → `supply` → `transferable` (SPV → nhà đầu tư) | `holding` → `wptAllowance` → `sellerLiquidity` (`paymentBalanceOf(spv)`) → `transferable` (nhà đầu tư → SPV) |
 | Hàm gửi giao dịch | `executePurchase` | `executeSale` |
 | Sổ `Txn` | `operation: 'purchase'`, `toWallet` = nhà đầu tư | `operation: 'sale'`, `fromWallet` = nhà đầu tư |
 
@@ -2530,16 +2579,11 @@ cùng câu lệnh** đổi trạng thái (`ORDER_STATUS_STAMPS` ở cổng lưu 
 bên × hai tài sản), `outcome` chỉ có `APPLIED` / `NONE_APPLIED` / `PENDING` — không có giá trị cho
 "ghi một phần" vì tình huống đó không tồn tại. Lệnh `FAILED` trả `NONE_APPLIED`.
 
-### Nợ đã biết của luồng này
+### Trạng thái chuỗi thật của luồng này
 
-Trên chain `evm`/`hardhat-local`, luồng mua **chưa chạy được**: `quotePurchase`,
-`paymentAllowanceOf`, `executePurchase` và `executeSale` vẫn ném `LedgerNotImplementedError` vì
-hợp đồng khớp lệnh (SC-03) chưa có. `spvWallet` đã chạy thật từ SC-02. Nghiệp vụ mua/bán đã xong
-trên chain `mock`; nối chuỗi thật còn là việc của SC-03, **không** phải sửa service.
-
-`previewPurchase` thừa hưởng đúng giới hạn đó: nó gọi `quotePurchase` và `spvWallet`, nên trên
-`evm`/`hardhat-local` nó trả `Result` mã `LEDGER` chứ không trả một bảng điều kiện. Đây là hành vi
-đúng — báo "chưa nối chuỗi" tốt hơn là dựng một bảng điều kiện từ số liệu không có.
+Trên `evm`/`hardhat-local`, `quotePurchase`, allowance VNDB/WPT, mua, bán và đối soát `orderRef`
+đã chạy qua `OrderSettlement`. `previewPurchase` dùng đúng dữ liệu đó nên trả bảng điều kiện thật.
+Phần còn mở là trải nghiệm ký permit từ ví nhà đầu tư (FE-05), không phải contract/service khớp lệnh.
 
 ⚠️ **Xem trước KHÔNG bảo đảm lệnh sẽ khớp được.** Nó chạy đúng bộ kiểm mà khớp lệnh chạy, nên hai
 bên không lệch nhau vì **logic**; nhưng điều kiện đổi được giữa hai thời điểm, nên chúng vẫn lệch
@@ -2882,13 +2926,14 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | FE-01 v2 kênh nhà đầu tư + trang tổng quan | ✅ Xong |
 | — | BE-01 mở rộng `ILedgerPort` cho ba luồng (tại thời điểm bàn giao: `mock` đủ 16/16, `evm` còn 11 method chờ; sau SC-02 còn 8) | ✅ Xong |
 | — | FE-02 màn kết nối ví (`/wallet`, tám trạng thái, `canSign` dùng chung) | ✅ Xong |
-| — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên `mock`, nay chỉ còn chờ SC-03 cho `evm`) | ✅ Xong |
+| — | BE-02 nghiệp vụ lệnh mua WPT (`purchase.service` + mô hình trạng thái; chạy đủ trên mock và EVM sau SC-03) | ✅ Xong |
 | — | OP-03 hardhat một lệnh, ví mẫu trên chuỗi và project E2E `hardhat` | ✅ Xong — PR #41 |
 | — | SC-02 contract khóa phát hành theo ví SPV; adapter và lập–duyệt Mint/Burn chạy thật trên Hardhat | ✅ Đã merge PR #42 |
 | — | OP-07 mock ledger lưu bền theo chain trên PostgreSQL/Hyperdrive | ✅ Xong — PR #50 |
 | — | FE-27 giao diện, lập–duyệt và giá phát hành đồng bộ theo chain (xem 3.22) | ✅ Mã và kiểm chứng local xong; chờ Supervisor nghiệm thu |
 | — | SC-09 WPT theo ERC-3643 PoC, sổ danh tính/bộ luật tách rời và ERC-2612 cho WPT/VNDB | ✅ Xong; đã đối chiếu bằng chứng Sepolia ngày 19/10/2026 |
 | — | SC-07 vault thanh toán SPV, khoá VNDB on-chain, lịch sử chốt kỳ và chặn Mint đầu sai đích (xem 3.23) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
+| — | SC-03 khớp mua/bán nguyên tử trên EVM, permit ở contract và phục hồi theo `orderRef` (xem 4.2) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |
@@ -2900,7 +2945,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | FE-21 ba màn Người bán: Tổng quan, Danh sách giao dịch, Tạo lệnh rút (xem 3.16) | ✅ Xong — PR #31; phần ghi của lệnh rút chờ BE-13 |
 | — | FE-22 màn Lập lệnh, Phê duyệt lệnh, chi tiết yêu cầu + đóng đường đi vòng (Giao dịch viên không còn `token:mint` / `token:burn`) (xem 3.17, 4.3) | 🔶 Mã xong trên nhánh `feat/maker-checker-ui`, **chưa nghiệm thu, chưa merge vào `dev`** |
 | P2 | **REDEEM** (`Redemption.sol`) — BE-05 tất toán | ⏳ Kế tiếp |
-| P3 | **DISTRIBUTION** trên chuỗi thật: `evm.adapter.distributeBatch` + `EnergyOracle` | ⏳ Tầng BE đã xong ở BE-06; còn chờ SC-03 và `providers/oracle/` |
+| P3 | **DISTRIBUTION** trên chuỗi thật: `evm.adapter.distributeBatch` + `EnergyOracle` | ⏳ Tầng BE đã xong ở BE-06; còn chờ SC-05 và `providers/oracle/` |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |
 | P5 | Fireblocks thay khóa server; freeze/clawback trên UI | ⏳ |
 | P6 | EVM testnet | ⏳ |

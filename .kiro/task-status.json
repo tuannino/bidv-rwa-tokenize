@@ -33,11 +33,10 @@
     "OP-06",
     "SC-09",
     "SC-10",
-    "SC-07"
-  ],
-  "inProgress": [
+    "SC-07",
     "SC-03"
   ],
+  "inProgress": [],
   "planned": [
     "AU-01",
     "AU-02",

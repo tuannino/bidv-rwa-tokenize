@@ -479,7 +479,7 @@ export interface OrderCheckInput {
  * so bằng một con số đã lạc hậu thì kết quả kiểm cũng lạc hậu. Nó CHỈ chạy khi người gọi
  * đưa `quotedVndAmount` — lý do ở `OrderCheckInput`.
  *
- * @flow purchase:8 | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán ba), dừng ở lần trượt đầu tiên
+ * @flow purchase:8 | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán bốn), dừng ở lần trượt đầu tiên
  */
 async function runOrderChecks(
   ledger: ILedgerPort,
