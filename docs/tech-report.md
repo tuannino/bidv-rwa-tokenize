@@ -18,7 +18,7 @@ inclusion: always
 | Phase kế tiếp | **FE-05** ký `permit` trên giao diện; sau đó **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
 | Người cập nhật | Claude Code (SC-06, thực thi theo chỉ định của Owner); SC-03 do Codex. Supervisor rà soát |
 
-**SC-06: quỹ chia một chiều (gộp SC-05).** `ProfitDistributor` có sổ dự trữ `totalReserved`, tạo
+**4.17 lên 4.18 (SC-06): quỹ chia một chiều (gộp SC-05).** `ProfitDistributor` có sổ dự trữ `totalReserved`, tạo
 kỳ từ phần chưa phân bổ bằng nhãn dùng một lần (`createDistributionFromPool`, `distributionIdOfPeriod`)
 và `closeDistribution` thay `sweepDust`: không còn đường rút, phần chưa trả về quỹ cho kỳ sau. Ứng dụng
 mở kỳ có giữ chỗ `OPENING` và phục hồi, chia theo `distributionId`, chia cả vào vault (ví SPV), đối
@@ -890,11 +890,11 @@ Chạy `npm run dev` không cấp biến vẫn dùng fallback như trước.
 
 | File | Vai trò |
 |---|---|
-| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (375 dòng) |
+| `ledger.port.ts` | Định nghĩa `ILedgerPort` — hợp đồng mà mọi chain phải tuân theo (438 dòng) |
 | `index.ts` | Factory `getLedger(chain, signer)` — map chain → adapter |
-| `evm.adapter.ts` | Hiện thực EVM bằng viem (1.019 dòng) |
-| `mock.adapter.ts` | Ledger mock trong RAM hoặc lưu bền qua state store (721 dòng) |
-| `stellar.adapter.ts` | Stub Soroban; riêng vault trả trạng thái chưa triển khai, các hàm khác ném lỗi rõ ràng (161 dòng) |
+| `evm.adapter.ts` | Hiện thực EVM bằng viem (1.156 dòng) |
+| `mock.adapter.ts` | Ledger mock trong RAM hoặc lưu bền qua state store (856 dòng) |
+| `stellar.adapter.ts` | Stub Soroban; riêng vault trả trạng thái chưa triển khai, các hàm khác ném lỗi rõ ràng (191 dòng) |
 | `address.ts` | `normalizeEvmAddress()` — chuẩn hóa và kiểm checksum EIP-55 |
 
 ### `ILedgerPort` — 8 nhóm, 44 method
