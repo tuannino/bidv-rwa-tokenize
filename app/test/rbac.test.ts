@@ -427,6 +427,18 @@ const BE13_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
 ];
 
 /**
+ * FE-08 QĐ-A: một quyền ghi mới. Kiểm soát viên duyệt tổng số của kỳ chia rồi chia; Giao dịch viên
+ * chỉ xem màn chia.
+ */
+const FE08_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  {
+    action: 'distribution:approve',
+    allowed: ['CONTROLLER'],
+    why: 'không đồng VNDB nào rời quỹ chia khi chưa có Kiểm soát viên duyệt đúng số',
+  },
+];
+
+/**
  * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
  * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
  */
@@ -460,10 +472,11 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'vault:configure',
   'vault:withdraw',
   'vault:reconcile',
+  'distribution:approve',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -484,6 +497,7 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...BE12_ACTIONS.map((row) => row.action),
       ...FE22_ACTIONS.map((row) => row.action),
       ...BE13_ACTIONS.map((row) => row.action),
+      ...FE08_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
@@ -529,10 +543,11 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
   it('SELLER chỉ có đúng một quyền GHI là vault:withdraw; CONTROLLER chỉ duyệt và cấu hình, xử lý vault', () => {
     // BE-13: Người bán tự rút VNDB từ vault, ngoài ra không có quyền ghi nào.
     expect(ALL_WRITE_ACTIONS.filter((action) => can('SELLER', action))).toEqual(['vault:withdraw']);
-    // Kiểm soát viên duyệt việc của người khác, không tự làm: ngoài quyền duyệt và hai quyền
-    // vault (cấu hình khoá, xử lý lệnh rút cần xem xét) không có quyền ghi nào, kể cả tự rút.
+    // Kiểm soát viên duyệt việc của người khác, không tự làm: ngoài quyền duyệt, hai quyền
+    // vault (cấu hình khoá, xử lý lệnh rút cần xem xét) và FE-08 duyệt chia không có quyền ghi
+    // nào, kể cả tự rút hay `distribution:execute` trực tiếp.
     const writes = ALL_WRITE_ACTIONS.filter((action) => can('CONTROLLER', action));
-    expect(writes).toEqual(['order:approve', 'vault:configure', 'vault:reconcile']);
+    expect(writes).toEqual(['order:approve', 'vault:configure', 'vault:reconcile', 'distribution:approve']);
   });
 
   it('BE-12 việc 4 — không vai nào có cả quyền lập lẫn quyền duyệt', () => {

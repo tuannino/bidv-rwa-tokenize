@@ -1,10 +1,14 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
+import type { ChainKey } from '@bidv/shared';
 import {
+  assertDistributionApprovalStatus,
   assertDistributionPayoutStatus,
   assertDistributionPeriodStatus,
   assertVaultCloseStatus,
+  isActivePeriodStatus,
+  type DistributionPeriodStatus,
   type DistributionPayoutRecord,
   type DistributionPeriodRecord,
   type IDistributionStore,
@@ -23,9 +27,10 @@ import {
 /**
  * Kỳ chia + hồ sơ chia trong bộ nhớ.
  *
- * ⚠️ Bản này phải NGHIÊM NGẶT NGANG bản Postgres (BE-09 QĐ-3). Hai ràng buộc duy nhất phải
+ * ⚠️ Bản này phải NGHIÊM NGẶT NGANG bản Postgres (BE-09 QĐ-3). Ba ràng buộc duy nhất phải
  * được kiểm ở đây bằng tay, vì bộ nhớ không có ràng buộc nào tự chạy:
  *   - `DistributionPeriod.periodKey`               → mở cùng một kỳ hai lần
+ *   - `DistributionPeriod.activeChain` (FE-08): hai kỳ hoạt động trên cùng chain
  *   - `(DistributionPayout.periodId, investorWallet)` → chia trùng cho một nhà đầu tư
  */
 
@@ -53,7 +58,29 @@ const NO_CHAIN_LINK = {
   vaultPeriodRef: null,
   vaultCloseStatus: null,
   vaultCloseTxHash: null,
+  approvalStatus: null,
+  expectedAmount: null,
+  approvedAmount: null,
+  approvedBy: null,
+  approvedAt: null,
+  reapprovedFrom: null,
 } as const;
+
+/** FE-08: `activeChain` suy từ trạng thái, đúng như câu cập nhật của bản Postgres. */
+const activeChainFor = (status: DistributionPeriodStatus, chain: ChainKey): ChainKey | null =>
+  isActivePeriodStatus(status) ? chain : null;
+
+/** Ràng buộc duy nhất `activeChain`: dòng khác đã giữ chain này thì ném như Postgres. */
+function assertActiveChainFree(activeChain: ChainKey | null, exceptId: string | null): void {
+  if (activeChain === null) return;
+  if (state().periods.some((other) => other.id !== exceptId && other.activeChain === activeChain)) {
+    throw new UniqueConstraintError(
+      'DistributionPeriod',
+      ['activeChain'],
+      `Chain "${activeChain}" đã có một kỳ chia đang hoạt động.`,
+    );
+  }
+}
 
 /** Thứ tự mở kỳ, cùng tiêu chí với bản Postgres: `openedAt`, rồi `id` khi trùng mốc. */
 const openedBefore = (a: DistributionPeriodRecord, b: DistributionPeriodRecord) =>
@@ -67,6 +94,7 @@ function insertPeriod(record: DistributionPeriodRecord): DistributionPeriodRecor
       `Kỳ "${record.periodKey}" đã được mở.`,
     );
   }
+  assertActiveChainFree(record.activeChain, null);
   state().periods.push(record);
   return { ...record };
 }
@@ -77,22 +105,25 @@ export function createMemoryDistributionStore(): IDistributionStore {
 
     async openPeriod(period: NewDistributionPeriod): Promise<DistributionPeriodRecord> {
       // Kiểm hết rồi mới ghi: một phép kiểm nằm sau `push` sẽ để lại kỳ nửa vời.
+      const status = assertDistributionPeriodStatus(period.status ?? 'OPEN');
       const record: DistributionPeriodRecord = {
         id: randomUUID(),
         periodKey: period.periodKey,
         snapshotId: assertSnapshotId(period.snapshotId),
         totalAmount: assertAmount('totalAmount', period.totalAmount),
         totalSupplyAt: assertAmount('totalSupplyAt', period.totalSupplyAt),
-        status: assertDistributionPeriodStatus(period.status ?? 'OPEN'),
+        status,
         chain: period.chain,
         openedAt: new Date().toISOString(),
         completedAt: null,
         ...NO_CHAIN_LINK,
+        activeChain: activeChainFor(status, period.chain),
       };
       return insertPeriod(record);
     },
 
-    async reservePeriod({ periodKey, chain }) {
+    async reservePeriod({ periodKey, chain, approval }) {
+      const now = new Date().toISOString();
       return insertPeriod({
         id: randomUUID(),
         periodKey,
@@ -101,9 +132,13 @@ export function createMemoryDistributionStore(): IDistributionStore {
         totalSupplyAt: '0',
         status: 'OPENING',
         chain,
-        openedAt: new Date().toISOString(),
+        openedAt: now,
         completedAt: null,
         ...NO_CHAIN_LINK,
+        expectedAmount: approval ? assertAmount('expectedAmount', approval.expectedAmount) : null,
+        approvedBy: approval?.approvedBy ?? null,
+        approvedAt: approval ? now : null,
+        activeChain: chain,
       });
     },
 
@@ -180,13 +215,41 @@ export function createMemoryDistributionStore(): IDistributionStore {
     },
 
     async listPeriods(options = {}) {
-      const { chain, status, limit = 50 } = options;
+      const { chain, status, limit = 50, offset = 0 } = options;
       return state()
         .periods.filter((period) => (chain ? period.chain === chain : true))
         .filter((period) => (status ? period.status === status : true))
         .sort(newestPeriodFirst)
-        .slice(0, limit)
+        .slice(offset, offset + limit)
         .map((period) => ({ ...period }));
+    },
+
+    async countPeriods(options = {}) {
+      const { chain } = options;
+      return state().periods.filter((period) => (chain ? period.chain === chain : true)).length;
+    },
+
+    async findActivePeriod(chain) {
+      const found = state().periods.find((period) => period.activeChain === chain);
+      return found ? { ...found } : null;
+    },
+
+    async setApproval(input) {
+      const next = assertDistributionApprovalStatus(input.approvalStatus);
+      const approvedAmount =
+        input.approvedAmount == null ? input.approvedAmount : assertAmount('approvedAmount', input.approvedAmount);
+      const reapprovedFrom =
+        input.reapprovedFrom == null ? input.reapprovedFrom : assertAmount('reapprovedFrom', input.reapprovedFrom);
+      const found = state().periods.find(
+        (period) => period.id === input.id && period.activeChain !== null && period.approvalStatus === input.from,
+      );
+      if (!found) return null;
+      found.approvalStatus = next;
+      if (approvedAmount !== undefined) found.approvedAmount = approvedAmount;
+      if (input.approvedBy !== undefined) found.approvedBy = input.approvedBy;
+      if (input.approvedAt !== undefined) found.approvedAt = input.approvedAt;
+      if (reapprovedFrom !== undefined) found.reapprovedFrom = reapprovedFrom;
+      return { ...found };
     },
 
     async setPeriodStatus({ id, status, completedAt }) {
@@ -194,7 +257,11 @@ export function createMemoryDistributionStore(): IDistributionStore {
       const found = state().periods.find((period) => period.id === id);
       if (!found) return null;
 
+      // `activeChain` đổi cùng trạng thái, kiểm ràng buộc trước khi đổi trường nào.
+      const activeChain = activeChainFor(next, found.chain);
+      assertActiveChainFree(activeChain, found.id);
       found.status = next;
+      found.activeChain = activeChain;
       if (completedAt !== undefined) found.completedAt = completedAt;
       return { ...found };
     },
@@ -268,8 +335,12 @@ export function createMemoryDistributionStore(): IDistributionStore {
       return { ...found };
     },
 
+    async countPayouts({ periodId }) {
+      return state().payouts.filter((payout) => payout.periodId === periodId).length;
+    },
+
     async listPayouts(options = {}) {
-      const { periodId, investorWallet, status, limit = 50 } = options;
+      const { periodId, investorWallet, status, limit = 50, offset = 0 } = options;
       return state()
         .payouts.filter((payout) => (periodId ? payout.periodId === periodId : true))
         .filter((payout) =>
@@ -277,7 +348,7 @@ export function createMemoryDistributionStore(): IDistributionStore {
         )
         .filter((payout) => (status ? payout.status === status : true))
         .sort(newestPayoutFirst)
-        .slice(0, limit)
+        .slice(offset, offset + limit)
         .map((payout) => ({ ...payout }));
     },
   };

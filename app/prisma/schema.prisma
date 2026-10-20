@@ -207,8 +207,23 @@ model DistributionPeriod {
   /// SC-06 QĐ-G: PENDING | SENT | DONE | CONFLICT; rỗng = chưa đẩy số đã chia vào vault.
   vaultCloseStatus   String?
   vaultCloseTxHash   String?
+  /// FE-08 QĐ-B: APPROVED | AMOUNT_CHANGED; rỗng với kỳ tạo trước FE-08 hoặc kỳ đang chờ so số thực tế.
+  approvalStatus     String?
+  /// FE-08: số Kiểm soát viên duyệt lần đầu.
+  expectedAmount     Decimal?             @db.Decimal(78, 0)
+  /// FE-08: số được duyệt có hiệu lực (sau duyệt lại thì bằng số trên chuỗi).
+  approvedAmount     Decimal?             @db.Decimal(78, 0)
+  /// FE-08: mã tài khoản và thời điểm của lần duyệt có hiệu lực.
+  approvedBy         String?
+  approvedAt         DateTime?            @db.Timestamptz(3)
+  /// FE-08: số cũ nếu từng phải duyệt lại; rỗng nếu không.
+  reapprovedFrom     Decimal?             @db.Decimal(78, 0)
+  /// FE-08: bằng `chain` khi OPENING/OPEN/DISTRIBUTING, NULL khi COMPLETED/EXPIRED/CLOSED (đặt trong
+  /// cùng câu cập nhật). Duy nhất: mỗi chain tối đa một kỳ hoạt động; Postgres cho nhiều dòng NULL.
+  activeChain        String?
   payouts       DistributionPayout[]
 
+  @@unique([activeChain])
   @@index([status, openedAt])
   @@index([chain, openedAt])
 }
@@ -347,6 +362,8 @@ model KeeperRun {
   status     String    @default("RUNNING")
   /// Thông báo lỗi khi thất bại.
   error      String?
+  /// FE-08: MANUAL (Kiểm soát viên bấm) | KEEPER (tiến trình định kỳ). Dòng có trước FE-08 là KEEPER.
+  triggerSource String  @default("KEEPER")
 
   /// R4.2 — một công việc chạy đúng một lần cho một kỳ.
   @@unique([jobName, periodKey])

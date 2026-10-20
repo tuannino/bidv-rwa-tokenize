@@ -1,6 +1,11 @@
 import 'server-only';
 
-import { MOCK_VAULT_ADDRESS, orderRefFromOrderId, type ChainKey } from '@bidv/shared';
+import {
+  MOCK_PROFIT_DISTRIBUTOR_ADDRESS,
+  MOCK_VAULT_ADDRESS,
+  orderRefFromOrderId,
+  type ChainKey,
+} from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import { addressKey, normalizeEvmAddress } from './address';
 import {
@@ -60,6 +65,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 /** Nhãn ví ký của mock, trùng `createServerSigner('mock')`; dùng khi factory không truyền người ký. */
 const MOCK_OPERATOR = '0x0000000000000000000000000000000000000001';
 const VAULT_KEY = addressKey(MOCK_VAULT_ADDRESS);
+/** FE-08: số dư VNDB của địa chỉ quỹ chia là `profitPool`, như `balanceOf(ProfitDistributor)` trên EVM. */
+const DISTRIBUTOR_KEY = addressKey(MOCK_PROFIT_DISTRIBUTOR_ADDRESS);
 
 /** Chỉ dùng cho test/demo runner: về trạng thái trắng. */
 export function resetMockLedger(
@@ -234,10 +241,11 @@ export function createMockLedger(
   };
 
   const paymentBalance = (s: Readonly<MockLedgerState>, wallet: string): bigint =>
-    s.paymentBalances.get(addressKey(wallet)) ?? 0n;
+    addressKey(wallet) === DISTRIBUTOR_KEY ? s.profitPool : (s.paymentBalances.get(addressKey(wallet)) ?? 0n);
 
   const setPaymentBalance = (s: MockLedgerState, wallet: string, value: bigint): void => {
-    s.paymentBalances.set(addressKey(wallet), value);
+    if (addressKey(wallet) === DISTRIBUTOR_KEY) s.profitPool = value;
+    else s.paymentBalances.set(addressKey(wallet), value);
   };
 
   const allowance = (s: Readonly<MockLedgerState>, wallet: string): bigint =>

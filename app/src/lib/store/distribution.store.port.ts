@@ -47,6 +47,30 @@ export const assertDistributionPeriodStatus = (value: string): DistributionPerio
   assertStatus('DistributionPeriod', DISTRIBUTION_PERIOD_STATUSES, value);
 
 /**
+ * FE-08 QĐ-B: kỳ HOẠT ĐỘNG giữ `activeChain = chain`; kỳ ở trạng thái cuối giữ `activeChain = null`.
+ * Mọi câu chuyển trạng thái đặt `activeChain` theo bảng này trong CÙNG câu cập nhật, nên ràng buộc
+ * duy nhất trên `activeChain` là trọng tài "mỗi chain tối đa một kỳ hoạt động".
+ */
+export const ACTIVE_PERIOD_STATUSES = ['OPENING', 'OPEN', 'DISTRIBUTING'] as const satisfies readonly DistributionPeriodStatus[];
+
+export const isActivePeriodStatus = (status: DistributionPeriodStatus): boolean =>
+  (ACTIVE_PERIOD_STATUSES as readonly DistributionPeriodStatus[]).includes(status);
+
+/**
+ * FE-08 QĐ-C: kết luận duyệt của một kỳ.
+ *
+ * - `APPROVED`: số trên chuỗi bằng số Kiểm soát viên duyệt; được chốt vault và trả.
+ * - `AMOUNT_CHANGED`: số trên chuỗi khác số đã duyệt; không chốt vault, không trả, chờ duyệt lại.
+ * - `null`: kỳ tạo trước FE-08 (`expectedAmount` rỗng), hoặc kỳ vừa duyệt đang chờ so số thực tế
+ *   (`expectedAmount` có giá trị). Cả hai đều KHÔNG được trả.
+ */
+export const DISTRIBUTION_APPROVAL_STATUSES = ['APPROVED', 'AMOUNT_CHANGED'] as const;
+export type DistributionApprovalStatus = (typeof DISTRIBUTION_APPROVAL_STATUSES)[number];
+
+export const assertDistributionApprovalStatus = (value: string): DistributionApprovalStatus =>
+  assertStatus('DistributionPeriod.approvalStatus', DISTRIBUTION_APPROVAL_STATUSES, value);
+
+/**
  * Trạng thái của MỘT hồ sơ chia.
  *
  *     PENDING ──► SENT ──► PAID
@@ -113,6 +137,19 @@ export interface DistributionPeriodRecord {
   vaultPeriodRef: number | null;
   vaultCloseStatus: VaultCloseStatus | null;
   vaultCloseTxHash: string | null;
+  /** FE-08 QĐ-B: kết luận duyệt; xem `DISTRIBUTION_APPROVAL_STATUSES`. */
+  approvalStatus: DistributionApprovalStatus | null;
+  /** FE-08: số Kiểm soát viên duyệt lần đầu; `null` với kỳ trước FE-08. */
+  expectedAmount: string | null;
+  /** FE-08: số được duyệt có hiệu lực; `null` khi chưa `APPROVED`. */
+  approvedAmount: string | null;
+  /** FE-08: mã tài khoản của lần duyệt có hiệu lực (lần duyệt đầu khi chưa có kết luận). */
+  approvedBy: string | null;
+  approvedAt: string | null;
+  /** FE-08: số cũ nếu từng phải duyệt lại. */
+  reapprovedFrom: string | null;
+  /** FE-08: `chain` khi kỳ hoạt động, `null` khi kỳ ở trạng thái cuối. */
+  activeChain: ChainKey | null;
 }
 
 export interface NewDistributionPeriod {
@@ -174,8 +211,16 @@ export interface IDistributionStore {
    * SC-06 QĐ-F: GIỮ CHỖ một mã kỳ ở `OPENING` trước khi gửi giao dịch mở kỳ. Ném
    * `UniqueConstraintError` nếu mã đã có: ràng buộc duy nhất là trọng tài giữa hai tiến trình.
    * Ảnh chụp và số tiền ghi 0 cho tới `completeOpening`.
+   *
+   * FE-08: đặt `activeChain = chain`; chain đã có kỳ hoạt động thì ném `UniqueConstraintError` trên
+   * `activeChain`. `approval` ghi số duyệt và người duyệt CÙNG LÚC giữ chỗ (`approvedAt` = bây giờ),
+   * kết luận duyệt để trống cho tới khi so với số trên chuỗi.
    */
-  reservePeriod(input: { periodKey: string; chain: ChainKey }): Promise<DistributionPeriodRecord>;
+  reservePeriod(input: {
+    periodKey: string;
+    chain: ChainKey;
+    approval?: { expectedAmount: string; approvedBy: string };
+  }): Promise<DistributionPeriodRecord>;
 
   /** Ghi mã giao dịch mở kỳ NGAY KHI CÓ. Chỉ áp cho kỳ `OPENING`; khác thì trả `null`. */
   setOpenTxHash(input: { id: string; openTxHash: string }): Promise<DistributionPeriodRecord | null>;
@@ -215,11 +260,34 @@ export interface IDistributionStore {
     txHash?: string | null;
   }): Promise<DistributionPeriodRecord | null>;
 
+  /** Mới nhất trước. `offset` để phân trang (FE-08 QĐ-F). */
   listPeriods(options?: {
     chain?: ChainKey;
     status?: DistributionPeriodStatus;
     limit?: number;
+    offset?: number;
   }): Promise<DistributionPeriodRecord[]>;
+
+  /** Số kỳ khớp bộ lọc, cho phân trang. */
+  countPeriods(options?: { chain?: ChainKey }): Promise<number>;
+
+  /** FE-08: kỳ hoạt động của chain (`activeChain = chain`), hoặc `null`. */
+  findActivePeriod(chain: ChainKey): Promise<DistributionPeriodRecord | null>;
+
+  /**
+   * FE-08 QĐ-C: ghi kết luận duyệt, CÓ ĐIỀU KIỆN: chỉ khi kỳ còn hoạt động và `approvalStatus`
+   * hiện tại đúng bằng `from` (`null` = chưa có kết luận). Hai bên cùng ghi thì chỉ một thắng; bên
+   * thua nhận `null`. Trường không truyền giữ nguyên.
+   */
+  setApproval(input: {
+    id: string;
+    from: DistributionApprovalStatus | null;
+    approvalStatus: DistributionApprovalStatus;
+    approvedAmount?: string | null;
+    approvedBy?: string;
+    approvedAt?: string;
+    reapprovedFrom?: string | null;
+  }): Promise<DistributionPeriodRecord | null>;
 
   /**
    * Đổi trạng thái kỳ. Trả `null` nếu không có kỳ nào mang mã này.
@@ -227,6 +295,9 @@ export interface IDistributionStore {
    * `completedAt` do người gọi truyền, cổng KHÔNG tự đặt khi status thành `COMPLETED`:
    * "hoàn tất" là kết luận của nghiệp vụ (đã hết hồ sơ phải chi), cổng lưu trữ không biết
    * và không được đoán.
+   *
+   * FE-08: `activeChain` đặt theo trạng thái mới trong CÙNG câu cập nhật (`null` khi trạng thái
+   * cuối, `chain` khi hoạt động).
    */
   setPeriodStatus(input: {
     id: string;
@@ -259,10 +330,15 @@ export interface IDistributionStore {
     batchNo?: number | null;
   }): Promise<DistributionPayoutRecord | null>;
 
+  /** Mới nhất trước. `offset` để phân trang (FE-08 QĐ-F). */
   listPayouts(options?: {
     periodId?: string;
     investorWallet?: string;
     status?: DistributionPayoutStatus;
     limit?: number;
+    offset?: number;
   }): Promise<DistributionPayoutRecord[]>;
+
+  /** Số hồ sơ của một kỳ, cho phân trang. */
+  countPayouts(options: { periodId: string }): Promise<number>;
 }

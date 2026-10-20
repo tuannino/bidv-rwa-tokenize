@@ -152,7 +152,16 @@ export const TELLER_NAV: NavSection = {
           pendingWork: 'draft',
         },
         { href: '/transactions', label: 'Giao dịch', icon: 'ArrowLeftRight', shortcut: 'G' },
-        { href: '/distribution', label: 'Chia lợi nhuận', icon: 'TrendingUp', shortcut: 'C' },
+        /**
+         * FE-08 QĐ-A: Giao dịch viên chỉ xem màn chia; người duyệt và bấm chia là Kiểm soát viên
+         * (`distribution:approve`). Nhãn nói rõ để người dùng không đi tìm nút không có.
+         */
+        {
+          href: '/distribution',
+          label: 'Chia lợi nhuận (chỉ xem)',
+          icon: 'TrendingUp',
+          shortcut: 'C',
+        },
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
       ],
     },
@@ -171,17 +180,8 @@ export const CONTROLLER_NAV: NavSection = {
       items: [
         { href: '/', label: 'Bảng điều khiển', icon: 'LayoutDashboard', shortcut: 'E' },
         { href: '/transactions', label: 'Giao dịch', icon: 'ArrowLeftRight', shortcut: 'G' },
-        /**
-         * Nhãn nói rõ "chỉ xem" vì đây là CÙNG đường dẫn Giao dịch viên dùng để chia. Khác
-         * nhau ở quyền: vai này không có `distribution:snapshot` / `distribution:execute` nên
-         * không bấm được nút nào. Không nói ra thì người dùng đi tìm nút không tồn tại.
-         */
-        {
-          href: '/distribution',
-          label: 'Chia lợi nhuận (chỉ xem)',
-          icon: 'TrendingUp',
-          shortcut: 'C',
-        },
+        /** FE-08: Kiểm soát viên duyệt tổng số của kỳ rồi chia (`distribution:approve`). */
+        { href: '/distribution', label: 'Chia lợi nhuận', icon: 'TrendingUp', shortcut: 'C' },
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
       ],
     },

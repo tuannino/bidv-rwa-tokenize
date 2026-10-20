@@ -366,9 +366,47 @@ Lệnh không xác định được (mất mã giao dịch, biên nhận không 
 viên xem**: Kiểm soát viên mở mục **Lệnh rút cần xem xét** trên màn Vault, xác nhận bằng mã giao
 dịch đúng hoặc đánh dấu thất bại có lý do. Hệ thống không bao giờ tự gửi lại một lệnh rút.
 
-## 8. Huỷ một phần token chưa phân phối
+## 8. Kiểm soát viên duyệt chia lợi nhuận (FE-08)
 
-### 8.1 Giao dịch viên lập yêu cầu Burn
+Không đồng VNDB nào rời quỹ chia khi chưa có Kiểm soát viên duyệt đúng số đó. Giao dịch viên chỉ xem
+màn chia; tiến trình định kỳ (keeper) không bao giờ tự mở kỳ, chỉ chia tiếp kỳ đã duyệt.
+
+### 8.1 SPV nạp quỹ chia
+
+1. **Giao dịch viên** vào trực tiếp `/mint` (như mục 2): nhập địa chỉ quỹ chia vào **Ví nhà đầu tư**, bấm
+   **KYC + Whitelist**. Trên Mock địa chỉ quỹ là `0x67C48fdA18F68acf2eD6d8A80436930Ff226948e`; trên
+   Hardhat/Sepolia là hợp đồng `ProfitDistributor` trong `packages/shared/src/addresses.json`.
+2. **Nạp VNDB (trình diễn)** (`/demo-payment`): **Ví đích** là địa chỉ quỹ, **Số VNDB** ví dụ `1000000`,
+   bấm **Nạp VNDB**.
+
+### 8.2 Kiểm soát viên duyệt và hệ thống chia
+
+1. Đổi sang **Kiểm soát viên**, mở menu **Chia lợi nhuận**. Mục **Quỹ chia** hiện số dư, tổng dự trữ, phần
+   **Chưa phân bổ** và ngưỡng; mục **Dự kiến** liệt kê người nhận (gồm vault) với phần dự kiến theo số
+   dư WPT hiện tại. Danh sách và tỷ lệ chỉ để tham khảo.
+2. Bấm **Duyệt chia `<số>` VNDB**. Hộp xác nhận ghi: "Kiểm soát viên duyệt tổng số VNDB của kỳ; danh
+   sách và tỷ lệ chỉ là dự kiến. Quyền hưởng cuối cùng chốt theo ảnh chụp trên chuỗi lúc mở kỳ." và
+   "bấm duyệt sẽ chuyển tiền". Bấm **Duyệt và chia**.
+3. Hệ thống mở kỳ trên chuỗi, so số thực tế với số đã duyệt, chốt kỳ vault rồi mới chia. Kết quả
+   **Kỳ đã chia xong.**; mục **Lịch sử kỳ chia** có dòng **Hoàn tất**, người duyệt, số duyệt, số thực tế
+   và nguồn kích hoạt; **Xem hồ sơ** liệt kê từng ví (kể cả ví được 0) với mã giao dịch.
+
+Với bảng OP-05 (Mint 1.000.000 WPT vào vault, Nhà đầu tư mua 100 rồi bán 40, vault khoá 20%), duyệt
+1.000.000 VNDB: Nhà đầu tư nhận 60, vault nhận 999.940, phần khoá theo kỳ của vault 200.000.
+
+### 8.3 Khi kỳ chưa xong
+
+| Màn hiện | Nghĩa | Việc của Kiểm soát viên |
+|---|---|---|
+| Nút duyệt bị khoá kèm lý do | Số trong quỹ đã đổi, dưới ngưỡng, đang có kỳ hoạt động, chain không có vault | Tải lại rồi xem; xử lý kỳ hoạt động trước |
+| **Số đổi, chờ duyệt lại** | Tiền vào quỹ trong lúc mở kỳ; số trên chuỗi khác số đã duyệt; chưa trả đồng nào | Bấm **Duyệt lại số thực tế** (hộp xác nhận như trên) |
+| **Tiếp tục chia** | Còn hồ sơ phải chi (mỗi lượt tối đa `distribution.max_batches_per_run` lô), vault đang chốt, hoặc kỳ đang mở dở | Bấm **Tiếp tục chia**; không gửi trùng |
+| "Đã gửi lên chuỗi, đang đối soát" | Có giao dịch đã gửi chưa có kết luận | Đợi rồi **Tiếp tục chia** |
+| **CONFLICT, cần xử lý tay** | Mã kỳ vault bị chốt bằng số khác (script chen vào) | Không chia được; xử lý tay với kỹ thuật |
+
+## 9. Huỷ một phần token chưa phân phối
+
+### 9.1 Giao dịch viên lập yêu cầu Burn
 
 1. Đổi sang **Giao dịch viên** → **Lập lệnh**.
 2. Trong thẻ **Huỷ token**, nhập `WPT` và chờ thông tin token tải xong.
@@ -379,7 +417,7 @@ dịch đúng hoặc đánh dấu thất bại có lý do. Hệ thống không b
 Không chọn **Toàn bộ nguồn cung** khi còn `1 WPT` lưu hành: lựa chọn đó chỉ hợp lệ khi không còn
 token ở ví Nhà đầu tư và còn yêu cầu đánh dấu xác nhận phá hủy toàn bộ.
 
-### 8.2 Kiểm soát viên duyệt Burn
+### 9.2 Kiểm soát viên duyệt Burn
 
 1. Đổi sang **Kiểm soát viên** → **Phê duyệt lệnh**.
 2. Tìm mã trong **Hàng chờ huỷ token**, mở chi tiết và bấm **Chấp nhận**.
@@ -388,7 +426,7 @@ token ở ví Nhà đầu tư và còn yêu cầu đánh dấu xác nhận phá 
 Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19.999.900 WPT`, Chưa phân phối
 `19.999.899 WPT`, Đang lưu hành `1 WPT`.
 
-## 9. Các lỗi thường gặp
+## 10. Các lỗi thường gặp
 
 | Hiện tượng | Nguyên nhân và cách xử lý |
 |---|---|
@@ -409,7 +447,7 @@ Kết quả cuối theo đúng số liệu của hướng dẫn: Tổng cung `19
 | “Đang đọc thông tin token…” quá 15 giây trên Worker | Kiểm Hyperdrive có dùng Neon **Direct hostname** (không `-pooler`), quyền DB đủ và bản deploy có đường kiểm catalog OP-06. Giao diện mới phải kết thúc loading bằng thông báo quá hạn thay vì quay mãi. |
 | Đổi chain trên bản deploy sang Hardhat Local rồi báo thiếu khóa ký | Đây là đúng hành vi: chain thật cần khóa ký. Mock không cần khóa; trên Cloudflare muốn dùng chain thật phải cấu hình secret signer và RPC truy cập được. |
 
-## 10. Chuyển sang môi trường thật
+## 11. Chuyển sang môi trường thật
 
 Chain `mock` không cần khóa ký; bản trình diễn mặc định chạy được mà không cấu hình khóa.
 Chain thật (`hardhat-local`, `evm`) vẫn cần khóa ký theo chain: `SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL` /
@@ -429,7 +467,7 @@ thực (AU-01). SC-02 đã hoàn tất và Mint/Burn Sepolia đã được kiể
 mua/bán trên Sepolia vẫn cần SC-03. Các kết quả testnet này chưa thay thế nghiệm thu production.
 
 
-## 11. Chẩn đoán lượt đọc WPT chậm (bổ sung OP-06)
+## 12. Chẩn đoán lượt đọc WPT chậm (bổ sung OP-06)
 
 Màn Lập lệnh tra cứu qua `GET /api/token-info?chain=evm&tokenSymbol=WPT`, độc lập với hàng chờ
 Server Actions của danh sách yêu cầu. GET giữ nguyên quyền `ops:read` và không cache kết quả.

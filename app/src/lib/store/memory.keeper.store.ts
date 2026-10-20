@@ -3,6 +3,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import {
   assertKeeperRunStatus,
+  assertKeeperTriggerSource,
   type IKeeperStore,
   type KeeperRunRecord,
 } from './keeper.store.port';
@@ -31,7 +32,7 @@ export function createMemoryKeeperStore(): IKeeperStore {
   return {
     kind: 'memory',
 
-    async startRun({ jobName, periodKey }) {
+    async startRun({ jobName, periodKey, triggerSource = 'KEEPER' }) {
       if (state().runs.some((run) => run.jobName === jobName && run.periodKey === periodKey)) {
         throw new UniqueConstraintError(
           'KeeperRun',
@@ -48,6 +49,7 @@ export function createMemoryKeeperStore(): IKeeperStore {
         finishedAt: null,
         status: 'RUNNING',
         error: null,
+        triggerSource: assertKeeperTriggerSource(triggerSource),
       };
       state().runs.push(record);
       return { ...record };
@@ -72,10 +74,11 @@ export function createMemoryKeeperStore(): IKeeperStore {
     },
 
     async listRuns(options = {}) {
-      const { jobName, status, limit = 50 } = options;
+      const { jobName, status, periodKeyPrefix, limit = 50 } = options;
       return state()
         .runs.filter((run) => (jobName ? run.jobName === jobName : true))
         .filter((run) => (status ? run.status === status : true))
+        .filter((run) => (periodKeyPrefix === undefined ? true : run.periodKey.startsWith(periodKeyPrefix)))
         .sort(newestFirst)
         .slice(0, limit)
         .map((run) => ({ ...run }));

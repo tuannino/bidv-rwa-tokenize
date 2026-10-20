@@ -340,8 +340,69 @@ export type DistributionCycleInput = z.input<typeof distributionCycleSchema>;
 /** Đọc lịch chạy của tiến trình tự động chia. Cùng chặn 200 dòng với các truy vấn khác. */
 export const keeperRunQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** FE-08: chỉ các vòng của một kỳ (lịch sử kỳ trên màn chia). */
+  periodKey: periodKeySchema.optional(),
 });
 export type KeeperRunQueryInput = z.input<typeof keeperRunQuerySchema>;
+
+// =============================================================================
+//  DUYỆT CHIA (FE-08)
+// =============================================================================
+
+/** Số VNDB nguyên, lớn hơn 0, dạng chuỗi thập phân (không qua `number` để khỏi mất chính xác). */
+const vndbAmountSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, 'Số VNDB là số nguyên không âm.')
+  .refine((value) => BigInt(value) > 0n, 'Số VNDB phải lớn hơn 0.');
+
+/**
+ * Kiểm soát viên duyệt TỔNG SỐ của kỳ (QĐ-C, QĐ-G). `expectedAmount` là số họ nhìn thấy trên màn;
+ * khác phần chưa phân bổ lúc xử lý thì từ chối, không gửi gì.
+ */
+export const approveDistributionSchema = z.object({
+  chain: chainSchema,
+  expectedAmount: vndbAmountSchema,
+});
+export type ApproveDistributionInput = z.input<typeof approveDistributionSchema>;
+
+/** Duyệt lại số THỰC TẾ trên chuỗi của kỳ `AMOUNT_CHANGED` hoặc kỳ cũ chưa duyệt. */
+export const reapproveDistributionSchema = z.object({
+  chain: chainSchema,
+  periodId: periodIdSchema,
+  amount: vndbAmountSchema,
+});
+export type ReapproveDistributionInput = z.input<typeof reapproveDistributionSchema>;
+
+/** Trang của một danh sách: đánh số từ 1, tối đa 100 dòng mỗi trang. */
+const pageFields = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+};
+
+export const distributionOverviewSchema = z.object({ chain: chainSchema });
+export type DistributionOverviewInput = z.input<typeof distributionOverviewSchema>;
+
+export const listDistributionPeriodsSchema = z.object({ chain: chainSchema, ...pageFields });
+export type ListDistributionPeriodsInput = z.input<typeof listDistributionPeriodsSchema>;
+
+/**
+ * Một lần mở màn chia (FE-08, hiệu năng): chain, trang lịch sử và số dòng lịch chạy. Mỗi phần vẫn
+ * đi qua schema của riêng nó trong service.
+ */
+export const distributionPageSchema = z.object({
+  chain: chainSchema,
+  ...pageFields,
+  runLimit: z.coerce.number().int().min(1).max(200).default(20),
+});
+export type DistributionPageInput = z.input<typeof distributionPageSchema>;
+
+export const listDistributionPayoutsSchema = z.object({
+  chain: chainSchema,
+  periodId: periodIdSchema,
+  ...pageFields,
+});
+export type ListDistributionPayoutsInput = z.input<typeof listDistributionPayoutsSchema>;
 
 // =============================================================================
 //  LẬP–DUYỆT YÊU CẦU MINT / BURN (BE-12)

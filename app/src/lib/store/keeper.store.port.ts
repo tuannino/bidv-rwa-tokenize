@@ -20,6 +20,16 @@ export type KeeperRunTerminalStatus = Exclude<KeeperRunStatus, 'RUNNING'>;
 export const assertKeeperRunStatus = (value: string): KeeperRunStatus =>
   assertStatus('KeeperRun', KEEPER_RUN_STATUSES, value);
 
+/**
+ * FE-08: ai kích hoạt lần chạy. `MANUAL` = Kiểm soát viên bấm duyệt hoặc tiếp tục; `KEEPER` = tiến
+ * trình định kỳ. Dòng có trước FE-08 là `KEEPER` (khi đó chỉ tiến trình định kỳ ghi bảng này).
+ */
+export const KEEPER_TRIGGER_SOURCES = ['MANUAL', 'KEEPER'] as const;
+export type KeeperTriggerSource = (typeof KEEPER_TRIGGER_SOURCES)[number];
+
+export const assertKeeperTriggerSource = (value: string): KeeperTriggerSource =>
+  assertStatus('KeeperRun.triggerSource', KEEPER_TRIGGER_SOURCES, value);
+
 export interface KeeperRunRecord {
   id: string;
   /** Tên công việc, ví dụ "expire-orders". */
@@ -30,6 +40,7 @@ export interface KeeperRunRecord {
   finishedAt: string | null;
   status: KeeperRunStatus;
   error: string | null;
+  triggerSource: KeeperTriggerSource;
 }
 
 export interface IKeeperStore {
@@ -46,7 +57,12 @@ export interface IKeeperStore {
    *
    * `findRun` chỉ để hiển thị và đối soát, KHÔNG dùng làm phép kiểm trước khi chạy.
    */
-  startRun(input: { jobName: string; periodKey: string }): Promise<KeeperRunRecord>;
+  startRun(input: {
+    jobName: string;
+    periodKey: string;
+    /** Mặc định `KEEPER`. */
+    triggerSource?: KeeperTriggerSource;
+  }): Promise<KeeperRunRecord>;
 
   /** Đóng một lần chạy. Trả `null` nếu không có dòng nào mang mã này. */
   finishRun(input: {
@@ -60,6 +76,8 @@ export interface IKeeperStore {
   listRuns(options?: {
     jobName?: string;
     status?: KeeperRunStatus;
+    /** FE-08: chỉ dòng có `periodKey` bắt đầu bằng chuỗi này (so nguyên văn, không phải mẫu LIKE). */
+    periodKeyPrefix?: string;
     limit?: number;
   }): Promise<KeeperRunRecord[]>;
 }

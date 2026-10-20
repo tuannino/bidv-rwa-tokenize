@@ -14,6 +14,12 @@ import { keeperSecretMatches, serverEnv } from '@/lib/config/env';
  * sống đủ lâu để lịch nổ lần nào. Việc gọi định kỳ vì vậy thuộc HẠ TẦNG — cron của ngân hàng,
  * Cloudflare Cron Trigger, hay `systemd timer` — còn ứng dụng chỉ cung cấp một điểm vào.
  *
+ * ## FE-08 QĐ-E: keeper KHÔNG mở kỳ
+ *
+ * Công việc `distribution` chỉ dọn kỳ dở và chia tiếp kỳ Kiểm soát viên ĐÃ DUYỆT
+ * (`triggerSource = KEEPER`). Có tiền chưa duyệt, kỳ chưa duyệt hoặc `AMOUNT_CHANGED` thì kết cục
+ * `AWAITING_APPROVAL`, không trả gì. Endpoint còn sống vì vậy không phải đường đi vòng qua người duyệt.
+ *
  * ## Vì sao KHÔNG mở công khai
  *
  * Lời gọi này CHUYỂN TIỀN cho nhà đầu tư. Bảo vệ bằng khoá bí mật trong `KEEPER_SECRET`, gửi
@@ -57,8 +63,8 @@ function bearerToken(request: Request): string | null {
  * POST /api/keeper/distribution — chạy MỘT vòng công việc theo lịch.
  *
  * Thân yêu cầu (đều không bắt buộc):
- *   `job`   `"distribution"` (mặc định) chạy một vòng chia tự động, `"expire-orders"` cho
- *           lệnh mua treo quá hạn về `EXPIRED`.
+ *   `job`   `"distribution"` (mặc định) chạy một vòng keeper: dọn, tiếp tục kỳ đã duyệt, không
+ *           mở kỳ; `"expire-orders"` cho lệnh mua treo quá hạn về `EXPIRED`.
  *   `chain` chuỗi cần xử lý; thiếu thì lấy chain mặc định của bản triển khai.
  *
  * Vì sao `chain` có mặc định trong khi `distributionCycleSchema` đòi nó: một dòng cron gọn

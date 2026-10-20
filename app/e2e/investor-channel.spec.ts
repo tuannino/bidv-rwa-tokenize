@@ -181,7 +181,9 @@ test.describe('Điều hướng theo vai trò', () => {
       await expect(sidebar).toContainText(group);
     }
     await expect(sidebar).toContainText('Phê duyệt lệnh');
-    await expect(sidebar).toContainText('Chia lợi nhuận (chỉ xem)');
+    await expect(sidebar).toContainText('Chia lợi nhuận');
+    // FE-08: Kiểm soát viên là người duyệt chia, mục menu không còn ghi "chỉ xem".
+    await expect(sidebar).not.toContainText('Chia lợi nhuận (chỉ xem)');
     await expect(sidebar).not.toContainText('Lập lệnh');
   });
 

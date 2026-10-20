@@ -9,14 +9,22 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.20 |
-| Cập nhật lần cuối | 2026-10-20 |
-| Nhánh / commit | `feat/be-13-rut-vault`, từ `dev` @ `15a5d9a` (PR #59, FE-05 đã merge); spec `docs/be-13-rut-vault/` bản 2.1 |
+| Phiên bản tài liệu | 4.21 |
+| Cập nhật lần cuối | 2026-10-21 |
+| Nhánh / commit | `feat/fe-08-duyet-chia`, từ `dev` @ `1eed914` (PR #62, HF-01 đã merge; nhánh tạo từ `dd00e12` rồi rebase); spec `docs/fe-08-duyet-chia-loi-nhuan/` bản 2.1 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
-| Hoàn thành mới ở bản này | **FE-05**: nhà đầu tư ký `permit` khi đặt lệnh trên chain thật (PR #59, xem 3.25) |
-| Đang thực hiện | **BE-13**: Người bán rút VNDB từ vault qua hệ thống, Kiểm soát viên cấu hình khoá vault, vault mô phỏng trên mock, RBAC đóng cho vai lạ (xem 3.26); chờ Supervisor nghiệm thu PR |
+| Hoàn thành mới ở bản này | **BE-13**: Người bán rút VNDB từ vault, Kiểm soát viên cấu hình khoá vault (PR #60, xem 3.26) |
+| Đang thực hiện | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, chốt cứng vault trước khi trả, keeper chỉ tiếp tục kỳ đã duyệt, màn `/distribution` (xem 3.27); chờ Supervisor nghiệm thu PR |
 | Phase kế tiếp | **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
-| Người cập nhật | Claude Code (BE-13, thực thi theo chỉ định của Owner). Supervisor rà soát |
+| Người cập nhật | Claude Code (FE-08, thực thi theo chỉ định của Owner). Supervisor rà soát |
+
+**4.20 lên 4.21 (FE-08): Kiểm soát viên duyệt rồi mới chia.** Quyền `distribution:approve` chỉ
+`CONTROLLER`; ba action ghi (duyệt, duyệt lại số thực tế, tiếp tục) thay bốn action mở, xem trước, chia,
+chạy vòng. Kỳ chia lưu bền kết luận duyệt, người duyệt, số duyệt và `activeChain` (mỗi chain tối đa một
+kỳ hoạt động); `KeeperRun` thêm nguồn kích hoạt. Số trên chuỗi khác số duyệt thì dừng ở
+`AMOUNT_CHANGED`. Lõi chia chặn kỳ chưa `APPROVED` và chỉ gửi lô khi kỳ vault `DONE`. Keeper không bao
+giờ mở kỳ. Màn `/distribution` đủ quỹ, dự kiến, duyệt, kỳ hoạt động, lịch sử. Mock có địa chỉ quỹ chia
+logic. Không sửa hợp đồng. Chi tiết ở 3.27, bốn dòng nợ QĐ-H ở 1.6.C.
 
 **4.19 lên 4.20 (BE-13): Người bán rút VNDB từ vault, Kiểm soát viên cấu hình khoá.** RBAC đóng cho
 vai lạ (bỏ `FALLBACK_ROLE`), ba quyền mới `vault:configure`, `vault:withdraw`, `vault:reconcile`. Cấu
@@ -663,7 +671,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P2** | Docker build phụ thuộc CDN Alpine (`apk add`) → giòn ở mạng doanh nghiệp có tường lửa | Cân nhắc base `node:24-bookworm-slim` |
 | **P2** | Node 20 đã hết hạn LTS từ 30/04/2026, không còn vá bảo mật | Nâng Docker image lên Node 24 (LTS đến 2028) |
 | **P1** | **4 method của `ILedgerPort` chưa nối được ở `evm.adapter`**: bốn method tất toán/NAV chờ SC-04. Khớp lệnh (SC-03) và chia lợi nhuận (SC-06, gộp SC-05) đã chạy thật | Phát hành/đốt, mua/bán và chia lợi nhuận đã chạy trên Hardhat; tất toán còn chờ SC-04. `git grep -c "return pendingContract(" -- app/src/lib/ledger/evm.adapter.ts` sang 4 |
-| **P1** *(đề nghị, Supervisor chốt mức)* | **Phát hiện tiền vào ví lợi nhuận bằng HỎI ĐỊNH KỲ, không bằng sự kiện on-chain** (BE-07). Hệ quả: (a) độ trễ bằng chu kỳ cron, (b) hai lần nạp giữa hai lượt hỏi bị gộp thành **một** kỳ chia, (c) không biết ai nạp và nạp lúc nào — chỉ biết số dư đã tăng. Nguyên nhân: IN-01/IN-02 (Indexer) chưa làm nên chưa đọc được sự kiện | IN-02 đổi **nguồn tín hiệu** sang sự kiện `Transfer` vào ví lợi nhuận, giữ nguyên bốn nhánh quyết định và toàn bộ phần chia. Điểm cắm đã đánh dấu `@pending IN-02` ngay trên `detectNewFunds` (`lib/bank/distribution-trigger.service.ts`) |
+| **P1** *(đề nghị, Supervisor chốt mức)* | **Phát hiện tiền vào ví lợi nhuận bằng HỎI ĐỊNH KỲ, không bằng sự kiện on-chain** (BE-07). Hệ quả: (a) độ trễ bằng chu kỳ cron, (b) hai lần nạp giữa hai lượt hỏi bị gộp thành **một** kỳ chia, (c) không biết ai nạp và nạp lúc nào — chỉ biết số dư đã tăng. Nguyên nhân: IN-01/IN-02 (Indexer) chưa làm nên chưa đọc được sự kiện | IN-02 đổi **nguồn tín hiệu** sang sự kiện `Transfer` vào ví lợi nhuận, giữ nguyên bốn nhánh quyết định và toàn bộ phần chia. Điểm cắm đã đánh dấu `@pending IN-02` ngay trên `decideCycle` (`lib/bank/distribution-trigger.service.ts`; FE-08 đổi tên từ `detectNewFunds`) |
 | **P2** *(đề nghị, Supervisor chốt mức)* | **`KeeperRun` không có cột tóm tắt.** Lược đồ chỉ có `status` + `error`, nên "số lô đã chia, số ví còn lại" của mỗi vòng chỉ vào được cột `error` — mà cột đó tên là `error`, nhồi tóm tắt thành công vào sẽ làm mọi truy vấn "vòng nào có lỗi" trả về cả vòng chạy đúng. BE-07 vì vậy để `error` chỉ mang thông báo khi thất bại, còn tóm tắt mỗi vòng ghi vào **sổ kiểm toán** | Nếu Owner muốn tóm tắt nằm trong `KeeperRun`: thêm cột `summary String?` vào `KeeperRun`, `IKeeperStore.finishRun`, hai bản hiện thực và `store-constraints.test.ts`. Chưa làm vì vượt phạm vi Tác động của BE-07 |
 | **P2** | Giấy phép **T-REX không phải giấy phép mở tiêu chuẩn** ("SEE LICENSE IN LICENSE.md") | Rà soát pháp lý **trước khi** dùng cho sản phẩm thật |
 | ~~P2~~ | ~~1 cảnh báo lint ở `src/empty.ts`~~ | **ĐÃ XỬ LÝ ở MC-01 Bước 7.** Cảnh báo là `import/no-anonymous-default-export` do `export default {}`. Đo lại thì default export đó **không cần cho build**, nên xóa luôn thay vì đặt tên biến hay dùng `eslint-disable`. Nay `npx eslint .` cho **0 error, 0 warning**. Đề nghị Supervisor xác nhận rồi xóa dòng này — theo `tech-report-maintenance.md` §8 |
@@ -674,6 +682,10 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P1** | **Mã một lần của lệnh rút chỉ kiểm dạng sáu chữ số** (BE-13 CH-2, URD cho phép trong PoC) | AU-01 |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Rút bằng script ngoài app** (BE-13 QĐ-J): `vault-admin.js` vẫn rút và đổi cấu hình được nếu có khoá; thay đổi cấu hình hiện "ngoài app" trong lịch sử, lệnh rút bằng script làm đối soát của app phải chuyển người xem | Gỡ vai rút khỏi ví dùng cho script khi có Fireblocks (IN-04) |
 | **P1** | **Token chỉ là token thử** (BE-13 QĐ-J): rút không qua duyệt, mã một lần giả; chỉ chấp nhận được với tiền thử | AU-01, mã một lần thật trước khi dùng tiền thật |
+| **P2** *(đề nghị, Supervisor chốt mức)* | **Keeper không tự mở kỳ** (FE-08 QĐ-H): chỉ tiếp tục kỳ Kiểm soát viên đã duyệt; PoC không có lịch gọi; keeper chạy dưới vai mặc định của bản demo nên `TELLER` còn `distribution:snapshot` và `distribution:execute` (không còn action nào dùng, lõi chia vẫn chặn kỳ chưa duyệt) | Vai hệ thống riêng cho keeper, bộ lập lịch, chính sách tự mở kỳ dưới hạn mức |
+| **P2** *(đề nghị, Supervisor chốt mức)* | **Lệnh treo không tự hết hạn** (FE-08 QĐ-H): không có lịch gọi nên `expire-orders` không chạy trong PoC | Cùng bộ lập lịch ở dòng trên |
+| **P1** *(đề nghị, Supervisor chốt mức)* | **Số kỳ trên chuỗi có thể khác số Kiểm soát viên duyệt** (FE-08 QĐ-H): `createDistributionFromPool` lấy toàn bộ phần chưa phân bổ lúc thực thi; app dừng ở `AMOUNT_CHANGED`, không chốt vault, không trả, bắt duyệt lại số thực tế | Đợt sửa hợp đồng: `openDistribution` nhận số tiền kỳ vọng, sai thì revert |
+| **P1** *(đề nghị, Supervisor chốt mức)* | **Một người duyệt, chỉ duyệt tổng số** (FE-08 QĐ-G, QĐ-H): Kiểm soát viên duyệt tổng VNDB của kỳ, không duyệt danh sách hay tỷ lệ; PoC một chữ ký | Quy trình ngân hàng khi lên production (nhiều cấp duyệt, chốt ảnh chụp danh sách trước khi duyệt) |
 
 ### D. Cách làm việc
 
@@ -1103,6 +1115,7 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 | `order:expire` | ❌ | ❌ | ✅ | ❌ | BE-02 |
 | `distribution:snapshot` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `distribution:execute` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `distribution:approve` | ❌ | ❌ | ❌ | ✅ | FE-08 (duyệt tổng số của kỳ rồi chia; 3.27) |
 | `settlement:initiate` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `settlement:set-nav` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `settlement:confirm` | ✅ | ❌ | ❌ | ❌ | BE-08 |
@@ -1166,6 +1179,11 @@ lệnh / chia lợi nhuận / tất toán. Trong đó **năm** hành động đ�
 3.19). Bốn hành động còn lại — `order:expire` (BE-07), ba `settlement:*` (BE-05) — **chưa có nghiệp vụ
 gọi**. BE-16 cũng chốt bằng test rằng **chỉ `TELLER`** giữ `demo:mint-payment` và `demo:mint-token`:
 Người bán là pháp nhân ngoài ngân hàng, không có lý do tạo ra tiền.
+
+**FE-08 đổi người bấm chia:** Kiểm soát viên DUYỆT tổng số của kỳ bằng `distribution:approve`, và
+lần duyệt đúng số mới mở kỳ, chốt vault, chia; bốn action dùng `distribution:snapshot`/`execute` đã
+gỡ, lõi chia từ chối kỳ chưa `APPROVED` bất kể vai gọi. Đoạn dưới mô tả lý do của BE-08, vẫn đúng cho
+`distribution:execute` (Kiểm soát viên không gọi trực tiếp hàm chi trả).
 
 ⚠️ **`distribution:execute` cố ý KHÔNG cấp cho `CONTROLLER`**, dù vai đó giám sát dòng tiền: cùng một
 người vừa giám sát vừa chuyển tiền thì lớp kiểm soát thứ hai không còn. `previewDistribution` cũng
@@ -1654,27 +1672,20 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**17 điểm cắm · 4 điểm chặn**, nhóm theo task đang chờ.
+**10 điểm cắm · 4 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
-| `BE-05` | cắm | `app/src/lib/store/index.ts:212` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-05` | cắm | `app/src/lib/store/index.ts:220` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:41` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:49` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
 | `FE-07` | cắm | `app/src/app/actions/config.ts:19` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
 | `FE-07` | cắm | `app/src/app/actions/config.ts:26` | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư |
-| `FE-08` | cắm | `app/src/app/(ops)/distribution/page.tsx:4` | đường dẫn /distribution, cổng ops:read (cả hai vai vận hành) và mục menu "Chia lợi nhuận" đã chạy; openPeriod, previewDistribution, distributePeriod và runDistributionCycle đều đã xong đầu cuối — FE-08 chỉ thay phần thân |
-| `FE-08` | cắm | `app/src/app/actions/distribution.ts:33` | đã sẵn đầu cuối ở `openPeriod`: validate Zod, kiểm quyền `distribution:snapshot`, kiểm mã kỳ trùng và kiểm quỹ TRƯỚC khi chạm chuỗi nên lời gọi trượt không tốn ảnh chụp, chốt quyền qua `ILedgerPort.takeSnapshot`, đọc lại số dư quỹ để chắc contract chốt đúng con số đã ghi, lưu kỳ và ghi sổ kiểm toán cả bốn kết cục. Màn chia lợi nhuận chỉ cần gọi rồi hiển thị `Result`. FE-08 PHẢI hiện `snapshotId` và `totalAmount` trả về: đó là hai con số cán bộ ngân hàng dùng để đối chiếu trước khi bấm chia |
-| `FE-08` | cắm | `app/src/app/actions/distribution.ts:41` | đã sẵn đầu cuối ở `previewDistribution`: dựng danh sách người nhận từ cơ sở dữ liệu, đọc số dư tại ảnh chụp, tính phần từng ví bằng ĐÚNG hàm mà lúc chia sẽ dùng, trả kèm `dust` và `dustWallet`. Hàm KHÔNG ghi một dòng nào, kể cả sổ kiểm toán, nên gọi bao nhiêu lần cũng được. FE-08 nên hiện cả ví được chia 0 thay vì lọc bỏ: vắng mặt và được chia 0 là hai thông tin khác nhau với người đối soát |
-| `FE-08` | cắm | `app/src/app/actions/distribution.ts:49` | đã sẵn đầu cuối ở `distributePeriod`: kiểm quyền `distribution:execute`, lập đủ hồ sơ chờ TRƯỚC khi gửi giao dịch nào, chia lô theo tham số `distribution.batch_size`, ba trạng thái hồ sơ `PENDING`/`SENT`/`PAID` nên tiến trình chết giữa đường không để lại hồ sơ trông như đã chi, một lô lỗi không dừng các lô còn lại. Gọi lại CHỈ chia cho ví chưa nhận nên bấm hai lần không ai bị trả hai lần. FE-08 nên hiện `outstanding` và `failed`: khác 0 nghĩa là còn phải bấm chia lại |
-| `FE-08` | cắm | `app/src/app/actions/distribution.ts:79` | đã sẵn đầu cuối ở `runDistributionCycle`: kiểm quyền `distribution:execute`, tự phát hiện tiền vào ví lợi nhuận, tự sinh mã kỳ, chống hai vòng chạy trùng bằng ràng buộc duy nhất của cơ sở dữ liệu, gọi lại nghiệp vụ BE-06 để mở kỳ và chia, chỉ ghi mốc số dư khi kỳ xong toàn bộ. FE-08 chỉ cần một nút "chạy ngay" rồi hiển thị `outcome` và `message`; `outcome` là `PARTIAL` nghĩa là còn phải chạy lại, `stuck` bằng true nghĩa là cần người xem |
-| `FE-08` | cắm | `app/src/app/actions/distribution.ts:86` | vỏ mỏng quanh `listDistributionRuns` đã sẵn: kiểm quyền `reconcile:read`, trả lịch chạy mới nhất trước, đã tách khoá ghép thành `periodKey` + `runNo`. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán nên màn theo dõi gọi lại theo chu kỳ được |
-| `FE-08` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:741` | đã sẵn đầu cuối: kiểm quyền `reconcile:read`, đọc bảng `KeeperRun` của công việc chia tự động, tách khoá ghép thành `periodKey` + `runNo` nên màn hình không phải tự bóc chuỗi. FE-08 chỉ cần gọi rồi dựng bảng lịch chạy; `status` `FAILED` kèm `error` khác null là dòng cần người xem, và nhiều dòng cùng `periodKey` với `runNo` tăng dần là một kỳ đang chia nhiều vòng |
-| `FE-09` | cắm | `app/src/app/actions/distribution.ts:57` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên ba vai phía ngân hàng đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
+| `FE-09` | cắm | `app/src/app/actions/distribution.ts:76` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên hai vai vận hành đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
-| `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:336` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được, giữ nguyên ba nhánh quyết định và nguyên phần chia ở `runDistributionCycle` |
+| `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:302` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được; kết cục vẫn là `AWAITING_APPROVAL` cho tới khi Kiểm soát viên duyệt |
 | `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1118` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
 | `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1124` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
 | `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1129` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
@@ -1682,7 +1693,7 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
-- `distribute` — 16 bước → `docs/flows/distribute.md`
+- `distribute` — 24 bước → `docs/flows/distribute.md`
 - `issue` — 9 bước → `docs/flows/issue.md`
 - `purchase` — 12 bước → `docs/flows/purchase.md`
 
@@ -1885,7 +1896,14 @@ làm ở đây sẽ hỏng với địa chỉ Stellar (base32 **chữ hoa**).
 ## 3.14. Tiến trình tự động chia lợi nhuận (BE-07)
 
 `lib/bank/distribution-trigger.service.ts` + `app/api/keeper/distribution/route.ts`.
-Bản đồ luồng ở **4.5** (các bước 11–14); mục này nói **cơ chế** và **cạm bẫy**.
+Bản đồ luồng ở **4.5**; mục này nói **cơ chế** và **cạm bẫy**.
+
+> **FE-08 QĐ-E thay vai của keeper: KHÔNG BAO GIỜ mở kỳ.** Mỗi vòng: dọn (phục hồi kỳ `OPENING`, so số
+> đã duyệt, thử lại phần vault của kỳ được phép); quỹ hụt thì dừng; rồi `decideCycle`: kỳ hoạt động
+> `APPROVED` thì một lượt chia qua `runApprovedPeriod` với `triggerSource = KEEPER`; kỳ chưa duyệt,
+> `AMOUNT_CHANGED`, hoặc không có kỳ mà phần chưa phân bổ tới ngưỡng thì `AWAITING_APPROVAL`; kỳ còn
+> `OPENING` thì `OPENING_PENDING`; vault chưa xong thì `VAULT_PENDING`/`VAULT_CONFLICT`. Mở kỳ chỉ
+> bằng lần duyệt của Kiểm soát viên (3.27). Các đoạn dưới nói "mở kỳ" là cơ chế trước FE-08.
 
 > **SC-06 QĐ-I thay căn cứ quyết định.** Mỗi vòng: (1) dọn, phục hồi kỳ `OPENING` và thử lại phần
 > vault (`reconcileChainPeriods`); (2) quỹ hụt so với tổng dự trữ thì dừng với
@@ -1904,7 +1922,7 @@ vẫn phải có một tiến trình **ngoài chuỗi** phát hiện và kích h
 người bấm**, không phải hợp đồng tự chạy.
 
 **2. Chưa có Indexer.** Phát hiện tiền vào làm bằng cách **hỏi định kỳ** số dư ví lợi nhuận rồi so
-với mốc đã xử lý. Nợ kỹ thuật đã ghi ở 1.6.C; điểm cắm `@pending IN-02` nằm ngay trên `detectNewFunds`.
+với mốc đã xử lý. Nợ kỹ thuật đã ghi ở 1.6.C; điểm cắm `@pending IN-02` nằm ngay trên `decideCycle`.
 
 ### Mốc số dư là "số dư dự kiến còn lại", KHÔNG phải tổng đã nhận
 
@@ -1940,7 +1958,7 @@ mới ghi thì hai vòng đồng thời đều thấy "chưa có" và đều ch�
 | # | Bước | Ghi được chưa |
 |---|---|---|
 | 1 | Kiểm quyền `distribution:execute` | — |
-| 2 | Đọc số dư ví lợi nhuận + mốc đã xử lý, quyết định (`detectNewFunds`) | **chưa** |
+| 2 | Đọc số dư ví lợi nhuận + mốc đã xử lý, quyết định (`decideCycle`, trước FE-08 là `detectNewFunds`) | **chưa** |
 | 3 | Chiếm chỗ chạy (`startRun`) | từ đây mới ghi |
 | 4 | Mở kỳ (nếu mới) rồi chia theo lô — **gọi lại BE-06** | có |
 | 5 | Cập nhật mốc nếu kỳ xong trọn vẹn (`settleBalanceMark`) | có |
@@ -1995,7 +2013,7 @@ buộc mọi người gọi phải nhớ đọc thêm một trường nữa mớ
 
 1. **Thêm một công việc theo lịch** → thêm tên vào `JOBS` của
    `app/api/keeper/distribution/route.ts` + một nhánh gọi service. Không mở route công khai mới.
-2. **Đổi nguồn tín hiệu sang sự kiện on-chain** → chỉ sửa `detectNewFunds`, giữ nguyên bốn nhánh
+2. **Đổi nguồn tín hiệu sang sự kiện on-chain** → chỉ sửa `decideCycle`, giữ nguyên bốn nhánh
    quyết định và toàn bộ phần chia (đó là ý của marker `@pending IN-02`).
 3. **Đổi ngưỡng / số lô / số vòng treo** → sửa dòng trong `SystemConfig`, **không** sửa mã.
 4. **Thêm kênh nhận diện người gọi khác** (chữ ký HMAC, mTLS) → thêm hàm cạnh `keeperSecretMatches`
@@ -2625,6 +2643,100 @@ cầu rút của tôi". `/seller/transactions`: `SellerTxnRow` là union theo `t
 | Thêm tham số cấu hình vault | setter ở `ILedgerVault` (ba adapter), một dòng trong `planVaultConfig` theo đúng thứ tự giá trị trước chế độ, một tham số trong `VaultConfigParam` và `vaultConfigEvents` |
 | Rút "đúng một lần chứng minh được" | Cần đợt sửa hợp đồng (nợ QĐ-J ở 1.6.C); khi đó sự kiện có `requestRef`, đối soát mới được tự kết luận |
 
+## 3.27. Kiểm soát viên duyệt rồi mới chia lợi nhuận (FE-08)
+
+`lib/bank/distribution-approval.service.ts` (duyệt, duyệt lại, tiếp tục, API đọc),
+`distribution.service.ts` (lõi `runDistributionRound`, `decideApproval`),
+`distribution-trigger.service.ts` (`runApprovedPeriod`, keeper), màn `/distribution`
+(`components/pages/distribution-approval.tsx`). Bản đồ luồng ở **4.5** (`docs/flows/distribute.md`, 24 bước).
+
+**Mục tiêu:** không đồng VNDB nào rời quỹ chia khi chưa có Kiểm soát viên duyệt đúng số đó, dù gọi từ
+màn hình, server action hay keeper; không trả khi kỳ vault chưa chốt xong.
+
+### Quyền và đường gọi (QĐ-A)
+
+`distribution:approve` chỉ `CONTROLLER`: `approveDistributionAction`, `reapproveDistributionAction`,
+`continueDistributionAction`. Đọc (`reconcile:read`, hai vai vận hành): tổng quan, lịch sử kỳ, hồ sơ trả,
+lịch chạy. Bốn action cũ (`openPeriodAction`, `previewDistributionAction`, `distributePeriodAction`,
+`runDistributionCycleAction`) đã gỡ; service giữ cho keeper và kiểm thử. Lõi `runDistributionRound(ctx,
+periodId)` nhận vai và mã người thao tác đã kiểm; mọi bản ghi duyệt lưu mã người (`currentActorId`).
+
+### Duyệt lưu bền trên kỳ, một kỳ hoạt động mỗi chain (QĐ-B)
+
+| Cột | Ý nghĩa |
+|---|---|
+| `approvalStatus` | `APPROVED`, `AMOUNT_CHANGED`; rỗng = kỳ trước FE-08 (`expectedAmount` rỗng) hoặc kỳ vừa duyệt đang chờ so số |
+| `expectedAmount`, `approvedAmount`, `reapprovedFrom` | số duyệt lần đầu, số có hiệu lực, số cũ khi duyệt lại |
+| `approvedBy`, `approvedAt` | người và thời điểm của lần duyệt có hiệu lực |
+| `activeChain` | duy nhất; bằng `chain` khi `OPENING`/`OPEN`/`DISTRIBUTING`, `null` khi `COMPLETED`/`EXPIRED`/`CLOSED`, đặt trong CÙNG câu cập nhật trạng thái |
+| `KeeperRun.triggerSource` | `MANUAL` (Kiểm soát viên) hoặc `KEEPER` |
+
+`activeChain` là trọng tài giữa Kiểm soát viên, keeper và nhiều Worker kể cả khi hai bên sinh hai mã
+kỳ khác ngày UTC; ánh xạ lỗi trùng `DistributionPeriod_activeChain_key`. Database có sẵn được nâng ở
+`ensureSchema`: thêm cột (`ADDED_COLUMNS`), dựng chỉ mục, rồi điền `activeChain` cho kỳ cũ hoạt động
+SỚM NHẤT mỗi chain (`BACKFILL_STATEMENTS`; điền mọi kỳ thì chỉ mục nổ với dữ liệu có hai kỳ dở).
+Bản bộ nhớ kiểm cùng ràng buộc bằng tay.
+
+### Duyệt, duyệt lại, tiếp tục (QĐ-C)
+
+```
+approveDistribution({ chain, expectedAmount })
+  authorize('distribution:approve')          bốn kết cục vào sổ kiểm toán kèm mã người
+  vaultStatus() rỗng                          -> "không hỗ trợ luồng chia đã duyệt"
+  unallocatedProfit() != expectedAmount       -> "số trong quỹ đã đổi, xem lại rồi duyệt" (không gửi gì)
+  dưới distribution.min_new_balance, tổng cung 0, danh sách người nhận bị cắt -> từ chối
+  findActivePeriod / reservePeriod(activeChain, approval)  -> "đang có kỳ hoạt động"
+  driveOpening('send') -> finishOpening -> decideApproval
+       totalAmount == expectedAmount -> APPROVED -> runApprovedPeriod(MANUAL)
+       khác                           -> AMOUNT_CHANGED, dừng (không chốt vault, không lô)
+reapproveDistribution({ periodId, amount })  amount == distributions(id).amount -> APPROVED, reapprovedFrom
+continueDistribution({ periodId })           OPENING thì phục hồi trước; phải APPROVED
+```
+
+Mã kỳ của lần duyệt: `<chain>:<ngày UTC>-<số thứ tự>`, bỏ qua cả nhãn đã có trên chuỗi mà sổ không
+biết (sổ bộ nhớ khởi động lại trên một nút còn kỳ cũ). Kết luận duyệt ghi khi đọc được số thực tế, nên
+đường phục hồi nào hoàn tất kỳ (`continueDistribution`, keeper) cũng áp đúng kết luận.
+
+### Chốt kỳ vault phải xong trước khi trả (QĐ-D)
+
+Hai chốt chặn nằm TRONG lõi `runDistributionRound`, không ở người gọi: kỳ phải `APPROVED`, và
+`syncVaultClose` phải `DONE` (hoặc chain không vault) TRƯỚC mọi bước khác, kể cả trước khi kỳ hết hạn
+rời trạng thái hoạt động. `PENDING`/`SENT`/chờ kỳ trước: dừng, `vault` trong khung nhìn cho biết; lần
+sau đối soát rồi đi tiếp. `CONFLICT`: khoá chia, màn hiện "cần xử lý tay". `finishOpening` không còn đẩy
+vault rồi nuốt lỗi; lỗi chốt vault nổ ra cho người gọi. Luồng bấm tay chạy `reconcileChainPeriods`
+trước lượt chia để vault của kỳ trước theo kịp (PoC không có lịch gọi keeper); kỳ hoạt động chưa
+duyệt không được chốt vault.
+
+### Màn `/distribution` (QĐ-F)
+
+Quỹ chia, dự kiến (cùng `collectRecipients` gồm vault, `shareOf` trên số dư hiện tại, có ví được 0,
+danh sách bị cắt thì khoá nút), khối duyệt chỉ `CONTROLLER` với hộp xác nhận nguyên văn QĐ-F, kỳ hoạt
+động (duyệt lại số thực tế, tiếp tục chia, "đã gửi lên chuỗi, đang đối soát"), lịch sử kỳ và hồ sơ trả
+phân trang (liên kết explorer chỉ trên chain thật), lịch chạy kèm nguồn. Mọi số do máy chủ trả; nút
+khoá khi đang chạy; tải lại trang đọc trạng thái bền.
+
+**Một action khi mở (theo HF-01):** màn gọi đúng `getDistributionPageAction` khi mở và khi tải lại sau
+duyệt, duyệt lại, tiếp tục. Service `getDistributionPage` chạy ba phần song song (tổng quan, trang 1
+lịch sử, 20 lượt chạy gần nhất), mỗi phần là một `Result` riêng và tự kiểm `reconcile:read`, nên một
+phần lỗi không kéo phần khác. Chỉ khi người xem đổi trang lịch sử hoặc mở hồ sơ một kỳ thì màn mới gọi
+action riêng (`listDistributionPeriodsAction`, `listDistributionPayoutsAction`). Đo bằng Playwright trên
+bản build: trước 3 action, sau 1 action, 0 yêu cầu `_rsc` (vai Kiểm soát viên và Giao dịch viên). Kiểm
+chặn quay lại: `fe-08-approval.test.ts` "FE-08 hiệu năng".
+
+**Nạp quỹ trên mock:** địa chỉ logic `MOCK_PROFIT_DISTRIBUTOR_ADDRESS` (`@bidv/shared`, như vault mock
+của BE-13): số dư VNDB của địa chỉ này là `profitPool`. Người trình diễn và e2e nạp quỹ bằng màn có sẵn
+(whitelist ở `/mint`, nạp ở `/demo-payment`) trên cả mock và hardhat (hardhat dùng `ProfitDistributor`).
+
+### Cách mở rộng
+
+| Muốn | Đụng vào đâu |
+|---|---|
+| Keeper tự mở kỳ dưới hạn mức | Vai hệ thống riêng, nhánh mới trong `decideCycle`, vẫn qua `reservePeriod` có `approval` của chính sách (nợ QĐ-H) |
+| Hợp đồng nhận số tiền kỳ vọng | Đợt sửa hợp đồng; khi đó `AMOUNT_CHANGED` không còn xảy ra, giữ cột để đọc kỳ cũ |
+| Duyệt nhiều cấp hoặc duyệt danh sách | Thêm bảng lần duyệt; `setApproval` vẫn là cập nhật có điều kiện cuối cùng |
+
+---
+
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
 
 ⚠️ **FE-22: đường này nằm sau HAI LỚP CHẶN** — quyền `demo:mint-token` và cờ `ENABLE_DEMO_TOKEN_MINT`
@@ -3051,8 +3163,8 @@ components/pages/redeem.tsx  (khu vực (investor))
 
 ## 4.5. Luồng DISTRIBUTION: chia lợi nhuận (BE-06 ✅ tầng BE; SC-06 ✅ nối EVM, PR #58)
 
-> Sơ đồ sinh từ marker: **`docs/flows/distribute.md`** (16 bước: 1–10 của BE-06, 11–14 của BE-07,
-> 15–16 của SC-06: mở kỳ trên chuỗi có phục hồi, đẩy số đã chia vào vault).
+> Sơ đồ sinh từ marker: **`docs/flows/distribute.md`** (24 bước, FE-08 đánh số lại theo đường duyệt:
+> tổng quan, duyệt, mở kỳ, so số, duyệt lại, tiếp tục, lượt chia có chốt vault, keeper, các API đọc).
 > Đừng sửa tay tệp đó.
 > ⚠️ Số bước `@flow` đánh số **các hàm** trên đường đi; bảng trong mục này đánh số **các bước bên
 > trong một hàm**. Hai hệ đánh số khác nhau, đọc chéo bằng số bước sẽ ra kết luận sai.
@@ -3063,7 +3175,10 @@ thời điểm chốt.
 
 **Trạng thái:** tầng nghiệp vụ chạy đủ trên `mock` và, từ SC-06, trên Hardhat thật
 (`test/sc-06-distribution-evm.test.ts`). Cơ chế quỹ một chiều, phục hồi, đẩy vault và vòng đời ở 3.24.
-**Chưa có giao diện** (FE-08, FE-09), có điểm cắm `@pending` trỏ tới.
+Từ FE-08: Kiểm soát viên duyệt đúng số trên màn `/distribution` rồi hệ thống mới mở kỳ, chốt vault và
+chia; keeper chỉ tiếp tục kỳ đã duyệt (cơ chế ở **3.27**). Các giai đoạn 1 đến 3 dưới đây là service
+nền; server action của chúng đã gỡ, và lõi chia từ chối kỳ chưa `APPROVED`. Màn theo dõi của nhà đầu tư
+còn chờ FE-09.
 
 **Hai đường vào, một nghiệp vụ.** Cán bộ ngân hàng bấm từng bước (BE-06, giai đoạn 1–3 dưới đây), hoặc
 tiến trình định kỳ tự làm cả ba (BE-07, giai đoạn 4). Đường thứ hai **gọi lại** đúng các hàm của đường
@@ -3176,7 +3291,7 @@ trên chuỗi và về quỹ chưa phân bổ khi kỳ đóng sau hạn nhận (
 | Triển khai lại Sepolia với `ProfitDistributor` mới, vault và hợp đồng khớp lệnh | OP-05 |
 | Quyền on-chain: `ProfitDistributor` giữ `SNAPSHOT_ROLE` trên `ProjectToken`, ví ký giữ `DISTRIBUTOR_ROLE` và `DEFAULT_ADMIN_ROLE` (đóng kỳ), và `CONFIG_ROLE` trên vault (đẩy số đã chia) | khâu triển khai: `deploy.js` đã cấp |
 | Màn nhà đầu tư tự nhận (`claim`) | ngoài phạm vi SC-06 |
-| Giao diện mở kỳ / xem trước / chia, theo dõi kỳ, phục hồi | FE-08, FE-09 |
+| ~~Giao diện duyệt, chia, theo dõi kỳ, phục hồi~~ | **FE-08 xong** (3.27); phần nhà đầu tư còn chờ FE-09 |
 | Thiết kế lại nghiệp vụ chia | BE-18 |
 | Phát hiện tiền vào bằng **sự kiện**; danh sách người nhận đầy đủ | IN-01, IN-02: xem 1.6.C |
 
@@ -3185,16 +3300,14 @@ trên chuỗi và về quỹ chưa phân bổ khi kỳ đóng sau hạn nhận (
 Cơ chế đầy đủ, cạm bẫy và cách mở rộng ở **3.14**. Ở đây chỉ là đường đi.
 
 ```
-cron của hạ tầng ──→ POST /api/keeper/distribution   (Authorization: Bearer $KEEPER_SECRET)
-cán bộ bấm "chạy ngay" ──→ runDistributionCycleAction()
-        └──────────────────→ lib/bank/distribution-trigger.service.ts :: runDistributionCycle()
-                                   ├─ reconcileChainPeriods() phục hồi OPENING, thử lại phần vault (SC-06)
-                                   ├─ detectNewFunds()        đọc phần chưa phân bổ của quỹ
-                                   ├─ startRun()              chiếm chỗ chạy `<mã kỳ>#<số vòng>`
-                                   ├─ openPeriod()            ← giai đoạn 1, chỉ khi là kỳ mới
-                                   ├─ distributePeriod()      ← giai đoạn 3, tối đa maxBatches lô
+cron của hạ tầng ──> POST /api/keeper/distribution   (Authorization: Bearer $KEEPER_SECRET)
+        └──────────────────> lib/bank/distribution-trigger.service.ts :: runDistributionCycle()
+                                   ├─ reconcileChainPeriods() phục hồi OPENING (kèm so số duyệt), vault kỳ được phép
+                                   ├─ decideCycle()           FE-08: chỉ kỳ hoạt động APPROVED; còn lại AWAITING_APPROVAL
+                                   ├─ runApprovedPeriod(KEEPER) chiếm `<mã kỳ>#<số vòng>`, lõi runDistributionRound
                                    ├─ settleBalanceMark()     chỉ khi outstanding = 0
                                    └─ finishRun() + appendAudit()
+(FE-08: không còn nút "chạy ngay"; keeper KHÔNG BAO GIỜ mở kỳ)
 ```
 
 | Bước | Việc | Chặn ở đâu |
@@ -3203,9 +3316,9 @@ cán bộ bấm "chạy ngay" ──→ runDistributionCycleAction()
 | 2 | `authorize('distribution:execute', ...)` | vai không có quyền → `FORBIDDEN`, ghi audit `DENIED` |
 | 2b | `reconcileChainPeriods()` | lỗi chỉ ghi audit, không dừng vòng |
 | 3 | `profitPoolBalance()`, `reservedProfit()`, `unallocatedProfit()` | quỹ hụt so với dự trữ sang `INSUFFICIENT_PROFIT_POOL` |
-| 4 | `detectNewFunds()` | không có phần chưa phân bổ sang `ok` `NO_NEW_FUNDS`; dưới ngưỡng sang `ok` `BELOW_MIN_NEW_BALANCE` |
+| 4 | `decideCycle()` | không có phần chưa phân bổ sang `ok` `NO_NEW_FUNDS`; dưới ngưỡng sang `ok` `BELOW_MIN_NEW_BALANCE`; FE-08: có tiền hoặc kỳ chưa duyệt sang `ok` `AWAITING_APPROVAL` |
 | 5 | `startRun(jobName, '<mã kỳ>#<số vòng>')` | khoá đã có chủ → `ok` `ALREADY_RUNNING`, **dừng ngay** |
-| 6 | kỳ mới: `openPeriod()` với mã `<chain>:auto-…`; kỳ đang dở: chia tiếp | quỹ đủ đã được bảo đảm ở bước 3 |
+| 6 | FE-08: chỉ kỳ `APPROVED` đang dở, chia tiếp với `triggerSource = KEEPER`; không mở kỳ mới | quỹ đủ đã được bảo đảm ở bước 3 |
 | 7 | `distributePeriod()` | lỗi → đóng `KeeperRun` ở `FAILED`, trả lỗi của BE-06 |
 | 8 | `outstanding = 0` sang `settleBalanceMark()` (chỉ hiển thị); kỳ `EXPIRED`/`CLOSED` sang `PERIOD_ENDED` | còn ví chưa nhận sang lượt sau chia tiếp |
 | 9 | `runNo >= distribution.stuck_after_runs` và còn ví chưa nhận → cảnh báo | `KeeperRun` `FAILED` + audit `FAILURE` |

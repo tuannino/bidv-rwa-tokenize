@@ -79,6 +79,15 @@ export const ACTIONS = [
    */
   'distribution:snapshot',
   'distribution:execute',
+  /**
+   * FE-08 QĐ-A: duyệt TỔNG SỐ VNDB của một kỳ chia rồi chia (duyệt, duyệt lại số thực tế, tiếp tục
+   * kỳ đã duyệt). CHỈ CONTROLLER. Không đồng nào rời quỹ chia nếu chưa có lần duyệt đúng số.
+   *
+   * `distribution:snapshot` / `distribution:execute` vẫn ở `TELLER` vì tiến trình định kỳ chạy dưới
+   * vai mặc định của bản demo (nợ QĐ-H), nhưng không còn server action nào dùng chúng, và lõi chia
+   * từ chối mọi kỳ chưa `APPROVED` bất kể ai gọi.
+   */
+  'distribution:approve',
 
   /**
    * Tất toán (đóng quỹ). Dùng tiền tố `settlement:` chứ KHÔNG phải `token:redeem`,
@@ -334,6 +343,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     // BE-13: Kiểm soát viên cấu hình khoá vault và xử lý lệnh rút cần xem xét; KHÔNG tự rút.
     'vault:configure',
     'vault:reconcile',
+    // FE-08: duyệt tổng số của kỳ chia rồi chia; KHÔNG có `distribution:execute` trực tiếp.
+    'distribution:approve',
     ...READ_ONLY,
   ],
 };

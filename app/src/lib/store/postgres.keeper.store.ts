@@ -2,7 +2,9 @@ import 'server-only';
 
 import {
   assertKeeperRunStatus,
+  assertKeeperTriggerSource,
   type IKeeperStore,
+  type KeeperTriggerSource,
   type KeeperRunRecord,
   type KeeperRunStatus,
 } from './keeper.store.port';
@@ -19,6 +21,7 @@ interface RunRow {
   finishedAt: Date | null;
   status: string;
   error: string | null;
+  triggerSource: string;
 }
 
 const toRun = (row: RunRow): KeeperRunRecord => ({
@@ -29,22 +32,23 @@ const toRun = (row: RunRow): KeeperRunRecord => ({
   finishedAt: row.finishedAt?.toISOString() ?? null,
   status: row.status as KeeperRunStatus,
   error: row.error,
+  triggerSource: row.triggerSource as KeeperTriggerSource,
 });
 
 export function createPostgresKeeperStore(query: PgQuery = pgQuery): IKeeperStore {
   return {
     kind: 'prisma',
 
-    async startRun({ jobName, periodKey }) {
+    async startRun({ jobName, periodKey, triggerSource = 'KEEPER' }) {
       // Chèn thẳng, KHÔNG đọc trước: ràng buộc `KeeperRun_jobName_periodKey_key` chính là
       // cơ chế chiếm quyền chạy. `SELECT` rồi `INSERT` là hai bước, và hai instance cùng
       // nhận một lịch sẽ cùng vượt qua bước đầu.
       const rows = await mapPgConstraintError(() =>
         query<RunRow>(
-          `INSERT INTO "KeeperRun" ("id","jobName","periodKey","status")
-           VALUES (gen_random_uuid()::text,$1,$2,$3)
+          `INSERT INTO "KeeperRun" ("id","jobName","periodKey","status","triggerSource")
+           VALUES (gen_random_uuid()::text,$1,$2,$3,$4)
            RETURNING *`,
-          [jobName, periodKey, 'RUNNING' satisfies KeeperRunStatus],
+          [jobName, periodKey, 'RUNNING' satisfies KeeperRunStatus, assertKeeperTriggerSource(triggerSource)],
         ),
       );
       return toRun(rows[0]);
@@ -74,14 +78,15 @@ export function createPostgresKeeperStore(query: PgQuery = pgQuery): IKeeperStor
     },
 
     async listRuns(options = {}) {
-      const { jobName, status, limit = 50 } = options;
+      const { jobName, status, periodKeyPrefix, limit = 50 } = options;
       const rows = await query<RunRow>(
         `SELECT * FROM "KeeperRun"
           WHERE ($1::text IS NULL OR "jobName" = $1)
             AND ($2::text IS NULL OR "status" = $2)
+            AND ($4::text IS NULL OR left("periodKey", length($4::text)) = $4::text)
           ORDER BY "startedAt" DESC, "id" DESC
           LIMIT $3`,
-        [jobName ?? null, status ?? null, limit],
+        [jobName ?? null, status ?? null, limit, periodKeyPrefix ?? null],
       );
       return rows.map(toRun);
     },

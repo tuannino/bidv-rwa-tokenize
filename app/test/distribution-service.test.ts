@@ -239,12 +239,31 @@ async function payoutsByWallet(periodId: string) {
   return new Map(rows.map((row) => [row.investorWallet.toLowerCase(), row]));
 }
 
-/** Mở kỳ và trả về khung nhìn, đỏ ngay tại đây nếu không mở được. */
+/**
+ * Mở kỳ, ghi kỳ đã duyệt đúng số trên chuỗi, trả về khung nhìn; đỏ ngay tại đây nếu không mở được.
+ *
+ * FE-08 QĐ-C: lõi chia từ chối kỳ chưa `APPROVED`. Tệp này kiểm phần CHIA của BE-06 nên bước duyệt
+ * dựng thẳng ở cổng lưu trữ, tương đương Kiểm soát viên duyệt đúng số kỳ lấy trên chuỗi. Luồng
+ * duyệt thật (quyền, so số, `AMOUNT_CHANGED`) kiểm ở `fe-08-approval.test.ts`.
+ */
 async function openPeriodOk(periodKey: string) {
   const result = await openPeriod({ chain: CHAIN, periodKey });
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   if (!result.ok) throw new Error('không mở được kỳ');
+  await approveInStore(result.data.id, result.data.totalAmount);
   return result.data;
+}
+
+async function approveInStore(periodId: string, amount: string) {
+  const approved = await getDistributionStore().setApproval({
+    id: periodId,
+    from: null,
+    approvalStatus: 'APPROVED',
+    approvedAmount: amount,
+    approvedBy: 'kiem-thu',
+    approvedAt: new Date().toISOString(),
+  });
+  expect(approved?.approvalStatus).toBe('APPROVED');
 }
 
 /** Ảnh toàn bộ dữ liệu có thể bị ghi, để chứng minh một hàm đọc không ghi gì. */
@@ -533,12 +552,21 @@ describe('ca 5 — mã kỳ trùng thì từ chối', () => {
     expect(await getDistributionStore().listPeriods({ limit: 10 })).toHaveLength(1);
   });
 
-  it('mã kỳ khác thì mở được kỳ thứ hai với ảnh chụp mới', async () => {
+  /**
+   * FE-08 QĐ-B (đổi so với BE-06): mỗi chain tối đa một kỳ hoạt động, nên mã kỳ khác cũng không mở
+   * được kỳ thứ hai khi kỳ đầu còn dở; kỳ đầu xong thì mở được.
+   */
+  it('mã kỳ khác: bị từ chối khi kỳ đầu còn hoạt động, mở được với ảnh chụp mới khi kỳ đầu xong', async () => {
     await seedHolder(ALICE, 100n);
     fundProfitPool(1_000_000n);
     const first = await openPeriodOk('mock:2026-Q1');
 
     fundProfitPool(2_000_000n);
+    const blocked = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q2' });
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.error).toMatch(/đang có kỳ chia hoạt động/);
+
+    await distributeOk(first.id);
     const second = await openPeriodOk('mock:2026-Q2');
 
     expect(second.snapshotId).toBe(first.snapshotId + 1);
