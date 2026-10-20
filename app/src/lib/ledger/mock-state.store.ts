@@ -5,8 +5,32 @@ import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 export interface MockSnapshotRecord {
   balances: Map<string, bigint>;
   totalSupply: bigint;
-  distributable: bigint;
+}
+
+/** Hạn nhận mặc định của `ProfitDistributor.claimWindow` (180 ngày), dùng cho mock. */
+export const MOCK_CLAIM_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
+
+/** Một kỳ chia của mock, ngang hàng `ProfitDistributor.Distribution` (SC-06). */
+export interface MockDistributionRecord {
+  snapshotId: number;
+  period: string;
+  amount: bigint;
+  claimed: bigint;
+  totalSupplyAt: bigint;
+  /** Mốc hết hạn nhận, mili giây từ epoch. */
+  claimDeadline: number;
+  closed: boolean;
+  /** Ví đã nhận (kể cả phần 0), như `hasClaimed` của hợp đồng. */
   paid: Set<string>;
+}
+
+/** Sổ kỳ chia và sổ dự trữ của quỹ một chiều (SC-06 QĐ-A, QĐ-B). */
+export interface MockDistributionLedger {
+  distributions: Map<number, MockDistributionRecord>;
+  /** Nhãn kỳ đã dùng ở `openDistribution` -> mã kỳ. */
+  byPeriod: Map<string, number>;
+  nextDistributionId: number;
+  totalReserved: bigint;
 }
 
 /** Toàn bộ nguồn sự thật của chain mock. Không thêm state ở ngoài kiểu này. */
@@ -29,6 +53,7 @@ export interface MockLedgerState {
   settledOrders: Map<string, string>;
   snapshots: Map<number, MockSnapshotRecord>;
   lastSnapshotId: number;
+  distributionLedger: MockDistributionLedger;
   profitPool: bigint;
   settlementMode: boolean;
   navRate: bigint;
@@ -43,6 +68,13 @@ export interface MockLedgerStateStore {
 }
 
 const DEFAULT_WPT_PRICE_VND = BigInt(WPT_ISSUE_PRICE_VND);
+
+const emptyDistributionLedger = (): MockDistributionLedger => ({
+  distributions: new Map(),
+  byPeriod: new Map(),
+  nextDistributionId: 0,
+  totalReserved: 0n,
+});
 
 export function createDefaultMockLedgerState(): MockLedgerState {
   return {
@@ -60,6 +92,7 @@ export function createDefaultMockLedgerState(): MockLedgerState {
     settledOrders: new Map(),
     snapshots: new Map(),
     lastSnapshotId: 0,
+    distributionLedger: emptyDistributionLedger(),
     profitPool: 0n,
     settlementMode: false,
     navRate: DEFAULT_WPT_PRICE_VND,
@@ -83,15 +116,21 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
     snapshots: new Map(
       [...source.snapshots].map(([id, snapshot]) => [
         id,
-        {
-          balances: new Map(snapshot.balances),
-          totalSupply: snapshot.totalSupply,
-          distributable: snapshot.distributable,
-          paid: new Set(snapshot.paid),
-        },
+        { balances: new Map(snapshot.balances), totalSupply: snapshot.totalSupply },
       ]),
     ),
     lastSnapshotId: source.lastSnapshotId,
+    distributionLedger: {
+      distributions: new Map(
+        [...source.distributionLedger.distributions].map(([id, record]) => [
+          id,
+          { ...record, paid: new Set(record.paid) },
+        ]),
+      ),
+      byPeriod: new Map(source.distributionLedger.byPeriod),
+      nextDistributionId: source.distributionLedger.nextDistributionId,
+      totalReserved: source.distributionLedger.totalReserved,
+    },
     profitPool: source.profitPool,
     settlementMode: source.settlementMode,
     navRate: source.navRate,
@@ -101,8 +140,24 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
 type EncodedSnapshot = {
   balances: Record<string, string>;
   totalSupply: string;
-  distributable: string;
+};
+
+type EncodedDistribution = {
+  snapshotId: number;
+  period: string;
+  amount: string;
+  claimed: string;
+  totalSupplyAt: string;
+  claimDeadline: number;
+  closed: boolean;
   paid: string[];
+};
+
+type EncodedDistributionLedger = {
+  distributions: Record<string, EncodedDistribution>;
+  byPeriod: Record<string, number>;
+  nextDistributionId: number;
+  totalReserved: string;
 };
 
 export type EncodedMockLedgerState = {
@@ -120,6 +175,7 @@ export type EncodedMockLedgerState = {
   settledOrders?: Record<string, string>;
   snapshots: Record<string, EncodedSnapshot>;
   lastSnapshotId: number;
+  distributionLedger: EncodedDistributionLedger;
   profitPool: string;
   settlementMode: boolean;
   navRate: string;
@@ -131,6 +187,33 @@ function encodeBigintMap(values: ReadonlyMap<string, bigint>): Record<string, st
   return Object.fromEntries(
     [...values.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => [key, value.toString()]),
   );
+}
+
+function encodeDistributionLedger(ledger: MockDistributionLedger): EncodedDistributionLedger {
+  return {
+    distributions: Object.fromEntries(
+      [...ledger.distributions.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([id, record]) => [
+          id.toString(),
+          {
+            snapshotId: record.snapshotId,
+            period: record.period,
+            amount: record.amount.toString(),
+            claimed: record.claimed.toString(),
+            totalSupplyAt: record.totalSupplyAt.toString(),
+            claimDeadline: record.claimDeadline,
+            closed: record.closed,
+            paid: sortedStrings(record.paid),
+          },
+        ]),
+    ),
+    byPeriod: Object.fromEntries(
+      [...ledger.byPeriod.entries()].sort(([left], [right]) => left.localeCompare(right)),
+    ),
+    nextDistributionId: ledger.nextDistributionId,
+    totalReserved: ledger.totalReserved.toString(),
+  };
 }
 
 export function encodeMockLedgerState(state: Readonly<MockLedgerState>): EncodedMockLedgerState {
@@ -155,12 +238,11 @@ export function encodeMockLedgerState(state: Readonly<MockLedgerState>): Encoded
           {
             balances: encodeBigintMap(snapshot.balances),
             totalSupply: snapshot.totalSupply.toString(),
-            distributable: snapshot.distributable.toString(),
-            paid: sortedStrings(snapshot.paid),
           },
         ]),
     ),
     lastSnapshotId: state.lastSnapshotId,
+    distributionLedger: encodeDistributionLedger(state.distributionLedger),
     profitPool: state.profitPool.toString(),
     settlementMode: state.settlementMode,
     navRate: state.navRate.toString(),
@@ -210,18 +292,119 @@ function decodeBigintMap(value: unknown, label: string): Map<string, bigint> {
   );
 }
 
-export function decodeMockLedgerState(value: unknown): MockLedgerState {
+function decodeDistributionLedger(value: unknown): MockDistributionLedger {
+  const root = record(value, 'distributionLedger');
+  const distributions = new Map<number, MockDistributionRecord>();
+  for (const [rawId, raw] of Object.entries(record(root.distributions, 'distributionLedger.distributions'))) {
+    const id = Number(rawId);
+    const label = `distributionLedger.distributions.${rawId}`;
+    if (!Number.isSafeInteger(id) || id < 0) throw new Error(`MockLedgerState.${label} có mã sai.`);
+    const item = record(raw, label);
+    distributions.set(id, {
+      snapshotId: integerValue(item.snapshotId, `${label}.snapshotId`),
+      period: stringValue(item.period, `${label}.period`),
+      amount: bigintValue(item.amount, `${label}.amount`),
+      claimed: bigintValue(item.claimed, `${label}.claimed`),
+      totalSupplyAt: bigintValue(item.totalSupplyAt, `${label}.totalSupplyAt`),
+      claimDeadline: integerValue(item.claimDeadline, `${label}.claimDeadline`),
+      closed: booleanValue(item.closed, `${label}.closed`),
+      paid: new Set(stringArray(item.paid, `${label}.paid`)),
+    });
+  }
+  return {
+    distributions,
+    byPeriod: new Map(
+      Object.entries(record(root.byPeriod, 'distributionLedger.byPeriod')).map(([period, id]) => [
+        period,
+        integerValue(id, `distributionLedger.byPeriod.${period}`),
+      ]),
+    ),
+    nextDistributionId: integerValue(root.nextDistributionId, 'distributionLedger.nextDistributionId'),
+    totalReserved: bigintValue(root.totalReserved, 'distributionLedger.totalReserved'),
+  };
+}
+
+/** Lỗi trạng thái mock cũ không đủ dữ liệu để chuyển đổi chính xác (SC-06 QĐ-D). */
+export class MockLedgerMigrationError extends Error {
+  constructor(detail: string) {
+    super(
+      `Trạng thái chain mock cũ không chuyển đổi được sang sổ dự trữ SC-06: ${detail}. ` +
+        'Không tự đoán số đã chia; làm mới MockLedgerState của chain này theo runbook OP-07 ' +
+        '(reset có kiểm soát) rồi nạp lại quỹ.',
+    );
+    this.name = 'MockLedgerMigrationError';
+  }
+}
+
+/**
+ * Chuyển ảnh chụp kiểu cũ (trước SC-06: mỗi ảnh chụp mang `distributable` và tập `paid`) thành
+ * sổ kỳ chia CHÍNH XÁC, không coi là sổ rỗng (SC-06 QĐ-D):
+ * - mỗi ảnh chụp có `distributable > 0` thành kỳ `distributionId = snapshotId`;
+ * - `claimed` = tổng phần nguyên của các ví trong tập đã trả, cùng công thức với hợp đồng;
+ * - hạn nhận tính lại từ lúc chuyển đổi; bộ đếm kỳ mới bắt đầu từ `max(snapshotId) + 1`.
+ * Thiếu số dư tại ảnh chụp hoặc tổng cung thì báo lỗi cần reset, không đoán.
+ */
+function migrateLegacyDistributions(
+  rawSnapshots: Record<string, unknown>,
+  now: number,
+): MockDistributionLedger {
+  const ledger = emptyDistributionLedger();
+  let maxSnapshotId = -1;
+  for (const [rawId, rawSnapshot] of Object.entries(rawSnapshots)) {
+    const id = Number(rawId);
+    maxSnapshotId = Math.max(maxSnapshotId, id);
+    const snapshot = record(rawSnapshot, `snapshots.${rawId}`);
+    if (snapshot.distributable === undefined) {
+      throw new MockLedgerMigrationError(`ảnh chụp ${rawId} thiếu số tiền chia (distributable)`);
+    }
+    const amount = bigintValue(snapshot.distributable, `snapshots.${rawId}.distributable`);
+    if (amount === 0n) continue;
+    if (snapshot.balances === undefined || snapshot.totalSupply === undefined) {
+      throw new MockLedgerMigrationError(`ảnh chụp ${rawId} thiếu số dư tại ảnh chụp hoặc tổng cung`);
+    }
+    const balances = decodeBigintMap(snapshot.balances, `snapshots.${rawId}.balances`);
+    const totalSupply = bigintValue(snapshot.totalSupply, `snapshots.${rawId}.totalSupply`);
+    if (totalSupply === 0n) {
+      throw new MockLedgerMigrationError(`ảnh chụp ${rawId} có tiền chia nhưng tổng cung bằng 0`);
+    }
+    const paid = new Set(stringArray(snapshot.paid ?? [], `snapshots.${rawId}.paid`));
+    const claimed = [...paid].reduce(
+      (sum, wallet) => sum + (amount * (balances.get(wallet) ?? 0n)) / totalSupply,
+      0n,
+    );
+    ledger.distributions.set(id, {
+      snapshotId: id,
+      period: `legacy-snapshot-${id}`,
+      amount,
+      claimed,
+      totalSupplyAt: totalSupply,
+      claimDeadline: now + MOCK_CLAIM_WINDOW_MS,
+      closed: false,
+      paid,
+    });
+    ledger.totalReserved += amount - claimed;
+  }
+  ledger.nextDistributionId = maxSnapshotId + 1;
+  return ledger;
+}
+
+export function decodeMockLedgerState(value: unknown, now: number = Date.now()): MockLedgerState {
   const root = record(value, 'state');
+  const rawSnapshots = record(root.snapshots, 'snapshots');
+  // Trạng thái lưu trước SC-06 không có sổ kỳ chia: chuyển đổi chính xác từ ảnh chụp kiểu cũ,
+  // TRƯỚC khi giải mã ảnh chụp, để thiếu dữ liệu báo đúng lỗi cần reset.
+  const distributionLedger =
+    root.distributionLedger === undefined
+      ? migrateLegacyDistributions(rawSnapshots, now)
+      : decodeDistributionLedger(root.distributionLedger);
   const snapshots = new Map<number, MockSnapshotRecord>();
-  for (const [rawId, rawSnapshot] of Object.entries(record(root.snapshots, 'snapshots'))) {
+  for (const [rawId, rawSnapshot] of Object.entries(rawSnapshots)) {
     const id = Number(rawId);
     if (!Number.isSafeInteger(id) || id <= 0) throw new Error(`MockLedgerState.snapshots có mã sai: ${rawId}.`);
     const snapshot = record(rawSnapshot, `snapshots.${rawId}`);
     snapshots.set(id, {
       balances: decodeBigintMap(snapshot.balances, `snapshots.${rawId}.balances`),
       totalSupply: bigintValue(snapshot.totalSupply, `snapshots.${rawId}.totalSupply`),
-      distributable: bigintValue(snapshot.distributable, `snapshots.${rawId}.distributable`),
-      paid: new Set(stringArray(snapshot.paid, `snapshots.${rawId}.paid`)),
     });
   }
 
@@ -249,6 +432,7 @@ export function decodeMockLedgerState(value: unknown): MockLedgerState {
     ),
     snapshots,
     lastSnapshotId: integerValue(root.lastSnapshotId, 'lastSnapshotId'),
+    distributionLedger,
     profitPool: bigintValue(root.profitPool, 'profitPool'),
     settlementMode: booleanValue(root.settlementMode, 'settlementMode'),
     navRate: bigintValue(root.navRate, 'navRate'),

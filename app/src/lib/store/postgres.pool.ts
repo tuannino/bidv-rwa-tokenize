@@ -320,7 +320,7 @@ async function migrateTimestampColumns(client: ClientBase): Promise<void> {
 
 /**
  * Cột THÊM VÀO bảng đã có từ trước (BE-14/BE-17): chiều lệnh, bốn mốc bước quyết toán
- * và mã chống trùng do client cấp.
+ * và mã chống trùng do client cấp; SC-06: sáu cột nối kỳ chia với chuỗi và vault.
  *
  * Vì sao cần: `init.sql` do `prisma migrate diff --from-empty` sinh ra chỉ có `CREATE TABLE`, nên
  * một volume dựng trước BE-14 giữ nguyên bảng `PurchaseOrder` cũ, thiếu cột — và câu
@@ -340,6 +340,14 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "reconciledAt" TIMESTAMPTZ(3)`,
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "settlingAt" TIMESTAMPTZ(3)`,
   `ALTER TABLE IF EXISTS "PurchaseOrder" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMPTZ(3)`,
+  // SC-06: kỳ chia gắn với kỳ trên chuỗi, mở có giữ chỗ và đẩy số đã chia vào vault.
+  // Kỳ có trước SC-06 để trống các cột này: chúng vẫn đọc được, chỉ không có đường chia EVM mới.
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "distributorAddress" TEXT`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "distributionId" INTEGER`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "openTxHash" TEXT`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultPeriodRef" INTEGER`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultCloseStatus" TEXT`,
+  `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "vaultCloseTxHash" TEXT`,
 ];
 
 async function addMissingColumns(client: ClientBase): Promise<void> {

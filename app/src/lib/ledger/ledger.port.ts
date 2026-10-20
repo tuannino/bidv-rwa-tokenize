@@ -77,6 +77,17 @@ export interface VaultPeriodClose {
 export interface ILedgerVault {
   vaultStatus(): Promise<VaultStatus | null>;
   vaultPeriodCloses(limit: number): Promise<VaultPeriodClose[]>;
+  /**
+   * Chốt kỳ `periodRef` của vault thanh toán với số đã dành cho kỳ chia trước (SC-06 QĐ-G).
+   * Trả mã giao dịch ngay (PENDING) để nghiệp vụ lưu trước khi chờ biên nhận. Chain không có
+   * vault thanh toán thì ném lỗi "không áp dụng".
+   */
+  closeVaultPeriod(periodRef: bigint, distributedPrev: bigint): Promise<TxResult>;
+  /**
+   * Sự kiện `PeriodClosed` có đúng `periodRef`, quét từ block triển khai; `null` khi chưa chốt.
+   * Dùng để đối soát trước khi gửi lại, không dựa vào `lastPeriodRef` (SC-06 QĐ-G).
+   */
+  findVaultPeriodClose(periodRef: bigint): Promise<VaultPeriodClose | null>;
 }
 
 // =============================================================================
@@ -261,20 +272,60 @@ export interface ILedgerSnapshot {
 // =============================================================================
 //  5. CHIA LỢI NHUẬN
 // =============================================================================
+/**
+ * Một kỳ chia ĐỌC TỪ CHUỖI (SC-06 QĐ-D). Số tiền của kỳ do chuỗi chốt, không do nghiệp vụ tính.
+ *
+ * `distributor` là địa chỉ hợp đồng chia hiện hành: kỳ lưu trong cơ sở dữ liệu gắn với địa chỉ
+ * này, để sau một lần triển khai lại không đọc nhầm kỳ cùng số của hợp đồng mới.
+ */
+export interface ChainDistribution {
+  distributor: string;
+  distributionId: number;
+  snapshotId: number;
+  amount: bigint;
+  /** Đã trả ra khỏi quỹ cho kỳ này. Không bao giờ bằng `amount` chỉ vì kỳ đã đóng. */
+  claimed: bigint;
+  totalSupplyAt: bigint;
+  claimDeadline: Date;
+  /** Đã tới hạn nhận theo ĐỒNG HỒ CỦA CHUỖI (khối mới nhất), không theo giờ máy chủ. */
+  expired: boolean;
+  closed: boolean;
+}
+
 export interface ILedgerDistribution {
-  /** Số VNDB đang có trong ví chia lợi nhuận. */
+  /** TỔNG số dư VNDB của quỹ chia lợi nhuận: để hiển thị và đối soát với `reservedProfit`. */
   profitPoolBalance(): Promise<bigint>;
   /**
-   * Chia cho MỘT LÔ người nhận.
+   * Phần quỹ CHƯA thuộc kỳ nào (số dư trừ dự trữ, không âm). Căn cứ mở kỳ và ngưỡng tiền mới
+   * của tiến trình tự động; khác `profitPoolBalance` ở chỗ không gồm phần các kỳ còn nợ.
+   */
+  unallocatedProfit(): Promise<bigint>;
+  /** Tổng phần các kỳ chưa đóng còn phải trả. Số dư nhỏ hơn số này là quỹ bị hụt. */
+  reservedProfit(): Promise<bigint>;
+  /**
+   * Gửi lệnh tạo kỳ từ phần chưa phân bổ với nhãn `periodKey`, trả mã giao dịch NGAY (PENDING).
+   * Nhãn dùng một lần trên chuỗi: gửi lại cùng nhãn không thể tạo kỳ thứ hai. Kết quả kỳ đọc
+   * bằng `findDistribution`, kể cả khi mất biên nhận.
+   */
+  openDistribution(periodKey: string): Promise<TxResult>;
+  /** Kỳ đã tạo với nhãn `periodKey`; `null` khi chưa có. Không quét sự kiện. */
+  findDistribution(periodKey: string): Promise<ChainDistribution | null>;
+  distributionState(distributionId: number): Promise<ChainDistribution>;
+  /**
+   * Chia cho MỘT LÔ người nhận của kỳ `distributionId`.
    *
    * Adapter KHÔNG tự chia lô (BE-01 R5.3): kích thước lô phụ thuộc giới hạn tài
    * nguyên của từng chuỗi và phải đo thực tế, còn việc chạy lại lô lỗi cần trạng
    * thái trong cơ sở dữ liệu mà adapter không có. Tầng nghiệp vụ (BE-06) quyết định.
    *
-   * Ví lợi nhuận không đủ tiền cho cả lô -> thất bại TRƯỚC khi chuyển cho bất kỳ
-   * ai (R5.4).
+   * Kỳ đã đóng, đã hết hạn nhận, hoặc lô vượt phần còn lại của kỳ -> thất bại TRƯỚC khi chuyển
+   * cho bất kỳ ai (R5.4).
    */
-  distributeBatch(snapshotId: number, wallets: readonly string[]): Promise<TxResult>;
+  distributeBatch(distributionId: number, wallets: readonly string[]): Promise<TxResult>;
+  /** Ví đã nhận phần của kỳ trên chuỗi chưa (kể cả tự nhận). Căn cứ "đã trả" (QĐ-14). */
+  isDistributionPaid(distributionId: number, wallet: string): Promise<boolean>;
+  /** Đóng kỳ sau hạn nhận: phần chưa trả trở về quỹ chưa phân bổ, không chuyển tiền. */
+  closeDistribution(distributionId: number): Promise<TxResult>;
 }
 
 // =============================================================================
@@ -350,12 +401,24 @@ export function receiptTimeoutFor(chain: ChainKey): number {
 export class LedgerError extends Error {
   readonly chain: ChainKey;
   readonly operation: string;
+  /**
+   * `true` khi hợp đồng (hoặc mock, theo cùng luật) TỪ CHỐI lời gọi: giao dịch chắc chắn không
+   * có hiệu lực. `false` với lỗi chưa xác định (mất kết nối RPC, hết thời gian chờ), khi giao
+   * dịch có thể đã lên chuỗi. Nghiệp vụ cần phục hồi dựa vào cờ này (SC-06 QĐ-F).
+   */
+  readonly reverted: boolean;
 
-  constructor(chain: ChainKey, operation: string, message: string, options?: { cause?: unknown }) {
+  constructor(
+    chain: ChainKey,
+    operation: string,
+    message: string,
+    options?: { cause?: unknown; reverted?: boolean },
+  ) {
     super(message, options);
     this.name = 'LedgerError';
     this.chain = chain;
     this.operation = operation;
+    this.reverted = options?.reverted ?? false;
   }
 }
 

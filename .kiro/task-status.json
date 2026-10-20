@@ -36,7 +36,9 @@
     "SC-07",
     "SC-03"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "SC-06"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
@@ -57,7 +59,6 @@
     "SC-04",
     "SC-05",
     "OP-05",
-    "SC-06",
     "SC-08",
     "BE-18",
     "IN-03",
@@ -70,5 +71,9 @@
     "FE-22": "màn Lập lệnh (Giao dịch viên) và Phê duyệt lệnh (Kiểm soát viên)",
     "FE-23": "màn Rút VNDB của Nhà đầu tư",
     "FE-24": "màn Thông tin tài khoản dùng chung bốn vai"
+  },
+  "_mergedTasks": {
+    "_why": "Chủ dự án chốt 20/10/2026 (SC-06 CH-4): SC-05 gộp vào SC-06. SC-05 giữ trong danh sách cho tới khi SC-06 xong để marker cũ còn hợp lệ, rồi chuyển done cùng SC-06.",
+    "SC-05": "gộp vào SC-06: distributeBatch mang distributionId, gỡ @blocked SC-05"
   }
 }

@@ -3,6 +3,7 @@ import 'server-only';
 import type { ChainKey } from '@bidv/shared';
 import {
   LedgerNotImplementedError,
+  type ChainDistribution,
   type ILedgerPort,
   type SnapshotResult,
   type TokenInfo,
@@ -124,6 +125,28 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async distributeBatch(): Promise<TxResult> {
       return todoNeeds('distributeBatch', 'contract chia lợi nhuận bản Soroban');
     },
+    // SC-06: quỹ chia một chiều. Không trả 0 cho hàm đọc, cùng lý do ở đầu tệp.
+    async unallocatedProfit(): Promise<bigint> {
+      return todoNeeds('unallocatedProfit', 'contract chia lợi nhuận bản Soroban có sổ dự trữ');
+    },
+    async reservedProfit(): Promise<bigint> {
+      return todoNeeds('reservedProfit', 'contract chia lợi nhuận bản Soroban có sổ dự trữ');
+    },
+    async openDistribution(): Promise<TxResult> {
+      return todoNeeds('openDistribution', 'contract chia lợi nhuận bản Soroban');
+    },
+    async findDistribution(): Promise<ChainDistribution | null> {
+      return todoNeeds('findDistribution', 'contract chia lợi nhuận bản Soroban');
+    },
+    async distributionState(): Promise<ChainDistribution> {
+      return todoNeeds('distributionState', 'contract chia lợi nhuận bản Soroban');
+    },
+    async isDistributionPaid(): Promise<boolean> {
+      return todoNeeds('isDistributionPaid', 'contract chia lợi nhuận bản Soroban');
+    },
+    async closeDistribution(): Promise<TxResult> {
+      return todoNeeds('closeDistribution', 'contract chia lợi nhuận bản Soroban');
+    },
 
     // --- Tất toán ---
     async setSettlementMode(): Promise<TxResult> {
@@ -145,6 +168,13 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     },
     async vaultPeriodCloses() {
       return [];
+    },
+    // SC-06: không có vault thì không có kỳ nào để chốt; gửi chốt là lỗi gọi sai chain.
+    async closeVaultPeriod(): Promise<TxResult> {
+      return todoNeeds('closeVaultPeriod', 'vault thanh toán SPV bản Soroban');
+    },
+    async findVaultPeriodClose() {
+      return null;
     },
 
     // --- Đọc / giao dịch ---

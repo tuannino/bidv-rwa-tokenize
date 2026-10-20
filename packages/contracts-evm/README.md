@@ -8,7 +8,7 @@ Workspace token hóa dự án điện gió có chia lợi nhuận định kỳ (
 | `IdentityRegistry` | Sổ danh tính ERC-3643 PoC | đăng ký/xóa ví và mã quốc gia; `isVerified` |
 | `ModularCompliance` + `AllowAllModule` | Bộ luật chuyển nhượng ERC-3643 PoC | module hóa kiểm tra và action sau chuyển/mint/burn |
 | `VNDToken` (VNDB) | Token thanh toán VND | mint, burn, ERC-2612 permit |
-| `ProfitDistributor` | Tính & chia lợi nhuận định kỳ | createDistribution (chốt kỳ), previewClaim (tính), claim/claimMany/distributeTo (chia), sweepDust |
+| `ProfitDistributor` | Quỹ chia lợi nhuận một chiều (SC-06) | createDistributionFromPool (tạo kỳ từ phần chưa phân bổ, nhãn dùng một lần), distributionIdOfPeriod, unallocatedBalance/totalReserved, previewClaim, claim/claimMany/distributeTo (chia), closeDistribution (đóng kỳ, phần chưa trả về quỹ), createDistribution (kéo tiền, cho bản oracle) |
 | `EnergyOracle` | Oracle sản lượng điện → công thức lợi nhuận | submitReading (đa reporter xác nhận), distributableProfitVnd |
 | `ProfitDistributorOracle` | Chia lợi nhuận lấy số từ oracle | createDistributionFromOracle, previewDistributableFromOracle |
 | `Redemption` | Mua lại / hoàn vốn | redeem (đốt WPT đổi VND), setRate, pause, fund/withdraw |
@@ -22,7 +22,7 @@ Workspace token hóa dự án điện gió có chia lợi nhuận định kỳ (
 ```bash
 npm install
 npx hardhat compile     # biên dịch
-npx hardhat test        # hiện có 147 ca
+npx hardhat test        # hiện có 156 ca
 npx hardhat run scripts/demo-cycle.js    # demo chia lợi nhuận nhập tay
 npx hardhat run scripts/demo-oracle.js   # demo chia lợi nhuận lấy số từ oracle
 ```
@@ -49,6 +49,21 @@ VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localho
 VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-mode PERCENT
 VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- close-period 1 50000000
 VAULT_ADMIN_CONFIRM=yes npx hardhat run scripts/vault-admin.js --network localhost -- set-payout 0x...
+```
+
+⚠️ SC-06: ứng dụng tự đẩy số đã dành cho kỳ chia vào `closePeriod` khi mở kỳ (đúng một lần mỗi kỳ,
+đối soát sự kiện `PeriodClosed`). **Không dùng `close-period` khi luồng tự động đang chạy**: chốt chen
+vào mã kỳ ứng dụng đã giữ chỗ sẽ làm kỳ đó `CONFLICT` và chặn các kỳ sau.
+
+Đóng kỳ chia sau hạn nhận (SC-06): phần chưa trả trở về quỹ chưa phân bổ, không chuyển tiền đi đâu.
+
+```bash
+DISTRIBUTION_ADMIN_ACTION=status DISTRIBUTION_PERIOD_KEY=hardhat-local:2026-Q1 \
+  npx hardhat run scripts/distribution-admin.js --network localhost
+DISTRIBUTION_ADMIN_ACTION=close DISTRIBUTION_PERIOD_KEY=hardhat-local:2026-Q1 \
+  npx hardhat run scripts/distribution-admin.js --network localhost        # chỉ in kế hoạch
+DISTRIBUTION_ADMIN_CONFIRM=yes DISTRIBUTION_ADMIN_ACTION=close DISTRIBUTION_PERIOD_KEY=hardhat-local:2026-Q1 \
+  npx hardhat run scripts/distribution-admin.js --network localhost
 ```
 
 Trong PoC một khoá máy chủ giữ cả admin và withdrawer. `payoutWallet` chỉ ngăn nhập nhầm đích;
@@ -85,3 +100,9 @@ cùng nguồn với giá trị seed ứng dụng. `ProfitDistributor` lưu deadl
 Sepolia một lần theo `docs/TESTNET_SEPOLIA.md`, không đổi thứ tự bảy hợp đồng cũ. SC-07 thêm vault
 thứ tám, SC-03 thêm matcher thứ chín ở local; OP-05 sẽ triển khai lại bộ `evm`, Mint đầu vào vault,
 cấu hình vault và xác nhận giá khớp lệnh.
+
+SC-06: `ProfitDistributor` thêm sổ dự trữ `totalReserved`, `unallocatedBalance()`,
+`createDistributionFromPool(period)` (nhãn dùng một lần, `distributionIdOfPeriod`) và
+`closeDistribution(id)` thay `sweepDust`: không còn đường rút tiền khỏi quỹ, chỉ `claim`/`distributeTo`
+chuyển VNDB cho người được chia. Bytecode đổi, thứ tự triển khai không đổi nên địa chỉ hardhat-local
+không đổi; Sepolia triển khai lại ở OP-05. `verify-deployment.js` kiểm `totalReserved() == 0`.

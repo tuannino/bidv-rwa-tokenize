@@ -10,6 +10,8 @@ import {
   type DistributionPeriodStatus,
   type IDistributionStore,
   type NewDistributionPeriod,
+  type VaultCloseStatus,
+  assertVaultCloseStatus,
 } from './distribution.store.port';
 import { pgQuery, type PgQuery } from './postgres.pool';
 import {
@@ -37,6 +39,12 @@ interface PeriodRow {
   chain: string;
   openedAt: Date;
   completedAt: Date | null;
+  distributorAddress: string | null;
+  distributionId: number | null;
+  openTxHash: string | null;
+  vaultPeriodRef: number | null;
+  vaultCloseStatus: string | null;
+  vaultCloseTxHash: string | null;
 }
 
 const toPeriod = (row: PeriodRow): DistributionPeriodRecord => ({
@@ -49,6 +57,12 @@ const toPeriod = (row: PeriodRow): DistributionPeriodRecord => ({
   chain: row.chain as ChainKey,
   openedAt: row.openedAt.toISOString(),
   completedAt: row.completedAt?.toISOString() ?? null,
+  distributorAddress: row.distributorAddress,
+  distributionId: row.distributionId,
+  openTxHash: row.openTxHash,
+  vaultPeriodRef: row.vaultPeriodRef,
+  vaultCloseStatus: row.vaultCloseStatus as VaultCloseStatus | null,
+  vaultCloseTxHash: row.vaultCloseTxHash,
 });
 
 interface PayoutRow {
@@ -99,6 +113,96 @@ export function createPostgresDistributionStore(query: PgQuery = pgQuery): IDist
         ),
       );
       return toPeriod(rows[0]);
+    },
+
+    async reservePeriod({ periodKey, chain }) {
+      const rows = await mapPgConstraintError(() =>
+        query<PeriodRow>(
+          `INSERT INTO "DistributionPeriod"
+             ("id","periodKey","snapshotId","totalAmount","totalSupplyAt","status","chain")
+           VALUES (gen_random_uuid()::text,$1,0,0,0,'OPENING',$2)
+           RETURNING *`,
+          [periodKey, chain],
+        ),
+      );
+      return toPeriod(rows[0]);
+    },
+
+    async setOpenTxHash({ id, openTxHash }) {
+      const rows = await query<PeriodRow>(
+        `UPDATE "DistributionPeriod" SET "openTxHash" = $2
+          WHERE "id" = $1 AND "status" = 'OPENING' RETURNING *`,
+        [id, openTxHash],
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
+    },
+
+    async completeOpening(input) {
+      const rows = await query<PeriodRow>(
+        `UPDATE "DistributionPeriod"
+            SET "status" = 'OPEN', "distributionId" = $2, "distributorAddress" = $3,
+                "snapshotId" = $4, "totalAmount" = $5, "totalSupplyAt" = $6
+          WHERE "id" = $1 AND "status" = 'OPENING'
+          RETURNING *`,
+        [
+          input.id,
+          input.distributionId,
+          input.distributorAddress,
+          assertSnapshotId(input.snapshotId),
+          assertAmount('totalAmount', input.totalAmount),
+          assertAmount('totalSupplyAt', input.totalSupplyAt),
+        ],
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
+    },
+
+    async deleteOpeningPeriod(id) {
+      const rows = await query<{ id: string }>(
+        `DELETE FROM "DistributionPeriod" WHERE "id" = $1 AND "status" = 'OPENING' RETURNING "id"`,
+        [id],
+      );
+      return rows.length > 0;
+    },
+
+    async reserveVaultClose({ id, vaultPeriodRef }) {
+      // Một câu UPDATE: điều kiện thứ tự và điều kiện "chưa giữ chỗ" cùng được kiểm nguyên tử.
+      const rows = await query<PeriodRow>(
+        `UPDATE "DistributionPeriod" p
+            SET "vaultPeriodRef" = $2, "vaultCloseStatus" = 'PENDING'
+          WHERE p."id" = $1
+            AND p."vaultCloseStatus" IS NULL
+            AND p."distributionId" IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM "DistributionPeriod" q
+               WHERE q."chain" = p."chain"
+                 AND q."id" <> p."id"
+                 AND q."distributionId" IS NOT NULL
+                 AND (q."openedAt" < p."openedAt" OR (q."openedAt" = p."openedAt" AND q."id" < p."id"))
+                 AND q."vaultCloseStatus" IS DISTINCT FROM 'DONE'
+            )
+          RETURNING *`,
+        [id, vaultPeriodRef],
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
+    },
+
+    async transitionVaultClose({ id, from, to, expectedTxHash, txHash }) {
+      const params: unknown[] = [id, from, assertVaultCloseStatus(to)];
+      const sets = ['"vaultCloseStatus" = $3'];
+      const where = ['"id" = $1', '"vaultCloseStatus" = $2'];
+      if (txHash !== undefined) {
+        params.push(txHash);
+        sets.push(`"vaultCloseTxHash" = $${params.length}`);
+      }
+      if (expectedTxHash !== undefined) {
+        params.push(expectedTxHash);
+        where.push(`"vaultCloseTxHash" IS NOT DISTINCT FROM $${params.length}::text`);
+      }
+      const rows = await query<PeriodRow>(
+        `UPDATE "DistributionPeriod" SET ${sets.join(', ')} WHERE ${where.join(' AND ')} RETURNING *`,
+        params,
+      );
+      return rows[0] ? toPeriod(rows[0]) : null;
     },
 
     async findPeriod(id) {

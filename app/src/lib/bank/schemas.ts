@@ -213,17 +213,18 @@ export type ExpireOrdersInput = z.input<typeof expireOrdersSchema>;
  *
  * Ràng buộc bộ ký tự là có giá trị thật, không phải làm cho có: mã kỳ đi vào `target` của sổ kiểm
  * toán và vào thông báo lỗi hiển thị cho người dùng, nên một mã chứa ký tự điều khiển hay dấu
- * `|` sẽ làm lệch bảng trong báo cáo và mở đường cho chuỗi lạ đi qua nhật ký. Cho phép chữ, số
- * và ba dấu nối là đủ cho mọi cách đặt tên kỳ (`2026-Q1`, `2026_06`, `thang.06`).
+ * `|` sẽ làm lệch bảng trong báo cáo và mở đường cho chuỗi lạ đi qua nhật ký. Cho phép chữ, số,
+ * ba dấu nối và dấu `:` của tiền tố chain (SC-06 CH-6) là đủ cho mọi cách đặt tên kỳ
+ * (`mock:2026-Q1`, `evm:2026_06`, `thang.06`). Dấu `#` của khoá vòng chạy BE-07 vẫn bị cấm.
  *
- * KHÔNG `export`: chỉ hai schema trong cùng tệp này dùng tới.
+ * KHÔNG `export`: chỉ các schema trong cùng tệp này dùng tới.
  */
 const periodKeySchema = z
   .string()
   .trim()
   .min(1, 'Mã kỳ không được rỗng.')
-  .max(40, 'Mã kỳ tối đa 40 ký tự.')
-  .regex(/^[A-Za-z0-9._-]+$/, 'Mã kỳ chỉ gồm chữ, số và các dấu . _ -');
+  .max(64, 'Mã kỳ tối đa 64 ký tự.')
+  .regex(/^[A-Za-z0-9._:-]+$/, 'Mã kỳ chỉ gồm chữ, số và các dấu . _ - :');
 
 /**
  * Mã kỳ chia trong cơ sở dữ liệu: UUID.
@@ -232,11 +233,24 @@ const periodKeySchema = z
  */
 const periodIdSchema = z.string().trim().pipe(z.uuid('Mã kỳ chia phải là UUID.'));
 
-/** Mở kỳ chia. KHÔNG có trường số tiền: tổng tiền đọc từ ví chia lợi nhuận trên chuỗi. */
-export const openPeriodSchema = z.object({
-  chain: chainSchema,
-  periodKey: periodKeySchema,
-});
+/**
+ * Mở kỳ chia. KHÔNG có trường số tiền: tổng tiền do chuỗi chốt bằng phần chưa phân bổ của quỹ.
+ *
+ * SC-06 CH-6: mã kỳ MỚI bắt buộc tiền tố chain (`<chain>:`), ví dụ `mock:2026-Q1`. Nhãn đi lên
+ * chuỗi nên tự phân biệt chain, và khoá vòng chạy BE-07 không phải đổi. Kỳ cũ không tiền tố vẫn
+ * đọc được qua `distributionPeriodQuerySchema`.
+ */
+export const openPeriodSchema = z
+  .object({
+    chain: chainSchema,
+    periodKey: periodKeySchema,
+  })
+  .refine(
+    (value) =>
+      value.periodKey.startsWith(`${value.chain}:`) &&
+      value.periodKey.length > value.chain.length + 1,
+    { message: 'Mã kỳ mới phải có tiền tố chain, ví dụ "mock:2026-Q1".', path: ['periodKey'] },
+  );
 export type OpenPeriodInput = z.input<typeof openPeriodSchema>;
 
 /**

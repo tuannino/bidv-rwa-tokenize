@@ -175,9 +175,11 @@ model PurchaseOrder {
 /// phép chia trong kỳ, giữ nó cạnh `snapshotId` để hồ sơ đã chốt không đổi theo chuỗi.
 model DistributionPeriod {
   id            String               @id @default(uuid())
-  /// Mã kỳ do nghiệp vụ đặt, ví dụ "2026-Q1". DUY NHẤT toàn hệ.
+  /// Mã kỳ do nghiệp vụ đặt. Kỳ mới từ SC-06 có tiền tố chain, ví dụ "mock:2026-Q1".
+  /// DUY NHẤT toàn hệ.
   periodKey     String               @unique
   /// Mã ảnh chụp trên chuỗi. Int vì mã snapshot là số đếm nhỏ, không phải uint256.
+  /// Kỳ `OPENING` (đang mở trên chuỗi) ghi 0 cho tới khi đọc được kỳ từ chuỗi.
   snapshotId    Int
   /// Tổng VNDB của kỳ.
   totalAmount   Decimal              @db.Decimal(78, 0)
@@ -190,6 +192,17 @@ model DistributionPeriod {
   /// Thời điểm chốt quyền.
   openedAt      DateTime             @default(now()) @db.Timestamptz(3)
   completedAt   DateTime?            @db.Timestamptz(3)
+  /// SC-06: địa chỉ ProfitDistributor giữ kỳ này; đọc kỳ bằng hợp đồng khác thì từ chối.
+  distributorAddress String?
+  /// SC-06: mã kỳ trên chuỗi (`distributions(id)`), tra bằng `findDistribution(periodKey)`.
+  distributionId     Int?
+  /// SC-06: mã giao dịch mở kỳ, lưu TRƯỚC khi chờ biên nhận để phục hồi được.
+  openTxHash         String?
+  /// SC-06 QĐ-G: mã kỳ vault đã giữ chỗ; retry dùng lại đúng số này.
+  vaultPeriodRef     Int?
+  /// SC-06 QĐ-G: PENDING | SENT | DONE | CONFLICT; rỗng = chưa đẩy số đã chia vào vault.
+  vaultCloseStatus   String?
+  vaultCloseTxHash   String?
   payouts       DistributionPayout[]
 
   @@index([status, openedAt])

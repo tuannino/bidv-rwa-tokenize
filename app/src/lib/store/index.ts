@@ -72,6 +72,8 @@ export {
   type IDistributionStore,
   type NewDistributionPayout,
   type NewDistributionPeriod,
+  VAULT_CLOSE_STATUSES,
+  type VaultCloseStatus,
 } from './distribution.store.port';
 
 export {

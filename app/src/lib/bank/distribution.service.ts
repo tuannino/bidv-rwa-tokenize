@@ -1,7 +1,14 @@
 import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
-import { getLedger, receiptTimeoutFor, type ILedgerPort } from '@/lib/ledger';
+import {
+  getLedger,
+  LedgerError,
+  receiptTimeoutFor,
+  type ChainDistribution,
+  type ILedgerPort,
+  type TxResult,
+} from '@/lib/ledger';
 import { assertCan, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
 import {
@@ -30,6 +37,7 @@ import {
   distributionPeriodSchema,
   openPeriodSchema,
 } from './schemas';
+import type { ErrorCode } from './result';
 
 /**
  * Nghiệp vụ CHIA LỢI NHUẬN theo sản lượng.
@@ -75,6 +83,16 @@ import {
  */
 export const MAX_RECIPIENT_SCAN = 5_000;
 
+/**
+ * Chờ biên nhận NGẮN khi đối soát lại một giao dịch đã gửi ở lượt trước: chỉ cần biết nó đã
+ * xong hay còn treo, không chờ nó vào khối. Treo thì để lượt sau, không gửi chồng.
+ */
+const RECHECK_RECEIPT_TIMEOUT_MS = 1_000;
+
+/** Kỳ còn hồ sơ phải chi: hồ sơ `EXPIRED` không còn gì để chi (phần đó đã về quỹ). */
+const isPayable = (row: { status: DistributionPayoutStatus }) =>
+  row.status !== 'PAID' && row.status !== 'EXPIRED';
+
 // =============================================================================
 //  KHUNG NHÌN
 // =============================================================================
@@ -94,6 +112,11 @@ export interface DistributionPeriodView {
   status: DistributionPeriodRecord['status'];
   openedAt: string;
   completedAt: string | null;
+  /** SC-06: mã kỳ trên chuỗi; `null` với kỳ trước SC-06 hoặc đang `OPENING`. */
+  distributionId: number | null;
+  /** SC-06 QĐ-G: trạng thái đẩy số đã chia vào vault; `null` = chưa đẩy hoặc chain không có vault. */
+  vaultCloseStatus: DistributionPeriodRecord['vaultCloseStatus'];
+  vaultPeriodRef: number | null;
 }
 
 /** Phần chia của MỘT ví, chốt theo ảnh chụp của kỳ. */
@@ -137,7 +160,11 @@ export interface DistributionRunView {
   failed: number;
   /** Số hồ sơ được chia 0 nên không cần giao dịch nào. */
   zero: number;
-  /** Hồ sơ chưa tới `PAID` SAU lần chạy này. `0` nghĩa là kỳ đã hoàn tất. */
+  /** SC-06: số hồ sơ chốt `PAID` nhờ đối soát từ chuỗi (tự nhận, lô đã lên chuỗi mà chưa ghi). */
+  reconciled: number;
+  /** SC-06: số hồ sơ chuyển `EXPIRED` trong lần chạy này vì kỳ hết hạn hoặc đã đóng. */
+  expired: number;
+  /** Hồ sơ còn phải chi SAU lần chạy này (không tính `PAID`, `EXPIRED`). `0` = kỳ đã kết thúc. */
   outstanding: number;
   /** Tổng VNDB đã chi của CẢ KỲ, không chỉ của lần chạy này. */
   paidAmount: string;
@@ -170,6 +197,9 @@ function toPeriodView(period: DistributionPeriodRecord): DistributionPeriodView 
     status: period.status,
     openedAt: period.openedAt,
     completedAt: period.completedAt,
+    distributionId: period.distributionId,
+    vaultCloseStatus: period.vaultCloseStatus,
+    vaultPeriodRef: period.vaultPeriodRef,
   };
 }
 
@@ -225,21 +255,17 @@ function sumAmount(rows: readonly { amount: string }[]): bigint {
 /**
  * Câu mô tả phần dư, dùng cho cả khung nhìn xem trước và bản ghi kiểm toán.
  *
- * ⚠️ GIỚI HẠN ĐÃ BIẾT, đọc trước khi sửa: phần dư **chưa thật sự chuyển** cho ví chỉ định.
- * `distributeBatch` tự tính phần từng ví nên tầng nghiệp vụ không có đường nào bảo nó trả thêm
- * cho một ví; phần dư nằm lại trong ví chia lợi nhuận, và hàm lấy nó ra (`sweepDust` của
- * contract) chưa có trong `ILedgerPort`.
- *
- * Vì vậy ở đây chỉ GHI NHẬN phần dư và đích của nó, không cộng vào `amount` của ví nào. Cộng vào
- * sẽ làm sổ ghi một số lớn hơn số chuỗi chuyển — loại lệch tệ nhất, vì cả hai con số đều tự nhận
- * là đúng. Đã ghi thành câu hỏi mở trong checkpoint BE-06.
+ * Phần dư do phép chia lấy phần nguyên ở lại DỰ TRỮ của kỳ trên chuỗi; khi kỳ đóng sau hạn nhận
+ * (`closeDistribution`), nó trở về quỹ chưa phân bổ và được chia ở kỳ sau (SC-06 QĐ-28). Không có
+ * đường chuyển phần dư cho ví nào, nên ở đây chỉ GHI NHẬN, không cộng vào `amount` của ví nào.
+ * `dustWallet` giữ để hiển thị cấu hình cũ, không còn là đích chuyển tiền.
  */
 function dustNote(dust: bigint, dustWallet: string | null): string {
   if (dust === 0n) return 'không có phần dư';
-  return dustWallet
-    ? `phần dư ${dust} VNDB ghi nhận cho ví ${dustWallet}, hiện còn trong ví chia lợi nhuận ` +
-        `(chưa có hàm quét phần dư ở ILedgerPort)`
-    : `phần dư ${dust} VNDB giữ lại trong ví chia lợi nhuận (chưa cấu hình ví nhận phần dư)`;
+  return (
+    `phần dư ${dust} VNDB ở lại dự trữ của kỳ, về quỹ chưa phân bổ khi đóng kỳ` +
+    (dustWallet ? ` (ví nhận phần dư cấu hình ${dustWallet} không còn được chuyển tới)` : '')
+  );
 }
 
 // =============================================================================
@@ -266,9 +292,16 @@ interface Recipients {
  * CHÍNH XÁC, nên `0xAb…` và `0xab…` lọt được thành hai hồ sơ cho cùng một ví; còn hạ hết về chữ
  * thường thì sai địa chỉ Stellar (base32 CHỮ HOA).
  *
- * @flow distribute:5 | dựng danh sách người nhận từ cơ sở dữ liệu vì chuỗi không liệt kê được người nắm giữ
+ * SC-06 (CH-3, QĐ-12): cộng thêm ví SPV (`spvWallet()`, trên EVM chính là vault thanh toán) ở mọi
+ * chain, để phần của WPT chưa bán được chia vào vault.
+ *
+ * GIỚI HẠN ĐÃ BIẾT: ví nhận WPT bằng chuyển trực tiếp mà chưa từng mua hay nhận chia có thể bị bỏ
+ * sót. Phần của ví đó nằm trong dự trữ của kỳ tới khi kỳ đóng rồi về quỹ chưa phân bổ. Indexer
+ * (IN-01) sẽ đóng giới hạn này.
+ *
+ * @flow distribute:5 | dựng danh sách người nhận từ cơ sở dữ liệu cộng ví SPV vì chuỗi không liệt kê được người nắm giữ
  */
-async function collectRecipients(chain: ChainKey): Promise<Recipients> {
+async function collectRecipients(chain: ChainKey, ledger: ILedgerPort): Promise<Recipients> {
   const seen = new Map<string, string>();
   let truncated = false;
 
@@ -300,6 +333,10 @@ async function collectRecipients(chain: ChainKey): Promise<Recipients> {
     if (payouts.length >= MAX_RECIPIENT_SCAN) truncated = true;
     for (const payout of payouts) add(payout.investorWallet);
   }
+
+  // --- Nguồn 3: ví SPV (vault) giữ WPT chưa bán ------------------------------
+  const spv = await ledger.spvWallet();
+  if (spv) add(spv);
 
   return { wallets: [...seen.values()], truncated };
 }
@@ -349,24 +386,180 @@ function isPeriod(
 }
 
 // =============================================================================
-//  B1 — MỞ KỲ: chốt quyền
+//  B1: MỞ KỲ: giữ chỗ, mở trên chuỗi, phục hồi (SC-06 QĐ-F)
 // =============================================================================
 
+/** Những thứ mọi bước mở kỳ và đẩy vault cùng dùng, gom lại để không truyền năm tham số. */
+interface ChainContext {
+  chain: ChainKey;
+  ledger: ILedgerPort;
+  store: IDistributionStore;
+  txnStore: ITxnStore;
+  role: Role;
+}
+
+async function auditOpening(
+  ctx: ChainContext,
+  periodKey: string,
+  outcome: 'SUCCESS' | 'FAILURE',
+  detail: string,
+): Promise<void> {
+  await ctx.txnStore.appendAudit({
+    actorRole: ctx.role,
+    action: 'distribution:snapshot',
+    target: periodKey,
+    outcome,
+    detail,
+    chain: ctx.chain,
+  });
+}
+
+/** Mã lỗi cho một lần chuỗi từ chối mở kỳ: tiền và tổng cung có mã riêng như trước SC-06. */
+function openRejectedCode(error: LedgerError): ErrorCode {
+  if (/phần chưa phân bổ/.test(error.message)) return 'INSUFFICIENT_PROFIT_POOL';
+  if (/Tổng cung WPT/.test(error.message)) return 'NO_CIRCULATING_SUPPLY';
+  return 'PERIOD_STATE';
+}
+
 /**
- * Mở một kỳ chia: chốt số dư ví lợi nhuận, chụp ảnh số dư WPT, lưu kỳ ở `OPEN`.
+ * Ghi kỳ `OPEN` bằng số liệu ĐỌC TỪ CHUỖI rồi đẩy số đã chia vào vault (QĐ-G).
  *
- * ## Thứ tự các bước là phần quan trọng nhất của hàm này
+ * `completeOpening` là cập nhật có điều kiện: tiến trình khác đã hoàn tất trước thì không ghi
+ * đè, đọc lại bản đã ghi. Lỗi ở bước vault KHÔNG huỷ kỳ: kỳ vẫn chia được, BE-07 thử lại.
+ */
+async function finishOpening(
+  ctx: ChainContext,
+  period: DistributionPeriodRecord,
+  found: ChainDistribution,
+  how: string,
+): Promise<DistributionPeriodRecord> {
+  const completed =
+    (await ctx.store.completeOpening({
+      id: period.id,
+      distributionId: found.distributionId,
+      distributorAddress: found.distributor,
+      snapshotId: found.snapshotId,
+      totalAmount: found.amount.toString(),
+      totalSupplyAt: found.totalSupplyAt.toString(),
+    })) ??
+    (await ctx.store.findPeriod(period.id)) ??
+    period;
+
+  await auditOpening(
+    ctx,
+    period.periodKey,
+    'SUCCESS',
+    `mở kỳ ${period.id} (${how}): kỳ trên chuỗi ${found.distributionId} của ${found.distributor}, ` +
+      `snapshot ${found.snapshotId}, tổng tiền ${found.amount} VNDB, tổng cung ${found.totalSupplyAt} WPT`,
+  );
+
+  try {
+    await syncVaultClose(ctx, completed);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
+    await auditOpening(ctx, period.periodKey, 'FAILURE', `đẩy số đã chia vào vault chưa xong: ${reason}`);
+  }
+  return (await ctx.store.findPeriod(completed.id)) ?? completed;
+}
+
+/**
+ * Đưa một kỳ `OPENING` tới `OPEN`, hoặc bỏ bản giữ chỗ khi chuỗi CHẮC CHẮN từ chối.
  *
- * `takeSnapshot` là một lần GHI lên chuỗi, còn ba phép kiểm trước nó đều là đọc. Vì vậy mọi phép
- * kiểm chạy TRƯỚC — một mã kỳ trùng không được làm tốn một ảnh chụp trên chuỗi.
+ * Mọi nhánh đều tra `findDistribution(periodKey)` trước khi kết luận: nhãn kỳ dùng một lần trên
+ * chuỗi, nên kỳ đã lên chuỗi (kể cả bởi một lần gửi trước mà ta mất biên nhận) luôn tra được, và
+ * gửi lại cùng nhãn không thể tạo kỳ thứ hai.
  *
- * Phép kiểm "mã kỳ đã tồn tại" có ở CẢ HAI chỗ: một lần đọc ở đây, và ràng buộc duy nhất
- * `periodKey` ở cơ sở dữ liệu. Không phải làm hai lần cho chắc — hai chỗ trả lời hai câu hỏi
- * khác nhau. Lần đọc ở đây tránh tốn ảnh chụp cho một lời gọi chắc chắn trượt; ràng buộc mới là
- * thứ BẢO ĐẢM không có hai kỳ cùng mã, vì hai tiến trình song song đều đọc thấy "chưa có" rồi
- * cùng ghi. Bỏ ràng buộc và chỉ giữ lần đọc là đúng cái sai mà doc của cổng cảnh báo.
+ * - `recover`: đã có trên chuỗi thì chỉ hoàn tất, không gửi gì; chưa có thì gửi lại.
+ * - Không có và giao dịch chắc chắn revert: XOÁ bản giữ chỗ (chọn xoá, không thêm trạng thái lỗi:
+ *   mã kỳ được dùng lại khi đủ điều kiện, và sổ kiểm toán đã ghi lần thất bại).
+ * - Không có và chưa xác định (hết thời gian chờ, lỗi RPC): GIỮ `OPENING`, trả lỗi.
  *
- * @flow distribute:2 | kiểm quyền distribution:snapshot, kiểm mã kỳ và quỹ rồi mới chốt quyền, lưu kỳ ở OPEN
+ * @flow distribute:15 | mở kỳ trên chuỗi bằng nhãn dùng một lần, lưu mã giao dịch trước khi chờ, tra kỳ trên chuỗi để hoàn tất hoặc phục hồi
+ */
+async function driveOpening(
+  ctx: ChainContext,
+  period: DistributionPeriodRecord,
+  mode: 'send' | 'recover',
+): Promise<Result<DistributionPeriodRecord>> {
+  const { chain, ledger, store, txnStore } = ctx;
+  const key = period.periodKey;
+
+  if (mode === 'recover') {
+    const existing = await ledger.findDistribution(key);
+    if (existing) return ok(await finishOpening(ctx, period, existing, 'phục hồi từ chuỗi'));
+  }
+
+  let tx: TxResult;
+  try {
+    tx = await ledger.openDistribution(key);
+  } catch (error) {
+    const found = await ledger.findDistribution(key);
+    if (found) return ok(await finishOpening(ctx, period, found, 'kỳ đã có trên chuỗi'));
+    if (error instanceof LedgerError && error.reverted) {
+      await store.deleteOpeningPeriod(period.id);
+      const reason =
+        `Chuỗi từ chối mở kỳ "${key}": ${error.message} Đã bỏ bản giữ chỗ; mã kỳ dùng lại được ` +
+        `khi đủ điều kiện.`;
+      await auditOpening(ctx, key, 'FAILURE', reason);
+      return err(openRejectedCode(error), reason);
+    }
+    const reason =
+      `Chưa xác định được kỳ "${key}" đã lên chuỗi hay chưa (${
+        error instanceof Error ? error.message : 'lỗi không xác định'
+      }). Giữ kỳ ở OPENING; phục hồi bằng recoverOpeningPeriod hoặc vòng sau của tiến trình tự động.`;
+    await auditOpening(ctx, key, 'FAILURE', reason);
+    return err('PERIOD_STATE', reason);
+  }
+
+  // Mã giao dịch vào sổ NGAY KHI CÓ, trước khi chờ biên nhận.
+  await store.setOpenTxHash({ id: period.id, openTxHash: tx.txHash });
+  const savedTxn = await txnStore.saveTxn({
+    chain,
+    operation: 'distribution-open',
+    txHash: tx.txHash,
+    status: tx.status,
+    fromWallet: null,
+    toWallet: null,
+    amount: null,
+    reason: `mở kỳ chia ${key} từ phần chưa phân bổ`,
+    actorRole: ctx.role,
+    actorAddress: null,
+  });
+  const receipt = await ledger.waitReceipt(tx.txHash, receiptTimeoutFor(chain));
+  await txnStore.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
+
+  const found = await ledger.findDistribution(key);
+  if (found) return ok(await finishOpening(ctx, period, found, `tx ${tx.txHash}`));
+
+  if (receipt.status === 'FAILED') {
+    await store.deleteOpeningPeriod(period.id);
+    const reason =
+      `Giao dịch mở kỳ "${key}" bị revert (${tx.txHash}) và chuỗi không có kỳ mang nhãn này. ` +
+      `Đã bỏ bản giữ chỗ.`;
+    await auditOpening(ctx, key, 'FAILURE', reason);
+    return err('PERIOD_STATE', reason);
+  }
+  const reason =
+    `Kỳ "${key}" đang mở trên chuỗi (tx ${tx.txHash}, ${receipt.status}) nhưng chưa đọc được kỳ. ` +
+    `Giữ OPENING; phục hồi bằng recoverOpeningPeriod hoặc vòng sau của tiến trình tự động.`;
+  await auditOpening(ctx, key, 'FAILURE', reason);
+  return err('PERIOD_STATE', reason);
+}
+
+/**
+ * Mở một kỳ chia: giữ chỗ mã kỳ, gửi `openDistribution`, ghi kỳ `OPEN` bằng số trên chuỗi.
+ *
+ * ## Thứ tự các bước
+ *
+ * Mọi phép kiểm ĐỌC chạy trước lần ghi đầu tiên: mã kỳ trùng, quỹ chưa phân bổ bằng 0, tổng cung
+ * bằng 0 không tốn giao dịch nào. Rồi GIỮ CHỖ ở cơ sở dữ liệu (`OPENING`): ràng buộc duy nhất
+ * `periodKey` là trọng tài giữa hai tiến trình cùng mở một mã, nên chỉ một bên gửi giao dịch.
+ *
+ * Số tiền của kỳ KHÔNG do tệp này đọc rồi ghi: hợp đồng chốt nó bằng phần chưa phân bổ ngay
+ * trong giao dịch, và tệp này đọc lại từ chuỗi (`findDistribution`). Phép kiểm "quỹ đổi lúc
+ * chốt" của BE-06 vì vậy không còn cần.
+ *
+ * @flow distribute:2 | kiểm quyền distribution:snapshot, kiểm mã kỳ và quỹ chưa phân bổ, giữ chỗ OPENING rồi mở trên chuỗi
  */
 export async function openPeriod(input: unknown): Promise<Result<DistributionPeriodView>> {
   const parsed = openPeriodSchema.safeParse(input);
@@ -376,127 +569,302 @@ export async function openPeriod(input: unknown): Promise<Result<DistributionPer
   const { chain, periodKey } = parsed.data;
 
   const txnStore = getStore();
-  const distributionStore = getDistributionStore();
+  const store = getDistributionStore();
 
   try {
     // `authorize` ghi sổ kiểm toán cho CẢ hai kết cục rồi mới ném.
     const role = await authorize('distribution:snapshot', periodKey, chain);
     const ledger = getLedger(chain);
-
-    const auditFailure = async (detail: string) => {
-      await txnStore.appendAudit({
-        actorRole: role,
-        action: 'distribution:snapshot',
-        target: periodKey,
-        outcome: 'FAILURE',
-        detail,
-        chain,
-      });
-    };
+    const ctx: ChainContext = { chain, ledger, store, txnStore, role };
 
     // --- 1. Mã kỳ đã dùng chưa (đọc; chưa chạm chuỗi) ------------------------
-    if (await distributionStore.findPeriodByKey(periodKey)) {
-      const reason = `Kỳ "${periodKey}" đã được mở. Mỗi mã kỳ chỉ mở được một lần.`;
-      await auditFailure(reason);
+    const existing = await store.findPeriodByKey(periodKey);
+    if (existing) {
+      const reason =
+        existing.status === 'OPENING'
+          ? `Kỳ "${periodKey}" đang mở trên chuỗi; dùng recoverOpeningPeriod để hoàn tất.`
+          : `Kỳ "${periodKey}" đã được mở. Mỗi mã kỳ chỉ mở được một lần.`;
+      await auditOpening(ctx, periodKey, 'FAILURE', reason);
       return err('PERIOD_STATE', reason);
     }
 
-    // --- 2. Ví chia lợi nhuận có tiền chưa (đọc) -----------------------------
-    const poolBefore = await ledger.profitPoolBalance();
-    if (poolBefore === 0n) {
+    // --- 2. Quỹ có phần chưa phân bổ không (đọc) -----------------------------
+    // Phần kỳ trước còn nợ KHÔNG tính: nó đã thuộc kỳ trước (QĐ-A).
+    if ((await ledger.unallocatedProfit()) === 0n) {
       const reason =
-        `Ví chia lợi nhuận không có VNDB nào nên không mở được kỳ "${periodKey}". ` +
-        `SPV phải nạp tiền vào ví chia lợi nhuận trước khi chốt quyền.`;
-      await auditFailure(reason);
+        `Quỹ chia lợi nhuận không có VNDB chưa phân bổ nên không mở được kỳ "${periodKey}" ` +
+        `(phần các kỳ trước còn nợ không tính). SPV phải nạp VNDB vào quỹ trước khi mở kỳ.`;
+      await auditOpening(ctx, periodKey, 'FAILURE', reason);
       return err('INSUFFICIENT_PROFIT_POOL', reason);
     }
 
-    // --- 3. CHỐT QUYỀN: từ đây đã ghi lên chuỗi ------------------------------
-    // Mã ảnh chụp lấy từ sự kiện trong biên nhận, do adapter bóc ra. KHÔNG tự tăng số đếm và
-    // KHÔNG gọi lại hàm đọc mã hiện tại: một ảnh chụp của tiến trình khác chen vào giữa hai lời
-    // gọi là lấy về mã của họ, rồi chia lợi nhuận theo ảnh chụp sai.
-    const snapshot = await ledger.takeSnapshot();
-
-    await txnStore.saveTxn({
-      chain,
-      operation: 'snapshot',
-      txHash: snapshot.tx.txHash,
-      status: snapshot.tx.status,
-      fromWallet: null,
-      toWallet: null,
-      amount: null,
-      reason: `chốt quyền kỳ ${periodKey}, snapshot ${snapshot.snapshotId}`,
-      actorRole: role,
-      actorAddress: null,
-    });
-
-    // --- 4. Quỹ có đổi trong lúc chốt không ----------------------------------
-    /**
-     * Contract CHỐT số tiền chia được ngay tại lời gọi chụp ảnh, và `ILedgerPort` không có hàm
-     * đọc lại con số đã chốt đó. Nên `totalAmount` ở đây là số ta đọc được TRƯỚC khi chụp, và nó
-     * chỉ đúng khi quỹ không đổi giữa hai thời điểm.
-     *
-     * Đọc lại và so là cách duy nhất phát hiện được việc đó. Lệch thì TỪ CHỐI mở kỳ: ghi một
-     * `totalAmount` khác con số contract đã chốt sẽ làm MỌI phần chia trong sổ sai lệch, và không
-     * phép kiểm nào về sau bắt được. Đổi lại là một ảnh chụp bỏ không — giá rẻ hơn hẳn.
-     */
-    const poolAfter = await ledger.profitPoolBalance();
-    if (poolAfter !== poolBefore) {
+    // --- 3. Có ai đang nắm WPT không (đọc) -----------------------------------
+    if ((await ledger.tokenInfo()).totalSupply === 0n) {
       const reason =
-        `Số dư ví chia lợi nhuận đổi từ ${poolBefore} sang ${poolAfter} VNDB ngay trong lúc chốt ` +
-        `quyền, nên không xác định được contract đã chốt con số nào. Ảnh chụp ${snapshot.snapshotId} ` +
-        `bỏ không; dừng nạp/rút ví lợi nhuận rồi mở kỳ lại.`;
-      await auditFailure(reason);
-      return err('PERIOD_STATE', reason);
-    }
-
-    // --- 5. Có ai đang nắm WPT không ----------------------------------------
-    const totalSupplyAt = await ledger.totalSupplyAt(snapshot.snapshotId);
-    if (totalSupplyAt === 0n) {
-      const reason =
-        `Tổng cung WPT tại ảnh chụp ${snapshot.snapshotId} bằng 0 — không có quyền nào để chia, ` +
-        `nên kỳ "${periodKey}" không được mở. Phát hành nguồn cung và bán cho nhà đầu tư trước.`;
-      await auditFailure(reason);
+        `Tổng cung WPT bằng 0: không có quyền nào để chia, nên kỳ "${periodKey}" không được mở. ` +
+        `Phát hành nguồn cung và bán cho nhà đầu tư trước.`;
+      await auditOpening(ctx, periodKey, 'FAILURE', reason);
       return err('NO_CIRCULATING_SUPPLY', reason);
     }
 
-    // --- 6. Lưu kỳ ----------------------------------------------------------
-    let period: DistributionPeriodRecord;
+    // --- 4. GIỮ CHỖ: từ đây mới ghi ------------------------------------------
+    let reserved: DistributionPeriodRecord;
     try {
-      period = await distributionStore.openPeriod({
-        periodKey,
-        snapshotId: snapshot.snapshotId,
-        totalAmount: poolBefore.toString(),
-        totalSupplyAt: totalSupplyAt.toString(),
-        chain,
-      });
+      reserved = await store.reservePeriod({ periodKey, chain });
     } catch (error) {
-      // Ràng buộc duy nhất là thứ BẢO ĐẢM; tới được đây nghĩa là một tiến trình khác vừa mở
-      // đúng kỳ này sau lần đọc ở bước 1.
       if (error instanceof UniqueConstraintError) {
         const reason =
           `Kỳ "${periodKey}" vừa được một tiến trình khác mở. Không mở kỳ thứ hai cùng mã.`;
-        await auditFailure(reason);
+        await auditOpening(ctx, periodKey, 'FAILURE', reason);
         return err('PERIOD_STATE', reason);
       }
       throw error;
     }
 
-    await txnStore.appendAudit({
-      actorRole: role,
-      action: 'distribution:snapshot',
-      target: periodKey,
-      outcome: 'SUCCESS',
-      detail:
-        `mở kỳ ${period.id}: snapshot ${snapshot.snapshotId}, tổng tiền ${poolBefore} VNDB, ` +
-        `tổng cung ${totalSupplyAt} WPT; tx ${snapshot.tx.txHash}`,
-      chain,
-    });
-
-    return ok(toPeriodView(period));
+    // --- 5. Mở trên chuỗi và hoàn tất ----------------------------------------
+    const opened = await driveOpening(ctx, reserved, 'send');
+    return opened.ok ? ok(toPeriodView(opened.data)) : opened;
   } catch (error) {
     return toResult(error);
   }
+}
+
+/**
+ * Hoàn tất một kỳ đang `OPENING` (QĐ-F bước 5): tra kỳ trên chuỗi theo nhãn; có thì ghi `OPEN`,
+ * chưa có thì gửi lại `openDistribution`: hợp đồng chặn trùng nhãn nên không thể ra kỳ thứ hai.
+ */
+export async function recoverOpeningPeriod(input: unknown): Promise<Result<DistributionPeriodView>> {
+  const parsed = openPeriodSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { chain, periodKey } = parsed.data;
+  try {
+    const role = await authorize('distribution:snapshot', periodKey, chain);
+    const store = getDistributionStore();
+    const found = await findPeriodOnChain(store, chain, { periodKey });
+    if (!isPeriod(found)) return found;
+    if (found.status !== 'OPENING') return ok(toPeriodView(found));
+    const ctx: ChainContext = { chain, ledger: getLedger(chain), store, txnStore: getStore(), role };
+    const result = await driveOpening(ctx, found, 'recover');
+    return result.ok ? ok(toPeriodView(result.data)) : result;
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// =============================================================================
+//  B1b: ĐẨY SỐ ĐÃ CHIA VÀO VAULT, ĐÚNG MỘT LẦN (SC-06 QĐ-G)
+// =============================================================================
+
+export type VaultSyncOutcome = 'NOT_APPLICABLE' | 'WAITING' | 'SENT_PENDING' | 'DONE' | 'CONFLICT';
+
+async function auditVault(
+  ctx: ChainContext,
+  period: DistributionPeriodRecord,
+  outcome: 'SUCCESS' | 'FAILURE',
+  detail: string,
+): Promise<void> {
+  await auditOpening(ctx, period.periodKey, outcome, `vault kỳ ${period.vaultPeriodRef}: ${detail}`);
+}
+
+/**
+ * Đối soát mã kỳ vault đã giữ chỗ với sự kiện `PeriodClosed` trên chuỗi. `null` = chưa có sự kiện.
+ * Có và khớp số của kỳ thì `DONE`; có mà khác số (ví dụ chạy script chen vào) thì `CONFLICT`.
+ */
+async function reconcileVaultClose(
+  ctx: ChainContext,
+  periodId: string,
+): Promise<VaultSyncOutcome | null> {
+  const current = await ctx.store.findPeriod(periodId);
+  if (!current?.vaultCloseStatus || current.vaultPeriodRef === null) return null;
+  if (current.vaultCloseStatus === 'DONE' || current.vaultCloseStatus === 'CONFLICT') {
+    return current.vaultCloseStatus;
+  }
+  const close = await ctx.ledger.findVaultPeriodClose(BigInt(current.vaultPeriodRef));
+  if (!close) return null;
+
+  const matches = close.distributedPrev === BigInt(current.totalAmount);
+  const to = matches ? 'DONE' : 'CONFLICT';
+  const moved = await ctx.store.transitionVaultClose({
+    id: current.id,
+    from: current.vaultCloseStatus,
+    to,
+    txHash: close.txHash,
+  });
+  if (!moved) {
+    // Tiến trình khác vừa chuyển trạng thái: đọc kết luận của nó.
+    const latest = (await ctx.store.findPeriod(periodId))?.vaultCloseStatus;
+    return latest === 'DONE' || latest === 'CONFLICT' ? latest : null;
+  }
+  await auditVault(
+    ctx,
+    moved,
+    matches ? 'SUCCESS' : 'FAILURE',
+    matches
+      ? `đã chốt ${close.distributedPrev} VNDB, tx ${close.txHash}`
+      : `CONFLICT: mã kỳ đã bị chốt với ${close.distributedPrev} VNDB (tx ${close.txHash}), kỳ chia ` +
+          `có ${current.totalAmount} VNDB. Dừng, không gửi thêm; cần xử lý tay.`,
+  );
+  return to;
+}
+
+/**
+ * Đẩy tiền ĐÃ DÀNH CHO KỲ (gồm phần SPV) vào `closePeriod` của vault, đúng một lần mỗi kỳ.
+ *
+ * 1. Giữ chỗ mã kỳ vault `lastPeriodRef + 1` bằng cập nhật có điều kiện, chỉ khi mọi kỳ trước
+ *    của chain đã `DONE` (giữ thứ tự).
+ * 2. Trước MỌI lần gửi, đối soát sự kiện của đúng mã đã lưu; retry dùng lại mã đó, không đọc
+ *    `lastPeriodRef + 1` lần nữa.
+ * 3. Giành quyền gửi bằng chuyển trạng thái có điều kiện (trạng thái + mã giao dịch hiện tại):
+ *    hai tiến trình cùng thử thì chỉ một bên gửi.
+ *
+ * Giới hạn còn lại: kỳ `SENT` chưa có mã giao dịch (tiến trình chết giữa lúc giành quyền và lúc
+ * lưu mã) có thể được hai tiến trình cùng gửi lại; khi đó hợp đồng chặn lần thứ hai bằng
+ * `InvalidPeriodRef`, không có lần chốt thứ hai.
+ *
+ * @flow distribute:16 | đẩy số đã dành cho kỳ vào closePeriod của vault đúng một lần: giữ chỗ mã kỳ vault, đối soát PeriodClosed trước khi gửi lại
+ */
+async function syncVaultClose(
+  ctx: ChainContext,
+  period: DistributionPeriodRecord,
+): Promise<VaultSyncOutcome> {
+  const { ledger, store } = ctx;
+  if (period.distributionId === null) return 'NOT_APPLICABLE';
+  if (period.vaultCloseStatus === 'DONE' || period.vaultCloseStatus === 'CONFLICT') {
+    return period.vaultCloseStatus;
+  }
+  const vault = await ledger.vaultStatus();
+  if (!vault) return 'NOT_APPLICABLE';
+
+  let current = period;
+  if (current.vaultCloseStatus === null) {
+    const reserved = await store.reserveVaultClose({
+      id: current.id,
+      vaultPeriodRef: Number(vault.lastPeriodRef + 1n),
+    });
+    current = reserved ?? (await store.findPeriod(current.id)) ?? current;
+    if (current.vaultCloseStatus === null) return 'WAITING';
+  }
+
+  const reconciled = await reconcileVaultClose(ctx, current.id);
+  if (reconciled) return reconciled;
+
+  const ref = BigInt(current.vaultPeriodRef!);
+  const last = (await ledger.vaultStatus())?.lastPeriodRef ?? 0n;
+  if (last !== ref - 1n) {
+    // Tiến trình khác có thể vừa chốt đúng mã này giữa lần đối soát trên và lần đọc vault:
+    // đối soát lại trước khi kết luận CONFLICT.
+    const settled = await reconcileVaultClose(ctx, current.id);
+    if (settled) return settled;
+    const moved = await store.transitionVaultClose({
+      id: current.id,
+      from: current.vaultCloseStatus!,
+      to: 'CONFLICT',
+    });
+    if (moved) {
+      await auditVault(
+        ctx,
+        moved,
+        'FAILURE',
+        `CONFLICT: vault đang ở kỳ ${last}, không chốt được kỳ ${ref} đã giữ chỗ. Cần xử lý tay.`,
+      );
+    }
+    return 'CONFLICT';
+  }
+
+  // Lượt trước đã gửi: giao dịch còn treo thì chờ lượt sau, không gửi chồng.
+  if (current.vaultCloseStatus === 'SENT' && current.vaultCloseTxHash) {
+    const prior = await ledger.waitReceipt(current.vaultCloseTxHash, RECHECK_RECEIPT_TIMEOUT_MS);
+    if (prior.status !== 'FAILED') {
+      return (await reconcileVaultClose(ctx, current.id)) ?? 'SENT_PENDING';
+    }
+  }
+
+  const claimed = await store.transitionVaultClose({
+    id: current.id,
+    from: current.vaultCloseStatus!,
+    expectedTxHash: current.vaultCloseTxHash,
+    to: 'SENT',
+    txHash: null,
+  });
+  if (!claimed) return 'WAITING';
+
+  let tx: TxResult;
+  try {
+    tx = await ledger.closeVaultPeriod(ref, BigInt(current.totalAmount));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
+    await auditVault(ctx, claimed, 'FAILURE', `gửi closePeriod lỗi: ${reason}`);
+    return (await reconcileVaultClose(ctx, current.id)) ?? 'WAITING';
+  }
+  await store.transitionVaultClose({
+    id: current.id,
+    from: 'SENT',
+    expectedTxHash: null,
+    to: 'SENT',
+    txHash: tx.txHash,
+  });
+  const savedTxn = await ctx.txnStore.saveTxn({
+    chain: ctx.chain,
+    operation: 'vault-close-period',
+    txHash: tx.txHash,
+    status: tx.status,
+    fromWallet: null,
+    toWallet: null,
+    amount: current.totalAmount,
+    reason: `chốt kỳ vault ${ref} theo kỳ chia ${current.periodKey}`,
+    actorRole: ctx.role,
+    actorAddress: null,
+  });
+  const receipt = await ledger.waitReceipt(tx.txHash, receiptTimeoutFor(ctx.chain));
+  await ctx.txnStore.updateTxnStatus(savedTxn.id, receipt.status, receipt.reason);
+  return (await reconcileVaultClose(ctx, current.id)) ?? 'SENT_PENDING';
+}
+
+/**
+ * Việc dọn của mỗi vòng chạy tự động (BE-07, QĐ-F bước 5 và QĐ-G): phục hồi mọi kỳ `OPENING`
+ * của chain, rồi thử lại phần vault cho các kỳ đã mở mà chưa chốt vault, theo thứ tự mở kỳ.
+ *
+ * KHÔNG kiểm quyền: người gọi (tiến trình tự động) đã kiểm và truyền vai vào.
+ */
+export async function reconcileChainPeriods(
+  chain: ChainKey,
+  role: Role,
+): Promise<{ recovered: number; stillOpening: number; vault: VaultSyncOutcome[]; errors: string[] }> {
+  const store = getDistributionStore();
+  const ctx: ChainContext = { chain, ledger: getLedger(chain), store, txnStore: getStore(), role };
+  const errors: string[] = [];
+  let recovered = 0;
+  let stillOpening = 0;
+
+  const opening = await store.listPeriods({ chain, status: 'OPENING', limit: MAX_RECIPIENT_SCAN });
+  for (const period of opening) {
+    const result = await driveOpening(ctx, period, 'recover');
+    if (result.ok) recovered += 1;
+    else {
+      errors.push(result.error);
+      if ((await store.findPeriod(period.id))?.status === 'OPENING') stillOpening += 1;
+    }
+  }
+
+  const vault: VaultSyncOutcome[] = [];
+  const periods = await store.listPeriods({ chain, limit: MAX_RECIPIENT_SCAN });
+  const pending = periods
+    .filter((period) => period.distributionId !== null)
+    .filter((period) => period.vaultCloseStatus !== 'DONE' && period.vaultCloseStatus !== 'CONFLICT')
+    .sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.id.localeCompare(b.id));
+  for (const period of pending) {
+    try {
+      const outcome = await syncVaultClose(ctx, period);
+      vault.push(outcome);
+      if (outcome !== 'DONE' && outcome !== 'NOT_APPLICABLE') break; // giữ thứ tự: kỳ sau chờ
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : 'Lỗi không xác định khi đẩy vault.');
+      break;
+    }
+  }
+  return { recovered, stillOpening, vault, errors };
 }
 
 // =============================================================================
@@ -534,10 +902,11 @@ export async function previewDistribution(
     const found = await findPeriodOnChain(getDistributionStore(), chain, { periodId });
     if (!isPeriod(found)) return found;
 
-    const recipients = await collectRecipients(chain);
+    const ledger = getLedger(chain);
+    const recipients = await collectRecipients(chain, ledger);
     if (recipients.truncated) return truncatedError();
 
-    const allocations = await allocate(getLedger(chain), found, recipients.wallets);
+    const allocations = await allocate(ledger, found, recipients.wallets);
     const allocated = sumAmount(allocations);
     const dust = BigInt(found.totalAmount) - allocated;
 
@@ -601,31 +970,89 @@ async function auditDistribution(
 }
 
 /**
+ * Kỳ trên chuỗi ứng với một kỳ trong sổ, và kiểm nó đúng là kỳ đó.
+ *
+ * Kỳ mở trước SC-06 trên mock không có `distributionId`: chuyển đổi trạng thái mock cũ đặt
+ * `distributionId = snapshotId` (QĐ-D), nên dùng `snapshotId`. Phép so `snapshotId` bên dưới chặn
+ * dùng nhầm khi điều đó không đúng (ví dụ kỳ EVM cũ chưa từng có kỳ trên chuỗi).
+ */
+async function readChainPeriod(
+  ledger: ILedgerPort,
+  period: DistributionPeriodRecord,
+): Promise<ChainDistribution | Result<never>> {
+  const state = await ledger.distributionState(period.distributionId ?? period.snapshotId);
+  if (
+    period.distributorAddress &&
+    period.distributorAddress.toLowerCase() !== state.distributor.toLowerCase()
+  ) {
+    return err(
+      'PERIOD_STATE',
+      `Kỳ "${period.periodKey}" thuộc hợp đồng cũ ${period.distributorAddress}, hợp đồng chia hiện ` +
+        `hành là ${state.distributor}. Không đọc kỳ cùng số của hợp đồng mới.`,
+    );
+  }
+  if (state.snapshotId !== period.snapshotId) {
+    return err(
+      'PERIOD_STATE',
+      `Kỳ "${period.periodKey}" ghi ảnh chụp ${period.snapshotId} nhưng kỳ trên chuỗi ` +
+        `${state.distributionId} dùng ảnh chụp ${state.snapshotId}: sổ và chuỗi không khớp.`,
+    );
+  }
+  return state;
+}
+
+const isChainPeriod = (value: ChainDistribution | Result<never>): value is ChainDistribution =>
+  'distributor' in value;
+
+/**
+ * "Đã trả" xác định bằng trạng thái trên chuỗi (QĐ-14): hồ sơ có tiền mà chưa `PAID` (kể cả
+ * `FAILED`) được tra `isDistributionPaid`; đã nhận thì chốt `PAID` "đối soát từ chuỗi" và KHÔNG
+ * đưa vào lô. Hồ sơ phần 0 không bao giờ tới đây (đã `PAID` không gọi chuỗi). Trả số hồ sơ chốt.
+ */
+async function reconcilePaid(
+  ledger: ILedgerPort,
+  store: IDistributionStore,
+  periodId: string,
+  distributionId: number,
+  rows: readonly DistributionPayoutRecord[],
+): Promise<number> {
+  let count = 0;
+  for (const row of rows) {
+    if (!isPayable(row) || BigInt(row.amount) === 0n) continue;
+    if (await ledger.isDistributionPaid(distributionId, row.investorWallet)) {
+      await store.markPayout({ periodId, investorWallet: row.investorWallet, status: 'PAID' });
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/**
  * CHIA LỢI NHUẬN theo lô. Gọi lại được: lần sau chỉ chia cho ví chưa nhận.
  *
- * ## Ba điều quyết định thiết kế hàm này
+ * ## Những điều quyết định thiết kế hàm này
  *
  * **1. Lập ĐỦ hồ sơ ở `PENDING` trước khi gửi giao dịch đầu tiên.** Hồ sơ là thứ duy nhất ghi
  * lại "ai được chia bao nhiêu" — chuỗi không liệt kê được. Gửi trước rồi ghi sau, mà tiến trình
  * chết giữa hai việc, thì tiền đã ra khỏi ví lợi nhuận mà không dòng nào nói nó đi đâu.
  *
  * **2. `PENDING -> SENT -> PAID` là ba trạng thái, không phải hai.** `SENT` nghĩa là đã có mã
- * giao dịch mà chưa biết kết quả. Gộp `SENT` vào `PAID` thì một tiến trình chết giữa lúc gửi và
- * lúc nhận biên nhận để lại hồ sơ trông như đã chi xong, và không lần chạy lại nào xét tới nó.
+ * giao dịch mà chưa biết kết quả.
  *
  * **3. Một lô lỗi KHÔNG dừng các lô còn lại.** Lô lỗi thành `FAILED` và kỳ ở lại `DISTRIBUTING`,
- * nên lần chạy sau nhắm đúng những hồ sơ đó. Dừng cả lượt vì một lỗi RPC nhất thời sẽ giữ tiền
- * của những người ở lô sau lại mà không có lý do nào thuộc về họ.
+ * nên lần chạy sau nhắm đúng những hồ sơ đó. Trước khi ghi `FAILED`, tra chuỗi từng ví: lô đã lên
+ * chuỗi (lỗi chỉ ở phía đọc biên nhận) thì chốt `PAID`, không ghi nhầm thất bại (SC-06 QĐ-H).
  *
- * **4. Một lượt gửi TỐI ĐA `distribution.max_batches_per_run` lô** (BE-07). Hàm này vì vậy
- * KHÔNG hứa chia xong cả kỳ trong một lời gọi — `outstanding` khác 0 là kết cục bình thường,
- * và người gọi phải gọi lại. Lý do đầy đủ ở chỗ `break` trong vòng gửi lô.
+ * **4. Một lượt gửi TỐI ĐA `distribution.max_batches_per_run` lô** (BE-07).
  *
- * Chống chia hai lần có HAI lớp, và lớp quyết định nằm ở chuỗi: contract giữ cờ đã-nhận cho từng
- * ảnh chụp, nên một ví đã nhận thì lời gọi sau bỏ qua nó. Nhờ vậy gửi lại một lô mà ta không
- * biết kết quả là an toàn — đó là lý do hồ sơ `SENT` được gửi lại thay vì bị bỏ mặc.
+ * **5. Vòng đời theo chuỗi (SC-06 QĐ-H).** Kỳ đã đóng trên chuỗi thành `CLOSED`, quá hạn nhận
+ * thành `EXPIRED`; hồ sơ chưa trả thành `EXPIRED` và KHÔNG gửi lô nào. Không hồ sơ chưa trả nào
+ * được ghi `PAID`.
  *
- * @flow distribute:8 | kiểm quyền distribution:execute, lập hồ sơ chờ rồi gửi từng lô, chốt COMPLETED khi hết hồ sơ
+ * Chống chia hai lần có HAI lớp, và lớp quyết định nằm ở chuỗi: hợp đồng giữ cờ đã-nhận cho từng
+ * kỳ, nên một ví đã nhận thì lời gọi sau bỏ qua nó.
+ *
+ * @flow distribute:8 | kiểm quyền distribution:execute, đọc kỳ trên chuỗi, lập hồ sơ chờ, đối soát đã trả rồi gửi từng lô theo mã kỳ trên chuỗi
  */
 export async function distributePeriod(input: unknown): Promise<Result<DistributionRunView>> {
   const parsed = distributionPeriodSchema.safeParse(input);
@@ -640,26 +1067,40 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
   try {
     const role = await authorize('distribution:execute', periodId, chain);
 
-    // --- 1. Kỳ phải tồn tại, đúng chuỗi, và chưa hoàn tất --------------------
+    // --- 1. Kỳ phải tồn tại, đúng chuỗi, và còn chia được -------------------
     const found = await findPeriodOnChain(store, chain, { periodId });
     if (!isPeriod(found)) return found;
     let period = found;
 
-    if (period.status === 'COMPLETED') {
-      const reason =
+    const ended: Partial<Record<DistributionPeriodRecord['status'], string>> = {
+      OPENING:
+        `Kỳ "${period.periodKey}" đang mở trên chuỗi, chưa có số liệu để chia. ` +
+        `Chạy recoverOpeningPeriod (hoặc chờ vòng sau của tiến trình tự động) trước.`,
+      COMPLETED:
         `Kỳ "${period.periodKey}" đã hoàn tất lúc ${period.completedAt} — không còn hồ sơ nào ` +
-        `phải chi. Không chia lần thứ hai.`;
-      await auditDistribution(txnStore, period, role, 'FAILURE', reason);
-      return err('PERIOD_STATE', reason);
+        `phải chi. Không chia lần thứ hai.`,
+      CLOSED:
+        `Kỳ "${period.periodKey}" đã đóng trên chuỗi; phần chưa trả đã về quỹ chưa phân bổ.`,
+    };
+    const stop = ended[period.status];
+    if (stop) {
+      await auditDistribution(txnStore, period, role, 'FAILURE', stop);
+      return err('PERIOD_STATE', stop);
     }
 
     const ledger = getLedger(chain);
+    const chainPeriod = await readChainPeriod(ledger, period);
+    if (!isChainPeriod(chainPeriod)) {
+      await auditDistribution(txnStore, period, role, 'FAILURE', chainPeriod.ok ? '' : chainPeriod.error);
+      return chainPeriod;
+    }
+    const distributionId = chainPeriod.distributionId;
     const batchSize = await readDistributionBatchSize();
     const maxBatches = await readDistributionMaxBatchesPerRun();
     const dustWallet = await readDistributionDustWallet();
 
     // --- 2. Lập hồ sơ cho ví chưa có, TRƯỚC khi gửi bất kỳ giao dịch nào -----
-    const recipients = await collectRecipients(chain);
+    const recipients = await collectRecipients(chain, ledger);
     if (recipients.truncated) return truncatedError();
 
     const before = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
@@ -671,63 +1112,100 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       /**
        * Chia theo `MAX_BULK_ROWS` vì cổng lưu trữ dồn cả lô vào MỘT câu `INSERT` và giao thức
        * Postgres chỉ mang được số tham số hữu hạn. Đây là giới hạn của cơ sở dữ liệu, KHÁC hẳn
-       * `batchSize` — giới hạn của một giao dịch on-chain. Gộp hai con số là buộc chúng đổi cùng
-       * nhau trong khi chúng không liên quan gì tới nhau.
+       * `batchSize`: giới hạn của một giao dịch on-chain.
        */
       for (const rows of chunk(allocations, MAX_BULK_ROWS)) {
         await store.createPayouts({ periodId: period.id, rows });
       }
     }
 
-    // --- 3. Phân loại hồ sơ còn phải xử lý ----------------------------------
-    const rows = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
-    const outstanding = rows.filter((row) => row.status !== 'PAID');
-
+    // --- 3. Phân loại hồ sơ, đối soát "đã trả" từ chuỗi ----------------------
     /**
-     * Hồ sơ được chia 0 KHÔNG đi vào lô nào, và chuyển thẳng sang `PAID`.
-     *
-     * Không gửi: một lần chuyển 0 đồng tốn một chỗ trong lô và tốn phí mà không chuyển gì —
-     * `distributeBatch` của mock cũng bỏ qua chúng, và contract có thể từ chối hẳn.
-     *
-     * Vẫn `PAID` chứ không để lại `PENDING`: hồ sơ này được chia 0 và đã nhận 0, nên nó KHÔNG
-     * còn gì phải chi. Để `PENDING` thì kỳ không bao giờ hoàn tất được, và trạng thái đó nói sai
-     * rằng còn tiền phải trả cho họ. `txHash` là `null` — đúng, vì không có giao dịch nào.
+     * Hồ sơ được chia 0 KHÔNG đi vào lô nào và chuyển thẳng sang `PAID` ("phần 0, không gọi
+     * chuỗi"): nó được chia 0 và đã nhận 0, nên KHÔNG còn gì phải chi. `txHash` là `null`.
      */
-    const zeroRows = outstanding.filter((row) => BigInt(row.amount) === 0n);
-    const toPay = outstanding.filter((row) => BigInt(row.amount) > 0n);
+    const listed = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+    const zeroRows = listed.filter((row) => isPayable(row) && BigInt(row.amount) === 0n);
     if (zeroRows.length > 0) {
       await markBatch(store, period.id, zeroRows, { status: 'PAID' });
     }
+    const reconciled = await reconcilePaid(ledger, store, period.id, distributionId, listed);
 
-    // --- 4. Đánh dấu kỳ đang chia TRƯỚC khi gửi lô đầu tiên -----------------
-    // Chỉ khi thật sự có lô để gửi: `DISTRIBUTING` nghĩa là "đã gửi ít nhất một lô", nên đặt nó
-    // cho một kỳ không gửi gì là ghi sai vào sổ.
+    // --- 4. Kỳ đã kết thúc trên chuỗi: không gửi lô, hồ sơ chưa trả EXPIRED ---
+    if (chainPeriod.closed || chainPeriod.expired) {
+      const rows = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+      const unpaid = rows.filter(isPayable);
+      await markBatch(store, period.id, unpaid, { status: 'EXPIRED' });
+      const anyExpired = rows.some((row) => row.status === 'EXPIRED') || unpaid.length > 0;
+      const nextStatus = anyExpired ? (chainPeriod.closed ? 'CLOSED' : 'EXPIRED') : 'COMPLETED';
+      period =
+        (await store.setPeriodStatus({
+          id: period.id,
+          status: nextStatus,
+          completedAt: new Date().toISOString(),
+        })) ?? period;
+      const after = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+      const allocated = sumAmount(after);
+      await auditDistribution(
+        txnStore,
+        period,
+        role,
+        'SUCCESS',
+        `kỳ trên chuỗi ${distributionId} ${chainPeriod.closed ? 'đã đóng' : 'đã hết hạn nhận'}: ` +
+          `${reconciled} hồ sơ đối soát từ chuỗi, ${unpaid.length} hồ sơ chưa nhận chuyển EXPIRED ` +
+          `(không ghi PAID), không gửi lô; trạng thái kỳ ${period.status}`,
+      );
+      return ok({
+        period: toPeriodView(period),
+        batchSize,
+        maxBatches,
+        batches: 0,
+        paid: 0,
+        failed: 0,
+        zero: zeroRows.length,
+        reconciled,
+        expired: unpaid.length,
+        outstanding: 0,
+        paidAmount: sumAmount(after.filter((row) => row.status === 'PAID')).toString(),
+        dust: (BigInt(period.totalAmount) - allocated).toString(),
+        dustWallet,
+      });
+    }
+
+    const rows = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
+    const toPay = rows.filter((row) => isPayable(row) && BigInt(row.amount) > 0n);
+
+    // --- 5. Đánh dấu kỳ đang chia TRƯỚC khi gửi lô đầu tiên -----------------
     if (toPay.length > 0 && period.status === 'OPEN') {
       period = (await store.setPeriodStatus({ id: period.id, status: 'DISTRIBUTING' })) ?? period;
     }
 
-    // --- 5. Gửi từng lô ----------------------------------------------------
-    // Số lô tiếp tục từ lô lớn nhất đã gửi, không đếm lại từ 1: lần chạy lại mà dùng lại số cũ
-    // sẽ làm hai lần gửi khác nhau mang cùng một số, và không đối soát được lô nào đã đi khi nào.
+    // --- 6. Gửi từng lô ----------------------------------------------------
+    // Số lô tiếp tục từ lô lớn nhất đã gửi, không đếm lại từ 1.
     const lastBatchNo = rows.reduce((max, row) => Math.max(max, row.batchNo ?? 0), 0);
     let paid = 0;
     let failed = 0;
     let batches = 0;
 
+    /** Lô lỗi: ví nào chuỗi nói đã nhận thì `PAID`, còn lại `FAILED`. */
+    const settleFailedGroup = async (group: readonly DistributionPayoutRecord[], batchNo: number) => {
+      const confirmedPaid: DistributionPayoutRecord[] = [];
+      const notPaid: DistributionPayoutRecord[] = [];
+      for (const row of group) {
+        if (await ledger.isDistributionPaid(distributionId, row.investorWallet)) confirmedPaid.push(row);
+        else notPaid.push(row);
+      }
+      if (confirmedPaid.length > 0) await markBatch(store, period.id, confirmedPaid, { status: 'PAID', batchNo });
+      if (notPaid.length > 0) await markBatch(store, period.id, notPaid, { status: 'FAILED', batchNo });
+      paid += confirmedPaid.length;
+      failed += notPaid.length;
+      return { confirmedPaid: confirmedPaid.length, notPaid: notPaid.length };
+    };
+
     for (const [index, group] of chunk(toPay, batchSize).entries()) {
       /**
-       * HẠN MỨC SỐ LÔ MỖI LƯỢT (BE-07) — dừng ở đây, không chia nốt.
-       *
-       * Vòng lặp này gửi từng giao dịch on-chain rồi CHỜ biên nhận, nên với vài nghìn ví nó
-       * kéo dài hàng chục phút. Không nền chạy nào giữ một yêu cầu HTTP sống lâu thế: tiến
-       * trình bị cắt GIỮA lượt, và lúc đó phần đã gửi thì đã ghi hồ sơ còn phần chưa gửi thì
-       * không ai biết là còn hay hết.
-       *
-       * Dừng có chủ ý thì khác: kỳ ở lại `DISTRIBUTING`, `outstanding` khác 0, và lần gọi sau
-       * nhắm đúng những hồ sơ chưa `PAID`. Người gọi (tiến trình định kỳ BE-07, hoặc cán bộ
-       * bấm lại ở FE-08) chỉ cần gọi tiếp.
-       *
-       * `break` chứ không `continue`: các lô sau đều chưa gửi, đi hết vòng lặp để làm gì.
+       * HẠN MỨC SỐ LÔ MỖI LƯỢT (BE-07): dừng ở đây, không chia nốt. Kỳ ở lại `DISTRIBUTING`,
+       * `outstanding` khác 0, và lần gọi sau nhắm đúng những hồ sơ chưa `PAID`.
        */
       if (batches >= maxBatches) break;
 
@@ -738,32 +1216,28 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       let pending;
       try {
         pending = await ledger.distributeBatch(
-          period.snapshotId,
+          distributionId,
           group.map((row) => row.investorWallet),
         );
       } catch (error) {
         /**
-         * KHÔNG đánh dấu `PAID`, và đây là chốt chặn chính của cả hàm.
-         *
-         * `FAILED` chứ không để nguyên `PENDING`: hồ sơ cần mang vết là đã thử và trượt, để người
-         * đối soát thấy lô nào phải chạy lại. `txHash` để `undefined` — không truyền — nên mã
-         * giao dịch của lần thử trước (nếu có) được giữ lại thay vì bị xoá.
+         * KHÔNG đánh dấu `PAID` mù, và KHÔNG ghi `FAILED` mù: tra chuỗi từng ví trước (QĐ-H).
+         * `txHash` không truyền, nên mã giao dịch của lần thử trước (nếu có) được giữ lại.
          */
         const reason = error instanceof Error ? error.message : 'Lỗi không xác định khi gửi lô.';
-        await markBatch(store, period.id, group, { status: 'FAILED', batchNo });
+        const result = await settleFailedGroup(group, batchNo);
         await auditDistribution(
           txnStore,
           period,
           role,
           'FAILURE',
-          `lô ${batchNo} (${group.length} ví, ${groupAmount} VNDB) gửi thất bại — ${reason}`,
+          `lô ${batchNo} (${group.length} ví, ${groupAmount} VNDB) gửi thất bại: ${reason}; ` +
+            `đối soát từ chuỗi: ${result.confirmedPaid} đã nhận, ${result.notPaid} FAILED`,
         );
-        failed += group.length;
         continue;
       }
 
-      // Mã giao dịch vào hồ sơ NGAY KHI CÓ, trước khi chờ biên nhận: tiến trình chết ở bước chờ
-      // thì hồ sơ vẫn còn mã để đối soát.
+      // Mã giao dịch vào hồ sơ NGAY KHI CÓ, trước khi chờ biên nhận.
       await markBatch(store, period.id, group, {
         status: 'SENT',
         txHash: pending.txHash,
@@ -789,15 +1263,15 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
 
       if (receipt.status !== 'CONFIRMED') {
         const reason = receipt.reason ?? `Giao dịch lô kết thúc ở trạng thái ${receipt.status}.`;
-        await markBatch(store, period.id, group, { status: 'FAILED', batchNo });
+        const result = await settleFailedGroup(group, batchNo);
         await auditDistribution(
           txnStore,
           period,
           role,
           'FAILURE',
-          `lô ${batchNo} tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+          `lô ${batchNo} tx ${receipt.txHash} ${receipt.status}: ${reason}; ` +
+            `đối soát từ chuỗi: ${result.confirmedPaid} đã nhận, ${result.notPaid} FAILED`,
         );
-        failed += group.length;
         continue;
       }
 
@@ -816,17 +1290,15 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       paid += group.length;
     }
 
-    // --- 6. Hết hồ sơ phải chi thì kỳ hoàn tất -----------------------------
+    // --- 7. Hết hồ sơ phải chi thì kỳ hoàn tất -----------------------------
     const after = await store.listPayouts({ periodId: period.id, limit: MAX_RECIPIENT_SCAN });
-    const remaining = after.filter((row) => row.status !== 'PAID');
+    const remaining = after.filter(isPayable);
 
     if (remaining.length === 0) {
       /**
-       * `completedAt` do NGƯỜI GỌI truyền, cổng lưu trữ không tự đặt: "hoàn tất" là kết luận của
-       * nghiệp vụ (đã hết hồ sơ phải chi), thứ mà cổng không biết và không được đoán.
-       *
-       * Đường `OPEN -> COMPLETED` (không qua `DISTRIBUTING`) là hợp lệ và có thật: một kỳ mà mọi
-       * ví được chia 0 thì không lô nào được gửi, nên đánh dấu nó `DISTRIBUTING` sẽ là ghi sai.
+       * `completedAt` do NGƯỜI GỌI truyền: "hoàn tất" là kết luận của nghiệp vụ. Đường
+       * `OPEN -> COMPLETED` (không qua `DISTRIBUTING`) hợp lệ khi mọi ví được chia 0 hoặc đã tự
+       * nhận trên chuỗi.
        */
       period =
         (await store.setPeriodStatus({
@@ -845,8 +1317,9 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       role,
       'SUCCESS',
       `lượt chia xong: ${batches}/${maxBatches} lô (kích thước ${batchSize}), ${paid} hồ sơ ` +
-        `đã chi, ${failed} thất bại, ${zeroRows.length} được chia 0, còn ${remaining.length} ` +
-        `phải chi; trạng thái kỳ ${period.status}; ${dustNote(dust, dustWallet)}`,
+        `đã chi, ${failed} thất bại, ${zeroRows.length} được chia 0, ${reconciled} đối soát từ ` +
+        `chuỗi, còn ${remaining.length} phải chi; trạng thái kỳ ${period.status}; ` +
+        `${dustNote(dust, dustWallet)}`,
     );
 
     return ok({
@@ -857,6 +1330,8 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       paid,
       failed,
       zero: zeroRows.length,
+      reconciled,
+      expired: 0,
       outstanding: remaining.length,
       paidAmount: sumAmount(after.filter((row) => row.status === 'PAID')).toString(),
       dust: dust.toString(),
@@ -914,7 +1389,7 @@ export async function getDistributionPeriod(
       period: toPeriodView(found),
       payoutCounts,
       paidAmount: sumAmount(payouts.filter((p) => p.status === 'PAID')).toString(),
-      outstanding: payouts.filter((p) => p.status !== 'PAID').length,
+      outstanding: payouts.filter(isPayable).length,
     });
   } catch (error) {
     return toResult(error);

@@ -144,7 +144,7 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
     expect(await vnd.balanceOf(invB.address)).to.equal(120_000_000n);
   });
 
-  it("Quét phần dư: sau thời hạn nhận, phần chưa nhận trả về ngân hàng", async function () {
+  it("Đóng kỳ: sau thời hạn nhận, phần chưa nhận trở về quỹ chưa phân bổ", async function () {
     await seedProjectBalances(wpt, bank, bank, [
       { wallet: invA, amount: 6000n },
       { wallet: invB, amount: 4000n },
@@ -158,12 +158,18 @@ describe("RWA năng lượng tái tạo — chu kỳ đầu-cuối", function ()
     await distributor.connect(invA).claim(0); // chỉ A nhận (180tr), B chưa nhận (120tr)
 
     // chưa hết hạn -> revert
-    await expect(distributor.sweepDust(0, treasury.address)).to.be.revertedWith("chua het han nhan");
+    await expect(distributor.closeDistribution(0)).to.be.revertedWith("chua het han nhan");
 
-    // tua thời gian qua thời hạn nhận
+    // tua thời gian qua thời hạn nhận. SC-06 QĐ-C: không chuyển cho treasury; 120tr ở lại quỹ,
+    // thôi thuộc kỳ Q1 và thành phần chưa phân bổ của kỳ sau.
     await time.increase(181 * 24 * 60 * 60);
-    await distributor.sweepDust(0, treasury.address);
-    expect(await vnd.balanceOf(treasury.address)).to.equal(120_000_000n);
+    const fund = await distributor.getAddress();
+    const before = await vnd.balanceOf(fund);
+    await distributor.closeDistribution(0);
+    expect(await vnd.balanceOf(fund)).to.equal(before);
+    expect(await vnd.balanceOf(treasury.address)).to.equal(0n);
+    expect(await distributor.totalReserved()).to.equal(0n);
+    expect(await distributor.unallocatedBalance()).to.equal(120_000_000n);
   });
 
   it("Hoàn vốn: đốt WPT đổi VND theo tỷ giá; giảm tổng cung", async function () {

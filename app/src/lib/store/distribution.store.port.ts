@@ -16,16 +16,31 @@ import { assertStatus, type StoreKind } from './store.errors';
 /**
  * Trạng thái của một KỲ chia.
  *
- *     OPEN ──► DISTRIBUTING ──► COMPLETED
+ *     OPENING ──► OPEN ──► DISTRIBUTING ──► COMPLETED
+ *                   └──────────┴──► EXPIRED ──► CLOSED
  *
- * Ba giá trị là đủ và không hơn: `OPEN` = đã chốt quyền, đã lập đủ hồ sơ, chưa chi đồng
- * nào; `DISTRIBUTING` = đã gửi ít nhất một lô; `COMPLETED` = không còn hồ sơ nào phải chi.
+ * `OPEN` = đã chốt quyền, chưa chi đồng nào; `DISTRIBUTING` = đã gửi ít nhất một lô;
+ * `COMPLETED` = mọi hồ sơ đã `PAID`.
+ *
+ * SC-06 thêm ba trạng thái:
+ * - `OPENING`: đã GIỮ CHỖ mã kỳ trong cơ sở dữ liệu, đang mở trên chuỗi. Chưa biết số tiền và
+ *   ảnh chụp (ghi 0) cho tới khi đọc được kỳ từ chuỗi; phục hồi bằng `recoverOpeningPeriod`.
+ * - `EXPIRED`: quá hạn nhận trên chuỗi mà còn hồ sơ chưa trả; không gửi lô nữa.
+ * - `CLOSED`: kỳ đã đóng trên chuỗi, phần chưa trả đã về quỹ chưa phân bổ.
+ * `EXPIRED` và `CLOSED` là trạng thái kết thúc: không chặn tiến trình tự động mở kỳ mới.
  *
  * KHÔNG có `FAILED` cho kỳ: lô lỗi là trạng thái của từng `DistributionPayout`, và một kỳ
  * có lô lỗi thì vẫn phải chạy lại lô đó chứ không "thất bại" như một khối. Đặt `FAILED` ở
  * cấp kỳ sẽ mời người đọc sau bỏ luôn cả kỳ khi mới lỗi một lô.
  */
-export const DISTRIBUTION_PERIOD_STATUSES = ['OPEN', 'DISTRIBUTING', 'COMPLETED'] as const;
+export const DISTRIBUTION_PERIOD_STATUSES = [
+  'OPENING',
+  'OPEN',
+  'DISTRIBUTING',
+  'COMPLETED',
+  'EXPIRED',
+  'CLOSED',
+] as const;
 export type DistributionPeriodStatus = (typeof DISTRIBUTION_PERIOD_STATUSES)[number];
 
 export const assertDistributionPeriodStatus = (value: string): DistributionPeriodStatus =>
@@ -36,16 +51,35 @@ export const assertDistributionPeriodStatus = (value: string): DistributionPerio
  *
  *     PENDING ──► SENT ──► PAID
  *                   └──► FAILED
+ *     (chưa PAID) ──► EXPIRED   (SC-06: kỳ hết hạn hoặc đã đóng mà ví chưa nhận)
  *
  * `SENT` tách khỏi `PAID` là bắt buộc, không phải chi li: giữa lúc gửi giao dịch và lúc có
  * biên nhận, hồ sơ đã có `txHash` mà chưa biết kết quả. Gộp hai trạng thái thì tiến trình
  * chết giữa chừng để lại hồ sơ trông như đã chi xong, và lần chạy lại sẽ chi lần thứ hai.
+ *
+ * `EXPIRED` KHÔNG bao giờ chuyển thành `PAID`: phần của ví không nhận kịp đã trở về quỹ.
  */
-export const DISTRIBUTION_PAYOUT_STATUSES = ['PENDING', 'SENT', 'PAID', 'FAILED'] as const;
+export const DISTRIBUTION_PAYOUT_STATUSES = ['PENDING', 'SENT', 'PAID', 'FAILED', 'EXPIRED'] as const;
 export type DistributionPayoutStatus = (typeof DISTRIBUTION_PAYOUT_STATUSES)[number];
 
 export const assertDistributionPayoutStatus = (value: string): DistributionPayoutStatus =>
   assertStatus('DistributionPayout', DISTRIBUTION_PAYOUT_STATUSES, value);
+
+/**
+ * Đẩy số đã chia của kỳ vào `closePeriod` của vault thanh toán (SC-06 QĐ-G).
+ *
+ *     (rỗng) ──► PENDING ──► SENT ──► DONE
+ *                   └─────────┴──► CONFLICT
+ *
+ * `PENDING` = đã giữ chỗ mã kỳ vault; `SENT` = đang gửi hoặc đã gửi; `DONE` = sự kiện
+ * `PeriodClosed` trên chuỗi khớp số của kỳ; `CONFLICT` = mã kỳ vault đã bị chốt bằng số khác
+ * (ví dụ chạy script chen vào): dừng, chờ xử lý tay.
+ */
+export const VAULT_CLOSE_STATUSES = ['PENDING', 'SENT', 'DONE', 'CONFLICT'] as const;
+export type VaultCloseStatus = (typeof VAULT_CLOSE_STATUSES)[number];
+
+export const assertVaultCloseStatus = (value: string): VaultCloseStatus =>
+  assertStatus('DistributionPeriod.vaultCloseStatus', VAULT_CLOSE_STATUSES, value);
 
 export interface DistributionPeriodRecord {
   id: string;
@@ -69,6 +103,16 @@ export interface DistributionPeriodRecord {
   /** Thời điểm chốt quyền. */
   openedAt: string;
   completedAt: string | null;
+  /** SC-06: địa chỉ hợp đồng chia giữ kỳ; `null` với kỳ trước SC-06 hoặc đang `OPENING`. */
+  distributorAddress: string | null;
+  /** SC-06: mã kỳ trên chuỗi; `null` với kỳ trước SC-06 hoặc đang `OPENING`. */
+  distributionId: number | null;
+  /** SC-06: mã giao dịch mở kỳ, lưu trước khi chờ biên nhận. */
+  openTxHash: string | null;
+  /** SC-06 QĐ-G: mã kỳ vault đã giữ chỗ. */
+  vaultPeriodRef: number | null;
+  vaultCloseStatus: VaultCloseStatus | null;
+  vaultCloseTxHash: string | null;
 }
 
 export interface NewDistributionPeriod {
@@ -125,6 +169,51 @@ export interface IDistributionStore {
 
   findPeriod(id: string): Promise<DistributionPeriodRecord | null>;
   findPeriodByKey(periodKey: string): Promise<DistributionPeriodRecord | null>;
+
+  /**
+   * SC-06 QĐ-F: GIỮ CHỖ một mã kỳ ở `OPENING` trước khi gửi giao dịch mở kỳ. Ném
+   * `UniqueConstraintError` nếu mã đã có: ràng buộc duy nhất là trọng tài giữa hai tiến trình.
+   * Ảnh chụp và số tiền ghi 0 cho tới `completeOpening`.
+   */
+  reservePeriod(input: { periodKey: string; chain: ChainKey }): Promise<DistributionPeriodRecord>;
+
+  /** Ghi mã giao dịch mở kỳ NGAY KHI CÓ. Chỉ áp cho kỳ `OPENING`; khác thì trả `null`. */
+  setOpenTxHash(input: { id: string; openTxHash: string }): Promise<DistributionPeriodRecord | null>;
+
+  /**
+   * `OPENING -> OPEN` với số liệu ĐỌC TỪ CHUỖI. Cập nhật có điều kiện: kỳ không còn `OPENING`
+   * (tiến trình khác đã hoàn tất) thì trả `null`, không ghi đè.
+   */
+  completeOpening(input: {
+    id: string;
+    distributionId: number;
+    distributorAddress: string;
+    snapshotId: number;
+    totalAmount: string;
+    totalSupplyAt: string;
+  }): Promise<DistributionPeriodRecord | null>;
+
+  /** Bỏ bản ghi giữ chỗ khi giao dịch mở kỳ CHẮC CHẮN revert. Chỉ xoá được kỳ `OPENING`. */
+  deleteOpeningPeriod(id: string): Promise<boolean>;
+
+  /**
+   * SC-06 QĐ-G: giữ chỗ mã kỳ vault. Chỉ thành công khi `vaultCloseStatus` đang rỗng, kỳ đã có
+   * `distributionId`, và MỌI kỳ có `distributionId` mở trước nó trên cùng chain đã `DONE`.
+   */
+  reserveVaultClose(input: { id: string; vaultPeriodRef: number }): Promise<DistributionPeriodRecord | null>;
+
+  /**
+   * Chuyển trạng thái đẩy vault có điều kiện: chỉ khi trạng thái hiện tại là `from` và (nếu có)
+   * mã giao dịch hiện tại đúng `expectedTxHash`. Hai tiến trình cùng thử thì chỉ một thắng.
+   * `txHash` không truyền thì giữ nguyên mã đang lưu.
+   */
+  transitionVaultClose(input: {
+    id: string;
+    from: VaultCloseStatus;
+    to: VaultCloseStatus;
+    expectedTxHash?: string | null;
+    txHash?: string | null;
+  }): Promise<DistributionPeriodRecord | null>;
 
   listPeriods(options?: {
     chain?: ChainKey;

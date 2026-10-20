@@ -24,7 +24,8 @@ describe("SC-10 - ProfitDistributor", function () {
     const { distributor, payout, admin, investorA } = await loadFixture(profitFixture);
     await distributor.createDistribution(100n, "A");
     await time.increase(181 * 24 * 60 * 60);
-    await distributor.sweepDust(0, admin.address);
+    // SC-06 QĐ-C: đóng kỳ thay quét; 100 của kỳ A ở lại hợp đồng, thành phần chưa phân bổ.
+    await distributor.closeDistribution(0);
     await distributor.createDistribution(100n, "B");
     const claim = distributor.connect(investorA).claim(0);
     try {
@@ -33,7 +34,9 @@ describe("SC-10 - ProfitDistributor", function () {
       console.log(`REPRO: A claimed/amount=${a.claimed}/${a.amount}; B fund=${await payout.balanceOf(await distributor.getAddress())}`);
     } catch { /* Ca đã vá: kiểm đúng custom error bên dưới. */ }
     await expect(claim).to.be.revertedWithCustomError(distributor, "DistributionClosed").withArgs(0);
-    expect(await payout.balanceOf(await distributor.getAddress())).to.equal(100n);
+    expect(await payout.balanceOf(await distributor.getAddress())).to.equal(200n);
+    expect(await distributor.totalReserved()).to.equal(100n);
+    expect(await distributor.unallocatedBalance()).to.equal(100n);
     await distributor.connect(investorA).claim(1);
     expect(await payout.balanceOf(investorA.address)).to.equal(100n);
     expect((await distributor.distributions(1)).claimed).to.equal(100n);
@@ -43,14 +46,16 @@ describe("SC-10 - ProfitDistributor", function () {
     const { distributor, payout, admin, investorA, investorB } = await loadFixture(profitFixture);
     await distributor.createDistribution(100n, "A");
     await time.increaseTo(await deadline(distributor, 0));
-    await distributor.sweepDust(0, admin.address);
+    await distributor.closeDistribution(0);
     await distributor.createDistribution(100n, "B");
     await expect(distributor.distributeTo(0, [investorA.address, investorB.address]))
       .to.be.revertedWithCustomError(distributor, "DistributionClosed");
     expect(await payout.balanceOf(investorA.address)).to.equal(0n);
     expect(await payout.balanceOf(investorB.address)).to.equal(0n);
     expect(await distributor.hasClaimed(0, investorA.address)).to.equal(false);
-    expect(await payout.balanceOf(await distributor.getAddress())).to.equal(100n);
+    // SC-06 QĐ-C: số dư không đổi (kỳ A không chuyển đi đâu), dự trữ chỉ còn kỳ B.
+    expect(await payout.balanceOf(await distributor.getAddress())).to.equal(200n);
+    expect(await distributor.totalReserved()).to.equal(100n);
   });
 
   it("ca 3: đúng deadline và sau deadline chưa quét không nhận được", async function () {
@@ -66,25 +71,29 @@ describe("SC-10 - ProfitDistributor", function () {
     expect((await distributor.distributions(0)).claimed).to.equal(0n);
   });
 
-  it("ca 4: sweep chỉ sau hạn, đóng một lần, kỳ đã chi hết vẫn đóng được", async function () {
-    const { distributor, payout, admin, investorA } = await loadFixture(profitFixture);
+  it("ca 4: đóng kỳ chỉ sau hạn, đóng một lần, kỳ đã chi hết vẫn đóng được", async function () {
+    const { distributor, payout, investorA } = await loadFixture(profitFixture);
+    const fund = await distributor.getAddress();
     await distributor.createDistribution(100n, "A");
-    await expect(distributor.sweepDust(0, admin.address)).to.be.revertedWith("chua het han nhan");
+    await expect(distributor.closeDistribution(0)).to.be.revertedWith("chua het han nhan");
     await time.setNextBlockTimestamp(await deadline(distributor, 0));
-    await expect(distributor.sweepDust(0, admin.address))
-      .to.emit(distributor, "DistributionClosed").withArgs(0, 100n)
-      .and.to.emit(distributor, "DustSwept").withArgs(0, admin.address, 100n);
+    // SC-06 QĐ-C: đóng kỳ không chuyển tiền; số dư giữ nguyên, dự trữ giảm, phần chưa phân bổ tăng.
+    await expect(distributor.closeDistribution(0))
+      .to.emit(distributor, "DistributionClosed").withArgs(0, 100n);
+    expect(await payout.balanceOf(fund)).to.equal(100n);
+    expect(await distributor.totalReserved()).to.equal(0n);
+    expect(await distributor.unallocatedBalance()).to.equal(100n);
     expect((await distributor.distributions(0)).closed).to.equal(true);
-    await expect(distributor.sweepDust(0, admin.address)).to.be.revertedWithCustomError(distributor, "DistributionClosed");
+    await expect(distributor.closeDistribution(0)).to.be.revertedWithCustomError(distributor, "DistributionClosed");
 
     await distributor.createDistribution(100n, "B");
     await distributor.connect(investorA).claim(1);
     await time.increaseTo(await deadline(distributor, 1));
-    const tx = distributor.sweepDust(1, admin.address);
-    await expect(tx).to.emit(distributor, "DistributionClosed").withArgs(1, 0n);
-    await expect(tx).not.to.emit(distributor, "DustSwept");
+    await expect(distributor.closeDistribution(1)).to.emit(distributor, "DistributionClosed").withArgs(1, 0n);
     expect((await distributor.distributions(1)).closed).to.equal(true);
-    expect(await payout.balanceOf(await distributor.getAddress())).to.equal(0n);
+    expect(await payout.balanceOf(fund)).to.equal(100n);
+    expect(await distributor.totalReserved()).to.equal(0n);
+    expect(await distributor.unallocatedBalance()).to.equal(100n);
   });
 
   it("ca 5: đổi claimWindow không đổi hạn kỳ cũ", async function () {

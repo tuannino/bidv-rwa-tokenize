@@ -173,6 +173,16 @@ async function main() {
   } else {
     bad("ProfitDistributor THIẾU SNAPSHOT_ROLE -> P7 sẽ chết ở bước chốt snapshot");
   }
+  // SC-06: quỹ chia một chiều. Bản trước SC-06 không có hai hàm này (revert khi gọi).
+  try {
+    const reserved = await dist.totalReserved();
+    const unallocated = await dist.unallocatedBalance();
+    if (reserved === 0n) ok("ProfitDistributor.totalReserved = 0 (chưa kỳ nào giữ tiền)");
+    else bad(`ProfitDistributor.totalReserved = ${reserved}, mong đợi 0 ngay sau triển khai`);
+    ok(`ProfitDistributor.unallocatedBalance = ${unallocated} (phần quỹ chưa thuộc kỳ nào)`);
+  } catch (error) {
+    bad(`ProfitDistributor là bản trước SC-06 (không đọc được totalReserved/unallocatedBalance): ${error.shortMessage ?? error.message}`);
+  }
 
   // ---- Vault SC-07 (tùy chọn để bộ Sepolia cũ vẫn kiểm được trước OP-05) ----
   if (vault) {

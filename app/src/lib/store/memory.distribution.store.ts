@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import {
   assertDistributionPayoutStatus,
   assertDistributionPeriodStatus,
+  assertVaultCloseStatus,
   type DistributionPayoutRecord,
   type DistributionPeriodRecord,
   type IDistributionStore,
@@ -44,6 +45,32 @@ const newestPeriodFirst = (a: DistributionPeriodRecord, b: DistributionPeriodRec
 const newestPayoutFirst = (a: DistributionPayoutRecord, b: DistributionPayoutRecord) =>
   b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
 
+/** Kỳ tạo bằng `openPeriod`/`reservePeriod` chưa gắn với kỳ nào trên chuỗi. */
+const NO_CHAIN_LINK = {
+  distributorAddress: null,
+  distributionId: null,
+  openTxHash: null,
+  vaultPeriodRef: null,
+  vaultCloseStatus: null,
+  vaultCloseTxHash: null,
+} as const;
+
+/** Thứ tự mở kỳ, cùng tiêu chí với bản Postgres: `openedAt`, rồi `id` khi trùng mốc. */
+const openedBefore = (a: DistributionPeriodRecord, b: DistributionPeriodRecord) =>
+  a.openedAt < b.openedAt || (a.openedAt === b.openedAt && a.id < b.id);
+
+function insertPeriod(record: DistributionPeriodRecord): DistributionPeriodRecord {
+  if (state().periods.some((existing) => existing.periodKey === record.periodKey)) {
+    throw new UniqueConstraintError(
+      'DistributionPeriod',
+      ['periodKey'],
+      `Kỳ "${record.periodKey}" đã được mở.`,
+    );
+  }
+  state().periods.push(record);
+  return { ...record };
+}
+
 export function createMemoryDistributionStore(): IDistributionStore {
   return {
     kind: 'memory',
@@ -60,18 +87,86 @@ export function createMemoryDistributionStore(): IDistributionStore {
         chain: period.chain,
         openedAt: new Date().toISOString(),
         completedAt: null,
+        ...NO_CHAIN_LINK,
       };
+      return insertPeriod(record);
+    },
 
-      if (state().periods.some((existing) => existing.periodKey === record.periodKey)) {
-        throw new UniqueConstraintError(
-          'DistributionPeriod',
-          ['periodKey'],
-          `Kỳ "${record.periodKey}" đã được mở.`,
-        );
-      }
+    async reservePeriod({ periodKey, chain }) {
+      return insertPeriod({
+        id: randomUUID(),
+        periodKey,
+        snapshotId: 0,
+        totalAmount: '0',
+        totalSupplyAt: '0',
+        status: 'OPENING',
+        chain,
+        openedAt: new Date().toISOString(),
+        completedAt: null,
+        ...NO_CHAIN_LINK,
+      });
+    },
 
-      state().periods.push(record);
-      return { ...record };
+    async setOpenTxHash({ id, openTxHash }) {
+      const found = state().periods.find((period) => period.id === id && period.status === 'OPENING');
+      if (!found) return null;
+      found.openTxHash = openTxHash;
+      return { ...found };
+    },
+
+    async completeOpening(input) {
+      // Kiểm giá trị trước khi đổi bất cứ trường nào, như bản Postgres (một câu UPDATE).
+      const snapshotId = assertSnapshotId(input.snapshotId);
+      const totalAmount = assertAmount('totalAmount', input.totalAmount);
+      const totalSupplyAt = assertAmount('totalSupplyAt', input.totalSupplyAt);
+      const found = state().periods.find(
+        (period) => period.id === input.id && period.status === 'OPENING',
+      );
+      if (!found) return null;
+      Object.assign(found, {
+        status: 'OPEN',
+        distributionId: input.distributionId,
+        distributorAddress: input.distributorAddress,
+        snapshotId,
+        totalAmount,
+        totalSupplyAt,
+      });
+      return { ...found };
+    },
+
+    async deleteOpeningPeriod(id) {
+      const periods = state().periods;
+      const at = periods.findIndex((period) => period.id === id && period.status === 'OPENING');
+      if (at < 0) return false;
+      periods.splice(at, 1);
+      return true;
+    },
+
+    async reserveVaultClose({ id, vaultPeriodRef }) {
+      const found = state().periods.find((period) => period.id === id);
+      if (!found || found.vaultCloseStatus !== null || found.distributionId === null) return null;
+      const earlierNotDone = state().periods.some(
+        (other) =>
+          other.id !== found.id &&
+          other.chain === found.chain &&
+          other.distributionId !== null &&
+          openedBefore(other, found) &&
+          other.vaultCloseStatus !== 'DONE',
+      );
+      if (earlierNotDone) return null;
+      found.vaultPeriodRef = vaultPeriodRef;
+      found.vaultCloseStatus = 'PENDING';
+      return { ...found };
+    },
+
+    async transitionVaultClose({ id, from, to, expectedTxHash, txHash }) {
+      const next = assertVaultCloseStatus(to);
+      const found = state().periods.find((period) => period.id === id);
+      if (!found || found.vaultCloseStatus !== from) return null;
+      if (expectedTxHash !== undefined && found.vaultCloseTxHash !== expectedTxHash) return null;
+      found.vaultCloseStatus = next;
+      if (txHash !== undefined) found.vaultCloseTxHash = txHash;
+      return { ...found };
     },
 
     async findPeriod(id) {

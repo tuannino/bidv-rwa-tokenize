@@ -22,6 +22,7 @@ import {
   modularComplianceAbi,
   orderRefFromOrderId,
   orderSettlementAbi,
+  profitDistributorAbi,
   projectTokenAbi,
   spvPaymentVaultAbi,
   VIETNAM_COUNTRY_CODE,
@@ -38,6 +39,7 @@ import {
   LedgerNotImplementedError,
   assertPositiveAmount,
   receiptTimeoutFor,
+  type ChainDistribution,
   type ILedgerPort,
   type SnapshotResult,
   type TokenInfo,
@@ -106,6 +108,13 @@ const REVERT_MESSAGES: Record<string, string> = {
   'ky khong ton tai': 'Kỳ chia lợi nhuận không tồn tại.',
   'chua het han nhan': 'Chưa hết thời hạn nhận lợi nhuận của kỳ này.',
   'khong con du': 'Kỳ chia này không còn phần dư để quét.',
+  // SC-06: quỹ một chiều, kỳ tạo từ phần chưa phân bổ.
+  EmptyPeriod: 'Mã kỳ chia không được để trống.',
+  DuplicatePeriod: 'Mã kỳ chia này đã dùng trên chuỗi; mỗi mã chỉ tạo được một kỳ.',
+  NothingToDistribute: 'Quỹ chia lợi nhuận không có phần chưa phân bổ nào để mở kỳ.',
+  DistributionClosed: 'Kỳ chia đã đóng; phần chưa trả đã trở về quỹ chưa phân bổ.',
+  ClaimWindowEnded: 'Kỳ chia đã hết thời hạn nhận.',
+  DistributionOverdrawn: 'Lô chia vượt phần còn lại của kỳ.',
   SafeERC20FailedOperation:
     'Chuyển VNDB thất bại — thường là hợp đồng thiếu số dư hoặc thiếu ủy quyền.',
 
@@ -310,7 +319,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
           ? `ProjectToken (${addressOf('ProjectToken')}) từ chối ${operation}. ` +
             `Nguyên nhân: ${translated} Cách xử lý: ${sc02Action(raw)}`
           : translated;
-        throw new LedgerError(chain, operation, message, { cause: error });
+        throw new LedgerError(chain, operation, message, { cause: error, reverted: true });
       }
       throw new LedgerError(chain, operation, error.shortMessage, { cause: error });
     }
@@ -395,6 +404,102 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
         `Mã snapshot phải là số nguyên dương, nhận được ${snapshotId}. ` +
           `Mã snapshot lấy từ kết quả takeSnapshot().`,
       );
+    }
+  };
+
+  /** Mã kỳ chia trên chuỗi bắt đầu từ 0 (chỉ số mảng `distributions`), khác mã snapshot. */
+  const assertDistributionId: (operation: string, distributionId: number) => void = (
+    operation,
+    distributionId,
+  ) => {
+    if (!Number.isSafeInteger(distributionId) || distributionId < 0) {
+      throw new LedgerError(
+        chain,
+        operation,
+        `Mã kỳ chia phải là số nguyên không âm, nhận được ${distributionId}. ` +
+          'Mã lấy từ findDistribution(periodKey).',
+      );
+    }
+  };
+
+  const readDistributor = <T>(operation: string, functionName: string, args: readonly unknown[]) =>
+    readOn<T>(operation, 'ProfitDistributor', profitDistributorAbi, functionName, args);
+
+  /** Một kỳ đọc từ `distributions(id)`, gắn với địa chỉ ProfitDistributor hiện hành (SC-06 QĐ-E). */
+  const readDistribution = async (
+    operation: string,
+    distributionId: number,
+  ): Promise<ChainDistribution> => {
+    const [[snapshotId, amount, supplyAtSnapshot, claimed, , , claimDeadline, closed], latest] =
+      await Promise.all([
+        readDistributor<readonly [bigint, bigint, bigint, bigint, bigint, string, bigint, boolean]>(
+          operation,
+          'distributions',
+          [BigInt(distributionId)],
+        ),
+        reader()
+          .getBlock()
+          .catch((error: unknown) => fail(operation, error)),
+      ]);
+    return {
+      distributor: normalizeEvmAddress(addressOf('ProfitDistributor')),
+      distributionId,
+      snapshotId: Number(snapshotId),
+      amount,
+      claimed,
+      totalSupplyAt: supplyAtSnapshot,
+      claimDeadline: new Date(Number(claimDeadline) * 1000),
+      // Cùng phép so với `_claim`: `block.timestamp >= claimDeadline` là hết hạn.
+      expired: latest.timestamp >= claimDeadline,
+      closed,
+    };
+  };
+
+  /**
+   * Sự kiện `PeriodClosed` của vault từ block triển khai, mới nhất trước. `periodRef` lọc theo
+   * tham số indexed. Dùng chung cho lịch sử công khai (SC-07) và đối soát chốt kỳ (SC-06 QĐ-G).
+   */
+  const readPeriodCloses = async (
+    operation: string,
+    vaultAddress: string,
+    periodRef?: bigint,
+  ): Promise<VaultPeriodClose[]> => {
+    const deployBlock = addressBook[chain]?.deployBlock;
+    if (deployBlock === undefined) {
+      throw new LedgerError(
+        chain,
+        operation,
+        'Thiếu block triển khai trong address book; không quét lịch sử vault từ block 0.',
+      );
+    }
+    try {
+      const logs = (await reader().getContractEvents({
+        address: normalizeEvmAddress(vaultAddress) as Hex,
+        abi: spvPaymentVaultAbi as Abi,
+        eventName: 'PeriodClosed',
+        ...(periodRef === undefined ? {} : { args: { periodRef } }),
+        fromBlock: BigInt(deployBlock),
+        toBlock: 'latest',
+      })) as Array<{
+        args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
+        transactionHash: Hex;
+        blockNumber: bigint;
+        logIndex: number;
+      }>;
+      return logs
+        .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex)
+        .map((log) => ({
+          periodRef: log.args.periodRef ?? 0n,
+          distributedPrev: log.args.distributedPrev ?? 0n,
+          rateBps: log.args.rateBps ?? 0n,
+          percentLocked: log.args.percentLocked ?? 0n,
+          operator: normalizeEvmAddress(log.args.operator ?? '0x0000000000000000000000000000000000000000'),
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          timestamp: 0,
+        }));
+    } catch (error) {
+      return fail(operation, error);
     }
   };
 
@@ -796,44 +901,79 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       ]);
     },
 
+    async unallocatedProfit() {
+      return readDistributor<bigint>('unallocatedProfit', 'unallocatedBalance', []);
+    },
+
+    async reservedProfit() {
+      return readDistributor<bigint>('reservedProfit', 'totalReserved', []);
+    },
+
     /**
-     * `ProfitDistributor.distributeTo` nhận `distributionId`, KHÔNG
-     * nhận `snapshotId`: một kỳ chia gắn với một snapshot VÀ một số tiền đã chốt.
-     *
-     * Muốn nối, phải có mapping snapshotId -> distributionId. Mapping đó là trạng
-     * thái nghiệp vụ (đọc từ event `DistributionCreated` rồi lưu vào cơ sở dữ liệu),
-     * không phải việc của adapter — dò bằng cách quét `distributions(i)` trong đây
-     * là nhét logic nghiệp vụ vào tầng chuyển đổi, đúng thứ BE-01 cấm.
-     *
-     * ----------------------------------------------------------------------
-     *  CHẨN ĐOÁN CỦA BE-06 — vì sao marker này KHÔNG còn chờ BE-06 nữa
-     * ----------------------------------------------------------------------
-     *  BE-06 đã dựng xong tầng nghiệp vụ và nhờ đó thấy rõ thứ đang thiếu KHÔNG
-     *  phải một quyết định của tầng nghiệp vụ, mà là CHỮ KÝ của chính method này.
-     *
-     *  Trên chuỗi thật, một kỳ chia sinh ra bởi `createDistribution(amount, period)`
-     *  — hàm đó tự gọi `snapshot()` bên trong. Nghĩa là `takeSnapshot()` đứng riêng
-     *  KHÔNG tạo ra kỳ chia nào, nên sau nó không tồn tại `distributionId` để tra.
-     *  Còn `distributeBatch(snapshotId, wallets)` chỉ nhận `snapshotId`, tức là
-     *  không mang theo thứ duy nhất tra được `distributionId`: mã kỳ nghiệp vụ
-     *  (`DistributionPeriod.periodKey`, đúng tham số `period` mà contract nhận).
-     *
-     *  Vậy có hai đường, và cả hai đều VƯỢT phạm vi BE-06 (spec ghi `ledger.port.ts`
-     *  là "đọc, không sửa"):
-     *    a) Đổi chữ ký để `distributeBatch` nhận cả mã kỳ, rồi adapter tra
-     *       `distributionId` từ contract theo `period`.
-     *    b) Thêm cột `distributionId` vào `DistributionPeriod` và để `openPeriod`
-     *       gọi `createDistribution` thay cho `takeSnapshot` trên chain EVM.
-     *
-     *  Chưa chốt thì KHÔNG nối, vì nối sai cho ra hệ thống chạy được mà chia theo
-     *  một kỳ khác. Đã ghi thành câu hỏi mở ở `docs/CHECKPOINT_BE06.md`.
-     *
-     * @blocked SC-05 | thiếu quyết định chữ ký: `distributeBatch(snapshotId, wallets)` không mang mã kỳ nên adapter không tra được `distributionId`; hợp đồng `ProfitDistributor` thì đã có và đã deploy. Hai đường xử lý ghi ngay trên marker này
+     * `createDistributionFromPool(periodKey)`: hợp đồng tự chụp ảnh và chốt số tiền bằng phần
+     * chưa phân bổ, nên kỳ trên chuỗi và số tiền của nó KHÔNG phụ thuộc lần đọc nào trước đó.
+     * Trả PENDING để nghiệp vụ lưu mã giao dịch trước khi chờ biên nhận.
      */
-    async distributeBatch() {
-      return pendingContract(
-        'distributeBatch',
-        'quyết định cách mang mã kỳ xuống adapter để tra distributionId (SC-05)',
+    async openDistribution(periodKey) {
+      return writeOn(
+        'openDistribution',
+        'ProfitDistributor',
+        profitDistributorAbi,
+        'createDistributionFromPool',
+        [periodKey],
+      );
+    },
+
+    /** `distributionIdOfPeriod` rồi `distributions(id)`: tra thẳng, không quét sự kiện. */
+    async findDistribution(periodKey) {
+      const [exists, id] = await readDistributor<readonly [boolean, bigint]>(
+        'findDistribution',
+        'distributionIdOfPeriod',
+        [periodKey],
+      );
+      return exists ? readDistribution('findDistribution', Number(id)) : null;
+    },
+
+    async distributionState(distributionId) {
+      assertDistributionId('distributionState', distributionId);
+      return readDistribution('distributionState', distributionId);
+    },
+
+    /**
+     * `ProfitDistributor.distributeTo(distributionId, wallets)`. Mã kỳ chia lấy từ
+     * `findDistribution` lúc mở kỳ và lưu ở `DistributionPeriod.distributionId` (SC-06 gộp SC-05).
+     */
+    async distributeBatch(distributionId, wallets) {
+      assertDistributionId('distributeBatch', distributionId);
+      if (wallets.length === 0) {
+        throw new LedgerError(
+          chain,
+          'distributeBatch',
+          'Danh sách ví trống: tầng nghiệp vụ phải truyền vào ít nhất một ví.',
+        );
+      }
+      return writeOn('distributeBatch', 'ProfitDistributor', profitDistributorAbi, 'distributeTo', [
+        BigInt(distributionId),
+        wallets.map((wallet) => normalizeEvmAddress(wallet)),
+      ]);
+    },
+
+    async isDistributionPaid(distributionId, wallet) {
+      assertDistributionId('isDistributionPaid', distributionId);
+      return readDistributor<boolean>('isDistributionPaid', 'hasClaimed', [
+        BigInt(distributionId),
+        normalizeEvmAddress(wallet),
+      ]);
+    },
+
+    async closeDistribution(distributionId) {
+      assertDistributionId('closeDistribution', distributionId);
+      return writeOn(
+        'closeDistribution',
+        'ProfitDistributor',
+        profitDistributorAbi,
+        'closeDistribution',
+        [BigInt(distributionId)],
       );
     },
 
@@ -933,47 +1073,44 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async vaultPeriodCloses(limit) {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
       if (!vaultAddress || limit <= 0) return [];
-      const deployBlock = addressBook[chain]?.deployBlock;
-      if (deployBlock === undefined) {
-        throw new LedgerError(
-          chain,
-          'vaultPeriodCloses',
-          'Thiếu block triển khai trong address book; không quét lịch sử vault từ block 0.',
-        );
-      }
+      const latest = (await readPeriodCloses('vaultPeriodCloses', vaultAddress)).slice(0, limit);
       try {
-        const logs = (await reader().getContractEvents({
-          address: normalizeEvmAddress(vaultAddress) as Hex,
-          abi: spvPaymentVaultAbi as Abi,
-          eventName: 'PeriodClosed',
-          fromBlock: BigInt(deployBlock),
-          toBlock: 'latest',
-        })) as Array<{
-          args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
-          transactionHash: Hex;
-          blockNumber: bigint;
-          logIndex: number;
-        }>;
-        const latest = logs
-          .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex)
-          .slice(0, limit);
         return await Promise.all(
-          latest.map(async (log): Promise<VaultPeriodClose> => {
-            const block = await reader().getBlock({ blockNumber: log.blockNumber });
-            return {
-              periodRef: log.args.periodRef ?? 0n,
-              distributedPrev: log.args.distributedPrev ?? 0n,
-              rateBps: log.args.rateBps ?? 0n,
-              percentLocked: log.args.percentLocked ?? 0n,
-              operator: normalizeEvmAddress(log.args.operator ?? '0x0000000000000000000000000000000000000000'),
-              txHash: log.transactionHash,
-              blockNumber: log.blockNumber,
-              timestamp: Number(block.timestamp),
-            };
+          latest.map(async (close): Promise<VaultPeriodClose> => {
+            const block = await reader().getBlock({ blockNumber: close.blockNumber });
+            return { ...close, timestamp: Number(block.timestamp) };
           }),
         );
       } catch (error) {
         return fail('vaultPeriodCloses', error);
+      }
+    },
+
+    /** `closePeriod` cần CONFIG_ROLE của vault; ví ký máy chủ giữ vai này từ lúc triển khai. */
+    async closeVaultPeriod(periodRef, distributedPrev) {
+      if (!findContractAddress(chain, 'SpvPaymentVault')) {
+        throw new LedgerError(
+          chain,
+          'closeVaultPeriod',
+          'Chain này chưa có vault thanh toán SPV trong address book nên không có kỳ vault để chốt.',
+        );
+      }
+      return writeOn('closeVaultPeriod', 'SpvPaymentVault', spvPaymentVaultAbi, 'closePeriod', [
+        periodRef,
+        distributedPrev,
+      ]);
+    },
+
+    async findVaultPeriodClose(periodRef) {
+      const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
+      if (!vaultAddress) return null;
+      const [found] = await readPeriodCloses('findVaultPeriodClose', vaultAddress, periodRef);
+      if (!found) return null;
+      try {
+        const block = await reader().getBlock({ blockNumber: found.blockNumber });
+        return { ...found, timestamp: Number(block.timestamp) };
+      } catch (error) {
+        return fail('findVaultPeriodClose', error);
       }
     },
 

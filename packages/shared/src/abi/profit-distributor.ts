@@ -76,6 +76,33 @@ export const profitDistributorAbi = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
+  // SC-06: sổ dự trữ và tra kỳ theo nhãn.
+  /** Tổng phần còn phải trả của các kỳ chưa đóng. */
+  {
+    type: 'function',
+    name: 'totalReserved',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  /** Số dư chưa thuộc kỳ nào: căn cứ mở kỳ mới. */
+  {
+    type: 'function',
+    name: 'unallocatedBalance',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'distributionIdOfPeriod',
+    stateMutability: 'view',
+    inputs: [{ name: 'period', type: 'string' }],
+    outputs: [
+      { name: 'exists', type: 'bool' },
+      { name: 'id', type: 'uint256' },
+    ],
+  },
 
   // --- Ghi (DISTRIBUTOR_ROLE) ---
   /**
@@ -92,6 +119,14 @@ export const profitDistributorAbi = [
     ],
     outputs: [{ name: 'id', type: 'uint256' }],
   },
+  /** SC-06: tạo kỳ từ phần chưa phân bổ; nhãn dùng một lần. */
+  {
+    type: 'function',
+    name: 'createDistributionFromPool',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'period', type: 'string' }],
+    outputs: [{ name: 'id', type: 'uint256' }],
+  },
   /** Chia hộ cho MỘT lô ví. Kích thước lô do tầng nghiệp vụ quyết định. */
   {
     type: 'function',
@@ -101,6 +136,14 @@ export const profitDistributorAbi = [
       { name: 'id', type: 'uint256' },
       { name: 'accounts', type: 'address[]' },
     ],
+    outputs: [],
+  },
+  /** SC-06 (DEFAULT_ADMIN_ROLE): đóng kỳ sau hạn nhận, phần chưa trả trở về quỹ, không chuyển tiền. */
+  {
+    type: 'function',
+    name: 'closeDistribution',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'id', type: 'uint256' }],
     outputs: [],
   },
 
@@ -203,36 +246,15 @@ export const profitDistributorAbi = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "sweptAmount",
+        "name": "releasedAmount",
         "type": "uint256"
       }
     ],
     "name": "DistributionClosed",
     "type": "event"
   },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "DustSwept",
-    "type": "event"
-  },
+  // SC-06: tạo kỳ từ quỹ.
+  { type: 'error', name: 'EmptyPeriod', inputs: [] },
+  { type: 'error', name: 'DuplicatePeriod', inputs: [{ name: 'period', type: 'string' }] },
+  { type: 'error', name: 'NothingToDistribute', inputs: [] },
 ] as const;

@@ -643,11 +643,19 @@ describe('R5 — chia lợi nhuận theo lô', () => {
     return ledger;
   }
 
+  /** SC-06: kỳ chia mở bằng nhãn, mã kỳ đọc lại từ "chuỗi". */
+  async function openedPeriod(ledger: Awaited<ReturnType<typeof fundedLedger>>, label = 'mock:R5') {
+    await ledger.openDistribution(label);
+    const found = await ledger.findDistribution(label);
+    expect(found).not.toBeNull();
+    return found!.distributionId;
+  }
+
   it('chia theo tỉ lệ nắm giữ tại snapshot và trừ đúng quỹ', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
+    const id = await openedPeriod(ledger);
 
-    await ledger.distributeBatch(snapshotId, [INVESTOR, OTHER]);
+    await ledger.distributeBatch(id, [INVESTOR, OTHER]);
 
     // 1.000.000 * 200/1000 = 200.000 ; * 100/1000 = 100.000
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(200_000n);
@@ -657,10 +665,10 @@ describe('R5 — chia lợi nhuận theo lô', () => {
 
   it('chia nhiều lô cho ra cùng kết quả như chia một lô (kích thước lô do nghiệp vụ)', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
+    const id = await openedPeriod(ledger);
 
-    await ledger.distributeBatch(snapshotId, [INVESTOR]);
-    await ledger.distributeBatch(snapshotId, [OTHER]);
+    await ledger.distributeBatch(id, [INVESTOR]);
+    await ledger.distributeBatch(id, [OTHER]);
 
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(200_000n);
     expect(await ledger.paymentBalanceOf(OTHER)).toBe(100_000n);
@@ -669,26 +677,28 @@ describe('R5 — chia lợi nhuận theo lô', () => {
 
   it('ví đã nhận trong kỳ thì không nhận lần hai, kể cả trùng trong cùng một lô', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
+    const id = await openedPeriod(ledger);
 
-    await ledger.distributeBatch(snapshotId, [INVESTOR, INVESTOR]); // trùng trong lô
+    await ledger.distributeBatch(id, [INVESTOR, INVESTOR]); // trùng trong lô
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(200_000n);
 
-    await ledger.distributeBatch(snapshotId, [INVESTOR]); // chia lại lần hai
+    await ledger.distributeBatch(id, [INVESTOR]); // chia lại lần hai
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(200_000n);
     expect(await ledger.profitPoolBalance()).toBe(800_000n);
+    expect(await ledger.isDistributionPaid(id, INVESTOR)).toBe(true);
+    expect(await ledger.isDistributionPaid(id, OTHER)).toBe(false);
   });
 
   // design mục 3, dòng "Chia khi ví lợi nhuận thiếu tiền"
   it('CHẶN chia khi quỹ thiếu tiền, TRƯỚC khi chuyển cho bất kỳ ai', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
+    const id = await openedPeriod(ledger);
 
     // Rút quỹ xuống dưới mức phải trả cho lô. Ở chain thật tương đương số dư VNDB
-    // của hợp đồng chia bị hụt (đã sweepDust/withdraw, hoặc nạp thiếu).
+    // của hợp đồng chia bị hụt (BURNER_ROLE đốt trong quỹ: giả định tin cậy).
     seedMockLedger({ profitPool: 1_000n });
 
-    await expect(ledger.distributeBatch(snapshotId, [INVESTOR, OTHER])).rejects.toThrow(
+    await expect(ledger.distributeBatch(id, [INVESTOR, OTHER])).rejects.toThrow(
       /không đủ tiền: cần 300000 VNDB cho lô này, chỉ có 1000/,
     );
     // KHÔNG ai nhận được đồng nào, quỹ cũng không bị trừ.
@@ -697,31 +707,30 @@ describe('R5 — chia lợi nhuận theo lô', () => {
     expect(await ledger.profitPoolBalance()).toBe(1_000n);
   });
 
-  it('CHẶN chia ở mã snapshot không tồn tại', async () => {
+  it('CHẶN chia ở mã kỳ không tồn tại', async () => {
     const ledger = await fundedLedger();
-    await expect(ledger.distributeBatch(7, [INVESTOR])).rejects.toThrow(/không tồn tại|Chưa chốt/);
+    await expect(ledger.distributeBatch(7, [INVESTOR])).rejects.toThrow(/không tồn tại/);
   });
 
-  it('CHẶN chia khi tổng cung tại snapshot bằng 0', async () => {
+  it('CHẶN mở kỳ khi tổng cung bằng 0', async () => {
     const ledger = createMockLedger();
     seedMockLedger({ profitPool: 1_000n });
-    const { snapshotId } = await ledger.takeSnapshot();
-
-    await expect(ledger.distributeBatch(snapshotId, [INVESTOR])).rejects.toThrow(/bằng 0/);
+    await expect(ledger.openDistribution('mock:R5')).rejects.toThrow(/bằng 0/);
+    expect(await ledger.findDistribution('mock:R5')).toBeNull();
   });
 
   it('CHẶN chia với danh sách ví trống', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
-    await expect(ledger.distributeBatch(snapshotId, [])).rejects.toThrow(/trống/);
+    const id = await openedPeriod(ledger);
+    await expect(ledger.distributeBatch(id, [])).rejects.toThrow(/trống/);
   });
 
-  it('quỹ chia của kỳ chốt tại snapshot nên nạp thêm sau đó không đổi phần được chia', async () => {
+  it('quỹ chia của kỳ chốt lúc mở kỳ nên nạp thêm sau đó không đổi phần được chia', async () => {
     const ledger = await fundedLedger();
-    const { snapshotId } = await ledger.takeSnapshot();
+    const id = await openedPeriod(ledger);
 
     seedMockLedger({ profitPool: 5_000_000n }); // nạp thêm SAU khi chốt
-    await ledger.distributeBatch(snapshotId, [INVESTOR]);
+    await ledger.distributeBatch(id, [INVESTOR]);
 
     // Vẫn là 1.000.000 * 200/1000, không phải 5.000.000 * 200/1000.
     expect(await ledger.paymentBalanceOf(INVESTOR)).toBe(200_000n);

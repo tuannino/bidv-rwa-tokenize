@@ -42,10 +42,20 @@ describe('mã hoá MockLedgerState', () => {
     state.snapshots.set(1, {
       balances: new Map([['0xabc', 123n]]),
       totalSupply: 123n,
-      distributable: 999n,
-      paid: new Set(['0xabc']),
     });
     state.lastSnapshotId = 1;
+    state.distributionLedger.distributions.set(0, {
+      snapshotId: 1,
+      period: 'mock:2026-Q1',
+      amount: 999n,
+      claimed: 999n,
+      totalSupplyAt: 123n,
+      claimDeadline: 1_800_000_000_000,
+      closed: true,
+      paid: new Set(['0xabc']),
+    });
+    state.distributionLedger.byPeriod.set('mock:2026-Q1', 0);
+    state.distributionLedger.nextDistributionId = 1;
     state.profitPool = 999n;
     state.settlementMode = true;
     state.navRate = 777n;
@@ -81,8 +91,11 @@ function sharedStateStoreContract(label: string, makeStore: () => MockLedgerStat
       await first.mintPayment(INVESTOR, 500_000n);
       await first.transfer(SPV, INVESTOR, 100n);
       await seedMockLedger({ profitPool: 1_000_000n }, store);
-      const snapshotId = (await first.takeSnapshot()).snapshotId;
-      await first.distributeBatch(snapshotId, [INVESTOR]);
+      await first.openDistribution('mock:2026-Q1');
+      const opened = await first.findDistribution('mock:2026-Q1');
+      const distributionId = opened!.distributionId;
+      const snapshotId = opened!.snapshotId;
+      await first.distributeBatch(distributionId, [INVESTOR]);
       await first.setSettlementMode(true);
       await first.setNavRate(123_456n);
 
@@ -99,7 +112,9 @@ function sharedStateStoreContract(label: string, makeStore: () => MockLedgerStat
       expect(await second.quotePurchase(2n)).toBe(500_000n);
       expect(await second.totalSupplyAt(snapshotId)).toBe(1_000n);
       expect(await second.profitPoolBalance()).toBe(900_000n);
-      await second.distributeBatch(snapshotId, [INVESTOR]);
+      expect(await second.reservedProfit()).toBe(900_000n);
+      expect(await second.isDistributionPaid(distributionId, INVESTOR)).toBe(true);
+      await second.distributeBatch(distributionId, [INVESTOR]);
       expect(await second.paymentBalanceOf(INVESTOR)).toBe(600_000n);
       expect(await second.isSettlementMode()).toBe(true);
       expect(await second.navRate()).toBe(123_456n);
