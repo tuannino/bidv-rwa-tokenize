@@ -93,7 +93,7 @@ async function ensureHolders(ledger: ILedgerPort) {
 
 const live = HARDHAT_RPC ? describe.sequential : describe.skip;
 
-live('SC-06 ca 12 — adapter EVM khớp ProfitDistributor trên Hardhat thật', () => {
+live('SC-06 ca 12: adapter EVM khớp ProfitDistributor trên Hardhat thật', () => {
   let ledger: ILedgerPort;
   const originalRpc = process.env.RPC_HARDHAT;
 
@@ -215,7 +215,7 @@ async function distributionsCount(): Promise<bigint> {
   })) as bigint;
 }
 
-live('SC-06 ca 14 đến 19 — nghiệp vụ chia lợi nhuận trên Hardhat thật', () => {
+live('SC-06 ca 14 đến 19: nghiệp vụ chia lợi nhuận trên Hardhat thật', () => {
   let ledger: ILedgerPort;
   let service: typeof import('@/lib/bank/distribution.service');
   let trigger: typeof import('@/lib/bank/distribution-trigger.service');
@@ -484,7 +484,7 @@ live('SC-06 ca 14 đến 19 — nghiệp vụ chia lợi nhuận trên Hardhat t
   });
 });
 
-/** `claim(id)` do chính nhà đầu tư ký — không thuộc cổng của ngân hàng nên khai riêng cho ca 17. */
+/** `claim(id)` do chính nhà đầu tư ký: không thuộc cổng của ngân hàng nên khai riêng cho ca 17. */
 const CLAIM_ABI = [
   {
     type: 'function',

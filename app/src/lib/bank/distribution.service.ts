@@ -386,7 +386,7 @@ function isPeriod(
 }
 
 // =============================================================================
-//  B1 — MỞ KỲ: giữ chỗ, mở trên chuỗi, phục hồi (SC-06 QĐ-F)
+//  B1: MỞ KỲ: giữ chỗ, mở trên chuỗi, phục hồi (SC-06 QĐ-F)
 // =============================================================================
 
 /** Những thứ mọi bước mở kỳ và đẩy vault cùng dùng, gom lại để không truyền năm tham số. */
@@ -457,7 +457,7 @@ async function finishOpening(
     await syncVaultClose(ctx, completed);
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
-    await auditOpening(ctx, period.periodKey, 'FAILURE', `đẩy số đã chia vào vault chưa xong — ${reason}`);
+    await auditOpening(ctx, period.periodKey, 'FAILURE', `đẩy số đã chia vào vault chưa xong: ${reason}`);
   }
   return (await ctx.store.findPeriod(completed.id)) ?? completed;
 }
@@ -601,7 +601,7 @@ export async function openPeriod(input: unknown): Promise<Result<DistributionPer
     // --- 3. Có ai đang nắm WPT không (đọc) -----------------------------------
     if ((await ledger.tokenInfo()).totalSupply === 0n) {
       const reason =
-        `Tổng cung WPT bằng 0 — không có quyền nào để chia, nên kỳ "${periodKey}" không được mở. ` +
+        `Tổng cung WPT bằng 0: không có quyền nào để chia, nên kỳ "${periodKey}" không được mở. ` +
         `Phát hành nguồn cung và bán cho nhà đầu tư trước.`;
       await auditOpening(ctx, periodKey, 'FAILURE', reason);
       return err('NO_CIRCULATING_SUPPLY', reason);
@@ -631,7 +631,7 @@ export async function openPeriod(input: unknown): Promise<Result<DistributionPer
 
 /**
  * Hoàn tất một kỳ đang `OPENING` (QĐ-F bước 5): tra kỳ trên chuỗi theo nhãn; có thì ghi `OPEN`,
- * chưa có thì gửi lại `openDistribution` — hợp đồng chặn trùng nhãn nên không thể ra kỳ thứ hai.
+ * chưa có thì gửi lại `openDistribution`: hợp đồng chặn trùng nhãn nên không thể ra kỳ thứ hai.
  */
 export async function recoverOpeningPeriod(input: unknown): Promise<Result<DistributionPeriodView>> {
   const parsed = openPeriodSchema.safeParse(input);
@@ -654,7 +654,7 @@ export async function recoverOpeningPeriod(input: unknown): Promise<Result<Distr
 }
 
 // =============================================================================
-//  B1b — ĐẨY SỐ ĐÃ CHIA VÀO VAULT, ĐÚNG MỘT LẦN (SC-06 QĐ-G)
+//  B1b: ĐẨY SỐ ĐÃ CHIA VÀO VAULT, ĐÚNG MỘT LẦN (SC-06 QĐ-G)
 // =============================================================================
 
 export type VaultSyncOutcome = 'NOT_APPLICABLE' | 'WAITING' | 'SENT_PENDING' | 'DONE' | 'CONFLICT';
@@ -795,7 +795,7 @@ async function syncVaultClose(
     tx = await ledger.closeVaultPeriod(ref, BigInt(current.totalAmount));
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Lỗi không xác định.';
-    await auditVault(ctx, claimed, 'FAILURE', `gửi closePeriod lỗi — ${reason}`);
+    await auditVault(ctx, claimed, 'FAILURE', `gửi closePeriod lỗi: ${reason}`);
     return (await reconcileVaultClose(ctx, current.id)) ?? 'WAITING';
   }
   await store.transitionVaultClose({
@@ -1112,7 +1112,7 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
       /**
        * Chia theo `MAX_BULK_ROWS` vì cổng lưu trữ dồn cả lô vào MỘT câu `INSERT` và giao thức
        * Postgres chỉ mang được số tham số hữu hạn. Đây là giới hạn của cơ sở dữ liệu, KHÁC hẳn
-       * `batchSize` — giới hạn của một giao dịch on-chain.
+       * `batchSize`: giới hạn của một giao dịch on-chain.
        */
       for (const rows of chunk(allocations, MAX_BULK_ROWS)) {
         await store.createPayouts({ periodId: period.id, rows });
@@ -1204,7 +1204,7 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
 
     for (const [index, group] of chunk(toPay, batchSize).entries()) {
       /**
-       * HẠN MỨC SỐ LÔ MỖI LƯỢT (BE-07) — dừng ở đây, không chia nốt. Kỳ ở lại `DISTRIBUTING`,
+       * HẠN MỨC SỐ LÔ MỖI LƯỢT (BE-07): dừng ở đây, không chia nốt. Kỳ ở lại `DISTRIBUTING`,
        * `outstanding` khác 0, và lần gọi sau nhắm đúng những hồ sơ chưa `PAID`.
        */
       if (batches >= maxBatches) break;
@@ -1231,7 +1231,7 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
           period,
           role,
           'FAILURE',
-          `lô ${batchNo} (${group.length} ví, ${groupAmount} VNDB) gửi thất bại — ${reason}; ` +
+          `lô ${batchNo} (${group.length} ví, ${groupAmount} VNDB) gửi thất bại: ${reason}; ` +
             `đối soát từ chuỗi: ${result.confirmedPaid} đã nhận, ${result.notPaid} FAILED`,
         );
         continue;
@@ -1269,7 +1269,7 @@ export async function distributePeriod(input: unknown): Promise<Result<Distribut
           period,
           role,
           'FAILURE',
-          `lô ${batchNo} tx ${receipt.txHash} ${receipt.status} — ${reason}; ` +
+          `lô ${batchNo} tx ${receipt.txHash} ${receipt.status}: ${reason}; ` +
             `đối soát từ chuỗi: ${result.confirmedPaid} đã nhận, ${result.notPaid} FAILED`,
         );
         continue;

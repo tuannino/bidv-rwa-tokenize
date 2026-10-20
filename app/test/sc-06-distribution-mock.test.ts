@@ -46,7 +46,7 @@ async function open(ledger: ILedgerPort, label: string): Promise<number> {
   return found!.distributionId;
 }
 
-describe('SC-06 ca 13 — mock ngang hàng quỹ chia một chiều', () => {
+describe('SC-06 ca 13: mock ngang hàng quỹ chia một chiều', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(START);
@@ -166,7 +166,7 @@ function legacyJson(): Record<string, unknown> {
   return encoded;
 }
 
-describe('SC-06 ca 13 — chuyển đổi trạng thái mock cũ', () => {
+describe('SC-06 ca 13: chuyển đổi trạng thái mock cũ', () => {
   it('kỳ trả một phần chuyển thành dự trữ đúng phần còn nợ; kỳ mới chỉ lấy tiền nạp thêm', async () => {
     const now = START.getTime();
     const migrated = decodeMockLedgerState(legacyJson(), now);

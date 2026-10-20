@@ -153,7 +153,7 @@ afterEach(() => {
   resetStoreCache();
 });
 
-describe('SC-06 ca 15 — mở kỳ có giữ chỗ và phục hồi', () => {
+describe('SC-06 ca 15: mở kỳ có giữ chỗ và phục hồi', () => {
   it('(a) giao dịch lên chuỗi, lỗi trước khi ghi database: phục hồi đúng kỳ, không tạo kỳ thứ hai', async () => {
     await holders();
     await deposit(1_000_000n);
@@ -245,7 +245,7 @@ describe('SC-06 ca 15 — mở kỳ có giữ chỗ và phục hồi', () => {
   });
 });
 
-describe('SC-06 ca 17 — đối soát "đã trả" từ chuỗi', () => {
+describe('SC-06 ca 17: đối soát "đã trả" từ chuỗi', () => {
   it('tự nhận giữa hai vòng, lô đã lên chuỗi chưa ghi, FAILED lên chuỗi muộn: đều PAID, không trả hai lần', async () => {
     const C = '0x90F79bf6EB2c4f870365E785982E1f101E93b906';
     await holders();
@@ -307,7 +307,7 @@ describe('SC-06 ca 17 — đối soát "đã trả" từ chuỗi', () => {
   });
 });
 
-describe('SC-06 ca 18 — vòng đời kỳ hết hạn và đã đóng', () => {
+describe('SC-06 ca 18: vòng đời kỳ hết hạn và đã đóng', () => {
   it('quá hạn còn hồ sơ chưa trả: kỳ EXPIRED, hồ sơ EXPIRED, không gửi lô; đóng thì CLOSED', async () => {
     await holders();
     await deposit(1_000_000n);
@@ -354,7 +354,7 @@ describe('SC-06 ca 18 — vòng đời kỳ hết hạn và đã đóng', () => 
   });
 });
 
-describe('SC-06 ca 19 — BE-07 theo phần chưa phân bổ', () => {
+describe('SC-06 ca 19: BE-07 theo phần chưa phân bổ', () => {
   it('ba kỳ liên tiếp đều để lại phần lẻ: không chia trùng, không bỏ sót', async () => {
     await seedHolder(A, 1n);
     await seedHolder(B, 2n);
@@ -415,7 +415,7 @@ describe('SC-06 ca 19 — BE-07 theo phần chưa phân bổ', () => {
   });
 });
 
-describe('SC-06 ca 20 — mã kỳ theo chain', () => {
+describe('SC-06 ca 20: mã kỳ theo chain', () => {
   it('mã thiếu tiền tố bị từ chối ở kỳ mới; mã tự động có tiền tố; kỳ cũ không tiền tố vẫn đọc được', async () => {
     await holders();
     await deposit(1_000_000n);

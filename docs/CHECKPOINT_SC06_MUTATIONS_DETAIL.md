@@ -1,4 +1,4 @@
-# SC-06 — chi tiết đột biến (ca 11)
+# SC-06: chi tiết đột biến (ca 11)
 
 Tệp này giữ đầu ra dài theo `.kiro/steering/efficiency.md`. Mỗi đột biến áp một thay đổi lên
 `packages/contracts-evm/contracts/ProfitDistributor.sol` bằng script dưới đây, chạy đúng ca được

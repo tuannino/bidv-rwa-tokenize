@@ -1,4 +1,4 @@
-# Báo cáo bàn giao — SC-06: Vault chia lợi nhuận và nối luồng chia lên EVM (gộp SC-05)
+# Báo cáo bàn giao: SC-06: Vault chia lợi nhuận và nối luồng chia lên EVM (gộp SC-05)
 
 | | |
 |---|---|
@@ -14,13 +14,13 @@
 
 | # | Điều kiện hoàn thành | Trạng thái | Bằng chứng |
 |---|---|---|---|
-| 1 | Hợp đồng theo QĐ-A đến QĐ-C (ca 1 đến 9); bộ cũ theo ngoại lệ (ca 10); đột biến (ca 11) | ✅ | mục 1.1 · 2 · chi tiết kiểm chứng mục 1 · chi tiết đột biến |
-| 2 | Cổng, adapter, mock và chuyển đổi mock cũ theo QĐ-D (ca 12, 13); lưu trữ theo QĐ-E | ✅ | mục 1.2 · 2 · chi tiết kiểm chứng mục 7, 10 |
-| 3 | Mở kỳ giữ chỗ và phục hồi (ca 15); đẩy vault đúng một lần (ca 16); chia, đối soát, vòng đời (ca 14, 17, 18); BE-07 theo phần chưa phân bổ (ca 19); mã kỳ theo chain (ca 20) | ✅ | mục 1.3 · 2 · chi tiết kiểm chứng mục 7, 10 |
-| 4 | Triển khai theo QĐ-J; kiểm chứng chung (ca 21) | ✅ | mục 2 · chi tiết kiểm chứng mục 1 đến 11 |
+| 1 | Hợp đồng theo QĐ-A đến QĐ-C (ca 1 đến 9); bộ cũ theo ngoại lệ (ca 10); đột biến (ca 11) | ✅ | mục 1.1, 2, chi tiết kiểm chứng mục 1, chi tiết đột biến |
+| 2 | Cổng, adapter, mock và chuyển đổi mock cũ theo QĐ-D (ca 12, 13); lưu trữ theo QĐ-E | ✅ | mục 1.2, 2, chi tiết kiểm chứng mục 7, 10 |
+| 3 | Mở kỳ giữ chỗ và phục hồi (ca 15); đẩy vault đúng một lần (ca 16); chia, đối soát, vòng đời (ca 14, 17, 18); BE-07 theo phần chưa phân bổ (ca 19); mã kỳ theo chain (ca 20) | ✅ | mục 1.3, 2, chi tiết kiểm chứng mục 7, 10 |
+| 4 | Triển khai theo QĐ-J; kiểm chứng chung (ca 21) | ✅ | mục 2, chi tiết kiểm chứng mục 1 đến 11 |
 | 5 | `tech-report.md` mục chia lợi nhuận; DS-01 bản 5 ghi QĐ-13 cập nhật | ✅ | mục 4 |
 
-**Kết luận:** 5 ✅ · 0 🔶 · 0 ❌. Đạt trên nền `725f2c1`. Sau khi SC-03 merge phải rebase, chạy lại
+**Kết luận:** 5 ✅, 0 🔶, 0 ❌. Đạt trên nền `725f2c1`. Sau khi SC-03 merge phải rebase, chạy lại
 bộ kiểm chứng mục 2 và cập nhật checkpoint trước khi mở PR (mục 5).
 
 ### 0.2 Việc cần Owner quyết/chạy

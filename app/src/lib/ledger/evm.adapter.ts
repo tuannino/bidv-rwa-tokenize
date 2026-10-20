@@ -949,7 +949,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
         throw new LedgerError(
           chain,
           'distributeBatch',
-          'Danh sách ví trống — tầng nghiệp vụ phải truyền vào ít nhất một ví.',
+          'Danh sách ví trống: tầng nghiệp vụ phải truyền vào ít nhất một ví.',
         );
       }
       return writeOn('distributeBatch', 'ProfitDistributor', profitDistributorAbi, 'distributeTo', [

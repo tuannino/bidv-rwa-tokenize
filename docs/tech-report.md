@@ -18,7 +18,7 @@ inclusion: always
 | Phase kế tiếp | **FE-05** ký `permit` trên giao diện; sau đó **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
 | Người cập nhật | Claude Code (SC-06, thực thi theo chỉ định của Owner); SC-03 do Codex. Supervisor rà soát |
 
-**SC-06 — quỹ chia một chiều (gộp SC-05).** `ProfitDistributor` có sổ dự trữ `totalReserved`, tạo
+**SC-06: quỹ chia một chiều (gộp SC-05).** `ProfitDistributor` có sổ dự trữ `totalReserved`, tạo
 kỳ từ phần chưa phân bổ bằng nhãn dùng một lần (`createDistributionFromPool`, `distributionIdOfPeriod`)
 và `closeDistribution` thay `sweepDust`: không còn đường rút, phần chưa trả về quỹ cho kỳ sau. Ứng dụng
 mở kỳ có giữ chỗ `OPENING` và phục hồi, chia theo `distributionId`, chia cả vào vault (ví SPV), đối
@@ -2346,8 +2346,8 @@ dự trữ và ứng dụng dừng ở bước phát hiện quỹ hụt. Ngườ
 
 ### Ứng dụng: mở kỳ có giữ chỗ và phục hồi (QĐ-F)
 
-`openPeriod`: đọc trước (mã trùng, phần chưa phân bổ, tổng cung) → **giữ chỗ** `OPENING` (ràng buộc
-duy nhất `periodKey`) → `openDistribution` → lưu `openTxHash` **trước khi chờ** → chờ biên nhận →
+`openPeriod`: đọc trước (mã trùng, phần chưa phân bổ, tổng cung) sang **giữ chỗ** `OPENING` (ràng buộc
+duy nhất `periodKey`) sang `openDistribution` sang lưu `openTxHash` **trước khi chờ** sang chờ biên nhận sang
 `findDistribution(periodKey)`. Có kỳ thì `completeOpening` (cập nhật có điều kiện `OPENING -> OPEN`)
 với số **đọc từ chuỗi**. Không có và chuỗi chắc chắn từ chối (`LedgerError.reverted`, hoặc biên nhận
 `FAILED`) thì **xoá** bản giữ chỗ (chọn xoá thay vì thêm trạng thái lỗi: mã kỳ dùng lại được, sổ kiểm
@@ -2824,16 +2824,16 @@ components/pages/redeem.tsx  (khu vực (investor))
 
 ---
 
-## 4.5. Luồng DISTRIBUTION — chia lợi nhuận (BE-06 ✅ tầng BE; SC-06 nối EVM, chờ nghiệm thu)
+## 4.5. Luồng DISTRIBUTION: chia lợi nhuận (BE-06 ✅ tầng BE; SC-06 nối EVM, chờ nghiệm thu)
 
-> Sơ đồ sinh từ marker: **`docs/flows/distribute.md`** (16 bước — 1–10 của BE-06, 11–14 của BE-07,
+> Sơ đồ sinh từ marker: **`docs/flows/distribute.md`** (16 bước: 1–10 của BE-06, 11–14 của BE-07,
 > 15–16 của SC-06: mở kỳ trên chuỗi có phục hồi, đẩy số đã chia vào vault).
 > Đừng sửa tay tệp đó.
 > ⚠️ Số bước `@flow` đánh số **các hàm** trên đường đi; bảng trong mục này đánh số **các bước bên
 > trong một hàm**. Hai hệ đánh số khác nhau, đọc chéo bằng số bước sẽ ra kết luận sai.
 
-**Nghiệp vụ:** SPV nạp VNDB vào quỹ chia lợi nhuận → ngân hàng mở kỳ, hợp đồng chốt ảnh chụp và lấy
-đúng **phần chưa phân bổ** của quỹ → chia cho người nắm giữ WPT, **gồm vault** (ví SPV), theo tỷ lệ tại
+**Nghiệp vụ:** SPV nạp VNDB vào quỹ chia lợi nhuận sang ngân hàng mở kỳ, hợp đồng chốt ảnh chụp và lấy
+đúng **phần chưa phân bổ** của quỹ sang chia cho người nắm giữ WPT, **gồm vault** (ví SPV), theo tỷ lệ tại
 thời điểm chốt.
 
 **Trạng thái:** tầng nghiệp vụ chạy đủ trên `mock` và, từ SC-06, trên Hardhat thật
@@ -2860,22 +2860,22 @@ phép kiểm nào bắt được** vì cả hai đều đúng so với nguồn c
 **nhân trước, chia sau** — `bigint` chia lấy phần nguyên, nên `balanceAt / totalSupplyAt` cho ra `0`
 với mọi ví nắm dưới toàn bộ tổng cung và **mọi người được chia 0** trong im lặng.
 
-### Giai đoạn 1 — mở kỳ: `openPeriod()` (SC-06 QĐ-F)
+### Giai đoạn 1: mở kỳ: `openPeriod()` (SC-06 QĐ-F)
 
 ```
-openPeriodAction(input) ──→ lib/bank/distribution.service.ts :: openPeriod() ──→ driveOpening()
+openPeriodAction(input) ──sang lib/bank/distribution.service.ts :: openPeriod() ──sang driveOpening()
 ```
 
 | Bước | Việc | Chặn ở đâu |
 |---|---|---|
 | 1 | `openPeriodSchema.safeParse` | mã kỳ rỗng / quá 64 ký tự / ký tự ngoài `[A-Za-z0-9._:-]` / **thiếu tiền tố chain** |
 | 2 | `authorize('distribution:snapshot', ...)` | vai không có quyền → `FORBIDDEN`, ghi audit `DENIED` |
-| 3 | `findPeriodByKey(periodKey)` | mã kỳ đã dùng → `PERIOD_STATE` (đang `OPENING` thì chỉ sang `recoverOpeningPeriod`) |
-| 4 | `ledger.unallocatedProfit()` | bằng 0 → `INSUFFICIENT_PROFIT_POOL` |
-| 5 | `ledger.tokenInfo().totalSupply` | bằng 0 → `NO_CIRCULATING_SUPPLY` |
-| 6 | `reservePeriod()` ở `OPENING` | ★ lần ghi đầu tiên; `UniqueConstraintError` → `PERIOD_STATE` |
-| 7 | `openDistribution(periodKey)` → `setOpenTxHash` → `waitReceipt` | lưu mã giao dịch **trước khi chờ** |
-| 8 | `findDistribution(periodKey)` → `completeOpening` (`OPEN`) | số tiền, ảnh chụp, tổng cung, `distributionId`, địa chỉ hợp đồng **đọc từ chuỗi** |
+| 3 | `findPeriodByKey(periodKey)` | mã kỳ đã dùng sang `PERIOD_STATE` (đang `OPENING` thì chỉ sang `recoverOpeningPeriod`) |
+| 4 | `ledger.unallocatedProfit()` | bằng 0 sang `INSUFFICIENT_PROFIT_POOL` |
+| 5 | `ledger.tokenInfo().totalSupply` | bằng 0 sang `NO_CIRCULATING_SUPPLY` |
+| 6 | `reservePeriod()` ở `OPENING` | ★ lần ghi đầu tiên; `UniqueConstraintError` sang `PERIOD_STATE` |
+| 7 | `openDistribution(periodKey)` sang `setOpenTxHash` sang `waitReceipt` | lưu mã giao dịch **trước khi chờ** |
+| 8 | `findDistribution(periodKey)` sang `completeOpening` (`OPEN`) | số tiền, ảnh chụp, tổng cung, `distributionId`, địa chỉ hợp đồng **đọc từ chuỗi** |
 | 9 | đẩy số đã dành cho kỳ vào vault (QĐ-G) | lỗi không huỷ kỳ, BE-07 thử lại |
 
 **Mọi phép kiểm đọc chạy TRƯỚC lần ghi đầu tiên**, nên mã kỳ trùng, quỹ chưa phân bổ bằng 0 hay tổng
@@ -2902,14 +2902,14 @@ ai xét tới ví đó, còn `"0"` là kết luận đã xét và không đượ
 
 | Bước | Việc | Ghi chú |
 |---|---|---|
-| 1 | `authorize('distribution:execute', ...)` | kỳ ở `COMPLETED`/`CLOSED`/`OPENING` → `PERIOD_STATE`; đọc kỳ trên chuỗi, khác địa chỉ hợp đồng hoặc ảnh chụp → `PERIOD_STATE` |
+| 1 | `authorize('distribution:execute', ...)` | kỳ ở `COMPLETED`/`CLOSED`/`OPENING` sang `PERIOD_STATE`; đọc kỳ trên chuỗi, khác địa chỉ hợp đồng hoặc ảnh chụp sang `PERIOD_STATE` |
 | 2 | `readDistributionBatchSize()` + `readDistributionMaxBatchesPerRun()` | khoá `distribution.batch_size` (50) và `distribution.max_batches_per_run` (5) — xem 3.13 |
 | 3 | `collectRecipients()` rồi `allocate()` cho ví **chưa có hồ sơ** | chạm giới hạn quét → từ chối |
 | 4 | `createPayouts(...)` ở `PENDING`, chia theo `MAX_BULK_ROWS` | ★ **trước khi gửi giao dịch nào** |
-| 5 | hồ sơ `amount = 0` → `PAID` luôn, không vào lô nào; hồ sơ có tiền chưa `PAID` tra `isDistributionPaid` | chuyển 0 đồng tốn một chỗ trong lô mà không chuyển gì; đã nhận trên chuỗi → `PAID` "đối soát từ chuỗi" |
-| 5b | kỳ đã đóng hoặc quá hạn trên chuỗi → hồ sơ chưa trả `EXPIRED`, kỳ `EXPIRED`/`CLOSED`, **không gửi lô** | không hồ sơ chưa trả nào thành `PAID` |
+| 5 | hồ sơ `amount = 0` sang `PAID` luôn, không vào lô nào; hồ sơ có tiền chưa `PAID` tra `isDistributionPaid` | chuyển 0 đồng tốn một chỗ trong lô mà không chuyển gì; đã nhận trên chuỗi sang `PAID` "đối soát từ chuỗi" |
+| 5b | kỳ đã đóng hoặc quá hạn trên chuỗi sang hồ sơ chưa trả `EXPIRED`, kỳ `EXPIRED`/`CLOSED`, **không gửi lô** | không hồ sơ chưa trả nào thành `PAID` |
 | 6 | kỳ `OPEN` → `DISTRIBUTING` | chỉ khi thật sự có lô để gửi |
-| 7 | mỗi lô: `distributeBatch(distributionId, …)` → `SENT` + `txHash` → `waitReceipt` → `PAID`, hoặc tra chuỗi từng ví rồi `PAID`/`FAILED` | lô lỗi **không** dừng các lô còn lại; **dừng sau `maxBatches` lô** (BE-07) |
+| 7 | mỗi lô: `distributeBatch(distributionId, …)` sang `SENT` + `txHash` sang `waitReceipt` sang `PAID`, hoặc tra chuỗi từng ví rồi `PAID`/`FAILED` | lô lỗi **không** dừng các lô còn lại; **dừng sau `maxBatches` lô** (BE-07) |
 | 8 | hết hồ sơ khác `PAID` → kỳ `COMPLETED` + `completedAt` | `completedAt` do nghiệp vụ truyền, cổng không tự đặt |
 
 ⚠️ **Từ BE-07, hàm này KHÔNG hứa chia xong cả kỳ trong một lời gọi.** Nó dừng sau
@@ -2949,11 +2949,11 @@ trên chuỗi và về quỹ chưa phân bổ khi kỳ đóng sau hạn nhận (
 | Việc | Chờ ai |
 |---|---|
 | Triển khai lại Sepolia với `ProfitDistributor` mới, vault và hợp đồng khớp lệnh | OP-05 |
-| Quyền on-chain: `ProfitDistributor` giữ `SNAPSHOT_ROLE` trên `ProjectToken`, ví ký giữ `DISTRIBUTOR_ROLE` và `DEFAULT_ADMIN_ROLE` (đóng kỳ), và `CONFIG_ROLE` trên vault (đẩy số đã chia) | khâu triển khai — `deploy.js` đã cấp |
+| Quyền on-chain: `ProfitDistributor` giữ `SNAPSHOT_ROLE` trên `ProjectToken`, ví ký giữ `DISTRIBUTOR_ROLE` và `DEFAULT_ADMIN_ROLE` (đóng kỳ), và `CONFIG_ROLE` trên vault (đẩy số đã chia) | khâu triển khai: `deploy.js` đã cấp |
 | Màn nhà đầu tư tự nhận (`claim`) | ngoài phạm vi SC-06 |
 | Giao diện mở kỳ / xem trước / chia, theo dõi kỳ, phục hồi | FE-08, FE-09 |
 | Thiết kế lại nghiệp vụ chia | BE-18 |
-| Phát hiện tiền vào bằng **sự kiện**; danh sách người nhận đầy đủ | IN-01, IN-02 — xem 1.6.C |
+| Phát hiện tiền vào bằng **sự kiện**; danh sách người nhận đầy đủ | IN-01, IN-02: xem 1.6.C |
 
 ### Giai đoạn 4 — tự động: `runDistributionCycle()` (BE-07)
 
@@ -2977,12 +2977,12 @@ cán bộ bấm "chạy ngay" ──→ runDistributionCycleAction()
 | 1 | `distributionCycleSchema.safeParse` | chain sai dạng → `VALIDATION` |
 | 2 | `authorize('distribution:execute', ...)` | vai không có quyền → `FORBIDDEN`, ghi audit `DENIED` |
 | 2b | `reconcileChainPeriods()` | lỗi chỉ ghi audit, không dừng vòng |
-| 3 | `profitPoolBalance()`, `reservedProfit()`, `unallocatedProfit()` | quỹ hụt so với dự trữ → `INSUFFICIENT_PROFIT_POOL` |
-| 4 | `detectNewFunds()` | không có phần chưa phân bổ → `ok` `NO_NEW_FUNDS`; dưới ngưỡng → `ok` `BELOW_MIN_NEW_BALANCE` |
+| 3 | `profitPoolBalance()`, `reservedProfit()`, `unallocatedProfit()` | quỹ hụt so với dự trữ sang `INSUFFICIENT_PROFIT_POOL` |
+| 4 | `detectNewFunds()` | không có phần chưa phân bổ sang `ok` `NO_NEW_FUNDS`; dưới ngưỡng sang `ok` `BELOW_MIN_NEW_BALANCE` |
 | 5 | `startRun(jobName, '<mã kỳ>#<số vòng>')` | khoá đã có chủ → `ok` `ALREADY_RUNNING`, **dừng ngay** |
 | 6 | kỳ mới: `openPeriod()` với mã `<chain>:auto-…`; kỳ đang dở: chia tiếp | quỹ đủ đã được bảo đảm ở bước 3 |
 | 7 | `distributePeriod()` | lỗi → đóng `KeeperRun` ở `FAILED`, trả lỗi của BE-06 |
-| 8 | `outstanding = 0` → `settleBalanceMark()` (chỉ hiển thị); kỳ `EXPIRED`/`CLOSED` → `PERIOD_ENDED` | còn ví chưa nhận → lượt sau chia tiếp |
+| 8 | `outstanding = 0` sang `settleBalanceMark()` (chỉ hiển thị); kỳ `EXPIRED`/`CLOSED` sang `PERIOD_ENDED` | còn ví chưa nhận sang lượt sau chia tiếp |
 | 9 | `runNo >= distribution.stuck_after_runs` và còn ví chưa nhận → cảnh báo | `KeeperRun` `FAILED` + audit `FAILURE` |
 
 **Ai ký:** vẫn là ví ngân hàng, vì bước 6–7 gọi lại đúng hàm của BE-06. Khoá `KEEPER_SECRET` **không**

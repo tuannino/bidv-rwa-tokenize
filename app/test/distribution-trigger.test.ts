@@ -489,9 +489,9 @@ describe('ca 5 — số dư tăng dưới ngưỡng tối thiểu thì không m�
 });
 
 // ===========================================================================
-//  CA 6 — quỹ hụt so với dự trữ (SC-06 QĐ-I thay "số dư giảm so với mốc")
+//  CA 6: quỹ hụt so với dự trữ (SC-06 QĐ-I thay "số dư giảm so với mốc")
 // ===========================================================================
-describe('ca 6 — quỹ hụt so với tổng dự trữ thì dừng và ghi cảnh báo', () => {
+describe('ca 6: quỹ hụt so với tổng dự trữ thì dừng và ghi cảnh báo', () => {
   /**
    * Kỳ chia dở giữ 6.001 VNDB dự trữ; rồi quỹ bị rút xuống 1.000 (trên chuỗi thật: đốt VNDB trong
    * quỹ bằng BURNER_ROLE). Mốc số dư hiển thị không liên quan: đặt 0 để chắc nó không quyết định.

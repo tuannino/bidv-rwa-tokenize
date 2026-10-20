@@ -109,7 +109,7 @@ const MAX_KEEPER_RUN_SCAN = 1_000;
  * Kết cục của một vòng chạy. Sáu giá trị này đều là kết cục BÌNH THƯỜNG.
  *
  * Tình huống bất thường (quỹ hụt so với tổng dự trữ, SC-06 QĐ-I) KHÔNG có mặt ở đây: nó trả về
- * `Result` lỗi. Lý do là người gọi phải xử lý khác nhau —
+ * `Result` lỗi. Lý do là người gọi phải xử lý khác nhau :
  * tiến trình định kỳ thấy `ok` thì chỉ ghi nhật ký rồi chờ lượt sau, còn thấy lỗi thì phải
  * báo người vận hành. Gói cả hai vào `ok` là buộc mọi người gọi phải nhớ đọc thêm một trường
  * nữa mới biết có chuyện, và ai quên thì im lặng bỏ qua một bất thường về tiền.
@@ -138,7 +138,7 @@ export interface DistributionCycleView {
    * mọi số tiền trong `DistributionPeriodView`.
    */
   poolBalance: string;
-  /** SC-06: phần chưa phân bổ ở đầu vòng — căn cứ mở kỳ mới. */
+  /** SC-06: phần chưa phân bổ ở đầu vòng: căn cứ mở kỳ mới. */
   unallocatedBalance: string;
   /** SC-06: tổng dự trữ của các kỳ chưa đóng ở đầu vòng. */
   reservedBalance: string;
@@ -465,14 +465,14 @@ async function closeRun(
  * 1. Kiểm quyền `distribution:execute`.
  * 2. DỌN (SC-06): phục hồi kỳ `OPENING`, thử lại phần vault của các kỳ chưa chốt vault.
  * 3. ĐỌC quỹ, dự trữ, phần chưa phân bổ; quỹ hụt thì dừng; quyết định việc phải làm.
- * 4. CHIẾM chỗ chạy bằng `startRun` — từ đây mới gửi giao dịch chia.
+ * 4. CHIẾM chỗ chạy bằng `startRun`: từ đây mới gửi giao dịch chia.
  * 5. Mở kỳ (nếu là kỳ mới) rồi chia theo lô, bằng cách gọi lại BE-06.
  * 6. Cập nhật mốc số dư (chỉ để hiển thị) nếu kỳ đã xong trọn vẹn.
  * 7. Đóng dòng `KeeperRun` và ghi sổ kiểm toán.
  *
  * Bước 3 nằm TRƯỚC bước 4, khác với lời khuyên "gọi `startRun` trước khi làm việc" ở
  * `keeper.store.port.ts`, và đây là chủ đích: khoá chiếm chỗ mang mã kỳ, nên phải biết kỳ nào
- * trước khi xin khoá. Không mất gì vì bước 3 chỉ ĐỌC — hai vòng đồng thời cùng đọc ra cùng một
+ * trước khi xin khoá. Không mất gì vì bước 3 chỉ ĐỌC: hai vòng đồng thời cùng đọc ra cùng một
  * kết luận, rồi cùng xin một khoá, và ràng buộc duy nhất loại một vòng TRƯỚC khi vòng đó ghi
  * dòng nào hay gửi giao dịch nào.
  *

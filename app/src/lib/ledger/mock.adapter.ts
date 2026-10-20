@@ -697,7 +697,7 @@ export function createMockLedger(
           reject('openDistribution', 'Quỹ chia lợi nhuận không có phần chưa phân bổ nào để mở kỳ.');
         }
         if (s.totalSupply === 0n) {
-          reject('openDistribution', 'Tổng cung WPT tại thời điểm chốt bằng 0 — không có quyền để chia.');
+          reject('openDistribution', 'Tổng cung WPT tại thời điểm chốt bằng 0: không có quyền để chia.');
         }
         s.lastSnapshotId += 1;
         s.snapshots.set(s.lastSnapshotId, { balances: new Map(s.balances), totalSupply: s.totalSupply });
