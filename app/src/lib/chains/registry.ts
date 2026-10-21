@@ -29,6 +29,16 @@ export function chainFamily(key: ChainKey): ChainFamily {
   return CHAINS[key].family;
 }
 
+/**
+ * RPC cho đọc sự kiện (`eth_getLogs`), HF-03. `evm`: `RPC_EVM_LOGS`, trống thì RPC công khai mặc định của
+ * chain (không dùng `RPC_EVM`: RPC có key ở gói miễn phí của Alchemy giới hạn 10 block mỗi lần quét).
+ * Chain khác dùng đúng RPC chính.
+ */
+export function logsRpcUrlFor(key: ChainKey): string {
+  if (key !== 'evm') return rpcUrlFor(key);
+  return serverEnv().rpcEvmLogs ?? CHAINS.evm.defaultRpcUrl ?? rpcUrlFor(key);
+}
+
 /** RPC: env thắng mặc định trong `packages/shared`. */
 export function rpcUrlFor(key: ChainKey): string {
   const env = serverEnv();

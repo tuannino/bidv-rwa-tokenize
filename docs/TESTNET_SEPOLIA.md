@@ -275,6 +275,8 @@ PR B cho bước 10.
 | `NEXT_PUBLIC_RPC_EVM` | **Build variable**, tuỳ chọn | RPC công khai cho ví trình duyệt; không chứa API key |
 | `NEXT_PUBLIC_DEFAULT_CHAIN` | **Build variable**, tuỳ chọn | `evm` nếu muốn Sepolia mặc định |
 | `ORDER_SETTLEMENT_EVENT_BLOCK_CHUNK` | Worker runtime variable, tuỳ chọn | Mặc định 5.000; giảm nếu RPC giới hạn `eth_getLogs` |
+| `RPC_EVM_LOGS` | Worker runtime variable, tuỳ chọn (HF-03) | RPC chỉ để đọc sự kiện (`eth_getLogs`). Trống thì dùng RPC công khai mặc định `https://ethereum-sepolia-rpc.publicnode.com` (tối đa 50.000 block mỗi lần). **Không** trỏ Alchemy gói miễn phí: chỉ cho 10 block mỗi lần |
+| `EVM_LOG_BLOCK_CHUNK` | Worker runtime variable, tuỳ chọn (HF-03) | Số block mỗi đoạn quét lịch sử vault, mặc định 10.000; phải nhỏ hơn giới hạn của `RPC_EVM_LOGS` |
 | `USE_MOCK_DB`, `ENABLE_SEPOLIA_DEMO_PROJECT`, `ENABLE_DEMO_TOKEN_MINT` | `app/wrangler.json` | `false`, `true`, `false` |
 | `ENABLE_DEMO_PAYMENT_MINT` | `app/wrangler.json` | `true` cho bản PoC testnet (CH-6) |
 | `HYPERDRIVE` | binding trong `app/wrangler.json` | ID mới từ PR B |
