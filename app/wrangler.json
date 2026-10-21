@@ -1,45 +1,45 @@
 {
-  "name": "bidv-rwa-tokenize",
-  "main": ".open-next/worker.js",
-  "compatibility_date": "2026-07-30",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
-  "keep_vars": true,
-  "minify": true,
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  },
-  "services": [
-    {
-      "binding": "WORKER_SELF_REFERENCE",
-      "service": "bidv-rwa-tokenize"
-    }
-  ],
-  "vars": {
-    "USE_MOCK_KYC": "true",
-    "USE_MOCK_DB": "false",
-    "DEMO_ROLE": "TELLER",
-    "ENABLE_DEMO_PAYMENT_MINT": "true",
-    "ENABLE_DEMO_TOKEN_MINT": "false",
-    "ENABLE_SEPOLIA_DEMO_PROJECT": "true",
-    "ENABLE_READ_DIAGNOSTICS": "false"
-  },
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "bf7828b9f4bb42de9f65123d0f00e4a3",
-      "localConnectionString": "postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa"
-    }
-  ],
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1,
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true,
-      "persist": true
-    }
-  }
+	"name": "bidv-rwa-tokenize",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-07-30",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"keep_vars": true,
+	"minify": true,
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "bidv-rwa-tokenize"
+		}
+	],
+	"vars": {
+		"USE_MOCK_KYC": "true",
+		"USE_MOCK_DB": "false",
+		"DEMO_ROLE": "TELLER",
+		"ENABLE_DEMO_PAYMENT_MINT": "true",
+		"ENABLE_DEMO_TOKEN_MINT": "false",
+		"ENABLE_SEPOLIA_DEMO_PROJECT": "true",
+		"ENABLE_READ_DIAGNOSTICS": "false"
+	},
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "50d67e4a225949cd96413a4c4e167ac2",
+			"localConnectionString": "postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa"
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true,
+			"persist": true
+		}
+	}
 }
