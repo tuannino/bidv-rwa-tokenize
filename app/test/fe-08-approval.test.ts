@@ -28,6 +28,11 @@ const hook = vi.hoisted(() => ({
    */
   deferVaultClose: false,
   deferred: null as null | { ref: bigint; amount: bigint; txHash: string; mined: boolean },
+  /**
+   * HF-04: RPC đọc log đi sau RPC ghi: quét sự kiện không thấy `PeriodClosed`; chỉ tra theo mã giao dịch
+   * gợi ý (biên nhận qua RPC chính) mới thấy, như adapter EVM.
+   */
+  hideCloseLogs: false,
 }));
 
 vi.mock('@/lib/ledger', async (importOriginal) => {
@@ -59,6 +64,12 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
                 return { txHash: hook.deferred.txHash, status: 'PENDING' };
               }
               return target.closeVaultPeriod(ref, amount);
+            };
+          }
+          if (prop === 'findVaultPeriodClose' && hook.hideCloseLogs) {
+            return async (ref: bigint, hint?: string) => {
+              const found = await target.findVaultPeriodClose(ref);
+              return found && hint && found.txHash === hint ? found : null;
             };
           }
           if (prop === 'waitReceipt') {
@@ -172,6 +183,7 @@ beforeEach(() => {
     beforeOpen: null,
     deferVaultClose: false,
     deferred: null,
+    hideCloseLogs: false,
   });
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(START);
@@ -477,6 +489,50 @@ describe('FE-08 ca 5: vault PENDING, SENT, CONFLICT không có lô nào', () => 
     const overview = await approval.getDistributionOverview({ chain: CHAIN });
     expect(overview.ok && overview.data.active).toMatchObject({ nextAction: 'MANUAL_REVIEW' });
     expect(overview.ok && overview.data.active?.note).toMatch(/cần xử lý tay/);
+  });
+});
+
+// ===========================================================================
+//  HF-04: đọc log chậm không được thành CONFLICT; CONFLICT do lỗi đó tự hồi phục
+// ===========================================================================
+describe('HF-04: đối soát chốt kỳ vault khi RPC đọc log đi sau', () => {
+  it('ca 1: giao dịch chốt của kỳ vào khối mà quét log chưa thấy: DONE qua biên nhận, chia đủ, không CONFLICT', async () => {
+    const ledger = await seedOp05();
+    const before = await balances(ledger);
+    hook.hideCloseLogs = true;
+
+    const result = await approveOk('1000000');
+
+    expect(result.outcome).toBe('DISTRIBUTED');
+    expect(result.period.vaultCloseStatus).toBe('DONE');
+    expect(hook.vaultCloseCalls).toBe(1);
+    expect((await balances(ledger)).investor - before.investor).toBe(60n);
+  });
+
+  it('ca 2: kỳ đã lỡ thành CONFLICT dù sự kiện của chính nó khớp số: màn cho tiếp tục, đối soát lại thì DONE và chia', async () => {
+    const ledger = await seedOp05();
+    const before = await balances(ledger);
+    hook.deferVaultClose = true;
+    const sent = await approveOk('1000000');
+    expect(sent.period.vaultCloseStatus).toBe('SENT');
+    // Giao dịch vào khối; trạng thái bị đẩy sang CONFLICT như sự cố 21/10 (đối soát đọc log chưa thấy).
+    hook.deferVaultClose = false;
+    await ledger.closeVaultPeriod(hook.deferred!.ref, hook.deferred!.amount);
+    hook.deferred!.mined = true;
+    const store = getDistributionStore();
+    const own = (await ledger.findVaultPeriodClose(hook.deferred!.ref))!.txHash;
+    expect(await store.transitionVaultClose({ id: sent.period.id, from: 'SENT', to: 'CONFLICT', txHash: own })).not.toBeNull();
+    hook.hideCloseLogs = true;
+
+    actAs('TELLER');
+    const overview = await approval.getDistributionOverview({ chain: CHAIN });
+    expect(overview.ok && overview.data.active).toMatchObject({ nextAction: 'CONTINUE' });
+
+    actAs('CONTROLLER', KSV);
+    const resumed = await approval.continueDistribution({ chain: CHAIN, periodId: sent.period.id });
+    expect(resumed.ok && resumed.data.outcome).toBe('DISTRIBUTED');
+    expect((await store.findPeriod(sent.period.id))?.vaultCloseStatus).toBe('DONE');
+    expect((await balances(ledger)).investor - before.investor).toBe(60n);
   });
 });
 

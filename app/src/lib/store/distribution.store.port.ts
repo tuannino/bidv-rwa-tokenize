@@ -98,6 +98,9 @@ export const assertDistributionPayoutStatus = (value: string): DistributionPayou
  * `PENDING` = đã giữ chỗ mã kỳ vault; `SENT` = đang gửi hoặc đã gửi; `DONE` = sự kiện
  * `PeriodClosed` trên chuỗi khớp số của kỳ; `CONFLICT` = mã kỳ vault đã bị chốt bằng số khác
  * (ví dụ chạy script chen vào): dừng, chờ xử lý tay.
+ *
+ * HF-04: `CONFLICT` còn một đường ra `CONFLICT ──► DONE`, chỉ khi đối soát lại thấy sự kiện đúng mã kỳ
+ * có số khớp (CONFLICT trước đó do RPC đọc log đi sau). Khác số hoặc không có sự kiện thì giữ nguyên.
  */
 export const VAULT_CLOSE_STATUSES = ['PENDING', 'SENT', 'DONE', 'CONFLICT'] as const;
 export type VaultCloseStatus = (typeof VAULT_CLOSE_STATUSES)[number];

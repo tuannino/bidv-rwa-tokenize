@@ -130,7 +130,11 @@ export interface ILedgerVault {
    * Sự kiện `PeriodClosed` có đúng `periodRef`, quét từ block triển khai; `null` khi chưa chốt.
    * Dùng để đối soát trước khi gửi lại, không dựa vào `lastPeriodRef` (SC-06 QĐ-G).
    */
-  findVaultPeriodClose(periodRef: bigint): Promise<VaultPeriodClose | null>;
+  /**
+   * HF-04: `hintTxHash` là mã giao dịch chốt đã lưu. Quét log chưa thấy (RPC đọc log đi sau) thì adapter
+   * đọc sự kiện trong biên nhận của giao dịch đó; chỉ nhận sự kiện đúng `periodRef`.
+   */
+  findVaultPeriodClose(periodRef: bigint, hintTxHash?: string): Promise<VaultPeriodClose | null>;
   /*
    * Bốn setter cấu hình khoá (BE-13 QĐ-C). Trả mã giao dịch ngay (PENDING) để nghiệp vụ lưu `Txn`
    * trước khi chờ biên nhận. Chain không có vault thanh toán thì ném lỗi "không áp dụng".

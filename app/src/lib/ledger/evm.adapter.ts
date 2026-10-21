@@ -1270,10 +1270,40 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       ]);
     },
 
-    async findVaultPeriodClose(periodRef) {
+    async findVaultPeriodClose(periodRef, hintTxHash) {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
       if (!vaultAddress) return null;
-      const [found] = await readPeriodCloses('findVaultPeriodClose', vaultAddress, periodRef);
+      let [found] = await readPeriodCloses('findVaultPeriodClose', vaultAddress, periodRef);
+      if (!found && hintTxHash) {
+        // HF-04: RPC đọc log có thể chưa thấy khối mới; biên nhận đọc qua RPC chính.
+        try {
+          const receipt = await reader().getTransactionReceipt({ hash: hintTxHash as Hex });
+          const events = parseEventLogs({
+            abi: spvPaymentVaultAbi as Abi,
+            logs: receipt.logs.filter((log) => log.address.toLowerCase() === vaultAddress.toLowerCase()),
+            eventName: 'PeriodClosed',
+          }) as unknown as Array<{
+            args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
+            transactionHash: Hex;
+            blockNumber: bigint;
+          }>;
+          const event = events.find((log) => log.args.periodRef === periodRef);
+          if (event) {
+            found = {
+              periodRef,
+              distributedPrev: event.args.distributedPrev ?? 0n,
+              rateBps: event.args.rateBps ?? 0n,
+              percentLocked: event.args.percentLocked ?? 0n,
+              operator: normalizeEvmAddress(event.args.operator ?? '0x0000000000000000000000000000000000000000'),
+              txHash: event.transactionHash,
+              blockNumber: event.blockNumber,
+              timestamp: 0,
+            };
+          }
+        } catch (error) {
+          if (!(error instanceof TransactionReceiptNotFoundError)) return fail('findVaultPeriodClose', error);
+        }
+      }
       if (!found) return null;
       try {
         const block = await reader().getBlock({ blockNumber: found.blockNumber });
