@@ -747,8 +747,13 @@ async function auditVault(
 }
 
 /**
- * Đối soát mã kỳ vault đã giữ chỗ với sự kiện `PeriodClosed` trên chuỗi. `null` = chưa có sự kiện.
+ * Đối soát mã kỳ vault đã giữ chỗ với sự kiện `PeriodClosed` trên chuỗi. `null` = chưa có bằng chứng.
  * Có và khớp số của kỳ thì `DONE`; có mà khác số (ví dụ chạy script chen vào) thì `CONFLICT`.
+ *
+ * HF-04: sự kiện đọc qua RPC đọc log (HF-03) có thể đi sau RPC ghi vài block, nên ngay sau khi giao
+ * dịch chốt của CHÍNH kỳ này vào khối, quét log có thể chưa thấy. Khi đó adapter đọc sự kiện từ biên
+ * nhận của `vaultCloseTxHash`. Kỳ `CONFLICT` cũng được đối soát lại: chỉ chuyển về `DONE` khi sự kiện
+ * đúng mã kỳ có số khớp; xung đột thật (số khác, hoặc không có sự kiện) giữ nguyên.
  */
 async function reconcileVaultClose(
   ctx: ChainContext,
@@ -756,13 +761,19 @@ async function reconcileVaultClose(
 ): Promise<VaultSyncOutcome | null> {
   const current = await ctx.store.findPeriod(periodId);
   if (!current?.vaultCloseStatus || current.vaultPeriodRef === null) return null;
-  if (current.vaultCloseStatus === 'DONE' || current.vaultCloseStatus === 'CONFLICT') {
-    return current.vaultCloseStatus;
-  }
-  const close = await ctx.ledger.findVaultPeriodClose(BigInt(current.vaultPeriodRef));
-  if (!close) return null;
+  if (current.vaultCloseStatus === 'DONE') return 'DONE';
+  const wasConflict = current.vaultCloseStatus === 'CONFLICT';
+
+  // Gợi ý mã giao dịch đã lưu: adapter đọc thẳng biên nhận của giao dịch đó (RPC chính, không trễ)
+  // khi quét log chưa thấy, và chỉ nhận sự kiện đúng mã kỳ. Số so sánh là số thật trên chuỗi.
+  const close = await ctx.ledger.findVaultPeriodClose(
+    BigInt(current.vaultPeriodRef),
+    current.vaultCloseTxHash ?? undefined,
+  );
+  if (!close) return wasConflict ? 'CONFLICT' : null;
 
   const matches = close.distributedPrev === BigInt(current.totalAmount);
+  if (wasConflict && !matches) return 'CONFLICT';
   const to = matches ? 'DONE' : 'CONFLICT';
   const moved = await ctx.store.transitionVaultClose({
     id: current.id,
@@ -809,9 +820,9 @@ async function syncVaultClose(
 ): Promise<VaultSyncOutcome> {
   const { ledger, store } = ctx;
   if (period.distributionId === null) return 'NOT_APPLICABLE';
-  if (period.vaultCloseStatus === 'DONE' || period.vaultCloseStatus === 'CONFLICT') {
-    return period.vaultCloseStatus;
-  }
+  if (period.vaultCloseStatus === 'DONE') return 'DONE';
+  // HF-04: CONFLICT được đối soát lại; chỉ về DONE khi có bằng chứng khớp số.
+  if (period.vaultCloseStatus === 'CONFLICT') return (await reconcileVaultClose(ctx, period.id)) ?? 'CONFLICT';
   const vault = await ledger.vaultStatus();
   if (!vault) return 'NOT_APPLICABLE';
 

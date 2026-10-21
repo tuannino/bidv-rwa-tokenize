@@ -528,6 +528,7 @@ async function progressOf(periodId: string): Promise<PayoutProgress> {
 function describeActive(
   period: DistributionPeriodRecord,
   progress: PayoutProgress,
+  conflictHealable = false,
 ): Pick<ActivePeriodView, 'nextAction' | 'note' | 'pendingOnChain'> {
   const pendingOnChain =
     (period.status === 'OPENING' && period.openTxHash !== null) ||
@@ -555,7 +556,15 @@ function describeActive(
     };
   }
   if (period.vaultCloseStatus === 'CONFLICT') {
-    return { pendingOnChain, nextAction: 'MANUAL_REVIEW', note: 'Kỳ vault CONFLICT: cần xử lý tay, khoá chia.' };
+    // HF-04: sự kiện chốt trên chuỗi KHỚP số của kỳ thì CONFLICT chỉ là đối soát đọc log chậm lúc trước:
+    // cho bấm tiếp tục để đối soát lại rồi chia. Khác số hoặc không có thì xử lý tay như cũ.
+    return conflictHealable
+      ? {
+          pendingOnChain,
+          nextAction: 'CONTINUE',
+          note: 'Kỳ vault CONFLICT nhưng sự kiện chốt trên chuỗi khớp số của kỳ. Tiếp tục để đối soát lại rồi chia.',
+        }
+      : { pendingOnChain, nextAction: 'MANUAL_REVIEW', note: 'Kỳ vault CONFLICT: cần xử lý tay, khoá chia.' };
   }
   if (period.vaultCloseStatus !== 'DONE') {
     return {
@@ -628,7 +637,19 @@ export async function getDistributionOverview(input: unknown): Promise<Result<Di
     let active: ActivePeriodView | null = null;
     if (activeRecord) {
       const progress = await progressOf(activeRecord.id);
-      active = { period: toPeriodView(activeRecord), progress, ...describeActive(activeRecord, progress) };
+      // HF-04: chỉ đọc chuỗi thêm khi kỳ đang CONFLICT (hiếm).
+      let conflictHealable = false;
+      if (activeRecord.vaultCloseStatus === 'CONFLICT' && activeRecord.vaultPeriodRef !== null) {
+        const close = await ledger
+          .findVaultPeriodClose(BigInt(activeRecord.vaultPeriodRef), activeRecord.vaultCloseTxHash ?? undefined)
+          .catch(() => null);
+        conflictHealable = close !== null && close.distributedPrev === BigInt(activeRecord.totalAmount);
+      }
+      active = {
+        period: toPeriodView(activeRecord),
+        progress,
+        ...describeActive(activeRecord, progress, conflictHealable),
+      };
     }
 
     const approveBlockers: string[] = [];
