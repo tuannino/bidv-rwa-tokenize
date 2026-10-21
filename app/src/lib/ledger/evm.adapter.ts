@@ -32,7 +32,7 @@ import {
   type ChainKey,
   type ContractName,
 } from '@bidv/shared';
-import { rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
+import { logsRpcUrlFor, rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
 import { serverEnv } from '@/lib/config/env';
 import type { ISigner } from '@/lib/signer';
 import { normalizeEvmAddress } from './address';
@@ -237,6 +237,45 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       transport: http(rpcUrl, { batch: { batchSize: RPC_READ_BATCH_SIZE } }),
     });
     return publicClient;
+  };
+
+  let logsClient: PublicClient | undefined;
+  /**
+   * HF-03: client chỉ để đọc sự kiện, trỏ `logsRpcUrlFor(chain)`. Gói miễn phí của Alchemy (RPC chính trên
+   * Sepolia) từ chối `eth_getLogs` rộng hơn 10 block; RPC công khai cho tới 50.000. Vẫn gom lô như `reader`.
+   */
+  const logReader = (): PublicClient => {
+    logsClient ??= createPublicClient({
+      chain: viemChain,
+      transport: http(logsRpcUrlFor(chain), { batch: { batchSize: RPC_READ_BATCH_SIZE } }),
+    });
+    return logsClient;
+  };
+
+  /**
+   * HF-03: quét sự kiện từ `fromBlock` tới block mới nhất theo từng đoạn `EVM_LOG_BLOCK_CHUNK` block, để
+   * khoảng quét không vượt giới hạn của RPC khi chain chạy lâu. Các đoạn phát cùng lúc nên đi chung lô.
+   * Trả theo thứ tự block tăng dần; chỗ gọi tự sắp lại nếu cần.
+   */
+  const scanLogs = async <T,>(params: Record<string, unknown>, fromBlock: bigint): Promise<T[]> => {
+    const client = logReader();
+    // `cacheTime: 0`: viem nhớ số block vài giây; số cũ làm sót sự kiện vừa phát ra (đo trên nút Hardhat).
+    const latest = await client.getBlockNumber({ cacheTime: 0 });
+    if (fromBlock > latest) return [];
+    const chunk = BigInt(serverEnv().evmLogBlockChunk);
+    const ranges: Array<[bigint, bigint | 'latest']> = [];
+    for (let start = fromBlock; start <= latest; start += chunk) {
+      // Đoạn cuối đọc tới `latest` để không sót block mới sinh trong lúc quét (RPC log có thể đi sau RPC ghi).
+      ranges.push([start, start + chunk - 1n < latest ? start + chunk - 1n : 'latest']);
+    }
+    const parts = await Promise.all(
+      ranges.map(([from, to]) =>
+        client.getContractEvents({ ...(params as object), fromBlock: from, toBlock: to } as Parameters<
+          PublicClient['getContractEvents']
+        >[0]),
+      ),
+    );
+    return parts.flat() as T[];
   };
 
   /**
@@ -558,14 +597,15 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       );
     }
     try {
-      const logs = (await reader().getContractEvents({
-        address: normalizeEvmAddress(vaultAddress) as Hex,
-        abi: spvPaymentVaultAbi as Abi,
-        eventName: 'PeriodClosed',
-        ...(periodRef === undefined ? {} : { args: { periodRef } }),
-        fromBlock: BigInt(deployBlock),
-        toBlock: 'latest',
-      })) as Array<{
+      const logs = (await scanLogs(
+        {
+          address: normalizeEvmAddress(vaultAddress) as Hex,
+          abi: spvPaymentVaultAbi as Abi,
+          eventName: 'PeriodClosed',
+          ...(periodRef === undefined ? {} : { args: { periodRef } }),
+        },
+        BigInt(deployBlock),
+      )) as Array<{
         args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
         transactionHash: Hex;
         blockNumber: bigint;
@@ -881,10 +921,10 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       try {
         const lower = BigInt(deployBlock);
         const chunk = BigInt(serverEnv().orderSettlementEventBlockChunk);
-        let toBlock = await reader().getBlockNumber();
+        let toBlock = await logReader().getBlockNumber();
         while (toBlock >= lower) {
           const fromBlock = toBlock - lower + 1n > chunk ? toBlock - chunk + 1n : lower;
-          const logs = (await reader().getContractEvents({
+          const logs = (await logReader().getContractEvents({
             address: addressOf('SpvPaymentVault'),
             abi: spvPaymentVaultAbi as Abi,
             eventName: 'OrderSettled',
@@ -1277,14 +1317,15 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async findVaultWithdrawals({ fromBlock, to, amount }) {
       const vault = requireVault('findVaultWithdrawals');
       try {
-        const logs = (await reader().getContractEvents({
-          address: vault as Hex,
-          abi: spvPaymentVaultAbi as Abi,
-          eventName: 'Withdrawn',
-          ...(to === undefined ? {} : { args: { to: normalizeEvmAddress(to) } }),
+        const logs = await scanLogs<WithdrawnLog>(
+          {
+            address: vault as Hex,
+            abi: spvPaymentVaultAbi as Abi,
+            eventName: 'Withdrawn',
+            ...(to === undefined ? {} : { args: { to: normalizeEvmAddress(to) } }),
+          },
           fromBlock,
-          toBlock: 'latest',
-        })) as WithdrawnLog[];
+        );
         return logs
           .map(toVaultWithdrawal)
           .filter((event) => amount === undefined || event.amount === amount)
@@ -1327,12 +1368,10 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
         );
       }
       try {
-        const logs = (await reader().getContractEvents({
-          address: normalizeEvmAddress(vaultAddress) as Hex,
-          abi: spvPaymentVaultAbi as Abi,
+        const logs = (await scanLogs(
+          { address: normalizeEvmAddress(vaultAddress) as Hex, abi: spvPaymentVaultAbi as Abi },
           fromBlock,
-          toBlock: 'latest',
-        })) as Array<{
+        )) as Array<{
           eventName: string;
           args: { mode?: number; amount?: bigint; bps?: bigint; pending?: boolean; wallet?: string };
           transactionHash: Hex;

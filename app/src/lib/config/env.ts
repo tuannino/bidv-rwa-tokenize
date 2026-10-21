@@ -89,8 +89,15 @@ const envSchema = z.object({
   defaultChain: chainKeySchema,
   rpcHardhat: optionalUrl,
   rpcEvm: optionalUrl,
+  /**
+   * HF-03: RPC riêng cho đọc sự kiện (`eth_getLogs`) trên `evm`. Gói miễn phí của Alchemy chỉ cho quét
+   * 10 block mỗi lần, nên đọc lịch sử qua RPC chính hỏng. Trống thì dùng RPC công khai mặc định của chain.
+   */
+  rpcEvmLogs: optionalUrl,
   /** Số block tối đa mỗi đoạn quét sự kiện OrderSettled. */
   orderSettlementEventBlockChunk: positiveInteger(5_000),
+  /** HF-03: số block tối đa mỗi đoạn `eth_getLogs` khi quét lịch sử vault (publicnode cho tối đa 50.000). */
+  evmLogBlockChunk: positiveInteger(10_000),
 
   // --- Signer (PoC) ---
   /** Khóa dùng chung, áp cho mọi chain không có khóa riêng. */
@@ -175,7 +182,9 @@ function load(): ServerEnv {
     // cho cùng một chain, nên không thể dùng chung một biến.
     rpcHardhat: process.env.RPC_HARDHAT ?? process.env.NEXT_PUBLIC_RPC_HARDHAT,
     rpcEvm: process.env.RPC_EVM ?? process.env.NEXT_PUBLIC_RPC_EVM,
+    rpcEvmLogs: process.env.RPC_EVM_LOGS,
     orderSettlementEventBlockChunk: process.env.ORDER_SETTLEMENT_EVENT_BLOCK_CHUNK,
+    evmLogBlockChunk: process.env.EVM_LOG_BLOCK_CHUNK,
     serverSignerPrivateKey: process.env.SERVER_SIGNER_PRIVATE_KEY,
     serverSignerPrivateKeyHardhatLocal: process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL,
     serverSignerPrivateKeyEvm: process.env.SERVER_SIGNER_PRIVATE_KEY_EVM,
