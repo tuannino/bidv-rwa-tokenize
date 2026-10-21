@@ -6,7 +6,7 @@
 | Nhánh | `feat/op-05-runbook`, tạo từ `dev` @ `7d058de` (PR #61, FE-08 đã merge; BE-13 đã merge ở PR #60) |
 | Spec | `docs/op-05-sepolia-lan-hai/{requirements,tasks}.md` bản 3 (CH-1 đến CH-7 đã chốt) |
 | Mức kiểm chứng | Vừa |
-| Tiến độ | Bước 0 đến 5 của PR A xong. Còn phần Sếp chạy theo runbook (PR B, Sepolia, PR C). Claude Code **không** merge vào `dev` |
+| Tiến độ | PR A (#63), PR B (#64) đã merge; Sếp chạy runbook trên Sepolia ngày 21/10/2026; PR C (Supervisor) điền mục 6, OP-05 sang `done` |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -15,18 +15,16 @@
 | # | Điều kiện hoàn thành | Trạng thái | Bằng chứng |
 |---|---|---|---|
 | 1 | PR A: ca 1 đến 9, `CHECKPOINT_OP05.md` phần coder, mục "Kết quả chạy Sepolia" để trống | ✅ | mục 2; chi tiết kiểm chứng mục 1 đến 12; mục 6 để trống |
-| 2 | PR B merge; kiểm khói và kiểm database mới đạt (bước 10, 11) | ❌ | mục 0.2; runbook bước 4 đến 11 |
-| 3 | Vòng nghiệp vụ khớp bảng số dư kỳ vọng; Supervisor đọc chuỗi Sepolia xác nhận; PR C chuyển `done` | ❌ | mục 0.2; runbook bước 12 đến 14; ca 4 đã khớp trên Hardhat (mục 2) |
+| 2 | PR B merge; kiểm khói và kiểm database mới đạt (bước 10, 11) | ✅ | mục 6.2, 6.3 |
+| 3 | Vòng nghiệp vụ khớp bảng số dư kỳ vọng; Supervisor đọc chuỗi Sepolia xác nhận; PR C chuyển `done` | ✅ | mục 6.4, 6.5 (bảng tính lại theo tổng cung đã Mint, SL-1) |
 
-**Kết luận:** 1 ✅, 0 🔶, 2 ❌. Hai điều kiện ❌ là việc của Sếp và Supervisor theo spec (coder không triển khai
-Sepolia, không giữ khoá); phần coder đã sẵn để chạy. Không sửa hợp đồng; thay đổi app chỉ ở QĐ-I. Bảng số dư kỳ
-vọng của spec khớp **từng ô** trên nút Hardhat, không có lệch nào phải báo.
+**Kết luận:** 3 ✅, 0 🔶, 0 ❌. Sai lệch SL-1 (Mint đầu 10.000.000 WPT thay vì 1.000.000) đổi số kỳ vọng, không
+đổi công thức; mọi ô khớp số tính lại. Trong lúc chạy phát sinh và đã merge HF-02, HF-03, HF-04 (mục 6.1).
 
 ### 0.2 Việc cần Owner quyết/chạy
 
-- **Sếp** chạy `docs/TESTNET_SEPOLIA.md` bước 0 đến 14: database Neon mới và Hyperdrive mới (bước 4), deploy
-  (bước 5 đến 7), mở và merge PR B (bước 8), Cloudflare (bước 9), rồi vòng nghiệp vụ (bước 12, 13).
-- **Supervisor** soát diff PR B, đọc chuỗi đối chiếu bảng số dư, soạn mục 6 và PR C (OP-05 sang `done`).
+- Gửi đầu ra bước 14 (Sếp hẹn gửi sau) để lưu kèm; mục 6 dựa trên Supervisor đọc trực tiếp chuỗi Sepolia.
+- Xoá project Neon `us-east-1` (database tạm của lần chạy đầu, chỉ có dữ liệu seed) khi không cần nữa.
 
 ---
 
@@ -372,6 +370,75 @@ phải terminal sẽ đánh giá cả khối như một module và lỗi ở `re
 - [x] Mọi thao tác ký qua `ISigner` (không thêm đường ký nào trong app; script vận hành giữ nguyên cách ký).
 - [x] Mọi kiểm quyền qua RBAC (`assertCan(role, 'wallet:connect')`; không so tên vai).
 
-## 6. Kết quả chạy Sepolia
+## 6. Kết quả chạy Sepolia (21/10/2026, Supervisor đọc chuỗi qua RPC công khai `ethereum-sepolia-rpc.publicnode.com`)
 
-(Để trống. Supervisor điền ở PR C từ đầu ra Sếp gửi theo runbook bước 14.)
+### 6.1 Diễn biến và hotfix phát sinh
+
+| Bước | Kết quả | Ghi chú |
+|---|---|---|
+| 3 | Bỏ qua | Mạng nội bộ không phân giải `*.neon.tech`; database cũ giữ nguyên |
+| 4 | Database mới, rồi chuyển sang project Neon `ap-southeast-1` (database `rwa-bid-vault`) | `wrangler hyperdrive update` tại chỗ, giữ ID `50d67e4a…`, cache tắt. Lần đầu treo khoảng 5 phút khi tạo lược đồ |
+| 6, 8 | Deploy block 11959727; PR B #64 merge `07b8f27` | 9 địa chỉ có mã, nối đúng; ABI không đổi nên không có `*.abi.json` trong diff |
+| 8 (CI) | Job A đỏ 1 ca `fe-05-permit-order` | HF-02 (PR #65): ca kiểm thử dựa vào address book thật |
+| 12 | Cấu hình vault đạt: ví nhận `0x5a5B…c4fd`, 20%, PERCENT | Hai khối lịch sử `/vault` lỗi: Alchemy gói miễn phí chỉ cho `eth_getLogs` 10 block. HF-03 (PR #66) |
+| 13.7 | Hai lượt đầu lỗi đọc log; lượt 3 CONFLICT giả | RPC đọc log đi sau RPC ghi. HF-04 (PR #67); lượt 4 SUCCESS |
+
+### 6.2 Kiểm khói (bước 10)
+
+```
+$ node scripts/smoke-test.mjs https://bidv-rwa-tokenize.tuanlhbidv.workers.dev --expect-commit=$(git rev-parse origin/dev) --chain=evm
+  PASS  GET /api/version
+  PASS  mã commit đang chạy khớp --expect-commit
+  PASS  GET /api/token?chain=evm
+        WPT trên evm, tổng cung 0
+  => ĐẠT toàn bộ 3 phép kiểm.
+```
+
+### 6.3 Kiểm database mới (bước 11)
+
+Sếp chạy `scripts/op05-db-check.sql` qua SQL Editor của Neon trên database `rwa-bid-vault` (biến đã thay sẵn):
+bảy bảng 0; `WPT | evm | 0x257EdD71BF2DEf7b16A2DF12e4491846973905D7 | t | t`; giá 100000; 4 vai. Sếp xác nhận đạt.
+
+### 6.4 Sự kiện trên chuỗi
+
+```
+OrderSettled {"inv":"0xB3a5B799F05F98f78FE58a7f14CD9A400696d033","side":0,"wpt":"100","vnd":"10000000","block":"11961068"}
+OrderSettled {"inv":"0xB3a5B799F05F98f78FE58a7f14CD9A400696d033","side":1,"wpt":"40","vnd":"4000000","block":"11961087"}
+OrderSettled {"inv":"0x3190238b226cBb80EB60cAd7f74C8e37a98e574E","side":0,"wpt":"100","vnd":"10000000","block":"11961905"}
+PeriodClosed {"periodRef":"1","distributedPrev":"1000000","rateBps":"2000","percentLocked":"200000"} block 11961682 tx 0xfc9f016c…2913
+Withdrawn {"to":"0x5a5B0Ab8613bA0F16e257228e4109A8F611Ec4fd","amount":"3399997"} tx 0x2d2343cc2f…
+VNDB mint {"to":"0xB3a5B799…d033","value":"20000000"}   VNDB mint {"to":"ProfitDistributor","value":"1000000"}
+VNDB mint {"to":"0xf2B7d5F8…BA80","value":"10000000"}    VNDB mint {"to":"0x3190238b…574E","value":"10000000"}
+WPT mint {"to":"SpvPaymentVault 0x0da9…6861","value":"10000000"}
+```
+
+Kỳ chia `evm:2026-10-21-01`: `distributions(0)` = snapshot 1, số 1.000.000, tổng cung lúc chụp 10.000.000, đã trả
+1.000.000; hồ sơ: Nhà đầu tư 60 WPT nhận 6 VNDB, vault 9.999.940 WPT nhận 999.994 VNDB (cùng tx `0xb08a83e4…96d981`).
+
+### 6.5 Số dư cuối, đối chiếu
+
+| Ô | Kỳ vọng (tính lại, SL-1) | Trên chuỗi | |
+|---|---|---|---|
+| Nhà đầu tư `0xB3a5…d033` WPT | 60 | 60 | ✅ |
+| Nhà đầu tư VNDB | 20.000.000 − 10.000.000 + 4.000.000 + 6 = 14.000.006 | 14.000.006 | ✅ |
+| Vault WPT | 10.000.000 − 100 + 40 − 100 (Nhà đầu tư thứ hai) = 9.999.840 | 9.999.840 | ✅ |
+| Vault VNDB | 6.000.000 + 10.000.000 + 999.994 − 3.399.997 = 13.599.997 | 13.599.997 | ✅ |
+| Thu ròng | 6.000.000 + 10.000.000 = 16.000.000 | 16.000.000 | ✅ |
+| Phần khoá | 20% của 1.000.000 = 200.000 | 200.000 | ✅ |
+| Được rút | 13.599.997 − 200.000 = 13.399.997 | 13.399.997 | ✅ |
+| Ví nhận `0x5a5B…c4fd` VNDB | 50% của (6.999.994 − 200.000) = 3.399.997 | 3.399.997 | ✅ |
+| ProfitDistributor VNDB, giữ cho kỳ, chưa phân bổ | 0, 0, 0 | 0, 0, 0 | ✅ |
+| Tổng cung VNDB | 20.000.000 + 1.000.000 + 10.000.000 + 10.000.000 = 41.000.000 | 41.000.000 | ✅ |
+
+### 6.6 Sai lệch
+
+- **SL-1:** lượt 13.1 Mint 10.000.000 WPT (runbook 1.000.000). Lợi nhuận mỗi WPT 0,1 VNDB; bảng kỳ vọng tính lại
+  theo đúng công thức của runbook. Không đổi mã.
+- **SL-2:** sau 13.7, ngoài kịch bản có thêm một Nhà đầu tư `0x3190…574E` nạp 10.000.000 VNDB và mua 100 WPT, và một
+  lượt nạp 10.000.000 VNDB cho `0xf2B7…BA80`. Mua sau ảnh chụp nên không ảnh hưởng kỳ chia; số dư cuối đã tính vào.
+- **SL-3:** bước 3 bỏ qua (mục 6.1). Database cũ còn nguyên, không có câu ghi nào.
+
+### 6.7 Đầu ra bước 14 của Sếp
+
+(Chờ chủ dự án. Sếp gửi đầu ra không bí mật theo runbook bước 14; Supervisor bổ sung nguyên văn vào mục này sau.
+Mục 6.1 đến 6.6 dựa trên Supervisor đọc trực tiếp chuỗi Sepolia.)

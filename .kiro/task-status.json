@@ -43,11 +43,10 @@
     "HF-03",
     "HF-04",
     "BE-13",
-    "FE-08"
-  ],
-  "inProgress": [
+    "FE-08",
     "OP-05"
   ],
+  "inProgress": [],
   "planned": [
     "AU-01",
     "AU-02",
