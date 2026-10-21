@@ -243,6 +243,8 @@ export const UNIQUE_CONSTRAINTS: Readonly<
   },
   WithdrawRequest_activeChain_key: { table: 'WithdrawRequest', columns: ['activeChain'] },
   WithdrawRequest_txHash_key: { table: 'WithdrawRequest', columns: ['txHash'] },
+  // OP-05 QĐ-I: một ví chỉ liên kết với một hồ sơ trên một chain.
+  ProfileWallet_chain_walletKey_key: { table: 'ProfileWallet', columns: ['chain', 'walletKey'] },
 };
 
 /** Tên khoá ngoài trong `prisma/init.sql` → bảng + cột. */

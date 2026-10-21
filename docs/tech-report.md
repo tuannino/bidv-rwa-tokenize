@@ -9,14 +9,22 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.21 |
+| Phiên bản tài liệu | 4.22 |
 | Cập nhật lần cuối | 2026-10-21 |
-| Nhánh / commit | `feat/fe-08-duyet-chia`, từ `dev` @ `1eed914` (PR #62, HF-01 đã merge; nhánh tạo từ `dd00e12` rồi rebase); spec `docs/fe-08-duyet-chia-loi-nhuan/` bản 2.1 |
+| Nhánh / commit | `feat/op-05-runbook` (PR A), từ `dev` @ `7d058de` (PR #61, FE-08 đã merge); spec `docs/op-05-sepolia-lan-hai/` bản 3 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
-| Hoàn thành mới ở bản này | **BE-13**: Người bán rút VNDB từ vault, Kiểm soát viên cấu hình khoá vault (PR #60, xem 3.26) |
-| Đang thực hiện | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, chốt cứng vault trước khi trả, keeper chỉ tiếp tục kỳ đã duyệt, màn `/distribution` (xem 3.27); chờ Supervisor nghiệm thu PR |
-| Phase kế tiếp | **OP-05** triển khai lại bộ `evm` lên Sepolia một lần với đủ hợp đồng (vault, khớp lệnh, `ProfitDistributor` mới) |
-| Người cập nhật | Claude Code (FE-08, thực thi theo chỉ định của Owner). Supervisor rà soát |
+| Hoàn thành mới ở bản này | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, màn `/distribution` mở bằng một action (PR #61, xem 3.27) |
+| Đang thực hiện | **OP-05**: PR A xong phần coder (liên kết ví trong hồ sơ 3.28, ước phí theo thao tác, chặn `dod-verify-sepolia.js`, runbook `docs/TESTNET_SEPOLIA.md`, kiểm thử vòng nghiệp vụ, diễn tập); còn PR B (Sếp: địa chỉ, ABI, Hyperdrive mới), vòng nghiệp vụ trên Sepolia và PR C |
+| Phase kế tiếp | Sếp chạy runbook OP-05 bước 0 đến 14 trên Sepolia với database Neon và Hyperdrive mới; AU-01 trả nợ ví liên kết |
+| Người cập nhật | Claude Code (OP-05 PR A, thực thi theo chỉ định của Owner). Supervisor rà soát |
+
+**4.21 lên 4.22 (OP-05 PR A): chuẩn bị Sepolia lần hai.** Người dùng tự liên kết ví vào hồ sơ theo chain
+(bảng `ProfileWallet`, `linkProfileWalletAction`, khối "Ví liên kết" trên `/account`); `previewTrade` tra hồ sơ
+theo chain, `evm` không có ví mặc định; nợ kỹ thuật ở 3.28 và 1.6.C. `fund-sepolia.js` mô phỏng thật cả vòng
+trình diễn và in bảng ước phí theo thao tác, ví gửi; bỏ thao tác `cycle`, `mint`, `burn` cũ.
+`dod-verify-sepolia.js` thoát lỗi trên bộ có vault (CH-7). Runbook `docs/TESTNET_SEPOLIA.md` viết lại một mạch
+bước 0 đến 14 kèm cutover database Neon và Hyperdrive mới (`docs/DEPLOYMENT.md`), kiểm chỉ đọc
+`scripts/op05-db-check.sql`. Không sửa hợp đồng.
 
 **4.20 lên 4.21 (FE-08): Kiểm soát viên duyệt rồi mới chia.** Quyền `distribution:approve` chỉ
 `CONTROLLER`; ba action ghi (duyệt, duyệt lại số thực tế, tiếp tục) thay bốn action mở, xem trước, chia,
@@ -686,6 +694,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P2** *(đề nghị, Supervisor chốt mức)* | **Lệnh treo không tự hết hạn** (FE-08 QĐ-H): không có lịch gọi nên `expire-orders` không chạy trong PoC | Cùng bộ lập lịch ở dòng trên |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Số kỳ trên chuỗi có thể khác số Kiểm soát viên duyệt** (FE-08 QĐ-H): `createDistributionFromPool` lấy toàn bộ phần chưa phân bổ lúc thực thi; app dừng ở `AMOUNT_CHANGED`, không chốt vault, không trả, bắt duyệt lại số thực tế | Đợt sửa hợp đồng: `openDistribution` nhận số tiền kỳ vọng, sai thì revert |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Một người duyệt, chỉ duyệt tổng số** (FE-08 QĐ-G, QĐ-H): Kiểm soát viên duyệt tổng VNDB của kỳ, không duyệt danh sách hay tỷ lệ; PoC một chữ ký | Quy trình ngân hàng khi lên production (nhiều cấp duyệt, chốt ảnh chụp danh sách trước khi duyệt) |
+| **P1** | **Ví liên kết trong hồ sơ không chứng minh quyền sở hữu** (OP-05 QĐ-I, CH-2; xem 3.28): người dùng tự gắn ví vào hồ sơ của mình, không ký thông điệp; hồ sơ, KYC, rủi ro là dữ liệu mẫu trong mã; phiên là cookie. Chỉ chấp nhận được với tiền thử | AU-01: đăng nhập thật, ký thông điệp chứng minh sở hữu ví trước khi ghi, hồ sơ từ hệ thống KYC, ngân hàng xác nhận ánh xạ ví cùng lúc whitelist |
 
 ### D. Cách làm việc
 
@@ -1677,7 +1686,7 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
-| `BE-05` | cắm | `app/src/lib/store/index.ts:220` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-05` | cắm | `app/src/lib/store/index.ts:226` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:41` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
 | `FE-07` | cắm | `app/src/app/actions/bank.ts:49` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
 | `FE-07` | cắm | `app/src/app/actions/config.ts:19` | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo |
@@ -2289,6 +2298,9 @@ chính nó, tránh một lỗi cấu hình phí làm tuổi thọ và lợi tứ
   hai câu khác nhau; bỏ một trong hai sẽ cho phép hồ sơ/chuỗi lệch nhau mà nút vẫn mở.
 - Hạn mức ngày hiện chỉ được hiển thị. Chưa có nghiệp vụ cộng doanh số theo ngày, nên FE-24 không
   tự diễn giải hạn mức thành hạn mức mỗi lệnh.
+- Từ OP-05: ví của hồ sơ tra **theo chain** (ví liên kết, hoặc ví mẫu chỉ trên `mock`/`hardhat-local`);
+  khối "Ví liên kết" là thành phần riêng gắn ở `app/(account)/account/page.tsx`, phần chỉ đọc giữ
+  nguyên. Xem 3.28 (nợ kỹ thuật).
 
 **Cách mở rộng:** AU-01 thêm kho người dùng thật → ánh xạ bản ghi về `AccountProfileView` → giữ
 `getOwnAccountProfile()` không tham số. Muốn chỉnh hồ sơ phải là luồng riêng có quyền và audit;
@@ -2734,6 +2746,54 @@ của BE-13): số dư VNDB của địa chỉ này là `profitPool`. Người t
 | Keeper tự mở kỳ dưới hạn mức | Vai hệ thống riêng, nhánh mới trong `decideCycle`, vẫn qua `reservePeriod` có `approval` của chính sách (nợ QĐ-H) |
 | Hợp đồng nhận số tiền kỳ vọng | Đợt sửa hợp đồng; khi đó `AMOUNT_CHANGED` không còn xảy ra, giữ cột để đọc kỳ cũ |
 | Duyệt nhiều cấp hoặc duyệt danh sách | Thêm bảng lần duyệt; `setApproval` vẫn là cập nhật có điều kiện cuối cùng |
+
+## 3.28. Ví liên kết trong hồ sơ cá nhân (OP-05 QĐ-I) ⚠️ NỢ KỸ THUẬT
+
+Chủ dự án chốt CH-2 (OP-05): người dùng đang đăng nhập tự thêm địa chỉ ví vào hồ sơ của mình, app so ví
+đang kết nối với ví trong hồ sơ. Đây là cách tạm để chạy vòng nghiệp vụ trên Sepolia với ví MetaMask thật;
+**cơ chế này chưa an toàn** và được ghi vào bảng nợ 1.6.C.
+
+**Hồ sơ mẫu gồm gì, lấy từ đâu.** `SAMPLE_ACCOUNT_PROFILES` trong `lib/bank/account-profile.service.ts`
+là bốn tài khoản demo viết trong mã nguồn (`NDT001` Nhà đầu tư, `NB001` Người bán, `GDV001`, `KSV001`).
+Hồ sơ khách hàng có họ tên, liên hệ, trạng thái định danh (KYC), xếp hạng rủi ro, phòng chống rửa tiền
+(AML), hạn mức giao dịch ngày và một ví mẫu (Hardhat #1 và #4, ở `packages/shared/src/sample-wallets.json`).
+Phiên (cookie vai và `DEMO_ACTOR`) chọn hồ sơ; không có mã hồ sơ nào nhận từ trình duyệt.
+
+**So ví thế nào.** Điều kiện "Định danh" của `previewTrade` đạt khi đủ ba ý: ví giao dịch thuộc hồ sơ của
+phiên, hồ sơ `APPROVED`, ví nằm trong whitelist trên chuỗi. "Ví thuộc hồ sơ" tra theo chain bằng
+`findInvestorProfileByWallet(chain, wallet)`: ví đã liên kết trên chain đó thắng; chưa liên kết thì dùng
+ví mẫu, nhưng **chỉ trên `mock` và `hardhat-local`**. Trên `evm` (và `stellar`) không có ví mặc định nên
+bắt buộc liên kết. Các màn Nhà đầu tư trên `mock` (không có ví trình duyệt) lấy ví qua `ownMockWallet()`,
+cùng nguồn với điều kiện trên.
+
+**Liên kết ví mới.** Trang `/account`, khối "Ví liên kết trên chain" (chỉ vai khách hàng): ô địa chỉ,
+nút "Dùng ví đang kết nối", nút Lưu, gọi `linkProfileWalletAction({ chain, wallet })`. Service kiểm quyền
+`wallet:connect` (chỉ Nhà đầu tư và Người bán), lấy hồ sơ từ phiên, chuẩn hoá địa chỉ, từ chối ví mẫu
+công khai của Hardhat trên chain khác `mock`/`hardhat-local` (`PUBLIC_SAMPLE_WALLETS`, cùng danh sách
+`fund-sepolia.js` từ chối nạp), ghi bảng `ProfileWallet` (khoá `(actorId, chain)`, duy nhất
+`(chain, walletKey)` với `walletKey` là ví viết thường: một ví chỉ thuộc một hồ sơ trên một chain) và ghi
+sổ kiểm toán `profile:wallet:link` cho mọi kết cục (ai, chain, ví cũ, ví mới).
+
+| Tệp | Vai trò |
+|---|---|
+| `lib/store/profile-wallet.store.port.ts`, `memory.profile-wallet.store.ts`, `postgres.profile-wallet.store.ts` | Cổng lưu trữ; `link` một câu ghi trả kèm ví cũ |
+| `lib/bank/account-profile.service.ts` | `getProfileWallet`, `linkProfileWallet`, `walletOfProfile`, `findInvestorProfileByWallet(chain, wallet)`, `ownMockWallet` |
+| `app/actions/account.ts` | Vỏ mỏng hai action |
+| `components/pages/profile-wallet-card.tsx` | Khối giao diện; một action khi mở hoặc đổi chain |
+| `test/op-05-profile-wallet{,-store}.test.ts` | Ca 3 của OP-05: theo chain, chỉ hồ sơ của mình, ví mẫu, ví trùng, audit, `previewTrade` |
+
+**Vì sao chưa an toàn (nợ):**
+
+- **Không chứng minh quyền sở hữu ví.** Liên kết chỉ ghi chuỗi địa chỉ; ai đăng nhập được hồ sơ thì gắn
+  được ví bất kỳ chưa thuộc hồ sơ khác. Không có chữ ký thông điệp nào chứng minh người dùng giữ khoá.
+- **Hồ sơ không lấy từ KYC thật.** KYC, rủi ro, AML là hằng số trong mã; phiên là cookie tự đặt được.
+- **Liên kết không whitelist trên chuỗi.** Whitelist vẫn là bước mặc định của ngân hàng (CH-2); ví liên
+  kết mà chưa whitelist thì điều kiện "Định danh" vẫn trượt. Ngược lại, whitelist không biết hồ sơ nào.
+
+**Hướng trả nợ (AU-01):** đăng nhập thật thay cookie; liên kết ví đòi ký thông điệp (SIWE hoặc EIP-191)
+bằng chính ví đó, máy chủ kiểm chữ ký trước khi ghi; hồ sơ, KYC, rủi ro, AML đọc từ hệ thống KYC; ánh
+xạ ví với hồ sơ do ngân hàng xác nhận cùng lúc whitelist. Giữ chữ ký `findInvestorProfileByWallet(chain,
+wallet)` để `previewTrade` không phải đổi.
 
 ---
 

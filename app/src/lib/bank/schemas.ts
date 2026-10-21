@@ -20,6 +20,12 @@ export const walletSchema = z
 
 export const chainSchema = z.enum(CHAIN_KEYS);
 
+/** OP-05 QĐ-I: đọc ví liên kết của hồ sơ phiên trên một chain. */
+export const profileWalletSchema = z.object({ chain: chainSchema });
+
+/** OP-05 QĐ-I: hồ sơ lấy từ phiên, KHÔNG có mã hồ sơ trong dữ liệu vào. */
+export const linkProfileWalletSchema = z.object({ chain: chainSchema, wallet: walletSchema });
+
 /**
  * Số lượng token. WPT có decimals = 0 nên đây là SỐ NGUYÊN, nhận dạng chuỗi:
  * `number` của JS mất chính xác từ 2^53, còn uint256 thì lớn hơn nhiều.

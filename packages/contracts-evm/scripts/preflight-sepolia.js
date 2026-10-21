@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ethers, network } = require('hardhat');
-const { assertSepolia, assertTarget, feeBudget, gasPriceOf, estimateOperationGas } = require('./fund-sepolia');
+const { assertSepolia, assertTarget, feeBudget, gasPriceOf, gasTable, estimateOperationGas } = require('./fund-sepolia');
 const SHARED_ADDRESSES = path.resolve(__dirname, '../../shared/src/addresses.json');
 const REQUIRED_CONTRACTS = [
   'ProjectToken',
@@ -16,13 +16,15 @@ const REQUIRED_CONTRACTS = [
   'OrderSettlement',
 ];
 
+/** Thao tác ví ký máy chủ gửi trong runbook OP-05: deploy, whitelist hai ví, cả vòng trình diễn. */
+const SIGNER_OPERATIONS = ['deploy', 'whitelist', 'demo-cycle'];
+
 async function signerFunding(provider, address, estimates) {
   const [balance, fees] = await Promise.all([provider.getBalance(address), provider.getFeeData()]);
-  // Deploy gồm chín constructor, liên kết ERC-3643, vault/matcher và cấp các vai;
-  // thêm đăng ký danh tính SPV + Mint/Mint/Burn.
-  const gas = estimates.deploy + estimates.whitelist + estimates.cycle;
-  const required = feeBudget(gas, gasPriceOf(fees));
-  return { balance, required, enough: balance >= required,
+  const price = gasPriceOf(fees);
+  const gas = SIGNER_OPERATIONS.reduce((sum, op) => sum + estimates[op].gas, 0n);
+  const required = feeBudget(gas, price);
+  return { balance, required, enough: balance >= required, table: gasTable(estimates, price),
     command: `node scripts/fund-sepolia.js ${address} --eth ${ethers.formatEther(required)}` };
 }
 async function main() {
@@ -54,9 +56,10 @@ async function main() {
   if (signer) {
     const estimates = await estimateOperationGas();
     const result = await signerFunding(ethers.provider, signer.address, estimates);
-    console.log(`Gas mô phỏng: deploy=${estimates.deploy}, whitelist=${estimates.whitelist}, Mint/Mint/Burn=${estimates.cycle}; dự phòng 20%.`);
-    console.log(`Ví ký có ${ethers.formatEther(result.balance)} ETH; cần ${ethers.formatEther(result.required)} ETH.`);
-    if (result.enough) ok('Đủ phí triển khai, whitelist và một vòng Mint, Mint, Burn.');
+    console.log('Ước phí theo thao tác (gas mô phỏng bytecode hiện tại, dự phòng 20%; Nhà đầu tư chỉ ký, không tốn ETH):');
+    console.log(result.table);
+    console.log(`Ví ký có ${ethers.formatEther(result.balance)} ETH; cần ${ethers.formatEther(result.required)} ETH cho ${SIGNER_OPERATIONS.join(' + ')}.`);
+    if (result.enough) ok('Đủ phí triển khai, whitelist hai ví và một vòng trình diễn.');
     else {
       bad('Ví ký thiếu phí. Trong packages/contracts-evm, cấp đúng phần thiếu bằng:');
       console.log(result.command);
@@ -79,7 +82,7 @@ async function main() {
   console.log(problems ? `CHƯA SẴN SÀNG — ${problems} việc cần xử lý.` : 'SẴN SÀNG — chạy npx hardhat run scripts/deploy.js --network sepolia');
   process.exitCode = problems ? 1 : 0;
 }
-module.exports = { signerFunding };
+module.exports = { SIGNER_OPERATIONS, signerFunding };
 if (require.main === module) main().catch((error) => {
   console.error('Preflight lỗi: ' + (error.safeMessage ?? 'Không đọc được RPC hoặc mô phỏng gas. Kiểm .env và chạy npx hardhat compile; không gửi khóa/RPC bí mật vào checkpoint.'));
   process.exitCode = 1;

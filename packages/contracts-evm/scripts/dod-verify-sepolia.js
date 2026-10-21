@@ -24,6 +24,8 @@ const { wptSupplyCap } = require("../../shared/src/token-parameters.json");
  * Không chạy trên mạng chính. Không dùng script này trên bộ hợp đồng trình diễn có vault:
  * nhánh P4 cũ mint vào ví ngân hàng và sẽ khoá sai ví SPV vĩnh viễn.
  */
+const fs = require("fs");
+const path = require("path");
 const { ethers, network } = require("hardhat");
 const { seedProjectBalances } = require("../test/helpers/seed-project-balances");
 
@@ -68,7 +70,22 @@ function assertEq(label, actual, expected) {
   if (!ok) throw new Error(`DoD không đạt: ${label}`);
 }
 
+const ADDRESSES_FILE = path.resolve(__dirname, "../../shared/src/addresses.json");
+
+/**
+ * OP-05 QĐ-J (CH-7): chặn cứng trên bộ hợp đồng có vault, không xoá script. Chạy TRƯỚC khi lấy signer
+ * hay gửi giao dịch: chain hiện tại có `SpvPaymentVault` trong address book thì từ chối.
+ */
+function assertNoVaultSuite(chainId, book) {
+  const record = Object.values(book.chains ?? {}).find((entry) => BigInt(entry.chainId) === BigInt(chainId));
+  if (record?.contracts?.SpvPaymentVault) {
+    throw new Error("Từ chối: bộ hợp đồng có vault, dùng runbook OP-05 (docs/TESTNET_SEPOLIA.md).");
+  }
+}
+
 async function main() {
+  const { chainId } = await ethers.provider.getNetwork();
+  assertNoVaultSuite(chainId, JSON.parse(fs.readFileSync(ADDRESSES_FILE, "utf8")));
   if (network.name === "hardhat") {
     throw new Error("Script này dành cho testnet. Thêm --network sepolia.");
   }
@@ -284,7 +301,7 @@ async function assertP4Ready(project) {
   }
 }
 
-module.exports = { assertP4Ready };
+module.exports = { assertP4Ready, assertNoVaultSuite };
 
 if (require.main === module) main().catch((e) => {
   console.error(`\n  LỖI: ${e.message}`);

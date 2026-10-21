@@ -28,6 +28,9 @@ import type { ITokenRequestStore } from './token-request.store.port';
 import { createMemoryVaultStore } from './memory.vault.store';
 import { createPostgresVaultStore } from './postgres.vault.store';
 import type { IVaultStore } from './vault.store.port';
+import { createMemoryProfileWalletStore } from './memory.profile-wallet.store';
+import { createPostgresProfileWalletStore } from './postgres.profile-wallet.store';
+import type { IProfileWalletStore } from './profile-wallet.store.port';
 
 export {
   type AuditRecord,
@@ -162,6 +165,8 @@ export {
   type WithdrawTransition,
 } from './vault.store.port';
 
+export type { IProfileWalletStore, ProfileWalletRecord } from './profile-wallet.store.port';
+
 export { resetMemoryStore } from './memory.store';
 
 /**
@@ -187,6 +192,7 @@ const cache: {
   project?: IProjectStore;
   tokenRequest?: ITokenRequestStore;
   vault?: IVaultStore;
+  profileWallet?: IProfileWalletStore;
 } = {};
 
 const wantsMemoryStore = (): boolean => serverEnv().useMockDb;
@@ -276,6 +282,17 @@ export function getVaultStore(): IVaultStore {
 }
 
 /**
+ * Cổng ví liên kết vào hồ sơ (OP-05 QĐ-I). Trọng tài "một ví một hồ sơ trên một chain" là ràng buộc
+ * duy nhất `(chain, walletKey)`, không phải phép đọc trước trong nghiệp vụ.
+ */
+export function getProfileWalletStore(): IProfileWalletStore {
+  cache.profileWallet ??= wantsMemoryStore()
+    ? createMemoryProfileWalletStore()
+    : createPostgresProfileWalletStore();
+  return cache.profileWallet;
+}
+
+/**
  * Xoá cache của MỌI cổng.
  *
  * Một hàm cho tất cả, không phải một hàm mỗi cổng: test đổi `USE_MOCK_DB` rồi chỉ xoá cache
@@ -292,4 +309,5 @@ export function resetStoreCache(): void {
   cache.project = undefined;
   cache.tokenRequest = undefined;
   cache.vault = undefined;
+  cache.profileWallet = undefined;
 }

@@ -9,9 +9,15 @@ const samples = require('../../shared/src/sample-wallets.json');
 const SEPOLIA_CHAIN_ID = 11155111n;
 // Dự phòng 20% cho biến động gas/phí và khác biệt calldata so với mô phỏng cục bộ.
 const FEE_MARGIN_PERCENT = 120n;
-const HARDHAT_ACCOUNT0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-const OPERATIONS = ['deploy', 'mint-initial', 'mint', 'burn', 'whitelist', 'cycle'];
-const GAS_OUTPUT_PREFIX = 'OP04_GAS=';
+/**
+ * Thao tác của runbook OP-05 (QĐ-E). Mọi giao dịch do VÍ KÝ MÁY CHỦ gửi (PRIVATE_KEY trùng
+ * SERVER_SIGNER_PRIVATE_KEY_EVM, preflight kiểm); ví tổng chỉ cấp phí; Nhà đầu tư chỉ ký typed data nên
+ * không tốn ETH và không được cấp ETH. `demo-cycle` là tổng từ `vault-config` đến `withdraw`.
+ */
+const CYCLE_OPERATIONS = ['vault-config', 'mint-initial', 'payment-mint', 'trade', 'profit-mint', 'distribute', 'withdraw'];
+const OPERATIONS = ['deploy', 'whitelist', ...CYCLE_OPERATIONS, 'demo-cycle'];
+const SENDER = 'ví ký máy chủ';
+const GAS_OUTPUT_PREFIX = 'OP05_GAS=';
 
 function refuse(message) {
   const error = new Error(message);
@@ -23,7 +29,7 @@ function assertSepolia(chainId) {
 }
 function assertTarget(target) {
   if (!ethers.isAddress(target) || target.toLowerCase() === ethers.ZeroAddress) refuse('Địa chỉ đích không hợp lệ hoặc là địa chỉ 0.');
-  const blocked = [...Object.values(samples.wallets), HARDHAT_ACCOUNT0];
+  const blocked = [...Object.values(samples.wallets), samples.hardhatAccount0];
   if (blocked.some((address) => address.toLowerCase() === target.toLowerCase())) {
     refuse('Từ chối nạp SepoliaETH vào tài khoản mẫu công khai của Hardhat.');
   }
@@ -57,73 +63,120 @@ function parseArgs(argv) {
   return opts;
 }
 
+/** Số liệu vòng trình diễn OP-05 QĐ-H (giá 100.000 VNDB/WPT, VNDB và WPT đều 0 chữ số thập phân). */
+const DEMO = {
+  initialSupply: 1_000_000n,
+  investorVndb: 20_000_000n,
+  buyWpt: 100n,
+  sellWpt: 40n,
+  profit: 1_000_000n,
+  percentBps: 2_000n,
+  withdraw: 3_399_970n,
+};
+
 /**
- * Đo gas bằng bytecode hiện tại trên Hardhat IN-PROCESS, không gửi tx Sepolia.
- * Một tiến trình riêng cưỡng chế network=hardhat để không kế thừa network Sepolia của preflight.
- * Không dùng hằng gas đoán tay; mô phỏng gồm constructor, cấp vai, whitelist, Mint/Mint/Burn.
+ * Đo gas bằng bytecode hiện tại trên Hardhat IN-PROCESS, không gửi tx Sepolia. Một tiến trình riêng
+ * cưỡng chế network=hardhat để không kế thừa network Sepolia của preflight.
+ *
+ * Chạy THẬT cả vòng: deploy theo đúng thứ tự và các giao dịch liên kết của deploy.js, whitelist hai ví,
+ * ba bước cấu hình vault (planVaultConfig của BE-13 cho vault mới: ví nhận, tỷ lệ, chế độ), Mint đầu,
+ * nạp VNDB demo, mua và bán bằng permit, mint lợi nhuận, ba giao dịch chia, một lần rút. Mỗi giao dịch
+ * cộng `estimateGas` vào đúng thao tác và đếm một; số giao dịch là số đo, không gõ tay.
  */
 async function measureLocalGas() {
   const hre = require('hardhat');
   if (hre.network.name !== 'hardhat') refuse('Mô phỏng gas chỉ được chạy trên hardhat nội bộ.');
-  const [admin, spv, distributorAddress] = await hre.ethers.getSigners();
-  const args = {
-    ProjectToken: ['Wind Power Token', 'WPT', 0, admin.address, wptSupplyCap],
-    VNDToken: [admin.address],
-    ProfitDistributor: [spv.address, distributorAddress.address, admin.address],
-    Redemption: [spv.address, distributorAddress.address, 1_000_000n, admin.address],
-    IdentityRegistry: [admin.address],
-    ModularCompliance: [admin.address],
-    AllowAllModule: [],
-    SpvPaymentVault: [spv.address, distributorAddress.address, admin.address],
-  };
-  let deploy = 0n;
-  for (const [name, constructorArgs] of Object.entries(args)) {
-    const factory = await hre.ethers.getContractFactory(name);
-    deploy += await admin.estimateGas(await factory.getDeployTransaction(...constructorArgs));
+  const { ethers: h } = hre;
+  const [admin, investor, payout] = await h.getSigners();
+  const tally = Object.fromEntries([...OPERATIONS.filter((op) => op !== 'demo-cycle')].map((op) => [op, { gas: 0n, txs: 0 }]));
+  async function send(op, populated) {
+    const tx = await populated;
+    const gas = await admin.estimateGas(tx);
+    const receipt = await (await admin.sendTransaction(tx)).wait();
+    if (!receipt || receipt.status !== 1) refuse(`Giao dịch mô phỏng ${op} không thành công.`);
+    tally[op].gas += gas;
+    tally[op].txs += 1;
+    return receipt;
   }
-  const token = await hre.ethers.deployContract('ProjectToken', args.ProjectToken);
-  const registry = await hre.ethers.deployContract('IdentityRegistry', args.IdentityRegistry);
-  const compliance = await hre.ethers.deployContract('ModularCompliance', args.ModularCompliance);
-  const allowAll = await hre.ethers.deployContract('AllowAllModule');
-  const vault = await hre.ethers.deployContract('SpvPaymentVault', [
-    await token.getAddress(), distributorAddress.address, admin.address,
-  ]);
-  await token.waitForDeployment();
-  await Promise.all([registry.waitForDeployment(), compliance.waitForDeployment(), allowAll.waitForDeployment(), vault.waitForDeployment()]);
-  const settlementFactory = await hre.ethers.getContractFactory('OrderSettlement');
-  deploy += await admin.estimateGas(await settlementFactory.getDeployTransaction(
-    await vault.getAddress(), admin.address, wptIssuePriceVnd,
-  ));
-  const settlement = await hre.ethers.deployContract('OrderSettlement', [
-    await vault.getAddress(), admin.address, wptIssuePriceVnd,
-  ]);
-  await settlement.waitForDeployment();
-  deploy += await token.setIdentityRegistry.estimateGas(await registry.getAddress());
-  await (await token.setIdentityRegistry(await registry.getAddress())).wait();
-  deploy += await token.setCompliance.estimateGas(await compliance.getAddress());
-  await (await token.setCompliance(await compliance.getAddress())).wait();
-  deploy += await compliance.bindToken.estimateGas(await token.getAddress());
-  await (await compliance.bindToken(await token.getAddress())).wait();
-  deploy += await compliance.addModule.estimateGas(await allowAll.getAddress());
-  await (await compliance.addModule(await allowAll.getAddress())).wait();
-  deploy += await token.grantRole.estimateGas(await token.SNAPSHOT_ROLE(), distributorAddress.address);
-  deploy += await registry.registerIdentity.estimateGas(await vault.getAddress(), 704);
+  async function deploy(name, args) {
+    const factory = await h.getContractFactory(name);
+    const receipt = await send('deploy', factory.getDeployTransaction(...args));
+    return factory.attach(receipt.contractAddress);
+  }
+
+  // deploy.js: chín constructor theo đúng thứ tự, rồi liên kết và cấp vai.
+  const wpt = await deploy('ProjectToken', ['Wind Power Token', 'WPT', 0, admin.address, wptSupplyCap]);
+  const vnd = await deploy('VNDToken', [admin.address]);
+  const distributor = await deploy('ProfitDistributor', [await wpt.getAddress(), await vnd.getAddress(), admin.address]);
+  await deploy('Redemption', [await wpt.getAddress(), await vnd.getAddress(), 1_000_000n, admin.address]);
+  const registry = await deploy('IdentityRegistry', [admin.address]);
+  const compliance = await deploy('ModularCompliance', [admin.address]);
+  const allowAll = await deploy('AllowAllModule', []);
+  const vault = await deploy('SpvPaymentVault', [await wpt.getAddress(), await vnd.getAddress(), admin.address]);
+  const settlement = await deploy('OrderSettlement', [await vault.getAddress(), admin.address, wptIssuePriceVnd]);
+  await send('deploy', wpt.setIdentityRegistry.populateTransaction(await registry.getAddress()));
+  await send('deploy', wpt.setCompliance.populateTransaction(await compliance.getAddress()));
+  await send('deploy', compliance.bindToken.populateTransaction(await wpt.getAddress()));
+  await send('deploy', compliance.addModule.populateTransaction(await allowAll.getAddress()));
+  await send('deploy', registry.registerIdentity.populateTransaction(await vault.getAddress(), 704));
   for (const roleName of ['CONFIG_ROLE', 'WITHDRAWER_ROLE', 'PAUSER_ROLE']) {
-    deploy += await vault.grantRole.estimateGas(await vault[roleName](), admin.address);
+    await send('deploy', vault.grantRole.populateTransaction(await vault[roleName](), admin.address));
   }
-  deploy += await vault.grantRole.estimateGas(await vault.MATCHER_ROLE(), await settlement.getAddress());
+  await send('deploy', vault.grantRole.populateTransaction(await vault.MATCHER_ROLE(), await settlement.getAddress()));
   for (const roleName of ['OPERATOR_ROLE', 'PRICE_ROLE', 'PAUSER_ROLE']) {
-    deploy += await settlement.grantRole.estimateGas(await settlement[roleName](), admin.address);
+    await send('deploy', settlement.grantRole.populateTransaction(await settlement[roleName](), admin.address));
   }
-  // MINTER_ROLE/AGENT_ROLE đã có trong constructor, deploy.js không gửi thêm tx.
-  const whitelist = await registry.registerIdentity.estimateGas(spv.address, 704);
-  await (await registry.registerIdentity(spv.address, 704)).wait();
-  const initial = await token.mintInitialSupply.estimateGas(spv.address, 1000n);
-  await (await token.mintInitialSupply(spv.address, 1000n)).wait();
-  const mint = await token.mint.estimateGas(spv.address, 250n);
-  await (await token.mint(spv.address, 250n)).wait();
-  const burn = await token['burn(address,uint256)'].estimateGas(spv.address, 300n);
-  return { deploy, 'mint-initial': initial, mint, burn, whitelist, cycle: initial + mint + burn };
+  await send('deploy', wpt.grantRole.populateTransaction(await wpt.SNAPSHOT_ROLE(), await distributor.getAddress()));
+  // ensureApplicationSignerRole của deploy.js: chỉ gửi khi constructor chưa cấp.
+  for (const roleName of ['MINTER_ROLE', 'AGENT_ROLE']) {
+    const role = await wpt[roleName]();
+    if (!(await wpt.hasRole(role, admin.address))) await send('deploy', wpt.grantRole.populateTransaction(role, admin.address));
+  }
+
+  // Bước 7 runbook: whitelist PAYOUT_WALLET và INVESTOR_WALLET.
+  for (const wallet of [payout, investor]) await send('whitelist', registry.registerIdentity.populateTransaction(wallet.address, 704));
+
+  // Lượt 12: ví nhận, PERCENT 20% (tỷ lệ mặc định của vault mới là 0), chế độ PERCENT.
+  await send('vault-config', vault.setPayoutWallet.populateTransaction(payout.address));
+  await send('vault-config', vault.setPercentRate.populateTransaction(DEMO.percentBps));
+  await send('vault-config', vault.setLockMode.populateTransaction(2));
+
+  await send('mint-initial', wpt.mintInitialSupply.populateTransaction(await vault.getAddress(), DEMO.initialSupply));
+  await send('payment-mint', vnd.mint.populateTransaction(investor.address, DEMO.investorVndb));
+
+  // Lượt 13.4, 13.5: Nhà đầu tư chỉ KÝ permit (không gửi gì); ví ký máy chủ gửi hai lệnh khớp.
+  const { buildPermitTypedData } = await import('../../shared/src/permit.js');
+  const { chainId } = await h.provider.getNetwork();
+  async function permit(token, value) {
+    const deadline = BigInt((await h.provider.getBlock('latest')).timestamp) + 3600n;
+    const typed = buildPermitTypedData({
+      tokenName: await token.name(), version: (await token.eip712Domain()).version, chainId,
+      verifyingContract: await token.getAddress(), owner: investor.address, spender: await settlement.getAddress(),
+      value, nonce: await token.nonces(investor.address), deadline,
+    });
+    const sig = h.Signature.from(await investor.signTypedData(typed.domain, typed.types, typed.message));
+    return [value, deadline, sig.v, sig.r, sig.s];
+  }
+  const price = BigInt(wptIssuePriceVnd);
+  const ref = (label) => h.keccak256(h.toUtf8Bytes(label));
+  const buyVndb = DEMO.buyWpt * price;
+  await send('trade', settlement.buyWithPermit.populateTransaction(
+    ref('op05-mua'), investor.address, DEMO.buyWpt, buyVndb, await permit(vnd, buyVndb)));
+  await send('trade', settlement.sellWithPermit.populateTransaction(
+    ref('op05-ban'), investor.address, DEMO.sellWpt, DEMO.sellWpt * price, await permit(wpt, DEMO.sellWpt)));
+
+  await send('profit-mint', vnd.mint.populateTransaction(await distributor.getAddress(), DEMO.profit));
+
+  // Lượt 13.7 với hai người nhận: tạo kỳ từ quỹ, chốt kỳ vault bằng TOÀN BỘ số của kỳ, một lô.
+  await send('distribute', distributor.createDistributionFromPool.populateTransaction('op05-ky-1'));
+  const id = (await distributor.distributionsCount()) - 1n;
+  await send('distribute', vault.closePeriod.populateTransaction(1n, DEMO.profit));
+  await send('distribute', distributor.distributeTo.populateTransaction(id, [investor.address, await vault.getAddress()]));
+
+  await send('withdraw', vault.withdraw.populateTransaction(DEMO.withdraw));
+
+  if ((await h.provider.getTransactionCount(investor.address)) !== 0) refuse('Mô phỏng sai: ví Nhà đầu tư đã gửi giao dịch.');
+  return tally;
 }
 async function estimateOperationGas() {
   let stdout;
@@ -137,7 +190,22 @@ async function estimateOperationGas() {
   }
   const line = stdout.split('\n').find((item) => item.startsWith(GAS_OUTPUT_PREFIX));
   if (!line) refuse('Không đo được gas cục bộ. Chạy npx hardhat compile trong packages/contracts-evm.');
-  return Object.fromEntries(Object.entries(JSON.parse(line.slice(GAS_OUTPUT_PREFIX.length))).map(([key, value]) => [key, BigInt(value)]));
+  return withCycleTotal(Object.fromEntries(Object.entries(JSON.parse(line.slice(GAS_OUTPUT_PREFIX.length)))
+    .map(([op, value]) => [op, { gas: BigInt(value.gas), txs: value.txs }])));
+}
+/** `demo-cycle` = tổng các thao tác từ `vault-config` đến `withdraw`. */
+function withCycleTotal(estimates) {
+  const cycle = { gas: 0n, txs: 0 };
+  for (const op of CYCLE_OPERATIONS) {
+    cycle.gas += estimates[op].gas;
+    cycle.txs += estimates[op].txs;
+  }
+  return { ...estimates, 'demo-cycle': cycle };
+}
+/** Bảng theo thao tác, mỗi dòng ghi ví gửi. Phí dự trù đã gồm dự phòng. */
+function gasTable(estimates, price, operations = OPERATIONS) {
+  const rows = operations.map((op) => `| ${op} | ${estimates[op].txs} | ${estimates[op].gas} | ${ethers.formatEther(feeBudget(estimates[op].gas, price))} | ${SENDER} |`);
+  return ['| Thao tác | Số giao dịch | Gas mô phỏng | Phí dự trù (ETH) | Ví gửi |', '|---|---|---|---|---|', ...rows].join('\n');
 }
 function safeFundingMessage(error) {
   return error?.safeMessage ?? 'Lỗi RPC khi đọc hoặc gửi giao dịch; kiểm endpoint và kết nối Sepolia.';
@@ -152,8 +220,10 @@ async function fund(opts, dependencies = {}) {
   const log = dependencies.log ?? console.log;
   if (opts.operation) {
     const estimates = dependencies.estimates ?? await estimateOperationGas();
-    required = feeBudget(estimates[opts.operation], price);
-    log(`Gas mô phỏng bytecode hiện tại: ${estimates[opts.operation]}; giá trần ${price} wei; dự phòng ${FEE_MARGIN_PERCENT - 100n}%.`);
+    const shown = opts.operation === 'demo-cycle' ? [...CYCLE_OPERATIONS, 'demo-cycle'] : [opts.operation];
+    required = feeBudget(estimates[opts.operation].gas, price);
+    log(`Gas mô phỏng bytecode hiện tại; giá trần ${price} wei; dự phòng ${FEE_MARGIN_PERCENT - 100n}%. Nhà đầu tư chỉ ký, không tốn ETH.`);
+    log(gasTable(estimates, price, shown));
   } else required = ethers.parseEther(opts.eth);
   const balance = await provider.getBalance(opts.target);
   const missing = planFunding(required, balance);
@@ -195,7 +265,7 @@ async function main() {
   const { ethers: hardhatEthers } = require('hardhat');
   await fund(opts, { provider: hardhatEthers.provider });
 }
-module.exports = { assertSepolia, assertTarget, planFunding, feeBudget, gasPriceOf, parseArgs, fund, estimateOperationGas, safeFundingMessage };
+module.exports = { OPERATIONS, CYCLE_OPERATIONS, SENDER, assertSepolia, assertTarget, planFunding, feeBudget, gasPriceOf, gasTable, parseArgs, fund, estimateOperationGas, withCycleTotal, safeFundingMessage };
 if (require.main === module) main().catch((error) => {
   // RPC errors may embed URLs/API keys or request bodies: never print raw error objects.
   console.error('LỖI: ' + safeFundingMessage(error));

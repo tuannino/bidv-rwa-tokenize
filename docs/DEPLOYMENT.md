@@ -109,11 +109,12 @@ Khi cần đặt thêm, phân biệt hai chỗ — đặt sai chỗ là không c
 | `ENABLE_SEPOLIA_DEMO_PROJECT` | `app/wrangler.json` | `true`: đăng ký WPT Sepolia đã deploy |
 | `USE_MOCK_DB` | `app/wrangler.json` | `false`: dữ liệu nghiệp vụ dùng Postgres qua Hyperdrive |
 | `ENABLE_DEMO_TOKEN_MINT` | Worker runtime variable | `false`, dùng lập–duyệt |
-| `ENABLE_DEMO_PAYMENT_MINT` | Worker runtime variable | `false` khi chỉ kiểm WPT; bật riêng nếu cần demo VNDB |
+| `ENABLE_DEMO_PAYMENT_MINT` | `app/wrangler.json` | `true` trên bản PoC testnet (OP-05 CH-6); production bắt buộc `false` |
 | `RPC_EVM` | Worker → Settings → Variables, dạng **Secret** | RPC Sepolia có API key; mở chain Sepolia phía server, không đưa endpoint bí mật vào bundle |
 | `SERVER_SIGNER_PRIVATE_KEY_EVM` | Worker → Settings → Variables, dạng **Secret** | Cùng ví deployer của bộ SC-09 trên Sepolia, có vai token và `IdentityRegistry.AGENT_ROLE` |
 | `NEXT_PUBLIC_RPC_EVM` | **Build variables**, tùy chọn | RPC công khai cho ví trình duyệt; không chứa API key bí mật |
 | `SERVER_SIGNER_PRIVATE_KEY*` | Worker → Settings → Variables, dạng **Secret** | không được để lộ dạng plain text |
+| `KEEPER_SECRET` | Worker, mục Settings, Variables, dạng **Secret** | Ít nhất 32 ký tự. Khoá API keeper (`/api/keeper/*`, Bearer); thiếu hay sai thì API trả 401 cho mọi lời gọi. Đặt cả khi không có lịch gọi (OP-05 QĐ-G) |
 
 Sau khi chủ dự án triển khai SC-09, dùng bộ địa chỉ Sepolia trong
 `packages/shared/src/addresses.json` đã commit trên nhánh triển khai. Xóa các
@@ -172,6 +173,22 @@ npx wrangler hyperdrive get <HYPERDRIVE_ID>
 Kiểm trên Dashboard hoặc đầu ra lệnh `get` rằng caching ở trạng thái disabled. Owner xác nhận cấu
 hình đang dùng đã tắt cache ngày 14/10/2026. Đây là cấu hình ngoài repo; tạo Hyperdrive mới hoặc đổi
 ID thì phải kiểm lại, không được suy ra từ ID cũ.
+
+#### Hyperdrive mới cho mỗi thế hệ hợp đồng (OP-05 QĐ-A)
+
+Triển khai lại bộ hợp đồng `evm` thì dùng **database mới trống** và **Hyperdrive mới** trỏ vào nó; database cũ
+giữ nguyên làm lịch sử. Lý do: dự án WPT `evm` trên database cũ đã phát hành nên seed không ghi lại địa chỉ
+token mới (`Project.contractAddress` chỉ cập nhật khi `issuedAt IS NULL`), và người nhận chia lợi nhuận, lịch
+sử lệnh của hai thế hệ hợp đồng sẽ trộn vào nhau.
+
+- Tạo Hyperdrive bằng chuỗi kết nối **trực tiếp** của Neon (bỏ chọn connection pooling): Hyperdrive tự giữ
+  pool. Tắt cache ngay khi tạo: `npx wrangler hyperdrive create <tên> --connection-string="<chuỗi>" --caching-disabled`.
+- ID mới đi **cùng PR với address book mới** (`addresses.json` khoá `evm` và `packages/shared/generated/*`).
+  Không sửa origin của Hyperdrive cũ tại chỗ: Worker cũ đang chạy sẽ seed địa chỉ cũ vào database mới.
+- Lùi bằng cách revert PR đó: bản cũ dựng lại với Hyperdrive cũ, database cũ còn nguyên.
+- Kiểm chỉ đọc trước và sau: `scripts/op05-db-check.sql` (một transaction `READ ONLY`, chỉ số đếm và định danh).
+
+Các bước tay đầy đủ, kèm "phải thấy gì": [runbook Sepolia](TESTNET_SEPOLIA.md) bước 3, 4, 8, 11.
 
 #### Trạng thái chain mock theo `USE_MOCK_DB` (OP-07)
 
