@@ -21,15 +21,18 @@
     "evm": {
       "chainId": 11155111,
       "deployer": "0xCa49Fb2590800C9524f2BC57Ecd80C3Cc75D9076",
-      "deployedAt": "2026-10-19T10:25:33.221Z",
+      "deployedAt": "2026-10-21T03:28:16.822Z",
+      "deployBlock": 11959727,
       "contracts": {
-        "ProjectToken": "0x995c29ff422483Ddbc7C6A671ECEC5A5f38C3d62",
-        "VNDToken": "0xd52930A54AA2F907716AD3E670eA563D4bfE80E0",
-        "ProfitDistributor": "0x38a71383D50FEa0AB7CA5b952a0E63622b1657eD",
-        "Redemption": "0xb8B9a2192D704A630BA694565aC474ADBd536d49",
-        "IdentityRegistry": "0xA1Fb6C6831a4C1A66D6CE0090D2790Cd37a4b950",
-        "ModularCompliance": "0x678Eb0FA68a497Fb84517E70CE8AD68050ADB8A7",
-        "AllowAllModule": "0x3E50dd65753aB9FEE77468F31A90C943F41137C8"
+        "ProjectToken": "0x257EdD71BF2DEf7b16A2DF12e4491846973905D7",
+        "VNDToken": "0xB6618DC4cB2f3ad9842e6DafA42d1BEBAfd1E15B",
+        "ProfitDistributor": "0x1381887A1f7F86Eafd37c77A4495440F90e9112c",
+        "Redemption": "0xe84045789c20Fb0E5D5EA5F0ac148dA16e321C50",
+        "IdentityRegistry": "0x475772e1BDF89fE1509128C9a36C67467015951B",
+        "ModularCompliance": "0xB35F77495f280d0154b6295f5c2309861FDA0cdF",
+        "AllowAllModule": "0xEBBF98516F971B7172E9FeD936Cd4b12A9c1B0A5",
+        "SpvPaymentVault": "0x0da99083cD6a6B41373135CbC03cd0D3D1f86861",
+        "OrderSettlement": "0x6D98862abf9c550e322c08A45FAD8CA521eEfD27"
       }
     }
   }
