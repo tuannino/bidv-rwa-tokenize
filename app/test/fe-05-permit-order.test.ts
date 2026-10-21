@@ -42,6 +42,21 @@ const tokenAddress = (token: PermitToken) =>
 const SETTLEMENT = findContractAddress('hardhat-local', 'OrderSettlement') as `0x${string}`;
 const nonceKey = (token: PermitToken, owner: string) => `${token}:${owner.toLowerCase()}`;
 
+/**
+ * HF-02: ca "chain thiếu OrderSettlement" từng dựa vào address book THẬT của `evm`. OP-05 nạp bộ hợp
+ * đồng Sepolia có OrderSettlement nên ca này đi tiếp, gọi RPC Sepolia thật từ kiểm thử rồi trả ok.
+ * Ở tệp này `evm` được coi như chưa có OrderSettlement, độc lập với lần triển khai nào; `hardhat-local`
+ * (chain các ca khác dùng) giữ địa chỉ thật.
+ */
+vi.mock('@bidv/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@bidv/shared')>();
+  return {
+    ...actual,
+    findContractAddress: (chain: Parameters<typeof actual.findContractAddress>[0], contract: Parameters<typeof actual.findContractAddress>[1]) =>
+      chain === 'evm' && contract === 'OrderSettlement' ? undefined : actual.findContractAddress(chain, contract),
+  };
+});
+
 vi.mock('@/lib/ledger', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ledger')>();
   const { seedMockLedger } = await import('@/lib/ledger/mock.adapter');
