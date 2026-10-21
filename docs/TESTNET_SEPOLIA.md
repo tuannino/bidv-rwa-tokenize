@@ -124,12 +124,15 @@ cột định danh. Tập "chưa kết thúc" lấy từ mã (kiểm bằng `app
 | `WithdrawRequest` | `SENDING`, `SENT`, `NEEDS_REVIEW` (không thuộc `WITHDRAW_TERMINAL_STATUSES`) | `app/src/lib/store/vault.store.port.ts` |
 
 Phải thấy: lệnh kết thúc bằng `ROLLBACK`, mã thoát 0. Gửi nguyên văn đầu ra cho SV lưu làm lịch sử. Ở
-bước này **không chặn, không sửa** database cũ dù có bản ghi chưa kết thúc. Không có `psql`: dùng SQL
+bước này **không chặn, không sửa** database cũ dù có bản ghi chưa kết thúc. Mạng nội bộ không phân giải được
+`*.neon.tech` hoặc chặn cổng 5432 (gặp ngày 21/10/2026) thì cũng làm như sau. Không có `psql`: dùng SQL
 Editor của Neon, thay `:'chain'` bằng `'evm'` và `:'token'` bằng địa chỉ ProjectToken trong dấu nháy đơn.
 
 ## Bước 4. Database Neon mới và Hyperdrive mới [Sếp]
 
-Database cũ giữ nguyên làm lịch sử (CH-3, QĐ-A): không câu ghi hay xoá nào trên đó. Không sửa origin của
+Database cũ giữ nguyên làm lịch sử (CH-3, QĐ-A): không câu ghi hay xoá nào trên đó. **Chọn vùng AWS Singapore
+(`ap-southeast-1`)** cho project Neon: Worker phục vụ người dùng Việt Nam chạy ở Singapore và Hyperdrive tắt cache,
+nên mỗi truy vấn tới vùng `us-east-1` thêm khoảng 200 ms (OP-05 ngày 21/10/2026 phải chuyển vùng giữa chừng). Không sửa origin của
 Hyperdrive cũ tại chỗ: Worker cũ đang chạy sẽ seed địa chỉ cũ vào database mới.
 
 1. **Neon Console**, đúng project đang dùng: tạo database mới, ví dụ `bidv_rwa_op05`, chủ sở hữu là role ứng
@@ -258,8 +261,9 @@ git commit -m "chore(op-05): bộ hợp đồng Sepolia lần hai và Hyperdrive
 git push -u origin chore/op-05-dia-chi-sepolia
 ```
 
-*Phải thấy:* `git status --short` chỉ có ba nhóm: `packages/shared/src/addresses.json`,
-`packages/shared/generated/*.abi.json`, `app/wrangler.json`. Trong `addresses.json` chỉ khoá `evm` đổi
+*Phải thấy:* `git status --short` chỉ có `packages/shared/src/addresses.json` và `app/wrangler.json`;
+`packages/shared/generated/*.abi.json` chỉ xuất hiện khi mã hợp đồng đổi (lần triển khai lại không sửa hợp đồng
+thì ABI ghi ra giống hệt bản đã commit, như OP-05 ngày 21/10/2026). Trong `addresses.json` chỉ khoá `evm` đổi
 (`hardhat-local` giữ nguyên). Trong `wrangler.json` chỉ dòng `"id"` của `HYPERDRIVE` đổi. Ghi SHA của merge
 PR B cho bước 10.
 
@@ -290,7 +294,7 @@ Chờ Workers Builds dựng từ `dev` sau merge PR B.
 ## Bước 10. Kiểm khói [SV hoặc Sếp]
 
 ```bash
-node scripts/smoke-test.mjs https://bidv-rwa-tokenize.tuanlhbidv.workers.dev --expect-commit=<SHA merge PR B> --chain=evm
+node scripts/smoke-test.mjs https://bidv-rwa-tokenize.tuanlhbidv.workers.dev --expect-commit=$(git rev-parse <SHA merge PR B>) --chain=evm
 ```
 
 *Phải thấy:* commit khớp, chain `evm`, WPT decimals 0, tổng cung 0 đọc qua adapter. Kiểm khói chỉ GET, không
@@ -298,7 +302,8 @@ gửi giao dịch. Sai thì lùi (mục cuối) và dừng.
 
 ## Bước 11. Kiểm chỉ đọc database mới [Sếp chạy; SV đối chiếu]
 
-Sau khi mở URL công khai ít nhất một lần (Worker tự áp lược đồ và seed):
+Sau khi mở URL công khai ít nhất một lần (Worker tự áp lược đồ và seed; lần đầu trên database mới có thể treo vài
+phút trong lúc tạo lược đồ và Neon khởi động, chờ rồi mở lại):
 
 ```bash
 TOKEN_NEW=$(node -p "require('./packages/shared/src/addresses.json').chains.evm.contracts.ProjectToken")
