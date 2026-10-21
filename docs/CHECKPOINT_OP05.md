@@ -437,3 +437,8 @@ Kỳ chia `evm:2026-10-21-01`: `distributions(0)` = snapshot 1, số 1.000.000, 
 - **SL-2:** sau 13.7, ngoài kịch bản có thêm một Nhà đầu tư `0x3190…574E` nạp 10.000.000 VNDB và mua 100 WPT, và một
   lượt nạp 10.000.000 VNDB cho `0xf2B7…BA80`. Mua sau ảnh chụp nên không ảnh hưởng kỳ chia; số dư cuối đã tính vào.
 - **SL-3:** bước 3 bỏ qua (mục 6.1). Database cũ còn nguyên, không có câu ghi nào.
+
+### 6.7 Đầu ra bước 14 của Sếp
+
+(Chờ chủ dự án. Sếp gửi đầu ra không bí mật theo runbook bước 14; Supervisor bổ sung nguyên văn vào mục này sau.
+Mục 6.1 đến 6.6 dựa trên Supervisor đọc trực tiếp chuỗi Sepolia.)
