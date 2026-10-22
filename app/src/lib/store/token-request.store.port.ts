@@ -1,5 +1,6 @@
 import type { ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
+import type { NewAudit } from './store.port';
 import { assertStatus, StoreUsageError, type StoreKind } from './store.errors';
 
 /**
@@ -150,6 +151,29 @@ export interface TokenRequestTransition {
   txHash?: string;
 }
 
+/**
+ * Chốt KẾT CỤC on-chain của một yêu cầu đang `EXECUTING` (HF-05), cùng mọi tác động database đi
+ * kèm, trong MỘT đơn vị nguyên tử.
+ *
+ * Vì sao không chỉ đưa câu chuyển trạng thái lên trước: chuyển `COMPLETED` rồi mới ghi sổ thì
+ * tiến trình chết ở giữa để lại yêu cầu `COMPLETED` thiếu dòng sổ, và không lượt nào ghi bù được
+ * (lượt sau thấy `COMPLETED` nên dừng). Gom lại thì chỉ có hai kết cục: đủ cả, hoặc không có gì
+ * (yêu cầu còn `EXECUTING`, đối soát lại được).
+ */
+export interface TokenRequestFinalization {
+  id: string;
+  to: Extract<TokenRequestStatus, 'COMPLETED' | 'FAILED'>;
+  txHash?: string;
+  failureReason?: string;
+  /**
+   * Mint: ghi mốc phát hành cho dự án này nếu CHƯA có. Đã có thì không phải lỗi: mỗi chain chỉ
+   * có một yêu cầu Mint đang chờ (BE-12), nên không có hai yêu cầu khác nhau tranh mốc.
+   */
+  markIssuedProjectId?: string;
+  /** Dòng sổ kiểm toán ghi CÙNG đơn vị nguyên tử, theo thứ tự. */
+  audits: readonly NewAudit[];
+}
+
 export interface ITokenRequestStore {
   readonly kind: StoreKind;
 
@@ -170,6 +194,13 @@ export interface ITokenRequestStore {
    * ngay khi gửi, TRƯỚC khi đợi biên nhận.
    */
   attachRequestTxHash(input: { id: string; txHash: string }): Promise<TokenRequestRecord | null>;
+
+  /**
+   * HF-05: chốt yêu cầu `EXECUTING` sang `COMPLETED` hoặc `FAILED`, ghi mốc phát hành (Mint) và
+   * các dòng sổ trong MỘT transaction. Trả `null` khi yêu cầu không còn `EXECUTING`: lượt khác
+   * đã chốt; khi đó KHÔNG ghi gì. Lỗi giữa chừng thì không có gì được ghi.
+   */
+  finalizeTokenRequest(input: TokenRequestFinalization): Promise<TokenRequestRecord | null>;
 
   listRequests(options?: {
     chain?: ChainKey;

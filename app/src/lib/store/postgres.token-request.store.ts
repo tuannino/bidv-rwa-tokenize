@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
-import { pgQuery, type PgQuery } from './postgres.pool';
+import { pgQuery, pgTransaction, type PgQuery, type PgTransaction } from './postgres.pool';
 import { assertAmount, mapPgConstraintError } from './store.errors';
 import {
   assertTokenRequestBurnSource,
@@ -14,6 +14,7 @@ import {
   type NewTokenRequest,
   OUTCOME_STATUSES,
   type TokenRequestBurnSource,
+  type TokenRequestFinalization,
   type TokenRequestRecord,
   type TokenRequestStatus,
   type TokenRequestTransition,
@@ -90,7 +91,10 @@ const TRANSITION_COLUMNS = [
   'txHash',
 ] as const;
 
-export function createPostgresTokenRequestStore(query: PgQuery = pgQuery): ITokenRequestStore {
+export function createPostgresTokenRequestStore(
+  query: PgQuery = pgQuery,
+  transaction: PgTransaction = pgTransaction,
+): ITokenRequestStore {
   return {
     kind: 'prisma',
 
@@ -171,6 +175,62 @@ export function createPostgresTokenRequestStore(query: PgQuery = pgQuery): IToke
         ),
       );
       return rows[0] ? toRequest(rows[0]) : null;
+    },
+
+    async finalizeTokenRequest(input: TokenRequestFinalization) {
+      const to = assertTokenRequestStatus(input.to);
+      assertTokenRequestTransition(['EXECUTING'], to);
+
+      // MỘT transaction trên MỘT connection (`pgTransaction`): đổi trạng thái, ghi mốc phát
+      // hành, ghi sổ. Lỗi ở bất kỳ câu nào thì lùi hết: yêu cầu còn `EXECUTING`, đối soát lại
+      // được. Sổ kiểm toán ghi bằng câu SQL ngay trong transaction, không qua `appendAudit` (kết
+      // nối khác, không lùi được).
+      return mapPgConstraintError(() =>
+        transaction(async (run) => {
+          const params: unknown[] = [input.id, to, 'EXECUTING' satisfies TokenRequestStatus];
+          const sets = [
+            '"status" = $2',
+            '"completedAt" = CURRENT_TIMESTAMP',
+            '"updatedAt" = CURRENT_TIMESTAMP',
+          ];
+          if (input.txHash !== undefined) {
+            params.push(input.txHash);
+            sets.push(`"txHash" = $${params.length}`);
+          }
+          if (input.failureReason !== undefined) {
+            params.push(input.failureReason);
+            sets.push(`"failureReason" = $${params.length}`);
+          }
+          const rows = await run<TokenRequestRow>(
+            `UPDATE "TokenRequest" SET ${sets.join(', ')}
+              WHERE "id" = $1 AND "status" = $3
+              RETURNING *`,
+            params,
+          );
+          // 0 dòng: lượt khác đã chốt. Không ghi gì; transaction rỗng commit vô hại.
+          if (!rows[0]) return null;
+
+          if (input.markIssuedProjectId !== undefined) {
+            // 0 dòng là bình thường: mốc đã có.
+            await run(
+              `UPDATE "Project"
+                  SET "issuedAt" = CURRENT_TIMESTAMP,
+                      "status" = CASE WHEN "status" = 'DRAFT' THEN 'ISSUED' ELSE "status" END,
+                      "updatedAt" = CURRENT_TIMESTAMP
+                WHERE "id" = $1 AND "issuedAt" IS NULL`,
+              [input.markIssuedProjectId],
+            );
+          }
+          for (const entry of input.audits) {
+            await run(
+              `INSERT INTO "AuditLog" ("id","actorRole","action","target","outcome","detail","chain")
+               VALUES (gen_random_uuid()::text,$1,$2,$3,$4::"AuditOutcome",$5,$6)`,
+              [entry.actorRole, entry.action, entry.target, entry.outcome, entry.detail, entry.chain],
+            );
+          }
+          return toRequest(rows[0]);
+        }),
+      );
     },
 
     async listRequests(options = {}) {

@@ -27,6 +27,18 @@ const MAX_ROWS = 500; // chặn rò bộ nhớ nếu process sống lâu
 const state = (): MemoryState => memoryState('txn', () => ({ txns: [], audit: [] }));
 
 /**
+ * Ghi một dòng sổ kiểm toán ĐỒNG BỘ. Tách ra để thao tác chốt yêu cầu Mint/Burn bản bộ nhớ
+ * (`finalizeTokenRequest`, HF-05) ghi sổ trong cùng đoạn đồng bộ với phép kiểm trạng thái, không
+ * có `await` xen giữa: cùng tính nguyên tử với transaction của bản Postgres.
+ */
+export function appendAuditInMemory(entry: NewAudit): AuditRecord {
+  const record: AuditRecord = { ...entry, id: randomUUID(), createdAt: new Date().toISOString() };
+  state().audit.unshift(record);
+  state().audit.length = Math.min(state().audit.length, MAX_ROWS);
+  return record;
+}
+
+/**
  * Xoá state bộ nhớ của MỌI cổng, không chỉ Txn/audit.
  *
  * Giữ tên cũ để chỗ gọi hiện tại không phải sửa; việc xoá thật nằm ở `memory.state.ts`.
@@ -71,10 +83,7 @@ export function createMemoryStore(): ITxnStore {
     },
 
     async appendAudit(entry: NewAudit): Promise<AuditRecord> {
-      const record: AuditRecord = { ...entry, id: randomUUID(), createdAt: new Date().toISOString() };
-      state().audit.unshift(record);
-      state().audit.length = Math.min(state().audit.length, MAX_ROWS);
-      return record;
+      return appendAuditInMemory(entry);
     },
 
     async listAudit(options = {}) {

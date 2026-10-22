@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ILedgerPort, TxResult } from '@/lib/ledger/ledger.port';
 import { WPT_TOTAL_SUPPLY } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
@@ -15,6 +16,55 @@ import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
  * hai biến là thứ cho ca 5 dựng được "cùng một người, đủ quyền duyệt" — điều bảng quyền một mình
  * không bao giờ cho phép.
  */
+
+/**
+ * HF-05: vỏ bọc `@/lib/ledger` mặc định chuyển tiếp nguyên vẹn sang adapter thật. Bật `chainFault`
+ * thì biên nhận trả PENDING / FAILED / ném lỗi, hoặc đọc tổng cung ném lỗi: các tình huống mà
+ * chuỗi `mock` (luôn CONFIRMED ngay) không tự dựng được. Đếm số lần gửi Mint/Burn để chốt "đối
+ * soát không bao giờ gửi giao dịch mới".
+ */
+const chainFault = vi.hoisted(() => ({
+  receipt: null as null | 'PENDING' | 'FAILED' | 'throw',
+  tokenInfoThrows: false,
+  sends: 0,
+}));
+
+vi.mock('@/lib/ledger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ledger')>();
+  return {
+    ...actual,
+    getLedger: (...args: Parameters<typeof actual.getLedger>): ILedgerPort => {
+      const real = actual.getLedger(...args);
+      return {
+        ...real,
+        async mint(to: string, amount: bigint) {
+          chainFault.sends += 1;
+          return real.mint(to, amount);
+        },
+        async mintInitialSupply(to: string, amount: bigint) {
+          chainFault.sends += 1;
+          return real.mintInitialSupply(to, amount);
+        },
+        async burn(from: string, amount: bigint) {
+          chainFault.sends += 1;
+          return real.burn(from, amount);
+        },
+        async tokenInfo() {
+          if (chainFault.tokenInfoThrows) throw new Error('RPC đọc tổng cung tạm lỗi.');
+          return real.tokenInfo();
+        },
+        async waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult> {
+          if (chainFault.receipt === 'PENDING') return { txHash, status: 'PENDING' };
+          if (chainFault.receipt === 'FAILED') {
+            return { txHash, status: 'FAILED', reason: 'Giao dịch bị revert on-chain.' };
+          }
+          if (chainFault.receipt === 'throw') throw new Error('Mất kết nối RPC khi đọc biên nhận.');
+          return real.waitReceipt(txHash, timeoutMs);
+        },
+      };
+    },
+  };
+});
 
 const CHAIN = 'mock';
 /** BE-13 QĐ-G: Mint đầu trên mock phải vào vault logic, không còn vào ví `NB001`. */
@@ -90,6 +140,9 @@ async function draft(input: Record<string, unknown>): Promise<string> {
 }
 
 beforeEach(async () => {
+  chainFault.receipt = null;
+  chainFault.tokenInfoThrows = false;
+  chainFault.sends = 0;
   resetMockLedger();
   resetMemoryStore();
   resetStoreCache();
@@ -477,5 +530,253 @@ describe('ca 8 — số việc đang chờ đếm đúng theo vai', () => {
     expect(await pendingWorkCounts()).toEqual({ draft: 1, approval: 0 });
     controller();
     expect(await pendingWorkCounts()).toEqual({ draft: 0, approval: 1 });
+  });
+});
+
+// ===========================================================================
+//  HF-05: chưa có biên nhận thì chưa có kết cục; đối soát chốt theo biên nhận
+// ===========================================================================
+
+const audits = async () => getStore().listAudit({ limit: 500 });
+const successOf = async (action: string) =>
+  (await audits()).filter((entry) => entry.action === action && entry.outcome === 'SUCCESS');
+/** Dòng `order:approve` SUCCESS do lượt CHỐT ghi: không tính dòng "đã gửi, chưa có biên nhận". */
+const finalizeApprovals = async (requestId: string) =>
+  (await successOf('order:approve')).filter(
+    (entry) => entry.target === requestId && !entry.detail?.includes('chưa có biên nhận'),
+  );
+const txnsOf = async (txHash: string) =>
+  (await getStore().listTxns({ chain: CHAIN, limit: 500 })).filter((t) => t.txHash === txHash);
+const project = async () => {
+  const { getProjectStore } = await import('@/lib/store');
+  const { WPT_TOKEN_SYMBOL } = await import('@/lib/config/issue-terms');
+  return getProjectStore().findProject({ tokenSymbol: WPT_TOKEN_SYMBOL, chain: CHAIN });
+};
+
+/** Duyệt khi biên nhận còn PENDING: trả yêu cầu EXECUTING có mã giao dịch. */
+async function approvePending(id: string) {
+  const { approveTokenRequest } = await service();
+  controller();
+  chainFault.receipt = 'PENDING';
+  const result = await approveTokenRequest({ chain: CHAIN, requestId: id });
+  chainFault.receipt = null;
+  expect(result.ok, result.ok ? '' : result.error).toBe(true);
+  if (!result.ok) throw new Error(result.error);
+  expect(result.data.status).toBe('EXECUTING');
+  expect(result.data.txHash).toMatch(/^0x/);
+  return result.data.txHash!;
+}
+
+async function reconcile(id: string, chain: string = CHAIN) {
+  const { reconcileTokenRequest } = await service();
+  return reconcileTokenRequest({ chain, requestId: id });
+}
+
+describe('HF-05: duyệt khi biên nhận còn PENDING', () => {
+  it('ca 1: Mint lần đầu PENDING: EXECUTING có mã, mốc phát hành vẫn rỗng, không có token:mint SUCCESS', async () => {
+    const id = await draft(mintInput(700n));
+    expect((await project())?.issuedAt).toBeNull();
+
+    const txHash = await approvePending(id);
+
+    const stored = await getTokenRequestStore().findRequest(id);
+    expect(stored?.status).toBe('EXECUTING');
+    expect(stored?.txHash).toBe(txHash);
+    expect(stored?.completedAt).toBeNull();
+    expect((await project())?.issuedAt).toBeNull();
+    expect(await successOf('token:mint')).toHaveLength(0);
+    const approval = (await successOf('order:approve')).find((entry) => entry.target === id);
+    expect(approval?.detail).toContain('đã gửi, chưa có biên nhận, cần đối soát');
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['PENDING']);
+  });
+
+  it('ca 2: Burn PENDING: EXECUTING, không có token:burn SUCCESS', async () => {
+    await issueDirect(1000n);
+    const id = await draft(burnInput(300n, 'UNDISTRIBUTED'));
+
+    await approvePending(id);
+
+    expect((await getTokenRequestStore().findRequest(id))?.status).toBe('EXECUTING');
+    expect(await successOf('token:burn')).toHaveLength(0);
+  });
+});
+
+describe('HF-05: đối soát yêu cầu đang thực hiện', () => {
+  it('ca 3: đối soát Mint ca 1 khi CONFIRMED: COMPLETED, có mốc, đúng một token:mint, Txn CONFIRMED; lần hai bị chặn', async () => {
+    const id = await draft(mintInput(700n));
+    const txHash = await approvePending(id);
+    const sendsAfterApprove = chainFault.sends;
+
+    const result = await reconcile(id);
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('COMPLETED');
+    expect(result.data.completedAt).not.toBeNull();
+    expect((await project())?.issuedAt).not.toBeNull();
+    const mints = await successOf('token:mint');
+    expect(mints).toHaveLength(1);
+    expect(mints[0].detail).toContain(`tx ${txHash}`);
+    expect(await finalizeApprovals(id)).toHaveLength(1);
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['CONFIRMED']);
+
+    const again = await reconcile(id);
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.code).toBe('REQUEST_STATE');
+    expect(await successOf('token:mint')).toHaveLength(1);
+    expect(await finalizeApprovals(id)).toHaveLength(1);
+    expect(await txnsOf(txHash)).toHaveLength(1);
+    expect(chainFault.sends, 'đối soát không gửi giao dịch mới').toBe(sendsAfterApprove);
+  });
+
+  it('ca 3b: Burn PENDING rồi đối soát CONFIRMED: COMPLETED, đúng một token:burn, Txn CONFIRMED', async () => {
+    await issueDirect(1000n);
+    const id = await draft(burnInput(300n, 'UNDISTRIBUTED'));
+    const txHash = await approvePending(id);
+
+    const result = await reconcile(id);
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.status).toBe('COMPLETED');
+    expect(await successOf('token:burn')).toHaveLength(1);
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['CONFIRMED']);
+  });
+
+  it('ca 4: còn PENDING (gọi nhiều lần, kể cả đọc biên nhận lỗi) giữ EXECUTING; biên nhận FAILED thì FAILED', async () => {
+    const id = await draft(mintInput(700n));
+    const txHash = await approvePending(id);
+
+    for (const receipt of ['PENDING', 'PENDING', 'throw'] as const) {
+      chainFault.receipt = receipt;
+      const result = await reconcile(id);
+      expect(result.ok, result.ok ? '' : result.error).toBe(true);
+      if (result.ok) expect(result.data.status).toBe('EXECUTING');
+      expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['PENDING']);
+    }
+    expect((await getTokenRequestStore().findRequest(id))?.status).toBe('EXECUTING');
+
+    chainFault.receipt = 'FAILED';
+    const failed = await reconcile(id);
+
+    expect(failed.ok, failed.ok ? '' : failed.error).toBe(true);
+    if (!failed.ok) return;
+    expect(failed.data.status).toBe('FAILED');
+    expect(failed.data.failureReason).toMatch(/revert/);
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['FAILED']);
+    expect((await project())?.issuedAt).toBeNull();
+    expect(await successOf('token:mint')).toHaveLength(0);
+    const failure = (await audits()).find(
+      (entry) => entry.target === id && entry.action === 'order:approve' && entry.outcome === 'FAILURE',
+    );
+    expect(failure?.detail).toContain('biên nhận FAILED');
+  });
+
+  it('ca 4b: dòng Txn bị mất thì đối soát tạo đúng một dòng, không tạo trùng', async () => {
+    const id = await draft(mintInput(700n));
+    const txHash = await approvePending(id);
+    // Chỉ xoá sổ giao dịch, giữ yêu cầu: như tiến trình cũ chết trước khi ghi dòng `Txn`.
+    const { memoryState } = await import('@/lib/store/memory.state');
+    memoryState('txn', () => ({ txns: [] as unknown[], audit: [] as unknown[] })).txns.length = 0;
+    expect(await txnsOf(txHash)).toHaveLength(0);
+
+    chainFault.receipt = 'PENDING';
+    await reconcile(id);
+    await reconcile(id);
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['PENDING']);
+    chainFault.receipt = null;
+    await reconcile(id);
+    expect((await txnsOf(txHash)).map((t) => t.status)).toEqual(['CONFIRMED']);
+  });
+
+  it('ca 5: bị chặn khi không có mã giao dịch, vai không có quyền duyệt, hoặc sai chain đang chọn', async () => {
+    const withoutTx = await draft(mintInput(700n));
+    await getTokenRequestStore().transitionRequest({ id: withoutTx, from: ['PENDING'], to: 'EXECUTING' });
+    controller();
+    const noTx = await reconcile(withoutTx);
+    expect(noTx.ok).toBe(false);
+    if (!noTx.ok) {
+      expect(noTx.code).toBe('REQUEST_STATE');
+      expect(noTx.error).toMatch(/chưa có mã giao dịch/);
+    }
+
+    resetMemoryStore();
+    resetStoreCache();
+    const id = await draft(mintInput(700n));
+    await approvePending(id);
+
+    actAs('TELLER', 'GDV002');
+    const denied = await reconcile(id);
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) expect(denied.code).toBe('FORBIDDEN');
+
+    controller();
+    const wrongChain = await reconcile(id, 'hardhat-local');
+    expect(wrongChain.ok).toBe(false);
+    if (!wrongChain.ok) expect(wrongChain.code).toBe('REQUEST_CHECK');
+
+    expect((await getTokenRequestStore().findRequest(id))?.status).toBe('EXECUTING');
+    expect(await successOf('token:mint')).toHaveLength(0);
+  });
+
+  it.each(['MINT', 'BURN'] as const)(
+    'ca 5b (%s): hai lượt đối soát song song: một lượt hoàn tất, đúng một dòng sổ token và một order:approve, không gửi gì',
+    async (type) => {
+      if (type === 'BURN') await issueDirect(1000n);
+      const id = await draft(type === 'MINT' ? mintInput(700n) : burnInput(300n, 'UNDISTRIBUTED'));
+      await approvePending(id);
+      chainFault.sends = 0;
+
+      controller();
+      const results = await Promise.all([reconcile(id), reconcile(id)]);
+
+      const done = results.filter((r) => r.ok && r.data.status === 'COMPLETED');
+      expect(done).toHaveLength(1);
+      const loser = results.find((r) => !r.ok);
+      expect(loser && !loser.ok ? loser.error : '').toMatch(/đã được chốt ở lượt khác|không còn chờ đối soát/);
+      expect(await successOf(type === 'MINT' ? 'token:mint' : 'token:burn')).toHaveLength(1);
+      expect(await finalizeApprovals(id)).toHaveLength(1);
+      expect(chainFault.sends, 'đối soát không gọi ledger.mint / ledger.burn').toBe(0);
+    },
+  );
+
+  it('ca 5c: CONFIRMED mà đọc tổng cung lỗi: giữ EXECUTING, không ghi SUCCESS, không FAILED; gỡ lỗi rồi đối soát lại thì COMPLETED', async () => {
+    const id = await draft(mintInput(700n));
+    await approvePending(id);
+
+    chainFault.tokenInfoThrows = true;
+    const blocked = await reconcile(id);
+    chainFault.tokenInfoThrows = false;
+
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.error).toMatch(/đã xác nhận trên chuỗi, chưa chốt được.*bấm Đối soát lại/);
+    expect((await getTokenRequestStore().findRequest(id))?.status).toBe('EXECUTING');
+    expect((await project())?.issuedAt).toBeNull();
+    expect(await successOf('token:mint')).toHaveLength(0);
+
+    const retried = await reconcile(id);
+    expect(retried.ok && retried.data.status).toBe('COMPLETED');
+    expect(await successOf('token:mint')).toHaveLength(1);
+  });
+
+  it('ca 5c: CONFIRMED mà thao tác chốt ném lỗi: giữ EXECUTING, không ghi gì; đối soát lại thì COMPLETED', async () => {
+    const id = await draft(mintInput(700n));
+    await approvePending(id);
+    const store = getTokenRequestStore();
+    const spy = vi
+      .spyOn(store, 'finalizeTokenRequest')
+      .mockRejectedValueOnce(new Error('mất kết nối cơ sở dữ liệu'));
+
+    const blocked = await reconcile(id);
+
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.error).toMatch(/chưa chốt được \(mất kết nối cơ sở dữ liệu\)/);
+    expect((await store.findRequest(id))?.status).toBe('EXECUTING');
+    expect(await successOf('token:mint')).toHaveLength(0);
+
+    spy.mockRestore();
+    const retried = await reconcile(id);
+    expect(retried.ok && retried.data.status).toBe('COMPLETED');
+    expect(await successOf('token:mint')).toHaveLength(1);
   });
 });

@@ -2,6 +2,8 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import { memoryState } from './memory.state';
+import { stampIssuedInMemory } from './memory.project.store';
+import { appendAuditInMemory } from './memory.store';
 import { assertAmount, UniqueConstraintError } from './store.errors';
 import {
   assertTokenRequestBurnSource,
@@ -12,6 +14,7 @@ import {
   type ITokenRequestStore,
   type NewTokenRequest,
   OUTCOME_STATUSES,
+  type TokenRequestFinalization,
   type TokenRequestRecord,
   type TokenRequestTransition,
 } from './token-request.store.port';
@@ -124,6 +127,28 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
 
       found.txHash = txHash;
       found.updatedAt = new Date().toISOString();
+      return { ...found };
+    },
+
+    async finalizeTokenRequest(input: TokenRequestFinalization) {
+      // Mọi phép kiểm chạy trước mọi phép ghi; từ đây tới `return` KHÔNG có `await`, nên đoạn
+      // kiểm-rồi-ghi ba chỗ là nguyên tử như transaction của bản Postgres.
+      const to = assertTokenRequestStatus(input.to);
+      assertTokenRequestTransition(['EXECUTING'], to);
+
+      const found = state().requests.find((r) => r.id === input.id);
+      if (!found || found.status !== 'EXECUTING') return null;
+
+      assertTxHashFree(input.txHash, found.id);
+
+      const now = new Date().toISOString();
+      found.status = to;
+      if (input.txHash !== undefined) found.txHash = input.txHash;
+      if (input.failureReason !== undefined) found.failureReason = input.failureReason;
+      found.completedAt = now;
+      found.updatedAt = now;
+      if (input.markIssuedProjectId !== undefined) stampIssuedInMemory(input.markIssuedProjectId, now);
+      for (const entry of input.audits) appendAuditInMemory(entry);
       return { ...found };
     },
 

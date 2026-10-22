@@ -33,7 +33,13 @@ const fault = vi.hoisted(() => ({
     | 'receipt-throws-after-settle'
     | 'settled-tx-unknown'
     | 'settlement-lookup-throws'
-    | 'balance-drops-before-auto-settle',
+    | 'balance-drops-before-auto-settle'
+    // HF-05: giao dịch đã gửi (chuỗi mock đã ghi), nhưng biên nhận chưa có và tra sự kiện chưa
+    // thấy: như RPC đọc log đi sau, hoặc giao dịch còn nằm chờ. Ba biến thể: biên nhận PENDING,
+    // chờ biên nhận ném lỗi, và biên nhận FAILED thật (revert) cho nhánh kết thúc.
+    | 'receipt-pending'
+    | 'receipt-pending-throws'
+    | 'receipt-reverted',
   /** Đếm số lần `executePurchase` thực sự được gọi — chốt của ca 7.7. */
   sendCount: 0,
   paymentBalanceReads: 0,
@@ -92,6 +98,13 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
           return real.executeSale(order);
         },
         async waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult> {
+          if (fault.mode === 'receipt-pending') return { txHash, status: 'PENDING' };
+          if (fault.mode === 'receipt-pending-throws') {
+            throw new Error('Mất kết nối RPC trong lúc chờ biên nhận.');
+          }
+          if (fault.mode === 'receipt-reverted') {
+            return { txHash, status: 'FAILED', reason: 'Giao dịch bị revert on-chain.' };
+          }
           if (fault.mode === 'receipt-throws-after-settle') {
             throw new Error('Hết thời gian chờ biên nhận.');
           }
@@ -101,6 +114,13 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
           return real.waitReceipt(txHash, timeoutMs);
         },
         async findOrderSettlement(orderId: string) {
+          if (
+            fault.mode === 'receipt-pending' ||
+            fault.mode === 'receipt-pending-throws' ||
+            fault.mode === 'receipt-reverted'
+          ) {
+            return { status: 'NOT_SETTLED' } as const;
+          }
           if (fault.mode === 'settled-tx-unknown') return { status: 'SETTLED_TX_UNKNOWN' } as const;
           if (fault.mode === 'settlement-lookup-throws') throw new Error('RPC tra sự kiện tạm thời lỗi.');
           return real.findOrderSettlement(orderId);
@@ -1027,6 +1047,98 @@ describe('SC-03 R5 — tra chuỗi trước khi ghi FAILED/REJECTED', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(message);
     expect((await getOrderStore().findOrder(orderId))?.status).toBe('EXECUTING');
+  });
+});
+
+// =============================================================================
+//  HF-05 (L-91): CHƯA CÓ BIÊN NHẬN THÌ CHƯA CÓ KẾT CỤC
+// =============================================================================
+const RECEIPT_UNKNOWN =
+  'Giao dịch đã gửi, chưa có xác nhận. Lệnh giữ trạng thái đang quyết toán, ngân hàng sẽ đối soát.';
+
+/** Lệnh giữ EXECUTING kèm mã giao dịch, câu trả về không nói "thất bại", sổ ghi chờ đối soát. */
+async function expectStillExecuting(orderId: string, result: Awaited<ReturnType<typeof executeOrder>>) {
+  expect(result.ok).toBe(false);
+  if (result.ok) return;
+  expect(result.code).toBe('LEDGER');
+  expect(result.error).toBe(RECEIPT_UNKNOWN);
+  expect(result.error).not.toMatch(/thất bại/);
+  const order = await getOrderStore().findOrder(orderId);
+  expect(order?.status).toBe('EXECUTING');
+  expect(order?.txHash).toMatch(/^0x/);
+  const audit = await getStore().listAudit({ limit: 50 });
+  expect(audit.some((entry) => entry.outcome === 'FAILURE' && entry.detail?.includes('chưa có biên nhận, chờ đối soát'))).toBe(true);
+}
+
+describe('HF-05: lệnh mua bán chưa có biên nhận giữ EXECUTING', () => {
+  it('ca 6: biên nhận PENDING, tra chuỗi chưa thấy: EXECUTING có mã, không FAILED', async () => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('3');
+    fault.mode = 'receipt-pending';
+
+    const result = await executeOrder({ chain: CHAIN, orderId });
+
+    await expectStillExecuting(orderId, result);
+    const order = await getOrderStore().findOrder(orderId);
+    expect((await getStore().findTxnByHash(CHAIN, order!.txHash!))?.status).toBe('PENDING');
+  });
+
+  it('ca 7: chờ biên nhận ném lỗi sau khi có mã, tra chuỗi chưa thấy: EXECUTING có mã, không FAILED', async () => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('3');
+    fault.mode = 'receipt-pending-throws';
+
+    const result = await executeOrder({ chain: CHAIN, orderId });
+
+    await expectStillExecuting(orderId, result);
+  });
+
+  it.each([
+    ['CONFIRMED', null, 'COMPLETED'],
+    ['FAILED thật', 'receipt-reverted', 'FAILED'],
+  ] as const)('ca 7b: lệnh mua, đối soát hai lần khi còn PENDING vẫn EXECUTING; sau đó biên nhận %s', async (_name, finalMode, finalStatus) => {
+    await seedReadyToBuy();
+    const orderId = await placeAsInvestor('3');
+    fault.mode = 'receipt-pending';
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+
+    // Đối soát qua đường can thiệp BE-17 (EXECUTING có mã): biên nhận vẫn PENDING, rồi ném lỗi.
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+    fault.mode = 'receipt-pending-throws';
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+
+    fault.mode = finalMode;
+    const settled = await executeOrder({ chain: CHAIN, orderId });
+
+    const order = await getOrderStore().findOrder(orderId);
+    expect(order?.status).toBe(finalStatus);
+    expect(settled.ok).toBe(finalStatus === 'COMPLETED');
+    expect((await getStore().findTxnByHash(CHAIN, order!.txHash!))?.status).toBe(
+      finalStatus === 'COMPLETED' ? 'CONFIRMED' : 'FAILED',
+    );
+    expect(fault.sendCount, 'đối soát không bao giờ phát lại giao dịch').toBe(1);
+  });
+
+  it.each([
+    ['CONFIRMED', null, 'COMPLETED'],
+    ['FAILED thật', 'receipt-reverted', 'FAILED'],
+  ] as const)('ca 7c: lệnh bán, đối soát hai lần khi còn PENDING vẫn EXECUTING; sau đó biên nhận %s', async (_name, finalMode, finalStatus) => {
+    await holdWpt('10');
+    const orderId = await placeSaleAsInvestor('4');
+    fault.sendCount = 0;
+    fault.mode = 'receipt-pending';
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+    await expectStillExecuting(orderId, await executeOrder({ chain: CHAIN, orderId }));
+
+    fault.mode = finalMode;
+    await executeOrder({ chain: CHAIN, orderId });
+
+    const order = await getOrderStore().findOrder(orderId);
+    expect(order?.status).toBe(finalStatus);
+    expect(order?.side).toBe('SELL');
+    expect(fault.sendCount, 'đối soát không bao giờ phát lại giao dịch bán').toBe(1);
   });
 });
 

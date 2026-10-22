@@ -1247,8 +1247,9 @@ async function reconcileExecutingOrder(
         reason,
         txHash,
         code: 'LEDGER',
-        detail: `đối soát tx ${txHash} thất bại — ${reason}`,
+        detail: `đối soát tx ${txHash}: chờ biên nhận lỗi: ${reason}`,
         originalError: error,
+        receiptUnknown: true,
       },
     );
   }
@@ -1286,6 +1287,7 @@ async function reconcileExecutingOrder(
         txHash,
         code: 'LEDGER',
         detail: `đối soát tx ${txHash} ${receipt.status} — ${reason}`,
+        ...(receipt.status === 'FAILED' ? {} : { receiptUnknown: true as const }),
       },
     );
   }
@@ -1310,7 +1312,17 @@ interface OrderFailure {
   code: ErrorCode;
   detail: string;
   originalError?: unknown;
+  /**
+   * HF-05 (L-91): đã có mã giao dịch mà CHƯA có biên nhận (hết giờ chờ, hoặc chờ biên nhận ném
+   * lỗi). Tra chuỗi không thấy `OrderSettled` thì vẫn KHÔNG ghi FAILED: giao dịch còn có thể vào
+   * block sau. Chỉ biên nhận FAILED thật (revert) mới không bật cờ này.
+   */
+  receiptUnknown?: true;
 }
+
+/** Câu trả về khi giao dịch đã gửi mà chưa có biên nhận (HF-05). Không dùng chữ "thất bại". */
+const RECEIPT_UNKNOWN_MESSAGE =
+  'Giao dịch đã gửi, chưa có xác nhận. Lệnh giữ trạng thái đang quyết toán, ngân hàng sẽ đối soát.';
 
 /**
  * Một cửa DUY NHẤT ghi FAILED/REJECTED cho lệnh mua bán.
@@ -1360,6 +1372,20 @@ async function finalizeOrderFailure(
       await auditExecution(txnStore, order, executorRole, path, 'FAILURE', reason);
       return err('LEDGER', reason);
     }
+  }
+
+  if (failure.receiptUnknown) {
+    // Chưa có kết cục: lệnh giữ EXECUTING kèm mã giao dịch, đi vào đường can thiệp BE-17
+    // ("EXECUTING có mã: chỉ đối soát") ở `/transactions`.
+    await auditExecution(
+      txnStore,
+      order,
+      executorRole,
+      path,
+      'FAILURE',
+      `${failure.detail}; chưa có biên nhận, chờ đối soát`,
+    );
+    return err('LEDGER', RECEIPT_UNKNOWN_MESSAGE);
   }
 
   await orderStore.transitionOrder({
@@ -1601,8 +1627,9 @@ async function sendAndSettle(
         reason,
         txHash: pending.txHash,
         code: 'LEDGER',
-        detail: `chờ biên nhận tx ${pending.txHash} thất bại — ${reason}`,
+        detail: `chờ biên nhận tx ${pending.txHash} lỗi: ${reason}`,
         originalError: error,
+        receiptUnknown: true,
       },
     );
   }
@@ -1625,6 +1652,7 @@ async function sendAndSettle(
         txHash: receipt.txHash,
         code: 'LEDGER',
         detail: `tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+        ...(receipt.status === 'FAILED' ? {} : { receiptUnknown: true as const }),
       },
     );
   }

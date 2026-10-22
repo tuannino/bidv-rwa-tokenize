@@ -142,6 +142,7 @@ export {
   TOKEN_REQUEST_TRANSITIONS,
   TOKEN_REQUEST_TYPES,
   type TokenRequestBurnSource,
+  type TokenRequestFinalization,
   type TokenRequestRecord,
   type TokenRequestStatus,
   type TokenRequestTransition,

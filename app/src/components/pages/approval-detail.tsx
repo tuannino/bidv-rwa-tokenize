@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck, ShieldX, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, RefreshCw, ShieldCheck, ShieldX, TriangleAlert, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/maker-checker/status-badge';
@@ -18,9 +18,13 @@ import {
 import {
   approveTokenRequestAction,
   getTokenRequestDetailAction,
+  reconcileTokenRequestAction,
   rejectTokenRequestAction,
 } from '@/app/actions/token-request';
+import type { Result } from '@/lib/bank/result';
 import type { TokenRequestDetailView } from '@/lib/bank/token-request.service';
+import { receiptTimeoutFor } from '@/lib/ledger/ledger.port';
+import type { TokenRequestRecord } from '@/lib/store/token-request.store.port';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount, formatDateTime } from '@/lib/format';
 
@@ -34,11 +38,58 @@ import { formatAmount, formatDateTime } from '@/lib/format';
  * Nút bị khoá TRƯỚC khi bấm khi người xem chính là người lập (`selfApprovalReason` do máy chủ
  * tính bằng cùng phép so mà lần duyệt dùng), và nút từ chối khoá khi chưa nhập lý do. Chốt chặn
  * thật vẫn ở service.
+ *
+ * HF-05: duyệt mà chưa có biên nhận thì yêu cầu giữ "Đang thực hiện": màn báo vàng, không nói
+ * "đã thực hiện xong". Nút "Đối soát" hiện khi máy chủ báo `canReconcile` (đọc cùng lần mở màn,
+ * không thêm action); đối soát chỉ chạy khi bấm.
  */
 
 interface Feedback {
-  tone: 'success' | 'error';
+  tone: 'success' | 'warning' | 'error';
   message: string;
+}
+
+const FEEDBACK_STYLE: Record<Feedback['tone'], string> = {
+  success: 'flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm',
+  warning:
+    'flex items-start gap-2 rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100',
+  error: 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm',
+};
+
+/** Câu báo theo trạng thái yêu cầu SAU khi duyệt hoặc đối soát. */
+export function outcomeFeedback(
+  result: Result<TokenRequestRecord>,
+  after: 'approve' | 'reconcile',
+): Feedback {
+  if (!result.ok) return { tone: 'error', message: describeInvalid(result.error, result.fieldErrors) };
+  const request = result.data;
+  switch (request.status) {
+    case 'COMPLETED':
+      return {
+        tone: 'success',
+        message:
+          after === 'approve'
+            ? 'Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi.'
+            : 'Đã đối soát: giao dịch đã xác nhận trên chuỗi, yêu cầu hoàn tất.',
+      };
+    case 'FAILED':
+      return {
+        tone: 'error',
+        message: `Đã đối soát: giao dịch không thực hiện được trên chuỗi, yêu cầu chuyển Thất bại${
+          request.failureReason ? ` (${request.failureReason})` : ''
+        }.`,
+      };
+    default: {
+      const seconds = Math.round(receiptTimeoutFor(request.chain) / 1000);
+      return {
+        tone: 'warning',
+        message:
+          after === 'approve'
+            ? `Đã gửi lên chuỗi nhưng chưa có xác nhận sau ${seconds} giây. Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát sau ít phút.`
+            : 'Chưa có biên nhận cho giao dịch. Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát sau ít phút.',
+      };
+    }
+  }
 }
 
 export function ApprovalDetailPage({ requestId }: { requestId: string }) {
@@ -86,11 +137,15 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
     startWork(async () => {
       setFeedback(null);
       const result = await approveTokenRequestAction({ requestId, chain });
-      setFeedback(
-        result.ok
-          ? { tone: 'success', message: 'Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi.' }
-          : { tone: 'error', message: describeInvalid(result.error, result.fieldErrors) },
-      );
+      setFeedback(outcomeFeedback(result, 'approve'));
+      reload();
+    });
+
+  const reconcile = () =>
+    startWork(async () => {
+      setFeedback(null);
+      const result = await reconcileTokenRequestAction({ requestId, chain });
+      setFeedback(outcomeFeedback(result, 'reconcile'));
       reload();
     });
 
@@ -164,6 +219,18 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                   <ShieldX className="h-4 w-4" />
                   Từ chối
                 </Button>
+                {detail.canReconcile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={reconcile}
+                    disabled={working}
+                    title={working ? 'Đang xử lý…' : 'Đọc biên nhận của giao dịch đã gửi rồi chốt theo biên nhận; không gửi giao dịch mới.'}
+                  >
+                    {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Đối soát
+                  </Button>
+                )}
               </div>
               {!decisionBlock && rejectBlock && !working && (
                 <p className="text-xs text-muted-foreground" data-testid="reject-block-reason">
@@ -171,16 +238,11 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                 </p>
               )}
               {feedback && (
-                <div
-                  role="status"
-                  className={
-                    feedback.tone === 'success'
-                      ? 'flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm'
-                      : 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm'
-                  }
-                >
+                <div role="status" data-tone={feedback.tone} className={FEEDBACK_STYLE[feedback.tone]}>
                   {feedback.tone === 'success' ? (
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  ) : feedback.tone === 'warning' ? (
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
                   ) : (
                     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
                   )}
