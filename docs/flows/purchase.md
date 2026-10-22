@@ -57,10 +57,10 @@ flowchart TD
 | 6 | `app/src/lib/bank/purchase.service.ts:542` | `autoSettleCreatedOrder()` | hệ thống nhận đúng bản ghi vừa tạo và tự quyết toán, không nhận orderId tùy ý |
 | 7 | `app/src/lib/bank/purchase.service.ts:1134` | `settleStoredOrder()` | PLACED sang CHECKING, chạy lại bộ kiểm và chiếm EXECUTING chống gửi hai lần |
 | 8 | `app/src/lib/bank/purchase.service.ts:751` | `runOrderChecks()` | kiểm giá đã chốt rồi các phép đọc theo chiều lệnh (mua bốn, bán bốn), dừng ở lần trượt đầu tiên |
-| 9 | `app/src/lib/bank/purchase.service.ts:1513` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
+| 9 | `app/src/lib/bank/purchase.service.ts:1539` | `sendAndSettle()` | gửi giao dịch mua hoặc bán theo chiều lệnh, lưu mã tx trước khi chờ, chốt COMPLETED hoặc FAILED |
 | 10 | `app/src/lib/ledger/ledger.port.ts:303` | `executePurchase()` | chuyển VNDB và WPT trong cùng một giao dịch |
 | 11 | `app/src/app/actions/purchase.ts:65` | `listOrdersAction()` | một trong hai đường vận chuyển: nhận yêu cầu xem sổ lệnh; đường kia là GET /api/purchase |
-| 12 | `app/src/lib/bank/purchase.service.ts:1700` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
+| 12 | `app/src/lib/bank/purchase.service.ts:1728` | `listOrders()` | kiểm order:read và order:read:all, lọc theo ví ở tầng service, lọc thêm chiều, mã lệnh, khoảng ngày |
 
 ## Điểm cắm trên đường đi
 

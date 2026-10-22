@@ -696,6 +696,61 @@ describe('FE-08 ca 9: kỳ hoạt động tạo trước FE-08 (approvalStatus n
 });
 
 // ===========================================================================
+//  HF-05 CA 8: màn chia hiện SỐ ĐÃ DUYỆT (approvedAmount), không phải số gõ lần đầu
+// ===========================================================================
+describe('HF-05 ca 8: ô "Số đã duyệt" và cột "Số duyệt" hiện approvedAmount', () => {
+  it('duyệt X bị lệch, duyệt lại Y: ô và bảng hiện Y; AMOUNT_CHANGED hiện câu lệch', async () => {
+    const { approvedAmountLabel } = await import('@/components/pages/distribution-amount-label');
+    await seedOp05();
+    hook.beforeOpen = async () => {
+      await seedMockLedger({ profitPool: 1_000_100n });
+      hook.beforeOpen = null;
+    };
+
+    const changed = await approveOk('1000000');
+    expect(changed.period.approvalStatus).toBe('AMOUNT_CHANGED');
+    expect(approvedAmountLabel(changed.period, 'cell')).toBe(
+      `Chưa có (lần duyệt ${(1_000_000).toLocaleString('vi-VN')} VNDB lệch số trên chuỗi)`,
+    );
+    expect(approvedAmountLabel(changed.period, 'table')).toMatch(/^Chưa có \(lần duyệt .* lệch số trên chuỗi\)$/);
+
+    actAs('CONTROLLER', 'KSV002');
+    const right = await approval.reapproveDistribution({ chain: CHAIN, periodId: changed.period.id, amount: '1000100' });
+    expect(right.ok, right.ok ? '' : right.error).toBe(true);
+    if (!right.ok) return;
+    const y = (1_000_100).toLocaleString('vi-VN');
+    expect(approvedAmountLabel(right.data.period, 'cell')).toBe(`${y} VNDB`);
+    const history = await approval.listDistributionPeriods({ chain: CHAIN });
+    expect(history.ok).toBe(true);
+    if (!history.ok) return;
+    expect(approvedAmountLabel(history.data.rows[0].period, 'table')).toBe(y);
+  });
+
+  it('kỳ cũ (expectedAmount rỗng) sau duyệt lại hiện số; chưa có kết luận thì "Đang so số"', async () => {
+    const { approvedAmountLabel } = await import('@/components/pages/distribution-amount-label');
+    await seedOp05();
+    actAs('TELLER');
+    const legacy = await openPeriod({ chain: CHAIN, periodKey: 'mock:2026-Q3' });
+    expect(legacy.ok).toBe(true);
+    if (!legacy.ok) return;
+    expect(approvedAmountLabel(legacy.data, 'cell')).toBe('chưa có');
+    expect(approvedAmountLabel(legacy.data, 'table')).toBe('không có');
+
+    actAs('CONTROLLER', KSV);
+    const re = await approval.reapproveDistribution({ chain: CHAIN, periodId: legacy.data.id, amount: '1000000' });
+    expect(re.ok, re.ok ? '' : re.error).toBe(true);
+    if (!re.ok) return;
+    expect(re.data.period.expectedAmount).toBeNull();
+    expect(approvedAmountLabel(re.data.period, 'cell')).toBe(`${(1_000_000).toLocaleString('vi-VN')} VNDB`);
+
+    // Kỳ đang mở trên chuỗi, chưa so số: chưa có số đã duyệt, chỉ có số đang so.
+    expect(
+      approvedAmountLabel({ approvalStatus: null, expectedAmount: '500', approvedAmount: null }, 'cell'),
+    ).toBe('Đang so số: 500 VNDB');
+  });
+});
+
+// ===========================================================================
 //  CA 10: đọc
 // ===========================================================================
 describe('FE-08 ca 10: API đọc', () => {

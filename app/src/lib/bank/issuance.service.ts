@@ -177,6 +177,15 @@ export interface IssueInitialSupplyView {
   issuedAt: string;
 }
 
+/** Kết quả gửi phát hành khi biên nhận KHÔNG phải `FAILED` (HF-05). */
+export interface IssuanceSubmission {
+  txHash: string;
+  /** `CONFIRMED` hoặc `PENDING` (hết giờ chờ biên nhận: chưa có kết cục). */
+  status: TxStatus;
+  /** Mốc phát hành của dự án TRƯỚC lần gửi này (đã đối soát với chuỗi nếu lệch). */
+  issuedAt: string | null;
+}
+
 /**
  * Phát hành `amount` vào ví SPV, KHÔNG kiểm quyền — người gọi đã kiểm.
  *
@@ -190,6 +199,12 @@ export interface IssueInitialSupplyView {
  *
  * Trần còn lại được kiểm LẠI ở đây, ngay trước khi gửi, dù người gọi đã kiểm: đây là chốt cuối
  * cùng trước khi token ra đời, và nó không được phụ thuộc vào việc mọi người gọi đều nhớ kiểm.
+ *
+ * HF-05: hàm này DỪNG ở biên nhận. Biên nhận `FAILED` thì ghi sổ thất bại và trả lỗi; còn lại
+ * (`CONFIRMED` hoặc `PENDING`) trả mã giao dịch cùng trạng thái biên nhận, KHÔNG ghi mốc phát
+ * hành, KHÔNG ghi sổ thành công. Chốt là việc của người gọi: lần duyệt yêu cầu chốt nguyên tử qua
+ * `finalizeTokenRequest` và chỉ khi `CONFIRMED`; đường dữ liệu thử chốt qua
+ * `completeDirectIssuance` như trước.
  */
 export async function executeIssuance(input: {
   chain: ChainKey;
@@ -200,7 +215,7 @@ export async function executeIssuance(input: {
   /** Câu mở đầu cho dòng sổ kiểm toán, ví dụ mã yêu cầu đã được duyệt. */
   auditContext?: string;
   onSubmitted?: (txHash: string) => Promise<void>;
-}): Promise<Result<IssueInitialSupplyView>> {
+}): Promise<Result<IssuanceSubmission>> {
   const { chain, project, spvWallet, amount, role } = input;
   const { tokenSymbol } = project;
   const ledger = getLedger(chain);
@@ -297,6 +312,29 @@ export async function executeIssuance(input: {
     return err('LEDGER', receipt.reason ?? 'Giao dịch phát hành thất bại on-chain.');
   }
 
+  return ok({ txHash: receipt.txHash, status: receipt.status, issuedAt });
+}
+
+/**
+ * Chốt một lần phát hành của ĐƯỜNG DỮ LIỆU THỬ (`issueInitialSupply`): ghi mốc phát hành lần đầu,
+ * đọc lại tổng cung, ghi sổ thành công. Giữ đúng hành vi trước HF-05 cho đường này.
+ *
+ * Lần duyệt yêu cầu Mint KHÔNG đi qua đây: nó chốt nguyên tử qua `finalizeTokenRequest`, và chỉ
+ * khi biên nhận `CONFIRMED`.
+ */
+async function completeDirectIssuance(input: {
+  chain: ChainKey;
+  project: ProjectRecord;
+  spvWallet: string;
+  amount: bigint;
+  role: Role;
+  submission: IssuanceSubmission;
+}): Promise<Result<IssueInitialSupplyView>> {
+  const { chain, project, spvWallet, amount, role, submission } = input;
+  const { tokenSymbol } = project;
+  const store = getStore();
+  let issuedAt = submission.issuedAt;
+
   if (issuedAt === null) {
     // @flow issue:6 | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan
     const marked = await getProjectStore().markIssued({
@@ -314,13 +352,13 @@ export async function executeIssuance(input: {
         target: spvWallet,
         outcome: 'FAILURE',
         detail:
-          `${context}Đã phát hành ${amount} ${tokenSymbol} on-chain (tx ${receipt.txHash}) nhưng ` +
+          `Đã phát hành ${amount} ${tokenSymbol} on-chain (tx ${submission.txHash}) nhưng ` +
           `KHÔNG ghi được mốc phát hành vào bảng dự án — dòng đã bị đổi bởi lời gọi khác.`,
         chain,
       });
       return err(
         'ORDER_STATE',
-        `Đã phát hành xong on-chain (tx ${receipt.txHash}) nhưng bảng dự án đã được một lời gọi ` +
+        `Đã phát hành xong on-chain (tx ${submission.txHash}) nhưng bảng dự án đã được một lời gọi ` +
           `khác cập nhật trước. Đối soát bảng dự án với chuỗi trước khi làm gì tiếp.`,
       );
     }
@@ -336,8 +374,8 @@ export async function executeIssuance(input: {
     target: spvWallet,
     outcome: 'SUCCESS',
     detail:
-      `${context}Phát hành ${amount} ${tokenSymbol} vào ví SPV; tổng cung trên chuỗi ` +
-      `${after.supply}, trần còn lại ${after.remaining}; tx ${receipt.txHash}`,
+      `Phát hành ${amount} ${tokenSymbol} vào ví SPV; tổng cung trên chuỗi ` +
+      `${after.supply}, trần còn lại ${after.remaining}; tx ${submission.txHash}`,
     chain,
   });
 
@@ -346,8 +384,8 @@ export async function executeIssuance(input: {
     tokenSymbol,
     spvWallet,
     amount: amount.toString(),
-    txHash: receipt.txHash,
-    status: receipt.status,
+    txHash: submission.txHash,
+    status: submission.status,
     totalSupplyOnChain: after.supply.toString(),
     remainingCap: after.remaining.toString(),
     issuedAt: issuedAt ?? new Date().toISOString(),
@@ -400,7 +438,16 @@ export async function issueInitialSupply(
       amount = remaining;
     }
 
-    return await executeIssuance({ chain, project, spvWallet, amount, role });
+    const submitted = await executeIssuance({ chain, project, spvWallet, amount, role });
+    if (!submitted.ok) return submitted;
+    return await completeDirectIssuance({
+      chain,
+      project,
+      spvWallet,
+      amount,
+      role,
+      submission: submitted.data,
+    });
   } catch (error) {
     return toResult(error);
   }

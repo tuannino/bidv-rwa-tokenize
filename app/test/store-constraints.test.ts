@@ -13,6 +13,9 @@ import { createMemoryOrderStore } from '@/lib/store/memory.order.store';
 import { createMemoryProjectStore } from '@/lib/store/memory.project.store';
 import { createMemorySettlementStore } from '@/lib/store/memory.settlement.store';
 import { createMemoryTokenRequestStore } from '@/lib/store/memory.token-request.store';
+import { createMemoryStore } from '@/lib/store/memory.store';
+import { createPostgresStore } from '@/lib/store/postgres.store';
+import type { ITxnStore, NewAudit } from '@/lib/store/store.port';
 import { resetMemoryStores } from '@/lib/store/memory.state';
 import { createPostgresConfigStore } from '@/lib/store/postgres.config.store';
 import { createPostgresDistributionStore } from '@/lib/store/postgres.distribution.store';
@@ -327,6 +330,8 @@ interface Backend {
   config: IConfigStore;
   projects: IProjectStore;
   tokenRequests: ITokenRequestStore;
+  /** Sổ giao dịch + kiểm toán: HF-05 đếm dòng sổ do thao tác chốt yêu cầu ghi. */
+  txns: ITxnStore;
   /** Dọn trước mỗi ca kiểm. Bản Postgres không xoá dữ liệu, chỉ dùng khoá riêng mỗi ca. */
   reset: () => void;
 }
@@ -340,6 +345,7 @@ function memoryBackend(): Backend {
     config: createMemoryConfigStore(),
     projects: createMemoryProjectStore(),
     tokenRequests: createMemoryTokenRequestStore(),
+    txns: createMemoryStore(),
     reset: resetMemoryStores,
   };
 }
@@ -363,6 +369,7 @@ function postgresBackend(): Backend {
     config: createPostgresConfigStore(),
     projects: createPostgresProjectStore(),
     tokenRequests: createPostgresTokenRequestStore(),
+    txns: createPostgresStore(),
     // Không TRUNCATE: đây có thể là cơ sở dữ liệu demo của Owner. Mỗi ca kiểm tự dùng
     // khoá riêng (uuid) nên không đụng dữ liệu cũ và chạy lại được nhiều lần.
     reset: () => {},
@@ -1486,6 +1493,122 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
       expect(
         await store.tokenRequests.countRequests({ status: 'PENDING', excludeMakerId: maker }),
       ).toBeGreaterThanOrEqual(1);
+    });
+
+    // -----------------------------------------------------------------------
+    //  HF-05: chốt kết cục nguyên tử
+    // -----------------------------------------------------------------------
+    const executing = async (overrides: Partial<NewTokenRequest> = {}) => {
+      const created = await store.tokenRequests.createRequest(newRequest(overrides));
+      await store.tokenRequests.transitionRequest({ id: created.id, from: ['PENDING'], to: 'EXECUTING' });
+      return created;
+    };
+    const auditFor = (target: string, action: string, outcome: NewAudit['outcome'] = 'SUCCESS'): NewAudit => ({
+      actorRole: 'CONTROLLER',
+      action,
+      target,
+      outcome,
+      detail: `HF-05 ${action}`,
+      chain: 'mock',
+    });
+    const auditsOf = async (target: string) =>
+      (await store.txns.listAudit({ limit: 500 })).filter((entry) => entry.target === target);
+
+    it('HF-05 ca 5b: hai lượt chốt song song, đúng một lượt đổi và đúng một bộ dòng sổ', async () => {
+      const request = await executing();
+      const txHash = `0x${randomUUID().replace(/-/g, '')}`;
+      const finalize = () =>
+        store.tokenRequests.finalizeTokenRequest({
+          id: request.id,
+          to: 'COMPLETED',
+          txHash,
+          audits: [auditFor(request.id, 'token:mint'), auditFor(request.id, 'order:approve')],
+        });
+
+      const results = await Promise.all([finalize(), finalize()]);
+
+      expect(results.filter((row) => row !== null)).toHaveLength(1);
+      const won = results.find((row) => row !== null);
+      expect(won?.status).toBe('COMPLETED');
+      expect(won?.txHash).toBe(txHash);
+      expect(won?.completedAt).not.toBeNull();
+      const audits = await auditsOf(request.id);
+      expect(audits.filter((entry) => entry.action === 'token:mint')).toHaveLength(1);
+      expect(audits.filter((entry) => entry.action === 'order:approve')).toHaveLength(1);
+    });
+
+    it('HF-05: chốt yêu cầu không còn EXECUTING trả null và không ghi dòng sổ nào', async () => {
+      const created = await store.tokenRequests.createRequest(newRequest());
+      const result = await store.tokenRequests.finalizeTokenRequest({
+        id: created.id,
+        to: 'COMPLETED',
+        audits: [auditFor(created.id, 'token:mint')],
+      });
+      expect(result).toBeNull();
+      expect((await store.tokenRequests.findRequest(created.id))?.status).toBe('PENDING');
+      expect(await auditsOf(created.id)).toHaveLength(0);
+    });
+
+    it('HF-05: chốt FAILED ghi lý do cùng dòng sổ thất bại', async () => {
+      const request = await executing();
+      const failed = await store.tokenRequests.finalizeTokenRequest({
+        id: request.id,
+        to: 'FAILED',
+        failureReason: 'revert',
+        audits: [auditFor(request.id, 'order:approve', 'FAILURE')],
+      });
+      expect(failed?.status).toBe('FAILED');
+      expect(failed?.failureReason).toBe('revert');
+      expect((await auditsOf(request.id)).map((entry) => entry.outcome)).toEqual(['FAILURE']);
+    });
+
+    it('HF-05: Mint ghi mốc phát hành khi dự án chưa có; đã có thì giữ nguyên, không lỗi', async () => {
+      const symbol = `H${randomUUID().slice(0, 8)}`;
+      const project = await store.projects.createProject({
+        tokenSymbol: symbol,
+        name: 'HF-05',
+        totalSupply: '1000',
+        chain: 'mock',
+      });
+      const first = await executing({ tokenSymbol: symbol });
+      await store.tokenRequests.finalizeTokenRequest({
+        id: first.id,
+        to: 'COMPLETED',
+        markIssuedProjectId: project.id,
+        audits: [],
+      });
+      const issued = await store.projects.findProject({ tokenSymbol: symbol, chain: 'mock' });
+      expect(issued?.issuedAt).not.toBeNull();
+      expect(issued?.status).toBe('ISSUED');
+
+      const second = await executing({ tokenSymbol: symbol });
+      const done = await store.tokenRequests.finalizeTokenRequest({
+        id: second.id,
+        to: 'COMPLETED',
+        markIssuedProjectId: project.id,
+        audits: [],
+      });
+      expect(done?.status).toBe('COMPLETED');
+      expect((await store.projects.findProject({ tokenSymbol: symbol, chain: 'mock' }))?.issuedAt).toBe(
+        issued?.issuedAt,
+      );
+    });
+
+    it.runIf(_label === 'Postgres')('HF-05 ca 5c (Postgres): một câu trong transaction lỗi thì lùi hết, yêu cầu còn EXECUTING', async () => {
+      const request = await executing();
+      await expect(
+        store.tokenRequests.finalizeTokenRequest({
+          id: request.id,
+          to: 'COMPLETED',
+          audits: [
+            auditFor(request.id, 'token:mint'),
+            // Giá trị ngoài enum AuditOutcome: câu INSERT thứ hai lỗi.
+            { ...auditFor(request.id, 'order:approve'), outcome: 'BOGUS' as NewAudit['outcome'] },
+          ],
+        }),
+      ).rejects.toThrow();
+      expect((await store.tokenRequests.findRequest(request.id))?.status).toBe('EXECUTING');
+      expect(await auditsOf(request.id)).toHaveLength(0);
     });
 
     it('loại và nguồn Burn lạ bị từ chối ở cả hai bản', async () => {

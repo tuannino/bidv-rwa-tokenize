@@ -460,6 +460,9 @@ export const approveTokenRequestSchema = z.object({
 });
 export type ApproveTokenRequestInput = z.input<typeof approveTokenRequestSchema>;
 
+/** Đối soát yêu cầu đang thực hiện (HF-05): cùng hai trường với lần duyệt. */
+export const reconcileTokenRequestSchema = approveTokenRequestSchema;
+
 /** Từ chối BẮT BUỘC có lý do — người lập cần biết phải sửa gì. */
 export const rejectTokenRequestSchema = z.object({
   requestId: tokenRequestIdSchema,

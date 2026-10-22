@@ -10,6 +10,7 @@ import {
   getTokenRequestDetail,
   listTokenRequests,
   previewTokenRequest,
+  reconcileTokenRequest,
   rejectTokenRequest,
 } from '@/lib/bank/token-request.service';
 
@@ -34,6 +35,14 @@ export async function createTokenRequestAction(input: unknown) {
 /** Duyệt: kiểm lại điều kiện, chặn tự duyệt, chiếm quyền rồi thực hiện trên chuỗi. */
 export async function approveTokenRequestAction(input: unknown) {
   return approveTokenRequest(input);
+}
+
+/**
+ * Đối soát yêu cầu đang thực hiện có mã giao dịch (HF-05): đọc biên nhận một lần, chốt theo biên
+ * nhận, không gửi giao dịch mới. Chỉ chạy khi Kiểm soát viên bấm nút, không chạy khi mở màn.
+ */
+export async function reconcileTokenRequestAction(input: unknown) {
+  return reconcileTokenRequest(input);
 }
 
 /** Từ chối: bắt buộc lý do, chặn tự từ chối. */

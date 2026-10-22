@@ -2,7 +2,7 @@ import 'server-only';
 
 import { readStep } from '@/lib/diagnostics/read-trace';
 
-import type { ChainKey } from '@bidv/shared';
+import type { ChainKey, TxResult } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -11,6 +11,7 @@ import {
   getProjectStore,
   getStore,
   getTokenRequestStore,
+  type NewAudit,
   type ProjectRecord,
   type TokenRequestRecord,
   type TokenRequestStatus,
@@ -20,6 +21,7 @@ import {
   executeIssuance,
   readSupplyMetrics,
   remainingIssuanceCap,
+  signerAddressOrNull,
   trackTxn,
   vaultMintTargetError,
 } from './issuance.service';
@@ -28,6 +30,7 @@ import {
   approveTokenRequestSchema,
   chainSchema,
   createTokenRequestSchema,
+  reconcileTokenRequestSchema,
   rejectTokenRequestSchema,
   tokenInfoQuerySchema,
   tokenRequestDetailSchema,
@@ -505,21 +508,34 @@ export async function approveTokenRequest(
         return outcome;
       }
 
-      const completed = await store.transitionRequest({
-        id: requestId,
-        from: ['EXECUTING'],
-        to: 'COMPLETED',
-        txHash: outcome.data.txHash,
-      });
-      await audit({
+      const { txHash } = outcome.data;
+      if (outcome.data.status !== 'CONFIRMED') {
+        /**
+         * HF-05: hết giờ chờ biên nhận KHÔNG chứng minh giao dịch hỏng, cũng không chứng minh nó
+         * xong. Giữ `EXECUTING` kèm mã giao dịch (đã gắn qua `attachRequestTxHash`), không ghi mốc
+         * phát hành, không ghi sổ thành công cho thao tác token. Kiểm soát viên đối soát sau.
+         */
+        await audit({
+          role,
+          action: 'order:approve',
+          target: requestId,
+          outcome: 'SUCCESS',
+          detail:
+            `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}; ` +
+            `tx ${txHash}: đã gửi, chưa có biên nhận, cần đối soát.`,
+          chain,
+        });
+        const current = await store.findRequest(requestId);
+        return current ? ok(current) : err('REQUEST_STATE', `Không đọc lại được yêu cầu ${requestId}.`);
+      }
+
+      return await finalizeConfirmed({
+        request,
         role,
-        action: 'order:approve',
-        target: requestId,
-        outcome: 'SUCCESS',
-        detail: `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}; tx ${outcome.data.txHash}`,
-        chain,
+        auditContext,
+        txHash,
+        approveDetail: `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}; tx ${txHash}`,
       });
-      return completed ? ok(completed) : err('REQUEST_STATE', `Không đóng được yêu cầu ${requestId}.`);
     } catch (error) {
       /**
        * Chưa gửi giao dịch: chắc chắn token chưa đổi → `FAILED`.
@@ -553,7 +569,12 @@ export async function approveTokenRequest(
   }
 }
 
-/** Đốt `amount` tại ví SPV — người gọi đã kiểm quyền và điều kiện. */
+/**
+ * Đốt `amount` tại ví SPV: người gọi đã kiểm quyền và điều kiện.
+ *
+ * HF-05: như `executeIssuance`, hàm dừng ở biên nhận. Chỉ biên nhận `FAILED` được ghi sổ (thất
+ * bại); dòng sổ thành công ghi lúc chốt, trong `finalizeTokenRequest`.
+ */
 async function executeBurn(input: {
   chain: ChainKey;
   wallet: string;
@@ -561,7 +582,7 @@ async function executeBurn(input: {
   role: Role;
   auditContext: string;
   onSubmitted: (txHash: string) => Promise<void>;
-}): Promise<Result<{ txHash: string }>> {
+}): Promise<Result<{ txHash: string; status: TxResult['status'] }>> {
   const { chain, wallet, amount, role } = input;
   const pending = await getLedger(chain).burn(wallet, amount);
   const receipt = await trackTxn({
@@ -574,17 +595,236 @@ async function executeBurn(input: {
     role,
     onSubmitted: input.onSubmitted,
   });
-  const failed = receipt.status === 'FAILED';
-  await getStore().appendAudit({
+  if (receipt.status === 'FAILED') {
+    await getStore().appendAudit({
+      actorRole: role,
+      action: 'token:burn',
+      target: wallet,
+      outcome: 'FAILURE',
+      detail: `${input.auditContext}: đốt ${amount} tại ví SPV thất bại; tx ${receipt.txHash}`,
+      chain,
+    });
+    return err('LEDGER', receipt.reason ?? 'Giao dịch đốt thất bại on-chain.');
+  }
+  return ok({ txHash: receipt.txHash, status: receipt.status });
+}
+
+/** Câu báo khi chuỗi đã xác nhận mà database chưa chốt được: yêu cầu còn `EXECUTING`. */
+const notFinalizedMessage = (requestId: string, why: string) =>
+  `Giao dịch của yêu cầu ${requestId} đã xác nhận trên chuỗi, chưa chốt được (${why}). ` +
+  'Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát lại.';
+
+/**
+ * Chốt yêu cầu có biên nhận `CONFIRMED`: dùng chung cho lần duyệt và lần đối soát (HF-05).
+ *
+ * Đọc tổng cung (Mint) TRƯỚC, rồi gom đổi trạng thái, mốc phát hành và hai dòng sổ vào MỘT thao
+ * tác lưu trữ nguyên tử. Lỗi ở bất kỳ bước nào thì yêu cầu giữ `EXECUTING` để đối soát lại:
+ * biên nhận `CONFIRMED` không bao giờ dẫn tới `FAILED`.
+ */
+async function finalizeConfirmed(input: {
+  request: TokenRequestRecord;
+  role: Role;
+  auditContext: string;
+  txHash: string;
+  approveDetail: string;
+}): Promise<Result<TokenRequestRecord>> {
+  const { request, role, auditContext, txHash } = input;
+  const { chain } = request;
+
+  let tokenAudit: NewAudit;
+  let markIssuedProjectId: string | undefined;
+  if (request.type === 'MINT') {
+    let after: Awaited<ReturnType<typeof remainingIssuanceCap>>;
+    try {
+      const project = await getProjectStore().findProject({ tokenSymbol: request.tokenSymbol, chain });
+      if (!project) throw new Error(`không còn dự án ${request.tokenSymbol} trên chain ${chain}`);
+      markIssuedProjectId = project.id;
+      after = await remainingIssuanceCap(chain, project);
+    } catch (error) {
+      return err('LEDGER', notFinalizedMessage(request.id, errorMessage(error)));
+    }
+    tokenAudit = {
+      actorRole: role,
+      action: 'token:mint',
+      target: request.wallet,
+      outcome: 'SUCCESS',
+      detail:
+        `${auditContext}: Phát hành ${request.amount} ${request.tokenSymbol} vào ví SPV; tổng cung trên chuỗi ` +
+        `${after.supply}, trần còn lại ${after.remaining}; tx ${txHash}`,
+      chain,
+    };
+  } else {
+    tokenAudit = {
+      actorRole: role,
+      action: 'token:burn',
+      target: request.wallet,
+      outcome: 'SUCCESS',
+      detail: `${auditContext}: đốt ${request.amount} tại ví SPV xong; tx ${txHash}`,
+      chain,
+    };
+  }
+
+  let finalized: TokenRequestRecord | null;
+  try {
+    finalized = await getTokenRequestStore().finalizeTokenRequest({
+      id: request.id,
+      to: 'COMPLETED',
+      txHash,
+      markIssuedProjectId,
+      audits: [
+        tokenAudit,
+        {
+          actorRole: role,
+          action: 'order:approve',
+          target: request.id,
+          outcome: 'SUCCESS',
+          detail: input.approveDetail,
+          chain,
+        },
+      ],
+    });
+  } catch (error) {
+    return err('LEDGER', notFinalizedMessage(request.id, errorMessage(error)));
+  }
+  return finalized
+    ? ok(finalized)
+    : err('REQUEST_STATE', `Yêu cầu ${request.id} đã được chốt ở lượt khác.`);
+}
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/**
+ * Chờ biên nhận khi ĐỐI SOÁT: tối đa 1 giây, cùng mức `RECHECK_RECEIPT_TIMEOUT_MS` của luồng chia
+ * (`distribution.service.ts`). Đối soát là hỏi lại một giao dịch đã gửi từ trước, không phải chờ
+ * một giao dịch mới; chờ theo timeout của chuỗi (30 hoặc 90 giây) chỉ giữ người bấm lâu hơn.
+ */
+const RECONCILE_RECEIPT_TIMEOUT_MS = 1_000;
+
+/**
+ * Cập nhật dòng `Txn` theo `(chain, txHash)` sau một lần đọc biên nhận; không có thì tạo một dòng
+ * (tiến trình cũ có thể chết trước khi ghi sổ). PENDING giữ nguyên dòng đã có. Idempotent, nên
+ * làm ngoài transaction chốt.
+ */
+async function syncTxnFromReceipt(
+  request: TokenRequestRecord,
+  receipt: TxResult,
+  role: Role,
+): Promise<void> {
+  const store = getStore();
+  const existing = await store.findTxnByHash(request.chain, receipt.txHash);
+  if (existing) {
+    if (receipt.status !== 'PENDING') {
+      await store.updateTxnStatus(existing.id, receipt.status, receipt.reason);
+    }
+    return;
+  }
+  await store.saveTxn({
+    chain: request.chain,
+    operation: request.type === 'MINT' ? 'mint' : 'burn',
+    txHash: receipt.txHash,
+    status: receipt.status,
+    fromWallet: request.type === 'MINT' ? null : request.wallet,
+    toWallet: request.type === 'MINT' ? request.wallet : null,
+    amount: request.amount,
+    reason: receipt.reason ?? null,
     actorRole: role,
-    action: 'token:burn',
-    target: wallet,
-    outcome: failed ? 'FAILURE' : 'SUCCESS',
-    detail: `${input.auditContext}: đốt ${amount} tại ví SPV ${failed ? 'thất bại' : 'xong'}; tx ${receipt.txHash}`,
-    chain,
+    actorAddress: await signerAddressOrNull(request.chain),
   });
-  if (failed) return err('LEDGER', receipt.reason ?? 'Giao dịch đốt thất bại on-chain.');
-  return ok({ txHash: receipt.txHash });
+}
+
+/**
+ * ĐỐI SOÁT yêu cầu Mint/Burn đang `EXECUTING` có mã giao dịch (HF-05): đọc biên nhận MỘT lần rồi
+ * chốt theo đúng biên nhận. KHÔNG BAO GIỜ gửi giao dịch mới.
+ *
+ * - `CONFIRMED`: chốt nguyên tử như lần duyệt (`finalizeConfirmed`).
+ * - `FAILED`: `EXECUTING` sang `FAILED` cùng dòng sổ thất bại, trong một thao tác nguyên tử.
+ * - `PENDING` hoặc đọc biên nhận lỗi: không đổi gì, trả yêu cầu còn `EXECUTING`.
+ */
+export async function reconcileTokenRequest(
+  input: unknown,
+): Promise<Result<TokenRequestRecord>> {
+  const parsed = reconcileTokenRequestSchema.safeParse(input);
+  if (!parsed.success) {
+    return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
+  }
+  const { requestId, chain: selectedChain } = parsed.data;
+
+  try {
+    const role = await authorize('order:approve', requestId, selectedChain);
+    const actorId = await currentActorId(role);
+    const request = await getTokenRequestStore().findRequest(requestId);
+    if (!request) {
+      return err('VALIDATION', `Không có yêu cầu ${requestId}.`);
+    }
+    if (request.chain !== selectedChain) {
+      return err(
+        'REQUEST_CHECK',
+        `Yêu cầu ${requestId} thuộc chain ${request.chain}, không phải chain đang chọn ${selectedChain}.`,
+      );
+    }
+    if (request.status !== 'EXECUTING') {
+      return err(
+        'REQUEST_STATE',
+        `Yêu cầu ${requestId} đang ở trạng thái ${request.status}, không còn chờ đối soát.`,
+      );
+    }
+    if (!request.txHash) {
+      return err(
+        'REQUEST_STATE',
+        `Yêu cầu ${requestId} chưa có mã giao dịch, không đối soát được bằng biên nhận; cần đối soát tay.`,
+      );
+    }
+    const { chain, txHash } = request;
+
+    let receipt: TxResult;
+    try {
+      receipt = await getLedger(chain).waitReceipt(txHash, RECONCILE_RECEIPT_TIMEOUT_MS);
+    } catch {
+      // Đọc biên nhận lỗi không nói gì về kết cục: coi như còn chờ.
+      receipt = { txHash, status: 'PENDING' };
+    }
+    await syncTxnFromReceipt(request, receipt, role);
+
+    const auditContext = `Đối soát yêu cầu ${requestId} (lập bởi ${request.makerId}, đối soát bởi ${actorId})`;
+    if (receipt.status === 'CONFIRMED') {
+      return await finalizeConfirmed({
+        request,
+        role,
+        auditContext,
+        txHash,
+        approveDetail:
+          `${actorId} đối soát yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}: ` +
+          `biên nhận CONFIRMED, chốt hoàn tất; tx ${txHash}`,
+      });
+    }
+
+    if (receipt.status === 'FAILED') {
+      const reason = receipt.reason ?? 'Giao dịch thất bại on-chain.';
+      const failed = await getTokenRequestStore().finalizeTokenRequest({
+        id: requestId,
+        to: 'FAILED',
+        failureReason: reason,
+        audits: [
+          {
+            actorRole: role,
+            action: 'order:approve',
+            target: requestId,
+            outcome: 'FAILURE',
+            detail: `${auditContext}: biên nhận FAILED (${reason}); tx ${txHash}`,
+            chain,
+          },
+        ],
+      });
+      return failed
+        ? ok(failed)
+        : err('REQUEST_STATE', `Yêu cầu ${requestId} đã được chốt ở lượt khác.`);
+    }
+
+    // PENDING: chưa có kết cục, không ghi gì vào yêu cầu.
+    return ok(request);
+  } catch (error) {
+    return toResult(error);
+  }
 }
 
 /** Từ chối: bắt buộc có lý do, không tác động token. */
@@ -879,6 +1119,11 @@ export interface TokenRequestDetailView {
    * bắt người dùng bấm rồi mới thấy lỗi.
    */
   selfApprovalReason: string | null;
+  /**
+   * HF-05: hiện nút "Đối soát": yêu cầu `EXECUTING`, có mã giao dịch, và vai đang xem có quyền
+   * duyệt. Tính ở đây, trong CÙNG lần đọc chi tiết, để màn không phải gọi thêm action khi mở.
+   */
+  canReconcile: boolean;
   timeline: TimelineEntry[];
 }
 
@@ -965,6 +1210,8 @@ export async function getTokenRequestDetail(
         request.makerId === actorId
           ? `Bạn (${actorId}) đã lập yêu cầu này nên không được duyệt hay từ chối nó, kể cả khi có quyền.`
           : null,
+      canReconcile:
+        request.status === 'EXECUTING' && request.txHash !== null && can(role, 'order:approve'),
       timeline: timelineOf(request),
     });
   } catch (error) {

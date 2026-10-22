@@ -67,6 +67,19 @@ function assertSymbolFree(tokenSymbol: string, chain: ChainKey): void {
   );
 }
 
+/**
+ * Ghi mốc phát hành ĐỒNG BỘ nếu dự án chưa có mốc: dùng trong thao tác chốt yêu cầu Mint bản bộ
+ * nhớ (HF-05), cùng điều kiện câu `UPDATE` của bản Postgres: `issuedAt` còn rỗng; dự án còn
+ * `DRAFT` thì sang `ISSUED` như `markIssued`. Mốc đã có thì không làm gì, không phải lỗi.
+ */
+export function stampIssuedInMemory(id: string, issuedAt: string): void {
+  const found = state().projects.find((project) => project.id === id);
+  if (!found || found.issuedAt !== null) return;
+  if (found.status === 'DRAFT') found.status = 'ISSUED';
+  found.issuedAt = issuedAt;
+  found.updatedAt = new Date().toISOString();
+}
+
 export function createMemoryProjectStore(): IProjectStore {
   return {
     kind: 'memory',

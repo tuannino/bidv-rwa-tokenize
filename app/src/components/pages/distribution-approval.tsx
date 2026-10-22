@@ -25,6 +25,7 @@ import type {
 } from '@/lib/bank/distribution-approval.service';
 import type { DistributionRunLogView } from '@/lib/bank/distribution-trigger.service';
 import type { Result } from '@/lib/bank/result';
+import { approvedAmountLabel } from '@/components/pages/distribution-amount-label';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 
 /**
@@ -169,7 +170,7 @@ function ActivePeriodCard({
             label="Trạng thái duyệt"
             value={period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa có kết luận duyệt'}
           />
-          <Metric label="Số đã duyệt" value={period.expectedAmount ? `${amount(period.expectedAmount)} VNDB` : 'chưa có'} />
+          <Metric label="Số đã duyệt" value={approvedAmountLabel(period, 'cell')} />
           <Metric label="Số thực tế trên chuỗi" value={period.status === 'OPENING' ? 'chưa đọc được' : `${amount(period.totalAmount)} VNDB`} />
           <Metric label="Chốt kỳ vault" value={period.vaultCloseStatus ? VAULT_STATUS[period.vaultCloseStatus] : 'Chưa chốt'} />
           <Metric label="Đã trả" value={`${amount(progress.paidAmount)} VNDB (${progress.paid} hồ sơ)`} />
@@ -297,7 +298,7 @@ function HistoryCard({
                   <TableCell>{period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa duyệt'}</TableCell>
                   <TableCell className="font-mono text-xs">{period.approvedBy ?? 'không có'}</TableCell>
                   <TableCell className="text-xs">{when(period.approvedAt)}</TableCell>
-                  <TableCell className="text-right font-mono">{period.expectedAmount ? amount(period.expectedAmount) : 'không có'}</TableCell>
+                  <TableCell className="text-right font-mono">{approvedAmountLabel(period, 'table')}</TableCell>
                   <TableCell className="text-right font-mono">{amount(period.totalAmount)}</TableCell>
                   <TableCell className="text-right font-mono">{period.reapprovedFrom ? amount(period.reapprovedFrom) : 'không'}</TableCell>
                   <TableCell className="text-xs">{triggerSources.length ? triggerSources.map((s) => (s === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper')).join(', ') : 'chưa chạy'}</TableCell>
