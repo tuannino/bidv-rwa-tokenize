@@ -580,6 +580,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | Nhiều lời đọc RPC rời trong một `Promise.all` | Một lượt Worker chỉ mở 6 kết nối ra ngoài cùng lúc. Client đọc EVM gom lô JSON-RPC (`batchSize` 20); client ghi không gom (HF-01) |
 | Đọc sự kiện (`eth_getLogs`) qua RPC chính, một lần từ block triển khai tới `latest` | Alchemy gói miễn phí chỉ cho 10 block mỗi lần, RPC công khai 50.000. Đọc sự kiện qua `logReader()` (`RPC_EVM_LOGS`, mặc định RPC công khai) và `scanLogs` theo đoạn `EVM_LOG_BLOCK_CHUNK`; số block mới nhất đọc với `cacheTime: 0`, đoạn cuối tới `latest` (HF-03, `test/hf-03-doc-log-evm.test.ts`) |
 | Đối soát giao dịch vừa gửi chỉ bằng quét log | RPC đọc log có thể đi sau RPC ghi: sự kiện chưa thấy không có nghĩa là chưa có. `findVaultPeriodClose(ref, hintTxHash)` đọc biên nhận của mã đã lưu qua RPC chính; CONFLICT chỉ giữ khi sự kiện đúng mã kỳ khác số (HF-04, sự cố OP-05 bước 13.7) |
+| Coi biên nhận `PENDING` (hết giờ chờ) là xong, hoặc là thất bại | Hết giờ chờ không chứng minh gì: giao dịch vẫn có thể vào block sau. Đã có `txHash` mà chưa có biên nhận thì giữ `EXECUTING` kèm mã, không ghi mốc nghiệp vụ, không ghi sổ SUCCESS; chỉ biên nhận thật mới chốt `COMPLETED`/`FAILED`. Chốt sau xác nhận phải nguyên tử với sổ (`finalizeTokenRequest`, một transaction), và đối soát không bao giờ gửi lại (HF-05: yêu cầu Mint/Burn, lệnh mua bán qua cờ `receiptUnknown`) |
 | Revert một PR rồi merge lại nhánh đó để "lấy code về" | Git **không** phục hồi: merge chỉ so sánh với merge-base nên phần đã revert biến mất vĩnh viễn. Đó là lý do `dev` từng mất sạch `packages/` và `app/src/lib/`. Cách đúng duy nhất: `git revert <sha-của-commit-revert>`. Không merge lại, không cherry-pick — `branching.md` §6 |
 | Lấy nền từ nhánh phụ, hoặc tự chọn nền khác khi `dev` hỏng | Nền duy nhất được phép là `dev`. `dev` hỏng thì DỪNG và hỏi Owner — `branching.md` §1, §5 |
 | Rebase nhánh mới lên nhánh khác khi nhánh nền chứa commit phá hoại | `git rebase <đích>` sẽ kéo theo cả commit của nhánh nền; kỹ thuật đúng là `git rebase --onto <đích> <nền> <nhánh>`. Nhưng **chỉ dùng sau khi Owner đồng ý** đổi nền |
@@ -2984,7 +2985,12 @@ không vào sổ lệnh nữa. Hai hệ quả:
 
 Hàm chốt thất bại dùng chung xử lý bốn kết quả đối soát: `NOT_SETTLED` mới được ghi
 `FAILED`/`REJECTED`; `SETTLED` chuyển `COMPLETED` bằng tx hash từ sự kiện; `SETTLED_TX_UNKNOWN` và
-lỗi RPC giữ nguyên trạng thái để không tuyên bố thất bại khi tài sản có thể đã chuyển. Cạnh
+lỗi RPC giữ nguyên trạng thái để không tuyên bố thất bại khi tài sản có thể đã chuyển. **HF-05
+(L-91):** nhánh biên nhận `PENDING` và nhánh chờ biên nhận ném lỗi (cả `sendAndSettle` lẫn
+`reconcileExecutingOrder`) bật cờ `receiptUnknown`; khi đó `NOT_SETTLED` cũng **không** ghi
+`FAILED`: lệnh giữ `EXECUTING` kèm mã, sổ ghi FAILURE "chưa có biên nhận, chờ đối soát", trả
+`LEDGER` "Giao dịch đã gửi, chưa có xác nhận..." và đi vào đường can thiệp 6. Chỉ biên nhận
+`FAILED` thật (revert) mới ghi `FAILED`. Cạnh
 `EXECUTING(txHash rỗng) → CHECKING` là cạnh quay lại duy nhất của máy trạng thái, có điều kiện ở kho
 lưu trữ nên hai lượt can thiệp đồng thời chỉ một lượt thắng.
 
@@ -3155,6 +3161,7 @@ PENDING ──► EXECUTING ──► COMPLETED
 | Lập | `createTokenRequest()` | `order:draft`; trượt điều kiện → `REQUEST_CHECK`, `fieldErrors` khoá theo mã điều kiện. Đạt → dòng `PENDING`, **chưa tác động token** |
 | Duyệt | `approveTokenRequest()` | `order:approve`; người lập = người duyệt (so **mã tài khoản**) → `SELF_APPROVAL`; **kiểm lại toàn bộ điều kiện**, đổi → `REQUEST_CHECK`, yêu cầu **giữ `PENDING`**; chiếm quyền `PENDING → EXECUTING` bằng `UPDATE` có điều kiện, `null` → `REQUEST_STATE`; rồi `executeIssuance` / đốt ở ví SPV |
 | Từ chối | `rejectTokenRequest()` | Bắt buộc lý do (thiếu → `VALIDATION` + audit `FAILURE`); chặn tự từ chối; `PENDING → REJECTED`, không tác động token |
+| Đối soát (HF-05) | `reconcileTokenRequest()` | `order:approve`; chỉ yêu cầu `EXECUTING` có `txHash`, đúng chain đang chọn. Đọc biên nhận một lần, chờ tối đa 1 giây; đồng bộ `Txn` theo `(chain, txHash)` (tạo nếu thiếu, không trùng). `CONFIRMED` thì chốt như lần duyệt; `FAILED` thì chuyển `FAILED` cùng audit trong một transaction; `PENDING` hoặc đọc lỗi thì không đổi gì. **Không bao giờ gửi giao dịch mới** |
 | Đếm việc chờ | `getPendingWork(chain)` | Theo **quyền và chain**: `order:draft` đếm yêu cầu mình lập đang chờ; `order:approve` đếm yêu cầu người khác lập đang chờ |
 
 **Vì sao năm trạng thái, không phải ba.** `EXECUTING` là đích của lần chiếm quyền — không có nó thì
@@ -3166,6 +3173,19 @@ dịch cho người đối soát — không biết kết cục thì không đư�
 **Sổ kiểm toán:** mọi bước ghi một dòng `order:draft` / `order:approve` (`SUCCESS`, `FAILURE` khi
 điều kiện chặn, `DENIED` khi thiếu quyền hoặc tự duyệt); tác động token ghi thêm `token:mint` /
 `token:burn` kèm mã yêu cầu, người lập, người duyệt.
+
+**Chốt theo biên nhận (HF-05).** `executeIssuance` và `executeBurn` dừng ở biên nhận: `FAILED` ghi
+sổ thất bại và trả lỗi; còn lại trả `{ txHash, status }`, không ghi mốc, không ghi sổ thành công.
+Biên nhận `CONFIRMED`: đọc tổng cung (Mint) **trước**, rồi một thao tác lưu trữ
+`finalizeTokenRequest` gom trong **một transaction** (`pgTransaction`; bản bộ nhớ là đoạn đồng bộ
+không có `await`): `UPDATE ... WHERE status = 'EXECUTING'` sang `COMPLETED` (0 dòng thì dừng, trả
+`null`: lượt khác đã chốt), ghi `Project.issuedAt` nếu còn rỗng, ghi `token:mint`/`token:burn` và
+`order:approve` SUCCESS bằng câu SQL ngay trong transaction. Lỗi đọc tổng cung hoặc lỗi transaction
+thì không ghi gì, yêu cầu giữ `EXECUTING`, báo "bấm Đối soát lại": **biên nhận `CONFIRMED` không bao giờ
+dẫn tới `FAILED`**. Biên nhận `PENDING`: giữ `EXECUTING` kèm mã, audit `order:approve` SUCCESS "đã
+gửi, chưa có biên nhận, cần đối soát"; màn chi tiết báo vàng và hiện nút "Đối soát" (cờ
+`canReconcile` đọc cùng lần mở, không thêm action). Đường dữ liệu thử `issueInitialSupply` giữ
+hành vi cũ qua `completeDirectIssuance` (bước luồng `issue:6`, `issue:7`).
 
 **Giao diện (FE-22):** màn Lập lệnh gọi `getTokenInfoAction` → `previewTokenRequestAction` (khối
 kiểm tra, mỗi lần nội dung đổi) → `createTokenRequestAction`; màn Phê duyệt lệnh gọi
