@@ -4,7 +4,8 @@ import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger, LedgerNotImplementedError } from '@/lib/ledger';
 import { getOrderStore, getProjectStore, getVaultStore } from '@/lib/store';
-import { readIssuePriceVnd, readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
+import { readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
+import { readEffectiveIssuePrice } from './issue-price';
 import { ORDER_STATUSES, type OrderRecord, type OrderStatus } from '@/lib/store/order.store.port';
 import { WITHDRAW_STATUSES, type WithdrawRequestRecord, type WithdrawStatus } from '@/lib/store/vault.store.port';
 import type { ProjectStatus } from '@/lib/store/project.store.port';
@@ -120,7 +121,8 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
         ledger.spvWallet(),
         ledger.vaultStatus(),
         getProjectStore().listProjects({ chain }),
-        readIssuePriceVnd(chain),
+        // Giá áp dụng cho lệnh (FE-07, L-02), cùng nguồn với giá chốt lệnh.
+        readEffectiveIssuePrice(chain),
         readTokenTerms(),
         readSettlementModeForOverview(ledger),
         ledger.profitPoolBalance(),

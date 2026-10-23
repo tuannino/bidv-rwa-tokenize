@@ -35,6 +35,8 @@ vi.mock('@/lib/ledger', async (importOriginal) => {
       isSettlementMode: async () => false,
       profitPoolBalance: async () => 0n,
       tokenInfo: async () => ({ name: 'WPT', symbol: 'WPT', decimals: 0, totalSupply: 700n }),
+      // FE-07: hardhat-local có OrderSettlement nên "giá phát hành" của Người bán là giá trên hợp đồng.
+      quotePurchase: async (wptAmount: bigint) => wptAmount * 100_000n,
       balanceOf: async (wallet: string) => wallet.toLowerCase() === VAULT.toLowerCase() ? 700n : 0n,
     }),
   };

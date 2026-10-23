@@ -38,7 +38,12 @@ import { getConfigStore } from './index';
  * cách chắc chắn nhất để màn hình nhà đầu tư hiện giá cũ sau khi ngân hàng vừa đổi giá.
  */
 
-/** Giá phát hành một WPT đang có hiệu lực, đơn vị VNDB. */
+/**
+ * Giá phát hành một WPT ĐÃ CẤU HÌNH trong database, đơn vị VNDB.
+ *
+ * Màn khách hàng KHÔNG dùng hàm này để hiện giá: lệnh được chốt theo giá áp dụng
+ * (`readEffectiveIssuePrice` ở `lib/bank/issue-price.ts`), có thể khác giá đã cấu hình (FE-07).
+ */
 export async function readIssuePriceVnd(chain: ChainKey): Promise<bigint> {
   const row = await getConfigStore().getConfig(issuePriceConfigKey(chain));
   // Không có dòng nào -> mặc định trong mã. `BigInt(row.value)` chứ không `Number`: giá là

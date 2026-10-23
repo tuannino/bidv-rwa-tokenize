@@ -63,14 +63,14 @@ const URD_MENU: Record<Role, ReadonlyArray<{ group: string | null; labels: reado
   TELLER: [
     {
       group: 'Vận hành',
-      labels: ['Bảng điều khiển', 'Lập lệnh', 'Giao dịch', 'Chia lợi nhuận (chỉ xem)', 'Vault thanh toán SPV'],
+      labels: ['Bảng điều khiển', 'Lập lệnh', 'Giao dịch', 'Chia lợi nhuận (chỉ xem)', 'Vault thanh toán SPV', 'Giá và phát hành'],
     },
     { group: 'Tài khoản', labels: ['Thông tin tài khoản'] },
   ],
   CONTROLLER: [
     {
       group: 'Vận hành',
-      labels: ['Bảng điều khiển', 'Giao dịch', 'Chia lợi nhuận', 'Vault thanh toán SPV'],
+      labels: ['Bảng điều khiển', 'Giao dịch', 'Chia lợi nhuận', 'Vault thanh toán SPV', 'Giá và phát hành'],
     },
     { group: 'Kiểm soát', labels: ['Phê duyệt lệnh'] },
     { group: 'Tài khoản', labels: ['Thông tin tài khoản'] },
@@ -116,7 +116,7 @@ describe('FE-20 ca 2 — bốn nhóm menu đúng tài liệu yêu cầu', () => 
   it('menu của hai vai khách hàng KHÔNG lẫn mục vận hành, và ngược lại', () => {
     // Đây là ca 3 ở tầng hiển thị: guard chặn được nhưng menu vẫn bày ra thì người dùng bấm
     // vào rồi nhận màn từ chối — chặn đúng mà trải nghiệm thì như hệ thống lỗi.
-    const opsOnly = ['/draft', '/transactions', '/distribution', '/vault', '/approvals'];
+    const opsOnly = ['/draft', '/transactions', '/distribution', '/vault', '/config', '/approvals'];
     for (const role of ['INVESTOR', 'SELLER'] as const) {
       const hrefs = itemsOf(role).map((item) => item.href);
       for (const href of opsOnly) {
