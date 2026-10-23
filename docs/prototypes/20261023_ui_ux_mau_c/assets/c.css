@@ -674,3 +674,86 @@ body.rail .net { justify-content: center; }
 .vfoot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px; background: #0b1a12; color: #a9c4b2; font-size: 13px; }
 .vfoot a { color: var(--au300); font-weight: 600; }
 .card.hero:not(.video-banner):not(.lp-hero) .scene-wrap { opacity: .22; height: 42%; }
+
+/* =====================================================================
+   BẢN 2.1: navbar gọn, header nổi tách nền, dropdown xổ xuống, ẩn khi cuộn
+   ===================================================================== */
+.shell { grid-template-columns: 252px minmax(0, 1fr); }
+.sb { top: 12px; margin: 12px 0 12px 12px; height: calc(100vh - 24px); padding: 14px 10px 10px; border-radius: 24px; }
+.logo { gap: 10px; padding: 2px 6px 12px; }
+.logo svg { width: 34px; height: 34px; }
+.logo b { font-size: 15px; line-height: 18px; }
+.logo b span { font-size: 11px; }
+.logo small { font-size: 11px; }
+.rail-btn { width: 26px; height: 26px; }
+.rail-btn svg { width: 14px; height: 14px; }
+.nav { gap: 1px; }
+.nav .grp { margin: 12px 10px 4px; font-size: 11px; }
+.nav a { min-height: 36px; padding: 3px 8px 3px 8px; gap: 9px; }
+.nav a .lbl { font-size: 13px; line-height: 17px; }
+.nav .ni { width: 28px; height: 28px; margin-left: -2px; }
+.nav .ni svg { width: 16px; height: 16px; }
+.nav .kbd { min-width: 18px; height: 18px; padding: 0 5px; font-size: 10px; border-radius: 6px; }
+.cnt { min-width: 18px; height: 18px; padding: 0 6px; font-size: 10px; }
+.sb-farm { height: 50px; margin-top: 6px; }
+.net { margin-top: 8px; padding: 8px 10px; gap: 8px; border-radius: 14px; }
+.net b { font-size: 12px; }
+.net small { font-size: 11px; }
+body.rail .shell { grid-template-columns: 84px minmax(0, 1fr); }
+body.rail .nav a { padding: 4px; }
+body.rail .nav .cnt { right: 4px; }
+
+/* Header nổi, nền tách khỏi nội dung */
+.topbar { margin: 12px 24px 0; top: 12px; min-height: 60px; padding: 8px 8px 8px 10px; border-radius: 22px; background: linear-gradient(180deg, color-mix(in srgb, #ffffff 92%, transparent), color-mix(in srgb, #eef6f0 90%, transparent)); box-shadow: 0 0 0 1px rgba(26,107,60,.10), 0 1px 0 rgba(255,255,255,.9) inset, 0 16px 34px -22px rgba(15,77,43,.55); transition: transform .45s var(--wind), box-shadow .4s var(--wind), background-color .3s, opacity .3s; }
+.topbar.scrolled { box-shadow: 0 0 0 1px rgba(26,107,60,.14), 0 1px 0 rgba(255,255,255,.9) inset, 0 22px 44px -22px rgba(15,77,43,.6); }
+.topbar.hide { transform: translateY(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
+[data-theme="dark"] .topbar { background: linear-gradient(180deg, rgba(24,44,32,.92), rgba(18,34,25,.92)); box-shadow: 0 0 0 1px rgba(124,199,154,.12), 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 40px -22px rgba(0,0,0,.8); }
+.content { padding: 18px 24px 40px; }
+.crumb .home { width: 34px; height: 34px; }
+.crumb .home svg { width: 24px; height: 24px; }
+.crumb b { font-size: 14px; }
+
+/* Dropdown xổ xuống */
+.dd { position: relative; height: auto; padding: 0; border: 0; background: none; transform: none !important; }
+.dd:hover { background: none; }
+.dd-btn { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 30px 0 5px; border-radius: 999px; border: 1px solid transparent; background: rgba(255,255,255,.75); cursor: pointer; text-align: left; transition: border-color .25s, background-color .25s, transform .3s var(--spring), box-shadow .3s; box-shadow: 0 1px 0 rgba(15,77,43,.06); }
+[data-theme="dark"] .dd-btn { background: rgba(255,255,255,.05); }
+.dd-btn:hover { border-color: var(--g300); transform: translateY(-1px); }
+.dd.open .dd-btn { border-color: var(--au400); box-shadow: 0 0 0 3px rgba(224,180,74,.2); }
+.dd .chev { position: absolute; right: 11px; top: 15px; width: 14px; height: 14px; transition: transform .35s var(--spring); }
+.dd.open .chev { transform: rotate(180deg); }
+.dd-menu { position: absolute; top: calc(100% + 12px); right: 0; z-index: 40; min-width: 270px; margin: 0; padding: 6px; list-style: none; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 24px 50px -20px rgba(6,36,20,.45); opacity: 0; visibility: hidden; transform: translateY(-8px) scale(.97); transform-origin: top right; transition: opacity .2s ease, transform .35s var(--spring), visibility 0s .2s; }
+.dd.open .dd-menu { opacity: 1; visibility: visible; transform: none; transition: opacity .2s ease, transform .35s var(--spring), visibility 0s; }
+.dd-menu::before { content: ""; position: absolute; top: -6px; right: 28px; width: 12px; height: 12px; background: var(--surface); transform: rotate(45deg); box-shadow: -1px -1px 0 var(--line); border-radius: 2px; }
+.dd-menu li { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; cursor: pointer; outline: none; transition: background-color .2s; }
+.dd-menu li:hover, .dd-menu li:focus-visible { background: var(--surface-2); }
+.dd-menu .oi { width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--chip); color: var(--g600); flex: none; }
+.dd-menu .oi svg { width: 14px; height: 14px; }
+.dd-menu .ot { flex: 1; font-weight: 500; line-height: 1.25; }
+.dd-menu .ot small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.dd-menu .ok { width: 16px; height: 16px; color: var(--g600); opacity: 0; }
+.dd-menu li[aria-selected="true"] { background: var(--ok-bg); }
+.dd-menu li[aria-selected="true"] .ok { opacity: 1; }
+.dd-menu li[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.dd.open .dd-menu li { animation: inKid .35s var(--wind) both; }
+.dd.open .dd-menu li:nth-child(2) { animation-delay: .03s; } .dd.open .dd-menu li:nth-child(3) { animation-delay: .06s; } .dd.open .dd-menu li:nth-child(4) { animation-delay: .09s; }
+
+/* Thẻ dự án: vòng đo ở góc trên, số liệu đủ chỗ */
+.proj .card-h { flex-wrap: nowrap; }
+.proj .card-h .gauge { width: 64px; height: 64px; }
+.proj .card-h .gauge svg { width: 64px; height: 64px; }
+.proj .card-h .gauge .t { font-size: 11px; }
+
+@media (max-width: 1280px) { .dd-btn .dt { max-width: 118px; } }
+@media (max-width: 900px) {
+  .shell, body.rail .shell { grid-template-columns: minmax(0, 1fr); }
+  .sb { width: 270px; top: 0; margin: 0; height: auto; border-radius: 0 24px 24px 0; }
+  .topbar { margin: 8px 10px 0; top: 8px; }
+  .content { padding: 14px 12px 36px; }
+  .tb-right .dd { min-width: 0; }
+  .dd-btn { width: 100%; }
+  .dd-menu { right: auto; left: 0; min-width: 240px; max-width: calc(100vw - 24px); transform-origin: top left; }
+  .dd[data-dd="role"] .dd-menu { left: auto; right: 0; transform-origin: top right; }
+  .dd-menu::before { right: auto; left: 28px; }
+  .dd[data-dd="role"] .dd-menu::before { left: auto; right: 28px; }
+}

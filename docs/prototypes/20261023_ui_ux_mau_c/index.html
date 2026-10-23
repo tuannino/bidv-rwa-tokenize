@@ -3,105 +3,280 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>20261023_ban_xem_thu_mau_c_bidv_rwa</title>
+<title>20261023_ban_xem_thu_bidv_rwa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="assets/c.css">
 <style>
-  .lp { max-width: 1320px; margin: 0 auto; padding: 32px 24px 56px; display: grid; gap: 16px; }
-  .lp-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; min-height: 300px; padding: 40px; }
-  .lp-hero .lp-scene { height: 78%; opacity: .55 !important; left: 38%; }
-  .lp-hero h1 { font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; max-width: 22ch; }
-  .lp-hero p { margin-top: 10px; color: rgba(255,255,255,.8); max-width: 62ch; }
-  .lp-hero .farm { display: flex; align-items: flex-end; gap: 6px; height: 160px; }
-  .lp-hero .farm span { display: block; }
-  .lp-hero .farm span:nth-child(1) { width: 90px; height: 120px; opacity: .55; }
-  .lp-hero .farm span:nth-child(2) { width: 140px; height: 170px; }
-  .lp-hero .farm span:nth-child(3) { width: 80px; height: 100px; opacity: .45; }
-  .lp-hero .farm svg { width: 100%; height: 100%; }
-  .lp-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .lp-top .logo { padding: 0; }
-  .lp .card .who { display: flex; align-items: center; gap: 12px; }
-  .lp .card .who small { display: block; color: var(--muted); font-size: 12px; }
-  .lp .avatar { font-size: 11px; }
-  .lp .note { color: var(--muted); font-size: 13px; }
-  @media (max-width: 760px) { .lp-hero { grid-template-columns: minmax(0, 1fr); } .lp-hero .farm { display: none; } .lp-hero h1 { font-size: 26px; } }
+  html { scroll-behavior: smooth; }
+  .lp { --w: 1200px; }
+  .wrap { width: min(var(--w), calc(100% - 48px)); margin: 0 auto; }
+  /* Thanh trên của trang chủ */
+  .lp-nav { position: fixed; top: 14px; left: 50%; z-index: 30; width: min(1200px, calc(100% - 28px)); transform: translateX(-50%); display: flex; align-items: center; gap: 18px; padding: 8px 8px 8px 14px; border-radius: 999px; background: rgba(255,255,255,.72); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: 0 0 0 1px rgba(26,107,60,.1), 0 16px 34px -22px rgba(15,77,43,.5); transition: transform .45s var(--wind), opacity .3s, background-color .3s; }
+  [data-theme="dark"] .lp-nav { background: rgba(18,34,25,.8); box-shadow: 0 0 0 1px rgba(124,199,154,.12), 0 16px 34px -22px rgba(0,0,0,.8); }
+  .lp-nav.hide { transform: translate(-50%, -140%); opacity: 0; }
+  .lp-nav .logo { padding: 0; }
+  .lp-nav .links { display: flex; gap: 4px; margin: 0 auto; }
+  .lp-nav .links a { padding: 8px 14px; border-radius: 999px; font-weight: 500; color: var(--ink-2); transition: background-color .2s, color .2s; }
+  .lp-nav .links a:hover { background: var(--surface-2); color: var(--ink); }
+  .lp-nav .right { display: flex; gap: 8px; align-items: center; }
+
+  /* Màn đầu: tiêu đề, video ở chính giữa */
+  .hero { position: relative; min-height: 100vh; padding: 120px 0 110px; display: grid; place-items: center; text-align: center; overflow: hidden; color: #fff; background: radial-gradient(120% 90% at 50% 0%, #22844a 0%, #145a32 38%, #0b3d22 70%, #062414 100%); }
+  .hero .sky { position: absolute; inset: 0; pointer-events: none; }
+  .hero .sky .scene-wrap { height: 46%; opacity: .55; }
+  .hero h1 { font-size: clamp(34px, 5vw, 64px); line-height: 1.06; font-weight: 800; letter-spacing: -.03em; max-width: 16ch; margin: 0 auto; }
+  .hero h1 span { color: var(--au300); }
+  .hero .lead { margin: 18px auto 0; max-width: 60ch; font-size: 17px; color: rgba(255,255,255,.82); }
+  .player { position: relative; width: min(980px, 100%); margin: 40px auto 0; border-radius: 28px; padding: 8px; background: linear-gradient(135deg, rgba(239,210,138,.7), rgba(255,255,255,.18) 40%, rgba(59,163,102,.6)); box-shadow: 0 40px 90px -40px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.12); }
+  .player::before { content: ""; position: absolute; inset: -40px; z-index: -1; border-radius: 60px; background: radial-gradient(closest-side, rgba(224,180,74,.35), transparent); filter: blur(30px); animation: glow 6s ease-in-out infinite alternate; }
+  @keyframes glow { to { opacity: .5; transform: scale(.94); } }
+  .player .frame { position: relative; aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; background: #000; }
+  .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .poster { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 100% at 50% 0%, #22844a, #0b3d22 70%); color: #fff; }
+  .poster .scene-wrap { height: 70%; opacity: .6 !important; }
+  .bigplay { position: relative; width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, var(--au300), var(--au500)); color: #2a1c00; box-shadow: 0 20px 40px -12px rgba(0,0,0,.6); transition: transform .45s var(--spring); }
+  .bigplay::before, .bigplay::after { content: ""; position: absolute; inset: -12px; border-radius: 50%; border: 2px solid rgba(239,210,138,.6); animation: ring 2.4s var(--wind) infinite; }
+  .bigplay::after { animation-delay: 1.2s; }
+  .bigplay svg { width: 40px; height: 40px; margin-left: 6px; }
+  .poster:hover .bigplay { transform: scale(1.08); }
+  .ptxt { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-weight: 600; color: rgba(255,255,255,.9); }
+  .player .cap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 10px 2px; font-size: 12px; color: rgba(255,255,255,.75); }
+  .player .cap a { color: var(--au300); font-weight: 600; }
+  .hero .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+  .btn.white { background: #fff; color: var(--g700); box-shadow: 0 10px 24px -12px rgba(0,0,0,.5); }
+  .btn.glass { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.25); }
+  .scroll-hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 26px; height: 40px; border-radius: 999px; border: 2px solid rgba(255,255,255,.5); }
+  .scroll-hint::after { content: ""; position: absolute; left: 50%; top: 8px; width: 4px; height: 8px; margin-left: -2px; border-radius: 2px; background: #fff; animation: hint 1.8s var(--wind) infinite; }
+  @keyframes hint { 0% { opacity: 0; transform: translateY(-4px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(12px); } }
+
+  section.blk { padding: 96px 0; }
+  .blk h2.t { font-size: clamp(28px, 3.4vw, 42px); line-height: 1.12; font-weight: 800; letter-spacing: -.02em; max-width: 20ch; }
+  .blk p.s { margin-top: 12px; color: var(--muted); font-size: 16px; max-width: 62ch; }
+  .blk .head { margin-bottom: 36px; }
+
+  /* Số liệu */
+  .stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-top: -56px; position: relative; z-index: 2; }
+  .stats .kpi { padding: 16px; }
+  .stats .kpi .val { font-size: 23px; white-space: nowrap; }
+  .stats .kpi .val small { font-size: 12px; }
+
+  /* Gió hoá dòng tiền: 5 chặng */
+  .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; position: relative; }
+  .flow .rail { position: absolute; left: 10%; right: 10%; top: 44px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--g400), var(--au400)); opacity: .25; }
+  .flow .pulse { position: absolute; top: 40px; left: 10%; width: 12px; height: 12px; border-radius: 50%; background: var(--au400); box-shadow: 0 0 0 6px rgba(224,180,74,.2); animation: travel 5s var(--wind) infinite; }
+  .flow .pulse.p2 { animation-delay: 1.7s; background: var(--g400); box-shadow: 0 0 0 6px rgba(59,163,102,.2); }
+  .flow .pulse.p3 { animation-delay: 3.4s; }
+  @keyframes travel { 0% { left: 10%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: 89%; opacity: 0; } }
+  .step { position: relative; text-align: center; padding: 0 10px; }
+  .step .bubble { width: 92px; height: 92px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 8px var(--bg), 0 18px 34px -18px rgba(15,77,43,.5); position: relative; z-index: 1; transition: transform .5s var(--spring); }
+  .step:hover .bubble { transform: translateY(-6px) rotate(-6deg); }
+  .step .bubble svg { width: 34px; height: 34px; color: var(--g600); }
+  .step.money .bubble svg { color: var(--au600); }
+  .step .bubble .turbine { width: 58px; height: 58px; }
+  .step b { display: block; font-size: 17px; font-weight: 700; }
+  .step span { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+  /* Dự án */
+  .projects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .pcard { position: relative; overflow: hidden; border-radius: 28px; background: var(--surface); transition: transform .5s var(--wind), box-shadow .4s; }
+  .pcard:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -30px rgba(15,77,43,.5); }
+  .pcard .pic { position: relative; height: 190px; background: radial-gradient(120% 120% at 80% 0%, #3ba366, #145a32 55%, #0b3d22); }
+  .pcard:nth-child(2) .pic { background: radial-gradient(120% 120% at 80% 0%, #e0b44a, #a87a09 55%, #6e4b00); }
+  .pcard:nth-child(3) .pic { background: radial-gradient(120% 120% at 80% 0%, #7cc79a, #22844a 55%, #0f4d2b); }
+  .pcard .pic .scene-wrap { height: 100%; opacity: .7 !important; }
+  .pcard .pic .tag { position: absolute; top: 14px; left: 14px; z-index: 1; background: rgba(255,255,255,.9); }
+  .pcard .body { padding: 20px 22px 22px; }
+  .pcard h3 { font-size: 18px; font-weight: 700; }
+  .pcard .kv { margin-top: 10px; }
+
+  /* Dành cho từng vai */
+  .roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .role { display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: 28px; background: var(--surface); transition: transform .5s var(--wind), box-shadow .4s, background-color .3s; }
+  .role:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -30px rgba(15,77,43,.5); }
+  .role .avatar { width: 52px; height: 52px; font-size: 14px; }
+  .role h3 { font-size: 18px; font-weight: 700; }
+  .role p { color: var(--muted); font-size: 14px; flex: 1; }
+  .role .link-more { margin-top: 6px; }
+
+  /* Minh bạch và kiểm soát */
+  .trust { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .trust .card .ic { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; background: var(--chip); color: var(--g600); margin-bottom: 14px; }
+  .trust .card .ic svg { width: 22px; height: 22px; }
+  .trust .card b { display: block; font-size: 16px; font-weight: 700; }
+  .trust .card span { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+  /* Sơ đồ trang xem thử */
+  .map { border-radius: 28px; background: var(--surface); padding: 6px 22px; }
+  .map summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; padding: 16px 0; font-weight: 700; }
+  .map summary::-webkit-details-marker { display: none; }
+  .map summary svg { width: 18px; height: 18px; transition: transform .4s var(--spring); }
+  .map[open] summary svg { transform: rotate(180deg); }
+  .map .launch { padding-bottom: 18px; }
+  .map .launch .card { background: var(--surface-2); }
+
+  /* Kết trang */
+  .cta { position: relative; overflow: hidden; border-radius: 36px; padding: 64px 48px; text-align: center; color: #fff; background: radial-gradient(120% 140% at 50% 100%, #22844a, #0b3d22 70%); }
+  .cta .scene-wrap { height: 60%; opacity: .35 !important; }
+  .cta h2 { position: relative; font-size: clamp(28px, 3.4vw, 44px); font-weight: 800; letter-spacing: -.02em; }
+  .cta p { position: relative; margin: 12px auto 0; max-width: 56ch; color: rgba(255,255,255,.8); }
+  .cta .ctas { position: relative; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  footer.lp-foot { padding: 56px 0 40px; }
+  .lp-foot .word { font-size: clamp(56px, 12vw, 168px); font-weight: 800; letter-spacing: -.05em; line-height: .9; background: linear-gradient(90deg, var(--g600), var(--au500)); -webkit-background-clip: text; background-clip: text; color: transparent; opacity: .9; }
+  .lp-foot .row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 18px; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 1100px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .roles, .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); } .projects { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  @media (max-width: 760px) {
+    .lp-nav .links { display: none; } .lp-nav .right { margin-left: auto; } .lp-nav .right .btn span { display: none; }
+    .hero { padding-top: 100px; } .hero .lead { font-size: 15px; }
+    .stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-top: -36px; }
+    .flow { grid-template-columns: minmax(0, 1fr); gap: 22px; } .flow .rail, .flow .pulse { display: none; }
+    .step { display: grid; grid-template-columns: 76px 1fr; gap: 14px; text-align: left; align-items: center; } .step .bubble { width: 68px; height: 68px; margin: 0; }
+    .projects, .roles, .trust { grid-template-columns: minmax(0, 1fr); }
+    section.blk { padding: 64px 0; } .cta { padding: 48px 22px; border-radius: 28px; }
+  }
 </style>
 </head>
-<body>
-<div class="lp">
-  <div class="lp-top">
-    <a class="logo" href="index.html"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#1a6b3c"/><circle cx="20" cy="20" r="15" fill="none" stroke="#b8860b" stroke-width="1.5"/><path d="M13 12h7.5c2.5 0 4 1.2 4 3.2 0 1.4-.8 2.4-2 2.9 1.6.4 2.6 1.6 2.6 3.2C25.1 23.8 23.4 25 20.5 25H13V12zm3 5.2h3.8c1.1 0 1.8-.5 1.8-1.5s-.7-1.5-1.8-1.5H16v3zm0 5.6h4.2c1.2 0 2-.6 2-1.6s-.8-1.6-2-1.6H16v3.2z" fill="#fff"/><rect x="10" y="31" width="20" height="2.5" rx="1.25" fill="#b8860b"/></svg><div><b>BIDV<span>RWA</span></b><small>Điện gió</small></div></a>
-    <button class="iconbtn" type="button" id="lp-theme" aria-label="Đổi giao diện sáng tối"></button>
+<body class="lp">
+<header class="lp-nav" id="lp-nav">
+  <a class="logo" href="#top"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#1a6b3c"/><circle cx="20" cy="20" r="15" fill="none" stroke="#b8860b" stroke-width="1.5"/><path d="M13 12h7.5c2.5 0 4 1.2 4 3.2 0 1.4-.8 2.4-2 2.9 1.6.4 2.6 1.6 2.6 3.2C25.1 23.8 23.4 25 20.5 25H13V12zm3 5.2h3.8c1.1 0 1.8-.5 1.8-1.5s-.7-1.5-1.8-1.5H16v3zm0 5.6h4.2c1.2 0 2-.6 2-1.6s-.8-1.6-2-1.6H16v3.2z" fill="#fff"/><rect x="10" y="31" width="20" height="2.5" rx="1.25" fill="#b8860b"/></svg><div><b>BIDV<span>RWA</span></b><small>Điện gió</small></div></a>
+  <nav class="links" aria-label="Mục trang chủ"><a href="#du-an">Dự án</a><a href="#cach-hoat-dong">Cách hoạt động</a><a href="#vai-tro">Dành cho bạn</a><a href="#minh-bach">Minh bạch</a></nav>
+  <div class="right">
+    <button class="iconbtn theme" type="button" id="lp-theme" aria-label="Đổi giao diện sáng tối"></button>
+    <a class="btn primary" href="dashboard.html?role=teller"><i data-icon="right"></i><span>Vào hệ thống</span></a>
   </div>
+</header>
 
-  <section class="card hero lp-hero">
-    <div class="scene-wrap lp-scene" data-scene="onDark" data-turbines="9"></div>
-    <div>
-      <h1>Gió hoá dòng tiền: bản xem thử giao diện BIDV RWA</h1>
-      <p>Chọn một vai rồi bấm vào trang để xem. Giao diện tĩnh, dữ liệu mẫu, không có chức năng thật. Trong mỗi trang có thể đổi vai bằng dropdown Vai trò và đổi Sáng, Tối ở nút tròn trên cùng.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px"><button class="play" type="button" data-video="M52hkUDVe5w"><span class="pi"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></span>Xem video giới thiệu</button></div>
+<main id="top">
+  <section class="hero">
+    <div class="sky" aria-hidden="true"><div class="scene-wrap" data-scene="onDark" data-turbines="9"></div></div>
+    <div class="wrap" style="position:relative">
+      <div data-reveal="title"><h1>Gió An Viên, <span>lợi tức</span> về ví bạn</h1></div>
+      <p class="lead" data-reveal="lift">BIDV token hoá quyền hưởng lợi tức của dự án điện gió. Sản lượng điện được ghi nhận minh bạch, lợi nhuận chia theo từng kỳ cho người nắm giữ WPT.</p>
+      <div class="player" data-reveal="lift">
+        <div class="frame" id="vframe" data-yt="M52hkUDVe5w"><a class="poster" href="https://www.youtube.com/watch?v=M52hkUDVe5w" target="_blank" rel="noopener" aria-label="Phát video giới thiệu dự án điện gió"><span class="scene-wrap" data-scene="onDark" data-turbines="9"></span><span class="bigplay"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></span><span class="ptxt">Video giới thiệu dự án điện gió An Viên</span></a></div>
+        <div class="cap"><span id="vcap">Video tạm để thử giao diện, sẽ thay bằng video chính thức.</span><a href="https://www.youtube.com/watch?v=M52hkUDVe5w" target="_blank" rel="noopener">Không xem được? Mở trên YouTube</a></div>
+      </div>
+      <div class="ctas" data-reveal="lift">
+        <a class="btn white lg" href="#du-an"><i data-icon="wind"></i>Khám phá dự án</a>
+        <a class="btn glass lg" href="portfolio.html?role=investor"><i data-icon="wallet"></i>Tôi là nhà đầu tư</a>
+      </div>
     </div>
   </section>
 
-  <div class="launch">
-    <section class="card rise" style="animation-delay:.1s">
-      <div class="who"><span class="avatar green">GDV</span><div><h2>Giao dịch viên</h2><small>GDV001, lập lệnh và vận hành</small></div></div>
-      <ul>
-        <li><a href="dashboard.html?role=teller">Bảng điều khiển<i data-icon="right"></i></a></li>
-        <li><a href="draft.html?role=teller">Lập lệnh<i data-icon="right"></i></a></li>
-        <li><a href="transactions.html?role=teller">Giao dịch<i data-icon="right"></i></a></li>
-        <li><a href="transaction-detail.html?role=teller">Chi tiết giao dịch<i data-icon="right"></i></a></li>
-        <li><a href="distribution.html?role=teller">Chia lợi nhuận (chỉ xem)<i data-icon="right"></i></a></li>
-        <li><a href="vault.html?role=teller">Vault thanh toán SPV<i data-icon="right"></i></a></li>
-        <li><a href="demo-payment.html?role=teller">Nạp VNDB (trình diễn)<i data-icon="right"></i></a></li>
-        <li><a href="account.html?role=teller">Thông tin tài khoản<i data-icon="right"></i></a></li>
-      </ul>
-    </section>
-    <section class="card rise" style="animation-delay:.16s">
-      <div class="who"><span class="avatar">KSV</span><div><h2>Kiểm soát viên</h2><small>KSV001, duyệt và kiểm soát</small></div></div>
-      <ul>
-        <li><a href="dashboard.html?role=controller">Bảng điều khiển<i data-icon="right"></i></a></li>
-        <li><a href="transactions.html?role=controller">Giao dịch<i data-icon="right"></i></a></li>
-        <li><a href="distribution.html?role=controller">Chia lợi nhuận<i data-icon="right"></i></a></li>
-        <li><a href="vault.html?role=controller">Vault thanh toán SPV<i data-icon="right"></i></a></li>
-        <li><a href="approvals.html?role=controller">Phê duyệt lệnh<i data-icon="right"></i></a></li>
-        <li><a href="approval-detail.html?role=controller">Chi tiết yêu cầu<i data-icon="right"></i></a></li>
-        <li><a href="account.html?role=controller">Thông tin tài khoản<i data-icon="right"></i></a></li>
-      </ul>
-    </section>
-    <section class="card rise" style="animation-delay:.22s">
-      <div class="who"><span class="avatar gold">NĐT</span><div><h2>Nhà đầu tư</h2><small>NDT001, mua bán và nhận lợi tức</small></div></div>
-      <ul>
-        <li><a href="portfolio.html?role=investor">Tổng quan<i data-icon="right"></i></a></li>
-        <li><a href="token-detail.html?role=investor">Chi tiết token WPT<i data-icon="right"></i></a></li>
-        <li><a href="trade.html?role=investor">Giao dịch token<i data-icon="right"></i></a></li>
-        <li><a href="orders.html?role=investor">Quản lý lệnh<i data-icon="right"></i></a></li>
-        <li><a href="order-detail.html?role=investor">Chi tiết lệnh<i data-icon="right"></i></a></li>
-        <li><a href="withdraw.html?role=investor">Rút VNDB<i data-icon="right"></i></a></li>
-        <li><a href="wallet.html?role=investor">Kết nối ví<i data-icon="right"></i></a></li>
-        <li><a href="account.html?role=investor">Thông tin tài khoản<i data-icon="right"></i></a></li>
-      </ul>
-    </section>
-    <section class="card rise" style="animation-delay:.28s">
-      <div class="who"><span class="avatar">NB</span><div><h2>Người bán</h2><small>NB001, SPV dự án</small></div></div>
-      <ul>
-        <li><a href="seller.html?role=seller">Tổng quan<i data-icon="right"></i></a></li>
-        <li><a href="seller-transactions.html?role=seller">Danh sách giao dịch<i data-icon="right"></i></a></li>
-        <li><a href="seller-withdraw.html?role=seller">Tạo lệnh rút<i data-icon="right"></i></a></li>
-        <li><a href="wallet.html?role=seller">Kết nối ví<i data-icon="right"></i></a></li>
-        <li><a href="account.html?role=seller">Thông tin tài khoản<i data-icon="right"></i></a></li>
-      </ul>
-    </section>
+  <div class="wrap">
+    <div class="stats">
+      <div class="kpi hl" data-reveal="unveil"><div class="top"><span class="lbl">Dự án điện gió</span></div><div class="val"><span data-count="3">3</span></div><div class="sub">Gần bờ và ven biển</div></div>
+      <div class="kpi leaf" data-reveal="gust"><div class="top"><span class="lbl">Công suất đặt</span></div><div class="val"><span data-count="148.2" data-d="1">148,2</span><small>MW</small></div><div class="sub">82 tua-bin</div></div>
+      <div class="kpi" data-reveal="gust"><div class="top"><span class="lbl">Sản lượng luỹ kế</span></div><div class="val"><span data-count="412680">412.680</span><small>MWh</small></div><div class="sub">Nguồn EnergyOracle</div></div>
+      <div class="kpi leaf" data-reveal="gust"><div class="top"><span class="lbl">WPT đã phát hành</span></div><div class="val"><span data-count="335000">335.000</span></div><div class="sub">Token quyền hưởng</div></div>
+      <div class="kpi gold" data-reveal="gust"><div class="top"><span class="lbl">Lợi tức đã chia</span></div><div class="val"><span data-count="86.4" data-d="1">86,4</span><small>tỷ</small></div><div class="sub">VND, 6 kỳ</div></div>
+      <div class="kpi au" data-reveal="unveil"><div class="top"><span class="lbl">Lợi tức mục tiêu</span></div><div class="val"><span data-count="5.8" data-d="1">5,8</span><small>%/năm</small></div><div class="sub">Theo điều khoản phát hành</div></div>
+    </div>
   </div>
-  <p class="note">Trang này chỉ phục vụ việc duyệt giao diện, không thuộc ứng dụng. Mọi trang giữ đủ feature của màn hiện tại trên nhánh dev; chỉ thay đổi vị trí và cách trình bày.</p>
-</div>
+
+  <section class="blk" id="cach-hoat-dong">
+    <div class="wrap">
+      <div class="head" data-reveal="title"><h2 class="t">Gió hoá dòng tiền trong năm chặng</h2><p class="s">Mỗi kỳ, sản lượng điện của nhà máy trở thành doanh thu, đi vào vault thanh toán của dự án rồi được chia cho người nắm giữ WPT theo tỷ lệ sở hữu.</p></div>
+      <div class="flow" data-reveal="lift">
+        <span class="rail" aria-hidden="true"></span><span class="pulse" aria-hidden="true"></span><span class="pulse p2" aria-hidden="true"></span><span class="pulse p3" aria-hidden="true"></span>
+        <div class="step"><div class="bubble"><span class="turbine" data-turbine="var(--g600)"></span></div><div><b>Gió</b><span>62 tua-bin tại An Viên quay theo mùa gió</span></div></div>
+        <div class="step"><div class="bubble"><i data-icon="zap"></i></div><div><b>Điện</b><span>EnergyOracle ghi sản lượng MWh lên chuỗi</span></div></div>
+        <div class="step money"><div class="bubble"><i data-icon="bank"></i></div><div><b>Doanh thu</b><span>Tiền điện về vault thanh toán SPV</span></div></div>
+        <div class="step money"><div class="bubble"><i data-icon="shield"></i></div><div><b>Quỹ chia</b><span>Kiểm soát viên duyệt tổng số của kỳ</span></div></div>
+        <div class="step money"><div class="bubble"><i data-icon="wallet"></i></div><div><b>Lợi tức</b><span>VNDB về ví theo số WPT nắm giữ</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="du-an" style="padding-top:0">
+    <div class="wrap">
+      <div class="head" data-reveal="title"><h2 class="t">Ba dự án điện gió</h2><p class="s">Mỗi dự án có token riêng. WPT của Điện gió An Viên đã phát hành trên chuỗi; hai dự án còn lại đang là dữ liệu mẫu.</p></div>
+      <div class="projects">
+        <a class="pcard" href="token-detail.html?role=investor" data-reveal="lift"><div class="pic"><span class="tag chain">ON-CHAIN, WPT</span><div class="scene-wrap" data-scene="onDark" data-turbines="7" data-sea="yes"></div></div><div class="body"><h3>Điện gió An Viên</h3><span class="small muted">Gần bờ, đang phát điện</span><dl class="kv"><div><dt>Công suất đặt</dt><dd>99,2 MW</dd></div><div><dt>Tua-bin</dt><dd>62</dd></div><div><dt>Hệ số công suất</dt><dd>38,4%</dd></div></dl></div></a>
+        <a class="pcard" href="#" data-reveal="lift"><div class="pic"><span class="tag sample">DỮ LIỆU MẪU, WPT-PQY</span><div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no"></div></div><div class="body"><h3>Điện gió Phú Quý</h3><span class="small muted">Ven biển, Bình Thuận, đang phát điện</span><dl class="kv"><div><dt>Công suất đặt</dt><dd>30,0 MW</dd></div><div><dt>Tua-bin</dt><dd>12</dd></div><div><dt>Hệ số công suất</dt><dd>33,1%</dd></div></dl></div></a>
+        <a class="pcard" href="#" data-reveal="lift"><div class="pic"><span class="tag sample">DỮ LIỆU MẪU, WPT-NTH</span><div class="scene-wrap" data-scene="onDark" data-turbines="4" data-sea="no"></div></div><div class="body"><h3>Điện gió Ninh Thuận</h3><span class="small muted">Ven biển, đang bảo trì</span><dl class="kv"><div><dt>Công suất đặt</dt><dd>19,0 MW</dd></div><div><dt>Tua-bin</dt><dd>8</dd></div><div><dt>Hệ số công suất</dt><dd>35,7%</dd></div></dl></div></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="vai-tro" style="padding-top:0">
+    <div class="wrap">
+      <div class="head" data-reveal="title"><h2 class="t">Một nền tảng, bốn vai</h2><p class="s">Chọn vai để vào thử hệ thống. Mỗi vai thấy đúng menu và quyền của mình.</p></div>
+      <div class="roles">
+        <a class="role" href="portfolio.html?role=investor" data-reveal="lift"><span class="avatar gold">NĐT</span><h3>Nhà đầu tư</h3><p>Mua bán WPT bằng VNDB, theo dõi tài sản và nhận lợi tức mỗi kỳ.</p><span class="link-more">Vào khu nhà đầu tư<i data-icon="right"></i></span></a>
+        <a class="role" href="seller.html?role=seller" data-reveal="lift"><span class="avatar">NB</span><h3>Người bán</h3><p>Pháp nhân SPV theo dõi nguồn cung, giao dịch khớp và rút tiền từ vault.</p><span class="link-more">Vào khu người bán<i data-icon="right"></i></span></a>
+        <a class="role" href="dashboard.html?role=teller" data-reveal="lift"><span class="avatar green">GDV</span><h3>Giao dịch viên</h3><p>Lập lệnh phát hành, huỷ token và theo dõi vận hành hằng ngày.</p><span class="link-more">Vào khu vận hành<i data-icon="right"></i></span></a>
+        <a class="role" href="approvals.html?role=controller" data-reveal="lift"><span class="avatar">KSV</span><h3>Kiểm soát viên</h3><p>Duyệt lệnh, duyệt chia lợi nhuận và cấu hình khoá vault.</p><span class="link-more">Vào khu kiểm soát<i data-icon="right"></i></span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" id="minh-bach" style="padding-top:0">
+    <div class="wrap">
+      <div class="head" data-reveal="title"><h2 class="t">Minh bạch và kiểm soát như ngân hàng</h2></div>
+      <div class="trust">
+        <div class="card" data-reveal="lift"><div class="ic"><i data-icon="users"></i></div><b>KYC và danh sách được phép</b><span>Chỉ ví đã định danh mới nắm giữ được WPT, theo chuẩn token có kiểm soát.</span></div>
+        <div class="card" data-reveal="lift"><div class="ic"><i data-icon="shield"></i></div><b>Lập và duyệt tách bạch</b><span>Giao dịch viên lập, Kiểm soát viên duyệt. Người lập không tự duyệt được.</span></div>
+        <div class="card" data-reveal="lift"><div class="ic"><i data-icon="swap"></i></div><b>Quyết toán nguyên tử</b><span>WPT và VNDB đổi chủ trong cùng một giao dịch trên chuỗi.</span></div>
+        <div class="card" data-reveal="lift"><div class="ic"><i data-icon="history"></i></div><b>Sổ kiểm toán đầy đủ</b><span>Mọi thao tác ghi lại người làm, thời điểm và mã giao dịch.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" style="padding-top:0">
+    <div class="wrap">
+      <div class="cta" data-reveal="unveil">
+        <div class="scene-wrap" data-scene="onDark" data-turbines="9"></div>
+        <h2>Sẵn sàng xem thử hệ thống?</h2>
+        <p>Bản xem thử dùng dữ liệu mẫu, không có giao dịch thật. Có thể đổi vai và đổi giao diện Sáng, Tối ở mọi trang.</p>
+        <div class="ctas"><a class="btn white lg" href="dashboard.html?role=teller"><i data-icon="dash"></i>Vào Bảng điều khiển</a><a class="btn glass lg" href="portfolio.html?role=investor"><i data-icon="wallet"></i>Vào khu nhà đầu tư</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="blk" style="padding-top:0">
+    <div class="wrap">
+      <details class="map" data-reveal="lift">
+        <summary>Sơ đồ trang xem thử (chỉ dùng để duyệt, không thuộc ứng dụng)<i data-icon="chev"></i></summary>
+        <div class="launch">
+          <section class="card"><h2>Giao dịch viên</h2><ul>
+            <li><a href="dashboard.html?role=teller">Bảng điều khiển<i data-icon="right"></i></a></li><li><a href="draft.html?role=teller">Lập lệnh<i data-icon="right"></i></a></li><li><a href="transactions.html?role=teller">Giao dịch<i data-icon="right"></i></a></li><li><a href="transaction-detail.html?role=teller">Chi tiết giao dịch<i data-icon="right"></i></a></li><li><a href="distribution.html?role=teller">Chia lợi nhuận (chỉ xem)<i data-icon="right"></i></a></li><li><a href="vault.html?role=teller">Vault thanh toán SPV<i data-icon="right"></i></a></li><li><a href="demo-payment.html?role=teller">Nạp VNDB (trình diễn)<i data-icon="right"></i></a></li><li><a href="account.html?role=teller">Thông tin tài khoản<i data-icon="right"></i></a></li></ul></section>
+          <section class="card"><h2>Kiểm soát viên</h2><ul>
+            <li><a href="dashboard.html?role=controller">Bảng điều khiển<i data-icon="right"></i></a></li><li><a href="transactions.html?role=controller">Giao dịch<i data-icon="right"></i></a></li><li><a href="distribution.html?role=controller">Chia lợi nhuận<i data-icon="right"></i></a></li><li><a href="vault.html?role=controller">Vault thanh toán SPV<i data-icon="right"></i></a></li><li><a href="approvals.html?role=controller">Phê duyệt lệnh<i data-icon="right"></i></a></li><li><a href="approval-detail.html?role=controller">Chi tiết yêu cầu<i data-icon="right"></i></a></li><li><a href="account.html?role=controller">Thông tin tài khoản<i data-icon="right"></i></a></li></ul></section>
+          <section class="card"><h2>Nhà đầu tư</h2><ul>
+            <li><a href="portfolio.html?role=investor">Tổng quan<i data-icon="right"></i></a></li><li><a href="token-detail.html?role=investor">Chi tiết token WPT<i data-icon="right"></i></a></li><li><a href="trade.html?role=investor">Giao dịch token<i data-icon="right"></i></a></li><li><a href="orders.html?role=investor">Quản lý lệnh<i data-icon="right"></i></a></li><li><a href="order-detail.html?role=investor">Chi tiết lệnh<i data-icon="right"></i></a></li><li><a href="withdraw.html?role=investor">Rút VNDB<i data-icon="right"></i></a></li><li><a href="wallet.html?role=investor">Kết nối ví<i data-icon="right"></i></a></li><li><a href="account.html?role=investor">Thông tin tài khoản<i data-icon="right"></i></a></li></ul></section>
+          <section class="card"><h2>Người bán</h2><ul>
+            <li><a href="seller.html?role=seller">Tổng quan<i data-icon="right"></i></a></li><li><a href="seller-transactions.html?role=seller">Danh sách giao dịch<i data-icon="right"></i></a></li><li><a href="seller-withdraw.html?role=seller">Tạo lệnh rút<i data-icon="right"></i></a></li><li><a href="wallet.html?role=seller">Kết nối ví<i data-icon="right"></i></a></li><li><a href="account.html?role=seller">Thông tin tài khoản<i data-icon="right"></i></a></li></ul></section>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-foot">
+  <div class="wrap">
+    <div class="word" aria-hidden="true">BIDV RWA</div>
+    <div class="row"><span>Token hoá quyền hưởng lợi tức dự án điện gió, bản thử nghiệm (PoC).</span><span>Hình minh hoạ và video là tạm, sẽ thay bằng tài liệu chính thức.</span></div>
+  </div>
+</footer>
 <script src="assets/ui.js"></script>
 <script>
-  const b = document.getElementById('lp-theme');
-  const paint = () => { b.innerHTML = UI.icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'); };
-  paint();
-  b.addEventListener('click', () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', r.dataset.theme); } catch {} paint(); });
+(() => {
+  const r = document.documentElement, b = document.getElementById('lp-theme');
+  b.innerHTML = UI.icon('sun', 'i-sun') + UI.icon('moon', 'i-moon');
+  b.addEventListener('click', () => { r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', r.dataset.theme); } catch {} });
+  // Trên máy hoặc trong app thật: phát video ngay giữa trang. Trong trình xem artifact (chặn khung nhúng ngoài): giữ ảnh nền và nút phát mở YouTube.
+  const vf = document.getElementById('vframe');
+  if (location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    vf.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${vf.dataset.yt}?autoplay=1&mute=1&loop=1&playlist=${vf.dataset.yt}&rel=0&modestbranding=1&playsinline=1" title="Video giới thiệu dự án điện gió" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    document.getElementById('vcap').textContent = 'Video tạm để thử giao diện, sẽ thay bằng video chính thức. Đang tắt tiếng, bấm biểu tượng loa để nghe.';
+  } else {
+    document.getElementById('vcap').textContent = 'Trình xem bản thử chặn nhúng video từ trang ngoài, bấm nút phát để xem trên YouTube. Trong ứng dụng thật video phát ngay tại đây.';
+  }
+  const nav = document.getElementById('lp-nav'); let last = scrollY;
+  addEventListener('scroll', () => { const y = scrollY; if (y > 160 && y > last + 6) nav.classList.add('hide'); else if (y < last - 6) nav.classList.remove('hide'); last = y; }, { passive: true });
+})();
 </script>
 </body>
 </html>

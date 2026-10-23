@@ -181,8 +181,8 @@
           <button class="iconbtn menu-btn" type="button" id="menu" aria-controls="sb" aria-expanded="false" aria-label="Mở menu">${icon('menu')}</button>
           <nav class="crumb" aria-label="Đường dẫn"><span class="home">${turbine('#ffffff')}</span>${crumbs.map((c, i) => (i === crumbs.length - 1 ? `<b title="${c}">${c}</b>` : `<span class="c">${c}</span>${icon('chevr', 'sep')}`)).join('')}</nav>
           <div class="tb-right">
-            <label class="dd" title="Chọn chain"><span class="di">${icon('link')}</span><span class="dt"><small>Chain</small><b id="chain-v">${ch[2]}</b></span>${icon('chev', 'chev')}<select id="chain" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<option value="${v}"${v === chain ? ' selected' : ''}${dis ? ' disabled' : ''}>${l}</option>`).join('')}</select></label>
-            <label class="dd" title="Chọn vai trò"><span class="di">${icon('user')}</span><span class="dt"><small>Vai trò, ${ROLES[role].code}</small><b>${ROLES[role].label}</b></span>${icon('chev', 'chev')}<select id="role" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === role ? ' selected' : ''}>${r.label} (${r.code})</option>`).join('')}</select></label>
+            <div class="dd" data-dd="chain"><button class="dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Chain" title="Chọn chain"><span class="di">${icon('link')}</span><span class="dt"><small>Chain</small><b id="chain-v">${ch[2]}</b></span>${icon('chev', 'chev')}</button><ul class="dd-menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span class="oi">${icon('link')}</span><span class="ot">${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul></div>
+            <div class="dd" data-dd="role"><button class="dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Vai trò" title="Chọn vai trò"><span class="di">${icon('user')}</span><span class="dt"><small>Vai trò, ${ROLES[role].code}</small><b>${ROLES[role].label}</b></span>${icon('chev', 'chev')}</button><ul class="dd-menu" role="listbox" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<li role="option" tabindex="-1" data-v="${k}" aria-selected="${k === role}"><span class="oi">${icon('user')}</span><span class="ot">${r.label}<small>${r.code}</small></span>${icon('check', 'ok')}</li>`).join('')}</ul></div>
             <button class="iconbtn theme" type="button" id="theme" aria-label="Đổi giao diện sáng tối">${icon('sun', 'i-sun')}${icon('moon', 'i-moon')}</button>
             <button class="btn gold wallet-btn" type="button">${icon('wallet')}<span>Kết nối ví</span></button>
           </div>
@@ -194,9 +194,30 @@
 
     const syncNet = () => { const c = CHAINS.find(([v]) => v === chain); document.getElementById('net-chain').textContent = c[1]; document.getElementById('net-sub').textContent = `${chain}, vai trò ${ROLES[role].key}`; document.getElementById('chain-v').textContent = c[2]; };
     syncNet();
-    document.getElementById('chain').addEventListener('change', (e) => { chain = e.target.value; try { localStorage.setItem('bidv-chain', chain); } catch {} syncNet(); document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); });
+    // Dropdown xổ xuống dưới header (không dùng menu gốc của hệ điều hành vì trên macOS nó mở đè lên ô chọn).
+    const onPick = {
+      chain: (v) => { chain = v; try { localStorage.setItem('bidv-chain', chain); } catch {} syncNet(); document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); },
+      role: (v) => { if (v !== role) location.href = withRole(ROLES[v].home, v); },
+    };
+    const closeAll = (except) => document.querySelectorAll('.dd.open').forEach((d) => { if (d !== except) { d.classList.remove('open'); d.querySelector('.dd-btn').setAttribute('aria-expanded', 'false'); } });
+    document.querySelectorAll('.dd[data-dd]').forEach((dd) => {
+      const btn = dd.querySelector('.dd-btn'), menu = dd.querySelector('.dd-menu'), opts = [...menu.querySelectorAll('[role=option]')];
+      const open = (o) => { closeAll(dd); dd.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); if (o) (opts.find((x) => x.getAttribute('aria-selected') === 'true') || opts[0]).focus(); };
+      const pick = (li) => { if (!li || li.getAttribute('aria-disabled') === 'true') return; opts.forEach((x) => x.setAttribute('aria-selected', String(x === li))); open(false); btn.focus(); onPick[dd.dataset.dd](li.dataset.v); };
+      btn.addEventListener('click', () => open(!dd.classList.contains('open')));
+      btn.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } });
+      menu.addEventListener('click', (e) => pick(e.target.closest('[role=option]')));
+      menu.addEventListener('keydown', (e) => {
+        const i = opts.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') { e.preventDefault(); opts[(i + 1) % opts.length].focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); opts[(i - 1 + opts.length) % opts.length].focus(); }
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(document.activeElement); }
+        else if (e.key === 'Escape' || e.key === 'Tab') { open(false); btn.focus(); }
+      });
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('.dd')) closeAll(); });
     document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; });
-    document.getElementById('role').addEventListener('change', (e) => { location.href = withRole(ROLES[e.target.value].home, e.target.value); });
+
     document.getElementById('theme').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', root.dataset.theme); } catch {} charts.forEach((f) => f(false)); });
     const sb = document.getElementById('sb'), menu = document.getElementById('menu');
     menu.addEventListener('click', () => { const o = sb.classList.toggle('open'); menu.setAttribute('aria-expanded', String(o)); });
@@ -216,7 +237,15 @@
 
     // Thanh trên: nổi lên khi cuộn.
     const tb = document.getElementById('topbar');
-    const onScroll = () => tb.classList.toggle('scrolled', scrollY > 8);
+    // Ẩn khi cuộn xuống, hiện lại khi cuộn lên.
+    let lastY = scrollY;
+    const onScroll = () => {
+      const y = scrollY;
+      tb.classList.toggle('scrolled', y > 8);
+      if (y > 140 && y > lastY + 6) { tb.classList.add('hide'); closeAll(); }
+      else if (y < lastY - 6 || y < 140) tb.classList.remove('hide');
+      lastY = y;
+    };
     addEventListener('scroll', onScroll, { passive: true }); onScroll();
   }
 
@@ -247,7 +276,9 @@
   }));
 
   // Video giới thiệu: mở trình phát trong hộp nổi.
+  const canEmbed = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   document.querySelectorAll('[data-video]').forEach((b) => b.addEventListener('click', () => {
+    if (!canEmbed) { window.open(`https://www.youtube.com/watch?v=${b.dataset.video}`, '_blank', 'noopener'); return; }
     const d = document.createElement('div');
     d.className = 'vmodal';
     d.innerHTML = `<div class="vbox" role="dialog" aria-label="Video giới thiệu"><button class="iconbtn vclose" type="button" aria-label="Đóng">${icon('x')}</button><div class="vframe"><iframe src="https://www.youtube-nocookie.com/embed/${b.dataset.video}?autoplay=1&rel=0&modestbranding=1" title="Video giới thiệu dự án điện gió" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><div class="vfoot"><span>Video tạm để thử giao diện, sẽ thay bằng video chính thức.</span><a href="https://www.youtube.com/watch?v=${b.dataset.video}" target="_blank" rel="noopener">Không xem được? Mở trên YouTube</a></div></div>`;
@@ -260,7 +291,7 @@
   // ===== Biên đạo chuyển động "theo hướng gió" =====
   // Mỗi loại khối có kiểu vào riêng; khối chỉ chạy khi cuộn tới; trong cùng một đợt, khối bên trái
   // và phía trên tới trước như một cơn gió lướt qua hàng tua-bin; hàng trong bảng, danh sách đi sau khối.
-  const kindOf = (n) => (n.matches('.pagehead') ? 'title'
+  const kindOf = (n) => (n.dataset.reveal ? n.dataset.reveal : n.matches('.pagehead') ? 'title'
     : n.matches('.kpi.hl, .kpi.au, .card.hero') ? 'unveil'
     : n.matches('.kpi') ? 'gust'
     : n.matches('.alert') ? 'slide'
@@ -289,8 +320,9 @@
     setTimeout(() => fill(n), (delay + .25) * 1000);
     n.addEventListener('animationend', (e) => { if (e.target === n) n.classList.add('done'); }, { once: true });
   }
-  if (content) {
-    const items = [...content.children];
+  const revealItems = [...(content ? content.children : []), ...document.querySelectorAll('[data-reveal]')];
+  if (revealItems.length) {
+    const items = revealItems;
     if (reduce) { items.forEach((n) => fill(n)); }
     else {
       items.forEach((n) => n.classList.add('pre'));

@@ -66,6 +66,7 @@ Kết luận của 21 trang: **không trang nào cần sửa backend.**
 | FE-UX-X2 | "Kết nối ví" hiện cả với Giao dịch viên, Kiểm soát viên, trái quyết định FE-02 | Đổi feature hiển thị theo vai | Bản xem thử giữ nguyên như hiện tại; chờ chủ dự án quyết |
 | FE-UX-X3 | Dải "Video giới thiệu dự án" ở đầu Tổng quan Nhà đầu tư (bản xem thử gắn nhãn "Đề xuất bổ sung") | Nội dung mới, không có trong màn hiện tại; chỉ frontend (nhúng video, không dữ liệu) | Chờ chủ dự án duyệt và cung cấp video chính thức |
 | FE-UX-X4 | Nút thu gọn sidebar thành thanh icon | Hành vi giao diện mới, không đổi menu | Chờ duyệt; nếu không duyệt thì bỏ nút, giữ sidebar đầy đủ |
+| FE-UX-X5 | Trang chủ giới thiệu dự án (landing): video ở giữa màn hình, số liệu dự án, năm chặng "Gió hoá dòng tiền", ba dự án, bốn vai, minh bạch và kiểm soát | Trang mới, chưa có trong app; chỉ frontend, số liệu lấy từ `lib/mock-data.ts` và cấu hình phát hành đang có | Chủ dự án đã yêu cầu dựng thử (23/10/2026); cần chốt đường dẫn (ví dụ `/gioi-thieu` hoặc trang trước đăng nhập) và nội dung chính thức |
 
 ---
 
@@ -90,8 +91,8 @@ Sản phẩm biến gió ở An Viên thành điện, điện thành doanh thu, 
 
 - **Chuyển động theo hướng gió:** khối không xuất hiện đồng loạt mà lướt vào như một cơn gió qua hàng tua-bin (trái trước, phải sau, trên trước, dưới sau). Số "chảy" vào ô. Mở trang có một cơn gió quét qua. Cánh quạt quay là nhịp sống của hệ thống.
 - **Màu có nghĩa:** xanh BIDV là token và năng lượng (WPT, sản lượng, dự án); vàng BIDV là tiền (VNDB, lợi tức, hạn mức). Mỗi màn có tối đa một ô nổi bật xanh và một ô nổi bật vàng.
-- **Sidebar "trụ tua-bin":** mục đang mở là viên nang mực có icon vàng, có vệt sáng chạy; viên nang mờ trượt theo chuột (đàn hồi); số việc chờ có nhịp sáng; chân sidebar có cụm tua-bin quay. Thu gọn được thành thanh icon (FE-UX-X4).
-- **Header "đường chân trời":** thanh nổi kính mờ bám đỉnh khi cuộn, viền dưới chuyển màu lục vàng có vệt sáng chạy, nút tua-bin trước breadcrumb. Chain và Vai trò là viên nhỏ hai dòng (nhãn và giá trị), vẫn là `<select>` thật phủ trong suốt lên trên, nhường chỗ cho breadcrumb không xuống dòng.
+- **Sidebar "trụ tua-bin"** (rộng 252 px, hàng 36 px, chữ 13 px): mục đang mở là viên nang mực có icon vàng, có vệt sáng chạy; viên nang mờ trượt theo chuột (đàn hồi); số việc chờ có nhịp sáng; chân sidebar có cụm tua-bin quay. Thu gọn được thành thanh icon (FE-UX-X4).
+- **Header "đường chân trời":** thanh nổi có nền chuyển sắc trắng sang xanh rất nhạt và bóng mềm để tách khỏi nền nội dung; viền dưới chuyển màu lục vàng có vệt sáng chạy; nút tua-bin trước breadcrumb. **Ẩn khi cuộn xuống, hiện lại khi cuộn lên.** Chain và Vai trò là nút viên hai dòng (nhãn và giá trị) mở **menu xổ xuống phía dưới header** (listbox tự dựng, có bàn phím: mũi tên, Enter, Esc), không dùng menu gốc của hệ điều hành vì trên macOS menu gốc mở đè lên header. Vẫn đủ lựa chọn như dropdown hiện tại, Stellar vẫn hiện nhưng không chọn được.
 - **Không khí theo vai:** Giao dịch viên, Kiểm soát viên là "phòng điều khiển" (số liệu trước); Nhà đầu tư là "cửa sổ nhìn ra cánh đồng gió" (minh hoạ, video); Người bán là "nhà máy" (sản lượng và dòng tiền về vault).
 
 ### 3.1. Màu
@@ -170,7 +171,7 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 | Logo BIDV | Logo SVG có sẵn trong dự án (`components/bidv-logo.tsx`) | Bộ logo SVG chính thức (ngang, biểu tượng, nền sáng và tối), màu và font thương hiệu | Sidebar, trang lối vào |
 | Ảnh dự án điện gió | Minh hoạ SVG `scene` | 3 đến 5 ảnh thật 16:9 từ 2400 px (toàn cảnh flycam, cận cánh quạt, bình minh) | Ô WPT ở Bảng điều khiển, Tổng quan và Chi tiết token của Nhà đầu tư, trang lối vào |
 | Ảnh từng dự án | Tua-bin SVG | Ảnh vuông từ 800 px của An Viên, Phú Quý, Ninh Thuận | Thẻ dự án, danh sách token |
-| Video giới thiệu | YouTube `M52hkUDVe5w` (clip chủ dự án gửi), nhúng `youtube-nocookie` trong hộp nổi | Video chính thức (MP4 dưới 3 MB tự lưu trữ, hoặc kênh BIDV) | Trang lối vào; dải đề xuất ở Tổng quan Nhà đầu tư (FE-UX-X3) |
+| Video giới thiệu | YouTube `M52hkUDVe5w` (clip chủ dự án gửi), nhúng `youtube-nocookie` ở giữa trang chủ. Trình xem artifact chặn khung nhúng ngoài nên ở đó hiện ảnh nền và nút phát mở YouTube; mở tệp trên máy hoặc trong app thì phát tại chỗ | Video chính thức (MP4 tự lưu trữ để không phụ thuộc YouTube và CSP, hoặc kênh BIDV) | Trang chủ (FE-UX-X5); dải đề xuất ở Tổng quan Nhà đầu tư (FE-UX-X3) |
 
 ---
 
@@ -198,7 +199,7 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 | NB | `seller.html` | `/seller` | 4 ô khớp lệnh, nguồn cung, thông tin token, tồn kho, tài sản ví thanh toán, số dư ví |
 | NB | `seller-transactions.html` | `/seller/transactions` | 5 bộ lọc, bảng 9 cột, phân trang; điện thoại mỗi giao dịch một thẻ |
 | NB | `seller-withdraw.html` | `/seller/withdraw` | Form rút, khối hệ thống tính với ô số tiền nhận được nổi bật, bảng yêu cầu, hộp mã một lần |
-| | `index.html` | (không thuộc app) | Trang lối vào để duyệt |
+| | `index.html` | (trang mới, FE-UX-X5) | Trang chủ giới thiệu dự án có video; cuối trang có "Sơ đồ trang xem thử" chỉ để duyệt |
 
 Một số trang có thêm thanh "Trạng thái xem thử" hoặc thẻ "Xem thử" để chủ dự án xem các trạng thái khác của cùng màn (chưa kết nối ví, rỗng, lỗi). Phần này **không đưa vào app**.
 
