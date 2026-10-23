@@ -1766,8 +1766,8 @@ mục này:
 
 | Nơi | Ai đọc | Dùng để |
 |---|---|---|
-| Cơ sở dữ liệu (`SystemConfig`) | `readIssuePriceVnd(chain)`, `getIssuePrice(chain)` | **HIỂN THỊ** cho nhà đầu tư trên chain đang chọn |
-| Ledger (`state().wptPriceVnd` ở mock, contract khớp lệnh ở chuỗi thật) | `quotePurchase`, `executePurchase` | **TRỪ TIỀN** |
+| Cơ sở dữ liệu (`SystemConfig`) | `readIssuePriceVnd(chain)`, `getIssuePrice(chain)` | **GIÁ ĐÃ CẤU HÌNH**: màn `/config`, kiểm ngưỡng đổi giá; hiển thị cho khách hàng chỉ trên chain không có OrderSettlement (FE-07) |
+| Ledger (`state().wptPriceVnd` ở mock, contract khớp lệnh ở chuỗi thật) | `quotePurchase`, `executePurchase` | **TRỪ TIỀN**; từ FE-07 cũng là giá hiển thị cho khách hàng trên chain có OrderSettlement |
 
 Hai con số lệch nhau thì nhà đầu tư **thấy một giá và bị trừ theo giá khác**, và không phép kiểm
 nào ở tầng nghiệp vụ bắt được — cả hai đều đúng so với nguồn của chúng. Đây là rủi ro chính của
@@ -1776,12 +1776,14 @@ BE-04, nên ba cơ chế dưới đây tồn tại chỉ để chặn nó.
 **1. Thứ tự trong `setIssuePrice`: đẩy xuống ledger TRƯỚC, ghi cơ sở dữ liệu SAU.**
 
 ```
-validate Zod
-  → assertCanConfigure(role)          hai lớp: treasury:manage RỒI isConfig
-  → kiểm ngưỡng đổi giá               (trước khi chạm ledger)
-  → ledger.setPurchasePrice(giá mới)  ★ BƯỚC 1 — thất bại thì CSDL không đổi gì
-  → configStore.setConfig(...)        ★ BƯỚC 2 — giá + dòng lịch sử, nguyên khối
-       └─ thất bại → ledger.setPurchasePrice(giá CŨ)   hoàn nguyên
+validate Zod                          lý do bắt buộc 5 tới 200 ký tự (FE-07)
+  assertCanConfigure(role)            hai lớp: treasury:manage RỒI isConfig
+  countInFlightOrders(chain)          còn lệnh PLACED, CHECKING, EXECUTING: REQUEST_STATE, không gửi gì (FE-07)
+  kiểm ngưỡng đổi giá                 (trước khi chạm ledger)
+  ledger.setPurchasePrice(giá mới)    ★ BƯỚC 1, rồi CHỜ BIÊN NHẬN theo chain (FE-07)
+    FAILED hoặc chưa có biên nhận:    CSDL không đổi gì, sổ FAILURE, lỗi LEDGER
+  configStore.setConfig(...)          ★ BƯỚC 2, chỉ khi CONFIRMED: giá + dòng lịch sử "lý do; tx 0x..."
+    thất bại: ledger.setPurchasePrice(giá CŨ), chờ biên nhận hoàn nguyên
 ```
 
 Không có transaction nào bao được cả một lời gọi on-chain và một câu lệnh SQL, nên việc duy nhất
@@ -1829,6 +1831,26 @@ sẽ biến cơ sở dữ liệu thành nguồn giá thứ hai bên cạnh `stat
   giá mà ledger của nó chưa đổi.
 - **`vndAmount` của lệnh đã đặt KHÔNG tính lại theo giá mới.** Nhà đầu tư trả đúng giá đã thấy lúc
   bấm; ca kiểm là `test/config-service.test.ts` ca 3.
+- **"Thành công" ở ledger là biên nhận CONFIRMED, không phải "đã gửi" (FE-07).** Trên EVM
+  `setPurchasePrice` trả ngay sau khi gửi. Trước FE-07 hàm ghi database ngay lúc đó, nên giao dịch bị
+  chuỗi từ chối vẫn để database và mọi màn nói giá mới. Chưa có biên nhận thì database không đổi;
+  chuỗi xác nhận sau thì `getIssuePrice` báo lệch và Giao dịch viên đặt lại đúng giá đó (chuỗi nhận
+  giá trùng, database ghi nhận). Ca kiểm: `config-service.test.ts` FE-07 ca 1, 2, 3.
+- **Chặn đổi giá khi còn lệnh đang xử lý (FE-07).** Lệnh đã chốt `vndAmount` theo giá cũ; hợp đồng
+  kiểm lại `vndb == wpt nhân price` lúc thực thi nên lệnh đó sẽ bị `PriceMismatch`. Kẽ hở còn lại:
+  lệnh đặt đúng lúc giữa phép đếm và lúc chuỗi xác nhận giá mới sẽ revert và về `FAILED` thật (luật
+  HF-05), không mất tiền.
+- **Một nguồn giá cho khách hàng (FE-07, đóng L-02).** Màn khách hàng đọc `readEffectiveIssuePrice`
+  (`lib/bank/issue-price.ts`): chain có OrderSettlement thì giá trên hợp đồng, chain khác thì giá đã
+  cấu hình. Quy tắc chọn nguồn là MỘT hàm `settlesAtOnChainPrice`, dùng chung với `getIssuePrice`.
+  Hàm đặt ở `lib/bank` chứ không cạnh `readIssuePriceVnd` vì `lib/ledger/index.ts` đã nhập
+  `lib/store/config-values.ts`: đặt ở đó là vòng nhập và tầng lưu trữ phụ thuộc tầng chuỗi.
+  `/trade` dùng lại chính lời đọc `quotePurchase(1n)` của ô "Giá" (truyền `Promise` vào). Trên mock
+  (không có địa chỉ OrderSettlement) màn khách hàng hiện giá đã cấu hình, theo đúng quy tắc chung.
+- **Màn `/config` "Giá và phát hành" (FE-07).** Một action khi mở `getPriceConfigOverviewAction`
+  (`assertCan('ops:read')`, không ghi sổ), bốn khối có kết quả riêng, `canEdit` tính ở máy chủ. Vượt
+  ngưỡng thì máy chủ trả `fieldErrors.confirmLargeChange`; màn mở hộp xác nhận thứ hai thay vì dò
+  chữ trong câu báo.
 - **Trong test, đừng gõ lại con số giá.** Đọc từ `WPT_ISSUE_PRICE_VND` rồi suy ra. Ca 5 của BE-04
   (đổi giá mặc định, toàn bộ test vẫn xanh) đã bắt được **5 chỗ** gõ cứng mà mắt thường không thấy —
   trong đó ba ca dùng một số tuyệt đối làm "thiếu tiền", và ở giá nhỏ nó thành **dư** tiền nên tình
@@ -1900,6 +1922,10 @@ thật của một ai đó, nên một mặc định là lệnh chuyển tiền 
 phần dư nằm yên trong ví lợi nhuận — trạng thái duy nhất không cần ai quyết. Hàm đọc trả về **nguyên
 văn** chuỗi trong bảng, không chuẩn hoá: chuẩn hoá địa chỉ là việc của biên `lib/ledger/address.ts`, và
 làm ở đây sẽ hỏng với địa chỉ Stellar (base32 **chữ hoa**).
+
+**Nợ kỹ thuật: màn tham số hệ thống.** Từ FE-07 chỉ giá phát hành có màn sửa (`/config`). Các khoá
+còn lại ở bảng trên (lợi tức, tuổi thọ, phí, tham số chia, trần nạp trình diễn) vẫn sửa bằng script
+hoặc SQL; màn cho chúng là task riêng, phải giữ quy tắc "mọi tham số cấu hình có lịch sử".
 
 ## 3.14. Tiến trình tự động chia lợi nhuận (BE-07)
 
@@ -2796,6 +2822,39 @@ wallet)` để `previewTrade` không phải đổi.
 
 ---
 
+## 3.29. Fireblocks: quyết định cho PoC và mô hình tham chiếu
+
+> Chép nguyên văn từ `docs/fe-07-cau-hinh-gia/design.md` mục 5 (Supervisor soạn, FE-07).
+
+### Quyết định PoC (Sếp chốt 23/10/2026)
+
+- Nhà đầu tư có hai lựa chọn ví: **ví ngoài** tự giữ khoá (MetaMask, như hiện tại) và **ví Fireblocks** do ngân hàng cấp (mỗi nhà đầu tư một vault account, ẩn khỏi Console). Bỏ phương án máy chủ tự sinh ví từ một khoá gốc.
+- Cơ chế ký: **Vault Accounts** (lưu ký MPC trong workspace, áp TAP). Embedded Wallets (ví không lưu ký trên thiết bị người dùng) và API Co-signer tự vận hành cấp sản xuất: nợ kỹ thuật.
+- PoC **không** tách vault theo lớp nóng, ấm, lạnh; ví ngân hàng dùng một vault vận hành. Mô hình dưới là tham chiếu cho sản phẩm thật.
+- FE-23 chốt theo kết quả kiểm sandbox K0: ký được permit EIP-712 từ vault thì FE-23 là "chuyển ra ví ngoài" cho nhà đầu tư dùng ví Fireblocks; không ký được thì dùng `approve` cộng Gas Station, hoặc giữ FE-23 dạng đổi VNDB ra tiền tài khoản.
+- Kết quả kiểm sandbox K0 (6 câu hỏi: tạo vault qua API, gọi hàm hợp đồng, ký EIP-712, TAP, có cần Co-signer, SDK trên Workers): bổ sung vào mục này khi có.
+
+### Mô hình tham chiếu: tách vault theo mức rủi ro của vai
+
+| Lớp | Vault | Vai trên hợp đồng | Quy tắc TAP gợi ý |
+|---|---|---|---|
+| Nóng (tự động) | Vận hành | OPERATOR (khớp lệnh), DISTRIBUTOR (chia lô), AGENT trên IdentityRegistry (định danh) | Tự ký trong hạn mức, chỉ tới hợp đồng của dự án |
+| Ấm (cần người duyệt) | Phát hành và ngân quỹ | MINTER, AGENT trên WPT (đốt, thu hồi, cưỡng chế), CONFIG và WITHDRAWER của vault SPV, PRICE, MINTER của VNDB | 1 đến 2 người duyệt; lập duyệt đưa xuống tầng ký |
+| Lạnh (hiếm dùng) | Quản trị | DEFAULT_ADMIN của cả chín hợp đồng | Nhiều người duyệt; workspace lạnh ở bản thật |
+| Khách hàng | Mỗi nhà đầu tư một vault | Không có vai | Chuyển ra ngoài chỉ tới địa chỉ cho phép, có hạn mức |
+
+- Không dùng vault gom chung (omnibus) cho WPT của nhà đầu tư: ERC-3643 định danh từng ví; snapshot chia lợi nhuận và thu hồi tính theo ví.
+- Lợi ích chính so với hiện tại (một khoá giữ mọi vai): lộ vault nóng không phát hành, đốt token hay đổi vai được.
+- Chuyển sang mô hình này không sửa hợp đồng: chỉ cấp vai cho địa chỉ vault mới và thu vai khỏi khoá cũ.
+
+### Ghi chú kiến trúc: gửi giao dịch qua Fireblocks và Indexer
+
+- Gửi qua Fireblocks là **bất đồng bộ**: tạo giao dịch, chờ TAP và ký (có thể nhiều phút), Fireblocks phát giao dịch, rồi mới có mã giao dịch Sepolia và biên nhận.
+- Hai việc tách riêng:
+  - **Theo dõi giao dịch do hệ thống gửi** (mã giao dịch Fireblocks, trạng thái ký, mã giao dịch chuỗi, biên nhận): thuộc tầng ký và gửi (IN-03), cập nhật bằng webhook hoặc hỏi định kỳ, dùng lại mẫu "đang thực hiện, đối soát" của HF-05.
+  - **Indexer** (IN-01): đọc sự kiện chuỗi đã xảy ra, từ mọi nguồn (kể cả thao tác ngoài ứng dụng), là nguồn sự thật cho lịch sử và danh sách người nắm giữ.
+- Trạng thái hiện tại (số dư, phần rút được, giá) vẫn đọc trực tiếp bằng lời gọi chỉ đọc vì rẻ và cần mới nhất.
+
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
 
 ⚠️ **FE-22: đường này nằm sau HAI LỚP CHẶN** — quyền `demo:mint-token` và cờ `ENABLE_DEMO_TOKEN_MINT`
@@ -3370,7 +3429,7 @@ trên chuỗi và về quỹ chưa phân bổ khi kỳ đóng sau hạn nhận (
 | Quyền on-chain: `ProfitDistributor` giữ `SNAPSHOT_ROLE` trên `ProjectToken`, ví ký giữ `DISTRIBUTOR_ROLE` và `DEFAULT_ADMIN_ROLE` (đóng kỳ), và `CONFIG_ROLE` trên vault (đẩy số đã chia) | khâu triển khai: `deploy.js` đã cấp |
 | Màn nhà đầu tư tự nhận (`claim`) | ngoài phạm vi SC-06 |
 | ~~Giao diện duyệt, chia, theo dõi kỳ, phục hồi~~ | **FE-08 xong** (3.27); phần nhà đầu tư còn chờ FE-09 |
-| Thiết kế lại nghiệp vụ chia | BE-18 |
+| ~~Thiết kế lại nghiệp vụ chia~~ | **BE-18 vào `done` ở FE-07**: nội dung đã thực hiện qua DS-01 bản 5, SC-06 và FE-08 (quỹ chia một chiều, duyệt tổng số rồi chia, chốt kỳ vault); không còn marker nào trỏ tới BE-18 |
 | Phát hiện tiền vào bằng **sự kiện**; danh sách người nhận đầy đủ | IN-01, IN-02: xem 1.6.C |
 
 ### Giai đoạn 4 — tự động: `runDistributionCycle()` (BE-07)
