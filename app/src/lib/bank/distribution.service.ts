@@ -4,6 +4,7 @@ import type { ChainKey } from '@bidv/shared';
 import {
   getLedger,
   LedgerError,
+  MAX_TOKEN_WALLETS,
   receiptTimeoutFor,
   type ChainDistribution,
   type ILedgerPort,
@@ -48,11 +49,9 @@ import type { ErrorCode } from './result';
  *
  * ## Hai điều quyết định toàn bộ thiết kế của tệp này
  *
- * **1. Chuỗi KHÔNG liệt kê được người nắm giữ.** ERC-20 chỉ lưu bảng số dư theo địa chỉ, không
- * lưu danh sách địa chỉ, nên không lời gọi nào đọc ra danh sách từ chuỗi — `ILedgerPort` cố ý
- * không có `holdersAt` (xem `ledger.port.ts` mục 4). Danh sách người nhận vì vậy dựng từ CƠ SỞ
- * DỮ LIỆU: ví có lệnh mua đã hoàn tất, cộng ví đã nhận chia ở kỳ trước. Về sau nguồn này chuyển
- * sang Indexer, và khi đó chỉ `collectRecipients` phải sửa.
+ * **1. Indexer liệt kê mọi ví từng gửi/nhận WPT.** ERC-20 không có lời gọi liệt kê holder, nên
+ * IN-01 dựng tập ứng viên từ sự kiện Transfer đã lưu. Giữ cả ví có số dư hiện tại bằng 0: ví đó
+ * có thể còn quyền ở snapshot cũ rồi mới chuyển hết token.
  *
  * **2. Số tiền từng ví do CHUỖI tính, không phải do tệp này tính.** `distributeBatch` tự tính
  * `distributable × balanceOfAt / totalSupplyAt` và tự chống chia hai lần bằng cờ đã-nhận của
@@ -82,7 +81,7 @@ import type { ErrorCode } from './result';
  * giữ rồi đánh dấu kỳ hoàn tất là sai tệ hơn không chia. Chạm ngưỡng nghĩa là đã tới lúc cần
  * phân trang thật (Indexer), và đó là việc phải làm chứ không phải việc làm tròn.
  */
-export const MAX_RECIPIENT_SCAN = 5_000;
+export const MAX_RECIPIENT_SCAN = MAX_TOKEN_WALLETS;
 
 /**
  * Chờ biên nhận NGẮN khi đối soát lại một giao dịch đã gửi ở lượt trước: chỉ cần biết nó đã
@@ -313,7 +312,7 @@ export interface Recipients {
 }
 
 /**
- * Hai nguồn, hợp lại và bỏ trùng: ví có lệnh mua ĐÃ HOÀN TẤT, cộng ví đã nhận chia ở kỳ trước.
+ * Bốn nguồn, hợp lại và bỏ trùng: lệnh mua, kỳ trước, ví SPV và Indexer Transfer.
  *
  * Vì sao cần nguồn thứ hai chứ không chỉ lấy lệnh mua: WPT tới tay một ví còn bằng đường
  * `transfer` giữa hai nhà đầu tư, và ví đó không có lệnh mua nào. Ví đã từng nằm trong một kỳ
@@ -328,11 +327,7 @@ export interface Recipients {
  * SC-06 (CH-3, QĐ-12): cộng thêm ví SPV (`spvWallet()`, trên EVM chính là vault thanh toán) ở mọi
  * chain, để phần của WPT chưa bán được chia vào vault.
  *
- * GIỚI HẠN ĐÃ BIẾT: ví nhận WPT bằng chuyển trực tiếp mà chưa từng mua hay nhận chia có thể bị bỏ
- * sót. Phần của ví đó nằm trong dự trữ của kỳ tới khi kỳ đóng rồi về quỹ chưa phân bổ. Indexer
- * (IN-01) sẽ đóng giới hạn này.
- *
- * @flow distribute:5 | dựng danh sách người nhận từ cơ sở dữ liệu cộng ví SPV vì chuỗi không liệt kê được người nắm giữ
+ * @flow distribute:5 | dựng danh sách người nhận từ ba nguồn nghiệp vụ cộng mọi ví Transfer do Indexer trả
  */
 export async function collectRecipients(chain: ChainKey, ledger: ILedgerPort): Promise<Recipients> {
   const seen = new Map<string, string>();
@@ -370,6 +365,12 @@ export async function collectRecipients(chain: ChainKey, ledger: ILedgerPort): P
   // --- Nguồn 3: ví SPV (vault) giữ WPT chưa bán ------------------------------
   const spv = await ledger.spvWallet();
   if (spv) add(spv);
+
+  // --- Nguồn 4: mọi ví từng gửi/nhận WPT ------------------------------------
+  // Không lọc balance hiện tại: quyền chia dùng balanceOfAt(snapshotId), không dùng số dư bây giờ.
+  const tokenWallets = await ledger.listTokenWallets();
+  if (tokenWallets.truncated) truncated = true;
+  for (const entry of tokenWallets.wallets) add(entry.wallet);
 
   return { wallets: [...seen.values()], truncated };
 }

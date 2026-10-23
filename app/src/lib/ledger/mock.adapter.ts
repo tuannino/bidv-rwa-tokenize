@@ -20,6 +20,7 @@ import {
 } from './mock-state.store';
 import {
   LedgerError,
+  MAX_TOKEN_WALLETS,
   assertPositiveAmount,
   type ChainDistribution,
   type ILedgerPort,
@@ -1090,6 +1091,19 @@ export function createMockLedger(
     async balanceOf(wallet) {
       const normalized = normalizeEvmAddress(wallet);
       return read('balanceOf', (s) => balance(s, normalized));
+    },
+
+    async listTokenWallets() {
+      return read('listTokenWallets', (s) => {
+        const all = [...s.balances.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([wallet, value]) => ({ wallet, balance: value }));
+        return {
+          wallets: all.slice(0, MAX_TOKEN_WALLETS),
+          truncated: all.length > MAX_TOKEN_WALLETS,
+          asOfBlock: null,
+        };
+      });
     },
 
     async tokenInfo() {

@@ -405,6 +405,26 @@ describe('ca 2 — ví mua WPT sau thời điểm chốt được chia 0', () =>
   });
 });
 
+describe('IN-01 — danh sách ví Transfer giữ đúng quyền tại snapshot', () => {
+  it('ví chuyển hết WPT sau snapshot vẫn nhận phần cũ; ví nhận sau snapshot nhận 0', async () => {
+    const ledger = getLedger(CHAIN);
+    await ledger.whitelist(ALICE);
+    await ledger.whitelist(BOB);
+    await ledger.mint(ALICE, 100n); // không tạo lệnh mua: chỉ Indexer/listTokenWallets biết ví này
+    fundProfitPool(1_000n);
+    const period = await openPeriodOk('mock:2026-IN01');
+
+    await ledger.transfer(ALICE, BOB, 100n);
+    const run = await distributeOk(period.id);
+    expect(run.outstanding).toBe(0);
+    expect(await paymentBalances([ALICE, BOB])).toEqual([1_000n, 0n]);
+
+    const rows = await payoutsByWallet(period.id);
+    expect(rows.get(ALICE.toLowerCase())).toMatchObject({ balanceAt: '100', amount: '1000' });
+    expect(rows.get(BOB.toLowerCase())).toMatchObject({ balanceAt: '0', amount: '0' });
+  });
+});
+
 // ===========================================================================
 //  XEM TRƯỚC KHÔNG GHI GÌ VÀO CƠ SỞ DỮ LIỆU
 // ===========================================================================

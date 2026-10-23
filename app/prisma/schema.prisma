@@ -642,3 +642,35 @@ model RolePermission {
 
   @@id([roleId, permissionId])
 }
+
+/// IN-01: bộ nhớ đệm sự kiện chuỗi đã đủ xác nhận. Có thể dựng lại hoàn toàn từ RPC.
+model ChainEvent {
+  chain          String
+  /// Hash block triển khai, phân biệt lần triển khai/nút local reset dù địa chỉ giống nhau.
+  anchor         String
+  contract       String
+  eventName      String
+  blockNumber    Decimal  @db.Decimal(78, 0)
+  logIndex       Int
+  txHash         String
+  /// Unix seconds; BigInt tránh giới hạn năm 2038 của Postgres integer.
+  blockTimestamp BigInt
+  /// Bigint lưu chuỗi thập phân, địa chỉ EVM đã chuẩn hoá.
+  args            Json
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([chain, anchor, txHash, logIndex])
+  @@index([chain, anchor, contract, eventName, blockNumber])
+}
+
+/// IN-01: một cursor và lease đồng bộ theo chain. Phạm vi đổi thì cursor được đặt lại.
+model IndexerCursor {
+  chain      String    @id
+  anchor     String
+  vault      String
+  token      String
+  lastBlock  Decimal   @db.Decimal(78, 0)
+  leaseUntil DateTime? @db.Timestamptz(3)
+  leaseOwner String?
+  updatedAt  DateTime  @db.Timestamptz(3)
+}

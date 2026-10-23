@@ -216,6 +216,9 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async balanceOf(): Promise<bigint> {
       return todo('balanceOf');
     },
+    async listTokenWallets(): Promise<never> {
+      return todoNeeds('listTokenWallets', 'Indexer sự kiện Transfer của token Soroban');
+    },
     async tokenInfo(): Promise<TokenInfo> {
       return todo('tokenInfo');
     },

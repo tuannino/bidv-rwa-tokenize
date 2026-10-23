@@ -6,6 +6,7 @@ import {
   ContractFunctionZeroDataError,
   createPublicClient,
   createWalletClient,
+  decodeEventLog,
   http,
   parseEventLogs,
   toFunctionSelector,
@@ -34,11 +35,15 @@ import {
 } from '@bidv/shared';
 import { logsRpcUrlFor, rpcUrlFor, viemChainFor } from '@/lib/chains/registry';
 import { serverEnv } from '@/lib/config/env';
+import { createEventIndex, type LiveIndexedEvent } from '@/lib/indexer/event-index';
 import type { ISigner } from '@/lib/signer';
+import { createMemoryChainEventStore } from '@/lib/store/memory.chain-event.store';
+import type { IChainEventStore, IndexedEventArgs, IndexerScope } from '@/lib/store/chain-event.store.port';
 import { normalizeEvmAddress } from './address';
 import {
   LedgerError,
   LedgerNotImplementedError,
+  MAX_TOKEN_WALLETS,
   assertPositiveAmount,
   receiptTimeoutFor,
   type ChainDistribution,
@@ -221,7 +226,18 @@ function inSendQueue<T>(key: string, task: () => Promise<T>): Promise<T> {
 /** Số lời đọc tối đa trong một lô JSON-RPC (HF-01); nhỏ để không chạm giới hạn lô của RPC công cộng. */
 const RPC_READ_BATCH_SIZE = 20;
 
-export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
+/** Anchor chỉ đổi khi deployBlock/tiến trình đổi; reset Hardhat khởi động lại tiến trình ứng dụng. */
+const scopeAnchorCache = new Map<string, Promise<string>>();
+
+export interface EvmLedgerOptions {
+  eventStore?: IChainEventStore;
+}
+
+export function createEvmLedger(
+  chain: ChainKey,
+  signer: ISigner,
+  options: EvmLedgerOptions = {},
+): ILedgerPort {
   const rpcUrl = rpcUrlFor(chain);
   const viemChain = viemChainFor(chain);
 
@@ -250,32 +266,6 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       transport: http(logsRpcUrlFor(chain), { batch: { batchSize: RPC_READ_BATCH_SIZE } }),
     });
     return logsClient;
-  };
-
-  /**
-   * HF-03: quét sự kiện từ `fromBlock` tới block mới nhất theo từng đoạn `EVM_LOG_BLOCK_CHUNK` block, để
-   * khoảng quét không vượt giới hạn của RPC khi chain chạy lâu. Các đoạn phát cùng lúc nên đi chung lô.
-   * Trả theo thứ tự block tăng dần; chỗ gọi tự sắp lại nếu cần.
-   */
-  const scanLogs = async <T,>(params: Record<string, unknown>, fromBlock: bigint): Promise<T[]> => {
-    const client = logReader();
-    // `cacheTime: 0`: viem nhớ số block vài giây; số cũ làm sót sự kiện vừa phát ra (đo trên nút Hardhat).
-    const latest = await client.getBlockNumber({ cacheTime: 0 });
-    if (fromBlock > latest) return [];
-    const chunk = BigInt(serverEnv().evmLogBlockChunk);
-    const ranges: Array<[bigint, bigint | 'latest']> = [];
-    for (let start = fromBlock; start <= latest; start += chunk) {
-      // Đoạn cuối đọc tới `latest` để không sót block mới sinh trong lúc quét (RPC log có thể đi sau RPC ghi).
-      ranges.push([start, start + chunk - 1n < latest ? start + chunk - 1n : 'latest']);
-    }
-    const parts = await Promise.all(
-      ranges.map(([from, to]) =>
-        client.getContractEvents({ ...(params as object), fromBlock: from, toBlock: to } as Parameters<
-          PublicClient['getContractEvents']
-        >[0]),
-      ),
-    );
-    return parts.flat() as T[];
   };
 
   /**
@@ -579,55 +569,6 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     };
   };
 
-  /**
-   * Sự kiện `PeriodClosed` của vault từ block triển khai, mới nhất trước. `periodRef` lọc theo
-   * tham số indexed. Dùng chung cho lịch sử công khai (SC-07) và đối soát chốt kỳ (SC-06 QĐ-G).
-   */
-  const readPeriodCloses = async (
-    operation: string,
-    vaultAddress: string,
-    periodRef?: bigint,
-  ): Promise<VaultPeriodClose[]> => {
-    const deployBlock = addressBook[chain]?.deployBlock;
-    if (deployBlock === undefined) {
-      throw new LedgerError(
-        chain,
-        operation,
-        'Thiếu block triển khai trong address book; không quét lịch sử vault từ block 0.',
-      );
-    }
-    try {
-      const logs = (await scanLogs(
-        {
-          address: normalizeEvmAddress(vaultAddress) as Hex,
-          abi: spvPaymentVaultAbi as Abi,
-          eventName: 'PeriodClosed',
-          ...(periodRef === undefined ? {} : { args: { periodRef } }),
-        },
-        BigInt(deployBlock),
-      )) as Array<{
-        args: { periodRef?: bigint; distributedPrev?: bigint; rateBps?: bigint; percentLocked?: bigint; operator?: string };
-        transactionHash: Hex;
-        blockNumber: bigint;
-        logIndex: number;
-      }>;
-      return logs
-        .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex)
-        .map((log) => ({
-          periodRef: log.args.periodRef ?? 0n,
-          distributedPrev: log.args.distributedPrev ?? 0n,
-          rateBps: log.args.rateBps ?? 0n,
-          percentLocked: log.args.percentLocked ?? 0n,
-          operator: normalizeEvmAddress(log.args.operator ?? '0x0000000000000000000000000000000000000000'),
-          txHash: log.transactionHash,
-          blockNumber: log.blockNumber,
-          timestamp: 0,
-        }));
-    } catch (error) {
-      return fail(operation, error);
-    }
-  };
-
   /** Địa chỉ vault của chain; chưa triển khai thì ghi và đối soát vault là gọi sai chain (BE-13). */
   const requireVault = (operation: string): string => {
     const vault = findContractAddress(chain, 'SpvPaymentVault');
@@ -660,6 +601,131 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     txHash: log.transactionHash,
     blockNumber: log.blockNumber,
     logIndex: log.logIndex,
+  });
+
+  const serializeEventArgs = (raw: unknown): IndexedEventArgs => {
+    if (!raw || typeof raw !== 'object') return {};
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).map(([key, value]) => {
+        if (typeof value === 'bigint') return [key, value.toString()];
+        if (typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)) {
+          return [key, normalizeEvmAddress(value)];
+        }
+        if (typeof value === 'string' && value.startsWith('0x')) return [key, value.toLowerCase()];
+        if (typeof value === 'number' || typeof value === 'boolean' || value === null) return [key, value];
+        return [key, String(value)];
+      }),
+    );
+  };
+
+  let warnedUndecodableLog = false;
+  const eventSource = {
+    async head() {
+      return logReader().getBlockNumber({ cacheTime: 0 });
+    },
+
+    async scope(): Promise<IndexerScope> {
+      const deployBlockNumber = addressBook[chain]?.deployBlock;
+      if (deployBlockNumber === undefined) {
+        throw new LedgerError(
+          chain,
+          'indexerScope',
+          'Thiếu block triển khai trong address book; không thể dựng Indexer an toàn.',
+        );
+      }
+      const deployBlock = BigInt(deployBlockNumber);
+      const vault = normalizeEvmAddress(
+        findContractAddress(chain, 'SpvPaymentVault') ?? '0x0000000000000000000000000000000000000000',
+      );
+      const token = normalizeEvmAddress(addressOf('ProjectToken'));
+      const cacheKey = `${chain}:${deployBlock}:${rpcUrl}`;
+      let anchor = scopeAnchorCache.get(cacheKey);
+      if (!anchor) {
+        anchor = reader().getBlock({ blockNumber: deployBlock }).then((block) => {
+          if (!block.hash) throw new Error(`Block triển khai ${deployBlock} chưa có hash.`);
+          return block.hash.toLowerCase();
+        });
+        scopeAnchorCache.set(cacheKey, anchor);
+      }
+      return { anchor: await anchor, vault, token, deployBlock };
+    },
+
+    async fetchLogs(fromBlock: bigint, toBlock: bigint): Promise<LiveIndexedEvent[]> {
+      if (fromBlock > toBlock) return [];
+      const scope = await this.scope();
+      const addresses = [scope.vault, scope.token]
+        .filter((address) => !/^0x0{40}$/i.test(address)) as Hex[];
+      const chunk = BigInt(serverEnv().evmLogBlockChunk);
+      const ranges: Array<[bigint, bigint]> = [];
+      for (let start = fromBlock; start <= toBlock; start += chunk) {
+        ranges.push([start, start + chunk - 1n < toBlock ? start + chunk - 1n : toBlock]);
+      }
+      const parts = await Promise.all(
+        ranges.map(([from, to]) => logReader().getLogs({ address: addresses, fromBlock: from, toBlock: to })),
+      );
+      const events: LiveIndexedEvent[] = [];
+      for (const log of parts.flat()) {
+        try {
+          const fromVault = log.address.toLowerCase() === scope.vault.toLowerCase();
+          const decoded = decodeEventLog({
+            abi: (fromVault ? spvPaymentVaultAbi : projectTokenAbi) as Abi,
+            data: log.data,
+            topics: log.topics,
+            strict: false,
+          });
+          if (!decoded.eventName || log.blockNumber === null || log.logIndex === null || log.transactionHash === null) continue;
+          events.push({
+            contract: normalizeEvmAddress(log.address),
+            eventName: decoded.eventName,
+            blockNumber: log.blockNumber,
+            logIndex: log.logIndex,
+            txHash: log.transactionHash,
+            args: serializeEventArgs(decoded.args),
+          });
+        } catch (error) {
+          if (!warnedUndecodableLog) {
+            warnedUndecodableLog = true;
+            console.warn(`Indexer ${chain}: bỏ log không giải mã được; các log sau chỉ bỏ qua im lặng.`, error);
+          }
+        }
+      }
+      return events.sort((a, b) =>
+        a.blockNumber < b.blockNumber ? -1 : a.blockNumber > b.blockNumber ? 1 : a.logIndex - b.logIndex,
+      );
+    },
+
+    async timestamps(blockNumbers: readonly bigint[]) {
+      const unique = [...new Set(blockNumbers)];
+      const blocks = await Promise.all(
+        unique.map(async (blockNumber) => [blockNumber, (await reader().getBlock({ blockNumber })).timestamp] as const),
+      );
+      return new Map(blocks);
+    },
+  };
+
+  const indexEnv = serverEnv();
+  const eventIndex = createEventIndex({
+    chain,
+    store: options.eventStore ?? createMemoryChainEventStore(),
+    source: eventSource,
+    config: {
+      confirmations: indexEnv.indexerConfirmations,
+      segmentBlocks: indexEnv.indexerSegmentBlocks,
+      maxBlocksPerSync: indexEnv.indexerMaxBlocksPerSync,
+      leaseSeconds: indexEnv.indexerLeaseSeconds,
+      walletLimit: MAX_TOKEN_WALLETS,
+    },
+  });
+
+  const toPeriodClose = (event: Awaited<ReturnType<typeof eventIndex.readEvents>>[number]): VaultPeriodClose => ({
+    periodRef: BigInt(String(event.args.periodRef ?? '0')),
+    distributedPrev: BigInt(String(event.args.distributedPrev ?? '0')),
+    rateBps: BigInt(String(event.args.rateBps ?? '0')),
+    percentLocked: BigInt(String(event.args.percentLocked ?? '0')),
+    operator: normalizeEvmAddress(String(event.args.operator ?? '0x0000000000000000000000000000000000000000')),
+    txHash: event.txHash,
+    blockNumber: event.blockNumber,
+    timestamp: Number(event.blockTimestamp),
   });
 
   /** Gợi ý thống nhất cho các method còn chờ hợp đồng — nêu đúng thứ đang thiếu. */
@@ -910,37 +976,13 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
       );
       if (!settled) return { status: 'NOT_SETTLED' as const };
 
-      const deployBlock = addressBook[chain]?.deployBlock;
-      if (deployBlock === undefined) {
-        throw new LedgerError(
-          chain,
-          'findOrderSettlement',
-          'Thiếu block triển khai trong address book; không thể tìm sự kiện OrderSettled an toàn.',
-        );
-      }
       try {
-        const lower = BigInt(deployBlock);
-        const chunk = BigInt(serverEnv().orderSettlementEventBlockChunk);
-        let toBlock = await logReader().getBlockNumber();
-        while (toBlock >= lower) {
-          const fromBlock = toBlock - lower + 1n > chunk ? toBlock - chunk + 1n : lower;
-          const logs = (await logReader().getContractEvents({
-            address: addressOf('SpvPaymentVault'),
-            abi: spvPaymentVaultAbi as Abi,
-            eventName: 'OrderSettled',
-            args: { orderRef } as never,
-            fromBlock,
-            toBlock,
-          })) as Array<{ transactionHash: Hex; blockNumber: bigint; logIndex: number }>;
-          if (logs.length > 0) {
-            const found = logs.sort(
-              (left, right) => Number(right.blockNumber - left.blockNumber) || right.logIndex - left.logIndex,
-            )[0];
-            return { status: 'SETTLED' as const, txHash: found.transactionHash, blockNumber: found.blockNumber };
-          }
-          if (fromBlock === lower) break;
-          toBlock = fromBlock - 1n;
-        }
+        const [found] = await eventIndex.readEvents({
+          contract: requireVault('findOrderSettlement'),
+          eventNames: ['OrderSettled'],
+          argEquals: { orderRef: orderRef.toLowerCase() },
+        });
+        if (found) return { status: 'SETTLED' as const, txHash: found.txHash, blockNumber: found.blockNumber };
         return { status: 'SETTLED_TX_UNKNOWN' as const };
       } catch (error) {
         return fail('findOrderSettlement', error);
@@ -1242,14 +1284,12 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async vaultPeriodCloses(limit) {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
       if (!vaultAddress || limit <= 0) return [];
-      const latest = (await readPeriodCloses('vaultPeriodCloses', vaultAddress)).slice(0, limit);
       try {
-        return await Promise.all(
-          latest.map(async (close): Promise<VaultPeriodClose> => {
-            const block = await reader().getBlock({ blockNumber: close.blockNumber });
-            return { ...close, timestamp: Number(block.timestamp) };
-          }),
+        const events = await eventIndex.readEvents(
+          { contract: normalizeEvmAddress(vaultAddress), eventNames: ['PeriodClosed'] },
+          true,
         );
+        return events.reverse().slice(0, limit).map(toPeriodClose);
       } catch (error) {
         return fail('vaultPeriodCloses', error);
       }
@@ -1273,7 +1313,20 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async findVaultPeriodClose(periodRef, hintTxHash) {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
       if (!vaultAddress) return null;
-      let [found] = await readPeriodCloses('findVaultPeriodClose', vaultAddress, periodRef);
+      let found: VaultPeriodClose | undefined;
+      try {
+        const [event] = await eventIndex.readEvents(
+          {
+            contract: normalizeEvmAddress(vaultAddress),
+            eventNames: ['PeriodClosed'],
+            argEquals: { periodRef: periodRef.toString() },
+          },
+          true,
+        );
+        if (event) found = toPeriodClose(event);
+      } catch (error) {
+        return fail('findVaultPeriodClose', error);
+      }
       if (!found && hintTxHash) {
         // HF-04: RPC đọc log có thể chưa thấy khối mới; biên nhận đọc qua RPC chính.
         try {
@@ -1305,6 +1358,7 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
         }
       }
       if (!found) return null;
+      if (found.timestamp !== 0) return found;
       try {
         const block = await reader().getBlock({ blockNumber: found.blockNumber });
         return { ...found, timestamp: Number(block.timestamp) };
@@ -1347,17 +1401,21 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async findVaultWithdrawals({ fromBlock, to, amount }) {
       const vault = requireVault('findVaultWithdrawals');
       try {
-        const logs = await scanLogs<WithdrawnLog>(
-          {
-            address: vault as Hex,
-            abi: spvPaymentVaultAbi as Abi,
-            eventName: 'Withdrawn',
-            ...(to === undefined ? {} : { args: { to: normalizeEvmAddress(to) } }),
-          },
+        const events = await eventIndex.readEvents({
+          contract: vault,
+          eventNames: ['Withdrawn'],
           fromBlock,
-        );
-        return logs
-          .map(toVaultWithdrawal)
+          ...(to === undefined ? {} : { argEquals: { to: normalizeEvmAddress(to) } }),
+        });
+        return events
+          .map((event): VaultWithdrawal => ({
+            to: normalizeEvmAddress(String(event.args.to ?? '0x0000000000000000000000000000000000000000')),
+            amount: BigInt(String(event.args.amount ?? '0')),
+            operator: normalizeEvmAddress(String(event.args.operator ?? '0x0000000000000000000000000000000000000000')),
+            txHash: event.txHash,
+            blockNumber: event.blockNumber,
+            logIndex: event.logIndex,
+          }))
           .filter((event) => amount === undefined || event.amount === amount)
           .sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex);
       } catch (error) {
@@ -1388,29 +1446,23 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     async vaultConfigEvents(filter = {}) {
       const vaultAddress = findContractAddress(chain, 'SpvPaymentVault');
       if (!vaultAddress) return [];
-      const deployBlock = addressBook[chain]?.deployBlock;
-      const fromBlock = filter.fromBlock ?? (deployBlock === undefined ? undefined : BigInt(deployBlock));
-      if (fromBlock === undefined) {
-        throw new LedgerError(
-          chain,
-          'vaultConfigEvents',
-          'Thiếu block triển khai trong address book; không quét lịch sử cấu hình vault từ block 0.',
-        );
-      }
       try {
-        const logs = (await scanLogs(
-          { address: normalizeEvmAddress(vaultAddress) as Hex, abi: spvPaymentVaultAbi as Abi },
-          fromBlock,
-        )) as Array<{
-          eventName: string;
-          args: { mode?: number; amount?: bigint; bps?: bigint; pending?: boolean; wallet?: string };
-          transactionHash: Hex;
-          blockNumber: bigint;
-          logIndex: number;
-        }>;
+        const logs = await eventIndex.readEvents(
+          {
+            contract: normalizeEvmAddress(vaultAddress),
+            eventNames: ['LockModeChanged', 'FixedLockSet', 'PercentRateSet', 'PayoutWalletSet'],
+            fromBlock: filter.fromBlock,
+          },
+          true,
+        );
         const modes: VaultLockMode[] = ['UNSET', 'FIXED', 'PERCENT'];
-        const events = logs.flatMap((log): Array<Omit<VaultConfigEvent, 'timestamp'>> => {
-          const base = { txHash: log.transactionHash, blockNumber: log.blockNumber, logIndex: log.logIndex };
+        const events = logs.flatMap((log): VaultConfigEvent[] => {
+          const base = {
+            txHash: log.txHash,
+            blockNumber: log.blockNumber,
+            logIndex: log.logIndex,
+            timestamp: Number(log.blockTimestamp),
+          };
           switch (log.eventName) {
             case 'LockModeChanged':
               return [{ ...base, param: 'LOCK_MODE', value: modes[Number(log.args.mode)] ?? String(log.args.mode) }];
@@ -1419,17 +1471,13 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
             case 'PercentRateSet':
               return [{ ...base, param: log.args.pending ? 'PENDING_PERCENT_RATE' : 'PERCENT_RATE', value: String(log.args.bps ?? 0n) }];
             case 'PayoutWalletSet':
-              return [{ ...base, param: 'PAYOUT_WALLET', value: normalizeEvmAddress(log.args.wallet ?? '0x0000000000000000000000000000000000000000') }];
+              return [{ ...base, param: 'PAYOUT_WALLET', value: normalizeEvmAddress(String(log.args.wallet ?? '0x0000000000000000000000000000000000000000')) }];
             default:
               return [];
           }
         });
         events.sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.logIndex - b.logIndex);
-        const timestamps = new Map<bigint, number>();
-        for (const blockNumber of new Set(events.map((event) => event.blockNumber))) {
-          timestamps.set(blockNumber, Number((await reader().getBlock({ blockNumber })).timestamp));
-        }
-        return events.map((event) => ({ ...event, timestamp: timestamps.get(event.blockNumber) ?? 0 }));
+        return events;
       } catch (error) {
         return fail('vaultConfigEvents', error);
       }
@@ -1440,6 +1488,14 @@ export function createEvmLedger(chain: ChainKey, signer: ISigner): ILedgerPort {
     // =========================================================================
     async balanceOf(wallet) {
       return read<bigint>('balanceOf', 'balanceOf', [normalizeEvmAddress(wallet)]);
+    },
+
+    async listTokenWallets() {
+      try {
+        return await eventIndex.listTokenWallets();
+      } catch (error) {
+        return fail('listTokenWallets', error);
+      }
     },
 
     async tokenInfo(): Promise<TokenInfo> {

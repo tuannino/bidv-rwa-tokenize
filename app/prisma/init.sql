@@ -319,6 +319,36 @@ CREATE TABLE "RolePermission" (
     CONSTRAINT "RolePermission_pkey" PRIMARY KEY ("roleId","permissionId")
 );
 
+-- CreateTable
+CREATE TABLE "ChainEvent" (
+    "chain" TEXT NOT NULL,
+    "anchor" TEXT NOT NULL,
+    "contract" TEXT NOT NULL,
+    "eventName" TEXT NOT NULL,
+    "blockNumber" DECIMAL(78,0) NOT NULL,
+    "logIndex" INTEGER NOT NULL,
+    "txHash" TEXT NOT NULL,
+    "blockTimestamp" BIGINT NOT NULL,
+    "args" JSONB NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ChainEvent_pkey" PRIMARY KEY ("chain","anchor","txHash","logIndex")
+);
+
+-- CreateTable
+CREATE TABLE "IndexerCursor" (
+    "chain" TEXT NOT NULL,
+    "anchor" TEXT NOT NULL,
+    "vault" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "lastBlock" DECIMAL(78,0) NOT NULL,
+    "leaseUntil" TIMESTAMPTZ(3),
+    "leaseOwner" TEXT,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "IndexerCursor_pkey" PRIMARY KEY ("chain")
+);
+
 -- CreateIndex
 CREATE INDEX "Txn_chain_createdAt_idx" ON "Txn"("chain", "createdAt");
 
@@ -441,6 +471,9 @@ CREATE UNIQUE INDEX "ProfileWallet_chain_walletKey_key" ON "ProfileWallet"("chai
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_action_key" ON "Permission"("action");
+
+-- CreateIndex
+CREATE INDEX "ChainEvent_chain_anchor_contract_eventName_blockNumber_idx" ON "ChainEvent"("chain", "anchor", "contract", "eventName", "blockNumber");
 
 -- AddForeignKey
 ALTER TABLE "DistributionPayout" ADD CONSTRAINT "DistributionPayout_periodId_fkey" FOREIGN KEY ("periodId") REFERENCES "DistributionPeriod"("id") ON DELETE CASCADE ON UPDATE CASCADE;

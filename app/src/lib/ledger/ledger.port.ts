@@ -21,11 +21,21 @@ import type { ChainKey, TxResult, TxStatus } from '@bidv/shared';
  */
 export type { ChainKey, TxResult, TxStatus };
 
+/** IN-01: cùng trần với danh sách người nhận; lấy thêm một dòng để phát hiện bị cắt. */
+export const MAX_TOKEN_WALLETS = 5_000;
+
 export interface TokenInfo {
   name: string;
   symbol: string;
   decimals: number;
   totalSupply: bigint;
+}
+
+export interface TokenWalletList {
+  /** Mọi ví từng gửi/nhận WPT; giữ cả ví hiện có số dư 0 để đối chiếu snapshot cũ. */
+  wallets: Array<{ wallet: string; balance: bigint }>;
+  truncated: boolean;
+  asOfBlock: bigint | null;
 }
 
 /**
@@ -365,17 +375,12 @@ export type OrderSettlementLookup =
 //  4. CHỐT QUYỀN (SNAPSHOT)
 // =============================================================================
 /**
- * KHÔNG có method liệt kê người nắm giữ, và đây là quyết định có chủ đích.
+ * Không đọc danh sách ví bằng một lời gọi ERC-20: contract chỉ lưu số dư theo địa chỉ.
  *
  * ERC-20 chỉ lưu BẢNG SỐ DƯ theo địa chỉ, không lưu danh sách địa chỉ. Không có
- * lời gọi nào đọc ra danh sách người nắm giữ từ chuỗi. Danh sách ví cần chia lợi
- * nhuận / cần tất toán lấy từ CƠ SỞ DỮ LIỆU (bảng lệnh mua đã hoàn tất, bảng vị
- * thế nhà đầu tư), về sau từ Indexer (IN-02). BE-05/BE-06 dựng danh sách đó rồi
- * truyền vào `distributeBatch`.
- *
- * Đừng thêm `holdersAt` rồi hiện thực bằng cách quét sự kiện trong adapter: quét
- * sự kiện là việc của Indexer, làm trong adapter sẽ chậm, không phân trang được,
- * và sai ngay khi RPC giới hạn khoảng block.
+ * IN-01 thêm `listTokenWallets` qua Indexer bền: adapter không quét lại từ block
+ * triển khai ở mỗi lần gọi. Danh sách giữ mọi ví từng xuất hiện trong Transfer,
+ * kể cả số dư hiện tại bằng 0, để không bỏ ví còn quyền tại snapshot cũ.
  */
 export interface ILedgerSnapshot {
   /** Chốt quyền tại thời điểm gọi. Mã snapshot đọc từ sự kiện contract phát ra. */
@@ -466,6 +471,7 @@ export interface ILedgerSettlement {
 // =============================================================================
 export interface ILedgerRead {
   balanceOf(wallet: string): Promise<bigint>;
+  listTokenWallets(): Promise<TokenWalletList>;
   tokenInfo(): Promise<TokenInfo>;
   waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult>;
   /**

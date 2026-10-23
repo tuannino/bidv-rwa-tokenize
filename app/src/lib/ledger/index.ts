@@ -6,6 +6,7 @@ import { serverEnv } from '@/lib/config/env';
 import { getBankSigner } from '@/lib/signer';
 import type { ISigner } from '@/lib/signer';
 import { readIssuePriceVnd } from '@/lib/store/config-values';
+import { getChainEventStore } from '@/lib/store';
 import { createEvmLedger } from './evm.adapter';
 import { memoryMockLedgerStateStore } from './mock-state.store';
 import { createMockLedger } from './mock.adapter';
@@ -15,6 +16,7 @@ import type { ILedgerPort } from './ledger.port';
 
 export {
   DEFAULT_RECEIPT_TIMEOUT_MS,
+  MAX_TOKEN_WALLETS,
   EVM_RECEIPT_TIMEOUT_MS,
   receiptTimeoutFor,
   LedgerError,
@@ -35,6 +37,7 @@ export {
   type SettlementPermit,
   type SnapshotResult,
   type TokenInfo,
+  type TokenWalletList,
   type TransferCheck,
   type VaultConfigEvent,
   type VaultConfigParam,
@@ -90,7 +93,7 @@ export function getLedger(chain: ChainKey, signer: ISigner = getBankSigner(chain
         readOperator: () => signer.getAddress(),
       });
     case 'evm':
-      return createEvmLedger(chain, signer);
+      return createEvmLedger(chain, signer, { eventStore: getChainEventStore() });
     case 'stellar':
       return createStellarLedger(chain);
   }
