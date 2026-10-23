@@ -39,8 +39,7 @@ yarn-debug.log*
 .kiro/specs/*/tasks.meta.json
 # other
 BIDV_RWA_Analysis.docx
-.claude/*
-!.claude/skills/
+.claude
 
 # ─────────────────────────────────────────────────────────────────────
 # CỐ TÌNH COMMIT (dù là file sinh ra):
@@ -50,6 +49,3 @@ BIDV_RWA_Analysis.docx
 #                                           ABI tối giản với ABI thật; thiếu file này test đỏ.
 #   app/prisma/init.sql                   — DDL sinh từ schema.prisma, postgres.store đọc lúc chạy.
 # ─────────────────────────────────────────────────────────────────────
-
-# taste-skill working files
-.taste-skill/
