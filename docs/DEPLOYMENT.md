@@ -158,6 +158,29 @@ Lược đồ và seed tự áp. Hyperdrive trên Workers Free giới hạn **10
 mỗi `SELECT`, `INSERT`, `UPDATE`, `DELETE` và DDL đều được tính. Nguồn:
 [Cloudflare pricing](https://developers.cloudflare.com/hyperdrive/platform/pricing/).
 
+#### Sự cố Indexer: dựng lại cache sự kiện (IN-01)
+
+`ChainEvent` và `IndexerCursor` chỉ là cache có thể dựng lại từ RPC. Chỉ dùng quy trình này khi
+phát hiện reorg sâu hơn `INDEXER_CONFIRMATIONS`, scope sai, hoặc dữ liệu cache không khớp chuỗi.
+Đây là thao tác production có thể làm lượt đọc đầu chậm và tăng tải RPC: **phải có Sếp quyết định
+trước khi chạy**.
+
+1. Xác định đúng `chain`; tạm tránh mở đồng thời các màn đọc lịch sử trên chain đó.
+2. Sao lưu hoặc ghi lại số dòng và cursor hiện tại để điều tra.
+3. Trong một transaction, xoá cache của đúng chain — không đụng bảng nghiệp vụ:
+
+   ```sql
+   BEGIN;
+   DELETE FROM "ChainEvent" WHERE "chain" = '<chain>';
+   DELETE FROM "IndexerCursor" WHERE "chain" = '<chain>';
+   COMMIT;
+   ```
+
+4. Mở `/vault` ba lần trên đúng chain. Mỗi lượt đẩy cursor tối đa
+   `INDEXER_MAX_BLOCKS_PER_SYNC`; trong lúc chưa bắt kịp, kết quả vẫn đọc đủ trực tiếp từ RPC.
+5. Kiểm `IndexerCursor.lastBlock`, lịch sử cấu hình/chốt kỳ và nhật ký lỗi RPC. Không chỉnh tay
+   cursor hoặc giữ một phần `ChainEvent`: cả hai bảng phải cùng một scope `(anchor, vault, token)`.
+
 #### Đọc-sau-ghi và cache Hyperdrive (bắt buộc)
 
 Ứng dụng dùng dữ liệu quyền, maker-checker và trạng thái chain mock vừa ghi xong ở request kế tiếp,

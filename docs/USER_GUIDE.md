@@ -63,6 +63,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Bộ hợp đồng Sepolia hiện hành | 9 hợp đồng, triển khai 21/10/2026, block 11959727 (ProjectToken `0x257E…05D7`, vault `0x0da9…6861`, OrderSettlement `0x6D98…fD27`) | OP-05 PR B (#64) | Đã chạy |
 | Database và Hyperdrive | Neon vùng Singapore (`ap-southeast-1`), database `rwa-bid-vault`; Hyperdrive tắt cache | OP-05, chốt 21/10 | Đã chạy |
 | RPC | Ghi và đọc trạng thái qua `RPC_EVM` (Alchemy). Đọc sự kiện qua `RPC_EVM_LOGS`, mặc định RPC công khai publicnode, quét theo đoạn 10.000 block | HF-03, HF-04 | Đã chạy |
+| Indexer sự kiện | Lịch sử sự kiện vault và danh sách mọi ví từng gửi/nhận WPT lấy từ Indexer; số dư, giá và trạng thái hiện tại vẫn đọc trực tiếp từ chuỗi | IN-01 | Đã chạy |
 | Chain mock dùng chung database | Trạng thái chain mock lưu Postgres một dòng mỗi chain, hai trình duyệt thấy như nhau | OP-07 | Đã chạy |
 | Stellar | Tạm dừng ở khâu kiểm chứng | OP-01 | Hoãn |
 
@@ -1717,6 +1718,8 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | L-26 | `/`, `/audit` | Nút "Phát hành WPT" ở Bảng điều khiển dẫn tới `/mint`; câu trống ở `/audit` vẫn bảo thử phát hành ở `/mint`. Từ FE-22 phát hành chính thức là `/draft` | Thấp | FE-28 (đề xuất) |
 | L-27 | `/reconciliation` | Thẻ báo 6 kỳ khớp trong khi bảng 0 kỳ | Thấp | Khi làm màn đối soát thật |
 | L-28 | `/demo-payment` | Chú thích cờ `ENABLE_DEMO_PAYMENT_MINT` ghi "mặc định tắt" ở `permissions.ts:437`, thực tế mặc định bật | Thấp | FE-28 (đề xuất) |
+| L-92 | Lịch sử sự kiện EVM | Indexer giữ sự kiện đã đủ 12 block xác nhận; reorg sâu hơn mốc này có thể để lại sự kiện của nhánh bị bỏ trong cache | Cao | Dựng lại Indexer theo `DEPLOYMENT.md`; chỉ thực hiện khi Sếp quyết |
+| L-93 | `/vault`, `/distribution`, `/seller/withdraw` | Lần mở đầu sau khi triển khai hoặc dựng lại có thể chậm trong lúc Indexer bắt kịp; kết quả vẫn đủ vì phần chưa lưu được đọc trực tiếp | Vừa | Làm nóng bằng cách mở `/vault` ba lần; về sau bổ sung đồng bộ theo lịch |
 
 ### C.2. Lệch nhỏ theo từng màn
 
@@ -1796,4 +1799,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 21/10/2026 | `24f3b7c` | Giám sát (Claude) | Bản đầu: Phần 1 tới Phần 3, Phụ lục A, B, C. Dựng từ đọc mã và kết quả OP-05 trên Sepolia |
 | 22/10/2026 | `8359009` | Dev (Claude) | HF-05: tệp vào repo. Sửa L-13 (giao dịch phát hành, huỷ chưa có biên nhận giữ Đang thực hiện; nút Đối soát ở `/approvals/[id]`), L-20 (`/distribution` hiện số đã duyệt `approvedAmount`), L-91 (lệnh mua bán chưa có biên nhận, tra chuỗi chưa thấy `OrderSettled`: giữ Đang quyết toán, không ghi Thất bại; áp cả gửi lần đầu và đối soát ở `/transactions`). Sửa mục 3.4.4, 3.5.2, Phần 2, Phụ lục A.2, C |
 | 23/10/2026 | `61cdbae` | Dev (Claude) | FE-07: màn `/config` "Giá và phát hành" (mục 3.5.3 mới); đổi giá chờ xác nhận chuỗi, chặn khi còn lệnh đang xử lý, lý do bắt buộc. Sửa L-02 (một nguồn giá cho màn khách hàng: `/portfolio`, `/trade`, `/seller`, `/seller/withdraw`, `/tokens/[symbol]`). Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1, 3.2, 3.5.3; Phụ lục B, C |
-
+| 24/10/2026 | `feat/in-01-indexer` | Codex | IN-01: thêm Indexer làm nguồn lịch sử vault và danh sách ví WPT; ghi giới hạn reorg sâu và thời gian bắt kịp lần đầu ở L-92, L-93 |
