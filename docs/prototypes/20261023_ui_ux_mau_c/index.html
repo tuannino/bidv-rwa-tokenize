@@ -9,7 +9,8 @@
 <link rel="stylesheet" href="assets/c.css">
 <style>
   .lp { max-width: 1320px; margin: 0 auto; padding: 32px 24px 56px; display: grid; gap: 16px; }
-  .lp-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; min-height: 220px; }
+  .lp-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; min-height: 300px; padding: 40px; }
+  .lp-hero .lp-scene { height: 78%; opacity: .55 !important; left: 38%; }
   .lp-hero h1 { font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; max-width: 22ch; }
   .lp-hero p { margin-top: 10px; color: rgba(255,255,255,.8); max-width: 62ch; }
   .lp-hero .farm { display: flex; align-items: flex-end; gap: 6px; height: 160px; }
@@ -34,12 +35,13 @@
     <button class="iconbtn" type="button" id="lp-theme" aria-label="Đổi giao diện sáng tối"></button>
   </div>
 
-  <section class="card hero lp-hero rise">
+  <section class="card hero lp-hero">
+    <div class="scene-wrap lp-scene" data-scene="onDark" data-turbines="9"></div>
     <div>
-      <h1>Bản xem thử giao diện mẫu C cho BIDV RWA</h1>
-      <p>Chọn một vai rồi bấm vào trang để xem. Đây là giao diện tĩnh, dữ liệu mẫu, không có chức năng thật. Trong mỗi trang có thể đổi vai bằng dropdown Vai trò và đổi Sáng, Tối ở nút tròn trên cùng.</p>
+      <h1>Gió hoá dòng tiền: bản xem thử giao diện BIDV RWA</h1>
+      <p>Chọn một vai rồi bấm vào trang để xem. Giao diện tĩnh, dữ liệu mẫu, không có chức năng thật. Trong mỗi trang có thể đổi vai bằng dropdown Vai trò và đổi Sáng, Tối ở nút tròn trên cùng.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px"><button class="play" type="button" data-video="M52hkUDVe5w"><span class="pi"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></span>Xem video giới thiệu</button></div>
     </div>
-    <div class="farm" aria-hidden="true"><span data-turbine="#e8f3ec" data-speed="slow"></span><span data-turbine="#ffffff"></span><span data-turbine="#e8f3ec" data-speed="fast"></span></div>
   </section>
 
   <div class="launch">

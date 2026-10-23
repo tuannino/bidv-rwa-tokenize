@@ -79,12 +79,46 @@
   const nf = (v, d = 0) => Number(v).toLocaleString('vi-VN', { minimumFractionDigits: d, maximumFractionDigits: d });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+
+  // ===== Minh hoạ SVG tự vẽ (tạm thay ảnh thật, chủ dự án sẽ thay) =====
+  // Cánh đồng gió ven biển: đồi, biển, mặt trời, hàng tua-bin quay ở nhiều độ xa, luồng gió chạy.
+  const scene = ({ tone = 'onDark', turbines = 7, sun = true, sea = true, wind = true } = {}) => {
+    const ink = tone === 'onDark' ? '#ffffff' : 'var(--g600)';
+    const T = [];
+    const seed = [[.08, .78, .34, .45], [.2, .7, .5, .6], [.34, .76, .4, .5], [.5, .66, .62, .8], [.63, .74, .44, .55], [.76, .64, .7, .9], [.9, .72, .5, .65], [.43, .8, .3, .38], [.97, .78, .36, .45]].slice(0, turbines);
+    seed.forEach(([x, by, h, op], i) => {
+      const X = x * 800, B = by * 300, H = h * 300, R = H * .42, s = [7, 5.5, 9, 4.6, 6.4, 3.8, 5, 8, 6.8][i];
+      T.push(`<g opacity="${op}"><path d="M${X - 2.2} ${B} L${X - .9} ${B - H} L${X + .9} ${B - H} L${X + 2.2} ${B}Z" fill="${ink}"/><g style="transform-origin:${X}px ${B - H}px;animation:spin ${s}s linear infinite ${-i}s"><path d="M${X} ${B - H} L${X - 2} ${B - H - R} L${X + 2.4} ${B - H - R * .92}Z" fill="${ink}"/><path d="M${X} ${B - H} L${X + R * .86} ${B - H + R * .5} L${X + R * .78} ${B - H + R * .56 + 3}Z" fill="${ink}"/><path d="M${X} ${B - H} L${X - R * .86} ${B - H + R * .5} L${X - R * .8} ${B - H + R * .46 - 3}Z" fill="${ink}"/></g><circle cx="${X}" cy="${B - H}" r="3" fill="#e0b44a"/></g>`);
+    });
+    const streaks = wind ? [60, 110, 150, 205].map((y, i) => `<path class="streak" style="animation-delay:${-i * 1.7}s" d="M-40 ${y} C 160 ${y - 26}, 320 ${y + 22}, 520 ${y - 6} S 760 ${y - 24}, 860 ${y}" fill="none" stroke="${tone === 'onDark' ? 'rgba(255,255,255,.45)' : 'rgba(26,107,60,.35)'}" stroke-width="1.4" stroke-linecap="round"/>`).join('') : '';
+    return `<svg class="scene" viewBox="0 0 800 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      ${sun ? `<circle cx="660" cy="86" r="70" fill="#e0b44a" opacity=".16"/><circle cx="660" cy="86" r="34" fill="#efd28a" opacity=".55"/>` : ''}
+      <path d="M0 230 C 120 190, 230 214, 340 196 S 560 176, 660 198 S 760 214, 800 204 V300 H0Z" fill="${ink}" opacity="${tone === 'onDark' ? .08 : .06}"/>
+      ${T.join('')}
+      <path d="M0 252 C 140 232, 260 250, 400 238 S 650 222, 800 242 V300 H0Z" fill="${ink}" opacity="${tone === 'onDark' ? .12 : .08}"/>
+      ${sea ? `<g class="sea" opacity="${tone === 'onDark' ? .35 : .25}"><path d="M30 276 h90 M170 284 h120 M360 278 h70 M480 288 h110 M640 280 h90" stroke="${ink}" stroke-width="2" stroke-linecap="round"/></g>` : ''}
+      ${streaks}
+    </svg>`;
+  };
+  // Cột đồng xu VNDB: đồng xu rơi lần lượt, đồng trên cùng có chữ V.
+  const coins = (n = 5) => {
+    let g = '';
+    for (let i = 0; i < n; i++) {
+      const y = 150 - i * 15;
+      g += `<g class="coin" style="animation-delay:${.15 + i * .12}s"><ellipse cx="80" cy="${y + 6}" rx="46" ry="14" fill="#8a6406"/><rect x="34" y="${y - 6}" width="92" height="12" fill="#b07f0b"/><ellipse cx="80" cy="${y - 6}" rx="46" ry="14" fill="url(#cg)"/><ellipse cx="80" cy="${y - 6}" rx="34" ry="9.5" fill="none" stroke="#fff3c9" stroke-opacity=".55" stroke-width="1.5"/></g>`;
+    }
+    const top = 150 - (n - 1) * 15 - 6;
+    return `<svg class="coins" viewBox="0 0 160 190" aria-hidden="true"><defs><linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="#f5d27a"/><stop offset=".55" stop-color="#e0b44a"/><stop offset="1" stop-color="#c9971c"/></linearGradient></defs>${g}<text class="coin" style="animation-delay:${.15 + (n - 1) * .12}s" x="80" y="${top + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="#6e4b00" font-family="Be Vietnam Pro, sans-serif">VNDB</text><g class="spark"><path d="M128 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="#fff6d6"/><path d="M28 70 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff6d6"/></g></svg>`;
+  };
+  // Huy hiệu token WPT: lục giác xanh có tua-bin.
+  const emblem = () => `<svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ba366"/><stop offset="1" stop-color="#0f4d2b"/></linearGradient></defs><path d="M32 3 57 17.5v29L32 61 7 46.5v-29Z" fill="url(#eg)"/><path d="M32 7.5 53 19.7v24.6L32 56.5 11 44.3V19.7Z" fill="none" stroke="#e0b44a" stroke-opacity=".7"/><rect x="31" y="30" width="2" height="18" rx="1" fill="#fff" opacity=".8"/><g style="transform-origin:32px 30px;animation:spin 5s linear infinite"><path d="M32 30 31 14 33 30Z M32 30 46 38 31.5 31Z M32 30 18 38 32.5 31Z" fill="#fff"/></g><circle cx="32" cy="30" r="2.6" fill="#e0b44a"/></svg>`;
+
   // ===== Vai và menu: đúng nav-config.ts =====
   const ROLES = {
-    investor: { label: 'Nhà đầu tư', code: 'NDT001', key: 'INVESTOR', home: 'portfolio.html' },
-    seller: { label: 'Người bán', code: 'NB001', key: 'SELLER', home: 'seller.html' },
-    teller: { label: 'Giao dịch viên', code: 'GDV001', key: 'TELLER', home: 'dashboard.html' },
-    controller: { label: 'Kiểm soát viên', code: 'KSV001', key: 'CONTROLLER', home: 'dashboard.html' },
+    investor: { label: 'Nhà đầu tư', code: 'NDT001', key: 'INVESTOR', home: 'portfolio.html', mood: 'view' },
+    seller: { label: 'Người bán', code: 'NB001', key: 'SELLER', home: 'seller.html', mood: 'plant' },
+    teller: { label: 'Giao dịch viên', code: 'GDV001', key: 'TELLER', home: 'dashboard.html', mood: 'control' },
+    controller: { label: 'Kiểm soát viên', code: 'KSV001', key: 'CONTROLLER', home: 'dashboard.html', mood: 'control' },
   };
   const PENDING = { draft: 2, approval: 2 };
   const NAV = {
@@ -100,61 +134,90 @@
       { g: 'Tài khoản', items: [['account.html', 'Thông tin tài khoản', 'usercog', 'T']] },
     ],
   };
-  const CHAINS = [['mock', 'Mock (không cần chain)'], ['hardhat-local', 'Hardhat Local'], ['evm', 'EVM Testnet (Sepolia)'], ['stellar', 'Stellar (Soroban), chưa dùng được', true]];
+  const CHAINS = [['mock', 'Mock (không cần chain)', 'Mock'], ['hardhat-local', 'Hardhat Local', 'Hardhat Local'], ['evm', 'EVM Testnet (Sepolia)', 'Sepolia'], ['stellar', 'Stellar (Soroban), chưa dùng được', 'Stellar', true]];
 
   const body = document.body;
   const allowed = (body.dataset.roles || 'teller').split(',');
   const q = new URLSearchParams(location.search);
   const role = allowed.includes(q.get('role')) ? q.get('role') : allowed[0];
+  body.dataset.mood = ROLES[role].mood;
   let chain = 'mock';
   try { chain = localStorage.getItem('bidv-chain') || 'mock'; } catch {}
   const withRole = (href, r = role) => `${href}?role=${r}`;
 
   const LOGO = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#1a6b3c"/><circle cx="20" cy="20" r="15" fill="none" stroke="#b8860b" stroke-width="1.5"/><path d="M13 12h7.5c2.5 0 4 1.2 4 3.2 0 1.4-.8 2.4-2 2.9 1.6.4 2.6 1.6 2.6 3.2C25.1 23.8 23.4 25 20.5 25H13V12zm3 5.2h3.8c1.1 0 1.8-.5 1.8-1.5s-.7-1.5-1.8-1.5H16v3zm0 5.6h4.2c1.2 0 2-.6 2-1.6s-.8-1.6-2-1.6H16v3.2z" fill="#fff"/><rect x="10" y="31" width="20" height="2.5" rx="1.25" fill="#b8860b"/></svg>';
 
+  // Nền chung: quầng sáng lục vàng trôi chậm và đường gió mảnh.
+  const bg = document.createElement('div');
+  bg.className = 'bgfx';
+  bg.setAttribute('aria-hidden', 'true');
+  bg.innerHTML = '<i></i><i></i><i></i><svg viewBox="0 0 1440 900" preserveAspectRatio="none"><path d="M-60 180 C 260 120, 520 240, 820 170 S 1300 110, 1500 190"/><path d="M-60 420 C 300 360, 600 480, 900 410 S 1320 350, 1500 430"/><path d="M-60 700 C 280 640, 560 760, 880 690 S 1300 630, 1500 710"/></svg>';
+  body.prepend(bg);
+
   const content = document.querySelector('main.content');
   if (content) {
-    const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(([href, label, ic, k, pend]) => {
+    try { if (localStorage.getItem('bidv-rail') === '1') body.classList.add('rail'); } catch {}
+    const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp"><span>${grp.g}</span></div>` : ''}${grp.items.map(([href, label, ic, k, pend]) => {
       const on = (body.dataset.nav || '') === href;
       const c = pend ? PENDING[pend] : null;
-      return `<a href="${withRole(href)}"${on ? ' aria-current="page"' : ''}>${icon(ic)}<span class="lbl">${label}</span>${c != null ? `<span class="cnt${c > 0 ? ' on' : ''}" aria-label="${c} việc đang chờ">${c}</span>` : ''}<span class="kbd">${k}</span></a>`;
+      return `<a href="${withRole(href)}" title="${label}"${on ? ' aria-current="page"' : ''}><span class="ni">${icon(ic)}</span><span class="lbl">${label}</span>${c != null ? `<span class="cnt${c > 0 ? ' on' : ''}" aria-label="${c} việc đang chờ">${c}</span>` : ''}<span class="kbd">${k}</span></a>`;
     }).join('')}`).join('');
     const crumbs = (body.dataset.crumbs || '').split('|').filter(Boolean);
+    const ch = CHAINS.find(([v]) => v === chain) || CHAINS[0];
     const shell = document.createElement('div');
     shell.className = 'shell';
     shell.innerHTML = `
       <aside class="sb" id="sb" aria-label="Điều hướng">
-        <a class="logo" href="index.html">${LOGO}<div><b>BIDV<span>RWA</span></b><small>Điện gió</small></div></a>
-        <nav class="nav">${navHtml}</nav>
-        <div class="net" title="Trạng thái mạng"><span class="pulse" aria-hidden="true"><i></i><i></i></span><div><b id="net-chain"></b><small id="net-sub"></small></div></div>
+        <div class="sb-top">
+          <a class="logo" href="index.html">${LOGO}<div><b>BIDV<span>RWA</span></b><small>Điện gió</small></div></a>
+          <button class="rail-btn" type="button" id="rail" aria-label="Thu gọn hoặc mở rộng menu" title="Thu gọn menu">${icon('chevr')}</button>
+        </div>
+        <nav class="nav" id="nav"><span class="glide act" aria-hidden="true"></span><span class="glide hov" aria-hidden="true"></span>${navHtml}</nav>
+        <div class="sb-farm" aria-hidden="true">${scene({ tone: 'onLight', turbines: 5, sun: false, sea: false })}</div>
+        <div class="net" title="Trạng thái mạng"><span class="pulse" aria-hidden="true"><i></i><i></i></span><div class="nt"><b id="net-chain"></b><small id="net-sub"></small></div></div>
       </aside>
       <div class="main">
-        <header class="topbar">
+        <header class="topbar" id="topbar">
           <button class="iconbtn menu-btn" type="button" id="menu" aria-controls="sb" aria-expanded="false" aria-label="Mở menu">${icon('menu')}</button>
-          <nav class="crumb" aria-label="Đường dẫn">${crumbs.map((c, i) => (i === crumbs.length - 1 ? `<b>${c}</b>` : `<span>${c}</span>${icon('chevr', 'sep')}`)).join('')}</nav>
+          <nav class="crumb" aria-label="Đường dẫn"><span class="home">${turbine('#ffffff')}</span>${crumbs.map((c, i) => (i === crumbs.length - 1 ? `<b title="${c}">${c}</b>` : `<span class="c">${c}</span>${icon('chevr', 'sep')}`)).join('')}</nav>
           <div class="tb-right">
-            <label class="dd" title="Chọn chain">${icon('link')}<span class="k">Chain</span><select id="chain" aria-label="Chain">${CHAINS.map(([v, l, dis]) => `<option value="${v}"${v === chain ? ' selected' : ''}${dis ? ' disabled' : ''}>${l}</option>`).join('')}</select>${icon('chev', 'chev')}</label>
-            <label class="dd" title="Chọn vai trò">${icon('user')}<span class="k">Vai trò</span><select id="role" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === role ? ' selected' : ''}>${r.label} (${r.code})</option>`).join('')}</select>${icon('chev', 'chev')}</label>
-            <button class="iconbtn" type="button" id="theme" aria-label="Đổi giao diện sáng tối"></button>
-            <button class="btn gold" type="button">${icon('wallet')}Kết nối ví</button>
+            <label class="dd" title="Chọn chain"><span class="di">${icon('link')}</span><span class="dt"><small>Chain</small><b id="chain-v">${ch[2]}</b></span>${icon('chev', 'chev')}<select id="chain" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<option value="${v}"${v === chain ? ' selected' : ''}${dis ? ' disabled' : ''}>${l}</option>`).join('')}</select></label>
+            <label class="dd" title="Chọn vai trò"><span class="di">${icon('user')}</span><span class="dt"><small>Vai trò, ${ROLES[role].code}</small><b>${ROLES[role].label}</b></span>${icon('chev', 'chev')}<select id="role" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === role ? ' selected' : ''}>${r.label} (${r.code})</option>`).join('')}</select></label>
+            <button class="iconbtn theme" type="button" id="theme" aria-label="Đổi giao diện sáng tối">${icon('sun', 'i-sun')}${icon('moon', 'i-moon')}</button>
+            <button class="btn gold wallet-btn" type="button">${icon('wallet')}<span>Kết nối ví</span></button>
           </div>
         </header>
+        <div class="gust" aria-hidden="true"><svg viewBox="0 0 1200 400" preserveAspectRatio="none"><path d="M-100 120 C 200 60, 500 180, 800 110 S 1150 60, 1300 130"/><path d="M-100 220 C 260 170, 560 280, 860 210 S 1180 160, 1300 230"/><path d="M-100 320 C 220 270, 520 370, 820 310 S 1160 270, 1300 330"/></svg></div>
       </div>`;
     content.replaceWith(shell);
     shell.querySelector('.main').appendChild(content);
 
-    const syncNet = () => { const c = CHAINS.find(([v]) => v === chain); document.getElementById('net-chain').textContent = c[1]; document.getElementById('net-sub').textContent = `${chain}, vai trò ${ROLES[role].key}`; };
+    const syncNet = () => { const c = CHAINS.find(([v]) => v === chain); document.getElementById('net-chain').textContent = c[1]; document.getElementById('net-sub').textContent = `${chain}, vai trò ${ROLES[role].key}`; document.getElementById('chain-v').textContent = c[2]; };
     syncNet();
     document.getElementById('chain').addEventListener('change', (e) => { chain = e.target.value; try { localStorage.setItem('bidv-chain', chain); } catch {} syncNet(); document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); });
     document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; });
     document.getElementById('role').addEventListener('change', (e) => { location.href = withRole(ROLES[e.target.value].home, e.target.value); });
-    const themeBtn = document.getElementById('theme');
-    const paint = () => { themeBtn.innerHTML = icon(root.dataset.theme === 'dark' ? 'sun' : 'moon'); };
-    paint();
-    themeBtn.addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', root.dataset.theme); } catch {} paint(); charts.forEach((f) => f(false)); });
+    document.getElementById('theme').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', root.dataset.theme); } catch {} charts.forEach((f) => f(false)); });
     const sb = document.getElementById('sb'), menu = document.getElementById('menu');
     menu.addEventListener('click', () => { const o = sb.classList.toggle('open'); menu.setAttribute('aria-expanded', String(o)); });
     document.addEventListener('click', (e) => { if (sb.classList.contains('open') && !sb.contains(e.target) && !menu.contains(e.target)) { sb.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); } });
+
+    // Menu: một viên nang đánh dấu mục đang mở, một viên nang mờ trượt theo chuột như cơn gió.
+    const nav = document.getElementById('nav'), act = nav.querySelector('.glide.act'), hov = nav.querySelector('.glide.hov');
+    const place = (g, a) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; g.style.transform = `translateY(${a.offsetTop}px)`; g.style.height = `${a.offsetHeight}px`; };
+    const cur = nav.querySelector('a[aria-current]');
+    const settle = () => { place(act, cur); };
+    act.classList.add('instant'); settle(); requestAnimationFrame(() => act.classList.remove('instant'));
+    nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { place(hov, a); hov.classList.toggle('on-act', a === cur); }));
+    nav.addEventListener('mouseleave', () => { hov.style.opacity = 0; });
+    document.getElementById('rail').addEventListener('click', () => { body.classList.toggle('rail'); try { localStorage.setItem('bidv-rail', body.classList.contains('rail') ? '1' : '0'); } catch {} setTimeout(settle, 380); });
+    addEventListener('resize', settle);
+    document.fonts?.ready.then(settle);
+
+    // Thanh trên: nổi lên khi cuộn.
+    const tb = document.getElementById('topbar');
+    const onScroll = () => tb.classList.toggle('scrolled', scrollY > 8);
+    addEventListener('scroll', onScroll, { passive: true }); onScroll();
   }
 
   // Liên kết nội bộ giữ vai đang xem.
@@ -163,9 +226,12 @@
   document.addEventListener('click', (e) => { const a = e.target.closest('a[href="#"]'); if (a) e.preventDefault(); });
   document.querySelectorAll('form').forEach((f) => f.addEventListener('submit', (e) => e.preventDefault()));
 
-  // ===== Thay biểu tượng và tua-bin khai báo trong HTML =====
+  // ===== Thay biểu tượng, tua-bin, minh hoạ khai báo trong HTML =====
   document.querySelectorAll('[data-icon]').forEach((n) => { n.outerHTML = icon(n.dataset.icon, n.className); });
   document.querySelectorAll('[data-turbine]').forEach((n) => { n.innerHTML = turbine(n.dataset.turbine || 'currentColor', n.dataset.speed || ''); });
+  document.querySelectorAll('[data-scene]').forEach((n) => { n.innerHTML = scene({ tone: n.dataset.scene || 'onDark', turbines: +(n.dataset.turbines || 7), sun: n.dataset.sun !== 'no', sea: n.dataset.sea !== 'no' }); });
+  document.querySelectorAll('[data-coins]').forEach((n) => { n.innerHTML = coins(+(n.dataset.coins || 5)); });
+  document.querySelectorAll('[data-emblem]').forEach((n) => { n.innerHTML = emblem(); });
   document.querySelectorAll('.gauge[data-value]').forEach((g) => {
     const C = 2 * Math.PI * 34, v = +g.dataset.value;
     g.setAttribute('role', 'img'); g.setAttribute('aria-label', `${g.dataset.label || ''} ${nf(v, 1)}%`);
@@ -177,25 +243,85 @@
     const b = e.target.closest('button'); if (!b || !g.contains(b)) return;
     const attr = g.classList.contains('tabs') ? 'aria-selected' : 'aria-pressed';
     g.querySelectorAll('button').forEach((x) => x.setAttribute(attr, String(x === b)));
-    if (b.dataset.show) { document.querySelectorAll(`[data-panel-group="${g.dataset.group}"]`).forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.show; }); }
+    if (b.dataset.show) { document.querySelectorAll(`[data-panel-group="${g.dataset.group}"]`).forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.show; reveal(p, 0); }); }
   }));
 
-  // ===== Hiệu ứng xuất hiện lần lượt, số đếm lên, thanh và vòng đo =====
-  if (content) [...content.children].forEach((n, i) => { n.classList.add('rise'); n.style.animationDelay = `${Math.min(0.6, 0.05 + i * 0.06)}s`; });
-  document.querySelectorAll('[data-count]').forEach((el) => {
+  // Video giới thiệu: mở trình phát trong hộp nổi.
+  document.querySelectorAll('[data-video]').forEach((b) => b.addEventListener('click', () => {
+    const d = document.createElement('div');
+    d.className = 'vmodal';
+    d.innerHTML = `<div class="vbox" role="dialog" aria-label="Video giới thiệu"><button class="iconbtn vclose" type="button" aria-label="Đóng">${icon('x')}</button><div class="vframe"><iframe src="https://www.youtube-nocookie.com/embed/${b.dataset.video}?autoplay=1&rel=0&modestbranding=1" title="Video giới thiệu dự án điện gió" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><div class="vfoot"><span>Video tạm để thử giao diện, sẽ thay bằng video chính thức.</span><a href="https://www.youtube.com/watch?v=${b.dataset.video}" target="_blank" rel="noopener">Không xem được? Mở trên YouTube</a></div></div>`;
+    const close = () => { d.classList.add('out'); setTimeout(() => d.remove(), 300); };
+    d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('.vclose')) close(); });
+    addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); removeEventListener('keydown', esc); } });
+    body.appendChild(d);
+  }));
+
+  // ===== Biên đạo chuyển động "theo hướng gió" =====
+  // Mỗi loại khối có kiểu vào riêng; khối chỉ chạy khi cuộn tới; trong cùng một đợt, khối bên trái
+  // và phía trên tới trước như một cơn gió lướt qua hàng tua-bin; hàng trong bảng, danh sách đi sau khối.
+  const kindOf = (n) => (n.matches('.pagehead') ? 'title'
+    : n.matches('.kpi.hl, .kpi.au, .card.hero') ? 'unveil'
+    : n.matches('.kpi') ? 'gust'
+    : n.matches('.alert') ? 'slide'
+    : 'lift');
+  const countUp = (el) => {
     const to = +el.dataset.count, d = +(el.dataset.d || 0);
     if (reduce) { el.textContent = nf(to, d); return; }
-    el.textContent = nf(0, d);
-    const t0 = performance.now() + 150, dur = 1400;
-    const step = (t) => { const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 4); el.textContent = nf(to * e, d); if (k < 1) requestAnimationFrame(step); };
+    const t0 = performance.now(), dur = 1700;
+    const step = (t) => { const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 5); el.textContent = nf(to * e, d); if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
+  };
+  const fill = (scope) => {
+    scope.querySelectorAll('.bar i[data-w]').forEach((b) => { b.style.width = `${b.dataset.w}%`; });
+    scope.querySelectorAll('.gauge .arc').forEach((a) => { a.style.strokeDashoffset = a.dataset.off; });
+    scope.querySelectorAll('[data-count]').forEach((c) => { if (!c._done) { c._done = 1; countUp(c); } });
+    scope.querySelectorAll('.chart').forEach((c) => c._go?.());
+  };
+  const KIDS = '.tbl tbody tr, .kv > div, .list > *, .checks li, .timeline li, .steps li, .kv-grid > div';
+  function reveal(n, delay) {
+    if (n._shown) return; n._shown = 1;
+    if (reduce) { n.classList.remove('pre'); fill(n); return; }
+    n.style.setProperty('--d', `${delay}s`);
+    n.classList.add('in', `in-${kindOf(n)}`);
+    n.classList.remove('pre');
+    [...n.querySelectorAll(KIDS)].slice(0, 16).forEach((k, i) => { k.classList.add('kid'); k.style.setProperty('--d', `${delay + .35 + i * .055}s`); });
+    setTimeout(() => fill(n), (delay + .25) * 1000);
+    n.addEventListener('animationend', (e) => { if (e.target === n) n.classList.add('done'); }, { once: true });
+  }
+  if (content) {
+    const items = [...content.children];
+    if (reduce) { items.forEach((n) => fill(n)); }
+    else {
+      items.forEach((n) => n.classList.add('pre'));
+      const vw = innerWidth;
+      const io = new IntersectionObserver((ents) => {
+        const vis = ents.filter((e) => e.isIntersecting).map((e) => e.target);
+        vis.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        const t0 = vis.length ? vis[0].getBoundingClientRect().top : 0;
+        vis.forEach((n, i) => { const r = n.getBoundingClientRect(); reveal(n, Math.min(.9, .06 + (r.left / vw) * .32 + ((r.top - t0) / innerHeight) * .5 + i * .03)); io.unobserve(n); });
+      }, { threshold: .08, rootMargin: '0px 0px -6% 0px' });
+      items.forEach((n) => io.observe(n));
+    }
+  }
+  // Ánh sáng theo chuột trên thẻ, và độ nghiêng rất nhẹ trên ô số liệu.
+  if (!reduce && matchMedia('(hover: hover)').matches) {
+    document.addEventListener('pointermove', (e) => {
+      const c = e.target.closest?.('.card, .kpi'); if (!c) return;
+      const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      c.style.setProperty('--mx', `${x * 100}%`); c.style.setProperty('--my', `${y * 100}%`);
+      if (c.matches('.kpi')) { c.style.setProperty('--rx', `${(.5 - y) * 4}deg`); c.style.setProperty('--ry', `${(x - .5) * 5}deg`); }
+    }, { passive: true });
+    document.addEventListener('pointerout', (e) => { const c = e.target.closest?.('.kpi'); if (c && !c.contains(e.relatedTarget)) { c.style.setProperty('--rx', '0deg'); c.style.setProperty('--ry', '0deg'); } });
+  }
+  // Gợn sóng khi bấm nút.
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.btn, .nav a, .tabs button, .seg button'); if (!b || reduce) return;
+    const r = b.getBoundingClientRect(), s = document.createElement('span');
+    s.className = 'ripple'; s.style.left = `${e.clientX - r.left}px`; s.style.top = `${e.clientY - r.top}px`;
+    b.appendChild(s); setTimeout(() => s.remove(), 700);
   });
-  setTimeout(() => {
-    document.querySelectorAll('.bar i[data-w]').forEach((b) => { b.style.width = `${b.dataset.w}%`; });
-    document.querySelectorAll('.gauge .arc').forEach((a) => { a.style.strokeDashoffset = a.dataset.off; });
-  }, 300);
 
-  // ===== Biểu đồ: vùng, đường, cột; một hoặc hai trục; tooltip theo cột dọc =====
   const charts = [];
   const chart = (el, cfg) => {
     const draw = (animate) => {
@@ -249,10 +375,11 @@
     if (cfg.legend !== false && !el.nextElementSibling?.classList.contains('legend')) {
       el.insertAdjacentHTML('afterend', `<div class="legend">${cfg.series.map((s) => `<span><i style="background:${s.color || 'var(--c-gen)'}"></i>${s.name}</span>`).join('')}</div>`);
     }
-    draw(!reduce);
+    el._go = () => { if (el._anim) return; el._anim = 1; draw(!reduce); };
+    if (el.closest('.pre')) draw(false); else el._go();
     charts.push(draw);
   };
   let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => charts.forEach((f) => f(false)), 150); });
 
-  window.UI = { icon, turbine, nf, chart, role, ROLES, withRole };
+  window.UI = { icon, turbine, scene, coins, emblem, nf, chart, role, ROLES, withRole };
 })();

@@ -1,4 +1,4 @@
-# Yêu cầu nâng cấp UI/UX (bản 2): bàn giao cho Supervisor
+# Yêu cầu nâng cấp UI/UX (bản 2, cập nhật ý tưởng "Gió hoá dòng tiền"): bàn giao cho Supervisor
 
 | | |
 |---|---|
@@ -19,6 +19,9 @@
 | QĐ-UX-3 | Không dùng ký hiệu mũi tên dạng ký tự. Mũi tên nếu có phải là icon đẹp, hợp màu, có hiệu ứng |
 | QĐ-UX-4 | Được sắp xếp lại vị trí nhưng **không thay đổi feature**: mọi biểu đồ, lịch sử, trường thông tin, bộ lọc, nút, nhãn nguồn dữ liệu của màn hiện tại phải có đủ ở giao diện mới. Vai trò và Chain giữ dạng dropdown |
 | QĐ-UX-5 | **Chỉ sửa frontend**, dữ liệu ánh xạ 1-1 với dữ liệu đang hiển thị, hoàn toàn độc lập với backend. Chỗ nào buộc phải đụng backend thì giải trình lý do và báo chủ dự án duyệt trước khi làm |
+| QĐ-UX-6 | Ý tưởng chủ đạo **"Gió hoá dòng tiền"** (mục 3.0): chuyển động theo hướng gió, màu có nghĩa (xanh là token và năng lượng, vàng là tiền), sidebar "trụ tua-bin", header "đường chân trời" |
+| QĐ-UX-7 | Demo trình bày cho cả lãnh đạo và đội vận hành: cân bằng giữa ấn tượng và rõ ràng |
+| QĐ-UX-8 | Logo, ảnh, video trong bản xem thử là tạm để thử giao diện, chủ dự án thay sau (mục 3.6) |
 
 ---
 
@@ -61,6 +64,8 @@ Kết luận của 21 trang: **không trang nào cần sửa backend.**
 | BE-UX-3 | Rút VNDB của nhà đầu tư (`/withdraw`) hiện là màn chờ FE-23; nghiệp vụ chưa có service, chưa có quyền | Cần backend mới | Giữ màn chờ, chỉ đổi giao diện |
 | FE-UX-X1 | Tổng quan Người bán luôn in "–" cho số liệu bán, trong khi backend đã trả số bán trong ngày | Là sửa lỗi hiển thị, đổi dữ liệu người dùng thấy (không đụng backend) | Cần chủ dự án quyết có gộp vào đợt UI không |
 | FE-UX-X2 | "Kết nối ví" hiện cả với Giao dịch viên, Kiểm soát viên, trái quyết định FE-02 | Đổi feature hiển thị theo vai | Bản xem thử giữ nguyên như hiện tại; chờ chủ dự án quyết |
+| FE-UX-X3 | Dải "Video giới thiệu dự án" ở đầu Tổng quan Nhà đầu tư (bản xem thử gắn nhãn "Đề xuất bổ sung") | Nội dung mới, không có trong màn hiện tại; chỉ frontend (nhúng video, không dữ liệu) | Chờ chủ dự án duyệt và cung cấp video chính thức |
+| FE-UX-X4 | Nút thu gọn sidebar thành thanh icon | Hành vi giao diện mới, không đổi menu | Chờ duyệt; nếu không duyệt thì bỏ nút, giữ sidebar đầy đủ |
 
 ---
 
@@ -77,7 +82,17 @@ Kết luận của 21 trang: **không trang nào cần sửa backend.**
 
 ## 3. Hệ thiết kế mẫu C
 
-Nguồn chuẩn: `docs/prototypes/20261023_ui_ux_mau_c/assets/c.css` (token, thành phần) và `assets/ui.js` (khung, biểu đồ, animation). Kiro chuyển sang Tailwind v4 và token shadcn trong `globals.css`.
+Nguồn chuẩn: `docs/prototypes/20261023_ui_ux_mau_c/assets/c.css` (token, thành phần; phần "BẢN 2" ở cuối tệp ghi đè phần đầu) và `assets/ui.js` (khung, minh hoạ SVG, biểu đồ, biên đạo chuyển động). Kiro chuyển sang Tailwind v4 và token shadcn trong `globals.css`; khung và hiệu ứng viết thành component React trong `components/layout` và `components/ui`.
+
+### 3.0. Ý tưởng chủ đạo: "Gió hoá dòng tiền"
+
+Sản phẩm biến gió ở An Viên thành điện, điện thành doanh thu, doanh thu thành lợi tức về ví nhà đầu tư. Giao diện lấy chính hành trình này làm ngôn ngữ:
+
+- **Chuyển động theo hướng gió:** khối không xuất hiện đồng loạt mà lướt vào như một cơn gió qua hàng tua-bin (trái trước, phải sau, trên trước, dưới sau). Số "chảy" vào ô. Mở trang có một cơn gió quét qua. Cánh quạt quay là nhịp sống của hệ thống.
+- **Màu có nghĩa:** xanh BIDV là token và năng lượng (WPT, sản lượng, dự án); vàng BIDV là tiền (VNDB, lợi tức, hạn mức). Mỗi màn có tối đa một ô nổi bật xanh và một ô nổi bật vàng.
+- **Sidebar "trụ tua-bin":** mục đang mở là viên nang mực có icon vàng, có vệt sáng chạy; viên nang mờ trượt theo chuột (đàn hồi); số việc chờ có nhịp sáng; chân sidebar có cụm tua-bin quay. Thu gọn được thành thanh icon (FE-UX-X4).
+- **Header "đường chân trời":** thanh nổi kính mờ bám đỉnh khi cuộn, viền dưới chuyển màu lục vàng có vệt sáng chạy, nút tua-bin trước breadcrumb. Chain và Vai trò là viên nhỏ hai dòng (nhãn và giá trị), vẫn là `<select>` thật phủ trong suốt lên trên, nhường chỗ cho breadcrumb không xuống dòng.
+- **Không khí theo vai:** Giao dịch viên, Kiểm soát viên là "phòng điều khiển" (số liệu trước); Nhà đầu tư là "cửa sổ nhìn ra cánh đồng gió" (minh hoạ, video); Người bán là "nhà máy" (sản lượng và dòng tiền về vault).
 
 ### 3.1. Màu
 
@@ -103,24 +118,59 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
 
-### 3.3. Animation
+### 3.3. Biên đạo chuyển động (bản 2)
 
-| Hiệu ứng | Thông số |
-|---|---|
-| Thẻ xuất hiện lần lượt khi mở màn | dịch lên 16 px và mờ dần, 0,8 s, trễ 0,06 s mỗi thẻ, tối đa 0,6 s |
-| Số đếm lên | 1,4 s, easing giảm dần |
-| Biểu đồ vẽ dần, cột mọc lên | 1,6 s và 1 s |
-| Thanh tiến độ, vòng đo | chạy tới giá trị trong 1,4 đến 1,6 s |
-| Thẻ, nút khi rê chuột | nhấc 1 đến 3 px; nút chính có vệt sáng lướt qua |
-| Tua-bin trang trí | cánh quay liên tục 3 đến 9 s mỗi vòng |
-| Trạng thái mạng | vòng lan toả 2,4 s |
-| Giảm chuyển động | `prefers-reduced-motion` tắt toàn bộ, số hiện ngay |
+| Đối tượng | Kiểu vào | Thông số |
+|---|---|---|
+| Hàng tiêu đề trang | chữ trồi lên qua mặt nạ | 1,1 s |
+| Ô nổi bật xanh, vàng, thẻ hero | màn mở từ trái sang phải, nội dung trồi lên sau, minh hoạ trôi vào | 1,4 s; nội dung trễ 0,35 s |
+| Ô số liệu thường | "cơn gió": lướt từ trái, nghiêng nhẹ, nhoè rồi rõ | 1,15 s |
+| Thẻ nội dung | nhấc lên, nhoè rồi rõ | 1,15 s |
+| Thông báo | trượt từ trái | 1,15 s |
+| Hàng trong bảng, danh sách, điều kiện, dòng thời gian | lần lượt sau thẻ chứa | trễ 0,35 s rồi 0,055 s mỗi hàng, tối đa 16 hàng |
+| Thứ tự trong một đợt | trễ theo vị trí: khối bên trái và phía trên tới trước | 0,06 đến 0,9 s |
+| Kích hoạt | chỉ khi khối cuộn vào màn hình (IntersectionObserver) | ngưỡng 8% |
+| Số đếm lên, thanh tiến độ, vòng đo, biểu đồ | chạy khi khối vừa hiện | 1,7 s; biểu đồ 1,6 s |
+| Rê chuột trên thẻ | ánh sáng tròn theo con trỏ; ô số liệu nghiêng tối đa 4 đến 5 độ và nhấc 3 px | 0,5 s |
+| Bấm nút, mục menu, tab | gợn sóng từ điểm bấm | 0,7 s |
+| Menu | viên nang hover trượt đàn hồi `cubic-bezier(.34, 1.4, .64, 1)` | 0,55 s |
+| Mở trang | cơn gió quét qua phần nội dung | 1,6 s |
+| Chuyển trang | View Transitions: sidebar và header đứng yên, nội dung mờ trái rồi hiện phải | 0,28 s ra, 0,55 s vào |
+| Nền | quầng sáng lục vàng trôi chậm, đường gió mảnh chạy | 26 đến 40 s mỗi chu kỳ |
+| Giảm chuyển động | `prefers-reduced-motion` tắt toàn bộ, nội dung hiện ngay | |
 
-Easing chung `cubic-bezier(.22, 1, .36, 1)`. Chỉ animate `transform` và `opacity` (trừ chiều rộng thanh tiến độ).
+Easing chính `cubic-bezier(.16, 1, .3, 1)`. Ưu tiên `transform`, `opacity`, `filter`, `clip-path`. Không chặn thao tác trong lúc chạy hiệu ứng.
+
+### 3.4b. Ô theo ngữ nghĩa
+
+| Lớp | Dùng cho | Hình thức |
+|---|---|---|
+| `kpi hl` | Con số token hoặc năng lượng chính của màn | Gradient xanh đậm, sọc gió mảnh, minh hoạ cánh đồng gió |
+| `kpi au` | Con số tiền chính của màn | Gradient vàng đậm có vệt sáng chạy, cột đồng xu VNDB (ô lớn) |
+| `kpi leaf` | Token hoặc năng lượng phụ | Xanh nhạt, sọc gió ở góc |
+| `kpi gold` | Tiền phụ | Vàng nhạt, vân vành đồng xu ở góc |
+| `kpi` | Số đếm, trạng thái | Trắng |
+
+Ví dụ ô "Tối đa một lần" ở màn Nạp VNDB: ô vàng đậm, cột đồng xu ở giữa, con số đặt chính giữa ô.
 
 ### 3.4. Biểu tượng và mũi tên
 
 Bộ lucide hiện có, nét 1,7. Mũi tên chỉ là icon: liên kết "Xem thêm" có mũi tên trượt sang phải khi rê chuột, "Về danh sách" trượt sang trái; breadcrumb dùng chevron mờ. Không dùng ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ hiển thị.
+
+### 3.5. Minh hoạ
+
+Minh hoạ vẽ bằng SVG trong `ui.js` (không dùng ảnh): `scene` (cánh đồng gió ven biển có đồi, biển, mặt trời, tua-bin quay ở nhiều độ xa, luồng gió), `coins` (cột đồng xu VNDB rơi lần lượt), `emblem` (huy hiệu WPT lục giác), `turbine` (tua-bin nhỏ). Kiro chuyển thành component React thuần SVG, không thêm thư viện.
+
+### 3.6. Tài sản hình ảnh tạm, chủ dự án thay sau
+
+Môi trường thử nghiệm không truy cập được các kho ảnh và logo bên ngoài, nên bản xem thử dùng tạm như sau:
+
+| Tài sản | Đang dùng tạm | Cần thay bằng | Vị trí |
+|---|---|---|---|
+| Logo BIDV | Logo SVG có sẵn trong dự án (`components/bidv-logo.tsx`) | Bộ logo SVG chính thức (ngang, biểu tượng, nền sáng và tối), màu và font thương hiệu | Sidebar, trang lối vào |
+| Ảnh dự án điện gió | Minh hoạ SVG `scene` | 3 đến 5 ảnh thật 16:9 từ 2400 px (toàn cảnh flycam, cận cánh quạt, bình minh) | Ô WPT ở Bảng điều khiển, Tổng quan và Chi tiết token của Nhà đầu tư, trang lối vào |
+| Ảnh từng dự án | Tua-bin SVG | Ảnh vuông từ 800 px của An Viên, Phú Quý, Ninh Thuận | Thẻ dự án, danh sách token |
+| Video giới thiệu | YouTube `M52hkUDVe5w` (clip chủ dự án gửi), nhúng `youtube-nocookie` trong hộp nổi | Video chính thức (MP4 dưới 3 MB tự lưu trữ, hoặc kênh BIDV) | Trang lối vào; dải đề xuất ở Tổng quan Nhà đầu tư (FE-UX-X3) |
 
 ---
 
@@ -203,3 +253,5 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q2. FE-UX-X2: giữ hay ẩn "Kết nối ví" với hai vai vận hành?
 - Q3. Duyệt từng điểm lệch 3 đến 8 ở mục 5 (sửa trong đợt UI hay để task riêng).
 - Q4. BE-UX-1, BE-UX-2: có mở task backend hoặc dữ liệu mẫu riêng không.
+- Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
+- Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
