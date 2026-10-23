@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rút VNDB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+.notes { display: grid; gap: 10px; }
+.notes li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 13px; color: var(--ink-2); }
+.notes li .ci { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: rgba(168,122,9,.15); color: var(--gold-ink); }
+.notes li .ci svg { width: 14px; height: 14px; }
+.sect { font-size: 12px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; }
+</style>
+</head>
+<body data-page="withdraw" data-nav="withdraw.html" data-roles="investor" data-crumbs="Nhà đầu tư|Rút VNDB">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1>Rút VNDB</h1>
+        <span class="badge warn mono">chờ FE-23</span>
+      </div>
+      <p class="sub">Nhà đầu tư chuyển VNDB trong ví về tài khoản ngân hàng của mình.</p>
+    </div>
+  </div>
+
+  <section class="card span-7 stretch" aria-labelledby="ph-h" style="border:1.5px dashed var(--line)">
+    <div class="card-h">
+      <div class="t"><i data-icon="box"></i><h2 id="ph-h">Màn hình chưa dựng</h2></div>
+    </div>
+    <div class="empty" style="padding:24px 16px">
+      <span class="ei"><i data-icon="bank"></i></span>
+      <p class="small" style="max-width:420px">Khung điều hướng và kiểm quyền của trang này đã chạy. Task <span class="mono strong" style="color:var(--ink)">FE-23</span> chỉ thay phần thân.</p>
+    </div>
+    <h3 class="sect">Đã sẵn</h3>
+    <ul class="checks">
+      <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b style="font-weight:500">Đường dẫn /withdraw nằm trong khu vực Nhà đầu tư, cổng portfolio:read.</b></div></li>
+      <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b style="font-weight:500">useWalletStatus() trả canSign, một chỗ duy nhất trả lời "ví sẵn sàng ký chưa".</b></div></li>
+    </ul>
+  </section>
+
+  <section class="card gold span-5 stretch" aria-labelledby="nt-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="alert"></i><h2 id="nt-h">Lưu ý</h2></div>
+    </div>
+    <ul class="notes">
+      <li><span class="ci"><i data-icon="info"></i></span><span>Khác với ba màn kia, nghiệp vụ rút VNDB CHƯA có ở tầng backend: chưa có service, chưa có quyền RBAC. FE-23 phụ thuộc task backend tương ứng, không chỉ dựng giao diện.</span></li>
+      <li><span class="ci"><i data-icon="info"></i></span><span>Mã task FE-23 do FE-20 đặt trước vì lộ trình chưa có mã cho màn này, xem docs/CHECKPOINT_FE20.md.</span></li>
+    </ul>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+</body>
+</html>

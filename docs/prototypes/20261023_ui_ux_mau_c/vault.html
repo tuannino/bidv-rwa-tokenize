@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault thanh toán SPV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>[hidden] { display: none !important; }</style>
+</head>
+<body data-page="vault" data-nav="vault.html" data-roles="controller,teller" data-crumbs="Vận hành|Vault thanh toán SPV">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Vault thanh toán SPV</h1>
+      <p class="sub">Trạng thái giữ WPT, VNDB và phần tiền bị khoá trên chain <span class="mono" data-chain-label>mock</span>.</p>
+    </div>
+  </div>
+
+  <!-- Trạng thái hiện tại: đủ 15 ô của màn thật -->
+  <div class="card-h span-12" style="margin:4px 0 -6px"><div class="t"><i data-icon="bank"></i><h2 style="font-size:16px;font-weight:600">Trạng thái hiện tại</h2></div></div>
+  <section class="kpi hl big span-4" aria-label="Số dư VNDB" style="grid-row: span 2">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="top"><span class="lbl">Số dư VNDB</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val" style="font-size:clamp(26px,2.3vw,36px);white-space:nowrap"><span data-count="41250000000">41.250.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Có thể rút">
+    <div class="top"><span class="lbl">Có thể rút</span><span class="ic"><i data-icon="unlock"></i></span></div>
+    <div class="val"><span data-count="33000000000">33.000.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-4" aria-label="Đang khoá">
+    <div class="top"><span class="lbl">Đang khoá</span><span class="ic"><i data-icon="lock"></i></span></div>
+    <div class="val"><span data-count="8250000000">8.250.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-4" aria-label="Số dư WPT">
+    <div class="top"><span class="lbl">Số dư WPT</span><span class="ic"><i data-icon="wind"></i></span></div>
+    <div class="val"><span data-count="6587500">6.587.500</span><small>WPT</small></div>
+  </section>
+  <section class="kpi span-4" aria-label="Thu ròng">
+    <div class="top"><span class="lbl">Thu ròng</span><span class="ic"><i data-icon="trend"></i></span></div>
+    <div class="val"><span data-count="41250000000">41.250.000.000</span><small>VNDB</small></div>
+  </section>
+
+  <section class="card span-7 stretch" aria-labelledby="lk-h">
+    <div class="card-h"><div class="t"><i data-icon="lock"></i><h2 id="lk-h">Khoá theo kỳ</h2></div></div>
+    <dl class="kv-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div><dt>Chế độ khoá</dt><dd>Khoá theo tỷ lệ kỳ</dd></div>
+      <div><dt>Tỷ lệ đang áp</dt><dd>20%</dd></div>
+      <div><dt>Tỷ lệ chờ áp</dt><dd>Không có</dd></div>
+      <div><dt>Khoá cố định</dt><dd>0<small>VNDB</small></dd></div>
+      <div><dt>Phần khoá theo kỳ</dt><dd>8.250.000.000<small>VNDB</small></dd></div>
+      <div><dt>Kỳ gần nhất</dt><dd>5</dd></div>
+    </dl>
+  </section>
+  <section class="card span-5 stretch" aria-labelledby="wl-h">
+    <div class="card-h"><div class="t"><i data-icon="wallet"></i><h2 id="wl-h">Ví và rút tiền</h2></div></div>
+    <dl class="kv lines">
+      <div><dt>Địa chỉ vault</dt><dd class="mono break">0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861</dd></div>
+      <div><dt>Ví nhận tiền rút</dt><dd class="mono break">0x90F79bf6EB2c4f870365E785982E1f101E93b906</dd></div>
+      <div><dt>Đã chia kỳ trước</dt><dd>3.403.125.000 VNDB</dd></div>
+      <div><dt>Trạng thái rút</dt><dd><span class="badge ok">Đang hoạt động</span></dd></div>
+    </dl>
+  </section>
+
+  <!-- Cấu hình khoá -->
+  <section class="card span-7 stretch" aria-labelledby="cf-h">
+    <div class="card-h"><div class="t"><i data-icon="key"></i><h2 id="cf-h">Cấu hình khoá</h2></div></div>
+    <p class="desc" style="margin-top:-6px">Có số khoá cố định thì vault khoá đúng số đó (FIXED); để trống thì khoá theo tỷ lệ PERCENT trên thu ròng của kỳ. Vault đã qua kỳ chia đầu: tỷ lệ mới chỉ được ghi chờ, có hiệu lực ở lần chốt kỳ kế tiếp; trong lúc đó khoá vẫn theo tỷ lệ đang áp.</p>
+    <div class="alert" id="cf-ro" hidden style="margin-bottom:16px"><i data-icon="eye"></i><span>Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem.</span></div>
+    <form class="form" aria-label="Biểu mẫu cấu hình khoá">
+      <div class="row">
+        <div class="field">
+          <label for="vault-percent">Tỷ lệ khoá PERCENT (%)</label>
+          <div class="input-suffix"><input class="input mono" id="vault-percent" inputmode="decimal" value="20"><span>%</span></div>
+        </div>
+        <div class="field">
+          <label for="vault-fixed">Số khoá cố định (VNDB, để trống được)</label>
+          <div class="input-suffix"><input class="input mono" id="vault-fixed" inputmode="numeric" value=""><span>VNDB</span></div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="vault-payout">Ví nhận tiền rút</label>
+        <input class="input mono" id="vault-payout" spellcheck="false" value="0x90F79bf6EB2c4f870365E785982E1f101E93b906">
+      </div>
+      <div data-ctl><button class="btn primary" type="submit" id="cf-save"><i data-icon="check"></i>Lưu cấu hình khoá</button></div>
+    </form>
+    <div class="alert ok" id="cf-result" role="status" aria-label="Kết quả lưu cấu hình" hidden style="margin-top:14px"><i data-icon="check"></i><span>Chuỗi đã đúng cấu hình này, không gửi giao dịch nào.</span></div>
+  </section>
+
+  <!-- Lệnh rút cần xem xét -->
+  <section class="card gold span-5 stretch" aria-labelledby="wr-h">
+    <div class="card-h"><div class="t"><i data-icon="alert"></i><h2 id="wr-h">Lệnh rút cần xem xét</h2></div><button class="btn outline sm" type="button" id="wr-reconcile"><i data-icon="refresh"></i>Đối soát lệnh rút</button></div>
+    <div class="alert ok" id="wr-msg" role="status" hidden style="margin-bottom:12px"><i data-icon="check"></i><span>Đã đối soát các lệnh rút chưa kết thúc.</span></div>
+    <div class="inner" data-request="e3b9f15a-2c47-4d0e-8a61-7b5d9c3e1f20" style="background:var(--surface)">
+      <p><span class="mono strong">e3b9f15a</span>: <b>5.000.000.000 VNDB</b> tới <span class="mono">0x90F79b…93b906</span>, tạo lúc 14:22:05 21/10/2026.</p>
+      <p class="muted small break" style="margin-top:8px">Mất mã giao dịch sau khi gửi; 1 sự kiện Withdrawn ứng viên: 0x4a1c9e07d2b6f3a8e5c1d9b04f7a2e6c8d3b5a1f9e0c7d4b2a6f8e1c3d57b20d1. Kiểm soát viên xác nhận bằng mã giao dịch đúng hoặc đánh dấu thất bại.</p>
+      <p class="small muted break" style="margin-top:8px">Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này): <span class="mono">0x4a1c9e…7b20d1 (block 18342)</span></p>
+      <div class="form" data-ctl style="margin-top:14px;gap:10px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="input mono" style="flex:1 1 180px" aria-label="Mã giao dịch xác nhận e3b9f15a-2c47-4d0e-8a61-7b5d9c3e1f20" placeholder="Mã giao dịch 0x…">
+          <button class="btn primary" type="button"><i data-icon="check"></i>Xác nhận hoàn tất</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="input" style="flex:1 1 180px" aria-label="Lý do thất bại e3b9f15a-2c47-4d0e-8a61-7b5d9c3e1f20" placeholder="Lý do, ví dụ đã kiểm explorer">
+          <button class="btn outline" type="button"><i data-icon="x"></i>Đánh dấu thất bại</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lịch sử cấu hình -->
+  <section class="card span-12" aria-labelledby="ch-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="ch-h">Lịch sử cấu hình</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl" aria-label="Lịch sử cấu hình">
+        <thead><tr><th>Block</th><th>Thời điểm</th><th>Tham số</th><th>Giá trị cũ</th><th>Giá trị mới</th><th>Giao dịch</th><th>Người thao tác</th></tr></thead>
+        <tbody id="ch-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Lịch sử chốt kỳ -->
+  <section class="card span-12" aria-labelledby="pc-h">
+    <div class="card-h"><div class="t"><i data-icon="calendar"></i><h2 id="pc-h">Lịch sử chốt kỳ (10 lần gần nhất)</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl" aria-label="Lịch sử chốt kỳ">
+        <thead><tr><th>Kỳ</th><th class="n">Đã chia kỳ trước</th><th class="n">Tỷ lệ</th><th class="n">Phần khoá</th><th>Người đặt</th><th>Thời điểm</th><th>Giao dịch</th></tr></thead>
+        <tbody id="pc-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const short = (v) => `${v.slice(0, 8)}…${v.slice(-6)}`;
+  const SIGNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  const txl = (h) => `<span class="mono small nowrap" title="${h}">${short(h)}</span>`;
+
+  // Lịch sử cấu hình: mỗi dòng một thay đổi đọc từ sự kiện trên chuỗi, mới nhất trước.
+  const CFG = [
+    [18207, '18:00:12 31/8/2026', 'Tỷ lệ chờ áp', '20%', 'Chưa có', '0x2b7e04c19d3f5a8e6b1c0d9f7e4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5', 'ctl'],
+    [18207, '18:00:12 31/8/2026', 'Tỷ lệ khoá', '15%', '20%', '0x2b7e04c19d3f5a8e6b1c0d9f7e4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5', 'ctl'],
+    [17880, '10:05:12 10/8/2026', 'Tỷ lệ chờ áp', 'Chưa có', '20%', '0x91c3e5a7b9d1f3e5c7a9b1d3f5e7c9a1b3d5f7e9c1a3b5d7f9e1c3a5b7d9f1e3c', 'ctl'],
+    [9876, '09:12:40 2/3/2026', 'Ví nhận tiền rút', 'Chưa có', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', '0x5d2a8c4e6f0b1d3a5c7e9f1b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3e5f7b9d1a3', 'ctl'],
+    [9875, '09:11:58 2/3/2026', 'Chế độ khoá', 'Chưa cấu hình, khoá toàn bộ', 'Khoá theo tỷ lệ kỳ', '0x7e9c1a3b5d7f9e1c3a5b7d9f1e3c5a7b9d1f3e5c7a9b1d3f5e7c9a1b3d5f7e9c1', 'ctl'],
+    [9874, '17:40:03 1/3/2026', 'Tỷ lệ khoá', '0%', '15%', '0x3f5e7c9a1b3d5f7e9c1a3b5d7f9e1c3a5b7d9f1e3c5a7b9d1f3e5c7a9b1d3f5e7', 'out'],
+  ];
+  $('#ch-rows').innerHTML = CFG.map(([b, t, p, o, n, h, a]) => `<tr><td class="mono small">${b}</td><td class="small nowrap">${t}</td><td class="nowrap">${p}</td><td class="mono small">${o}</td><td class="mono small break" style="min-width:140px">${n}</td><td>${txl(h)}</td><td class="small">${a === 'out' ? 'Ngoài app' : `Kiểm soát viên (ví ký <span class="mono">${short(SIGNER)}</span>)`}</td></tr>`).join('');
+
+  // Lịch sử chốt kỳ (10 lần gần nhất).
+  const PC = [
+    [5, 3403125000, '20%', 8250000000, '18:00:12 31/8/2026', '0x2b7e04c19d3f5a8e6b1c0d9f7e4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5'],
+    [4, 3341250000, '15%', 5962500000, '17:58:40 31/7/2026', '0x6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e8f0b2d4a6c8e0f2b4d6a8c0'],
+    [3, 3217500000, '15%', 5730000000, '18:02:15 30/6/2026', '0x8d0f2b4a6c8e0d2f4b6a8c0e2d4f6b8a0c2e4d6f8b0a2c4e6d8f0b2a4c6e8d0f2'],
+    [2, 3155625000, '15%', 5505000000, '17:55:09 31/5/2026', '0x0f2b4d6a8c0e2f4b6d8a0c2e4f6b8d0a2c4e6f8b0d2a4c6e8f0b2d4a6c8e0f2b4'],
+    [1, 0, '15%', 5280000000, '18:01:47 30/4/2026', '0x4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8'],
+  ];
+  const nf = UI.nf;
+  $('#pc-rows').innerHTML = PC.map(([k, d, r, l, t, h]) => `<tr><td class="mono">${k}</td><td class="n mono">${nf(d)}</td><td class="n mono">${r}</td><td class="n mono">${nf(l)}</td><td class="mono small" title="${SIGNER}">${short(SIGNER)}</td><td class="small nowrap">${t}</td><td>${txl(h)}</td></tr>`).join('');
+
+  if (UI.role !== 'controller') {
+    // Giao dịch viên: ô cấu hình khoá bị khoá, không có nút lưu; không chốt được lệnh rút.
+    document.querySelectorAll('[data-ctl]').forEach((n) => n.remove());
+    document.querySelectorAll('#vault-percent, #vault-fixed, #vault-payout').forEach((i) => { i.disabled = true; });
+    $('#cf-ro').hidden = false;
+  } else {
+    $('#cf-save').addEventListener('click', () => { $('#cf-result').hidden = false; });
+  }
+  $('#wr-reconcile').addEventListener('click', () => { $('#wr-msg').hidden = false; });
+})();
+</script>
+</body>
+</html>

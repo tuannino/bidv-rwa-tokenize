@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ví của tôi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+[hidden] { display: none !important; }
+.sk { border-radius: 10px; background: var(--surface-3); animation: blink 1.4s ease-in-out infinite; }
+.bul { display: grid; gap: 8px; }
+.bul li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 13px; color: var(--ink-2); }
+.bul li .ci { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--ok-bg); color: var(--ok-ink); }
+.bul li .ci svg { width: 14px; height: 14px; }
+.nsteps { display: grid; gap: 14px; counter-reset: n; }
+.nsteps > li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; font-size: 14px; }
+.nsteps > li::before { counter-increment: n; content: counter(n); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--chip); color: var(--muted); }
+.wl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.wl a { display: block; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); transition: background-color .2s; }
+.wl a:hover { background: var(--surface-3); }
+.wl b { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-ink); }
+.wl b svg { width: 14px; height: 14px; }
+.wl span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.addr { font-family: var(--mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+.card.hero .btn.outline { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.28); color: #fff; }
+@media (max-width: 900px) { .wl { grid-template-columns: minmax(0, 1fr); } .addr { font-size: 24px; } }
+</style>
+</head>
+<body data-page="wallet" data-nav="wallet.html" data-roles="investor,seller" data-crumbs="Nhà đầu tư|Ví của tôi">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Ví của tôi</h1>
+      <p class="sub">Kết nối ví tự quản để xem vị thế WPT và xác nhận giao dịch. Ngân hàng không giữ khóa của ví này.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="ready">Đã kết nối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="mock">Chế độ mô phỏng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="disconnected">Chưa kết nối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="noprovider">Chưa có ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="wrong">Sai mạng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="mismatch">Lệch mạng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="unsupported">Mạng chưa hỗ trợ</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang kiểm tra</button>
+    </div>
+  </div>
+
+  <!-- ready: WalletStatusCard -->
+  <section class="card hero span-7 stretch" aria-labelledby="rd-h" data-states="ready">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="card-h">
+      <div class="t"><i data-icon="wallet"></i><h2 id="rd-h">Ví đã kết nối</h2></div>
+      <span class="badge" style="background:rgba(255,255,255,.14);color:#fff">EVM Testnet (Sepolia)</span>
+    </div>
+    <div class="muted small">Địa chỉ ví</div>
+    <div class="addr" data-addr-short title="0x70997970C51812dc3A010C7d01b50e0d17dc79C8">0x7099…79C8</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;position:relative">
+      <button type="button" class="btn outline sm" id="copy" aria-label="Sao chép địa chỉ ví"><i data-icon="copy"></i><span role="status">Sao chép</span></button>
+      <a class="btn outline sm" href="#" data-explorer><i data-icon="external"></i>Xem trên Etherscan</a>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:28px;padding-top:16px;border-top:1px solid rgba(255,255,255,.18);position:relative">
+      <p class="small muted">Số WPT đang giữ xem ở trang Tổng quan.</p>
+      <button type="button" class="btn outline sm"><i data-icon="unlock"></i>Ngắt kết nối</button>
+    </div>
+  </section>
+  <section class="kpi gold span-5 stretch" aria-label="Số dư ETH" data-states="ready" style="display:flex;flex-direction:column">
+    <div class="top"><span class="lbl">Số dư ETH</span><span class="ic"><i data-icon="flame"></i></span></div>
+    <div class="val" style="margin-top:auto;font-size:40px">0,0421<small>ETH</small></div>
+    <div class="sub">Đây là đồng của EVM Testnet (Sepolia) dùng để trả phí giao dịch, không phải VNDB và không phải tiền thật.</div>
+  </section>
+
+  <!-- mock: MockNotice -->
+  <section class="card span-12" aria-labelledby="mk-h" data-states="mock" hidden>
+    <div class="card-h"><div class="t"><i data-icon="info"></i><h2 id="mk-h">Đang ở chế độ mô phỏng</h2></div></div>
+    <p class="desc">Mạng đang chọn là <b style="color:var(--ink)">Mock (không cần chain)</b>. Chế độ này chạy hoàn toàn trong bộ nhớ của máy chủ, nên không cần ví thật và không cần tiền thật.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+      <div class="inner small">Mua WPT, nhận lợi nhuận và tất toán đều thực hiện được ngay ở chế độ này, kết quả là số liệu mô phỏng, không ghi lên chuỗi nào.</div>
+      <div class="inner small" style="display:flex;gap:8px;align-items:flex-start"><i data-icon="link"></i><span>Muốn dùng ví thật thì đổi mạng ở ô <b>Chain</b> trên thanh phía trên, chọn Hardhat Local hoặc EVM Testnet (Sepolia).</span></div>
+    </div>
+  </section>
+
+  <!-- unsupported-chain -->
+  <section class="card span-12" aria-labelledby="us-h" data-states="unsupported" hidden>
+    <div class="card-h"><div class="t"><i data-icon="alert"></i><h2 id="us-h">Chưa hỗ trợ ví cho mạng này</h2></div></div>
+    <p class="desc">Mạng đang chọn là <b style="color:var(--ink)">Stellar (Soroban)</b>. Ví trình duyệt hiện tại chỉ làm việc được với các mạng họ EVM.</p>
+    <div class="alert warn"><i data-icon="link"></i><span>Đổi mạng ở ô <b>Chain</b> trên thanh phía trên sang Hardhat Local, EVM Testnet (Sepolia) hoặc Mock (không cần chain) để tiếp tục.</span></div>
+  </section>
+
+  <!-- no-provider: NoWalletGuide -->
+  <section class="card span-12" aria-labelledby="np-h" data-states="noprovider" hidden>
+    <div class="card-h"><div class="t"><i data-icon="wallet"></i><h2 id="np-h">Chưa có ví trong trình duyệt</h2></div></div>
+    <p class="desc">Ví là phần mở rộng của trình duyệt, dùng để giữ token và xác nhận giao dịch. Không có ví thì chưa xem được vị thế và chưa mua được WPT.</p>
+    <ol class="nsteps">
+      <li><div>Cài một trong các ví dưới đây:
+        <div class="wl">
+          <a href="https://metamask.io/download/" target="_blank" rel="noreferrer noopener"><b><i data-icon="download"></i>MetaMask<i data-icon="external"></i></b><span>Phổ biến nhất, có bản tiện ích cho Chrome, Edge, Firefox.</span></a>
+          <a href="https://rabby.io/" target="_blank" rel="noreferrer noopener"><b><i data-icon="download"></i>Rabby<i data-icon="external"></i></b><span>Đổi mạng dễ hơn, phù hợp khi phải qua lại giữa mạng nội bộ và mạng thử.</span></a>
+        </div></div></li>
+      <li><div>Tạo ví mới hoặc mở ví đã có, làm theo hướng dẫn của phần mở rộng.</div></li>
+      <li><div><b>Tải lại trang này</b>, rồi bấm Kết nối ví. Trang không tự nhận ví vừa cài, nên bước tải lại là bắt buộc.</div></li>
+    </ol>
+    <div class="divider"></div>
+    <p class="small muted">Hệ thống chấp nhận mọi ví EVM cài trong trình duyệt. Ví do ngân hàng giữ hộ sẽ có sau, chưa mở trong phiên bản này.</p>
+  </section>
+
+  <!-- disconnected -->
+  <section class="card span-12" aria-labelledby="dc-h" data-states="disconnected" hidden>
+    <div class="card-h"><div class="t"><i data-icon="wallet"></i><h2 id="dc-h">Chưa kết nối ví</h2></div></div>
+    <p class="desc">Kết nối ví để hệ thống biết địa chỉ nào đang xem, từ đó hiện đúng số WPT của bạn.</p>
+    <ul class="bul">
+      <li><span class="ci"><i data-icon="eye"></i></span><span>Bước này chỉ đọc địa chỉ ví, không lấy được tiền và không ký gì.</span></li>
+      <li><span class="ci"><i data-icon="shield"></i></span><span>Mỗi giao dịch sau này đều phải bạn tự xác nhận trong ví.</span></li>
+      <li><span class="ci"><i data-icon="unlock"></i></span><span>Ngắt kết nối được bất cứ lúc nào.</span></li>
+    </ul>
+    <button type="button" class="btn primary" style="margin-top:18px"><i data-icon="wallet"></i>Kết nối ví</button>
+  </section>
+
+  <!-- wrong-chain -->
+  <div class="alert bad" role="alert" data-states="wrong" hidden style="padding:18px 20px">
+    <i data-icon="alert"></i>
+    <div style="display:grid;gap:10px">
+      <div><b>Ví đang ở mạng khác</b><br>Ví đang ở <b>mạng lạ (chain ID 1)</b>, còn phần này làm việc trên <b>EVM Testnet (Sepolia)</b>. Hai bên phải cùng một mạng mới thực hiện được giao dịch.</div>
+      <div><button type="button" class="btn danger sm">Chuyển ví sang EVM Testnet (Sepolia)</button></div>
+    </div>
+  </div>
+
+  <!-- chain-mismatch -->
+  <div class="alert bad" role="alert" data-states="mismatch" hidden style="padding:18px 20px">
+    <i data-icon="alert"></i>
+    <div style="display:grid;gap:10px">
+      <div><b>Ví đang ở mạng khác</b><br>Ví đang ở <b>Hardhat Local</b>, còn phần này làm việc trên <b>EVM Testnet (Sepolia)</b>. Hai bên phải cùng một mạng mới thực hiện được giao dịch.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn danger sm">Chuyển ví sang EVM Testnet (Sepolia)</button><button type="button" class="btn outline sm">Hoặc xem trang theo Hardhat Local</button></div>
+    </div>
+  </div>
+
+  <!-- loading -->
+  <section class="card span-12" aria-busy="true" data-states="loading" hidden>
+    <div class="sk" style="height:20px;width:160px"></div>
+    <div class="sk" style="height:32px;width:224px;margin-top:18px"></div>
+    <div class="sk" style="height:16px;width:288px;max-width:100%;margin-top:12px"></div>
+    <div class="sk" style="height:16px;width:256px;max-width:100%;margin-top:12px"></div>
+    <p class="small muted" style="margin-top:14px">Đang kiểm tra trạng thái ví…</p>
+  </section>
+
+  <!-- WalletScopeNote -->
+  <div class="alert" style="background:var(--surface);color:var(--muted)">
+    <i data-icon="shield"></i>
+    <span>Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư. Các thao tác đặc quyền của ngân hàng (phát hành, đóng băng, thu hồi) ký bằng khóa phía máy chủ, không đi qua ví trình duyệt. Kết nối ví cũng chưa phải đăng nhập, vai trò hiện tại vẫn lấy từ phiên demo.</span>
+  </div>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const W = UI.role === 'seller' ? '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' : '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const a = document.querySelector('[data-addr-short]');
+  a.textContent = `${W.slice(0, 6)}…${W.slice(-4)}`; a.title = W;
+  document.querySelector('[data-explorer]').href = `https://sepolia.etherscan.io/address/${W}`;
+  document.querySelector('[data-explorer]').target = '_blank';
+  const cb = document.getElementById('copy');
+  cb.addEventListener('click', () => {
+    const s = cb.querySelector('[role=status]');
+    navigator.clipboard?.writeText(W).then(() => { s.textContent = 'Đã sao chép'; }, () => { s.textContent = 'Chưa sao chép được'; });
+    setTimeout(() => { s.textContent = 'Sao chép'; }, 2000);
+  });
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
+  }));
+})();
+</script>
+</body>
+</html>

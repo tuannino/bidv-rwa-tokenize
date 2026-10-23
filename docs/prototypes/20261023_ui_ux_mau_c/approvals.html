@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phê duyệt lệnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>[hidden] { display: none !important; }</style>
+</head>
+<body data-page="approvals" data-nav="approvals.html" data-roles="controller" data-crumbs="Kiểm soát|Phê duyệt lệnh">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Phê duyệt lệnh</h1>
+      <p class="sub">Xem yêu cầu Giao dịch viên đã lập rồi chấp nhận hoặc từ chối. Chấp nhận thì hệ thống kiểm lại điều kiện và thực hiện ngay trên chuỗi. Chain đang xem: <span class="mono" data-chain-label>mock</span>.</p>
+    </div>
+  </div>
+
+  <section class="kpi hl span-4" aria-label="Đang chờ duyệt">
+    <div class="top"><span class="lbl">Đang chờ duyệt</span><span class="ic"><i data-icon="clock"></i></span></div>
+    <div class="val"><span data-count="2">2</span></div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Đã duyệt hôm nay">
+    <div class="top"><span class="lbl">Đã duyệt hôm nay</span><span class="ic"><i data-icon="shield"></i></span></div>
+    <div class="val"><span data-count="1">1</span></div>
+  </section>
+  <section class="kpi span-4" aria-label="Đã từ chối hôm nay">
+    <div class="top"><span class="lbl">Đã từ chối hôm nay</span><span class="ic"><i data-icon="shieldx"></i></span></div>
+    <div class="val"><span data-count="1">1</span></div>
+  </section>
+
+  <section class="card span-12" aria-labelledby="q-mint-h" data-queue="MINT">
+    <div class="card-h" style="margin-bottom:4px"><div class="t"><i data-icon="pluscircle"></i><h2 id="q-mint-h">Hàng chờ tạo token</h2></div></div>
+    <p class="desc" style="margin-top:0">Bấm mã yêu cầu để xem chi tiết và quyết định.</p>
+    <div class="filters">
+      <div class="field">
+        <label for="mint-search">Tìm kiếm</label>
+        <div class="input-ic"><i data-icon="search"></i><input class="input" id="mint-search" data-search placeholder="Mã yêu cầu, người lập, lý do, chứng từ…"></div>
+      </div>
+      <div class="field narrow">
+        <label for="mint-status">Trạng thái</label>
+        <select class="select" id="mint-status" data-status-filter>
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="PENDING" selected>Chờ duyệt</option>
+          <option value="EXECUTING">Đang xử lý</option>
+          <option value="COMPLETED">Hoàn tất</option>
+          <option value="REJECTED">Từ chối</option>
+          <option value="FAILED">Thất bại</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl" aria-label="Hàng chờ tạo token"><thead></thead><tbody></tbody></table></div>
+    <div class="empty" data-empty hidden><span class="ei"><i data-icon="search"></i></span><span>Không có yêu cầu nào khớp.</span></div>
+  </section>
+
+  <section class="card span-12" aria-labelledby="q-burn-h" data-queue="BURN">
+    <div class="card-h" style="margin-bottom:4px"><div class="t"><i data-icon="flame"></i><h2 id="q-burn-h">Hàng chờ huỷ token</h2></div></div>
+    <p class="desc" style="margin-top:0">Bấm mã yêu cầu để xem chi tiết và quyết định.</p>
+    <div class="filters">
+      <div class="field">
+        <label for="burn-search">Tìm kiếm</label>
+        <div class="input-ic"><i data-icon="search"></i><input class="input" id="burn-search" data-search placeholder="Mã yêu cầu, người lập, lý do, chứng từ…"></div>
+      </div>
+      <div class="field narrow">
+        <label for="burn-status">Trạng thái</label>
+        <select class="select" id="burn-status" data-status-filter>
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="PENDING" selected>Chờ duyệt</option>
+          <option value="EXECUTING">Đang xử lý</option>
+          <option value="COMPLETED">Hoàn tất</option>
+          <option value="REJECTED">Từ chối</option>
+          <option value="FAILED">Thất bại</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl" aria-label="Hàng chờ huỷ token"><thead></thead><tbody></tbody></table></div>
+    <div class="empty" data-empty hidden><span class="ei"><i data-icon="search"></i></span><span>Không có yêu cầu nào khớp.</span></div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const LABEL = { PENDING: 'Chờ duyệt', EXECUTING: 'Đang xử lý', COMPLETED: 'Hoàn tất', REJECTED: 'Từ chối', FAILED: 'Thất bại' };
+  const TONE = { PENDING: 'warn', EXECUTING: 'info', COMPLETED: 'ok', REJECTED: 'bad', FAILED: 'bad' };
+  // Yêu cầu Mint / Burn của bộ dữ liệu mẫu chung, mới nhất trước.
+  const ROWS = [
+    { id: '91bd0e44-6a2f-4e1b-8c3d-2f7a9b5e0c18', type: 'MINT', at: '23/10/2026 08:05:00', amount: '120.000', maker: 'GDV002', reason: 'Bổ sung nguồn cung kênh bán lẻ', doc: 'TTr 54/2026/BIDV-NHBL', status: 'EXECUTING', result: 'Đã gửi 0x3b7e91c4d2a8…, chờ kết cục' },
+    { id: '5e0c7b92-1d4a-4f6e-9b2c-8a3e5f7d1c06', type: 'MINT', at: '23/10/2026 07:31:00', amount: '400.000', maker: 'GDV001', reason: 'Phát hành bổ sung theo QĐ 125/2026', doc: 'QĐ 125/2026/QĐ-BIDV', status: 'COMPLETED', result: 'KSV001 duyệt, tx 0x8c41e2d0a7…' },
+    { id: '7f3a21c0-5d1e-4c8b-9a27-3e6f1b0d4c19', type: 'MINT', at: '23/10/2026 06:12:00', amount: '250.000', maker: 'GDV001', reason: 'Phát hành đợt 2 theo QĐ 128/2026', doc: 'QĐ 128/2026/QĐ-BIDV', status: 'PENDING' },
+    { id: 'c02f9a17-8b3e-4d5a-a1f6-4e9c2b7d0a35', type: 'BURN', at: '23/10/2026 08:49:00', amount: '50.000', source: 'Phần chưa phân phối', maker: 'GDV001', reason: 'Huỷ phần chưa phân phối của đợt 1', doc: 'QĐ 131/2026/QĐ-BIDV', status: 'PENDING' },
+    { id: 'a4471f3d-3c9b-4a2e-b8d1-6f0e4a2c9b57', type: 'BURN', at: '23/10/2026 07:40:00', amount: '30.000', source: 'Phần chưa phân phối', maker: 'GDV002', reason: 'Huỷ phần dư sau đối soát đợt 1', doc: 'BB 17/2026/ĐS', status: 'REJECTED', result: 'KSV001: Chứng từ chưa ký' },
+  ];
+
+  document.querySelectorAll('[data-queue]').forEach((card) => {
+    const type = card.dataset.queue;
+    const search = card.querySelector('[data-search]'), status = card.querySelector('[data-status-filter]');
+    const draw = () => {
+      const needle = search.value.trim().toLowerCase();
+      const rows = ROWS.filter((r) => r.type === type && (status.value === 'ALL' || r.status === status.value)
+        && (needle === '' || [r.id, r.maker, r.reason, 'WPT', r.doc].join(' ').toLowerCase().includes(needle)));
+      const showSource = rows.some((r) => r.type === 'BURN');
+      const table = card.querySelector('table');
+      card.querySelector('.tbl-wrap').hidden = rows.length === 0;
+      card.querySelector('[data-empty]').hidden = rows.length > 0;
+      table.tHead.innerHTML = `<tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="n">Số lượng</th>${showSource ? '<th>Nguồn</th>' : ''}<th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Kết quả</th></tr>`;
+      table.tBodies[0].innerHTML = rows.map((r) => `<tr data-request-id="${r.id}">
+        <td class="mono"><a class="idlink" data-go="approval-detail.html#${r.id.slice(0, 8)}">${r.id.slice(0, 8)}</a></td>
+        <td class="small nowrap">${r.at.split(' ')[0]}<span class="sub">${r.at.split(' ')[1]}</span></td>
+        <td class="small nowrap">WPT<span class="sub">(<span data-chain-label>mock</span>)</span></td>
+        <td class="n mono">${r.amount}</td>
+        ${showSource ? `<td class="small" style="min-width:110px">${r.source || '–'}</td>` : ''}
+        <td class="small">${r.maker}</td>
+        <td class="small trunc" style="max-width:220px" title="${r.reason}">${r.reason}</td>
+        <td><span class="badge ${TONE[r.status]}">${LABEL[r.status]}</span></td>
+        <td class="small muted trunc" style="max-width:190px" title="${r.result || ''}">${r.result || '–'}</td></tr>`).join('');
+      // Mã yêu cầu sang màn chi tiết; phần sau # chọn yêu cầu mẫu để hiện.
+      table.querySelectorAll('a[data-go]').forEach((a) => { const [page, hash] = a.dataset.go.split('#'); a.href = `${UI.withRole(page)}#${hash}`; });
+    };
+    search.addEventListener('input', draw); status.addEventListener('change', draw);
+    draw();
+  });
+})();
+</script>
+</body>
+</html>

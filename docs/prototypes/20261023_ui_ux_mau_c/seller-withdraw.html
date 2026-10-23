@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo lệnh rút</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+  .calc { display: flex; flex-direction: column; }
+  .calc .kpi.hl { margin-top: auto; }
+  .calc .kpi.hl { display: flex; flex-direction: column; min-height: 220px; }
+  .calc .kpi.hl .val { white-space: nowrap; margin-top: auto; font-size: 38px; }
+  .calc .kpi.hl .deco { width: 210px; height: 210px; }
+  @media (max-width: 900px) { .calc .kpi.hl { min-height: 0; } .calc .kpi.hl .val { font-size: 28px; margin-top: 14px; } }
+  .notes { display: grid; gap: 8px; margin: 14px 0 18px; }
+  .notes p { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--muted); }
+  .notes svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+  .calc .kv > div { align-items: center; }
+  .form-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fb { font-size: 13px; }
+  .tx-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+  .tx-link svg { width: 12px; height: 12px; }
+  /* Hộp xác nhận mã một lần: c.css chưa có lớp hộp thoại. */
+  dialog.otp { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -30px rgba(0,0,0,.55); }
+  dialog.otp::backdrop { background: rgba(6, 20, 12, .55); backdrop-filter: blur(2px); }
+  dialog.otp h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  dialog.otp .d { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  dialog.otp .code { margin-top: 18px; text-align: center; font-family: var(--mono); font-size: 22px; letter-spacing: .5em; padding-left: 24px; }
+  dialog.otp .foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  dialog.otp .x { position: absolute; top: 14px; right: 14px; }
+  @media (max-width: 700px) {
+    #req-box { margin: 0; padding: 0; overflow: visible; }
+    #req-box table, #req-box tbody { display: block; }
+    #req-box thead { display: none; }
+    #req-box .badge { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; }
+    #req-box tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 14px 16px; border-radius: var(--r-inner); background: var(--surface-2); }
+    #req-box tr + tr { margin-top: 10px; }
+    #req-box .tbl td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; white-space: normal; background: none !important; }
+    #req-box .tbl td::before { content: attr(data-l); display: block; font-family: var(--font); font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    #req-box td:nth-child(1) { order: 1; } #req-box td:nth-child(5) { order: 2; } #req-box td:nth-child(2) { order: 3; } #req-box td:nth-child(7) { order: 4; }
+    #req-box td:nth-child(3) { order: 5; } #req-box td:nth-child(6) { order: 6; } #req-box td:nth-child(4) { order: 7; grid-column: 1 / -1; }
+  }
+  [data-theme="dark"] .avatar:not(.green):not(.gold) { color: var(--g300); }
+</style>
+</head>
+<body data-page="seller-withdraw" data-nav="seller-withdraw.html" data-roles="seller" data-crumbs="Người bán|Tạo lệnh rút">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Tạo lệnh rút</h1>
+      <p class="sub">Rút VNDB từ vault thanh toán về ví nhận đã đặt. Xác nhận bằng mã một lần sáu chữ số, không qua phê duyệt.</p>
+    </div>
+  </div>
+
+  <section class="card span-7 stretch" aria-labelledby="f-h">
+    <div class="card-h"><div class="t"><i data-icon="send"></i><h2 id="f-h">Thông tin lệnh rút</h2></div></div>
+    <form class="form" id="wform">
+      <div class="field">
+        <label for="w-amount">Số tiền rút (VNDB)</label>
+        <div class="input-suffix"><input class="input mono" id="w-amount" inputmode="numeric" value="1500000000" autocomplete="off"><span>VNDB</span></div>
+        <p class="err" id="w-exceed" role="alert" hidden>Vượt phần được rút: chỉ rút được tối đa 33.000.000.000 VNDB.</p>
+      </div>
+      <div class="field"><label for="w-network">Mạng</label><div class="input-ic"><i data-icon="link"></i><input class="input" id="w-network" readonly value="Mock (không cần chain)"></div></div>
+        <div class="field"><label for="w-address">Ví nhận (đặt bởi Kiểm soát viên)</label><div class="input-ic"><i data-icon="lock"></i><input class="input mono" id="w-address" readonly value="0x90F79bf6EB2c4f870365E785982E1f101E93b906" title="0x90F79bf6EB2c4f870365E785982E1f101E93b906"></div></div>
+      <div class="field"><label for="w-purpose">Mục đích</label><input class="input" id="w-purpose" value="Chi phí vận hành tháng 11/2026"></div>
+      <div class="field"><label for="w-note">Ghi chú</label><textarea class="textarea" id="w-note" rows="2" style="min-height:72px"></textarea></div>
+      <div class="form-foot">
+        <button class="btn primary lg" type="submit" id="w-submit"><i data-icon="send"></i>Tạo lệnh rút</button>
+        <p class="fb" id="w-fb" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <section class="card span-5 stretch calc" aria-labelledby="c-h">
+    <div class="card-h"><div class="t"><i data-icon="gauge"></i><h2 id="c-h">Hệ thống tính</h2></div></div>
+    <dl class="kv">
+      <div><dt><i data-icon="bank" class="muted"></i>Số dư VNDB của vault</dt><dd>41.250.000.000</dd></div>
+      <div><dt><i data-icon="lock" class="muted"></i>Phần khoá</dt><dd>8.250.000.000</dd></div>
+      <div><dt><i data-icon="unlock" class="muted"></i>Phần được rút</dt><dd class="strong">33.000.000.000</dd></div>
+    </dl>
+    <div class="notes">
+      <p><i data-icon="info"></i><span>Nguồn on-chain: khoá 20% theo kỳ, làm tròn xuống; thu ròng 41.250.000.000 VNDB, phần khoá kỳ gần nhất 8.250.000.000 VNDB.</span></p>
+      <p><i data-icon="receipt"></i><span>Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).</span></p>
+    </div>
+    <div class="kpi hl" aria-live="polite">
+      <div class="deco" data-turbine="#ffffff"></div>
+      <div class="top"><span class="lbl">Số tiền nhận được</span><span class="ic"><i data-icon="wallet"></i></span></div>
+      <div class="val"><span id="w-recv">1.500.000.000</span><small>VNDB</small></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="r-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="r-h">Yêu cầu rút của tôi</h2></div></div>
+    <div class="tbl-wrap" id="req-box">
+      <table class="tbl" aria-label="Yêu cầu rút của tôi">
+        <thead><tr><th>Mã</th><th class="n">Số tiền</th><th>Ví nhận</th><th>Mục đích</th><th>Trạng thái</th><th>Giao dịch</th><th>Thời điểm</th></tr></thead>
+        <tbody id="req-rows">
+          <tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="b3e91d07-4c2a-4f1e-9a63-2d8e7f105c44">b3e91d07</td><td data-l="Số tiền" class="n nowrap">2.000.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x90F79bf6EB2c4f870365E785982E1f101E93b906">0x90F79bf6…93b906</td><td data-l="Mục đích">Trả gốc vay dự án kỳ 10/2026</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x5d17c2a94e8b0f3a61c7d2e9b4f08a5c13e7d6b2f9a04c8e1d3b5a7f6c2e40b">0x5d17c2a9…c2e40b</span></td><td data-l="Thời điểm" class="nowrap">16:40:03 22/10/2026</td></tr>
+          <tr data-status="NEEDS_REVIEW"><td data-l="Mã" class="mono small" title="6a0f4c58-91d3-4b07-8e2c-5f1a9b3d0e72">6a0f4c58</td><td data-l="Số tiền" class="n nowrap">500.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x90F79bf6EB2c4f870365E785982E1f101E93b906">0x90F79bf6…93b906</td><td data-l="Mục đích">Chi phí vận hành tháng 10/2026</td><td data-l="Trạng thái"><span class="badge warn" title="Chưa có biên nhận giao dịch sau thời gian chờ">Cần Kiểm soát viên xem</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x9e2b04d7c1a85f36e0b2d9c47a1f5e83b6d02c9e7f14a3b58d6c0e2f1a9b7d35">0x9e2b04d7…9b7d35</span></td><td data-l="Thời điểm" class="nowrap">10:12:41 15/10/2026</td></tr>
+          <tr data-status="FAILED"><td data-l="Mã" class="mono small" title="d4f7a903-2e6b-4c18-b5d0-7a3e91c6f208">d4f7a903</td><td data-l="Số tiền" class="n nowrap">300.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x90F79bf6EB2c4f870365E785982E1f101E93b906">0x90F79bf6…93b906</td><td data-l="Mục đích">Phí bảo hiểm tài sản quý IV/2026</td><td data-l="Trạng thái"><span class="badge bad" title="Vault đang tạm dừng rút.">Thất bại</span></td><td data-l="Giao dịch" class="mono small"></td><td data-l="Thời điểm" class="nowrap">14:55:26 08/10/2026</td></tr>
+          <tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="2c8d1e6b-7f40-4a95-a1d3-6e0b28c4f917">2c8d1e6b</td><td data-l="Số tiền" class="n nowrap">1.200.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x90F79bf6EB2c4f870365E785982E1f101E93b906">0x90F79bf6…93b906</td><td data-l="Mục đích">Chi phí bảo trì tua-bin quý IV/2026</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x41c8e7a20b5d93f6c1e4a7b08d2f5c39e6a1b4d70c3f8e2a5b9d16c4e07f8a21">0x41c8e7a2…7f8a21</span></td><td data-l="Thời điểm" class="nowrap">09:30:12 01/10/2026</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card tint" aria-labelledby="st-h">
+    <div class="card-h"><div class="t"><i data-icon="eye"></i><h2 id="st-h">Các trạng thái khác của màn</h2></div><span class="tag sample">Xem thử</span></div>
+    <p class="desc">Màn thật hiện các dòng dưới đây khi dữ liệu khác trạng thái đang xem. Đặt ở đây để duyệt cách trình bày, không phải khối mới.</p>
+    <div class="tabs" role="tablist" data-group="st">
+      <button type="button" role="tab" aria-selected="true" data-show="block">Chặn tạo lệnh</button>
+      <button type="button" role="tab" aria-selected="false" data-show="result">Kết quả lệnh rút</button>
+      <button type="button" role="tab" aria-selected="false" data-show="list">Danh sách yêu cầu</button>
+      <button type="button" role="tab" aria-selected="false" data-show="load">Đang tải, lỗi</button>
+    </div>
+    <div data-panel-group="st" data-panel="block">
+      <p class="small muted" style="margin-bottom:10px">Hiện dưới ô Ghi chú, nút Tạo lệnh rút bị khoá. Ô Ví nhận ghi "Chưa đặt" khi vault chưa có ví nhận.</p>
+      <div class="list">
+        <div><span class="avatar"><i data-icon="bank"></i></span><div class="grow"><b>Chain này chưa có vault thanh toán: chưa rút được.</b><span>Các số trong Hệ thống tính hiện "–".</span></div></div>
+        <div><span class="avatar"><i data-icon="wallet"></i></span><div class="grow"><b>Vault chưa có ví nhận tiền rút. Liên hệ Kiểm soát viên đặt ví nhận trên màn Vault.</b></div></div>
+        <div><span class="avatar"><i data-icon="clock"></i></span><div class="grow"><b>Vault đang tạm dừng rút.</b></div></div>
+      </div>
+    </div>
+    <div data-panel-group="st" data-panel="result" hidden>
+      <div class="stack" style="gap:10px">
+        <div class="alert ok" role="status"><i data-icon="check"></i><span>Đã rút 1.500.000.000 VNDB về ví 0x90F79bf6EB2c4f870365E785982E1f101E93b906.</span></div>
+        <div class="alert bad" role="alert"><i data-icon="alert"></i><span>Lệnh rút đang ở trạng thái: Đã gửi, chờ biên nhận.</span></div>
+        <div class="alert bad" role="alert"><i data-icon="alert"></i><span>Thông báo lỗi do máy chủ trả về (ví dụ mã một lần sai). Lỗi mã một lần thì hiện trong hộp xác nhận, hộp vẫn mở.</span></div>
+      </div>
+    </div>
+    <div data-panel-group="st" data-panel="list" hidden>
+      <div class="empty"><span class="ei"><i data-icon="history"></i></span><span>Chưa có yêu cầu rút nào trên chain này.</span></div>
+      <p class="small muted" style="margin-top:10px">Trên chain có explorer (EVM Testnet), mã giao dịch là liên kết mở explorer: <a class="tx-link mono" href="#">0x5d17c2a9…c2e40b<i data-icon="external"></i></a>. Rê chuột lên nhãn trạng thái để xem lý do nếu có.</p>
+    </div>
+    <div data-panel-group="st" data-panel="load" hidden>
+      <div class="list">
+        <div><span class="avatar"><i data-icon="loader"></i></span><div class="grow"><b>Đang đọc số dư…</b><span>Thay hai thẻ Thông tin lệnh rút và Hệ thống tính trong lúc tải.</span></div></div>
+        <div><span class="avatar" style="color:var(--bad)"><i data-icon="alert"></i></span><div class="grow"><b class="neg">Thông báo lỗi do máy chủ trả về</b><span>Khi đọc số dư lỗi, hoặc trong thẻ Yêu cầu rút của tôi khi đọc danh sách lỗi.</span></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog class="otp" id="otp" aria-labelledby="otp-h">
+  <button class="iconbtn x" type="button" id="otp-close" aria-label="Đóng"><i data-icon="x"></i></button>
+  <h2 id="otp-h">Xác nhận mã một lần</h2>
+  <p class="d">Nhập mã sáu chữ số để rút <b id="otp-amt">1.500.000.000</b> VNDB về ví nhận. Bản thử: chưa gửi mã thật, hệ thống chỉ kiểm đúng sáu chữ số.</p>
+  <input class="input code" id="otp-in" aria-label="Mã một lần" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+  <p class="err" id="otp-err" role="alert" style="margin-top:8px" hidden>Mã một lần phải đúng sáu chữ số.</p>
+  <div class="foot"><button class="btn primary" type="button" id="otp-ok" disabled>Xác nhận</button></div>
+</dialog>
+
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const LIMIT = 33000000000n, PAYOUT = '0x90F79bf6EB2c4f870365E785982E1f101E93b906';
+  const nf = (v) => BigInt(v).toLocaleString('vi-VN');
+  const quote = () => { const a = $('w-amount').value.trim(); if (!/^\d+$/.test(a) || BigInt(a) === 0n) return null; return { recv: a, over: BigInt(a) > LIMIT }; };
+  const sync = () => {
+    const q = quote();
+    $('w-exceed').hidden = !(q && q.over);
+    $('w-recv').textContent = q ? nf(q.recv) : '–';
+    $('w-submit').disabled = !(q && !q.over && $('w-purpose').value.trim());
+  };
+  ['w-amount', 'w-purpose'].forEach((id) => $(id).addEventListener('input', sync));
+  // Mạng: đọc nhãn chain đang chọn trên thanh trên.
+  const chainSel = $('chain');
+  const syncNet = () => { if (chainSel) $('w-network').value = chainSel.options[chainSel.selectedIndex].text; };
+  chainSel?.addEventListener('change', syncNet); syncNet();
+  const dlg = $('otp');
+  $('wform').addEventListener('submit', () => {
+    if ($('w-submit').disabled) return;
+    $('otp-amt').textContent = nf($('w-amount').value.trim());
+    $('otp-in').value = ''; $('otp-err').hidden = true; $('otp-ok').disabled = true; $('w-fb').hidden = true;
+    dlg.showModal(); $('otp-in').focus();
+  });
+  $('otp-close').addEventListener('click', () => dlg.close());
+  $('otp-in').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    const okCode = /^\d{6}$/.test(e.target.value);
+    $('otp-err').hidden = okCode || e.target.value.length === 0; $('otp-ok').disabled = !okCode;
+  });
+  $('otp-ok').addEventListener('click', () => {
+    const amt = $('w-amount').value.trim(), purpose = $('w-purpose').value.trim();
+    dlg.close();
+    const now = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const when = `${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())} 23/10/2026`;
+    $('req-rows').insertAdjacentHTML('afterbegin', `<tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="e81c5a3f-0b47-4d29-96fa-3c7d2e18b054">e81c5a3f</td><td data-l="Số tiền" class="n nowrap">${nf(amt)}</td><td data-l="Ví nhận" class="mono small nowrap" title="${PAYOUT}">0x90F79bf6…93b906</td><td data-l="Mục đích">${purpose.replace(/</g, '&lt;')}</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span>0x7ac3e915…4d08f2</span></td><td data-l="Thời điểm" class="nowrap">${when}</td></tr>`);
+    $('w-fb').textContent = `Đã rút ${nf(amt)} VNDB về ví ${PAYOUT}.`; $('w-fb').className = 'fb pos break'; $('w-fb').hidden = false;
+    $('w-amount').value = ''; $('w-purpose').value = ''; $('w-note').value = ''; sync();
+  });
+  sync();
+})();
+</script>
+</body>
+</html>

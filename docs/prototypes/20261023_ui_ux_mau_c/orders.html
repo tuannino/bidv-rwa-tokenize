@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quản lý lệnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+[hidden] { display: none !important; }
+.sortbtn { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.sortbtn .si { display: inline-grid; width: 14px; height: 14px; opacity: .5; }
+.sortbtn .si svg { width: 14px; height: 14px; }
+.sortbtn.on { color: var(--ink); }
+.sortbtn.on .si { opacity: 1; color: var(--accent-ink); }
+.sortbtn .si.rot { transform: rotate(90deg); }
+.sortbtn .si.up { transform: rotate(180deg); }
+#flt { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1180px) { #flt { grid-template-columns: repeat(2, minmax(0, 1fr)); } #flt .field:first-child { grid-column: 1 / -1; } }
+</style>
+</head>
+<body data-page="orders" data-nav="orders.html" data-roles="investor" data-crumbs="Nhà đầu tư|Quản lý lệnh">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Quản lý lệnh</h1>
+      <p class="sub">Lệnh mua và bán của ví đang kết nối.</p>
+    </div>
+    <div class="actions" style="align-items:center">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert" role="note" data-states="data" id="mock-note">
+    <i data-icon="info"></i>
+    <span>Chế độ mô phỏng đang lọc theo ví trong hồ sơ Nhà đầu tư: <span class="mono break">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>. Không cần kết nối ví trình duyệt.</span>
+  </div>
+
+  <section class="card" aria-labelledby="flt-h" data-states="data">
+    <div class="card-h"><div class="t"><i data-icon="filter"></i><h2 id="flt-h">Bộ lọc</h2></div></div>
+    <form role="search" class="filters" style="margin:0" id="flt">
+      <div class="field"><label for="f-id">Mã lệnh</label><div class="input-ic"><i data-icon="search"></i><input id="f-id" class="input" placeholder="Mã lệnh (UUID)"></div></div>
+      <div class="field narrow"><label for="f-side">Chiều</label><select id="f-side" class="select"><option value="">Mọi chiều</option><option value="BUY">Mua</option><option value="SELL">Bán</option></select></div>
+      <div class="field narrow"><label for="f-st">Trạng thái</label><select id="f-st" class="select"><option value="">Mọi trạng thái</option><option value="PLACED">Đã đặt</option><option value="CHECKING">Đang kiểm tra</option><option value="EXECUTING">Đang quyết toán</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Bị từ chối</option><option value="FAILED">Thất bại</option><option value="EXPIRED">Hết hạn</option></select></div>
+      <div class="field date"><label for="f-from">Từ ngày</label><input id="f-from" type="date" class="input"></div>
+      <div class="field date"><label for="f-to">Đến ngày</label><input id="f-to" type="date" class="input"></div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="tbl-h" data-states="data">
+    <div class="card-h"><div class="t"><i data-icon="list"></i><h2 id="tbl-h">Danh sách lệnh</h2></div></div>
+    <div class="tbl-wrap" id="wrap">
+      <table class="tbl">
+        <thead><tr id="hd"></tr></thead>
+        <tbody id="bd"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="none" hidden>
+      <span class="ei"><i data-icon="filter"></i></span>
+      <p class="small">Không có lệnh nào khớp bộ lọc.</p>
+    </div>
+  </section>
+
+  <section class="card" data-states="nowallet" hidden>
+    <div class="empty" style="padding:64px 16px">
+      <span class="ei"><i data-icon="wallet"></i></span>
+      <b>Chưa kết nối ví</b>
+      <p class="small">Kết nối ví để xem lệnh của chính mình.</p>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const SIDE = { BUY: 'Mua', SELL: 'Bán' };
+  const ST = { PLACED: ['Đã đặt', 'info'], CHECKING: ['Đang kiểm tra', 'info'], EXECUTING: ['Đang quyết toán', 'info'], COMPLETED: ['Hoàn tất', 'ok'], REJECTED: ['Bị từ chối', 'bad'], FAILED: ['Thất bại', 'bad'], EXPIRED: ['Hết hạn', 'warn'] };
+  // ISO để sắp xếp và lọc ngày; hiển thị theo formatDateTime (dd/mm/yyyy hh:mm:ss).
+  const ROWS = [
+    { id: 'ORD-2026-0001', createdAt: '2026-03-18T10:05:10', side: 'BUY', wpt: 150, vnd: 15000000, status: 'COMPLETED', updatedAt: '2026-03-18T10:05:12' },
+    { id: 'ORD-2026-0002', createdAt: '2026-06-02T09:05:31', side: 'BUY', wpt: 40, vnd: 4000000, status: 'REJECTED', updatedAt: '2026-06-02T09:05:32' },
+    { id: 'ORD-2026-0003', createdAt: '2026-08-14T10:40:55', side: 'SELL', wpt: 20, vnd: 2000000, status: 'EXPIRED', updatedAt: '2026-08-14T11:10:55' },
+    { id: 'ORD-2026-0004', createdAt: '2026-10-21T14:22:09', side: 'BUY', wpt: 10, vnd: 1000000, status: 'FAILED', updatedAt: '2026-10-21T14:22:11' },
+  ];
+  const COLS = [['id', 'Mã lệnh'], ['createdAt', 'Thời điểm tạo'], ['side', 'Chiều'], ['wpt', 'Số lượng', 1], ['price', 'Giá', 1], ['vnd', 'Giá trị', 1], ['status', 'Trạng thái'], ['updatedAt', 'Cập nhật']];
+  const dt = (iso) => { const [d, t] = iso.split('T'); const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y} ${t}`; };
+  const price = (r) => Math.floor(r.vnd / r.wpt);
+  let sort = { col: 'createdAt', dir: 'desc' };
+  const $ = (id) => document.getElementById(id);
+
+  function head() {
+    $('hd').innerHTML = COLS.map(([k, l, n]) => {
+      const on = sort.col === k;
+      const ic = on ? `<span class="si${sort.dir === 'asc' ? ' up' : ''}">${UI.icon('chev')}</span>` : `<span class="si rot">${UI.icon('swap')}</span>`;
+      return `<th${n ? ' class="n"' : ''}><button type="button" class="sortbtn${on ? ' on' : ''}" data-col="${k}" aria-label="Sắp xếp theo ${l}">${l}${ic}</button></th>`;
+    }).join('') + '<th aria-label="Chi tiết"></th>';
+  }
+  function val(r, k) { return k === 'price' ? price(r) : k === 'status' ? ST[r.status][0] : r[k]; }
+  function body() {
+    const id = $('f-id').value.trim(), sd = $('f-side').value, st = $('f-st').value, fr = $('f-from').value, to = $('f-to').value;
+    let rows = ROWS.filter((r) => (!id || r.id.toLowerCase().includes(id.toLowerCase())) && (!sd || r.side === sd) && (!st || r.status === st) && (!fr || r.createdAt.slice(0, 10) >= fr) && (!to || r.createdAt.slice(0, 10) <= to));
+    const s = sort.dir === 'asc' ? 1 : -1;
+    rows = rows.sort((a, b) => { const x = val(a, sort.col), y = val(b, sort.col); return s * (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'vi')) || a.id.localeCompare(b.id); });
+    $('bd').innerHTML = rows.map((r) => `<tr class="clickable" data-href="order-detail.html">
+      <td class="mono small nowrap"><a class="idlink" href="${UI.withRole('order-detail.html')}">${r.id}</a></td>
+      <td class="small nowrap">${dt(r.createdAt)}</td>
+      <td><span class="badge${r.side === 'BUY' ? ' ok' : ' warn'}">${SIDE[r.side]}</span></td>
+      <td class="n mono">${UI.nf(r.wpt)}</td>
+      <td class="n mono">${UI.nf(price(r))}</td>
+      <td class="n mono">${UI.nf(r.vnd)}</td>
+      <td><span class="badge ${ST[r.status][1]}">${ST[r.status][0]}</span></td>
+      <td class="small nowrap muted">${dt(r.updatedAt)}</td>
+      <td><a class="link-more" href="${UI.withRole('order-detail.html')}">Chi tiết${UI.icon('chevr')}</a></td></tr>`).join('');
+    $('wrap').hidden = rows.length === 0; $('none').hidden = rows.length > 0;
+  }
+  $('hd').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const k = b.dataset.col;
+    sort = { col: k, dir: sort.col === k && sort.dir === 'asc' ? 'desc' : 'asc' };
+    head(); body();
+  });
+  $('bd').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (tr && !e.target.closest('a')) location.href = UI.withRole(tr.dataset.href); });
+  $('flt').addEventListener('input', body);
+  const syncChain = () => { let c = 'mock'; try { c = localStorage.getItem('bidv-chain') || 'mock'; } catch {} $('mock-note').style.display = c === 'mock' ? '' : 'none'; };
+  document.getElementById('chain')?.addEventListener('change', syncChain);
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
+  }));
+  syncChain(); head(); body();
+})();
+</script>
+</body>
+</html>

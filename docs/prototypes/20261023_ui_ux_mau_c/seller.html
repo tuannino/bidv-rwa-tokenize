@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan người bán</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+  .grp-h { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .grp-h svg { width: 18px; height: 18px; color: var(--g500); }
+  .grp-h h2 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .tiles2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tiles2 .hint { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .tiles2 > div.hi { background: var(--gold-tile); }
+  .tiles2 > div.hi dt { color: var(--gold-ink); }
+  .note { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+  .sup .val { font-weight: 600; font-family: var(--mono); font-size: 14px; white-space: nowrap; }
+  .today .val { font-size: 26px; white-space: nowrap; }
+  .sup .list > * { padding: 16px 0; }
+  .sup .val { font-family: var(--font); font-size: 15px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 520px) { .tiles2 { grid-template-columns: minmax(0, 1fr); } .sup .avatar { display: none; } .today .val { font-size: 24px; } }
+  [data-theme="dark"] .avatar:not(.green):not(.gold) { color: var(--g300); }
+</style>
+</head>
+<body data-page="seller" data-nav="seller.html" data-roles="seller" data-crumbs="Người bán|Tổng quan">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Tổng quan</h1>
+      <p class="sub">Tình hình bán token, nguồn cung và số dư ví của Người bán. Màn chỉ đọc. Chain đang xem: <span class="mono" data-chain-label>mock</span>.</p>
+    </div>
+    <nav class="actions" aria-label="Lối tắt">
+      <a class="btn outline" data-go="seller-transactions.html">Danh sách giao dịch<i data-icon="right"></i></a>
+      <a class="btn primary" data-go="seller-withdraw.html">Tạo lệnh rút<i data-icon="right"></i></a>
+    </nav>
+  </div>
+
+  <div class="grp-h"><i data-icon="swap"></i><h2 id="today-h">Token khớp lệnh trong ngày</h2></div>
+  <section class="kpi hl span-3 today stretch" aria-label="Số lượng mua">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="top"><span class="lbl">Số lượng mua</span><span class="ic"><i data-icon="cart"></i></span></div>
+    <div class="val"><span data-count="1250">1.250</span><small>WPT</small></div>
+    <div class="sub">4 lệnh</div>
+  </section>
+  <section class="kpi gold span-3 today stretch" aria-label="Tổng giá trị mua">
+    <div class="top"><span class="lbl">Tổng giá trị mua</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span data-count="125000000">125.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-3 today stretch" aria-label="Số lượng bán">
+    <div class="top"><span class="lbl">Số lượng bán</span><span class="ic"><i data-icon="box"></i></span></div>
+    <div class="val">–</div>
+    <div class="sub">Hệ thống chưa có lệnh bán lại.</div>
+  </section>
+  <section class="kpi span-3 today stretch" aria-label="Tổng giá trị bán">
+    <div class="top"><span class="lbl">Tổng giá trị bán</span><span class="ic"><i data-icon="receipt"></i></span></div>
+    <div class="val">–</div>
+    <div class="sub">Hệ thống chưa có lệnh bán lại.</div>
+  </section>
+
+  <section class="card span-7 stretch sup" aria-labelledby="sup-h">
+    <div class="card-h"><div class="t"><i data-icon="box"></i><h2 id="sup-h">Thông tin nguồn cung</h2></div></div>
+    <dl class="list">
+      <div><span class="avatar"><i data-icon="shield"></i></span><div class="grow"><dt><b>Trần phát hành</b></dt><dd><span>Tổng số token tối đa được phát hành, theo hồ sơ dự án.</span></dd></div><dd class="val">20.000.000</dd></div>
+      <div><span class="avatar"><i data-icon="pluscircle"></i></span><div class="grow"><dt><b>Số còn được phát hành</b></dt><dd><span>Trần phát hành trừ tổng cung hiện tại.</span></dd></div><dd class="val">10.000.000</dd></div>
+      <div><span class="avatar green"><i data-icon="coins"></i></span><div class="grow"><dt><b>Tổng cung hiện tại</b></dt><dd><span>Số token đang tồn tại trên chuỗi: đã phát hành trừ đã đốt.</span></dd></div><dd class="val">10.000.000</dd></div>
+      <div><span class="avatar gold"><i data-icon="lock"></i></span><div class="grow"><dt><b>Chưa phân phối</b></dt><dd><span>Token còn nằm trong ví thanh toán của Người bán, chưa bán cho nhà đầu tư.</span></dd></div><dd class="val">6.587.500</dd></div>
+      <div><span class="avatar"><i data-icon="users"></i></span><div class="grow"><dt><b>Đang lưu hành</b></dt><dd><span>Token đã nằm trong ví nhà đầu tư: tổng cung trừ phần chưa phân phối.</span></dd></div><dd class="val">3.412.500</dd></div>
+    </dl>
+  </section>
+
+  <section class="card span-5 stretch" aria-labelledby="tok-h">
+    <div class="card-h"><div class="t"><span class="turb" style="color:var(--p1)" data-turbine="currentColor"></span><h2 id="tok-h">Thông tin token</h2></div></div>
+    <dl class="kv">
+      <div><dt>Mã token</dt><dd class="strong">WPT</dd></div>
+      <div><dt>Dự án</dt><dd>Dự án điện gió An Viên</dd></div>
+      <div><dt>Trần phát hành</dt><dd>20.000.000</dd></div>
+      <div><dt>Giá phát hành</dt><dd>100.000 VNDB</dd></div>
+      <div><dt>Tuổi thọ còn lại</dt><dd>15 năm</dd></div>
+      <div><dt>Lợi tức mục tiêu</dt><dd>5,8%/năm</dd></div>
+      <div><dt>Phí giao dịch</dt><dd>Không tính</dd></div>
+      <div><dt>Trạng thái token</dt><dd><span class="badge ok">Đã phát hành</span></dd></div>
+      <div><dt>Trạng thái giao dịch</dt><dd><span class="badge ok run">Đang mở bán</span></dd></div>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="inv-h">
+    <div class="card-h"><div class="t"><i data-icon="list"></i><h2 id="inv-h">Tồn kho token</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>Mã token</th><th class="n">Trần phát hành</th><th class="n">Số còn được phát hành</th><th class="n">Tổng cung hiện tại</th><th class="n">Chưa phân phối</th><th class="n">Đang lưu hành</th></tr></thead>
+        <tbody>
+          <tr><td class="mono strong">WPT</td><td class="n mono">20.000.000</td><td class="n mono">10.000.000</td><td class="n mono">10.000.000</td><td class="n mono">6.587.500</td><td class="n mono">3.412.500</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card span-6 stretch" aria-labelledby="pw-h">
+    <div class="card-h"><div class="t"><i data-icon="wallet"></i><h2 id="pw-h">Tài sản trong ví thanh toán</h2></div></div>
+    <dl class="kv-grid tiles2">
+      <div><dt>Token chưa phân phối</dt><dd>6.587.500<small>WPT</small></dd><p class="hint">Không rút qua kênh này, lệnh rút chỉ áp cho VNDB.</p></div>
+      <div><dt>VNDB</dt><dd>41.250.000.000<small>VNDB</small></dd></div>
+      <div><dt>VNDB đã khoá</dt><dd>8.250.000.000<small>VNDB</small></dd></div>
+      <div class="hi"><dt>VNDB còn rút được</dt><dd>33.000.000.000<small>VNDB</small></dd></div>
+    </dl>
+    <p class="note"><i data-icon="key"></i><span class="break">Ví thanh toán: <span class="mono">0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861</span></span></p>
+  </section>
+
+  <section class="card span-6 stretch" aria-labelledby="bal-h">
+    <div class="card-h"><div class="t"><i data-icon="bank"></i><h2 id="bal-h">Số dư ví</h2></div></div>
+    <dl class="kv-grid tiles2">
+      <div><dt>VNDB ví thanh toán</dt><dd>41.250.000.000<small>VNDB</small></dd></div>
+      <div><dt>VNDB ví chia lợi nhuận</dt><dd>4.800.000.000<small>VNDB</small></dd></div>
+      <div><dt>Phần khoá</dt><dd>8.250.000.000<small>VNDB</small></dd></div>
+      <div class="hi"><dt>Hạn mức còn rút được</dt><dd>33.000.000.000<small>VNDB</small></dd></div>
+    </dl>
+    <p class="note"><i data-icon="info"></i><span>Nguồn on-chain: khoá 20% theo kỳ, làm tròn xuống; thu ròng 41.250.000.000 VNDB, phần khoá kỳ gần nhất 8.250.000.000 VNDB.</span></p>
+  </section>
+
+  <section class="card tint" aria-labelledby="st-h">
+    <div class="card-h"><div class="t"><i data-icon="eye"></i><h2 id="st-h">Các trạng thái khác của màn</h2></div><span class="tag sample">Xem thử</span></div>
+    <p class="desc">Màn thật hiện các dòng dưới đây khi dữ liệu khác trạng thái đang xem. Đặt ở đây để duyệt cách trình bày, không phải khối mới.</p>
+    <div class="tabs" role="tablist" data-group="st">
+      <button type="button" role="tab" aria-selected="true" data-show="warn">Cảnh báo đối soát</button>
+      <button type="button" role="tab" aria-selected="false" data-show="nowallet">Chưa có ví thanh toán</button>
+      <button type="button" role="tab" aria-selected="false" data-show="noproj">Chưa có dự án</button>
+      <button type="button" role="tab" aria-selected="false" data-show="policy">Luật khoá khác</button>
+      <button type="button" role="tab" aria-selected="false" data-show="load">Đang tải, lỗi</button>
+    </div>
+    <div data-panel-group="st" data-panel="warn">
+      <div class="alert bad" role="alert"><i data-icon="alert"></i><span class="break"><b>Ví SPV trên chuỗi không phải vault: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC. Vault hiện tại: 0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861.</b><br>Hiện trong cả hai thẻ Tài sản trong ví thanh toán và Số dư ví khi ProjectToken còn ghi một ví SPV khác vault.</span></div>
+    </div>
+    <div data-panel-group="st" data-panel="nowallet" hidden>
+      <p class="note" style="margin-top:0"><i data-icon="info"></i><span>Chưa phát hành lần nào nên chưa có ví thanh toán.</span></p>
+      <p class="small muted" style="margin-top:6px">Thay dòng Ví thanh toán trong thẻ Tài sản trong ví thanh toán; các ô số dư hiện "–".</p>
+    </div>
+    <div data-panel-group="st" data-panel="noproj" hidden>
+      <div class="empty"><span class="ei"><i data-icon="box"></i></span><span>Chưa có dự án trên chuỗi này.</span></div>
+      <p class="small muted" style="margin-top:6px">Hiện trong thẻ Thông tin nguồn cung và thẻ Thông tin token.</p>
+    </div>
+    <div data-panel-group="st" data-panel="policy" hidden>
+      <dl class="kv">
+        <div><dt>Chưa cấu hình (UNSET)</dt><dd>Nguồn on-chain: chưa cấu hình, vault khoá toàn bộ.</dd></div>
+        <div><dt>Khoá cố định (FIXED)</dt><dd>Nguồn on-chain: khoá cố định 5.000.000.000 VNDB.</dd></div>
+        <div><dt>Chain không có vault</dt><dd>Chain này chưa có vault thanh toán: chưa rút được.</dd></div>
+      </dl>
+    </div>
+    <div data-panel-group="st" data-panel="load" hidden>
+      <div class="list">
+        <div><span class="avatar"><i data-icon="loader"></i></span><div class="grow"><b>Đang đọc số liệu…</b><span>Khi đang tải, thay toàn bộ phần dưới tiêu đề.</span></div></div>
+        <div><span class="avatar" style="color:var(--bad)"><i data-icon="alert"></i></span><div class="grow"><b class="neg">Thông báo lỗi do máy chủ trả về</b><span>Khi đọc tổng quan lỗi, hiện câu lỗi bằng màu cảnh báo.</span></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Danh sách giao dịch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+  .tx-filters { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-2); font-size: 13px; }
+  .pager .btns { display: flex; gap: 8px; }
+  .typ { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .typ svg { width: 15px; height: 15px; color: var(--g500); }
+  .typ.w svg { color: var(--au500); }
+  .tbl td.purpose { min-width: 150px; max-width: 190px; }
+  #tbl-box .tbl th, #tbl-box .tbl td { padding-left: 9px; padding-right: 9px; }
+  @media (max-width: 1180px) { .tx-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tx-filters .q { grid-column: 1 / -1; } }
+  @media (max-width: 700px) {
+    #tbl-box { margin: 0; padding: 0; overflow: visible; }
+    #tbl-box table, #tbl-box tbody { display: block; }
+    #tbl-box thead { display: none; }
+    #tbl-box .badge { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; }
+    #tbl-box tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 14px 16px; border-radius: var(--r-inner); background: var(--surface-2); }
+    #tbl-box tr + tr { margin-top: 10px; }
+    #tbl-box .tbl td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; max-width: none; white-space: normal; background: none !important; }
+    #tbl-box td:nth-child(1) { order: 1; } #tbl-box td:nth-child(7) { order: 2; } #tbl-box td:nth-child(2) { order: 3; } #tbl-box td:nth-child(3) { order: 4; }
+    #tbl-box td:nth-child(4) { order: 5; } #tbl-box td:nth-child(5) { order: 6; } #tbl-box td:nth-child(6) { order: 7; grid-column: 1 / -1; } #tbl-box td:nth-child(8) { order: 8; } #tbl-box td:nth-child(9) { order: 9; }
+    #tbl-box td .sub { display: inline; margin-left: 4px; }
+    #tbl-box .tbl td::before { content: attr(data-l); display: block; font-family: var(--font); font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  }
+  @media (max-width: 520px) { .pager .btns { width: 100%; } .pager .btns .btn { flex: 1; } }
+  [data-theme="dark"] .avatar:not(.green):not(.gold) { color: var(--g300); }
+</style>
+</head>
+<body data-page="seller-transactions" data-nav="seller-transactions.html" data-roles="seller" data-crumbs="Người bán|Danh sách giao dịch">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Danh sách giao dịch</h1>
+      <p class="sub">Lệnh mua bán token của nhà đầu tư khớp với ví Người bán và lệnh rút VNDB của Người bán. Màn chỉ đọc.</p>
+    </div>
+  </div>
+
+  <section class="card" aria-label="Danh sách giao dịch">
+    <form class="tx-filters" role="search">
+      <div class="field q"><label for="f-q">Mã lệnh hoặc nhà đầu tư</label><div class="input-ic"><i data-icon="search"></i><input class="input" id="f-q" aria-label="Mã lệnh hoặc nhà đầu tư" placeholder="Mã lệnh hoặc ví nhà đầu tư"></div></div>
+      <div class="field"><label for="f-type">Loại</label><select class="select" id="f-type" aria-label="Loại"><option value="">Mọi loại</option><option value="BUY">Mua</option><option value="SELL">Bán</option><option value="WITHDRAW">Rút</option></select></div>
+      <div class="field"><label for="f-status">Trạng thái</label><select class="select" id="f-status" aria-label="Trạng thái"></select></div>
+      <div class="field"><label for="f-from">Từ ngày</label><input class="input" id="f-from" type="date" aria-label="Từ ngày"></div>
+      <div class="field"><label for="f-to">Đến ngày</label><input class="input" id="f-to" type="date" aria-label="Đến ngày"></div>
+    </form>
+
+    <div class="tbl-wrap" id="tbl-box">
+      <table class="tbl">
+        <thead><tr><th>Mã lệnh</th><th>Nhà đầu tư / ví nhận</th><th>Loại</th><th class="n">Số token</th><th class="n">Số VNDB</th><th>Bước hiện tại</th><th>Trạng thái</th><th>Tạo lúc</th><th>Cập nhật</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty" style="display:none"><span class="ei"><i data-icon="filter"></i></span><span>Không có giao dịch khớp bộ lọc.</span></div>
+
+    <nav class="pager" aria-label="Phân trang">
+      <span class="muted" id="pg-info">27 giao dịch, trang 1/2</span>
+      <div class="btns"><button class="btn outline sm" type="button" disabled>Trang trước</button><button class="btn outline sm" type="button" id="pg-next">Trang sau</button></div>
+    </nav>
+  </section>
+
+  <section class="card tint" aria-labelledby="st-h">
+    <div class="card-h"><div class="t"><i data-icon="eye"></i><h2 id="st-h">Các trạng thái khác của màn</h2></div><span class="tag sample">Xem thử</span></div>
+    <p class="desc">Thay chỗ bảng khi đang tải hoặc khi đọc lỗi. Trạng thái rỗng xem bằng cách lọc ở trên (ví dụ chọn loại Bán).</p>
+    <div class="list">
+      <div><span class="avatar"><i data-icon="loader"></i></span><div class="grow"><b>Đang tải…</b><span>Trong lúc chờ kết quả sau mỗi lần đổi bộ lọc hoặc trang.</span></div></div>
+      <div><span class="avatar" style="color:var(--bad)"><i data-icon="alert"></i></span><div class="grow"><b class="neg">Thông báo lỗi do máy chủ trả về</b><span>Ví dụ trạng thái không thuộc loại giao dịch đang lọc.</span></div></div>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const STATUS = { PLACED: 'Đã đặt', CHECKING: 'Đang kiểm tra', EXECUTING: 'Đang khớp', COMPLETED: 'Hoàn tất', REJECTED: 'Bị từ chối', FAILED: 'Thất bại', EXPIRED: 'Hết hạn' };
+  const STEP = { PLACED: '1. Đặt lệnh', CHECKING: '2. Kiểm tra điều kiện', EXECUTING: '3. Khớp lệnh trên chuỗi', COMPLETED: '4. Đã giao token', REJECTED: '2. Dừng ở kiểm tra', FAILED: '3. Dừng ở khớp lệnh', EXPIRED: '1. Hết hạn chờ' };
+  const WSTATUS = { SENDING: 'Đang gửi', SENT: 'Đã gửi, chờ biên nhận', COMPLETED: 'Hoàn tất', FAILED: 'Thất bại', NEEDS_REVIEW: 'Cần Kiểm soát viên xem' };
+  const TONE = { PLACED: 'info', CHECKING: 'info run', EXECUTING: 'info run', COMPLETED: 'ok', REJECTED: 'bad', FAILED: 'bad', EXPIRED: '', SENDING: 'info run', SENT: 'info', NEEDS_REVIEW: 'warn' };
+  const TYPE = { BUY: 'Mua', SELL: 'Bán', WITHDRAW: 'Rút' };
+  const ORD = Object.keys(STATUS), WD = Object.keys(WSTATUS);
+  const statusOptions = (t) => {
+    if (t === 'WITHDRAW') return WD.map((s) => [s, WSTATUS[s]]);
+    const o = ORD.map((s) => [s, STATUS[s]]);
+    if (t === 'BUY' || t === 'SELL') return o;
+    return [...o, ...WD.filter((s) => !ORD.includes(s)).map((s) => [s, `${WSTATUS[s]} (rút)`])];
+  };
+  // [type, id, ví, WPT, VNDB, trạng thái, tạo lúc, cập nhật, mục đích]
+  const R = [
+    ['BUY', 'ORD-2026-0187', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 80, 'PLACED', '2026-10-23 09:41:12', '2026-10-23 09:41:12'],
+    ['BUY', 'ORD-2026-0186', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 50, 'CHECKING', '2026-10-23 09:20:47', '2026-10-23 09:20:51'],
+    ['BUY', 'ORD-2026-0185', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 100, 'EXECUTING', '2026-10-23 09:05:33', '2026-10-23 09:05:40'],
+    ['BUY', 'ORD-2026-0184', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 200, 'COMPLETED', '2026-10-23 08:47:02', '2026-10-23 08:47:15'],
+    ['BUY', 'ORD-2026-0183', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 40, 'REJECTED', '2026-10-23 08:30:10', '2026-10-23 08:30:12'],
+    ['BUY', 'ORD-2026-0182', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 250, 'COMPLETED', '2026-10-23 08:12:44', '2026-10-23 08:12:58'],
+    ['BUY', 'ORD-2026-0181', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 300, 'COMPLETED', '2026-10-23 07:55:09', '2026-10-23 07:55:21'],
+    ['BUY', 'ORD-2026-0180', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 500, 'COMPLETED', '2026-10-23 07:31:26', '2026-10-23 07:31:40'],
+    ['WITHDRAW', 'b3e91d07-4c2a-4f1e-9a63-2d8e7f105c44', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'COMPLETED', '2026-10-22 16:40:03', '2026-10-22 16:40:21', 2000000000, 'Trả gốc vay dự án kỳ 10/2026'],
+    ['BUY', 'ORD-2026-0179', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 150, 'COMPLETED', '2026-10-22 15:12:50', '2026-10-22 15:13:04'],
+    ['BUY', 'ORD-2026-0178', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 60, 'EXPIRED', '2026-10-22 11:02:18', '2026-10-22 11:32:18'],
+    ['BUY', 'ORD-2026-0177', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 120, 'FAILED', '2026-10-21 14:26:39', '2026-10-21 14:27:02'],
+    ['BUY', 'ORD-2026-0176', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 1000, 'COMPLETED', '2026-10-21 10:08:55', '2026-10-21 10:09:12'],
+    ['BUY', 'ORD-2026-0175', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 400, 'COMPLETED', '2026-10-20 13:47:30', '2026-10-20 13:47:46'],
+    ['WITHDRAW', '6a0f4c58-91d3-4b07-8e2c-5f1a9b3d0e72', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'NEEDS_REVIEW', '2026-10-15 10:12:41', '2026-10-15 10:19:05', 500000000, 'Chi phí vận hành tháng 10/2026'],
+    ['BUY', 'ORD-2026-0174', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 75, 'COMPLETED', '2026-10-14 09:33:17', '2026-10-14 09:33:30'],
+    ['WITHDRAW', 'd4f7a903-2e6b-4c18-b5d0-7a3e91c6f208', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'FAILED', '2026-10-08 14:55:26', '2026-10-08 14:55:31', 300000000, 'Phí bảo hiểm tài sản quý IV/2026'],
+    ['BUY', 'ORD-2026-0173', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 220, 'COMPLETED', '2026-10-06 16:20:04', '2026-10-06 16:20:19'],
+    ['WITHDRAW', '2c8d1e6b-7f40-4a95-a1d3-6e0b28c4f917', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'COMPLETED', '2026-10-01 09:30:12', '2026-10-01 09:30:37', 1200000000, 'Chi phí bảo trì tua-bin quý IV/2026'],
+    ['BUY', 'ORD-2026-0172', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 180, 'COMPLETED', '2026-09-29 11:41:48', '2026-09-29 11:42:03'],
+  ];
+  const nf = (v) => Number(v).toLocaleString('vi-VN');
+  const short = (w) => `${w.slice(0, 6)}…${w.slice(-4)}`;
+  const t = (s, l) => { const [d, h] = s.split(' '); const [y, m, dd] = d.split('-'); return `<td data-l="${l}" class="nowrap">${h}<span class="sub">${dd}/${m}/${y}</span></td>`; };
+  const rowHtml = ([type, id, wallet, wpt, st, c, u, vnd, purpose]) => {
+    const w = type === 'WITHDRAW';
+    return `<tr data-type="${type}">
+      <td data-l="Mã lệnh" class="mono small nowrap" title="${id}">${w ? id.slice(0, 8) : id}</td>
+      <td data-l="Nhà đầu tư / ví nhận" class="mono small nowrap" title="${wallet}">${short(wallet)}</td>
+      <td data-l="Loại"><span class="typ${w ? ' w' : ''}">${UI.icon(w ? 'bank' : 'cart')}${TYPE[type]}</span></td>
+      <td data-l="Số token" class="n">${w ? '' : nf(wpt)}</td>
+      <td data-l="Số VNDB" class="n nowrap">${nf(w ? vnd : wpt * 100000)}</td>
+      <td data-l="Bước hiện tại"${w ? ' class="purpose"' : ' class="nowrap"'}>${w ? purpose : STEP[st]}</td>
+      <td data-l="Trạng thái"><span class="badge ${TONE[st]}">${w ? WSTATUS[st] : STATUS[st]}</span></td>
+      ${t(c, 'Tạo lúc')}${t(u, 'Cập nhật')}</tr>`;
+  };
+  const $ = (id) => document.getElementById(id);
+  const fillStatus = () => {
+    const cur = $('f-status').value, opts = statusOptions($('f-type').value);
+    $('f-status').innerHTML = `<option value="">Mọi trạng thái</option>${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}`;
+    $('f-status').value = opts.some(([v]) => v === cur) ? cur : '';
+  };
+  const render = () => {
+    const q = $('f-q').value.trim().toLowerCase(), ty = $('f-type').value, st = $('f-status').value, from = $('f-from').value, to = $('f-to').value;
+    const any = q || ty || st || from || to;
+    const rows = R.filter((r) => (!q || r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q)) && (!ty || r[0] === ty)
+      && (!st || r[4] === st) && (!from || r[5].slice(0, 10) >= from) && (!to || r[5].slice(0, 10) <= to));
+    $('rows').innerHTML = rows.map(rowHtml).join('');
+    $('tbl-box').style.display = rows.length ? '' : 'none'; $('empty').style.display = rows.length ? 'none' : '';
+    $('pg-info').textContent = any ? `${rows.length} giao dịch, trang 1/1` : '27 giao dịch, trang 1/2';
+    $('pg-next').disabled = !!any;
+  };
+  $('f-type').addEventListener('change', () => { fillStatus(); render(); });
+  ['f-q', 'f-status', 'f-from', 'f-to'].forEach((id) => $(id).addEventListener('input', render));
+  fillStatus(); render();
+})();
+</script>
+</body>
+</html>

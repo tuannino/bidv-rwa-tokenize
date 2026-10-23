@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan điện gió</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+</head>
+<body data-page="dashboard" data-nav="dashboard.html" data-roles="teller,controller" data-crumbs="Tổng quan điện gió">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Tổng quan điện gió</h1>
+      <p class="sub">Token hoá quyền hưởng lợi tức dự án điện gió, PoC, cập nhật 09:14 23/10/2026</p>
+    </div>
+    <div class="actions"><a class="btn primary" href="#"><i data-icon="plus"></i>Phát hành WPT</a></div>
+  </div>
+
+  <section class="kpi hl big span-4" aria-label="WPT đã phát hành" style="grid-row: span 2">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="top"><span class="lbl">WPT đã phát hành</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span data-count="335000">335.000</span></div>
+    <div class="sub">3 dự án, 82 tổ máy</div>
+  </section>
+  <section class="kpi span-4" aria-label="Nhà đầu tư whitelisted">
+    <div class="top"><span class="lbl">Nhà đầu tư whitelisted</span><span class="ic"><i data-icon="users"></i></span></div>
+    <div class="val"><span data-count="128">128</span></div>
+    <div class="sub">Đã qua KYC, đủ điều kiện nắm giữ</div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Sản lượng luỹ kế">
+    <div class="top"><span class="lbl">Sản lượng luỹ kế</span><span class="ic"><i data-icon="zap"></i></span></div>
+    <div class="val"><span data-count="412680">412.680</span><small>MWh</small></div>
+    <div class="sub">Nguồn: EnergyOracle, 2/3 dự án đang phát</div>
+  </section>
+  <section class="kpi span-8" aria-label="Lợi tức đã chia">
+    <div class="top"><span class="lbl">Lợi tức đã chia</span><span class="ic"><i data-icon="bank"></i></span></div>
+    <div class="val"><span data-count="86.4" data-d="1">86,4</span><small>tỷ</small></div>
+    <div class="sub">VND, 6 kỳ qua ProfitDistributor</div>
+  </section>
+
+  <section class="card span-8" aria-labelledby="ch-h">
+    <div class="card-h"><h2 id="ch-h">Sản lượng và lợi tức theo kỳ</h2><span class="badge">6 kỳ gần nhất</span></div>
+    <div class="chart" id="ch"></div>
+  </section>
+  <section class="card span-4 stretch" aria-labelledby="al-h">
+    <div class="card-h"><h2 id="al-h">Phân bổ WPT theo dự án</h2><span class="badge">Tổng cung</span></div>
+    <div class="list" style="gap:0">
+      <div style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;gap:8px;align-items:center;font-weight:600"><span style="color:var(--p1)"><i data-icon="wind"></i></span>Điện gió An Viên</span><span class="small muted nowrap">185.000 WPT <b style="color:var(--ink)">55,2%</b></span></div><div class="bar" style="margin-top:8px"><i data-w="55.22"></i></div><div class="small muted" style="margin-top:6px">An Viên</div></div>
+      <div style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;gap:8px;align-items:center;font-weight:600"><span style="color:var(--p2)"><i data-icon="wind"></i></span>Điện gió Phú Quý</span><span class="small muted nowrap">100.000 WPT <b style="color:var(--ink)">29,9%</b></span></div><div class="bar gold" style="margin-top:8px"><i data-w="29.85"></i></div><div class="small muted" style="margin-top:6px">Phú Quý (Bình Thuận)</div></div>
+      <div style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;gap:8px;align-items:center;font-weight:600"><span style="color:var(--p3)"><i data-icon="wind"></i></span>Điện gió Ninh Thuận</span><span class="small muted nowrap">50.000 WPT <b style="color:var(--ink)">14,9%</b></span></div><div class="bar" style="margin-top:8px"><i data-w="14.93"></i></div><div class="small muted" style="margin-top:6px">Ninh Thuận</div></div>
+    </div>
+  </section>
+
+  <section class="card proj span-4" aria-label="Điện gió An Viên">
+    <div class="card-h"><div class="t"><span class="turb" style="color:var(--p1)" data-turbine="currentColor"></span><div><h3>Điện gió An Viên</h3><span class="small muted">An Viên</span></div></div></div>
+    <div style="display:flex;gap:14px;align-items:center"><dl class="kv nowrap" style="flex:1"><div><dt>Công suất đặt</dt><dd>99,2 MW</dd></div><div><dt>Sản lượng luỹ kế</dt><dd>214.600 MWh</dd></div><div><dt>Hệ số công suất</dt><dd>38,4%</dd></div></dl><div class="gauge" data-value="38.4" data-color="var(--p1)" data-label="hệ số"></div></div>
+  </section>
+  <section class="card proj span-4" aria-label="Điện gió Phú Quý">
+    <div class="card-h"><div class="t"><span class="turb" style="color:var(--p2)" data-turbine="currentColor" data-speed="slow"></span><div><h3>Điện gió Phú Quý</h3><span class="small muted">Phú Quý (Bình Thuận)</span></div></div></div>
+    <div style="display:flex;gap:14px;align-items:center"><dl class="kv nowrap" style="flex:1"><div><dt>Công suất đặt</dt><dd>30,0 MW</dd></div><div><dt>Sản lượng luỹ kế</dt><dd>128.450 MWh</dd></div><div><dt>Hệ số công suất</dt><dd>33,1%</dd></div></dl><div class="gauge" data-value="33.1" data-color="var(--p2)" data-label="hệ số"></div></div>
+  </section>
+  <section class="card proj span-4" aria-label="Điện gió Ninh Thuận">
+    <div class="card-h"><div class="t"><span class="turb" style="color:var(--p3)" data-turbine="currentColor" data-speed="fast"></span><div><h3>Điện gió Ninh Thuận</h3><span class="small muted">Ninh Thuận</span></div></div></div>
+    <div style="display:flex;gap:14px;align-items:center"><dl class="kv nowrap" style="flex:1"><div><dt>Công suất đặt</dt><dd>19,0 MW</dd></div><div><dt>Sản lượng luỹ kế</dt><dd>69.630 MWh</dd></div><div><dt>Hệ số công suất</dt><dd>35,7%</dd></div></dl><div class="gauge" data-value="35.7" data-color="var(--p3)" data-label="hệ số"></div></div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+UI.chart(document.getElementById('ch'), {
+  labels: ['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'],
+  left: { max: 36000, step: 9000, fmt: (v) => `${UI.nf(v)} MWh` },
+  right: { max: 20, fmt: (v) => `${UI.nf(v)} tỷ` },
+  tipTitle: (i) => `Kỳ ${['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'][i]}`,
+  series: [
+    { name: 'Sản lượng', type: 'area', axis: 'left', color: 'var(--c-gen)', values: [24180, 27640, 31900, 29450, 34720, 33180], fmt: (v) => `${UI.nf(v)} MWh` },
+    { name: 'Lợi tức đã chia', type: 'line', axis: 'right', color: 'var(--c-profit)', dots: true, values: [11.2, 13.1, 15.4, 14.0, 16.8, 15.9], fmt: (v) => `${UI.nf(v, 1)} tỷ VND` },
+  ],
+});
+</script>
+</body>
+</html>

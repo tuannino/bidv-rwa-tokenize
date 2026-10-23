@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chia lợi nhuận</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>[hidden] { display: none !important; } .tbl.compact th, .tbl.compact td { padding-left: 8px; padding-right: 8px; }</style>
+</head>
+<body data-page="distribution" data-nav="distribution.html" data-roles="controller,teller" data-crumbs="Vận hành|Chia lợi nhuận">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Chia lợi nhuận</h1>
+      <p class="sub">Kiểm soát viên duyệt tổng số VNDB của kỳ trên chain <span class="mono" data-chain-label>mock</span>; hệ thống chốt kỳ vault rồi mới chia cho người nắm giữ WPT.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span class="small muted">Trạng thái xem thử của màn</span>
+    <div class="tabs" id="state" role="tablist" aria-label="Trạng thái xem thử" style="margin:0">
+      <button type="button" role="tab" aria-selected="true" data-state="idle">Chưa có kỳ hoạt động</button>
+      <button type="button" role="tab" aria-selected="false" data-state="active">Đang có kỳ hoạt động</button>
+      <button type="button" role="tab" aria-selected="false" data-state="unsupported">Chain không có vault</button>
+    </div>
+  </div>
+
+  <div class="alert ok" id="msg" role="status" aria-label="Kết quả thao tác chia" hidden><i data-icon="check"></i><span>Kỳ đã chia xong.</span></div>
+
+  <!-- Chain không hỗ trợ: thẻ lý do thay cho Quỹ chia và Dự kiến -->
+  <section class="card span-12" data-only="unsupported" hidden aria-label="Chain không hỗ trợ">
+    <div class="empty" style="padding:24px 16px"><span class="ei"><i data-icon="bank"></i></span><span>Chain "evm" không có vault thanh toán nên không hỗ trợ luồng chia đã duyệt.</span></div>
+  </section>
+
+  <!-- Quỹ chia -->
+  <div class="card-h span-12" data-only="idle active" style="margin:6px 0 -6px"><div class="t"><i data-icon="coins"></i><h2 style="font-size:16px;font-weight:600">Quỹ chia</h2></div></div>
+  <section class="kpi hl big span-4" data-only="idle active" aria-label="Số dư quỹ" style="grid-row: span 2">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="top"><span class="lbl">Số dư quỹ</span><span class="ic"><i data-icon="bank"></i></span></div>
+    <div class="val" style="font-size:clamp(26px,2.3vw,36px);white-space:nowrap"><span id="p-pool" data-count="4800000000">4.800.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi gold span-4" data-only="idle active" aria-label="Chưa phân bổ">
+    <div class="top"><span class="lbl">Chưa phân bổ</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span id="p-unalloc" data-count="4800000000">4.800.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-4" data-only="idle active" aria-label="Tổng dự trữ các kỳ">
+    <div class="top"><span class="lbl">Tổng dự trữ các kỳ</span><span class="ic"><i data-icon="lock"></i></span></div>
+    <div class="val"><span id="p-reserved">0</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-4" id="thr" data-only="idle active" aria-label="Ngưỡng tối thiểu">
+    <div class="top"><span class="lbl">Ngưỡng tối thiểu</span><span class="ic"><i data-icon="gauge"></i></span></div>
+    <div class="val"><span>1.000</span><small>VNDB</small></div>
+  </section>
+
+  <!-- Duyệt chia: chỉ Kiểm soát viên (viewerCanApprove) -->
+  <section class="card span-4 stretch" id="approve" data-ctl aria-labelledby="ap-h" style="display:flex;flex-direction:column;gap:12px">
+    <div class="card-h" style="margin:0"><div class="t"><i data-icon="shield"></i><h2 id="ap-h">Duyệt chia</h2></div></div>
+    <ul class="checks" id="blockers" aria-label="Lý do chưa duyệt được" hidden></ul>
+    <button class="btn primary block" type="button" id="btn-approve" style="margin-top:auto"><i data-icon="check"></i><span id="btn-approve-t">Duyệt chia 4.800.000.000 VNDB</span></button>
+  </section>
+
+  <!-- Dự kiến (tham khảo) -->
+  <section class="card tint span-4 stretch" data-only="idle active" aria-labelledby="fc-h">
+    <div class="card-h"><div class="t"><i data-icon="trend"></i><h2 id="fc-h">Dự kiến (tham khảo)</h2></div></div>
+    <p class="small muted">Theo số dư WPT hiện tại trên tổng cung <b class="num" style="color:var(--ink)">10.000.000 WPT</b>. Quyền hưởng cuối cùng chốt theo ảnh chụp trên chuỗi lúc mở kỳ. Tổng dự kiến <b class="num" style="color:var(--ink)" id="fc-alloc-t">4.800.000.000 VNDB</b>, phần dư làm tròn <b class="num" style="color:var(--ink)">0 VNDB</b>.</p>
+    <dl class="kv nowrap" style="margin-top:12px">
+      <div><dt>Tổng cung</dt><dd>10.000.000 WPT</dd></div>
+      <div><dt>Tổng dự kiến</dt><dd id="fc-alloc">4.800.000.000 VNDB</dd></div>
+      <div><dt>Phần dư làm tròn</dt><dd>0 VNDB</dd></div>
+    </dl>
+  </section>
+  <section class="card span-8" data-only="idle active" aria-labelledby="rc-h">
+    <div class="card-h"><div class="t"><i data-icon="users"></i><h2 id="rc-h">Người nhận dự kiến</h2></div></div>
+    <div class="tbl-wrap" style="max-height:250px;overflow-y:auto">
+      <table class="tbl" aria-label="Người nhận dự kiến">
+        <thead><tr><th>Ví</th><th class="n">WPT hiện tại</th><th class="n">Phần dự kiến (VNDB)</th></tr></thead>
+        <tbody id="fc-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Kỳ hoạt động: chỉ khi data.active -->
+  <section class="card span-12" data-only="active" hidden aria-labelledby="ac-h">
+    <div class="card-h"><div class="t"><i data-icon="loader"></i><h2 id="ac-h">Kỳ hoạt động</h2></div><span class="badge warn run">Đang chia</span></div>
+    <dl class="kv-grid">
+      <div><dt>Mã kỳ</dt><dd class="mono" style="font-size:14px">mock:2026-10-23-01</dd></div>
+      <div><dt>Trạng thái</dt><dd>Đang chia</dd></div>
+      <div><dt>Trạng thái duyệt</dt><dd>Đã duyệt</dd></div>
+      <div><dt>Số đã duyệt</dt><dd>4.800.000.000<small>VNDB</small></dd></div>
+      <div><dt>Số thực tế trên chuỗi</dt><dd>4.800.000.000<small>VNDB</small></dd></div>
+      <div><dt>Chốt kỳ vault</dt><dd>Đã chốt</dd></div>
+      <div><dt>Đã trả</dt><dd>665.856.000<small>VNDB (52 hồ sơ)</small></dd></div>
+      <div><dt>Còn phải chi / lỗi</dt><dd>76 / 0</dd></div>
+    </dl>
+    <div class="alert" role="status" aria-label="Ghi chú kỳ hoạt động" style="margin-top:14px"><i data-icon="info"></i><span>Còn 76 hồ sơ phải chi.</span></div>
+    <p class="small muted" style="margin-top:10px">Đã gửi lên chuỗi, đang đối soát (chốt vault <span class="mono">0x7c2e91d4…a3f0b8</span>).</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px" data-ctl>
+      <button class="btn primary" type="button"><i data-icon="refresh"></i>Tiếp tục chia</button>
+    </div>
+  </section>
+
+  <!-- Lịch sử kỳ chia -->
+  <section class="card span-12" aria-labelledby="hi-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="hi-h">Lịch sử kỳ chia</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl compact" aria-label="Danh sách kỳ chia">
+        <thead><tr><th>Mã kỳ</th><th>Trạng thái</th><th>Duyệt</th><th>Người duyệt</th><th>Thời điểm duyệt</th><th class="n">Số duyệt</th><th class="n">Số thực tế</th><th class="n">Duyệt lại từ</th><th>Nguồn kích hoạt</th><th></th></tr></thead>
+        <tbody id="hi-rows"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px" class="small">
+      <button class="btn outline sm" type="button" disabled>Trang trước</button>
+      <span id="hi-page">Trang 1/1 (5 kỳ)</span>
+      <button class="btn outline sm" type="button" disabled>Trang sau</button>
+    </div>
+    <div id="payouts" hidden style="margin-top:18px">
+      <div class="inner">
+        <div class="card-h" style="margin-bottom:10px"><div class="t"><i data-icon="receipt"></i><h3>Hồ sơ trả từng ví, kỳ <span class="mono" id="po-key"></span></h3></div></div>
+        <div class="tbl-wrap">
+          <table class="tbl" aria-label="Hồ sơ trả từng ví">
+            <thead><tr><th>Ví</th><th class="n">WPT tại ảnh chụp</th><th class="n">Số chia (VNDB)</th><th>Trạng thái</th><th>Giao dịch</th></tr></thead>
+            <tbody id="po-rows"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px" class="small">
+          <button class="btn outline sm" type="button" id="po-prev">Trang trước</button>
+          <span id="po-page"></span>
+          <button class="btn outline sm" type="button" id="po-next">Trang sau</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lịch chạy -->
+  <section class="card span-12" aria-labelledby="rl-h">
+    <div class="card-h"><div class="t"><i data-icon="clock"></i><h2 id="rl-h">Lịch chạy (20 lượt gần nhất)</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl" aria-label="Lịch chạy">
+        <thead><tr><th>Kỳ</th><th class="n">Vòng</th><th>Nguồn</th><th>Kết quả</th><th>Bắt đầu</th><th>Lỗi</th></tr></thead>
+        <tbody id="rl-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog class="card" id="confirm" aria-labelledby="cf-h" style="border:0;width:min(520px,calc(100% - 32px));color:var(--ink);padding:24px">
+  <h2 id="cf-h" style="font-size:18px;font-weight:700">Duyệt chia 4.800.000.000 VNDB</h2>
+  <p class="muted" style="margin-top:10px">Kiểm soát viên duyệt tổng số VNDB của kỳ; danh sách và tỷ lệ chỉ là dự kiến. Quyền hưởng cuối cùng chốt theo ảnh chụp trên chuỗi lúc mở kỳ.</p>
+  <div class="alert bad" style="margin-top:14px"><i data-icon="alert"></i><span><b>Lưu ý: bấm duyệt sẽ chuyển tiền.</b></span></div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px">
+    <button class="btn outline" type="button" id="cf-cancel">Huỷ</button>
+    <button class="btn primary" type="button" id="cf-ok"><i data-icon="check"></i>Duyệt và chia</button>
+  </div>
+</dialog>
+
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const nf = UI.nf, isCtl = UI.role === 'controller';
+  const $ = (s) => document.querySelector(s);
+  const short = (v) => `${v.slice(0, 10)}…${v.slice(-6)}`;
+
+  // Ví giả định cho bảng dự kiến: vault SPV, NDT001 và 127 nhà đầu tư khác (tổng 128 nhà đầu tư).
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+  const addr = () => '0x' + Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(rnd() * 16)]).join('');
+  const tx = () => '0x' + Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(rnd() * 16)]).join('');
+  const VAULT = '0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861';
+  const others = [], weights = [];
+  for (let i = 0; i < 127; i++) { others.push(addr()); weights.push(0.2 + rnd() * rnd() * 4); }
+  const W = weights.reduce((a, b) => a + b, 0), rest = 3412500 - 150;
+  const bal = weights.map((w) => Math.max(1, Math.floor((w / W) * rest)));
+  bal[0] += rest - bal.reduce((a, b) => a + b, 0);
+  const holders = [{ w: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', b: 150 }, ...others.map((w, i) => ({ w, b: bal[i] }))];
+  const recipients = [{ w: VAULT, b: 6587500, vault: true }, ...holders];
+
+  const drawForecast = (perWpt) => {
+    $('#fc-rows').innerHTML = recipients.map((r) => `<tr><td class="mono" title="${r.w}">${short(r.w)}${r.vault ? ' <span class="tag mock">vault</span>' : ''}</td><td class="n mono">${nf(r.b)}</td><td class="n mono">${nf(r.b * perWpt)}</td></tr>`).join('');
+  };
+
+  // Lịch sử kỳ chia: 5 kỳ đã chia trước (04/2026 đến 08/2026); kỳ đang chia chỉ có ở trạng thái "Đang có kỳ hoạt động".
+  const PERIODS = [
+    { key: 'mock:2026-10-23-01', st: 'Đang chia', ap: 'Đã duyệt', at: '10:02:41 23/10/2026', appr: 4800000000, total: 4800000000, re: null, src: 'Kiểm soát viên', per: 480, only: 'active' },
+    { key: 'mock:2026-08-31-01', st: 'Hoàn tất', ap: 'Đã duyệt', at: '15:04:18 31/8/2026', appr: 5280000000, total: 5280000000, re: null, src: 'Kiểm soát viên, Keeper', per: 550 },
+    { key: 'mock:2026-07-31-01', st: 'Hoàn tất', ap: 'Đã duyệt', at: '16:20:05 31/7/2026', appr: 5184000000, total: 5184000000, re: 5150000000, src: 'Kiểm soát viên', per: 540 },
+    { key: 'mock:2026-06-30-01', st: 'Hoàn tất', ap: 'Đã duyệt', at: '14:47:52 30/6/2026', appr: 4992000000, total: 4992000000, re: null, src: 'Kiểm soát viên, Keeper', per: 520 },
+    { key: 'mock:2026-05-31-01', st: 'Hoàn tất', ap: 'Đã duyệt', at: '15:11:30 31/5/2026', appr: 4896000000, total: 4896000000, re: null, src: 'Kiểm soát viên', per: 510 },
+    { key: 'mock:2026-04-30-01', st: 'Hoàn tất', ap: 'Đã duyệt', at: '15:02:11 30/4/2026', appr: 4800000000, total: 4800000000, re: null, src: 'Kiểm soát viên', per: 500 },
+  ];
+  $('#hi-rows').innerHTML = PERIODS.map((p, i) => `<tr data-only-row="${p.only || ''}"${p.only ? ' hidden' : ''}><td class="mono small">${p.key}</td><td><span class="badge ${p.st === 'Hoàn tất' ? 'ok' : 'warn'}">${p.st}</span></td><td class="nowrap">${p.ap}</td><td class="mono small">KSV001</td><td class="small nowrap">${p.at.split(' ')[0]}<span class="sub">${p.at.split(' ')[1]}</span></td><td class="n mono small">${nf(p.appr)}</td><td class="n mono small">${nf(p.total)}</td><td class="n mono small">${p.re ? nf(p.re) : 'không'}</td><td class="small">${p.src}</td><td><button class="btn outline sm" type="button" data-p="${i}">Xem hồ sơ</button></td></tr>`).join('');
+
+  // Hồ sơ trả từng ví: 10 ví một trang.
+  const payTx = holders.map(() => tx());
+  let sel = null, page = 1;
+  const drawPayouts = () => {
+    const p = PERIODS[sel], pages = Math.ceil(holders.length / 10);
+    $('#po-key').textContent = p.key;
+    $('#po-rows').innerHTML = holders.slice((page - 1) * 10, page * 10).map((h, i) => {
+      const k = (page - 1) * 10 + i, paid = !p.only || k % 5 < 2;
+      return `<tr><td class="mono" title="${h.w}">${short(h.w)}</td><td class="n mono">${nf(h.b)}</td><td class="n mono">${nf(h.b * p.per)}</td><td><span class="badge ${paid ? 'ok' : 'warn'}">${paid ? 'Đã trả' : 'Chờ gửi'}</span></td><td>${paid ? `<span class="mono small" title="${payTx[k]}">${short(payTx[k])}</span>` : '<span class="small muted">không có</span>'}</td></tr>`;
+    }).join('');
+    $('#po-page').textContent = `Trang ${page}/${pages} (${holders.length} ví)`;
+    $('#po-prev').disabled = page <= 1; $('#po-next').disabled = page >= pages;
+  };
+  $('#hi-rows').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-p]'); if (!b) return;
+    const i = +b.dataset.p;
+    document.querySelectorAll('#hi-rows button[data-p]').forEach((x) => { x.textContent = 'Xem hồ sơ'; });
+    if (sel === i) { sel = null; $('#payouts').hidden = true; return; }
+    sel = i; page = 1; b.textContent = 'Ẩn hồ sơ'; $('#payouts').hidden = false; drawPayouts();
+  });
+  $('#po-prev').addEventListener('click', () => { page--; drawPayouts(); });
+  $('#po-next').addEventListener('click', () => { page++; drawPayouts(); });
+
+  // Lịch chạy: mới nhất trước.
+  const RUNS = [
+    ['mock:2026-10-23-01', 1, 'MANUAL', 'SUCCESS', '10:02:43 23/10/2026', '', 'active'],
+    [null, 1, 'KEEPER', 'SUCCESS', '06:00:02 23/10/2026', ''],
+    [null, 1, 'KEEPER', 'SUCCESS', '06:00:01 22/10/2026', ''],
+    ['mock:2026-08-31-01', 2, 'KEEPER', 'SUCCESS', '06:00:03 1/9/2026', ''],
+    ['mock:2026-08-31-01', 1, 'MANUAL', 'SUCCESS', '15:04:20 31/8/2026', ''],
+    ['mock:2026-07-31-01', 2, 'MANUAL', 'SUCCESS', '16:20:07 31/7/2026', ''],
+    ['mock:2026-07-31-01', 1, 'MANUAL', 'FAILED', '15:38:44 31/7/2026', 'Số trên chuỗi 5184000000 VNDB khác số đã duyệt 5150000000 VNDB.'],
+    ['mock:2026-06-30-01', 2, 'KEEPER', 'SUCCESS', '06:00:02 1/7/2026', ''],
+    ['mock:2026-06-30-01', 1, 'MANUAL', 'SUCCESS', '14:47:54 30/6/2026', ''],
+    ['mock:2026-05-31-01', 1, 'MANUAL', 'SUCCESS', '15:11:32 31/5/2026', ''],
+    ['mock:2026-04-30-01', 1, 'MANUAL', 'SUCCESS', '15:02:13 30/4/2026', ''],
+  ];
+  $('#rl-rows').innerHTML = RUNS.map(([k, n, s, r, t, err, only]) => `<tr data-only-row="${only || ''}"${only ? ' hidden' : ''}><td class="mono nowrap">${k ?? '<span class="muted">vòng rỗng</span>'}</td><td class="n mono">${n}</td><td class="nowrap">${s === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper'}</td><td><span class="badge ${r === 'SUCCESS' ? 'ok' : 'bad'}">${r}</span></td><td class="small nowrap">${t}</td><td class="small">${err}</td></tr>`).join('');
+
+  // Ba trạng thái xem thử của màn (dữ liệu máy chủ khác nhau), chọn bằng tab.
+  const STATES = {
+    idle: { pool: 4800000000, reserved: 0, unalloc: 4800000000, per: 480, blockers: [], btn: 4800000000 },
+    active: { pool: 4134144000, reserved: 4134144000, unalloc: 0, per: 0, blockers: ['Đang có kỳ hoạt động "mock:2026-10-23-01".', 'Quỹ không có phần chưa phân bổ.'], btn: 0 },
+    unsupported: { blockers: ['Chain "evm" không có vault thanh toán nên không hỗ trợ luồng chia đã duyệt.'], btn: 0, noPool: true },
+  };
+  let first = true;
+  const apply = (name) => {
+    const s = STATES[name];
+    document.querySelectorAll('[data-only]').forEach((n) => { n.hidden = !n.dataset.only.split(' ').includes(name); });
+    document.querySelectorAll('[data-only-row]').forEach((n) => { n.hidden = n.dataset.onlyRow !== '' && n.dataset.onlyRow !== name; });
+    const n = PERIODS.filter((p) => !p.only || p.only === name).length;
+    $('#hi-page').textContent = `Trang 1/1 (${n} kỳ)`;
+    if (!s.noPool) {
+      if (!first) { $('#p-pool').textContent = nf(s.pool); $('#p-unalloc').textContent = nf(s.unalloc); }
+      $('#p-reserved').textContent = nf(s.reserved);
+      $('#fc-alloc').textContent = $('#fc-alloc-t').textContent = `${nf(s.unalloc)} VNDB`;
+      drawForecast(s.per);
+    }
+    first = false;
+    const bl = $('#blockers');
+    if (bl) {
+      bl.hidden = !s.blockers.length;
+      bl.innerHTML = s.blockers.map((r) => `<li class="fail"><span class="ci">${UI.icon('x')}</span><div><b>${r}</b></div></li>`).join('');
+      $('#btn-approve').disabled = s.blockers.length > 0;
+      $('#btn-approve-t').textContent = `Duyệt chia ${nf(s.btn)} VNDB`;
+      // Không có Quỹ chia thì Duyệt chia chiếm đủ hàng.
+      $('#approve').classList.toggle('span-4', !s.noPool);
+      $('#approve').classList.toggle('span-12', !!s.noPool);
+    }
+    $('#msg').hidden = true;
+  };
+
+  if (!isCtl) {
+    // Giao dịch viên chỉ xem: không có khối Duyệt chia, không có nút Duyệt lại hoặc Tiếp tục chia.
+    document.querySelectorAll('[data-ctl]').forEach((n) => n.remove());
+    $('#thr').classList.replace('span-4', 'span-8');
+  }
+
+  $('#state').addEventListener('click', (e) => { const b = e.target.closest('button[data-state]'); if (b) apply(b.dataset.state); });
+  apply('idle');
+
+  const dlg = $('#confirm');
+  $('#btn-approve')?.addEventListener('click', () => dlg.showModal());
+  $('#cf-cancel').addEventListener('click', () => dlg.close());
+  $('#cf-ok').addEventListener('click', () => { dlg.close(); $('#msg').hidden = false; });
+})();
+</script>
+</body>
+</html>

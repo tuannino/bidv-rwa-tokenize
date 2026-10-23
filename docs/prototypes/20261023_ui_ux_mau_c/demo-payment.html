@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nạp VNDB mô phỏng</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>[hidden] { display: none !important; }</style>
+</head>
+<body data-page="demo-payment" data-nav="demo-payment.html" data-roles="teller" data-crumbs="Vận hành|Nạp VNDB">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Nạp VNDB mô phỏng</h1>
+    </div>
+  </div>
+  <div class="alert bad" role="note"><i data-icon="alert"></i><span>Chức năng <b>chỉ dùng cho bản trình diễn</b>: tạo VNDB không có tiền gửi thật đứng sau. Sẽ tắt khi lên môi trường thật (cờ ENABLE_DEMO_PAYMENT_MINT). Chuỗi đang dùng: <span class="mono" data-chain-label>mock</span>.</span></div>
+
+  <section class="card span-8" aria-labelledby="f-h">
+    <div class="card-h"><div class="t"><i data-icon="coins"></i><h2 id="f-h">Nạp vào ví</h2></div></div>
+    <form class="form">
+      <div class="field">
+        <label for="demo-payment-wallet">Ví đích</label>
+        <div class="input-ic"><i data-icon="wallet"></i><input class="input mono" id="demo-payment-wallet" list="demo-payment-wallets" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" placeholder="0x… ví nhà đầu tư đã KYC, hoặc ví người bán" spellcheck="false"></div>
+        <datalist id="demo-payment-wallets">
+          <option value="0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861">Ví người bán</option>
+          <option value="0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc">Đã nạp trước đó</option>
+          <option value="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">Đã nạp trước đó</option>
+          <option value="0x14dC79964da2C08b23698B3D3cc7Ca32193d9955">Đã nạp trước đó</option>
+          <option value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8">Đã nạp trước đó</option>
+        </datalist>
+        <span class="hint">Chỉ nạp được cho ví có trong danh sách nhà đầu tư (đã KYC/whitelist) hoặc ví người bán <button type="button" class="btn ghost sm mono" style="height:auto;padding:0 2px" data-wallet="0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861">0x0da94B2c…6861</button>.</span>
+      </div>
+
+      <div class="field">
+        <label for="demo-payment-amount">Số VNDB</label>
+        <div class="input-suffix"><input class="input mono" id="demo-payment-amount" value="500000000" inputmode="numeric"><span>VNDB</span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px" class="small muted">
+          <span>Gợi ý nhanh:</span>
+          <button class="btn outline sm" type="button" data-amount="500000000">Nhà đầu tư mẫu: 500.000.000</button>
+          <button class="btn outline sm" type="button" data-amount="1000000000">Ví người bán: 1.000.000.000</button>
+        </div>
+      </div>
+
+      <div><button class="btn primary lg" type="button" id="send"><i data-icon="coins"></i>Nạp VNDB</button></div>
+
+      <div class="alert ok" role="status" id="fb" hidden><i data-icon="check"></i><span>Đã nạp 500.000.000 VNDB vào 0x70997970…79C8, số dư mới 501.893.000 VNDB, tx 0x5b2e8f41c0d7… (CONFIRMED)</span></div>
+    </form>
+  </section>
+
+  <section class="kpi gold big span-4 stretch" aria-label="Tối đa một lần">
+    <div class="top"><span class="lbl">Tối đa một lần</span><span class="ic"><i data-icon="shield"></i></span></div>
+    <div class="val" style="font-size:clamp(28px, 2.6vw, 38px)"><span data-count="1000000000">1.000.000.000</span><small style="display:block;margin:6px 0 0">VNDB</small></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="h-h">Lịch sử các lần nạp (<span data-chain-label>mock</span>)</h2></div></div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>Thời điểm</th><th>Ví đích</th><th class="n">Số VNDB</th><th>Trạng thái</th><th>Vai trò</th></tr></thead>
+        <tbody>
+          <tr><td class="nowrap muted small">08:30:12 23/10/2026</td><td class="mono nowrap" title="0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc">0x9965507D…A4dc</td><td class="n mono">200.000.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="small">TELLER</td></tr>
+          <tr><td class="nowrap muted small">16:02:45 21/10/2026</td><td class="mono nowrap" title="0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861">0x0da94B2c…6861</td><td class="n mono">1.000.000.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="small">TELLER</td></tr>
+          <tr><td class="nowrap muted small">10:11:03 15/10/2026</td><td class="mono nowrap" title="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">0x15d34AAf…6A65</td><td class="n mono">50.000.000</td><td><span class="badge bad">FAILED</span></td><td class="small">TELLER</td></tr>
+          <tr><td class="nowrap muted small">14:20:00 02/10/2026</td><td class="mono nowrap" title="0x14dC79964da2C08b23698B3D3cc7Ca32193d9955">0x14dC7996…9955</td><td class="n mono">30.000.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="small">TELLER</td></tr>
+          <tr><td class="nowrap muted small">09:05:40 17/03/2026</td><td class="mono nowrap" title="0x70997970C51812dc3A010C7d01b50e0d17dc79C8">0x70997970…79C8</td><td class="n mono">16.500.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="small">TELLER</td></tr>
+          <tr><td class="nowrap muted small">09:30:00 02/03/2026</td><td class="mono nowrap" title="0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861">0x0da94B2c…6861</td><td class="n mono">1.000.000.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="small">TELLER</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+// Gợi ý nhanh và nút ví người bán chỉ điền ô; nút Nạp chỉ hiện thông báo kết quả mẫu.
+(() => {
+  const w = document.getElementById('demo-payment-wallet'), a = document.getElementById('demo-payment-amount');
+  const send = document.getElementById('send'), fb = document.getElementById('fb');
+  const sync = () => { send.disabled = !w.value.trim() || !a.value.trim(); fb.hidden = true; };
+  document.querySelectorAll('[data-amount]').forEach((b) => b.addEventListener('click', () => { a.value = b.dataset.amount; sync(); }));
+  document.querySelectorAll('[data-wallet]').forEach((b) => b.addEventListener('click', () => { w.value = b.dataset.wallet; sync(); }));
+  w.addEventListener('input', sync); a.addEventListener('input', sync);
+  send.addEventListener('click', () => { if (!send.disabled) fb.hidden = false; });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan nhà đầu tư</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+[hidden] { display: none !important; }
+.kv dt { flex: 0 1 auto; min-width: 0; }
+.kv dd { flex: none; white-space: nowrap; }
+@media (max-width: 560px) {
+  .tk-row { flex-wrap: wrap; row-gap: 6px !important; }
+  .tk-row .cnt-col { order: 4; flex-basis: 100% !important; text-align: left !important; padding-left: 58px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tk-row .cnt-col > * { display: inline-flex !important; }
+}
+</style>
+</head>
+<body data-page="portfolio" data-nav="portfolio.html" data-roles="investor" data-crumbs="Nhà đầu tư|Tổng quan">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Tổng quan nhà đầu tư</h1>
+      <p class="sub">Vị thế WPT của ví đang kết nối, trạng thái phát hành, và danh sách dự án điện gió đã token hoá.</p>
+    </div>
+    <div class="actions" style="align-items:center">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="empty">Chưa có giao dịch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hộp 1: Tài sản đã đầu tư (AssetSummary), có ví -->
+  <section class="card hero span-7 stretch" aria-labelledby="as-h" data-states="data empty">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="card-h">
+      <div class="t"><i data-icon="coins"></i><h2 id="as-h">Tài sản đã đầu tư</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+    </div>
+    <div class="muted small">WPT đang giữ</div>
+    <div style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.02em;font-family:var(--mono)"><span data-count="150">150</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:20px;position:relative">
+      <div style="background:rgba(255,255,255,.1);border-radius:var(--r-inner);padding:14px 16px">
+        <div class="muted small">Giá trị theo giá phát hành</div>
+        <div style="font-size:22px;font-weight:700;font-family:var(--mono);margin-top:2px">15.000.000 ₫</div>
+        <div class="muted small" style="margin-top:6px">Quy đổi theo giá phát hành 100.000 ₫/WPT. Chưa có thị trường thứ cấp nên đây không phải giá giao dịch.</div>
+      </div>
+      <div style="background:rgba(255,255,255,.1);border-radius:var(--r-inner);padding:14px 16px;display:grid;gap:10px;align-content:start">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="badge ok">đã KYC</span></div>
+        <div class="mono small" title="0x70997970C51812dc3A010C7d01b50e0d17dc79C8">0x70997970…79C8</div>
+        <div class="muted small" style="display:flex;gap:6px;align-items:flex-start"><i data-icon="coins"></i><span>Số dư VNDB chưa hiển thị được: tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01).</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hộp 1: chưa kết nối ví -->
+  <section class="card span-7 stretch" aria-labelledby="as-h2" data-states="nowallet" hidden>
+    <div class="card-h">
+      <div class="t"><i data-icon="coins"></i><h2 id="as-h2">Tài sản đã đầu tư</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+    </div>
+    <div class="empty">
+      <span class="ei"><i data-icon="wallet"></i></span>
+      <b>Chưa kết nối ví</b>
+      <p class="small" style="max-width:340px">Kết nối ví ở góc trên phải, hoặc mở <a class="idlink" data-go="wallet.html">Ví của tôi</a> để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.</p>
+    </div>
+  </section>
+
+  <!-- Hộp 2: Trạng thái phát hành (IssuanceStatusBox) -->
+  <section class="card span-5 stretch" aria-labelledby="is-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="gauge"></i><h2 id="is-h">Trạng thái phát hành</h2></div>
+    </div>
+    <dl class="kv">
+      <div><dt>Ký hiệu token <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span></dt><dd class="mono strong">WPT</dd></div>
+      <div><dt>Tổng cung đã phát hành <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span></dt><dd class="mono strong">10.000.000</dd></div>
+      <div><dt>Giá phát hành</dt><dd class="mono strong">100.000 ₫</dd></div>
+      <div><dt>Dự án <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span></dt><dd>Điện gió An Viên</dd></div>
+      <div><dt>Trạng thái vận hành <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span></dt><dd><span class="badge ok">Đang phát điện</span></dd></div>
+    </dl>
+    <div class="alert" style="margin-top:12px"><i data-icon="info"></i><span>Chưa có thị trường thứ cấp nên không có giá giao dịch, biến động giá hay khối lượng. Giá phát hành là điều khoản của đợt phát hành, không phải giá thị trường.</span></div>
+  </section>
+
+  <!-- Hộp 3: Giao dịch gần đây (TransactionHistoryBox) -->
+  <section class="card span-7 stretch" aria-labelledby="tx-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="history"></i><h2 id="tx-h">Giao dịch gần đây</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+    </div>
+    <div class="tbl-wrap" data-states="data">
+      <table class="tbl">
+        <thead><tr><th>Thời điểm</th><th>Nghiệp vụ</th><th class="n">Số lượng</th><th>Trạng thái</th><th class="n">Tra cứu</th></tr></thead>
+        <tbody>
+          <tr><td class="small muted nowrap">10:05:12 18/3/2026</td><td class="strong">purchase</td><td class="n mono">150</td><td><span class="badge ok">CONFIRMED</span></td><td class="n"><span class="mono small muted" title="0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47, chain mock không có trình khám phá">0x7d1e4a90…</span></td></tr>
+          <tr><td class="small muted nowrap">15:30:08 17/3/2026</td><td class="strong nowrap">payment-mint</td><td class="n mono">16.500.000</td><td><span class="badge ok">CONFIRMED</span></td><td class="n"><span class="mono small muted" title="0x3a9f02c7e4b18d5f60a2c9e7b3d41f8a2c6e0b95, chain mock không có trình khám phá">0x3a9f02c7…</span></td></tr>
+          <tr><td class="small muted nowrap">09:20:44 16/3/2026</td><td class="strong">whitelist</td><td class="n mono">–</td><td><span class="badge ok">CONFIRMED</span></td><td class="n"><span class="mono small muted" title="0xc81b5e3d27a94f0e6b1d8c2a5f7e9b3d0c4a6e18, chain mock không có trình khám phá">0xc81b5e3d…</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="empty" data-states="nowallet" hidden>
+      <span class="ei"><i data-icon="wallet"></i></span>
+      <p class="small">Kết nối ví để xem giao dịch của bạn.</p>
+    </div>
+    <div class="empty" data-states="empty" hidden>
+      <span class="ei"><i data-icon="history"></i></span>
+      <b>Chưa có giao dịch nào</b>
+      <p class="small" style="max-width:360px">Giao dịch sẽ hiện ở đây sau khi ngân hàng phát hành WPT về ví này.</p>
+    </div>
+  </section>
+
+  <!-- Hộp 4: Token dự án điện gió (TokenListBox) -->
+  <section class="card span-5 stretch" aria-labelledby="tk-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="wind"></i><h2 id="tk-h">Token dự án điện gió</h2></div>
+    </div>
+    <div class="list">
+      <a data-go="token-detail.html" class="tk-row">
+        <span class="turb" style="color:var(--p1)" data-turbine="currentColor"></span>
+        <div class="grow">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b class="mono" style="display:inline">WPT</b><span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span></div>
+          <span style="color:var(--ink-2);font-size:13px">Điện gió An Viên</span>
+          <span>Gần bờ, Đang phát điện</span>
+        </div>
+        <div class="cnt-col" style="text-align:right;flex:none">
+          <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end"><b class="mono">128</b><span class="tag sample" title="Số nhà đầu tư nắm giữ, số liệu minh hoạ">DỮ LIỆU MẪU</span></div>
+          <span class="small muted">nhà đầu tư nắm giữ</span>
+        </div>
+        <i data-icon="chevr" class="muted"></i>
+      </a>
+      <a data-go="token-detail.html" class="tk-row">
+        <span class="turb" style="color:var(--p2)" data-turbine="currentColor" data-speed="slow"></span>
+        <div class="grow">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b class="mono" style="display:inline">WPT-PQY</b><span class="tag sample" title="Dự án chưa triển khai token trên chuỗi">DỮ LIỆU MẪU</span></div>
+          <span style="color:var(--ink-2);font-size:13px">Điện gió Phú Quý</span>
+          <span>Trên bờ, Ven biển, Đang phát điện</span>
+        </div>
+        <div class="cnt-col" style="text-align:right;flex:none">
+          <b class="mono">–</b>
+          <span class="small muted" style="display:block">nhà đầu tư nắm giữ</span>
+        </div>
+        <i data-icon="chevr" class="muted"></i>
+      </a>
+      <a data-go="token-detail.html" class="tk-row">
+        <span class="turb" style="color:var(--p3)" data-turbine="currentColor" data-speed="fast"></span>
+        <div class="grow">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b class="mono" style="display:inline">WPT-NTH</b><span class="tag sample" title="Dự án chưa triển khai token trên chuỗi">DỮ LIỆU MẪU</span></div>
+          <span style="color:var(--ink-2);font-size:13px">Điện gió Ninh Thuận</span>
+          <span>Trên bờ, Ven biển, Bảo trì</span>
+        </div>
+        <div class="cnt-col" style="text-align:right;flex:none">
+          <b class="mono">–</b>
+          <span class="small muted" style="display:block">nhà đầu tư nắm giữ</span>
+        </div>
+        <i data-icon="chevr" class="muted"></i>
+      </a>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
+}));
+document.querySelectorAll('.tk-row').forEach((a) => {
+  a.style.borderRadius = '16px'; a.style.padding = '12px 8px'; a.style.margin = '0 -8px'; a.style.transition = 'background-color .2s';
+  a.addEventListener('mouseenter', () => { a.style.background = 'var(--surface-2)'; });
+  a.addEventListener('mouseleave', () => { a.style.background = ''; });
+});
+</script>
+</body>
+</html>

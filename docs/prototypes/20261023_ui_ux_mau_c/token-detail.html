@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết token WPT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+.kv dt { flex: 0 1 auto; min-width: 0; }
+.periods { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.periods > div { background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: 12px; }
+.periods dt { color: var(--muted); font-family: var(--mono); }
+.periods dd { font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.op-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); gap: 24px; }
+@media (max-width: 900px) { .periods { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .op-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-page="token-detail" data-nav="portfolio.html" data-roles="investor" data-crumbs="Nhà đầu tư|Tổng quan|WPT">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <a class="link-more link-back" data-go="portfolio.html" style="margin-bottom:8px"><i data-icon="left"></i>Tổng quan</a>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1>Điện gió An Viên</h1>
+        <span class="mono muted" style="font-size:15px">WPT</span>
+        <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+      </div>
+      <p class="sub">Gần bờ, An Viên, Đang phát điện</p>
+    </div>
+  </div>
+
+  <!-- 4. Vị thế của bạn -->
+  <section class="card hero span-4 stretch" aria-labelledby="pos-h">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="card-h">
+      <div class="t"><i data-icon="wallet"></i><h2 id="pos-h">Vị thế của bạn</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+    </div>
+    <div class="muted small">Đang giữ</div>
+    <div style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.02em;font-family:var(--mono)"><span data-count="150">150</span></div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.18);position:relative">
+      <div class="muted small">Giá trị theo giá phát hành</div>
+      <div style="font-size:22px;font-weight:700;font-family:var(--mono)">15.000.000 ₫</div>
+      <p class="muted small" style="margin-top:6px">Không phải giá thị trường, hệ thống chưa có thị trường thứ cấp.</p>
+    </div>
+  </section>
+
+  <!-- 1. Thông tin dự án -->
+  <section class="card span-4 stretch" aria-labelledby="prj-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="wind"></i><h2 id="prj-h">Thông tin dự án</h2></div>
+      <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span>
+    </div>
+    <dl class="kv">
+      <div><dt>Mã dự án</dt><dd class="mono">WIND-AVN-01</dd></div>
+      <div><dt>Công suất đặt</dt><dd>99,2 MW</dd></div>
+      <div><dt>Số tổ máy</dt><dd>62</dd></div>
+      <div><dt>Giá bán điện (PPA)</dt><dd>1.927 ₫/kWh</dd></div>
+      <div><dt>Vận hành từ</dt><dd>18/03/2025</dd></div>
+      <div><dt>Đơn vị vận hành</dt><dd class="mono small">operator.bidv.eth</dd></div>
+    </dl>
+  </section>
+
+  <!-- 3. Thông tin token -->
+  <section class="card span-4 stretch" aria-labelledby="tok-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="gauge"></i><h2 id="tok-h">Thông tin token</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
+    </div>
+    <dl class="kv">
+      <div><dt>Ký hiệu</dt><dd class="mono strong">WPT</dd></div>
+      <div><dt>Tuổi thọ còn lại</dt><dd>15 năm</dd></div>
+      <div><dt>Lợi tức mục tiêu</dt><dd><span class="badge" style="background:var(--gold-tile);color:var(--gold-ink)">5,8%/năm</span></dd></div>
+      <div><dt>Phí giao dịch</dt><dd>Không tính</dd></div>
+      <div><dt>Tên token</dt><dd>Wind Power Token (mock)</dd></div>
+      <div><dt>Tổng cung</dt><dd class="mono">10.000.000</dd></div>
+      <div><dt>Giá phát hành</dt><dd class="mono">100.000 ₫</dd></div>
+    </dl>
+  </section>
+
+  <!-- 2. Tình hình vận hành -->
+  <section class="card span-12" aria-labelledby="op-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="zap"></i><h2 id="op-h">Tình hình vận hành</h2></div>
+      <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span>
+    </div>
+    <div class="op-grid">
+      <div style="display:grid;gap:12px;align-content:start">
+        <div class="kpi gold" style="padding:16px">
+          <div class="top"><span class="lbl">Sản lượng luỹ kế</span><span class="ic"><i data-icon="zap"></i></span></div>
+          <div class="val" style="font-size:26px"><span data-count="214600">214.600</span><small>MWh</small></div>
+        </div>
+        <div class="inner" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div><div class="small muted">Hệ số công suất</div><div style="font-size:22px;font-weight:700">38,4%</div></div>
+          <div class="gauge" data-value="38.4" data-color="var(--p1)" data-label="hệ số"></div>
+        </div>
+      </div>
+      <div style="min-width:0">
+        <h3 class="small muted" style="font-weight:600;margin-bottom:4px">Sản lượng theo kỳ</h3>
+        <div class="chart" id="gen" style="height:170px"></div>
+        <dl class="periods">
+          <div><dt>02/2026</dt><dd>24.180 MWh</dd></div>
+          <div><dt>03/2026</dt><dd>27.640 MWh</dd></div>
+          <div><dt>04/2026</dt><dd>31.900 MWh</dd></div>
+          <div><dt>05/2026</dt><dd>29.450 MWh</dd></div>
+          <div><dt>06/2026</dt><dd>34.720 MWh</dd></div>
+          <div><dt>07/2026</dt><dd>33.180 MWh</dd></div>
+        </dl>
+        <p class="small muted" style="margin-top:10px">Sản lượng thật sẽ do EnergyOracle cấp; số ở đây là minh hoạ.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+const P = ['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'];
+UI.chart(document.getElementById('gen'), {
+  labels: P, legend: false,
+  left: { max: 40000, step: 10000, fmt: (v) => `${UI.nf(v)} MWh` },
+  tipTitle: (i) => `Kỳ ${P[i]}`,
+  series: [{ name: 'Sản lượng', type: 'bars', color: 'var(--c-gen)', values: [24180, 27640, 31900, 29450, 34720, 33180], fmt: (v) => `${UI.nf(v)} MWh` }],
+});
+</script>
+</body>
+</html>

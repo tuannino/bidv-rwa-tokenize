@@ -1,236 +1,205 @@
-# Yêu cầu nâng cấp UI/UX: bàn giao cho Supervisor
+# Yêu cầu nâng cấp UI/UX (bản 2): bàn giao cho Supervisor
 
 | | |
 |---|---|
 | Ngày | 23/10/2026 |
-| Mốc mã nguồn | nhánh `dev` @ `f164939` |
+| Mốc mã nguồn | nhánh `dev` @ `f164939` (khảo sát), bản mẫu cập nhật sau `f11f1ae` |
 | Loại tài liệu | Kết quả thử nghiệm và requirement. Session thử nghiệm KHÔNG sửa mã sản phẩm, KHÔNG merge |
-| Công cụ | skill `design-taste-frontend` (taste-skill v2): bộ đo `inspect.mjs` chạy Chrome thật ở 1440, 768, 390 px; `lint.mjs` quét mã nguồn |
-| Bản mẫu | `docs/prototypes/20261023_ui_ux/` (HTML tĩnh, mở `index.html`). Ba màn: Bảng điều khiển (Kiểm soát viên), Phê duyệt lệnh, Tài sản (Nhà đầu tư). Có nút đổi Light/Dark ở chân sidebar |
-| Quyết định của Owner đã nhận | Light là giao diện mặc định; Dark là ưu tiên thứ hai |
-
-Tài liệu này kế tiếp `docs/UI_REDESIGN_BRIEF.md` (đồng bộ chủ đề điện gió, đã xong phần lớn). Brief cũ lo nội dung; tài liệu này lo chất lượng giao diện: chữ, màu, khung, bố cục từng màn, điện thoại.
+| Bản xem thử | `docs/prototypes/20261023_ui_ux_mau_c/` (HTML tĩnh, mở `index.html`, 21 trang của 4 vai, Sáng và Tối). Ghi chú ánh xạ từng trang ở `notes/` cùng thư mục |
+| Thay thế | Bản 1 của tài liệu này và bản mẫu `docs/prototypes/20261023_ui_ux/` (đã gỡ). Bản 1 đổi nội dung màn hình, trái nguyên tắc giữ feature bên dưới |
 
 ---
 
-## 1. Tóm tắt cho Supervisor
+## 0. Quyết định của chủ dự án (đã chốt)
 
-Ba việc tác động lớn nhất, xếp theo thứ tự nên làm:
-
-1. **Sửa lỗi font (P0, sửa trong vài dòng).** Toàn bộ app đang hiển thị bằng Times New Roman. Đã thử cách sửa trên bản local: Geist nạp đúng, có bộ chữ tiếng Việt.
-2. **Light mặc định và giao diện điện thoại (P0).** App mặc định Dark; trên điện thoại sidebar 240 px không gập, chiếm 62% bề ngang 390 px, tiêu đề vỡ 4 dòng.
-3. **Làm lại ba màn làm việc chính theo bản mẫu (P1).** Mỗi màn trả lời một câu hỏi trước, có một nút cho việc thường làm nhất, số liệu căn phải và cộng khớp.
-
-Mọi yêu cầu bên dưới chỉ đụng giao diện. **Không đổi** logic mint/burn, chia lợi nhuận, audit và 3 LUẬT (`ILedgerPort`, `ISigner`, `can()`). Giữ luật hiệu năng HF-01: **mỗi màn tối đa một server action khi mở**.
+| Mã | Quyết định |
+|---|---|
+| QĐ-UX-1 | Light là giao diện mặc định; Dark là ưu tiên thứ hai |
+| QĐ-UX-2 | Phong cách **mẫu C "Bento mềm"**: hiện đại, có animation và nền đẹp, giữ tông chủ đạo lục và vàng BIDV |
+| QĐ-UX-3 | Không dùng ký hiệu mũi tên dạng ký tự. Mũi tên nếu có phải là icon đẹp, hợp màu, có hiệu ứng |
+| QĐ-UX-4 | Được sắp xếp lại vị trí nhưng **không thay đổi feature**: mọi biểu đồ, lịch sử, trường thông tin, bộ lọc, nút, nhãn nguồn dữ liệu của màn hiện tại phải có đủ ở giao diện mới. Vai trò và Chain giữ dạng dropdown |
+| QĐ-UX-5 | **Chỉ sửa frontend**, dữ liệu ánh xạ 1-1 với dữ liệu đang hiển thị, hoàn toàn độc lập với backend. Chỗ nào buộc phải đụng backend thì giải trình lý do và báo chủ dự án duyệt trước khi làm |
 
 ---
 
-## 2. Hiện trạng đo được (before)
+## 1. Phạm vi code tác động (bắt buộc tuân thủ)
 
-Ảnh chụp 18 màn theo 4 vai, 1440 và 390 px: thư mục ảnh "before" gửi kèm. Số đo `inspect.mjs --app` trên `/` (Giao dịch viên):
+### 1.1. Được sửa: lớp trình bày
 
-| Hạng mục | Kết quả đo | Mức |
+| Nhóm | Tệp | Được làm | Không được làm |
+|---|---|---|---|
+| Hệ màu, font | `app/src/app/globals.css`, `app/src/app/layout.tsx` | Thay token màu Light, Dark; nạp font qua `next/font/google` | Đổi `ConfigProvider`, `publicConfig()` |
+| Theme | `app/src/components/providers.tsx` | `defaultTheme="light"`, màu theme RainbowKit | Đổi Wagmi, QueryClient, cấu hình ví |
+| Thành phần nền | `app/src/components/ui/*` | Kiểu dáng (class), biến thể mới chỉ về hình thức | Đổi API props đang dùng |
+| Khung | `app/src/components/layout/*` | Markup, class, vị trí; sidebar gập trên điện thoại | Đổi logic `ChannelSwitcher`, `ChainSelector` (vẫn `<select>`), `NAV_BY_ROLE`, `withDemoPayment`, cách đọc số việc chờ, `ChannelGuard` |
+| Màn hình | `app/src/components/pages/*.tsx`, `components/investor/*`, `components/maker-checker/*.tsx`, `components/trading/*.tsx`, `components/wallet/*.tsx`, `components/bidv-logo.tsx` | Bố cục JSX, class, biểu đồ recharts (màu, kiểu, animation), icon, hiệu ứng | Đổi lời gọi server action hoặc API (tên, tham số, số lần gọi khi mở màn), đổi state nghiệp vụ, đổi điều kiện khoá nút |
+| Chữ hiển thị trong frontend | chuỗi JSX trong các tệp trên | Đổi dấu chấm giữa thành dấu phẩy, sửa chính tả | Đổi nghĩa câu, bỏ câu hướng dẫn |
+| Kiểm thử e2e | `app/e2e/*` | Sửa selector khi markup đổi | Bỏ bước kiểm, nới điều kiện |
+
+### 1.2. Không được sửa (backend và logic dùng chung)
+
+`app/src/app/actions/*`, `app/src/app/api/*`, `app/src/lib/**` (bank, ledger, signer, rbac, store, session, config, chains, providers, wallet, hooks, nav, format), `app/src/components/maker-checker/gates.ts`, `components/trading/gates.ts`, `app/src/components/maker-checker/token-info-read.ts`, `app/prisma/*`, `packages/*`, `scripts/*`, `docker-compose.yml`, `app/wrangler.json`. Ba LUẬT (`ILedgerPort`, `ISigner`, `can()`) và luật hiệu năng HF-01 (mỗi màn tối đa một server action khi mở) giữ nguyên.
+
+`lib/format.ts` là định dạng hiển thị nhưng dùng chung với máy chủ; nếu cần định dạng khác thì viết hàm mới trong `components/`, không sửa hàm cũ.
+
+### 1.3. Phụ thuộc
+
+Không thêm gói npm. Font Be Vietnam Pro nạp qua `next/font/google` (có sẵn trong Next). Animation dùng CSS và `tw-animate-css` đã có. Biểu đồ giữ `recharts`, chỉ đổi kiểu.
+
+### 1.4. Ánh xạ dữ liệu 1-1
+
+Mỗi trang của bản xem thử có tệp `notes/<trang>.md` gồm: tệp component đã đọc, bảng "trường trên giao diện mới | nguồn trong màn thật (component, biến, action)", phần chỉ đổi trình bày, kết luận đụng backend và lệch đã thấy. Kiro dùng các bảng này làm checklist: **mỗi trường trên giao diện mới phải trỏ được về một trường đang hiển thị**, không thêm, không bớt.
+
+Kết luận của 21 trang: **không trang nào cần sửa backend.**
+
+### 1.5. Hạng mục ngoài phạm vi, cần chủ dự án duyệt trước khi làm
+
+| Mã | Nội dung | Vì sao không làm trong đợt UI | Đề xuất |
+|---|---|---|---|
+| BE-UX-1 | Chuỗi do máy chủ dựng có gạch ngang dài, số không dấu nghìn, mã trạng thái tiếng Anh thô (`lib/bank/*`: câu điều kiện, câu dự kiến chia, nhật ký kiểm toán, lịch sử nạp VNDB) | Nằm ở backend; sửa là đổi dữ liệu trả về | Giữ nguyên hiển thị trong đợt này; nếu duyệt thì làm task backend riêng |
+| BE-UX-2 | Số mẫu bảng điều khiển phi lý: 86,4 tỷ lợi tức cho 335.000 WPT giá 100.000 VNDB (`lib/mock-data.ts`) | Không phải UI, đổi số liệu | Task dữ liệu mẫu riêng |
+| BE-UX-3 | Rút VNDB của nhà đầu tư (`/withdraw`) hiện là màn chờ FE-23; nghiệp vụ chưa có service, chưa có quyền | Cần backend mới | Giữ màn chờ, chỉ đổi giao diện |
+| FE-UX-X1 | Tổng quan Người bán luôn in "–" cho số liệu bán, trong khi backend đã trả số bán trong ngày | Là sửa lỗi hiển thị, đổi dữ liệu người dùng thấy (không đụng backend) | Cần chủ dự án quyết có gộp vào đợt UI không |
+| FE-UX-X2 | "Kết nối ví" hiện cả với Giao dịch viên, Kiểm soát viên, trái quyết định FE-02 | Đổi feature hiển thị theo vai | Bản xem thử giữ nguyên như hiện tại; chờ chủ dự án quyết |
+
+---
+
+## 2. Lỗi nền phải sửa trước (P0)
+
+| Mã | Lỗi | Bằng chứng | Cách sửa (frontend) |
+|---|---|---|---|
+| UX-01 | Toàn bộ app hiển thị bằng Times New Roman: `--font-sans: var(--font-sans)` tự trỏ vào chính nó | `app/src/app/globals.css:10-11`, `layout.tsx` chỉ nạp Geist Mono | Nạp Be Vietnam Pro (subsets latin, vietnamese) qua `next/font/google`, gán biến `--font-sans`. Đã thử cách sửa tương tự trên bản local, đạt |
+| UX-02 | Khi font được sửa, khoảng 160 chỗ `font-mono` ở 36 tệp sẽ hiện thật thành chữ đơn cách | quét `lint` | Số liệu dùng `tabular-nums` của font chính; mono chỉ cho mã yêu cầu, địa chỉ ví, mã giao dịch |
+| UX-03 | Mặc định Dark | `providers.tsx:29-31, 45` | `defaultTheme="light"`, sửa nhánh trước khi mount của RainbowKit |
+| UX-04 | Điện thoại: sidebar 240 px không gập, tiêu đề vỡ 4 dòng ở 390 px | `app-layout.tsx`, `sidebar.tsx` (`w-60`) | Sidebar thành ngăn kéo dưới 900 px, nút menu; thanh trên xuống dòng |
+
+---
+
+## 3. Hệ thiết kế mẫu C
+
+Nguồn chuẩn: `docs/prototypes/20261023_ui_ux_mau_c/assets/c.css` (token, thành phần) và `assets/ui.js` (khung, biểu đồ, animation). Kiro chuyển sang Tailwind v4 và token shadcn trong `globals.css`.
+
+### 3.1. Màu
+
+| Vai trò | Light | Dark | Token shadcn |
+|---|---|---|---|
+| Nền trang | `#f1f4ef` | `#080f0b` | `--background` |
+| Thẻ | `#ffffff` | `#0f1a13` | `--card`, `--popover`, `--sidebar` |
+| Nền phụ (ô nhập, hàng tiêu đề bảng) | `#f4f7f3` | `#142219` | `--muted`, `--input` (nền) |
+| Đường kẻ | `#e2e8e1` / `#eef2ed` | `#1f3226` / `#18291f` | `--border` |
+| Chữ chính, phụ | `#0f1d15`, `#56675c` | `#edf5ef`, `#a2b4a8` | `--foreground`, `--muted-foreground` |
+| Xanh BIDV (nút chính gradient, dữ liệu chính) | `#1a6b3c` sang `#22844a` | `#3ba366` | `--primary`, `--chart-1` |
+| Xanh đậm (ô nổi bật) | gradient tròn `#22844a`, `#145a32`, `#0b3d22` | như Light | lớp tiện ích riêng |
+| Vàng BIDV (Kết nối ví, số việc chờ, chuỗi thứ hai biểu đồ) | `#e0b44a` sang `#c9971c` | `#e0b44a` | `--accent`, `--chart-2` |
+| Ô vàng nhạt | `#fbf1d6` | `#241d0b` | lớp tiện ích riêng |
+| Nhãn trạng thái tốt, chờ, xấu, thông tin | `#e2f2e7`/`#0e4524`, `#fdf1d3`/`#6e4b00`, `#fde8e6`/`#8a1c13`, `#e6eef8`/`#1d3f6b` | `#15281c`/`#7dd6a0`, `#2a2212`/`#ecc06a`, `#2c1716`/`#f5a199`, `#142133`/`#9cc2f0` | biến thể Badge |
+
+Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đen (Dark). Mọi chữ đạt tương phản 4,5:1.
+
+### 3.2. Chữ, hình khối, khoảng cách
+
+- Font **Be Vietnam Pro** 400, 500, 600, 700 (thiết kế cho tiếng Việt). Tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/600; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ.
+- Bo góc: thẻ 28 px (điện thoại 22 px), khối trong 18 px, ô nhập 14 px, nút và dropdown bo tròn hoàn toàn.
+- Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
+- Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
+
+### 3.3. Animation
+
+| Hiệu ứng | Thông số |
+|---|---|
+| Thẻ xuất hiện lần lượt khi mở màn | dịch lên 16 px và mờ dần, 0,8 s, trễ 0,06 s mỗi thẻ, tối đa 0,6 s |
+| Số đếm lên | 1,4 s, easing giảm dần |
+| Biểu đồ vẽ dần, cột mọc lên | 1,6 s và 1 s |
+| Thanh tiến độ, vòng đo | chạy tới giá trị trong 1,4 đến 1,6 s |
+| Thẻ, nút khi rê chuột | nhấc 1 đến 3 px; nút chính có vệt sáng lướt qua |
+| Tua-bin trang trí | cánh quay liên tục 3 đến 9 s mỗi vòng |
+| Trạng thái mạng | vòng lan toả 2,4 s |
+| Giảm chuyển động | `prefers-reduced-motion` tắt toàn bộ, số hiện ngay |
+
+Easing chung `cubic-bezier(.22, 1, .36, 1)`. Chỉ animate `transform` và `opacity` (trừ chiều rộng thanh tiến độ).
+
+### 3.4. Biểu tượng và mũi tên
+
+Bộ lucide hiện có, nét 1,7. Mũi tên chỉ là icon: liên kết "Xem thêm" có mũi tên trượt sang phải khi rê chuột, "Về danh sách" trượt sang trái; breadcrumb dùng chevron mờ. Không dùng ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ hiển thị.
+
+---
+
+## 4. Bố cục từng màn (21 trang trong bản xem thử)
+
+| Vai | Trang | Màn thật | Điểm chính của bố cục mới |
+|---|---|---|---|
+| GDV, KSV | `dashboard.html` | `/` | Ô WPT đã phát hành lớn bên trái, 3 KPI bento, biểu đồ hai trục, phân bổ WPT, 3 thẻ dự án có vòng đo hệ số công suất |
+| GDV | `draft.html` | `/draft` | 2 ô chờ (xanh, vàng), hai thẻ Tạo và Huỷ cạnh nhau, bảng yêu cầu đã lập |
+| GDV, KSV | `transactions.html` | `/transactions` | 3 ô nguồn cung, 6 bộ lọc, bảng đủ cột, cột Hành động chỉ GDV, phân trang |
+| GDV, KSV | `transaction-detail.html` | `/transactions/[id]` | 3 ô Giá trị, Số lượng, Giá; tiến trình 5 bước; bút toán; nhật ký dạng dòng thời gian |
+| KSV, GDV | `distribution.html` | `/distribution` | Quỹ chia bento, thẻ Duyệt chia chỉ KSV, dự kiến, kỳ hoạt động, lịch sử kỳ, hồ sơ trả từng ví, lịch chạy |
+| KSV, GDV | `vault.html` | `/vault` | 15 ô trạng thái chia 3 nhóm, cấu hình khoá (KSV sửa, GDV chỉ xem), lệnh rút cần xem xét, hai bảng lịch sử |
+| GDV | `demo-payment.html` | `/demo-payment` | Cảnh báo trình diễn, form nạp, ô trần một lần nạp màu vàng, lịch sử |
+| Mọi vai | `account.html` | `/account` | Thẻ hồ sơ xanh, các mục theo vai, thẻ ví liên kết chỉ NĐT và NB |
+| KSV | `approvals.html` | `/approvals` | 3 ô thống kê, hai hàng chờ mỗi hàng có tìm kiếm và dropdown trạng thái, bảng đủ 9 cột |
+| KSV | `approval-detail.html` | `/approvals/[id]` | Khối Hành động trên cùng, nội dung yêu cầu 12 trường, thông tin token, nhật ký |
+| NĐT | `portfolio.html` | `/portfolio` | Ô tài sản xanh, trạng thái phát hành, giao dịch gần đây, danh sách token, giữ nhãn ON-CHAIN và DỮ LIỆU MẪU |
+| NĐT | `token-detail.html` | `/tokens/[symbol]` | Vị thế, thông tin dự án, thông tin token, tình hình vận hành 6 kỳ |
+| NĐT | `trade.html` | `/trade` | Form đặt lệnh, nút Mua và Bán, 5 điều kiện, tóm tắt lệnh nền xanh, thông tin token |
+| NĐT | `orders.html` | `/orders` | 5 bộ lọc, bảng 8 cột sắp xếp được |
+| NĐT | `order-detail.html` | `/orders/[id]` | Như chi tiết giao dịch, phía nhà đầu tư |
+| NĐT | `withdraw.html` | `/withdraw` | Giữ đúng màn chờ FE-23 |
+| NĐT, NB | `wallet.html` | `/wallet` | Thẻ ví xanh, số dư ETH ô vàng, 8 trạng thái ví |
+| NB | `seller.html` | `/seller` | 4 ô khớp lệnh, nguồn cung, thông tin token, tồn kho, tài sản ví thanh toán, số dư ví |
+| NB | `seller-transactions.html` | `/seller/transactions` | 5 bộ lọc, bảng 9 cột, phân trang; điện thoại mỗi giao dịch một thẻ |
+| NB | `seller-withdraw.html` | `/seller/withdraw` | Form rút, khối hệ thống tính với ô số tiền nhận được nổi bật, bảng yêu cầu, hộp mã một lần |
+| | `index.html` | (không thuộc app) | Trang lối vào để duyệt |
+
+Một số trang có thêm thanh "Trạng thái xem thử" hoặc thẻ "Xem thử" để chủ dự án xem các trạng thái khác của cùng màn (chưa kết nối ví, rỗng, lỗi). Phần này **không đưa vào app**.
+
+---
+
+## 5. Lệch phát hiện trong màn hiện tại (không tự sửa trong đợt UI)
+
+Chi tiết ở mục "Lệch đã thấy" của từng `notes/*.md`. Các điểm đáng chú ý:
+
+1. Tổng quan Nhà đầu tư nói chưa đọc được số dư VNDB ("chờ BE-01"), trong khi màn Giao dịch token đã hiện số dư (L-29 UserGuide).
+2. Tổng quan Nhà đầu tư trên chain mock chỉ dùng ví trình duyệt, các màn khác dùng ví hồ sơ (L-03 UserGuide).
+3. Mã lệnh, mã yêu cầu cắt còn 8 ký tự ở bảng và breadcrumb; ô lọc "Mã lệnh (UUID)" khó dùng.
+4. Định dạng thời gian không thống nhất (`toLocaleString` và `formatDateTime`); số trong câu máy chủ dựng không có dấu nghìn; mã trạng thái tiếng Anh thô ở vài bảng.
+5. Cùng một trạng thái bước quyết toán có hai nhãn khác nhau ở màn Giao dịch và màn chi tiết.
+6. Màn Ví của Người bán vẫn ghi breadcrumb "Nhà đầu tư"; tên menu "Kết nối ví" khác tiêu đề "Ví của tôi".
+7. Nhãn ON-CHAIN ở thẻ Thông tin token (chi tiết token) phủ cả trường đọc từ cấu hình.
+8. Rút gọn địa chỉ không thống nhất (8 hoặc 10 ký tự) giữa các màn.
+
+Các điểm 3 đến 8 sửa được thuần frontend nhưng làm đổi chữ hoặc dữ liệu người dùng thấy, nên cần chủ dự án duyệt từng điểm.
+
+---
+
+## 6. Điều kiện nghiệm thu
+
+1. Đối chiếu từng màn với `notes/<trang>.md`: đủ mọi trường, không thêm, không bớt.
+2. Diff chỉ chạm các tệp ở mục 1.1. `git diff --stat` của PR không có tệp ở mục 1.2.
+3. Mỗi màn tối đa một server action khi mở (HF-01), đo như checkpoint HF-01.
+4. `npm run typecheck`, `npm test`, `npm run test:e2e` xanh.
+5. Ảnh chụp Light và Dark, 1440 và 390 px cho mỗi màn đã làm; không tràn ngang ở 390 px; font Be Vietnam Pro nạp thật.
+6. Không còn ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ do frontend dựng.
+7. UserGuide cập nhật Phần 2, 3 cho màn bị đổi giao diện.
+
+---
+
+## 7. Đề xuất chia task
+
+| Thứ tự | Task | Gồm |
 |---|---|---|
-| Font hiển thị | `Times New Roman` 99% chữ trên màn | FAIL |
-| Chữ dưới 11 px | "Điện gió" 9 px (logo), nhóm menu "Vận hành", "Tài khoản" 10 px | FAIL |
-| Icon trong ô màu | 4 ô KPI có icon trong ô tô màu, 3 màu khác nhau | FAIL |
-| Nút có bóng/viền phát sáng | nút "Kết nối ví" (RainbowKit) | FAIL |
-| Tiêu đề ở 390 px | "Tổng quan điện gió" vỡ 4 dòng; sidebar không gập | FAIL |
-| Tiêu đề khu vực | 0 thẻ `h2`: tiêu đề card là `div` (`components/ui/card.tsx:36`) | Khả năng tiếp cận |
-| Tương phản | "BIDV" 3,1:1; nhãn phụ 4,4:1 (cần 4,5:1) | WARN |
-| Viền thẻ | viền xanh 4,9:1 trên nền, nặng hơn mức 1,2 đến 1,5:1 | WARN |
+| 1 | FE-UX-01 Nền | UX-01 đến UX-04, token màu, font, khung (sidebar, thanh trên, dropdown), thành phần `components/ui` |
+| 2 | FE-UX-02 Vận hành | dashboard, draft, transactions, transaction-detail, demo-payment |
+| 3 | FE-UX-03 Kiểm soát | approvals, approval-detail, distribution, vault |
+| 4 | FE-UX-04 Nhà đầu tư | portfolio, token-detail, trade, orders, order-detail, withdraw, wallet |
+| 5 | FE-UX-05 Người bán và tài khoản | seller, seller-transactions, seller-withdraw, account |
 
-`lint.mjs --app app/src`: 16 FAIL, 174 WARN. Nhóm chính: 14 nhãn chữ hoa giãn chữ cỡ nhỏ, `font-mono` 160 chỗ ở 36 tệp, `backdrop-blur` ở header, `transition-all` ở `button.tsx` và `badge.tsx`, `animate-ping` ở sidebar.
-
-Quan sát trên ảnh, theo vai:
-
-- **Mọi vai:** thanh trên chứa bộ chọn chain dài 280 px, bộ chọn vai, nút giao diện và nút "Kết nối ví" xanh đậm là thứ nổi nhất màn hình. Badge phím tắt (E, L, G...) cạnh mọi mục menu. Màu xanh BIDV phủ lên khung (mục menu đang chọn, viền thẻ, nút), không còn chỗ để nhấn dữ liệu.
-- **Giao dịch viên, Kiểm soát viên:** nút "Kết nối ví" hiện cả với hai vai vận hành, trái quyết định FE-02 "Hai vai vận hành không kết nối ví" (`components/layout/header.tsx` render `ConnectButton` không điều kiện).
-- **Kiểm soát viên, Phê duyệt lệnh:** hai thẻ hàng chờ (tạo, huỷ) mỗi thẻ có ô tìm kiếm và bộ lọc riêng; phải sang trang chi tiết mới thấy điều kiện và nút duyệt.
-- **Vault:** 15 ô số liệu cùng một kiểu thẻ, không thứ bậc; địa chỉ vault tràn hai dòng.
-- **Nhà đầu tư, Tổng quan:** nhãn "ON-CHAIN", "DỮ LIỆU MẪU" dạng chữ hoa nhỏ lặp nhiều lần; hai khối lớn chỉ có dòng "Chưa kết nối ví" (lệch L-03 trong UserGuide).
-- **Dữ liệu mẫu bảng điều khiển phi lý:** "Lợi tức đã chia 86,4 tỷ" cho 335.000 WPT giá 100.000 VNDB, tức khoảng 258.000 VNDB mỗi WPT trong 6 kỳ, gấp hơn 2 lần giá token. Mục tiêu dự án 5,8%/năm.
+Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách tệp đã sửa.
 
 ---
 
-## 3. Quyết định thiết kế (đề xuất áp dụng toàn app)
+## 8. Câu hỏi cần chủ dự án chốt
 
-Hệ thiết kế rút từ skill: **"Achromatic ledger"** (sổ cái không màu), ánh xạ sang nhận diện BIDV. Lý do chọn: app là công cụ ngân hàng, cán bộ làm việc nhiều giờ, nội dung là tiền và số lượng. Khung giao diện trung tính để màu dành cho dữ liệu và trạng thái.
-
-### 3.1. Nguyên tắc
-
-1. **Màu nằm trên dữ liệu, không nằm trên khung.** Xanh BIDV `#1a6b3c` chỉ dùng cho: phần tử dữ liệu chính của màn (cột kỳ hiện tại, phần chia cho nhà đầu tư), tiêu điểm bàn phím, logo. Vàng BIDV chỉ trong logo.
-2. **Một nút chính mỗi màn**, màu mực (`--primary`). Nút phụ: nền trắng viền xám. Xem câu hỏi Q1 ở mục 7.
-3. **Số là chữ, không là thẻ.** KPI là nhãn xám trên con số; không icon trong ô màu, không sparkline.
-4. **Bề mặt phẳng.** Thẻ trắng viền 1 px rất nhạt trên nền xám nhạt; không bóng đổ (trừ menu, hộp thoại).
-5. **Bảng là căn lề.** Số căn phải, chữ số đều độ rộng (`tabular-nums`), tiêu đề cột 12 px chữ thường, không sọc vằn.
-6. **Màu thay đổi nói tốt hay xấu,** không nói tăng hay giảm. Sản lượng giảm là xấu cho nhà đầu tư nên tô đỏ.
-7. **Trạng thái thật thà.** Số 0 in là 0 (màu xám); thiếu dữ liệu là dấu gạch xám; khối rỗng giữ khung và một câu.
-
-### 3.2. Token màu (thay `app/src/app/globals.css`)
-
-Light là mặc định. Dark dùng nền đen trung tính, bỏ sắc xanh hiện tại (`oklch(0.13 0.01 145)`).
-
-| Vai trò | Light | Dark | Ánh xạ shadcn hiện tại |
-|---|---|---|---|
-| Nền trang | `#f6f7f6` | `#0b0c0b` | `--background` |
-| Bề mặt thẻ | `#ffffff` | `#141614` | `--card`, `--popover` |
-| Nền phụ, hover | `#f2f4f2` | `#1d201d` | `--muted`, `--secondary` |
-| Mục menu đang chọn | `#e8ebe8` | `#262a26` | `--sidebar-accent` |
-| Viền thẻ | `#e3e6e3` | `#252825` | `--border` |
-| Kẻ dòng bảng | `#eef0ee` | `#1d201d` | mới: `--rule` |
-| Viền ô nhập | `#ccd2cd` | `#444a45` | `--input` |
-| Chữ chính | `#101a14` | `#f4f6f4` | `--foreground` |
-| Chữ phụ | `#545d57` | `#b4bab5` | `--muted-foreground` |
-| Nút chính | `#101a14` chữ trắng | `#f4f6f4` chữ đen | `--primary` |
-| Dữ liệu chính, tiêu điểm | `#1a6b3c` | `#4fb878` | `--chart-1`, `--ring` |
-| Dữ liệu phụ trong biểu đồ | `#c9cfca` | `#3d433e` | mới: `--chart-muted` |
-| Tích cực | `#1a6b3c` | `#4fb878` | (accent là xanh lá nên dùng chung) |
-| Tiêu cực | `#b42318` | `#f07068` | `--destructive` |
-| Nhãn trạng thái tốt | nền `#e2f1e7` chữ `#0e3d22` | nền `#15281c` chữ `#6fd096` | Badge |
-| Nhãn trạng thái xấu | nền `#fdecea` chữ `#7a1a12` | nền `#2c1716` chữ `#f39a93` | Badge |
-| Nhãn chờ, cảnh báo | nền `#fff7e0` chữ `#7a4a00` | nền `#2a2212` chữ `#e9b65a` | Badge |
-
-Mọi chữ đạt tương phản 4,5:1 trên nền nó đứng (đã đo trong bản mẫu). `--chart-2` đến `--chart-5` chỉ dùng khi biểu đồ thật sự cần hơn một chuỗi; mặc định một biểu đồ một màu.
-
-### 3.3. Chữ
-
-- **Geist** cho toàn bộ chữ, `subsets: ['latin', 'vietnamese']`. **Geist Mono** chỉ cho mã yêu cầu, địa chỉ ví, mã giao dịch.
-- Cỡ: tiêu đề màn 24 px/600; tiêu đề khối 16 px/600; số KPI 24 px/500; số tổng tài sản 32 px/700; chữ thường 14 px; nhãn phụ 12 px. Không chữ nào dưới 11 px.
-- Chữ thường kiểu câu; bỏ mọi nhãn chữ hoa giãn chữ.
-- Đậm 700 chỉ cho số tiền dẫn đầu màn.
-
-### 3.4. Khung (shell)
-
-- **Bỏ thanh trên cùng.** Sidebar 232 px cùng nền trang, ngăn bằng 1 viền.
-- Đầu sidebar: logo và tên "BIDV RWA, Điện gió An Viên"; ngay dưới là hai ô phạm vi **Vai trò** và **Chain** (thay hai `select` ở header).
-- Mục menu: icon 16 px nét mảnh xám, nhãn 14 px; mục đang chọn là nền xám nhạt (không xanh). Số việc chờ là chấm tròn mực có số, chỉ ở mục có hàng chờ.
-- Chân sidebar: nút "Giao diện tối/sáng" và dòng người dùng (tên, vai).
-- **"Kết nối ví" chỉ hiện với Nhà đầu tư và Người bán**, đặt trong màn Ví hoặc chân sidebar, không ở mọi trang.
-- Badge phím tắt: xem câu hỏi Q2.
-- **Điện thoại và máy tính bảng (dưới 860 px):** sidebar gập thành thanh trên 52 px (logo, nút menu 44 px); menu mở thành tấm toàn màn hình. Lề 16 px. Bảng dưới 640 px chuyển thành dòng hai tầng (định danh và số chính ở tầng 1, trường phụ ở tầng 2), không bỏ trường nào.
-
----
-
-## 4. Danh sách yêu cầu
-
-Mỗi yêu cầu có mã `UX-xx` để Supervisor tách task cho Kiro. Cột "Bằng chứng" là vị trí trong mã tại `f164939`.
-
-### P0: làm ngay, một PR nhỏ
-
-| Mã | Yêu cầu | Bằng chứng | Điều kiện đạt |
-|---|---|---|---|
-| UX-01 | Sửa font. Trong `layout.tsx` nạp thêm `Geist` (biến `--font-geist-sans`, subsets latin và vietnamese); đổi biến Geist Mono sang `--font-geist-mono`; trong `globals.css` đặt `--font-sans: var(--font-geist-sans)`. Hai dòng `--font-sans: var(--font-sans)` và `--font-mono: var(--font-geist-mono)` hiện đang tự trỏ hoặc trỏ vào biến không tồn tại | `app/src/app/globals.css:10-11`, `app/src/app/layout.tsx:2-11` | `getComputedStyle(document.body).fontFamily` bắt đầu bằng `Geist`; chữ tiếng Việt có dấu hiển thị đúng. **Đã thử trên bản local, đạt** |
-| UX-02 | Đi kèm UX-01: khi font được sửa, 160 chỗ `font-mono` sẽ hiện thật thành chữ đơn cách (trước đây bị Times che). Thay `font-mono` trên số liệu bằng `tabular-nums`; chỉ giữ mono cho mã, địa chỉ, hash | `lint`: 160 chỗ ở 36 tệp; ảnh thử nghiệm sau sửa font cho thấy KPI thành chữ đơn cách | Không còn `font-mono` trên số tiền, số lượng, phần trăm |
-| UX-03 | Light mặc định: `defaultTheme="light"`; sửa nhánh trước khi mount của RainbowKit (đang mặc định dark) | `app/src/components/providers.tsx:29-31, 45` | Phiên mới không cookie mở ra Light; không nháy Dark lúc tải |
-| UX-04 | Điện thoại: sidebar gập dưới 860 px như mục 3.4; header không tràn | `app/src/components/layout/app-layout.tsx` (khung `flex h-screen` không có breakpoint), `sidebar.tsx` (`w-60` cố định) | `inspect.mjs` ở 390 px: sidebar không chiếm quá 30% bề ngang, tiêu đề không quá 2 dòng, không cuộn ngang |
-| UX-05 | Ẩn "Kết nối ví" với Giao dịch viên và Kiểm soát viên | `app/src/components/layout/header.tsx` (ConnectButton không điều kiện) | Vai TELLER, CONTROLLER không thấy nút; INVESTOR, SELLER vẫn kết nối được |
-
-### P1: hệ thiết kế và khung
-
-| Mã | Yêu cầu | Bằng chứng | Điều kiện đạt |
-|---|---|---|---|
-| UX-06 | Thay token màu Light và Dark theo bảng 3.2 | `app/src/app/globals.css:60-150` | Không còn sắc xanh trên nền Dark; xanh BIDV không còn trên khung (menu, viền thẻ, nút) |
-| UX-07 | Khung mới theo 3.4: bỏ header, đưa Vai trò và Chain lên đầu sidebar, bỏ `backdrop-blur`, bỏ `animate-ping` ở trạng thái mạng | `header.tsx:22`, `sidebar.tsx:258` | Giữ nguyên logic `ChannelSwitcher`, `ChainSelector`, số việc chờ (HF-01) |
-| UX-08 | Chữ: bỏ 19 chỗ `uppercase` nhãn nhỏ, 6 chỗ `text-[9px]`/`text-[10px]`; `CardTitle` render `h2` (hoặc nhận prop `as`) | `sidebar.tsx` nhóm menu, `bidv-logo.tsx` "Điện gió", `components/ui/card.tsx:36` | `lint` không còn `micro-label`; `inspect` không còn `tiny-text`; mỗi khối có tiêu đề `h2` |
-| UX-09 | Thành phần: bỏ icon trong ô màu ở KPI; `transition-all` đổi sang thuộc tính cụ thể; nút không bóng; Badge theo cặp nền nhạt chữ đậm cùng sắc | `dashboard.tsx`, `ui/button.tsx:7`, `ui/badge.tsx:8` | `inspect` không còn `icon-chips`, `button-fx` |
-
-### P1: ba màn làm lại theo bản mẫu
-
-Bản mẫu là hướng bố cục và cách trình bày; số liệu trong bản mẫu là MẪU (mục 8). Khi làm, dữ liệu lấy từ service hiện có và **gom trong một server action mỗi màn** (luật HF-01).
-
-**UX-10. Bảng điều khiển vận hành `/` (Kiểm soát viên, Giao dịch viên)**
-
-- Câu hỏi của màn: *"Kỳ chia này đã sẵn sàng chưa, và việc gì đang chờ tôi?"*
-- Hàng tiêu đề: `h1` "Bảng điều khiển"; một câu phát hiện ngay dưới (ví dụ "Kỳ 09/2026 đã chốt vault, chờ bạn duyệt chia 4.800.000.000 VNDB. 3 yêu cầu đang chờ, cũ nhất 3 giờ 2 phút"); mốc "Cập nhật hh:mm"; một nút chính "Duyệt chia kỳ ..." (chỉ Kiểm soát viên; Giao dịch viên thấy nút "Lập lệnh").
-- **Khối đặc trưng "Kỳ ... chia thế nào"**: Sản lượng (MWh, EnergyOracle) sang Lợi nhuận nạp quỹ sang Mỗi WPT nhận sang hai phần: Nhà đầu tư (WPT đang lưu hành) và Vault SPV (WPT chưa bán). Đây là quy tắc QĐ-12 hiện chỉ nằm trong tài liệu; đưa lên màn để cán bộ kiểm trước khi duyệt. Hai phần phải cộng đúng bằng quỹ.
-- Khối "Sáu kỳ gần nhất": 3 KPI làm tab cho một biểu đồ cột (Sản lượng, Mỗi WPT nhận, Lợi nhuận nạp quỹ); cột kỳ hiện tại màu xanh BIDV, các kỳ khác xám; bảng so sánh với kỳ trước, thay đổi tính từ đúng hai số đang hiện.
-- Khối "Chờ bạn xử lý": duyệt chia kỳ, yêu cầu Mint/Burn (cũ nhất trước, quá 2 giờ tô đỏ), lệnh rút NEEDS_REVIEW; nút "Mở hàng chờ duyệt".
-- Khối "Lịch sử kỳ chia" (6 dòng) và "Nguồn cung và vault SPV" (tổng cung trên trần, đang lưu hành, chưa bán, người nắm giữ, số dư, đang khoá, người bán rút được).
-- Nguồn dữ liệu gợi ý: `getDistributionOverview()` và `listDistributionPeriods()` (`lib/bank/distribution-approval.service.ts`), `pendingWorkCounts()` (`lib/nav/pending-work.ts`), dịch vụ vault (`lib/bank/vault.service.ts`). Sản lượng theo kỳ: EnergyOracle hoặc dữ liệu mẫu có gắn nhãn.
-
-**UX-11. Phê duyệt lệnh `/approvals` (Kiểm soát viên)**
-
-- Câu hỏi: *"Yêu cầu nào đang chờ tôi, cái nào cũ nhất, có an toàn để duyệt không?"*
-- Một danh sách chung thay hai thẻ hàng chờ: tab "Chờ duyệt n" và "Đã xử lý hôm nay n"; một ô tìm (mã, người lập, lý do, chứng từ); cột Loại (Tạo hoặc Huỷ) thay cho hai bảng tách.
-- **Danh sách và chi tiết trên cùng màn** (khung chi tiết 400 px bên phải, dính khi cuộn): số lượng, người lập, ví đích hoặc nguồn huỷ, ngày hiệu lực, chứng từ, lý do; "Tổng cung sau khi duyệt"; danh sách điều kiện hệ thống đã kiểm (đã có trong `request-check-block.tsx`); nút "Chấp nhận và phát hành/huỷ" và "Từ chối" (bắt buộc nhập lý do).
-- Giữ `/approvals/[id]` cho liên kết trực tiếp; chọn dòng cập nhật `#id` trên địa chỉ.
-- Điện thoại: danh sách dòng hai tầng, chọn dòng thì cuộn tới chi tiết.
-
-**UX-12. Tổng quan Nhà đầu tư `/portfolio`**
-
-- Câu hỏi: *"Tôi đang có bao nhiêu, và lợi tức kỳ này đã về chưa?"*
-- Câu phát hiện dưới tiêu đề (lợi tức kỳ gần nhất về ngày nào, bao nhiêu).
-- Thẻ tổng tài sản (WPT theo giá phát hành cộng VNDB), một dòng tổng lợi tức đã nhận.
-- Bốn thao tác: Mua WPT, Bán WPT, Rút VNDB, Lệnh của tôi.
-- Bảng "Token và tiền trong ví": WPT và VNDB, số lượng và giá trị căn phải.
-- Cột phải: "Lợi tức đã nhận" theo kỳ (kỳ gần nhất màu xanh) và mức tương đương %/năm so với mục tiêu 5,8%; "Hoạt động gần đây".
-- "Dự án bạn đang nắm giữ": công suất, sản lượng kỳ, lợi tức mỗi WPT, phần của bạn trên tổng cung.
-- Phụ thuộc: sửa lệch L-03 (màn này cần dùng ví hồ sơ trên chain mock như `/trade`).
-
-### P2: rà các màn còn lại theo cùng hệ
-
-| Mã | Yêu cầu | Phạm vi |
-|---|---|---|
-| UX-13 | Bỏ ký tự chấm giữa dòng (U+00B7) trong chữ hiển thị (khoảng 27 chỗ trong `.tsx`), theo quy tắc 0.5 của UserGuide; thay bằng dấu phẩy | toàn `components`, `app` |
-| UX-14 | Trạng thái rỗng, 0, đang tải, lỗi theo nguyên tắc 3.1 mục 7: khối rỗng giữ khung và một câu; đang tải là thanh xám đúng kích thước, không nhấp nháy; lỗi nằm trong khối lỗi, có "Thử lại" | mọi màn |
-| UX-15 | Màn Vault: nhóm 15 ô thành 3 nhóm (Số dư, Khoá, Rút), địa chỉ rút gọn kèm nút chép | `components/pages/vault-status.tsx` |
-| UX-16 | Màn Lập lệnh, Chia lợi nhuận, Giao dịch, Người bán, Mua bán: áp token, chữ, bảng, nút chính theo mục 3 | các màn còn lại |
-| UX-17 | Thay bộ số mẫu của bảng điều khiển cũ bằng bộ số khớp mô hình token (mục 8) | `app/src/lib/mock-data.ts` |
-
----
-
-## 5. Điều kiện nghiệm thu chung
-
-1. `node <skill>/scripts/inspect.mjs <url> --app` ở 1440, 768, 390 px: **0 FAIL** cho mọi màn đã làm. Mỗi WARN còn lại có một câu giải thích trong checkpoint.
-2. Ảnh chụp cả Light và Dark cho mỗi màn đã làm, ở 1440 và 390 px.
-3. `npm run typecheck`, `npm test`, `npm run test:e2e` vẫn xanh (e2e có thể phải sửa selector khi bỏ header; không sửa logic).
-4. 3 LUẬT không đổi; mỗi màn tối đa một server action khi mở (HF-01).
-5. UserGuide cập nhật Phần 2 và 3 cho màn bị đổi.
-
-Kết quả bản mẫu theo cùng điều kiện: 0 FAIL ở cả ba màn. Còn 1 WARN `ragged-row` ở hai màn: Phê duyệt (khung chi tiết dài hơn danh sách 3 dòng là chủ ý, khung chi tiết dính khi cuộn) và Tài sản (bộ đo so thẻ tổng tài sản với thẻ lợi tức; hai cột thực tế kết thúc lệch khoảng 10 px).
-
----
-
-## 6. Đề xuất chia task
-
-| Thứ tự | Task | Gồm | Ước lượng quy mô |
-|---|---|---|---|
-| 1 | FE-UX-01 Sửa nhanh | UX-01 đến UX-05 | nhỏ, 1 PR |
-| 2 | FE-UX-02 Hệ thiết kế và khung | UX-06 đến UX-09 | vừa; chạm `globals.css`, `components/ui`, `components/layout` |
-| 3 | FE-UX-03 Bảng điều khiển | UX-10, UX-17 | vừa; cần một action gom dữ liệu |
-| 4 | FE-UX-04 Phê duyệt lệnh | UX-11 | vừa |
-| 5 | FE-UX-05 Tổng quan Nhà đầu tư | UX-12 (sau L-03) | vừa |
-| 6 | FE-UX-06 Rà các màn còn lại | UX-13 đến UX-16 | lớn, có thể tách theo vai |
-
----
-
-## 7. Câu hỏi cần Owner chốt
-
-- **Q1. Màu nút chính.** Bản mẫu dùng màu mực (gần đen) để xanh BIDV chỉ đánh dấu dữ liệu. Nếu Owner muốn nút chính màu xanh BIDV vì nhận diện, chỉ đổi một token `--primary`; khi đó cột kỳ hiện tại trong biểu đồ nên chuyển sang mực để không trùng nghĩa.
-- **Q2. Badge phím tắt** (E, L, G... cạnh mục menu). Đề xuất bỏ khỏi menu, đưa vào chú thích khi rê chuột. Cần xác nhận phím tắt có đang được dùng không.
-- **Q3. Màn Kiểm soát viên và Giao dịch viên dùng chung `/`.** Bản mẫu dựng cho Kiểm soát viên; đề xuất Giao dịch viên cùng bố cục, nút chính đổi sang "Lập lệnh" và khối việc chờ chỉ gồm yêu cầu của chính họ.
-- **Q4. Có đưa bản mẫu vào repo** (`docs/prototypes/20261023_ui_ux/`) để Kiro tham chiếu không.
-
----
-
-## 8. Phụ lục
-
-### 8.1. Dữ liệu mẫu trong bản mẫu (phải thay bằng dữ liệu thật)
-
-Tất cả nằm trong `docs/prototypes/20261023_ui_ux/data.js`; mọi tổng cộng từ dòng, có `console.assert` kiểm.
-
-- Token WPT: giá phát hành 100.000 VNDB, trần 20.000.000, tổng cung 10.000.000, đang lưu hành 3.412.500, chưa bán 6.587.500, 128 người nắm giữ.
-- Sáu kỳ 04/2026 đến 09/2026: sản lượng 24.180 đến 34.720 MWh; mỗi WPT nhận 350 đến 502 VNDB (khoảng 5,2%/năm trên giá phát hành, gần mục tiêu 5,8%). Quỹ kỳ = mỗi WPT nhân tổng cung.
-- Kỳ 09/2026: quỹ 4.800.000.000 VNDB; nhà đầu tư 1.638.000.000; vault 3.162.000.000.
-- Ba yêu cầu chờ duyệt (mã `7f3a21c0`, `91bd0e44`, `c02f9a17`), người lập GDV001, GDV002, số chứng từ "QĐ 128/2026/QĐ-BIDV" và các số khác là giả định.
-- Vault: số dư 41.250.000.000 VNDB, khoá 20%; địa chỉ `0x0da9…6861` lấy từ UserGuide, ví nhận tiền rút `0x41c2…9e07` là giả định.
-- Nhà đầu tư mẫu "Trần Minh Khoa" NDT001, 150 WPT, lợi tức 6 kỳ 393.000 VNDB.
-
-### 8.2. Ghi chú quy trình skill
-
-- Hệ: `achromatic-ledger`, seed 628031900, giữ bảng màu thương hiệu (`--keep palette`).
-- Đổi khung một lần: khung được chia là "icon rail" (thanh icon không nhãn); đổi sang "open plane" (sidebar có nhãn) vì mỗi vai có 6 đến 7 mục nghiệp vụ mà icon không diễn đạt được ("Vault thanh toán SPV", "Chia lợi nhuận").
-- Bản sắc chọn: xanh BIDV trên phần tử dữ liệu chính của mỗi màn. Phần tử đặc trưng: khối "Kỳ ... chia thế nào".
-- Kiểm `mono` của lint được chấp nhận cho mã yêu cầu và địa chỉ ví.
-- Bản mẫu không dùng ảnh ngoài.
+- Q1. Có gộp FE-UX-X1 (số bán ở Tổng quan Người bán) vào đợt UI không?
+- Q2. FE-UX-X2: giữ hay ẩn "Kết nối ví" với hai vai vận hành?
+- Q3. Duyệt từng điểm lệch 3 đến 8 ở mục 5 (sửa trong đợt UI hay để task riêng).
+- Q4. BE-UX-1, BE-UX-2: có mở task backend hoặc dữ liệu mẫu riêng không.

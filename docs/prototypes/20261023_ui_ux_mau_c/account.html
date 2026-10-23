@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thông tin tài khoản</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+  [hidden] { display: none !important; }
+  /* Lưới ô thông tin 3 cột trong thẻ rộng; ô vàng nhấn hạn mức. */
+  .kv-grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kv-grid .wide { grid-column: span 2; }
+  .kv-grid .full { grid-column: 1 / -1; }
+  .kv-grid .goldtile { background: var(--gold-tile); }
+  .kv-grid .goldtile dd { font-size: 22px; color: var(--gold-ink); }
+  .who { display: flex; flex-direction: column; gap: 18px; height: 100%; position: relative; }
+  .who h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.02em; }
+  @media (max-width: 1180px) { .kv-grid.c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .kv-grid.c3 { grid-template-columns: minmax(0, 1fr); } .kv-grid .wide { grid-column: auto; } }
+</style>
+</head>
+<body data-page="account" data-nav="account.html" data-roles="teller,controller,investor,seller" data-crumbs="Thông tin tài khoản">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>Thông tin tài khoản</h1><span class="badge">Chỉ đọc</span></div>
+      <p class="sub">Thông tin hồ sơ của tài khoản đang đăng nhập. Mọi thay đổi cần được ngân hàng xác minh.</p>
+    </div>
+  </div>
+
+  <!-- ===== Vai nhân viên (Giao dịch viên, Kiểm soát viên): mục "Thông tin cán bộ" ===== -->
+  <section class="card hero span-4 stretch" data-kind="EMPLOYEE" aria-label="Họ tên và vai trò">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="who">
+      <span class="avatar lg gold" data-f="initials"></span>
+      <div><span class="muted small">Họ và tên</span><h2 data-f="fullName"></h2></div>
+      <div><span class="muted small">Vai trò</span><div class="strong" data-f="roleLabel"></div></div>
+    </div>
+  </section>
+  <section class="card span-8 stretch" data-kind="EMPLOYEE" aria-labelledby="emp-h">
+    <div class="card-h"><div class="t"><i data-icon="usercog"></i><h2 id="emp-h">Thông tin cán bộ</h2></div></div>
+    <dl class="kv-grid c3">
+      <div><dt>Mã cán bộ</dt><dd class="mono" data-f="actorId"></dd></div>
+      <div><dt>Trạng thái</dt><dd><span class="badge ok">Đang hoạt động</span></dd></div>
+      <div><dt>Số điện thoại</dt><dd data-f="phone"></dd></div>
+      <div class="wide"><dt>Thư điện tử</dt><dd data-f="email"></dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd data-f="lastActiveAt"></dd></div>
+    </dl>
+  </section>
+
+  <!-- ===== Vai khách hàng (Nhà đầu tư, Người bán) ===== -->
+  <section class="card hero span-4 stretch" data-kind="CUSTOMER" aria-label="Tên, mã người dùng và vai trò">
+    <div class="deco" data-turbine="#ffffff"></div>
+    <div class="who">
+      <span class="avatar lg gold" data-f="initials"></span>
+      <div><span class="muted small" data-f="nameLabel"></span><h2 data-f="fullName"></h2></div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap">
+        <div><span class="muted small">Mã người dùng</span><div class="strong mono" data-f="actorId"></div></div>
+        <div><span class="muted small">Vai trò</span><div class="strong" data-f="roleLabel"></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="card span-8 stretch" data-kind="CUSTOMER" aria-labelledby="per-h">
+    <div class="card-h"><div class="t"><i data-icon="user"></i><h2 id="per-h" data-f="personTitle"></h2></div></div>
+    <dl class="kv-grid c3">
+      <div data-org><dt>Người liên hệ</dt><dd data-f="contactPerson"></dd></div>
+      <div><dt>Số điện thoại</dt><dd data-f="phone"></dd></div>
+      <div><dt>Thư điện tử</dt><dd data-f="email"></dd></div>
+      <div><dt>Trạng thái định danh</dt><dd><span class="badge ok">Đã xác minh</span></dd></div>
+      <div class="full" id="wallet-tile"><dt data-f="walletLabel"></dt><dd class="mono break" style="font-size:14px" data-f="wallet"></dd></div>
+    </dl>
+  </section>
+
+  <section class="card span-4 stretch" data-kind="CUSTOMER" aria-labelledby="acc-h">
+    <div class="card-h"><div class="t"><i data-icon="usercog"></i><h2 id="acc-h">Thông tin tài khoản</h2></div></div>
+    <dl class="kv">
+      <div><dt>Trạng thái</dt><dd><span class="badge ok">Đang hoạt động</span></dd></div>
+      <div><dt>Ngày tạo</dt><dd data-f="createdAt"></dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd data-f="lastActiveAt"></dd></div>
+    </dl>
+  </section>
+  <section class="card span-8 stretch" data-kind="CUSTOMER" aria-labelledby="risk-h">
+    <div class="card-h"><div class="t"><i data-icon="shield"></i><h2 id="risk-h">Hồ sơ định danh và rủi ro</h2></div></div>
+    <dl class="kv-grid c3">
+      <div><dt>Loại khách hàng</dt><dd data-f="customerType"></dd></div>
+      <div><dt>Trạng thái định danh</dt><dd>Đã xác minh</dd></div>
+      <div><dt>Xếp hạng rủi ro</dt><dd><span class="badge">Thấp</span></dd></div>
+      <div><dt>Phòng chống rửa tiền</dt><dd>Đạt</dd></div>
+      <div class="wide goldtile"><dt>Hạn mức giao dịch mỗi ngày</dt><dd class="mono" data-f="limit"></dd></div>
+    </dl>
+  </section>
+
+  <!-- ProfileWalletCard: chỉ vai khách hàng (OP-05 QĐ-I) -->
+  <section class="card" data-kind="CUSTOMER" aria-label="Ví liên kết">
+    <div class="card-h"><div class="t"><i data-icon="wallet"></i><h2>Ví liên kết trên chain <span id="chain-label">Mock (không cần chain)</span></h2></div></div>
+    <dl class="kv-grid c3" style="margin-bottom:16px">
+      <div class="wide"><dt>Ví đang liên kết</dt><dd class="mono break" style="font-size:14px" data-f="wallet"></dd></div>
+      <div><dt>Cập nhật lúc</dt><dd data-f="linkedAt"></dd></div>
+    </dl>
+    <form class="form">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="flex:1 1 360px"><label for="profile-wallet">Địa chỉ ví</label><input class="input mono" id="profile-wallet" placeholder="0x…" spellcheck="false"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn outline" type="button" disabled title="Chain mock không có ví trình duyệt đang kết nối">Dùng ví đang kết nối</button>
+          <button class="btn primary" type="button" id="save">Lưu</button>
+        </div>
+      </div>
+      <p class="small muted">Liên kết chỉ ghi ví vào hồ sơ để app so với ví bạn kết nối khi đặt lệnh. Ví vẫn phải được ngân hàng đưa vào danh sách được phép trên chuỗi.</p>
+      <div class="alert ok" role="status" id="saved" hidden><i data-icon="check"></i><span></span></div>
+    </form>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+<script>
+// Hồ sơ mẫu của bốn tài khoản (getOwnAccountProfile), chọn theo vai đang xem.
+(() => {
+  const P = {
+    teller: { kind: 'EMPLOYEE', actorId: 'GDV001', roleLabel: 'Giao dịch viên', fullName: 'Nguyễn Văn An', initials: 'NA', phone: '024 2220 0588', email: 'an.nguyen@bidv.com.vn', lastActiveAt: '23/10/2026 09:10:24' },
+    controller: { kind: 'EMPLOYEE', actorId: 'KSV001', roleLabel: 'Kiểm soát viên', fullName: 'Phạm Thu Hà', initials: 'PH', phone: '024 2220 0588', email: 'ha.pt@bidv.com.vn', lastActiveAt: '23/10/2026 08:02:11' },
+    investor: { kind: 'CUSTOMER', org: false, actorId: 'NDT001', roleLabel: 'Nhà đầu tư', fullName: 'Trần Minh Khoa', initials: 'TK', phone: '0912 345 678', email: 'khoa.tran@example.com', createdAt: '15/01/2026 09:00:00', lastActiveAt: '23/10/2026 07:45:10', limit: '500.000.000 VNDB', wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', linkedAt: '18/03/2026 08:55:12' },
+    seller: { kind: 'CUSTOMER', org: true, actorId: 'NB001', roleLabel: 'Người bán', fullName: 'Công ty TNHH Điện gió An Viên (SPV)', initials: 'AV', contactPerson: 'Trần Thị Bình', phone: '0291 395 8888', email: 'contact@diengioanvien.vn', createdAt: '10/12/2025 09:00:00', lastActiveAt: '23/10/2026 08:20:05', limit: '5.000.000.000 VNDB', wallet: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', linkedAt: '02/03/2026 08:40:00' },
+  };
+  const p = P[UI.role];
+  p.nameLabel = p.org ? 'Tên pháp nhân' : 'Họ và tên';
+  p.personTitle = p.org ? 'Thông tin pháp nhân' : 'Thông tin cá nhân';
+  p.walletLabel = p.org ? 'Ví thanh toán' : 'Địa chỉ ví';
+  p.customerType = p.org ? 'Tổ chức' : 'Cá nhân';
+  document.querySelectorAll('[data-kind]').forEach((n) => { if (n.dataset.kind !== p.kind) n.remove(); });
+  document.querySelectorAll('[data-org]').forEach((n) => { if (!p.org) n.remove(); });
+  if (p.org) document.getElementById('wallet-tile')?.classList.replace('full', 'wide');
+  document.querySelectorAll('[data-f]').forEach((n) => { n.textContent = p[n.dataset.f] ?? ''; });
+  // Cho thư điện tử xuống dòng sau dấu @ thay vì giữa chữ.
+  document.querySelectorAll('[data-f="email"]').forEach((n) => { n.innerHTML = n.textContent.replace('@', '@<wbr>'); });
+  const input = document.getElementById('profile-wallet');
+  if (input) {
+    input.value = p.wallet;
+    const save = document.getElementById('save'), msg = document.getElementById('saved');
+    input.addEventListener('input', () => { save.disabled = input.value.trim() === ''; msg.hidden = true; });
+    save.addEventListener('click', () => { if (save.disabled) return; msg.querySelector('span').textContent = `Đã liên kết ví ${input.value.trim()} trên chain mock.`; msg.hidden = false; });
+  }
+})();
+</script>
+</body>
+</html>

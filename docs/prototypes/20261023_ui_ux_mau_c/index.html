@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20261023_ban_xem_thu_mau_c_bidv_rwa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+  .lp { max-width: 1320px; margin: 0 auto; padding: 32px 24px 56px; display: grid; gap: 16px; }
+  .lp-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; min-height: 220px; }
+  .lp-hero h1 { font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; max-width: 22ch; }
+  .lp-hero p { margin-top: 10px; color: rgba(255,255,255,.8); max-width: 62ch; }
+  .lp-hero .farm { display: flex; align-items: flex-end; gap: 6px; height: 160px; }
+  .lp-hero .farm span { display: block; }
+  .lp-hero .farm span:nth-child(1) { width: 90px; height: 120px; opacity: .55; }
+  .lp-hero .farm span:nth-child(2) { width: 140px; height: 170px; }
+  .lp-hero .farm span:nth-child(3) { width: 80px; height: 100px; opacity: .45; }
+  .lp-hero .farm svg { width: 100%; height: 100%; }
+  .lp-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .lp-top .logo { padding: 0; }
+  .lp .card .who { display: flex; align-items: center; gap: 12px; }
+  .lp .card .who small { display: block; color: var(--muted); font-size: 12px; }
+  .lp .avatar { font-size: 11px; }
+  .lp .note { color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .lp-hero { grid-template-columns: minmax(0, 1fr); } .lp-hero .farm { display: none; } .lp-hero h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="lp">
+  <div class="lp-top">
+    <a class="logo" href="index.html"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#1a6b3c"/><circle cx="20" cy="20" r="15" fill="none" stroke="#b8860b" stroke-width="1.5"/><path d="M13 12h7.5c2.5 0 4 1.2 4 3.2 0 1.4-.8 2.4-2 2.9 1.6.4 2.6 1.6 2.6 3.2C25.1 23.8 23.4 25 20.5 25H13V12zm3 5.2h3.8c1.1 0 1.8-.5 1.8-1.5s-.7-1.5-1.8-1.5H16v3zm0 5.6h4.2c1.2 0 2-.6 2-1.6s-.8-1.6-2-1.6H16v3.2z" fill="#fff"/><rect x="10" y="31" width="20" height="2.5" rx="1.25" fill="#b8860b"/></svg><div><b>BIDV<span>RWA</span></b><small>Điện gió</small></div></a>
+    <button class="iconbtn" type="button" id="lp-theme" aria-label="Đổi giao diện sáng tối"></button>
+  </div>
+
+  <section class="card hero lp-hero rise">
+    <div>
+      <h1>Bản xem thử giao diện mẫu C cho BIDV RWA</h1>
+      <p>Chọn một vai rồi bấm vào trang để xem. Đây là giao diện tĩnh, dữ liệu mẫu, không có chức năng thật. Trong mỗi trang có thể đổi vai bằng dropdown Vai trò và đổi Sáng, Tối ở nút tròn trên cùng.</p>
+    </div>
+    <div class="farm" aria-hidden="true"><span data-turbine="#e8f3ec" data-speed="slow"></span><span data-turbine="#ffffff"></span><span data-turbine="#e8f3ec" data-speed="fast"></span></div>
+  </section>
+
+  <div class="launch">
+    <section class="card rise" style="animation-delay:.1s">
+      <div class="who"><span class="avatar green">GDV</span><div><h2>Giao dịch viên</h2><small>GDV001, lập lệnh và vận hành</small></div></div>
+      <ul>
+        <li><a href="dashboard.html?role=teller">Bảng điều khiển<i data-icon="right"></i></a></li>
+        <li><a href="draft.html?role=teller">Lập lệnh<i data-icon="right"></i></a></li>
+        <li><a href="transactions.html?role=teller">Giao dịch<i data-icon="right"></i></a></li>
+        <li><a href="transaction-detail.html?role=teller">Chi tiết giao dịch<i data-icon="right"></i></a></li>
+        <li><a href="distribution.html?role=teller">Chia lợi nhuận (chỉ xem)<i data-icon="right"></i></a></li>
+        <li><a href="vault.html?role=teller">Vault thanh toán SPV<i data-icon="right"></i></a></li>
+        <li><a href="demo-payment.html?role=teller">Nạp VNDB (trình diễn)<i data-icon="right"></i></a></li>
+        <li><a href="account.html?role=teller">Thông tin tài khoản<i data-icon="right"></i></a></li>
+      </ul>
+    </section>
+    <section class="card rise" style="animation-delay:.16s">
+      <div class="who"><span class="avatar">KSV</span><div><h2>Kiểm soát viên</h2><small>KSV001, duyệt và kiểm soát</small></div></div>
+      <ul>
+        <li><a href="dashboard.html?role=controller">Bảng điều khiển<i data-icon="right"></i></a></li>
+        <li><a href="transactions.html?role=controller">Giao dịch<i data-icon="right"></i></a></li>
+        <li><a href="distribution.html?role=controller">Chia lợi nhuận<i data-icon="right"></i></a></li>
+        <li><a href="vault.html?role=controller">Vault thanh toán SPV<i data-icon="right"></i></a></li>
+        <li><a href="approvals.html?role=controller">Phê duyệt lệnh<i data-icon="right"></i></a></li>
+        <li><a href="approval-detail.html?role=controller">Chi tiết yêu cầu<i data-icon="right"></i></a></li>
+        <li><a href="account.html?role=controller">Thông tin tài khoản<i data-icon="right"></i></a></li>
+      </ul>
+    </section>
+    <section class="card rise" style="animation-delay:.22s">
+      <div class="who"><span class="avatar gold">NĐT</span><div><h2>Nhà đầu tư</h2><small>NDT001, mua bán và nhận lợi tức</small></div></div>
+      <ul>
+        <li><a href="portfolio.html?role=investor">Tổng quan<i data-icon="right"></i></a></li>
+        <li><a href="token-detail.html?role=investor">Chi tiết token WPT<i data-icon="right"></i></a></li>
+        <li><a href="trade.html?role=investor">Giao dịch token<i data-icon="right"></i></a></li>
+        <li><a href="orders.html?role=investor">Quản lý lệnh<i data-icon="right"></i></a></li>
+        <li><a href="order-detail.html?role=investor">Chi tiết lệnh<i data-icon="right"></i></a></li>
+        <li><a href="withdraw.html?role=investor">Rút VNDB<i data-icon="right"></i></a></li>
+        <li><a href="wallet.html?role=investor">Kết nối ví<i data-icon="right"></i></a></li>
+        <li><a href="account.html?role=investor">Thông tin tài khoản<i data-icon="right"></i></a></li>
+      </ul>
+    </section>
+    <section class="card rise" style="animation-delay:.28s">
+      <div class="who"><span class="avatar">NB</span><div><h2>Người bán</h2><small>NB001, SPV dự án</small></div></div>
+      <ul>
+        <li><a href="seller.html?role=seller">Tổng quan<i data-icon="right"></i></a></li>
+        <li><a href="seller-transactions.html?role=seller">Danh sách giao dịch<i data-icon="right"></i></a></li>
+        <li><a href="seller-withdraw.html?role=seller">Tạo lệnh rút<i data-icon="right"></i></a></li>
+        <li><a href="wallet.html?role=seller">Kết nối ví<i data-icon="right"></i></a></li>
+        <li><a href="account.html?role=seller">Thông tin tài khoản<i data-icon="right"></i></a></li>
+      </ul>
+    </section>
+  </div>
+  <p class="note">Trang này chỉ phục vụ việc duyệt giao diện, không thuộc ứng dụng. Mọi trang giữ đủ feature của màn hiện tại trên nhánh dev; chỉ thay đổi vị trí và cách trình bày.</p>
+</div>
+<script src="assets/ui.js"></script>
+<script>
+  const b = document.getElementById('lp-theme');
+  const paint = () => { b.innerHTML = UI.icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'); };
+  paint();
+  b.addEventListener('click', () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', r.dataset.theme); } catch {} paint(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết lệnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<style>
+.entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; margin-top: 10px; }
+.entries li { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 12px; }
+.steps li .mono { display: block; margin-top: 2px; color: var(--ink-2); }
+.audit li { grid-template-columns: minmax(0, 1fr) !important; }
+.audit .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.audit p { margin-top: 4px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.info-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.info-grid .w2 { grid-column: span 2; }
+@media (max-width: 1180px) { .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .info-grid .w2 { grid-column: 1 / -1; } }
+@media (max-width: 520px) { .info-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .entries { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-page="order-detail" data-nav="orders.html" data-roles="investor" data-crumbs="Nhà đầu tư|Quản lý lệnh|ORD-2026-0001">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <a class="link-more link-back" data-go="orders.html" style="margin-bottom:8px"><i data-icon="left"></i>Quản lý lệnh</a>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1>Lệnh mua ORD-2026-0001</h1>
+        <span class="badge ok">Hoàn tất</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="kpi hl span-4" aria-label="Giá trị">
+    <div class="top"><span class="lbl">Giá trị</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span data-count="15000000">15.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi span-4" aria-label="Số lượng">
+    <div class="top"><span class="lbl">Số lượng</span><span class="ic"><i data-icon="wind"></i></span></div>
+    <div class="val"><span data-count="150">150</span><small>WPT</small></div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Giá">
+    <div class="top"><span class="lbl">Giá</span><span class="ic"><i data-icon="receipt"></i></span></div>
+    <div class="val"><span data-count="100000">100.000</span><small>VNDB</small></div>
+  </section>
+
+  <section class="card" aria-labelledby="inf-h">
+    <div class="card-h"><div class="t"><i data-icon="file"></i><h2 id="inf-h">Thông tin lệnh</h2></div></div>
+    <dl class="kv-grid info-grid">
+      <div><dt>Mã lệnh</dt><dd class="mono">ORD-2026-0001</dd></div>
+      <div><dt>Chiều</dt><dd>Mua</dd></div>
+      <div><dt>Thời điểm tạo</dt><dd>18/03/2026 10:05:10</dd></div>
+      <div><dt>Cập nhật</dt><dd>18/03/2026 10:05:12</dd></div>
+      <div class="w2"><dt>Ví</dt><dd class="mono break" style="font-size:13px">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</dd></div>
+      <div class="w2"><dt>Mã giao dịch</dt><dd class="mono break" style="font-size:13px">0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91</dd></div>
+      <div class="w2" style="grid-column:1 / -1"><dt>Lý do</dt><dd>không có</dd></div>
+    </dl>
+  </section>
+
+  <section class="card span-8 stretch" aria-labelledby="st-h">
+    <div class="card-h"><div class="t"><i data-icon="refresh"></i><h2 id="st-h">Tiến trình quyết toán</h2></div></div>
+    <ol class="steps">
+      <li class="done"><b>Tạo lệnh</b>Bước 1, Xong<span class="mono">18/03/2026 10:05:10</span></li>
+      <li class="done"><b>Kiểm tra</b>Bước 2, Xong<span class="mono">18/03/2026 10:05:10</span></li>
+      <li class="done"><b>Đối chiếu số dư</b>Bước 3, Xong<span class="mono">18/03/2026 10:05:11</span></li>
+      <li class="done"><b>Quyết toán</b>Bước 4, Xong<span class="mono">18/03/2026 10:05:11</span></li>
+      <li class="done"><b>Hoàn tất</b>Bước 5, Xong<span class="mono">18/03/2026 10:05:12</span></li>
+    </ol>
+    <div class="inner" style="margin-top:18px">
+      <p class="strong">Quyết toán là một bước duy nhất: bốn bút toán nằm trong cùng một giao dịch, cùng thành công hoặc cùng huỷ.</p>
+      <p class="small muted" style="margin-top:4px">Kết cục: cả bốn bút toán đã ghi.</p>
+      <ul class="entries">
+        <li><span>Nhà đầu tư, VNDB</span><span class="neg">-15.000.000</span></li>
+        <li><span>Người bán, VNDB</span><span class="pos">+15.000.000</span></li>
+        <li><span>Người bán, WPT</span><span class="neg">-150</span></li>
+        <li><span>Nhà đầu tư, WPT</span><span class="pos">+150</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card span-4 stretch" aria-labelledby="au-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="au-h">Nhật ký kiểm toán của lệnh</h2></div></div>
+    <ol class="timeline audit">
+      <li>
+        <div>
+          <div class="meta"><time class="mono">18/03/2026 10:05:10</time><span class="badge">order:place</span></div>
+          <span>INVESTOR, SUCCESS</span>
+          <p>đặt lệnh ORD-2026-0001: 150 WPT, phải trả 15000000 VNDB</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="meta"><time class="mono">18/03/2026 10:05:12</time><span class="badge">order:auto-execute</span></div>
+          <span>INVESTOR, SUCCESS</span>
+          <p>tự động, lệnh ORD-2026-0001: khớp 150 WPT / 15000000 VNDB; tx 0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91 CONFIRMED</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+</main>
+<script src="assets/ui.js"></script>
+</body>
+</html>
