@@ -6,7 +6,8 @@ import { getLedger, LedgerNotImplementedError, type ILedgerPort } from '@/lib/le
 import { assertCan, can } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
-import { readIssuePriceVnd, readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
+import { readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
+import { readEffectiveIssuePrice } from './issue-price';
 import { formatAmount } from '@/lib/format';
 import type { OrderSide } from '@/lib/store/order.store.port';
 import type { AuditRecord } from '@/lib/store';
@@ -130,13 +131,15 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     assertCan(await currentRole(), 'order:place');
 
     const ledger = getLedger(chain);
+    // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`). Đọc MỘT
+    // lần: ô "Giá" dùng thẳng, thẻ "Thông tin token" dùng lại qua `readEffectiveIssuePrice` (FE-07).
+    const quoted = ledger.quotePurchase(1n);
     const [projects, held, vndb, price, issuePrice, terms, settling] = await Promise.all([
       getProjectStore().listProjects({ chain }),
       ledger.balanceOf(wallet),
       ledger.paymentBalanceOf(wallet),
-      // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`).
-      ledger.quotePurchase(1n),
-      readIssuePriceVnd(chain),
+      quoted,
+      readEffectiveIssuePrice(chain, quoted),
       readTokenTerms(),
       // Cùng quyết định với xem trước (FE-05): chain chưa có cờ tất toán thì không chặn cả màn.
       settlementModeOrUnknown(ledger),

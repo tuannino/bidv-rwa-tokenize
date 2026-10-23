@@ -13,8 +13,9 @@ import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
  * ở đây để người gọi cũ giữ nguyên đường nhập.
  *
  * ⚠️ Từ BE-04, `WPT_ISSUE_PRICE_VND` là GIÁ MẶC ĐỊNH KHI CHƯA CẤU HÌNH, không còn là giá đang có
- * hiệu lực. Giá đang có hiệu lực đọc bằng `readIssuePriceVnd()` (`lib/store/config-values.ts`)
- * hoặc `getIssuePrice()` (`lib/bank/config.service.ts`). Đừng dùng hằng số này để hiển thị.
+ * hiệu lực. Giá áp dụng cho lệnh đọc bằng `readEffectiveIssuePrice()` (`lib/bank/issue-price.ts`,
+ * FE-07); giá đã cấu hình đọc bằng `readIssuePriceVnd()` hoặc `getIssuePrice()`. Đừng dùng hằng số
+ * này để hiển thị.
  */
 export { WPT_ISSUE_PRICE_VND };
 
@@ -32,7 +33,7 @@ export { WPT_ISSUE_PRICE_VND };
  * muốn tự quy đổi con số nó đã có trong tay.
  *
  * Nhận giá làm tham số giữ hàm này THUẦN và dùng được ở cả hai phía. Người gọi ở máy chủ lấy giá
- * bằng `readIssuePriceVnd()`; màn hình đã nhận `issuePriceVnd` trong `PortfolioView` thì truyền
+ * bằng `readEffectiveIssuePrice()` (FE-07); màn hình đã nhận `issuePriceVnd` trong `PortfolioView` thì truyền
  * lại chính con số đó — nên số hiển thị và số quy đổi không thể lệch nhau.
  */
 export function wptToVnd(amount: string, issuePriceVnd: string | number | bigint): string {

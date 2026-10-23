@@ -46,6 +46,8 @@ const DEFAULT_PRICE = BigInt(WPT_ISSUE_PRICE_VND);
 const NEAR_PRICE = ((DEFAULT_PRICE * 12n) / 10n).toString();
 /** +50%: vẫn trong ngưỡng, dùng khi một ca cần hai mức giá khác nhau. */
 const NEAR_PRICE_2 = ((DEFAULT_PRICE * 15n) / 10n).toString();
+/** FE-07: lý do đổi giá bắt buộc (5 tới 200 ký tự). */
+const REASON = 'điều chỉnh giá theo quyết định';
 
 function actAs(role: string) {
   process.env.DEMO_ROLE = role;
@@ -108,7 +110,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
     async (priceVnd) => {
       const { getIssuePrice, setIssuePrice } = await services();
 
-      const result = await setIssuePrice({ chain: CHAIN, priceVnd, confirmLargeChange: true });
+      const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd, confirmLargeChange: true });
       expect(result.ok, result.ok ? '' : result.error).toBe(true);
 
       const view = await getIssuePrice(CHAIN);
@@ -131,7 +133,7 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
     await ledger.whitelist(INVESTOR);
     await ledger.mintInitialSupply(SPV, 1_000n);
 
-    await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE_2, confirmLargeChange: true });
+    await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE_2, confirmLargeChange: true });
 
     // Suy từ giá vừa đặt, không gõ lại con số: nạp sai số VNDB thì khớp lệnh trượt ở phép kiểm số
     // dư và ca này đỏ vì một lý do khác hẳn điều nó đang kiểm.
@@ -153,7 +155,8 @@ describe('ca 1 — giá trong cơ sở dữ liệu bằng giá quotePurchase tr�
     expect(history[0]).toMatchObject({
       newValue: NEAR_PRICE,
       changedBy: 'TELLER',
-      reason: 'điều chỉnh đợt hai',
+      // FE-07: mã giao dịch đổi giá đi cùng lý do để khối "Lịch sử đổi giá" hiện được.
+      reason: expect.stringMatching(/^điều chỉnh đợt hai; tx 0x[0-9a-fA-F]+$/),
     });
     expect(history[0].oldValue).toBe(String(WPT_ISSUE_PRICE_VND));
   });
@@ -185,7 +188,7 @@ describe('ca 2 — giá âm hoặc 0 bị từ chối; lệch quá ngưỡng c�
     const { getIssuePrice, setIssuePrice } = await services();
     const before = await getIssuePrice(CHAIN);
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -201,7 +204,7 @@ describe('ca 2 — giá âm hoặc 0 bị từ chối; lệch quá ngưỡng c�
     // Ngưỡng mặc định là hệ số 2, nên gấp 10 lần chắc chắn vượt.
     const tenfold = (BigInt(before.priceVnd) * 10n).toString();
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: tenfold });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: tenfold });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -216,7 +219,7 @@ describe('ca 2 — giá âm hoặc 0 bị từ chối; lệch quá ngưỡng c�
     const before = await getIssuePrice(CHAIN);
     const tenth = (BigInt(before.priceVnd) / 10n).toString();
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: tenth });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: tenth });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -231,7 +234,7 @@ describe('ca 2 — giá âm hoặc 0 bị từ chối; lệch quá ngưỡng c�
     const { setIssuePrice } = await services();
     const before = BigInt((await (await services()).getIssuePrice(CHAIN)).priceVnd);
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: ((before * 3n) / 2n).toString() });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: ((before * 3n) / 2n).toString() });
 
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
   });
@@ -242,6 +245,7 @@ describe('ca 2 — giá âm hoặc 0 bị từ chối; lệch quá ngưỡng c�
 
     const result = await setIssuePrice({
       chain: CHAIN,
+      reason: REASON,
       priceVnd: tenfold,
       confirmLargeChange: true,
     });
@@ -294,7 +298,7 @@ describe('ca 3 — lệnh đã đặt giữ nguyên số VNDB đã chốt', () =
 
     // Ngân hàng đổi giá SAU khi lệnh đã được đặt.
     actAs('TELLER');
-    const changed = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE_2 });
+    const changed = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE_2 });
     expect(changed.ok, changed.ok ? '' : changed.error).toBe(true);
 
     // Lệnh cũ vẫn giữ đúng con số đã chốt.
@@ -328,7 +332,7 @@ describe('đột biến 1 — đẩy giá xuống ledger thất bại thì cơ s
       },
     });
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -352,7 +356,7 @@ describe('đột biến 1 — đẩy giá xuống ledger thất bại thì cơ s
 
     vi.spyOn(getConfigStore(), 'setConfig').mockRejectedValue(new Error('mất kết nối cơ sở dữ liệu'));
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -377,7 +381,7 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
     expect(can('TELLER', 'treasury:manage')).toBe(true);
     expect(isConfigRole('TELLER')).toBe(true);
 
-    const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
     expect(result.ok, result.ok ? '' : result.error).toBe(true);
   });
 
@@ -407,7 +411,7 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
       // Quyền RBAC KHÔNG bị chạm — đó là điểm của đột biến này.
       expect(can('TELLER', 'treasury:manage')).toBe(true);
 
-      const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+      const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
 
       expect(result.ok).toBe(false);
       if (result.ok) return;
@@ -430,7 +434,7 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
       const { setIssuePrice } = await services();
       actAs(role);
 
-      const result = await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+      const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
 
       expect(result.ok).toBe(false);
       if (result.ok) return;
@@ -448,7 +452,7 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
   it('lần đổi giá thành công được ghi vào sổ kiểm toán kèm giá cũ và giá mới', async () => {
     const { setIssuePrice } = await services();
 
-    await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE });
+    await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
 
     const audit = await getStore().listAudit({ limit: 10 });
     const success = audit.find(
@@ -472,7 +476,7 @@ describe('ledger mô phỏng nạp giá từ cấu hình', () => {
   it('mất state của mock nhưng giá vẫn theo cấu hình đã lưu', async () => {
     const { setIssuePrice, getIssuePrice } = await services();
 
-    await setIssuePrice({ chain: CHAIN, priceVnd: NEAR_PRICE_2 });
+    await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE_2 });
 
     // Mô phỏng khởi động lại: xoá state của mock, GIỮ cơ sở dữ liệu.
     resetMockLedger();
@@ -578,5 +582,159 @@ describe('FE-24 — ba điều khoản token đọc từ một nguồn cấu hì
       remainingLifetimeYears: WPT_REMAINING_LIFETIME_YEARS,
       annualYieldPercent: 6.4,
     });
+  });
+});
+
+// ===========================================================================
+//  FE-07: đổi giá CHỜ BIÊN NHẬN; chặn khi còn lệnh đang xử lý; lý do bắt buộc
+// ===========================================================================
+
+/**
+ * Tiêm ledger mock thật nhưng biên nhận theo kịch bản, và đếm số lần gửi `setPurchasePrice`.
+ * Ledger mock xác nhận mọi giao dịch ngay, nên PENDING và FAILED chỉ dựng được bằng cách này.
+ */
+async function ledgerWithReceipt(status: 'PENDING' | 'FAILED' | 'CONFIRMED') {
+  const ledgerModule = await import('@/lib/ledger');
+  const real = ledgerModule.getLedger(CHAIN);
+  const sent = { count: 0 };
+  vi.spyOn(ledgerModule, 'getLedger').mockReturnValue({
+    ...real,
+    setPurchasePrice: async (price: bigint) => {
+      sent.count += 1;
+      return real.setPurchasePrice(price);
+    },
+    waitReceipt: async (txHash: string) =>
+      status === 'FAILED'
+        ? { txHash, status, reason: 'PRICE_ROLE bị thu hồi' }
+        : { txHash, status },
+  });
+  return sent;
+}
+
+const configuredRow = async () => getConfigStore().getConfig(issuePriceConfigKey(CHAIN));
+/** Giá trong database, so trước và sau: bộ nhớ có thể đã có dòng giá từ dữ liệu khởi tạo. */
+const configuredValue = async () => (await configuredRow())?.value ?? null;
+const FE07_INVESTOR = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+const priceHistory = async () => getConfigStore().listConfigHistory({ key: issuePriceConfigKey(CHAIN) });
+const treasuryAudit = async () =>
+  (await getStore().listAudit({ limit: 50 })).filter((entry) => entry.action === 'treasury:manage');
+
+describe('FE-07: đổi giá chỉ ghi database sau khi chuỗi xác nhận', () => {
+  it('ca 1: biên nhận PENDING: database và lịch sử không đổi, sổ FAILURE, lỗi không nói "thành công"', async () => {
+    const { setIssuePrice } = await services();
+    const before = await configuredValue();
+    await ledgerWithReceipt('PENDING');
+
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('LEDGER');
+    expect(result.error).toMatch(/đã gửi nhưng chưa có xác nhận/);
+    expect(result.error).not.toMatch(/thành công/i);
+    expect(await configuredValue()).toBe(before);
+    expect(await priceHistory()).toEqual([]);
+    const failure = (await treasuryAudit()).find((entry) => entry.outcome === 'FAILURE');
+    expect(failure?.detail).toMatch(/đã gửi, chưa có xác nhận; tx 0x/);
+    expect((await treasuryAudit()).some((entry) => entry.outcome === 'SUCCESS')).toBe(false);
+  });
+
+  it('ca 2: biên nhận FAILED: database không đổi, trả LEDGER kèm lý do của chuỗi', async () => {
+    const { setIssuePrice } = await services();
+    const before = await configuredValue();
+    await ledgerWithReceipt('FAILED');
+
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('LEDGER');
+    expect(result.error).toMatch(/PRICE_ROLE bị thu hồi/);
+    expect(await configuredValue()).toBe(before);
+    expect(await priceHistory()).toEqual([]);
+  });
+
+  it('ca 3: CONFIRMED: database đổi, đúng một dòng lịch sử mang mã giao dịch', async () => {
+    const { setIssuePrice } = await services();
+    await ledgerWithReceipt('CONFIRMED');
+
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+
+    expect(result.ok, result.ok ? '' : result.error).toBe(true);
+    if (!result.ok) return;
+    expect(await configuredValue()).toBe(NEAR_PRICE);
+    const history = await priceHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0].reason).toBe(`${REASON}; tx ${result.data.txHash}`);
+  });
+
+  it('ca 4: còn lệnh PLACED, CHECKING hoặc EXECUTING trên chain thì chặn TRƯỚC khi gửi; lệnh chain khác không chặn', async () => {
+    const { setIssuePrice } = await services();
+    const before = await configuredValue();
+    const { getOrderStore } = await import('@/lib/store');
+    const sent = await ledgerWithReceipt('CONFIRMED');
+    const order = (chain: 'mock' | 'hardhat-local', status: 'PLACED' | 'CHECKING' | 'EXECUTING') =>
+      getOrderStore().createOrder({
+        chain,
+        investorWallet: FE07_INVESTOR,
+        clientRequestId: crypto.randomUUID(),
+        side: 'BUY',
+        status,
+        wptAmount: '1',
+        vndAmount: DEFAULT_PRICE.toString(),
+        actorRole: 'INVESTOR',
+      });
+
+    // Lệnh ở chain khác không chặn đổi giá chain này.
+    await order('hardhat-local', 'EXECUTING');
+    for (const status of ['PLACED', 'CHECKING', 'EXECUTING'] as const) {
+      const placed = await order(CHAIN, status);
+      const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe('REQUEST_STATE');
+        expect(result.error).toMatch(/còn 1 lệnh đang xử lý/);
+        expect(result.error).toMatch(/\/transactions/);
+      }
+      expect(sent.count, `${status}: không được gửi setPurchasePrice`).toBe(0);
+      // Đưa lệnh về trạng thái kết thúc để vòng sau chỉ còn một lệnh đang xử lý.
+      await getOrderStore().transitionOrder({ id: placed.id, from: [status], to: status === 'EXECUTING' ? 'FAILED' : 'REJECTED', reason: 'dọn ca 4' });
+    }
+    expect(await configuredValue()).toBe(before);
+
+    const allowed = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+    expect(allowed.ok, allowed.ok ? '' : allowed.error).toBe(true);
+    expect(sent.count).toBe(1);
+  });
+
+  it('ca 5: thiếu lý do hoặc lý do dưới 5 ký tự: VALIDATION, không gửi gì', async () => {
+    const { setIssuePrice } = await services();
+    const before = await configuredValue();
+    const sent = await ledgerWithReceipt('CONFIRMED');
+
+    for (const reason of [undefined, '', '  ', 'abcd']) {
+      const result = await setIssuePrice({ chain: CHAIN, reason, priceVnd: NEAR_PRICE });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.code).toBe('VALIDATION');
+        expect(result.fieldErrors?.reason?.length).toBeGreaterThan(0);
+      }
+    }
+    expect(sent.count).toBe(0);
+    expect(await configuredValue()).toBe(before);
+  });
+
+  it('ca 6: Kiểm soát viên gọi đổi giá: bị chặn, sổ ghi DENIED, không gửi gì (giữ hành vi cũ)', async () => {
+    const { setIssuePrice } = await services();
+    const sent = await ledgerWithReceipt('CONFIRMED');
+    actAs('CONTROLLER');
+
+    const result = await setIssuePrice({ chain: CHAIN, reason: REASON, priceVnd: NEAR_PRICE });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('FORBIDDEN');
+    const denied = (await treasuryAudit()).find((entry) => entry.outcome === 'DENIED');
+    expect(denied?.actorRole).toBe('CONTROLLER');
+    expect(sent.count).toBe(0);
   });
 });

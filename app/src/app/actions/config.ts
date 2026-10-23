@@ -1,6 +1,6 @@
 'use server';
 
-import { getIssuePrice, setIssuePrice } from '@/lib/bank/config.service';
+import { getIssuePrice, getPriceConfigOverview, setIssuePrice } from '@/lib/bank/config.service';
 import { chainSchema } from '@/lib/bank/schemas';
 
 /**
@@ -16,17 +16,31 @@ import { chainSchema } from '@/lib/bank/schemas';
  */
 
 /**
- * @pending FE-07 | đã sẵn đầu cuối ở `setIssuePrice`: validate Zod, guard HAI LỚP (`treasury:manage` rồi cờ `isConfig` của vai), kiểm ngưỡng đổi giá, ĐẨY GIÁ XUỐNG LEDGER TRƯỚC rồi mới ghi cơ sở dữ liệu + lịch sử, ghi bảng thất bại thì tự hoàn nguyên giá cũ trên ledger, ghi sổ kiểm toán cả bốn kết cục. Màn cấu hình chỉ cần gọi và hiển thị `Result`. FE-07 PHẢI hiện hộp xác nhận khi `Result` trả mã `VALIDATION` kèm thông báo lệch ngưỡng, rồi gọi lại với `confirmLargeChange: true` — service CỐ Ý không coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo
+ * Đổi giá phát hành, gọi từ màn `/config` "Giá và phát hành" (FE-07). Toàn bộ kiểm dữ liệu, quyền
+ * (`treasury:manage` rồi cờ cấu hình của vai), chặn lệnh đang xử lý, kiểm ngưỡng, gửi giao dịch và
+ * CHỜ BIÊN NHẬN rồi mới ghi cơ sở dữ liệu nằm trong `setIssuePrice`. Màn hiện hộp xác nhận thứ hai
+ * khi nhận `VALIDATION` lệch ngưỡng rồi gọi lại với `confirmLargeChange: true`: service CỐ Ý không
+ * coi lần gọi thứ hai là xác nhận, vì lần gọi lại không chứng tỏ người dùng đã đọc cảnh báo.
  */
 export async function setIssuePriceAction(input: unknown) {
   return setIssuePrice(input);
 }
 
 /**
- * @pending FE-07 | đã sẵn đầu cuối ở `getIssuePrice`: trả giá đang có hiệu lực kèm vai đã đặt, thời điểm đặt, và cờ `configured` phân biệt "ngân hàng đã cấu hình" với "đang dùng mặc định trong mã". Màn cấu hình dùng đúng ba trường đó để hiện trạng thái hiện tại trước khi cho sửa; KHÔNG kiểm quyền vì giá phát hành là con số hiển thị công khai cho nhà đầu tư
+ * Giá phát hành kèm vai và thời điểm đặt. Màn `/config` không gọi action này khi mở: nó đọc cùng
+ * dữ liệu trong `getPriceConfigOverviewAction`. KHÔNG kiểm quyền vì giá phát hành là con số công
+ * khai cho nhà đầu tư.
  */
 export async function getIssuePriceAction(chain: unknown) {
   const parsed = chainSchema.safeParse(chain);
   if (!parsed.success) throw new Error('Chain không hợp lệ.');
   return getIssuePrice(parsed.data);
+}
+
+/**
+ * MỘT action khi mở màn `/config` (FE-07): giá phát hành, ngưỡng, `canEdit`, tình trạng phát hành,
+ * lịch sử đổi giá, lệnh đang xử lý. Đọc bằng `assertCan('ops:read')`, không ghi sổ kiểm toán.
+ */
+export async function getPriceConfigOverviewAction(input: unknown) {
+  return getPriceConfigOverview(input);
 }

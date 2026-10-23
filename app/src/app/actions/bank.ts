@@ -38,7 +38,9 @@ export async function mintAction(input: unknown) {
 
 /**
  * @flow issue:1 | nhận yêu cầu phát hành vào ví SPV từ giao diện, chuyển tiếp sang service
- * @pending FE-07 | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi
+ *
+ * Đường dữ liệu thử (FE-22, sau `demo:mint-token` và cờ `ENABLE_DEMO_TOKEN_MINT`). Phát hành chính
+ * thức là lập yêu cầu rồi Kiểm soát viên duyệt; màn `/config` (FE-07) chỉ hiện tình trạng.
  */
 export async function issueInitialSupplyAction(input: unknown) {
   return issueInitialSupply(input);
@@ -46,7 +48,9 @@ export async function issueInitialSupplyAction(input: unknown) {
 
 /**
  * @flow issue:8 | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service
- * @pending FE-07 | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một
+ *
+ * Màn `/config` (FE-07) hiện cùng các con số này nhưng đọc qua `getPriceConfigOverviewAction`,
+ * vì `getIssuanceStatus` kiểm quyền bằng `authorize` nên mỗi lần đọc ghi một dòng sổ (lệch L-01).
  */
 export async function issuanceStatusAction(input: unknown) {
   return getIssuanceStatus(input);

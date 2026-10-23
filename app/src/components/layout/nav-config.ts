@@ -163,6 +163,8 @@ export const TELLER_NAV: NavSection = {
           shortcut: 'C',
         },
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
+        /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
+        { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
       ],
     },
     {
@@ -183,6 +185,8 @@ export const CONTROLLER_NAV: NavSection = {
         /** FE-08: Kiểm soát viên duyệt tổng số của kỳ rồi chia (`distribution:approve`). */
         { href: '/distribution', label: 'Chia lợi nhuận', icon: 'TrendingUp', shortcut: 'C' },
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
+        /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
+        { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
       ],
     },
     {

@@ -28,8 +28,6 @@ flowchart TD
   s7["7 · after()<br/>app/src/lib/bank/issuance.service.ts<br/>đọc lại tổng cung từ chuỗi làm sự thật cuối cùng"]
   s8["8 · issuanceStatusAction()<br/>app/src/app/actions/bank.ts<br/>nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service"]
   s9["9 · getIssuanceStatus()<br/>app/src/lib/bank/issuance.service.ts<br/>đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi"]
-  w1(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở issueInitialSupply NHƯNG từ FE-22 chỉ là đường dữ…"])
-  w2(["điểm cắm, chờ FE-07<br/>đã sẵn đầu cuối ở getIssuanceStatus: trả SONG SONG trần trong bảng dự…"])
   s1 --> s2
   s2 --> s3
   s3 --> s4
@@ -38,8 +36,6 @@ flowchart TD
   s6 --> s7
   s7 --> s8
   s8 --> s9
-  w1 -.-> s1
-  w2 -.-> s8
 ```
 
 ## Bảng bước
@@ -53,18 +49,12 @@ flowchart TD
 | 5 | `app/src/lib/bank/issuance.service.ts:103` | `receipt()` | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch |
 | 6 | `app/src/lib/bank/issuance.service.ts:339` | `marked()` | lần đầu: ghi mốc phát hành vào bảng dự án bằng khoá lạc quan |
 | 7 | `app/src/lib/bank/issuance.service.ts:368` | `after()` | đọc lại tổng cung từ chuỗi làm sự thật cuối cùng |
-| 8 | `app/src/app/actions/bank.ts:48` | `issuanceStatusAction()` | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service |
+| 8 | `app/src/app/actions/bank.ts:50` | `issuanceStatusAction()` | nhận yêu cầu xem trạng thái phát hành, chuyển tiếp sang service |
 | 9 | `app/src/lib/bank/issuance.service.ts:476` | `getIssuanceStatus()` | đọc trạng thái phát hành: con số dự kiến trong bảng dự án đứng cạnh tổng cung thật trên chuỗi |
 
 ## Điểm cắm trên đường đi
 
-Các bước dưới đây có marker chờ task khác. Trong sơ đồ chúng là ô bầu dục nối bằng
-mũi tên gạch rời — chúng **không** phải bước của luồng.
-
-| Bước | Loại | Task | Nội dung marker |
-|---|---|---|---|
-| 1 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `issueInitialSupply` NHƯNG từ FE-22 chỉ là đường dữ liệu thử sau hai lớp chặn (`demo:mint-token` + cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt); phát hành chính thức đã có ở màn Lập lệnh qua `createTokenRequestAction` + Kiểm soát viên duyệt. Phần đã sẵn: NHIỀU LẦN trong trần còn lại (trần đọc từ bảng dự án), lần sau chỉ vào đúng ví SPV chuỗi đã ghi, lưu giao dịch chờ trước khi đợi biên nhận, ghi mốc phát hành lần đầu bằng khoá lạc quan, đọc lại tổng cung từ chuỗi |
-| 8 | điểm cắm | `FE-07` | đã sẵn đầu cuối ở `getIssuanceStatus`: trả SONG SONG trần trong bảng dự án, tổng cung thật trên chuỗi và trần còn lại, kèm mốc phát hành và ví SPV. Hai con số lệch nhau là tín hiệu cần đối soát, nên màn hình phải hiện cả hai chứ đừng chọn một |
+Không bước nào của luồng này còn marker `@pending` / `@blocked`.
 
 ## Đọc sơ đồ này thế nào
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/hf-05-giao-dich-chua-xac-nhan` @ `8359009` (HF-05, từ `dev` @ `4d17bc9`), ngày 22/10/2026 |
+| Chốt tại | nhánh `feat/fe-07-cau-hinh-gia` @ `61cdbae` (FE-07, từ `dev` @ `f11f1ae`), ngày 23/10/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -85,7 +85,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Ví thanh toán SPV là vault (R6) | Chain có `SpvPaymentVault` thì mọi lần Mint phải đích là địa chỉ vault | SC-07 R6 | Đã chạy |
 | Burn | Chỉ đốt phần WPT chưa phân phối trong ví SPV (vault); chọn "Toàn bộ nguồn cung" khi không còn WPT lưu hành | SC-02, BE-12 | Đã chạy |
 | Một yêu cầu Mint đang chờ mỗi lúc | Đang có yêu cầu Mint PENDING hoặc EXECUTING thì không lập yêu cầu Mint mới | BE-12 | Đã chạy (xem lệch L-12) |
-| Giá phát hành | Mặc định 100.000 VNDB mỗi WPT, mỗi chain một giá (`wpt.issue_price_vnd.<chain>`), Giao dịch viên đặt; giá trên hợp đồng `OrderSettlement.price` là giá chốt lệnh | BE-04, FE-27 | Một phần (màn cấu hình giá ở FE-07) |
+| Giá phát hành | Mặc định 100.000 VNDB mỗi WPT, mỗi chain một giá (`wpt.issue_price_vnd.<chain>`), Giao dịch viên đặt ở màn `/config`; giá trên hợp đồng `OrderSettlement.price` là giá chốt lệnh | BE-04, FE-27, FE-07 | Đã chạy |
 | Phát hành thẳng dữ liệu thử | Chỉ trên `mock`, sau hai lớp chặn (cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt, rồi quyền) | FE-22 | Đã chạy |
 
 ### 1.5. Tiền VNDB và nạp trình diễn
@@ -108,6 +108,8 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Lệnh kẹt | Giao dịch viên can thiệp: CHECKING được gửi tiếp; EXECUTING có mã giao dịch chỉ đối soát; EXECUTING chưa có mã thì tra chuỗi, không gửi lại mù | BE-17, SC-03 R5 | Một phần (xem lệch L-14) |
 | Quét lệnh kẹt tự động | Chưa có tiến trình tự quét; lệnh kẹt ở PLACED chỉ được dọn khi hết hạn | Nợ P2 | Chưa làm |
 | Phí giao dịch | Hiển thị theo cấu hình, không trừ ở đâu (mặc định 0) | PoC | Một phần |
+| Một nguồn giá cho khách hàng | Mọi màn khách hàng hiện "giá phát hành" bằng đúng giá lệnh sẽ được chốt: chain có OrderSettlement đọc giá trên hợp đồng, chain khác đọc giá đã cấu hình (`readEffectiveIssuePrice`). Cảnh báo lệch giá chỉ hiện cho nhân viên ở `/config` | FE-07 (đóng L-02) | Đã chạy |
+| Đổi giá chờ xác nhận | Đổi giá chỉ ghi database sau biên nhận CONFIRMED; FAILED hoặc chưa có biên nhận thì database không đổi. Chặn đổi giá khi chain còn lệnh Đã đặt, Đang kiểm tra, Đang quyết toán (lệnh đã chốt theo giá cũ sẽ bị hợp đồng từ chối). Lý do bắt buộc, có lịch sử kèm mã giao dịch. Không lập duyệt hai người: Giao dịch viên đặt, Kiểm soát viên giám sát qua lịch sử và sổ kiểm toán | FE-07 | Đã chạy |
 
 ### 1.7. Vault thanh toán SPV và Người bán rút tiền
 
@@ -172,6 +174,7 @@ Vòng nghiệp vụ chạy đủ trên Sepolia: Mint đầu vào vault, liên k�
 | `/transactions` | | | Giao dịch (G) | Giao dịch (G) |
 | `/distribution` | | | Chia lợi nhuận (chỉ xem) (C) | Chia lợi nhuận (C) |
 | `/vault` | | | Vault thanh toán SPV (K) | Vault thanh toán SPV (K) |
+| `/config` | | | Giá và phát hành (H) | Giá và phát hành (H) |
 | `/approvals` | | | | Phê duyệt lệnh (P) |
 | `/demo-payment` | | | Nạp VNDB (trình diễn) (N), khi cờ bật | |
 | Không trong menu | `/orders/[id]`, `/tokens/[symbol]` | | `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation`, `/transactions/[id]` | `/approvals/[id]`, `/transactions/[id]`, `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation` |
@@ -202,6 +205,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/transactions` | Giao dịch | Giao dịch viên, Kiểm soát viên | Lệnh mua bán, can thiệp lệnh kẹt | M H S | Một phần: thiếu nút cho lệnh EXECUTING mất mã | 1 | Có (can thiệp) | |
 | `/transactions/[id]` | Chi tiết lệnh | Giao dịch viên, Kiểm soát viên | Lệnh mua bán | M H S | Dùng được (chỉ xem) | 1 | Không | |
 | `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01 |
+| `/config` | Giá và phát hành | Giao dịch viên (đổi giá), Kiểm soát viên (xem) | Giá phát hành, tình trạng phát hành | M H S | Dùng được (FE-07) | 1 | Có (đổi giá) | Màn tham số hệ thống khác (nợ) |
 | `/distribution` | Chia lợi nhuận | Giao dịch viên (xem), Kiểm soát viên | Chia lợi nhuận | M H S | Dùng được | 1 | Có (mở kỳ, chốt vault, chia) | FE-09, IN-02 |
 | `/demo-payment` | Nạp VNDB (trình diễn) | Giao dịch viên | Nạp trình diễn | M H S | Dùng được (chỉ bản thử) | 1 | Có (mint VNDB) | |
 | `/mint` | Phát hành WPT (dữ liệu thử) | Giao dịch viên, Kiểm soát viên | KYC, danh sách được phép; phát hành thử | M H S (phát hành thử chỉ M) | Một phần: KYC dùng được, phát hành thử tắt mặc định | 1 hoặc 2 | Có (đăng ký ví) | |
@@ -264,7 +268,7 @@ Quy ước chung cho Phần 3:
 | **Hộp "Tài sản đã đầu tư"** (nhãn on-chain) | Vị thế của ví đang kết nối | `getPortfolioAction` > `portfolio.service.getPortfolio` | Hiện câu mời kết nối nếu chưa có ví |
 | Chưa kết nối ví / liên kết "Ví của tôi" | Mời kết nối ví | Trạng thái wagmi | Liên kết sang /wallet |
 | WPT đang giữ | Số WPT ví đang giữ | On-chain `ledger.balanceOf(wallet)` | Chỉ hiển thị; dùng để tính giá trị quy đổi |
-| Giá trị theo giá phát hành | Số dư nhân giá phát hành | Tính toán: `wptToVnd(balance, issuePrice)`. Giá lấy từ SystemConfig khoá `wpt.issue_price_vnd.<chain>`, thiếu thì dùng mặc định trong mã (`readIssuePriceVnd`) | Chỉ hiển thị |
+| Giá trị theo giá phát hành | Số dư nhân giá phát hành | Tính toán: `wptToVnd(balance, issuePrice)`. Giá là giá áp dụng cho lệnh, `readEffectiveIssuePrice` (`lib/bank/issue-price.ts:40`): chain có OrderSettlement thì `OrderSettlement.price` (`quotePurchase(1n)`), chain khác (mock, stellar) thì SystemConfig `wpt.issue_price_vnd.<chain>` (`lib/bank/portfolio.service.ts:94`, FE-07) | Chỉ hiển thị |
 | Quy đổi theo giá phát hành ... ₫/WPT | Giá phát hành đang dùng để quy đổi | SystemConfig như dòng trên | Chỉ hiển thị |
 | đã KYC / chưa KYC | Ví có trong danh sách được phép không | On-chain `ledger.isWhitelisted` (trên evm là `IdentityRegistry.isVerified`) | Chỉ hiển thị |
 | đang đóng băng | Ví bị đóng băng | On-chain `ledger.isFrozen` | Chỉ hiện khi đúng |
@@ -273,7 +277,7 @@ Quy ước chung cho Phần 3:
 | **Hộp "Trạng thái phát hành"** | Thông số token trên chain đang chọn | `getTokenSummaryAction` > `getTokenSummary` | Không cần ví |
 | Ký hiệu token (on-chain) | Ký hiệu token | On-chain `ledger.tokenInfo().symbol` | Chỉ hiển thị |
 | Tổng cung đã phát hành (on-chain) | Tổng cung | On-chain `tokenInfo().totalSupply` | Chỉ hiển thị |
-| Giá phát hành | Giá phát hành | SystemConfig `wpt.issue_price_vnd.<chain>` | Chỉ hiển thị |
+| Giá phát hành | Giá phát hành áp dụng cho lệnh | `readEffectiveIssuePrice` (`lib/bank/portfolio.service.ts:188`), cùng nguồn với dòng trên (FE-07) | Chỉ hiển thị |
 | Dự án (dữ liệu mẫu) | Tên dự án | `MOCK_PROJECTS` (dự án có `onChain: true`) | Chỉ hiển thị |
 | Trạng thái vận hành (dữ liệu mẫu) | Vận hành / bảo trì | `MOCK_PROJECTS.status` | Chỉ hiển thị |
 | **Hộp "Giao dịch gần đây"** (on-chain) | 20 giao dịch gần nhất của ví | `getWalletTransactionsAction` > `getWalletTransactions` > `store.listTxns` (bảng `Txn`, lọc theo `toWallet` hoặc `fromWallet`, `limit` 20) | Chỉ hiển thị |
@@ -293,7 +297,6 @@ Quy ước chung cho Phần 3:
 
 - **L-03.** Trên chain mock, màn này đòi ví trình duyệt, trong khi /trade, /orders và /tokens/[symbol] dùng ví hồ sơ và ghi "Không cần kết nối ví trình duyệt". `app/(investor)/portfolio/page.tsx:14` không truyền `mockWallet` xuống; `components/investor/asset-summary.tsx:86` và `components/investor/transaction-history-box.tsx:155` chặn khi chưa có ví wagmi. Hệ quả: cùng một người dùng mock thấy vị thế trên /tokens/WPT nhưng thấy "Chưa kết nối ví" ở /portfolio.
 - **L-29.** Câu "tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01)" ở `components/investor/asset-summary.tsx:147-148` đã cũ. `ledger.paymentBalanceOf` đã có và màn /trade đang dùng nó để hiện "Số dư VNDB" (`lib/bank/trade.service.ts:136`). Chú thích ở `lib/bank/portfolio.service.ts:91-95` xác nhận phần này chuyển sang FE-04.
-- **L-02.** "Giá phát hành" và "Giá trị theo giá phát hành" lấy từ SystemConfig (`lib/bank/portfolio.service.ts:122` và `:216`). Giá dùng để chốt lệnh trên evm lại là `OrderSettlement.price` on-chain (`lib/ledger/evm.adapter.ts:837-841`). Bình thường hai số được đồng bộ qua `setIssuePrice`, nhưng chính hệ thống có cảnh báo "giá trên hợp đồng khác giá đã cấu hình" cho trường hợp lệch (`lib/bank/config.service.ts:97-104`), và cảnh báo đó không hiển thị trên màn nhà đầu tư.
 - **L-30.** Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-summary.tsx:132-134`).
 - **L-31.** Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-history-box.tsx:197` và `:209`).
 - **L-32.** Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`:175`) bỏ sót trường hợp ví có giao dịch mua hoặc bán.
@@ -346,7 +349,7 @@ Quy ước chung cho Phần 3:
 | **Thông tin token** | | `tokenInfoOf` | |
 | Dự án | Tên dự án | Bảng `Project.name` (dòng đầu tiên) | Chỉ hiển thị |
 | Trần phát hành | Trần cung | Bảng `Project.totalSupply` | Chỉ hiển thị |
-| Giá phát hành | Giá cấu hình | SystemConfig `wpt.issue_price_vnd.<chain>` | Chỉ hiển thị |
+| Giá phát hành | Giá áp dụng cho lệnh, cùng số với ô "Giá" | `readEffectiveIssuePrice(chain, quoted)` dùng lại chính lời đọc `quotePurchase(1n)` của ô "Giá" (`lib/bank/trade.service.ts:142`, FE-07); chain không có OrderSettlement đọc giá đã cấu hình | Chỉ hiển thị |
 | Trạng thái token | Chưa phát hành / Đã phát hành / Đã đóng | Bảng `Project.status` | Chỉ hiển thị |
 | Trạng thái giao dịch | Đang mở / Tạm dừng (tất toán) | On-chain `isSettlementMode` (evm luôn null) | Chỉ hiển thị |
 | Số chưa phân phối | WPT còn trong ví SPV | On-chain `balanceOf(spvWallet())` | Chỉ hiển thị; là một trần khi mua |
@@ -366,7 +369,6 @@ Quy ước chung cho Phần 3:
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-04.** Ô "Token" không có `onChange` (`components/pages/investor-trade.tsx:289`). Server luôn lấy `projects[0]` (`lib/bank/trade.service.ts:145`), và `placeOrder` không nhận trường token. Chọn token khác không có tác dụng.
-- **L-02.** Ô "Giá" đọc on-chain `quotePurchase(1n)` (`lib/bank/trade.service.ts:138`). "Giá phát hành" trong thẻ Thông tin token đọc SystemConfig (`:139` và `:175`). Lời giới thiệu ở `components/pages/investor-trade.tsx:262` nói giao dịch "theo giá phát hành do ngân hàng cấu hình". Trên evm, nếu hai nguồn lệch nhau thì màn hình hiện hai giá khác nhau, và lệnh được chốt theo giá on-chain.
 - **L-05.** "Trạng thái giao dịch" được tính là `settling !== true` (`lib/bank/trade.service.ts:146`). Giá trị này bỏ qua `Project.status`, và trên evm `settling` luôn null, nên huy hiệu hiện "Đang mở" kể cả khi dự án CLOSED. Trong khi đó điều kiện 4 lại trượt ("đang ở giai đoạn tất toán hoặc đã đóng", `:380-386`).
 - **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:119`).
 - **L-34.** Định danh, AML và hạng rủi ro lấy từ hồ sơ mẫu viết cứng (`lib/bank/account-profile.service.ts:55-114`), không lấy từ DB.
@@ -479,17 +481,17 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Ký hiệu | | `MOCK_PROJECTS.tokenSymbol` | Chỉ hiển thị |
 | Tuổi thọ còn lại / Lợi tức mục tiêu / Phí giao dịch | Điều khoản | SystemConfig `wpt.remaining_lifetime_years`, `wpt.annual_yield_percent`, `wpt.trading_fee_percent` | Chỉ hiển thị, giống nhau cho mọi dự án |
 | Tên token / Tổng cung (dự án đã lên chuỗi) | | On-chain `tokenInfo().name` / `.totalSupply` | Chỉ hiển thị |
-| Giá phát hành (dự án đã lên chuỗi) | | SystemConfig `wpt.issue_price_vnd.<chain>` | Chỉ hiển thị |
+| Giá phát hành (dự án đã lên chuỗi) | Giá áp dụng cho lệnh | `getTokenSummary` > `readEffectiveIssuePrice` (FE-07) | Chỉ hiển thị |
 | WPT dự kiến phát hành (dự án chưa lên chuỗi, hoặc chưa tải xong) | | `MOCK_PROJECTS.wptIssued` | Chỉ hiển thị |
 | **Vị thế của bạn** | | `getPortfolioAction` | |
 | Đang giữ | WPT ví đang giữ | On-chain `balanceOf` | Chỉ hiển thị |
-| Giá trị theo giá phát hành | Số dư nhân giá cấu hình | Tính toán từ SystemConfig | Chỉ hiển thị |
+| Giá trị theo giá phát hành | Số dư nhân giá áp dụng cho lệnh | Tính toán từ `readEffectiveIssuePrice` (FE-07) | Chỉ hiển thị |
 | Kết nối ví ở góc trên phải... / Chưa có token trên chuỗi... | Trạng thái chặn | | Chỉ hiển thị |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-45.** Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) và Giá phát hành (`:186-189`) đều đọc từ SystemConfig, không đọc từ chuỗi.
+- **L-45.** Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. (Giá phát hành đã đọc theo giá áp dụng cho lệnh từ FE-07.)
 - **L-46.** Trang tra dự án trong `MOCK_PROJECTS` viết cứng (`app/(investor)/tokens/[symbol]/page.tsx:22`), không tra bảng `Project` mà /trade dùng. Hai màn có thể hiện tên dự án khác nhau.
 - **L-47.** Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:180-196`) mà không báo là đang tải hay đã lỗi.
 - **L-03.** Ở chế độ mock, màn này hiện vị thế bằng ví hồ sơ, còn /portfolio đòi ví trình duyệt (xem mục /portfolio).
@@ -553,7 +555,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | **Khối Thông tin token** | | | |
 | Mã token / Dự án | Ký hiệu, tên dự án | DB: `Project.tokenSymbol`, `Project.name` | |
 | Trần phát hành | Như trên | DB: `Project.totalSupply` | |
-| Giá phát hành (VNDB) | Giá 1 WPT | DB: `SystemConfig` khoá `wpt.issue_price_vnd.<chain>` (`readIssuePriceVnd`) | Xem phần Lệch |
+| Giá phát hành (VNDB) | Giá 1 WPT áp dụng cho lệnh | `readEffectiveIssuePrice` (`lib/bank/seller.service.ts:125`, FE-07): chain có OrderSettlement đọc `OrderSettlement.price`, chain khác đọc SystemConfig | Chỉ hiển thị |
 | Tuổi thọ còn lại | Số năm | DB: `SystemConfig` `wpt.remaining_lifetime_years`, mặc định 15 | Điều khoản |
 | Lợi tức mục tiêu | %/năm | DB: `SystemConfig` `wpt.annual_yield_percent`, mặc định 5.8 | Điều khoản |
 | Phí giao dịch | %, bằng 0 thì hiện "Không tính" | DB: `SystemConfig` `wpt.trading_fee_percent`, mặc định 0 | Điều khoản, không dùng ở luồng nào khác |
@@ -584,7 +586,6 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
    - Đã chốt kỳ: khoá = `percentLocked`, tức tỷ lệ nhân `distributedPrev` (lợi nhuận đã chia kỳ trước, `SpvPaymentVault.sol:159`), không còn tính trên thu ròng.
    - `SellerWithdrawPolicy` không mang `lastPeriodRef` và tỷ lệ chờ (`pendingPercentRateBps`) (`seller.service.ts:62-69`), nên màn không giải thích được đúng.
 - **L-09.** "Hạn mức còn rút được" (`seller-overview.tsx:273`) dùng chữ "hạn mức" của mô hình FE-21 đã bị gỡ (BE-13 QĐ-H, `seller.service.ts:58-61`). Giá trị thật là `withdrawable()` của vault, giống hệt ô "VNDB còn rút được".
-- **L-02.** "Giá phát hành" đọc `SystemConfig` trong DB. Trên EVM, giá khớp lệnh thật là `OrderSettlement.price()` trên chuỗi (`evm.adapter.ts:837-839`), nên hai bên có thể khác nhau.
 - **L-50.** Bảng Tồn kho lặp một dòng cho mỗi `Project`, nhưng mọi dòng đọc chung một `tokenInfo()` và `balanceOf` của chain. Có nhiều dự án trên một chain thì các dòng ra cùng số.
 - **L-51.** Định nghĩa "Chưa phân phối" ghi "ví thanh toán của Người bán", thực chất là số dư WPT của vault SPV.
 - **L-52.** `payoutWallet` và `withdrawalsPaused` có trong dữ liệu trả về nhưng màn này không hiển thị.
@@ -1423,6 +1424,59 @@ Nguồn: `listDistributionRuns({limit:20})`, bảng `KeeperRun` với `jobName='
 - **L-89.** **"Người duyệt" là mã tài khoản thô**, không phải tên hay vai (`:298`). `approvedAt` của lần duyệt đầu là thời điểm giữ chỗ, không phải lúc so số xong.
 
 
+#### 3.5.3. `/config` Giá và phát hành
+
+Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặt sau "Vault thanh toán SPV" (FE-07).
+
+**Thông tin chung**
+- **Vai:** cổng trang `assertCan('ops:read')` (`app/(ops)/config/page.tsx`), cả hai vai vận hành xem. Khối "Đổi giá" chỉ hiện khi `canEdit` = `treasury:manage` VÀ cờ cấu hình của vai (`lib/rbac/config-role.ts`), tức chỉ Giao dịch viên. Kiểm soát viên giám sát qua lịch sử và sổ kiểm toán, không tự đặt.
+- **Chain:** mọi chain; giá trên hợp đồng chỉ có ở chain có OrderSettlement (hardhat-local, evm).
+- **Trạng thái:** **Dùng được**.
+- **Action khi mở:** đúng 1 action, `getPriceConfigOverviewAction({chain})` > `getPriceConfigOverview` (`lib/bank/config.service.ts:481`). Kiểm quyền bằng `assertCan`, nên mở màn **không** ghi sổ kiểm toán. Bốn khối có kết quả riêng; lời đọc chuỗi chạy song song. Đo lại ở FE-07: 1 action cho cả hai vai.
+- **Action khi tương tác:** `setIssuePriceAction` khi xác nhận đổi giá; xong thì tải lại bằng chính action mở màn.
+
+**Khối "Giá phát hành"** (`getIssuePrice`, `lib/bank/config.service.ts:118`)
+
+| Tên trên màn | Ý nghĩa | Nguồn dữ liệu |
+|---|---|---|
+| Giá áp dụng cho lệnh mới (trên hợp đồng) | Giá lệnh mới sẽ được chốt | Chain có OrderSettlement: `quotePurchase(1n)` (`OrderSettlement.price`); chain khác: giá đã cấu hình. Quy tắc chọn nguồn chung với màn khách hàng (`settlesAtOnChainPrice`, `lib/bank/issue-price.ts:29`) |
+| Giá đã cấu hình | Giá trong database | SystemConfig `wpt.issue_price_vnd.<chain>`, trống thì mặc định trong mã |
+| Đặt gần nhất | Vai và thời điểm | `SystemConfig.updatedBy`, `updatedAt`; chưa có dòng thì "Chưa ai đặt, đang dùng giá mặc định của dự án" |
+| Ngưỡng cảnh báo đổi giá | Hệ số | SystemConfig `wpt.price_change_threshold`, mặc định 2 |
+| Cảnh báo vàng "Giá trên hợp đồng khác giá đã cấu hình" | Hai nơi lệch, ví dụ lần đổi giá chưa có xác nhận rồi chuỗi xác nhận sau | Hướng dẫn: Giao dịch viên đặt lại đúng giá mong muốn để hai nơi khớp |
+
+**Khối "Đổi giá"** (chỉ Giao dịch viên): ô "Giá mới (VNDB cho 1 WPT)", ô "Lý do" (bắt buộc, 5 tới 200 ký tự), nút chính "Đổi giá". Còn lệnh đang xử lý thì nút khoá kèm số lệnh theo trạng thái.
+1. Hộp xác nhận: "Đổi giá phát hành từ X sang Y VNDB. Áp dụng ngay cho mọi lệnh mới."
+2. Máy chủ báo vượt ngưỡng (`fieldErrors.confirmLargeChange`) thì hộp thứ hai nêu mức lệch, nút "Vẫn đổi giá" khoá tới khi đánh dấu "Tôi đã kiểm số chữ số", rồi gửi lại với `confirmLargeChange: true`.
+
+**Các bước khi đổi giá** (`setIssuePrice`, `lib/bank/config.service.ts:163`):
+1. Kiểm dữ liệu: giá nguyên dương, lý do 5 tới 200 ký tự (`VALIDATION`).
+2. Quyền: `treasury:manage` rồi cờ cấu hình của vai; bị chặn thì AuditLog DENIED.
+3. Đếm lệnh Đã đặt, Đang kiểm tra, Đang quyết toán trên chain (`countInFlightOrders`, `:351`). Còn lệnh thì trả `REQUEST_STATE` kèm số lệnh theo trạng thái, hướng dẫn xử lý ở `/transactions`; AuditLog FAILURE; không gửi giao dịch.
+4. Kiểm ngưỡng so với giá đã cấu hình.
+5. Gửi `OrderSettlement.setPrice` rồi chờ biên nhận theo chain (`settle`, `:361`; chờ ném lỗi coi như chưa có biên nhận).
+   - CONFIRMED: ghi SystemConfig và `SystemConfigHistory` với lý do dạng "lý do; tx 0x...", AuditLog SUCCESS.
+   - FAILED: database không đổi, AuditLog FAILURE, lỗi `LEDGER`.
+   - Chưa có biên nhận: database không đổi, AuditLog FAILURE "đã gửi, chưa có xác nhận", lỗi `LEDGER`: "Giao dịch đổi giá đã gửi nhưng chưa có xác nhận. Nếu chuỗi xác nhận sau, màn sẽ hiện cảnh báo lệch giá; khi đó đặt lại cùng giá để ghi nhận."
+   - Ghi database lỗi sau CONFIRMED: gửi lại giá cũ xuống chuỗi và chờ biên nhận của giao dịch hoàn nguyên; báo rõ nếu hoàn nguyên chưa xác nhận.
+
+**Khối "Tình trạng phát hành"** (`readIssuanceOverview`, `:455`; không qua `getIssuanceStatus` vì hàm đó ghi sổ mỗi lần đọc)
+
+| Tên trên màn | Nguồn dữ liệu |
+|---|---|
+| Trần phát hành (bảng dự án) | `Project.totalSupply` của dự án đầu tiên trên chain |
+| Tổng cung trên chuỗi | `tokenInfo().totalSupply` |
+| Còn được phát hành | Trần trừ tổng cung, không âm (`remainingIssuanceCap`) |
+| Mốc phát hành lần đầu | `Project.issuedAt` |
+| Ví thanh toán SPV | `spvWallet()` trên chuỗi, rút gọn, có nút "Sao chép" |
+| Cảnh báo vàng tổng cung vượt trần | `supply > cap`: cần đối soát trước khi phát hành thêm |
+
+**Khối "Lịch sử đổi giá"**: 20 dòng mới nhất của `SystemConfigHistory` khoá `wpt.issue_price_vnd.<chain>`: Thời điểm, Vai, Giá cũ, Giá mới (căn phải), Lý do, Mã giao dịch (tách từ đuôi lý do bằng `splitHistoryReason`, `:440`; có trình duyệt khối thì là liên kết). Rỗng: "Chưa có lần đổi giá nào. Giá đang dùng là giá mặc định của dự án."
+
+**Lệch** (tra mã ở Phụ lục C)
+
+- Không có lệch mới. Kẽ hở đã biết: lệnh đặt đúng lúc giữa bước đếm lệnh đang xử lý và lúc chuỗi xác nhận giá mới sẽ bị hợp đồng từ chối (`PriceMismatch`) và về Thất bại thật; không mất tiền (ghi trong `docs/CHECKPOINT_FE07.md`).
+
 ### 3.6. Màn chỗ trống và màn tra cứu
 
 #### 3.6.1. `/kyc` Nhà đầu tư và KYC
@@ -1606,12 +1660,12 @@ Mỗi chain tối đa một kỳ hoạt động (cột `activeChain`). Kỳ khô
 
 ## Phụ lục B. Tham số cấu hình (SystemConfig)
 
-Khoá khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts:95`). Bảng chưa có dòng thì dùng giá trị mặc định trong mã. Hiện chưa có màn nào để sửa các tham số này (màn cấu hình giá là FE-07); người vận hành sửa bằng script hoặc SQL.
+Khoá khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts:95`). Bảng chưa có dòng thì dùng giá trị mặc định trong mã. Giá phát hành sửa ở màn `/config` (FE-07, mục 3.5.3); các tham số còn lại chưa có màn (nợ kỹ thuật "màn tham số hệ thống"), người vận hành sửa bằng script hoặc SQL.
 
 | Khoá | Ý nghĩa | Mặc định | Màn hiển thị hoặc dùng |
 |---|---|---|---|
-| `wpt.issue_price_vnd.<chain>` | Giá phát hành 1 WPT theo từng chain | 100.000 VNDB (`token-parameters.json`) | `/portfolio`, `/trade`, `/seller`, `/tokens/[symbol]`. Trên EVM giá chốt lệnh thật là `OrderSettlement.price` (L-02) |
-| `wpt.price_change_threshold` | Ngưỡng cảnh báo đổi giá, phần trăm | 2 | Dịch vụ cấu hình giá |
+| `wpt.issue_price_vnd.<chain>` | Giá phát hành 1 WPT ĐÃ CẤU HÌNH theo từng chain; đổi ở `/config`, có lịch sử `SystemConfigHistory` (lý do kèm mã giao dịch) | 100.000 VNDB (`token-parameters.json`) | `/config`, kiểm ngưỡng đổi giá; màn khách hàng chỉ dùng trên chain không có OrderSettlement (chain có OrderSettlement hiện `OrderSettlement.price`, FE-07) |
+| `wpt.price_change_threshold` | Ngưỡng cảnh báo đổi giá, hệ số (số lần lệch so với giá đã cấu hình) | 2 | `/config`: vượt ngưỡng thì hộp xác nhận thứ hai |
 | `wpt.remaining_lifetime_years` | Tuổi thọ còn lại của dự án, năm | 15 | `/tokens/[symbol]`, `/trade` |
 | `wpt.annual_yield_percent` | Lợi tức dự kiến mỗi năm, phần trăm | 5,8 | `/tokens/[symbol]`, `/trade` |
 | `wpt.trading_fee_percent` | Phí giao dịch, phần trăm | 0 | Chỉ hiển thị, không trừ khi đặt lệnh |
@@ -1639,7 +1693,6 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | Mã | Màn | Nội dung | Mức | Đề xuất |
 |---|---|---|---|---|
 | L-01 | Nhiều màn | Phép đọc dùng `authorize()` nên ghi `AuditLog` mỗi lần: `/portfolio` 3 dòng mỗi lần mở, `/orders` 1 dòng mỗi phím gõ, `/trade` 1 dòng mỗi 3 giây, `/draft`, `/approvals`, `/mint`, `/vault`. Sổ bị lấp, nên `/orders/[id]` (quét 500 dòng) và `/audit` (100 dòng) mất nhật ký thật | Cao | PERF-01 hoặc task riêng: đổi phép đọc sang `assertCan()` |
-| L-02 | `/portfolio`, `/trade`, `/seller`, `/tokens/[symbol]` | Giá hiển thị đọc SystemConfig, giá chốt lệnh trên EVM là `OrderSettlement.price`. Lệch thì màn hiện hai giá, cảnh báo lệch không hiện cho khách hàng | Cao | FE-07 (R7) |
 | L-03 | `/portfolio` | Trên mock vẫn đòi ví trình duyệt, trong khi `/trade`, `/orders`, `/tokens/[symbol]` dùng ví hồ sơ | Vừa | FE-04 |
 | L-04 | `/trade` | Ô chọn Token không có tác dụng; máy chủ luôn lấy dự án đầu tiên | Vừa | Khi có dự án thứ hai trên cùng chain |
 | L-05 | `/trade` | Huy hiệu "Trạng thái giao dịch" bỏ qua `Project.status`; dự án CLOSED vẫn hiện "Đang mở" trong khi điều kiện 4 trượt | Vừa | SC-04 |
@@ -1687,7 +1740,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-42 | `/orders/[id]` | Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:67-69`). |
 | L-43 | `/orders/[id]` | Bước quyết toán tự động ghi `actorRole` là INVESTOR, dù tx do ví ngân hàng ký. |
 | L-44 | `/orders/[id]` | "Mã giao dịch" không có liên kết sang trình khám phá khối và không ghi "mô phỏng" như màn /trade. |
-| L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) và Giá phát hành (`:186-189`) đều đọc từ SystemConfig, không đọc từ chuỗi. |
+| L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. |
 | L-46 | `/tokens/[symbol]` | Trang tra dự án trong `MOCK_PROJECTS` viết cứng (`app/(investor)/tokens/[symbol]/page.tsx:22`), không tra bảng `Project` mà /trade dùng. |
 | L-47 | `/tokens/[symbol]` | Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:180-196`) mà không báo là đang tải hay đã lỗi. |
 | L-48 | `/withdraw` | `app/actions/withdraw.ts` và `lib/bank/withdraw.service.ts` đã có, nhưng đó là luồng rút vault SPV của Người bán, dùng quyền `vault:withdraw` chỉ cấp cho SELLER (`lib/rbac/permissions.ts:213-214` và `:283-291`). |
@@ -1742,4 +1795,5 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 |---|---|---|---|
 | 21/10/2026 | `24f3b7c` | Giám sát (Claude) | Bản đầu: Phần 1 tới Phần 3, Phụ lục A, B, C. Dựng từ đọc mã và kết quả OP-05 trên Sepolia |
 | 22/10/2026 | `8359009` | Dev (Claude) | HF-05: tệp vào repo. Sửa L-13 (giao dịch phát hành, huỷ chưa có biên nhận giữ Đang thực hiện; nút Đối soát ở `/approvals/[id]`), L-20 (`/distribution` hiện số đã duyệt `approvedAmount`), L-91 (lệnh mua bán chưa có biên nhận, tra chuỗi chưa thấy `OrderSettled`: giữ Đang quyết toán, không ghi Thất bại; áp cả gửi lần đầu và đối soát ở `/transactions`). Sửa mục 3.4.4, 3.5.2, Phần 2, Phụ lục A.2, C |
+| 23/10/2026 | `61cdbae` | Dev (Claude) | FE-07: màn `/config` "Giá và phát hành" (mục 3.5.3 mới); đổi giá chờ xác nhận chuỗi, chặn khi còn lệnh đang xử lý, lý do bắt buộc. Sửa L-02 (một nguồn giá cho màn khách hàng: `/portfolio`, `/trade`, `/seller`, `/seller/withdraw`, `/tokens/[symbol]`). Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1, 3.2, 3.5.3; Phụ lục B, C |
 

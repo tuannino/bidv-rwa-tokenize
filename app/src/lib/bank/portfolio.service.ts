@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
 import { getStore } from '@/lib/store';
-import { readIssuePriceVnd } from '@/lib/store/config-values';
+import { readEffectiveIssuePrice } from './issue-price';
 import { authorize, toResult } from './authorize';
 import { wptToVnd } from './issuance';
 import { err, ok, type Result } from './result';
@@ -90,7 +90,8 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
       ledger.tokenInfo(),
-      readIssuePriceVnd(chain),
+      // Giá áp dụng cho lệnh (FE-07, L-02): trên chain có OrderSettlement là giá trên hợp đồng.
+      readEffectiveIssuePrice(chain),
     ]);
 
     const balanceString = balance.toString();
@@ -184,7 +185,7 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
     await authorize('portfolio:read', null, parsed.data);
     const [info, issuePriceVnd] = await Promise.all([
       getLedger(parsed.data).tokenInfo(),
-      readIssuePriceVnd(parsed.data),
+      readEffectiveIssuePrice(parsed.data),
     ]);
 
     return ok({
