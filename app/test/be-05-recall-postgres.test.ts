@@ -66,7 +66,7 @@ live('BE-05 — kho thu hồi trên PostgreSQL thật', () => {
   });
 
   it('ghi 1.001 hồ sơ theo lô, chiếm nguyên tử, chặn mở đóng băng sau burn và đóng dự án cùng đợt', async () => {
-    const { getProjectStore, getSettlementStore } = await stores();
+    const { getProjectStore, getSettlementStore, getStore } = await stores();
     const projects = getProjectStore();
     const settlement = getSettlementStore();
     const project = (await projects.listProjects({ chain: 'mock' }))[0];
@@ -75,10 +75,15 @@ live('BE-05 — kho thu hồi trên PostgreSQL thật', () => {
     const opened = await settlement.openRecallRound({
       chain: 'mock', projectId: project.id, maturityDate: '2026-10-24', recallFrom: '2026-10-24',
       noticeDays: 0, openedBy: 'KSV001', reason: 'Kiểm chứng PostgreSQL BE-05',
+      audit: { actorRole: 'CONTROLLER', action: 'settlement:initiate', outcome: 'SUCCESS', detail: 'Mở đợt', chain: 'mock' },
     });
+    expect((await getStore().listAudit({ limit: 20 })).some((row) =>
+      row.target === opened.id && row.action === 'settlement:initiate' && row.outcome === 'SUCCESS' && row.detail === 'Mở đợt',
+    )).toBe(true);
     await expect(settlement.openRecallRound({
       chain: 'mock', projectId: project.id, maturityDate: '2026-10-24', recallFrom: '2026-10-24',
       noticeDays: 0, openedBy: 'KSV002', reason: 'Đợt trùng chain phải bị từ chối',
+      audit: { actorRole: 'CONTROLLER', action: 'settlement:initiate', outcome: 'SUCCESS', detail: 'Mở trùng', chain: 'mock' },
     })).rejects.toMatchObject({ name: 'UniqueConstraintError' });
 
     const cases = Array.from({ length: 1_001 }, (_, index) => ({
@@ -98,6 +103,9 @@ live('BE-05 — kho thu hồi trên PostgreSQL thật', () => {
     ]);
     expect(claims.filter(Boolean)).toHaveLength(1);
     expect(await settlement.attachBurnTx({ roundId: opened.id, holderWallet: cases[0].holderWallet, txHash: `0x${'ab'.repeat(32)}` })).toBe(true);
+    expect(await settlement.settleCase({ roundId: opened.id, holderWallet: cases[0].holderWallet, to: 'FAILED', at, reason: 'revert' })).toMatchObject({ status: 'FAILED' });
+    expect(await settlement.claimCase({ roundId: opened.id, holderWallet: cases[0].holderWallet, at })).toMatchObject({ status: 'BURNING', burnTxHash: null });
+    expect(await settlement.attachBurnTx({ roundId: opened.id, holderWallet: cases[0].holderWallet, txHash: `0x${'cd'.repeat(32)}` })).toBe(true);
     expect(await settlement.settleCase({ roundId: opened.id, holderWallet: cases[0].holderWallet, to: 'BURNED', at })).toMatchObject({ status: 'BURNED' });
     expect(await settlement.requestUnfreeze({ id: opened.id, at })).toBe(false);
 

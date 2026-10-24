@@ -188,6 +188,8 @@ export interface ISettlementStore {
   openRecallRound(input: {
     chain: ChainKey; projectId: string; maturityDate: string; recallFrom: string;
     noticeDays: number; openedBy: string; reason: string;
+    /** Kho tự gắn `target` bằng mã đợt vừa sinh và ghi cùng thao tác mở đợt. */
+    audit: Omit<NewAudit, 'target'>;
   }): Promise<SettlementRoundRecord>;
   findActiveRound(chain: ChainKey): Promise<SettlementRoundRecord | null>;
   latestRecallRound(chain: ChainKey): Promise<SettlementRoundRecord | null>;

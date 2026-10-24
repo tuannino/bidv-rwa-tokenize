@@ -6,7 +6,7 @@
 | Nhánh | `feat/be-05-fe-10-thu-hoi`, tạo từ `dev` (`c35fa17`) |
 | Spec | `docs/be-05-fe-10-thu-hoi/{requirements,design,tasks}.md` bản 2 |
 | Phạm vi | Backend BE-05; FE-10 không thực hiện trong lượt này |
-| Tiến độ | Mã, dữ liệu, test memory/Postgres/Hardhat và tài liệu backend đã xong; chờ Supervisor nghiệm thu |
+| Tiến độ | Đã bổ sung sau nghiệm thu lần 1: đủ ca máy chủ được yêu cầu, 15/15 đột biến bị bắt và ba thiếu sót mã đã sửa; chờ Supervisor nghiệm thu lại |
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -21,9 +21,11 @@
 | 5 | Burn theo lô 10, loại SPV, đối soát treo và đóng dự án nguyên tử | ✅ | mục 1.5 · 3.1 · 3.3 |
 | 6 | Tổng quan và dữ liệu portfolio không thêm action/audit đọc | ✅ | mục 1.6 · 2 |
 | 7 | Mock và EVM nối pause/unpause, burn ví bị băng, `isTransactionKnown` | ✅ | mục 1.4 · 3.3 |
-| 8 | Tài liệu, runbook, trạng thái task và marker cập nhật | ✅ | mục 1.7 · 3.4 |
+| 8 | Tài liệu, runbook, trạng thái task và marker cập nhật | ✅ | mục 1.8 · 3.4 |
+| 9 | Các ca 3, 5–7, 9–16, 18–20, 22, 25–26, 28–30 và 15 đột biến của spec có bằng chứng | ✅ | mục 3.1 · 3.3 · 3.5 |
 
-**Kết luận:** 8 ✅ · 0 🔶 · 0 ❌.
+**Kết luận:** 9 ✅ · 0 🔶 · 0 ❌. Nghiệm thu lần 1 phát hiện phần kiểm chứng quá mỏng; lượt sửa
+này tăng 30 ca Vitest, mở rộng ca Hardhat và chạy đủ bảng đột biến ở mục 3.5.
 
 ### 0.2 Việc cần Owner quyết
 
@@ -64,14 +66,23 @@
 - Danh sách từ Indexer, loại vault SPV và số dư 0; mỗi lượt tối đa 10 hồ sơ.
 - Burn được ví đang bị đóng băng riêng; BURNING/FAILED có đường phục hồi, không gửi lại mù khi đã
   có hash.
+- Lỗi gửi burn không phải revert được trả về theo từng `{ wallet, reason }`; dấu BURNING được giữ
+  để lượt sau đối soát thay vì tự kết luận giao dịch chưa phát.
 - Chỉ đóng đợt khi mọi hồ sơ BURNED và nguồn cung ngoài vault bằng 0.
 
 ### 1.6 API đọc
 
 - Thêm bảy server actions backend trong `app/actions/recall.ts`.
 - `getRecallOverview` dùng `assertCan('ops:read')`, không ghi audit; portfolio dùng action sẵn có.
+- `burnedAmount` của tổng quan và portfolio đọc `amount` từ dòng `Txn` loại `recall` khớp
+  `burnTxHash`, không dùng số dư chụp lúc lập hồ sơ.
 
-### 1.7 Tài liệu
+### 1.7 Sổ kiểm toán
+
+- Mở đợt ghi dòng `SUCCESS` nguyên tử cùng đợt, gồm `maturityDate`, `recallFrom`, số ngày báo trước
+  và lý do. Bản Postgres đặt cả hai lệnh trong cùng transaction.
+
+### 1.8 Tài liệu
 
 - Lưu spec bản 2; cập nhật UserGuide, tech-report, runbook và task-status chỉ cho BE-05.
 
@@ -91,22 +102,27 @@
 ```text
 $ (cd app && npx vitest --run)
 Test Files 61 passed | 14 skipped (75)
-Tests      1154 passed | 90 skipped (1244)
+Tests      1184 passed | 90 skipped (1274)
 ```
+
+Riêng `be-05-recall.test.ts` có 37 ca và `token-request.test.ts` có 35 ca. Các ca máy chủ Supervisor
+yêu cầu bổ sung đã được gắn số ngay trong tên test: 3, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16,
+18, 19, 20, 22, 25, 26, 28 và 29.
 
 ### 3.2 PostgreSQL 16 thật, database trống cô lập
 
 ```text
-$ TEST_DATABASE_URL=postgresql://…/bidv_be05_full npx vitest --run
+$ TEST_DATABASE_URL=postgresql://…/bidv_be05_recheck npx vitest --run
 Test Files 65 passed | 10 skipped (75)
-Tests      1260 passed | 70 skipped (1330)
+Tests      1290 passed | 70 skipped (1360)
 
 $ TEST_DATABASE_URL=postgresql://…/bidv_rwa npx vitest --run test/be-05-recall-postgres.test.ts
 Test Files 1 passed; Tests 2 passed
 ```
 
-Ca riêng kiểm cột/index, 1.001 hồ sơ chia lô, tranh claim chỉ một bên thắng, chặn unfreeze sau
-burn và đóng Project cùng SettlementRound. Database `bidv_be05_full` đã xoá sau phép đo.
+Ca riêng kiểm cột/index, audit mở đợt, 1.001 hồ sơ chia lô, tranh claim chỉ một bên thắng, claim
+lại xoá hash cũ, chặn unfreeze sau burn và đóng Project cùng SettlementRound. Database
+`bidv_be05_recheck` đã xoá sau phép đo.
 
 ### 3.3 Hardhat thật
 
@@ -115,8 +131,9 @@ $ TEST_HARDHAT_RPC=http://127.0.0.1:18545 npx vitest --run test/be-05-recall-evm
 Test Files 1 passed; Tests 1 passed
 ```
 
-Ca phát hành vào ví SPV, chuyển cho hai nhà đầu tư, đóng băng riêng một ví, pause toàn token, chứng
-minh transfer revert, burn cả hai ví, nguồn cung ngoài SPV về 0 và Project CLOSED.
+Ca 24 và 30: phát hành vào ví SPV, chuyển cho hai nhà đầu tư, đóng băng riêng một ví, pause toàn
+token và chứng minh transfer revert; sau đó unpause, chứng minh transfer chạy lại, pause lần hai,
+burn hai ví, nguồn cung ngoài SPV về 0 và Project CLOSED.
 
 ### 3.4 Kiểm kiểu và hợp đồng
 
@@ -133,6 +150,32 @@ $ bash scripts/run-local-all.sh arch markers checkpoint app
 6/6 phép kiểm đạt; 3 cảnh báo tồn tại từ trước.
 ```
 
+### 3.5 Đột biến
+
+Mỗi đột biến dưới đây được áp dụng riêng, chạy ca hẹp, xác nhận đỏ rồi hoàn nguyên trước đột biến
+tiếp theo. Sau cùng `git diff --check` và phép quét mẫu đột biến đều sạch.
+
+| # | Đột biến đã chạy | Ca đỏ |
+|---:|---|---|
+| 1 | Bỏ chặn thu hồi trong `placeOrder` | `be-05-recall` ca 5 |
+| 2 | Bỏ chặn duyệt Mint | `token-request` ca 5 |
+| 3 | Gắn `burnTxHash` sau khi chờ receipt | `be-05-recall` ca 14 |
+| 4 | Gắn `freezeTxHash` sau khi chờ receipt | `be-05-recall` ca 10 |
+| 5 | Bỏ khoá thao tác chain trong `recallBatch` | `be-05-recall` ca 16 |
+| 6 | Claim hồ sơ không xoá hash cũ | `be-05-recall` ca 15; bản SQL cũng đỏ `be-05-recall-postgres` |
+| 7 | Hoàn tất mà không kiểm tổng cung ngoài vault | `be-05-recall` ca 18 |
+| 8 | Bỏ chặn lệnh đang xử lý và kỳ chia khi đóng băng | `be-05-recall` ca 7 |
+| 9 | Không loại ví SPV khỏi danh sách | `be-05-recall`: đóng băng loại ví SPV |
+| 10 | Service cho huỷ sau khi đã ghi `freezeRequestedAt` | `be-05-recall` ca 11/12 |
+| 11 | Xoá dấu đóng băng khi lỗi gửi không phải revert | `be-05-recall` ca 11/12 |
+| 12 | Tổng quan dùng `authorize` thay `assertCan` | `be-05-recall` ca 22 |
+| 13 | Cho mở đóng băng khi đã BURNING/BURNED | `be-05-recall` ca 28 |
+| 14 | Cờ demo cho phép ngày hết hạn quá khứ | `be-05-recall` ca 25 |
+| 15 | Không chặn thu hồi khi đang mở đóng băng | `be-05-recall` ca 29 |
+
+**Kết quả:** 15/15 đột biến làm ít nhất một ca đỏ; không còn đột biến sống trong danh sách mục 8
+của `requirements.md`.
+
 ## 4. DEVIATION so với spec
 
 - User yêu cầu BE-05 nên không triển khai FE-10, không chuyển FE-10 sang `done`, không chạy E2E UI
@@ -140,6 +183,9 @@ $ bash scripts/run-local-all.sh arch markers checkpoint app
 - Spec gộp BE-05/FE-10 không có mục `Điều kiện hoàn thành` dạng checkbox, nên checkpoint này đối
   chiếu tám nhóm yêu cầu BE-05 thay vì chạy được phép đếm DoD tự động của khuôn MC-02.
 - Không thay hợp đồng: `ProjectToken` đã có pause/unpause và agent burn đúng điều kiện.
+- Khi cập nhật tài liệu sau nghiệm thu, phát hiện ma trận RBAC trong `tech-report.md` còn ghi 32
+  action và gán `settlement:initiate` cho TELLER dù mã hiện có 38 action và BE-05 đã chuyển quyền
+  này sang CONTROLLER. Đã sửa ma trận theo `ACTIONS`/`ROLE_PERMISSIONS`; không đổi mã quyền.
 
 ## 5. Câu hỏi mở / nợ kỹ thuật
 

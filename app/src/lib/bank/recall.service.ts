@@ -100,7 +100,13 @@ export async function openRecall(input: unknown): Promise<Result<SettlementRound
     const project = await projectFor(chain);
     if (!project || project.status !== 'ISSUED') return err('REQUEST_STATE', 'Dự án trên chain phải ở trạng thái ISSUED trước khi mở đợt thu hồi.');
     const openedBy = await currentActorId(role);
-    try { return ok(await getSettlementStore().openRecallRound({ chain, projectId: project.id, ...dates, openedBy, reason })); }
+    const detail = `Mở đợt: hết hạn ${dates.maturityDate}; thu hồi từ ${dates.recallFrom}; báo trước ${dates.noticeDays} ngày. Lý do: ${reason}`;
+    try {
+      return ok(await getSettlementStore().openRecallRound({
+        chain, projectId: project.id, ...dates, openedBy, reason,
+        audit: { actorRole: role, action: 'settlement:initiate', outcome: 'SUCCESS', detail, chain },
+      }));
+    }
     catch (error) { if (error instanceof UniqueConstraintError) return err('REQUEST_STATE', 'Chain đã có một đợt thu hồi chưa kết thúc.'); throw error; }
   } catch (error) { return toResult(error); }
 }
@@ -109,7 +115,7 @@ export async function cancelRecall(input: unknown): Promise<Result<SettlementRou
   const parsed = cancelRoundSchema.safeParse(input); const checked = validation(parsed); if (!checked.ok) return checked;
   try {
     const role = await authorize('settlement:initiate', checked.data.roundId, checked.data.chain);
-    return withRecallLock(checked.data.chain, role, async () => {
+    return await withRecallLock(checked.data.chain, role, async () => {
       const round = await getSettlementStore().findActiveRound(checked.data.chain);
       if (!roundMatches(round, checked.data.roundId, 'INITIATED') || round.freezeRequestedAt) return err('REQUEST_STATE', 'Đợt không còn ở trạng thái có thể huỷ.');
       if (await getLedger(checked.data.chain).isSettlementMode()) return err('REQUEST_STATE', 'Token đang đóng băng trên chuỗi; không thể huỷ đợt.');
@@ -126,7 +132,7 @@ export async function rescheduleRecall(input: unknown): Promise<Result<Settlemen
     let dates;
     try { dates = validateRecallDates({ ...checked.data, today: todayVn(), demo: serverEnv().enableDemoRecall }); }
     catch (error) { return err('VALIDATION', error instanceof Error ? error.message : 'Mốc thu hồi không hợp lệ.'); }
-    return withRecallLock(checked.data.chain, role, async () => {
+    return await withRecallLock(checked.data.chain, role, async () => {
       const round = await getSettlementStore().findActiveRound(checked.data.chain);
       if (!roundMatches(round, checked.data.roundId, 'INITIATED') || round.freezeRequestedAt) return err('REQUEST_STATE', 'Đợt không còn ở trạng thái có thể sửa mốc.');
       const detail = `Sửa mốc từ ${round.maturityDate}/${round.noticeDays} ngày thành ${dates.maturityDate}/${dates.noticeDays} ngày. Lý do: ${checked.data.reason}`;
@@ -175,7 +181,7 @@ export async function freezeToken(input: unknown): Promise<Result<SettlementRoun
   const parsed = confirmSchema.safeParse(input); const checked = validation(parsed); if (!checked.ok) return checked;
   try {
     const role = await authorize('settlement:recall', checked.data.roundId, checked.data.chain);
-    return withRecallLock(checked.data.chain, role, async () => {
+    return await withRecallLock(checked.data.chain, role, async () => {
       const started = Date.now(); const { chain, roundId, confirmSymbol } = checked.data;
       const ledger = getLedger(chain); const store = getSettlementStore();
       const round = await store.findActiveRound(chain); const project = await projectFor(chain, round?.projectId);
@@ -229,7 +235,7 @@ export async function unfreezeToken(input: unknown): Promise<Result<SettlementRo
   const parsed = unfreezeSchema.safeParse(input); const checked = validation(parsed); if (!checked.ok) return checked;
   try {
     const role = await authorize('settlement:recall', checked.data.roundId, checked.data.chain);
-    return withRecallLock(checked.data.chain, role, async () => {
+    return await withRecallLock(checked.data.chain, role, async () => {
       const { chain, roundId, confirmSymbol, reason } = checked.data; const store = getSettlementStore(); const ledger = getLedger(chain);
       const round = await store.findActiveRound(chain); const project = await projectFor(chain, round?.projectId);
       if (!roundMatches(round, roundId, 'IN_PROGRESS') || !project) return err('REQUEST_STATE', 'Không có đợt đang đóng băng tương ứng.');
@@ -291,13 +297,21 @@ async function reconcileBurning(chain: ChainKey, cases: SettlementCaseRecord[]):
   }));
 }
 
-export interface RecallBatchProgress { burned: number; pending: number; failed: number; remaining: number; outsideRemaining: string; completed: boolean; }
+export interface RecallBatchProgress {
+  burned: number;
+  pending: number;
+  failed: number;
+  remaining: number;
+  outsideRemaining: string;
+  completed: boolean;
+  errors: Array<{ wallet: string; reason: string }>;
+}
 
 export async function recallBatch(input: unknown): Promise<Result<RecallBatchProgress>> {
   const parsed = roundSchema.pick({ chain: true, roundId: true }).safeParse(input); const checked = validation(parsed); if (!checked.ok) return checked;
   try {
     const role = await authorize('settlement:recall', checked.data.roundId, checked.data.chain);
-    return withRecallLock(checked.data.chain, role, async () => {
+    return await withRecallLock(checked.data.chain, role, async () => {
       const started = Date.now(); const { chain, roundId } = checked.data; const store = getSettlementStore(); const ledger = getLedger(chain);
       const round = await store.findActiveRound(chain);
       if (!roundMatches(round, roundId, 'IN_PROGRESS')) return err('REQUEST_STATE', 'Đợt không ở trạng thái đang thu hồi.');
@@ -310,6 +324,7 @@ export async function recallBatch(input: unknown): Promise<Result<RecallBatchPro
       await store.addMissingCases({ roundId, rows: wallets.rows });
       const candidates = (await store.listRoundCases({ roundId, statuses: ['NOTIFIED', 'FAILED'] })).slice(0, RECALL_BATCH_SIZE);
       const submitted: Array<{ item: SettlementCaseRecord; txn: TxnRecord }> = [];
+      const errors: RecallBatchProgress['errors'] = [];
       for (const item of candidates) {
         if (Date.now() - started > recallBudget(chain) / 2) break;
         const claimed = await store.claimCase({ roundId, holderWallet: item.holderWallet, at: new Date().toISOString() });
@@ -321,7 +336,11 @@ export async function recallBatch(input: unknown): Promise<Result<RecallBatchPro
           const txn = await submitTxn({ chain, pending, operation: 'recall', fromWallet: item.holderWallet, toWallet: null, amount, role, onSubmitted: async (txHash) => { if (!(await store.attachBurnTx({ roundId, holderWallet: item.holderWallet, txHash }))) throw new Error('Không gắn được mã giao dịch vào hồ sơ đã chiếm.'); } });
           submitted.push({ item: claimed, txn });
         } catch (error) {
-          if (error instanceof LedgerError && error.reverted) await store.settleCase({ roundId, holderWallet: item.holderWallet, to: 'FAILED', at: new Date().toISOString(), reason: error.message });
+          const reason = error instanceof Error ? error.message : 'Không gửi được giao dịch đốt.';
+          errors.push({ wallet: item.holderWallet, reason });
+          if (error instanceof LedgerError && error.reverted) {
+            await store.settleCase({ roundId, holderWallet: item.holderWallet, to: 'FAILED', at: new Date().toISOString(), reason });
+          }
         }
       }
       const remainingBudget = Math.max(1, recallBudget(chain) - (Date.now() - started));
@@ -338,9 +357,9 @@ export async function recallBatch(input: unknown): Promise<Result<RecallBatchPro
       const outside = info.totalSupply > spvBalance ? info.totalSupply - spvBalance : 0n;
       if (counts.remaining === 0 && outside === 0n && round.projectId) {
         const completed = await store.completeRound({ id: round.id, projectId: round.projectId, completedAt: new Date().toISOString(), audit: successAudit(role, 'settlement:recall', round.id, chain, 'Đã thu hồi toàn bộ token ngoài vault; đóng dự án.') });
-        if (completed) return ok({ ...counts, outsideRemaining: '0', completed: true });
+        if (completed) return ok({ ...counts, outsideRemaining: '0', completed: true, errors });
       }
-      return ok({ ...counts, outsideRemaining: outside.toString(), completed: false });
+      return ok({ ...counts, outsideRemaining: outside.toString(), completed: false, errors });
     });
   } catch (error) { return toResult(error); }
 }
@@ -359,6 +378,16 @@ export interface RecallOverview {
   canManage: boolean; canUnfreeze: boolean; demoMode: boolean;
 }
 
+/** Số đốt hiển thị phải lấy từ giao dịch thật, không lấy số dư chụp lúc lập hồ sơ. */
+export async function burnedAmountFromTxn(
+  chain: ChainKey,
+  item: Pick<SettlementCaseRecord, 'status' | 'burnTxHash'>,
+): Promise<string | null> {
+  if (item.status !== 'BURNED' || !item.burnTxHash) return null;
+  const txn = await getStore().findTxnByHash(chain, item.burnTxHash);
+  return txn?.operation === 'recall' ? txn.amount : null;
+}
+
 export async function getRecallOverview(input: unknown): Promise<Result<RecallOverview>> {
   const parsed = z.object({ chain: CHAIN_SCHEMA }).safeParse(input); const checked = validation(parsed); if (!checked.ok) return checked;
   try {
@@ -373,13 +402,14 @@ export async function getRecallOverview(input: unknown): Promise<Result<RecallOv
     ]);
     const spvBalance = spv ? await ledger.balanceOf(spv) : 0n;
     const outside = token.totalSupply > spvBalance ? token.totalSupply - spvBalance : 0n;
+    const burnedAmounts = await Promise.all(cases.map((item) => burnedAmountFromTxn(chain, item)));
     const today = todayVn(); const phase = recallPhaseOf(round, project, today);
     const startedBurn = cases.some((item) => item.status === 'BURNING' || (item.status === 'BURNED' && item.burnTxHash));
     return ok({
       chain, project: project ? { id: project.id, tokenSymbol: project.tokenSymbol, name: project.name, status: project.status } : null,
       round: round ? { ...round, phase: phase.kind, daysToMaturity: round.maturityDate ? daysBetween(today, round.maturityDate) : 0, daysToRecall: round.recallFrom ? daysBetween(today, round.recallFrom) : 0 } : null,
       settlementMode, inFlightOrders: orders, activeDistribution: Boolean(distribution), chainLock: lock ? { kind: lock.kind, acquiredAt: lock.acquiredAt } : null,
-      cases: cases.map((item) => ({ wallet: item.holderWallet, wptAmount: item.wptAmount, burnedAmount: item.status === 'BURNED' ? item.wptAmount : null, status: item.status, txHash: item.burnTxHash, reason: item.reason })),
+      cases: cases.map((item, index) => ({ wallet: item.holderWallet, wptAmount: item.wptAmount, burnedAmount: burnedAmounts[index], status: item.status, txHash: item.burnTxHash, reason: item.reason })),
       preview: previewData ? { wallets: previewData.wallets.filter((item) => item.balance > 0n && item.wallet.toLowerCase() !== spv?.toLowerCase()).map((item) => ({ wallet: item.wallet, balance: item.balance.toString() })), truncated: previewData.truncated } : null,
       supplyOutsideVault: outside.toString(), canManage: can(role, 'settlement:recall'), canUnfreeze: round?.status === 'IN_PROGRESS' && !startedBurn,
       demoMode: serverEnv().enableDemoRecall,

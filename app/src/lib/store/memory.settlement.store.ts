@@ -219,6 +219,7 @@ export function createMemorySettlementStore(): ISettlementStore {
         unfreezeRequestedAt: null, unfreezeTxHash: null, activeChain: input.chain,
       };
       state().rounds.push(record);
+      appendAuditInMemory({ ...input.audit, target: record.id });
       return { ...record };
     },
 

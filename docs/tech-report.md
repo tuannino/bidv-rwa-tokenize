@@ -9,14 +9,20 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.24 |
-| Cập nhật lần cuối | 2026-10-24 |
+| Phiên bản tài liệu | 4.25 |
+| Cập nhật lần cuối | 2026-10-25 |
 | Nhánh / commit | `feat/be-05-fe-10-thu-hoi`, từ `dev` @ `c35fa17`; phạm vi bàn giao hiện tại: BE-05 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
 | Hoàn thành mới ở bản này | **BE-05**: backend thu hồi WPT khi dự án hết hạn, chặn giao dịch, đóng/mở đóng băng và đốt theo lô (xem 3.31) |
 | Đang thực hiện | Không có trong phạm vi BE-05; FE-10 vẫn là task riêng chưa thực hiện |
 | Phase kế tiếp | FE-10 dựng màn thu hồi và thông báo; SC-04 bổ sung tất toán có chi trả theo NAV |
-| Người cập nhật | Codex (BE-05). Supervisor rà soát |
+| Người cập nhật | Codex (BE-05, bổ sung sau nghiệm thu lần 1). Supervisor rà soát |
+
+**4.24 lên 4.25 (BE-05, bổ sung kiểm chứng):** mở đợt ghi audit `SUCCESS` nguyên tử với mốc,
+số ngày báo trước và lý do; số đã đốt đọc từ `Txn recall` thật; lỗi gửi burn không phải revert trả
+về theo từng ví thay vì im lặng. Bổ sung các ca máy chủ còn thiếu, mở rộng Hardhat cho đóng băng →
+mở lại → chuyển → đóng băng lại → thu hồi, và xác nhận 15/15 đột biến ở spec đều làm test đỏ.
+Xem 3.31 và `CHECKPOINT_BE05.md`.
 
 **4.23 lên 4.24 (BE-05): thu hồi WPT khi dự án hết hạn.** Kiểm soát viên mở/sửa/huỷ đợt,
 đóng băng ProjectToken và agent burn tối đa 10 ví mỗi lô; mọi mã giao dịch được lưu trước khi chờ
@@ -1126,7 +1132,7 @@ giới hạn khoảng block.
 | `config-role.ts` | Chốt chặn **hai lớp** cho việc đổi tham số hệ thống (BE-04): `CONFIG_ROLES`, `isConfigRole()`, `assertCanConfigure()`, `NotConfigRoleError`. Thứ tự là **RBAC trước, `isConfig` sau** — ngược `demo-payment.ts`, vì lớp thứ hai ở đây gắn với TỪNG VAI nên phải biết vai nào rồi mới trả lời được |
 | `area-gates.ts` | `AREAS`, `AREA_GATES`, `AREA_LABELS` — cổng vào từng khu vực giao diện (FE-20). Dữ liệu thuần, **không** nằm trong JSX của layout: layout là Server Component nên không unit-test được, mà DoD đòi kiểm chặn cả hai chiều |
 
-**Ma trận quyền (đủ 32 action, tên đúng như trong `ACTIONS`):**
+**Ma trận quyền (đủ 38 action, tên đúng như trong `ACTIONS`):**
 
 Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho ba luồng), **BE-02**
 (nghiệp vụ lệnh mua), **FE-20** (cổng khu vực giao diện), **BE-12** (lập–duyệt), **FE-22** (đóng đường
@@ -1147,7 +1153,8 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 | `distribution:snapshot` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `distribution:execute` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `distribution:approve` | ❌ | ❌ | ❌ | ✅ | FE-08 (duyệt tổng số của kỳ rồi chia; 3.27) |
-| `settlement:initiate` | ❌ | ❌ | ✅ | ❌ | BE-08 |
+| `settlement:initiate` | ❌ | ❌ | ❌ | ✅ | BE-08; chuyển sang CONTROLLER ở BE-05 |
+| `settlement:recall` | ❌ | ❌ | ❌ | ✅ | BE-05 |
 | `settlement:set-nav` | ❌ | ❌ | ✅ | ❌ | BE-08 |
 | `settlement:confirm` | ✅ | ❌ | ❌ | ❌ | BE-08 |
 | `treasury:manage` | ❌ | ❌ | ✅ | ❌ | BE-08 |
@@ -1163,10 +1170,14 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 | `seller:read` | ❌ | ✅ | ❌ | ❌ | FE-20 |
 | `wallet:connect` | ✅ | ✅ | ❌ | ❌ | FE-20 |
 | `ops:read` | ❌ | ❌ | ✅ | ✅ | FE-20 |
+| `vault:read` | ❌ | ❌ | ✅ | ✅ | BE-13 |
 | `ops:draft:read` | ❌ | ❌ | ✅ | ❌ | FE-20 |
 | `ops:approve:read` | ❌ | ❌ | ❌ | ✅ | FE-20 |
 | `order:draft` | ❌ | ❌ | ✅ | ❌ | BE-12 |
 | `order:approve` | ❌ | ❌ | ❌ | ✅ | BE-12 |
+| `vault:configure` | ❌ | ❌ | ❌ | ✅ | BE-13 |
+| `vault:withdraw` | ❌ | ✅ | ❌ | ❌ | BE-13 |
+| `vault:reconcile` | ❌ | ❌ | ❌ | ✅ | BE-13 |
 
 **5 cổng khu vực FE-20 thêm vào** — `seller:read`, `wallet:connect`, `ops:read`,
 `ops:draft:read`, `ops:approve:read` — là **quyền HIỂN THỊ**, mỗi cái trả lời đúng một câu: "vai
@@ -2945,6 +2956,12 @@ trong action hiện hữu; màn `/recall` và nhãn giao diện vẫn thuộc FE
 Lỗi mạng không xoá dấu vì giao dịch có thể đã được phát; lần gọi sau đọc trạng thái chuỗi, biên nhận
 hoặc dòng `Txn` để tiếp tục. Burn trùng không làm mất thêm token vì số đốt được đọc ngay sau khi
 chiếm hồ sơ và hợp đồng từ chối đốt quá số dư.
+
+Mở đợt ghi audit `SUCCESS` trong cùng transaction với dòng đợt, gồm ngày hết hạn, ngày bắt đầu thu
+hồi, số ngày báo trước và lý do. Kết quả lô trả danh sách lỗi gửi burn theo từng ví; lỗi không phải
+revert giữ hồ sơ `BURNING` để đối soát an toàn. Tổng quan và portfolio chỉ hiển thị `burnedAmount`
+từ `amount` của dòng `Txn` có operation `recall` khớp `burnTxHash`, không lấy số dư chụp ban đầu.
+Ma trận 15 đột biến và ca đỏ tương ứng nằm trong `CHECKPOINT_BE05.md` mục 3.5.
 
 **Sai khác có chủ đích:** một Kiểm soát viên làm cả mở đợt và thu hồi. **Nợ kỹ thuật:** chi trả
 theo NAV/hợp đồng tất toán (SC-04), mở lại sau khi đã đốt, đốt phần WPT còn trong vault (dùng BE-12)

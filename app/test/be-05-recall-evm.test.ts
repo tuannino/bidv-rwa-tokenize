@@ -76,8 +76,8 @@ live('BE-05 — thu hồi đầu tư trên nút Hardhat thật', () => {
     resetStoreCache();
   });
 
-  it('mở kỳ, pause chặn chuyển, đốt cả ví bị đóng băng và đóng dự án', async () => {
-    const { freezeToken, openRecall, recallBatch } = await import('@/lib/bank/recall.service');
+  it('[ca 24, 30] pause chặn chuyển; unpause mở lại; pause lần hai rồi đốt và đóng dự án', async () => {
+    const { freezeToken, openRecall, recallBatch, unfreezeToken } = await import('@/lib/bank/recall.service');
     const opened = await openRecall({
       chain: 'hardhat-local', maturityDate: todayVn(), noticeDays: 0,
       reason: 'Dự án đã đến hạn thu hồi',
@@ -100,6 +100,24 @@ live('BE-05 — thu hồi đầu tư trên nút Hardhat thật', () => {
       functionName: 'transfer',
       args: [INVESTOR_B, 1n],
     })).rejects.toThrow();
+
+    const unfrozen = await unfreezeToken({
+      chain: 'hardhat-local', roundId: opened.data.id, confirmSymbol: 'WPT',
+      reason: 'Kiểm chứng mở đóng băng trước khi đốt',
+    });
+    expect(unfrozen.ok, unfrozen.ok ? '' : unfrozen.error).toBe(true);
+    expect(await ledger.isSettlementMode()).toBe(false);
+    const transferHash = await investor.writeContract({
+      address: getContractAddress('hardhat-local', 'ProjectToken') as Hex,
+      abi: projectTokenAbi,
+      functionName: 'transfer',
+      args: [ADMIN, 1n],
+    });
+    expect((await ledger.waitReceipt(transferHash)).status).toBe('CONFIRMED');
+
+    const frozenAgain = await freezeToken({ chain: 'hardhat-local', roundId: opened.data.id, confirmSymbol: 'WPT' });
+    expect(frozenAgain.ok, frozenAgain.ok ? '' : frozenAgain.error).toBe(true);
+    expect(await ledger.isSettlementMode()).toBe(true);
 
     const recalled = await recallBatch({ chain: 'hardhat-local', roundId: opened.data.id });
     expect(recalled).toMatchObject({

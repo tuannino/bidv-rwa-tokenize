@@ -5,6 +5,7 @@ import { resetServerEnvCache } from '@/lib/config/env';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getStore, getTokenRequestStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
+import { addDays, todayVn } from '@/lib/bank/recall-phase';
 
 /**
  * BE-12 — LẬP–DUYỆT YÊU CẦU MINT / BURN.
@@ -157,6 +158,38 @@ afterEach(() => {
   delete process.env.USE_MOCK_DB;
   resetServerEnvCache();
   resetStoreCache();
+});
+
+describe('BE-05 — chặn duyệt Mint theo pha thu hồi', () => {
+  it('[ca 3] trước maturityDate vẫn duyệt Mint được', async () => {
+    await issueDirect(1_000n);
+    controller();
+    const { openRecall } = await import('@/lib/bank/recall.service');
+    expect((await openRecall({
+      chain: CHAIN, maturityDate: addDays(todayVn(), 1), noticeDays: 1,
+      reason: 'Mở trước hạn để kiểm Mint',
+    })).ok).toBe(true);
+    const id = await draft(mintInput(10n));
+    controller();
+    const { approveTokenRequest } = await service();
+    expect((await approveTokenRequest({ chain: CHAIN, requestId: id })).ok).toBe(true);
+  });
+
+  it('[ca 5] yêu cầu lập trước hạn bị chặn khi duyệt từ maturityDate', async () => {
+    await issueDirect(1_000n);
+    const id = await draft(mintInput(10n));
+    controller();
+    const { openRecall } = await import('@/lib/bank/recall.service');
+    expect((await openRecall({
+      chain: CHAIN, maturityDate: todayVn(), noticeDays: 1,
+      reason: 'Dự án tới hạn trước lúc duyệt Mint',
+    })).ok).toBe(true);
+    const { approveTokenRequest } = await service();
+    expect(await approveTokenRequest({ chain: CHAIN, requestId: id })).toMatchObject({
+      ok: false, code: 'REQUEST_CHECK', fieldErrors: { recall: expect.any(Array) },
+    });
+    expect((await getTokenRequestStore().findRequest(id))?.status).toBe('PENDING');
+  });
 });
 
 // ===========================================================================

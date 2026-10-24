@@ -299,14 +299,17 @@ export function createPostgresSettlementStore(
     },
 
     async openRecallRound(input) {
-      const rows = await mapPgConstraintError(() => query<RoundRow>(
-        `INSERT INTO "SettlementRound"
-           ("id","snapshotId","navRate","status","chain","projectId","maturityDate","recallFrom","noticeDays","openedBy","reason","activeChain")
-         VALUES (gen_random_uuid()::text,0,0,'INITIATED',$1,$2,$3,$4,$5,$6,$7,$1)
-         RETURNING *`,
-        [input.chain, input.projectId, input.maturityDate, input.recallFrom, input.noticeDays, input.openedBy, input.reason],
-      ));
-      return toRound(rows[0]);
+      return mapPgConstraintError(() => transaction(async (run) => {
+        const rows = await run<RoundRow>(
+          `INSERT INTO "SettlementRound"
+             ("id","snapshotId","navRate","status","chain","projectId","maturityDate","recallFrom","noticeDays","openedBy","reason","activeChain")
+           VALUES (gen_random_uuid()::text,0,0,'INITIATED',$1,$2,$3,$4,$5,$6,$7,$1)
+           RETURNING *`,
+          [input.chain, input.projectId, input.maturityDate, input.recallFrom, input.noticeDays, input.openedBy, input.reason],
+        );
+        await insertAudit(run, { ...input.audit, target: rows[0].id });
+        return toRound(rows[0]);
+      }));
     },
 
     async findActiveRound(chain) {

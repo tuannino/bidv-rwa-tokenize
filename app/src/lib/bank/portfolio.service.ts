@@ -11,7 +11,7 @@ import { err, ok, type Result } from './result';
 import { chainSchema, walletSchema } from './schemas';
 import type { TxnView } from './mint.service';
 import { daysBetween, todayVn } from './recall-phase';
-import { readRecallPhase } from './recall.service';
+import { burnedAmountFromTxn, readRecallPhase } from './recall.service';
 
 /**
  * Nghiệp vụ VỊ THẾ NHÀ ĐẦU TƯ — chỉ đọc.
@@ -111,12 +111,13 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       const settlement = getSettlementStore();
       const round = await settlement.findActiveRound(chain) ?? await settlement.latestRecallRound(chain);
       const recallCase = round ? (await settlement.listRoundCases({ roundId: round.id })).find((item) => item.holderWallet.toLowerCase() === wallet.toLowerCase()) : undefined;
+      const burnedAmount = recallCase ? await burnedAmountFromTxn(chain, recallCase) : null;
       recall = {
         maturityDate: recallPhase.maturityDate,
         recallFrom: recallPhase.recallFrom,
         daysLeft: daysBetween(todayVn(), recallPhase.recallFrom),
         phase: recallPhase.kind as 'NOTICE' | 'FROZEN' | 'CLOSED',
-        amount: recallCase?.status === 'BURNED' ? recallCase.wptAmount : balanceString,
+        amount: burnedAmount ?? balanceString,
       };
     }
 
