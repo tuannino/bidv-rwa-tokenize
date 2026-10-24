@@ -405,7 +405,7 @@ describe('ca 2 — ví mua WPT sau thời điểm chốt được chia 0', () =>
   });
 });
 
-describe('IN-01 — danh sách ví Transfer giữ đúng quyền tại snapshot', () => {
+describe('IN-01 - danh sách ví Transfer giữ đúng quyền tại snapshot', () => {
   it('ví chuyển hết WPT sau snapshot vẫn nhận phần cũ; ví nhận sau snapshot nhận 0', async () => {
     const ledger = getLedger(CHAIN);
     await ledger.whitelist(ALICE);

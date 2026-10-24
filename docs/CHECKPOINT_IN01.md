@@ -115,7 +115,7 @@ $ jq -c '{error, logCount:(.result | length)}' /tmp/in01-sepolia-logs.json
 {"error":null,"logCount":33}
 ```
 
-Đo ngày 24/10/2026: 0,34 giây cho đúng 50.000 block, nhỏ hơn nửa lease mặc định 30 giây.
+Đo ngày 24/10/2026: 0,34 giây cho đúng 50.000 block, nhỏ hơn nửa lease mặc định 60 giây.
 
 ## 3. Kiểm chứng
 

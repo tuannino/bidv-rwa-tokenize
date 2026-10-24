@@ -3564,7 +3564,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | SC-09 WPT theo ERC-3643 PoC, sổ danh tính/bộ luật tách rời và ERC-2612 cho WPT/VNDB | ✅ Xong; đã đối chiếu bằng chứng Sepolia ngày 19/10/2026 |
 | — | SC-07 vault thanh toán SPV, khoá VNDB on-chain, lịch sử chốt kỳ và chặn Mint đầu sai đích (xem 3.23) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
 | — | SC-03 khớp mua/bán nguyên tử trên EVM, permit ở contract và phục hồi theo `orderRef` (xem 4.2) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
-| — | IN-01 Indexer gọn cho sự kiện vault/WPT và danh sách ví theo Transfer (xem 3.30) | ✅ Xong mã và kiểm chứng local; chờ Supervisor nghiệm thu |
+| - | IN-01 Indexer gọn cho sự kiện vault/WPT và danh sách ví theo Transfer (xem 3.30) | ✅ Xong mã và kiểm chứng local; chờ Supervisor nghiệm thu |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |

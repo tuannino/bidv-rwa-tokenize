@@ -167,7 +167,7 @@ trước khi chạy**.
 
 1. Xác định đúng `chain`; tạm tránh mở đồng thời các màn đọc lịch sử trên chain đó.
 2. Sao lưu hoặc ghi lại số dòng và cursor hiện tại để điều tra.
-3. Trong một transaction, xoá cache của đúng chain — không đụng bảng nghiệp vụ:
+3. Trong một transaction, xoá cache của đúng chain - không đụng bảng nghiệp vụ:
 
    ```sql
    BEGIN;

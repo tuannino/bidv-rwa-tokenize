@@ -123,6 +123,24 @@ describe('IN-01 event index', () => {
     expect((await store.readCursor('hardhat-local'))?.lastBlock).toBe(0n);
   });
 
+  it('từ chối commit khi cursor cũ không khớp giá trị hiện tại', async () => {
+    const store = createMemoryChainEventStore();
+    const scope = { anchor: 'a', vault: VAULT, token: TOKEN, deployBlock: 1n };
+    expect(await store.claimLease('hardhat-local', 'worker', 60, scope, 0n)).not.toBeNull();
+
+    const event = {
+      ...log(VAULT, 1n),
+      chain: 'hardhat-local' as const,
+      anchor: scope.anchor,
+      blockTimestamp: 1n,
+    };
+    expect(await store.commitSegment('hardhat-local', 'worker', 99n, 1n, [event], 60)).toBe(false);
+    expect((await store.readCursor('hardhat-local'))?.lastBlock).toBe(0n);
+    expect(await store.listEvents({
+      chain: 'hardhat-local', anchor: scope.anchor, contract: VAULT, toBlock: 1n,
+    })).toEqual([]);
+  });
+
   it('lease hết hạn được lượt sau nhận và tiếp tục từ cursor cũ', async () => {
     let now = new Date('2026-10-24T00:00:00Z');
     const store = createMemoryChainEventStore({ now: () => now });
