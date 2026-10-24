@@ -6,7 +6,7 @@ import { vaultAddressFor, type ChainKey, type TxResult, type TxStatus } from '@b
 import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
 import { getBankSigner } from '@/lib/signer';
-import { getProjectStore, getStore, type ProjectRecord } from '@/lib/store';
+import { getProjectStore, getStore, type ProjectRecord, type TxnRecord } from '@/lib/store';
 import { assertCanMintDemoToken } from '@/lib/rbac/demo-payment';
 import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
@@ -72,33 +72,44 @@ export function vaultMintTargetError(chain: ChainKey, wallet: string): string | 
  * `onSubmitted` chạy SAU khi giao dịch có vết trong sổ và TRƯỚC khi đợi biên nhận — chỗ lần duyệt
  * yêu cầu gắn mã giao dịch vào yêu cầu.
  */
-export async function trackTxn(input: {
+export interface SubmitTxnInput {
   chain: ChainKey;
   pending: TxResult;
   operation: string;
   fromWallet: string | null;
   toWallet: string | null;
-  amount: bigint;
+  amount: bigint | null;
   role: Role;
   onSubmitted?: (txHash: string) => Promise<void>;
-}): Promise<TxResult> {
+}
+
+/** Lưu giao dịch PENDING và gắn hash vào hồ sơ nghiệp vụ, tuyệt đối không chờ receipt. */
+export async function submitTxn(input: SubmitTxnInput): Promise<TxnRecord> {
   const { chain, pending } = input;
   const store = getStore();
-
-  // @flow issue:4 | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận
   const saved = await store.saveTxn({
     chain,
     operation: input.operation,
     txHash: pending.txHash,
-    status: pending.status,
+    // Giao dịch vừa gửi luôn được ghi PENDING; trạng thái adapter trả về không thay thế receipt.
+    status: 'PENDING',
     fromWallet: input.fromWallet,
     toWallet: input.toWallet,
-    amount: input.amount.toString(),
+    amount: input.amount?.toString() ?? null,
     reason: null,
     actorRole: input.role,
     actorAddress: await signerAddressOrNull(chain),
   });
   await input.onSubmitted?.(pending.txHash);
+  return saved;
+}
+
+export async function trackTxn(input: Omit<SubmitTxnInput, 'amount'> & { amount: bigint }): Promise<TxResult> {
+  const { chain, pending } = input;
+  const store = getStore();
+
+  // @flow issue:4 | lưu giao dịch ở trạng thái chờ, TRƯỚC khi đợi biên nhận
+  const saved = await submitTxn(input);
 
   // @flow issue:5 | đợi biên nhận theo timeout của chuỗi, rồi cập nhật trạng thái giao dịch
   const receipt = await getLedger(chain).waitReceipt(pending.txHash, receiptTimeoutFor(chain));

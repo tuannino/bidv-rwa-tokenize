@@ -40,6 +40,14 @@ import {
   listDistributionPeriodsSchema,
   reapproveDistributionSchema,
 } from './schemas';
+import { readRecallPhase } from './recall.service';
+
+async function recallBlocksDistribution(chain: ChainKey): Promise<string | null> {
+  const phase = await readRecallPhase(chain);
+  return phase.kind === 'FROZEN' || phase.kind === 'CLOSED'
+    ? 'Dự án đang thu hồi hoặc đã đóng; không thể duyệt hay tiếp tục chia lợi nhuận.'
+    : null;
+}
 
 /**
  * FE-08: KIỂM SOÁT VIÊN DUYỆT CON SỐ KỲ RỒI HỆ THỐNG MỚI CHIA.
@@ -283,6 +291,8 @@ export async function approveDistribution(input: unknown): Promise<Result<Distri
 
   try {
     const role = await authorize('distribution:approve', null, chain);
+    const recallBlock = await recallBlocksDistribution(chain);
+    if (recallBlock) return err('PERIOD_STATE', recallBlock);
     const ctx = chainContext(chain, role, await currentActorId(role));
     const { ledger, store } = ctx;
 
@@ -404,6 +414,8 @@ export async function reapproveDistribution(input: unknown): Promise<Result<Dist
 
   try {
     const role = await authorize('distribution:approve', periodId, chain);
+    const recallBlock = await recallBlocksDistribution(chain);
+    if (recallBlock) return err('PERIOD_STATE', recallBlock);
     const ctx = chainContext(chain, role, await currentActorId(role));
 
     const found = await findPeriodOnChain(ctx.store, chain, { periodId });
@@ -475,6 +487,8 @@ export async function continueDistribution(input: unknown): Promise<Result<Distr
 
   try {
     const role = await authorize('distribution:approve', periodId, chain);
+    const recallBlock = await recallBlocksDistribution(chain);
+    if (recallBlock) return err('PERIOD_STATE', recallBlock);
     const ctx = chainContext(chain, role, await currentActorId(role));
 
     const found = await findPeriodOnChain(ctx.store, chain, { periodId });

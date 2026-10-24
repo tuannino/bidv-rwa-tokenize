@@ -1306,7 +1306,7 @@ describe.each(backends)('lớp 2 — hành vi bản %s', (_label, make) => {
           status: 'XONG',
         }),
       ).rejects.toMatchObject({
-        allowed: ['INITIATED', 'IN_PROGRESS', 'COMPLETED'],
+        allowed: ['INITIATED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
       });
     });
 

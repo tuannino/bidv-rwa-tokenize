@@ -71,7 +71,7 @@ export interface VaultConfigFormView {
   fixedLock: string;
   payoutWallet: string;
   /** Thao tác đang giữ khoá vận hành của chain, `null` khi rảnh. */
-  busy: { kind: 'CONFIG' | 'WITHDRAW'; acquiredAt: string } | null;
+  busy: { kind: 'CONFIG' | 'WITHDRAW' | 'RECALL'; acquiredAt: string } | null;
 }
 
 export interface VaultOverviewView {
@@ -275,7 +275,10 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
   });
   if (!lock) {
     const held = await vaultStore.findOperationLock(chain);
-    const busy = `Vault đang có thao tác khác (${held?.kind === 'WITHDRAW' ? 'lệnh rút đang dở' : 'lần lưu cấu hình khác'}); thử lại sau.`;
+    const busyLabel = held?.kind === 'WITHDRAW' ? 'lệnh rút đang dở'
+      : held?.kind === 'RECALL' ? 'đợt đóng băng hoặc thu hồi token đang chạy'
+        : 'lần lưu cấu hình khác';
+    const busy = `Vault đang có thao tác khác (${busyLabel}); thử lại sau.`;
     await audit('FAILURE', busy);
     return err('VAULT_BUSY', busy);
   }

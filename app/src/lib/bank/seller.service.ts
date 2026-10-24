@@ -14,6 +14,8 @@ import { readSupplyMetrics, type SupplyMetrics } from './issuance.service';
 import { orderDailyStats } from './purchase.service';
 import { err, ok, type Result } from './result';
 import { chainSchema } from './schemas';
+import { tradingBlocked, type RecallPhaseKind } from './recall-phase';
+import { readRecallPhase } from './recall.service';
 
 /**
  * Nghiệp vụ KÊNH NGƯỜI BÁN (FE-21) — CHỈ ĐỌC.
@@ -71,6 +73,7 @@ export type SellerWithdrawPolicy = {
 
 export interface SellerOverviewView {
   chain: ChainKey;
+  recallPhase: RecallPhaseKind;
   /** Ví thanh toán SPV theo chuỗi; `null` khi chưa phát hành lần nào. */
   spvWallet: string | null;
   /**
@@ -116,7 +119,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
     await authorize('seller:read', null, chain);
 
     const ledger = getLedger(chain);
-    const [spvWallet, vault, projects, issuePrice, terms, tradingPaused, profitPool, daily] =
+    const [spvWallet, vault, projects, issuePrice, terms, tradingPaused, profitPool, daily, recallPhase] =
       await Promise.all([
         ledger.spvWallet(),
         ledger.vaultStatus(),
@@ -127,17 +130,19 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
         readSettlementModeForOverview(ledger),
         ledger.profitPoolBalance(),
         orderDailyStats({ chain }),
+        readRecallPhase(chain),
       ]);
     if (!daily.ok) return daily;
 
     const paymentWallet = vault?.address ?? spvWallet;
+    const tradeBlock = tradingBlocked(recallPhase, tradingPaused);
     const tokens = await Promise.all(
       projects.map(async (project) => ({
         tokenSymbol: project.tokenSymbol,
         projectName: project.name,
         issuePriceVnd: issuePrice.toString(),
         tokenStatus: project.status,
-        tradingOpen: !tradingPaused,
+        tradingOpen: !tradeBlock.blocked,
         terms,
         ...(await readSupplyMetrics(chain, project, Promise.resolve(paymentWallet))),
       })),
@@ -165,6 +170,7 @@ export async function getSellerOverview(input: unknown): Promise<Result<SellerOv
 
     return ok({
       chain,
+      recallPhase: recallPhase.kind,
       spvWallet,
       today: {
         buyCount: daily.data.bySide.BUY.count,

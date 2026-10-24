@@ -34,16 +34,19 @@ export function createMemoryVaultStore(): IVaultStore {
   return {
     kind: 'memory',
 
-    async acquireOperationLock({ chain, kind, refId, actor, takeOverConfigBefore }) {
+    async acquireOperationLock({ chain, kind, refId, actor, takeOverConfigBefore, takeOverRecallBefore }) {
       const locks = state().locks;
       const held = locks.get(chain);
-      const stale =
+      const staleConfig =
         held !== undefined &&
         kind === 'CONFIG' &&
         held.kind === 'CONFIG' &&
         takeOverConfigBefore !== undefined &&
         held.acquiredAt < takeOverConfigBefore.toISOString();
-      if (held && !stale) return null;
+      const staleRecall =
+        held !== undefined && kind === 'RECALL' && held.kind === 'RECALL' &&
+        takeOverRecallBefore !== undefined && held.acquiredAt < takeOverRecallBefore.toISOString();
+      if (held && !staleConfig && !staleRecall) return null;
       const record: VaultOperationLockRecord = {
         chain,
         kind: assertVaultOperationKind(kind),

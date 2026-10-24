@@ -3,13 +3,15 @@ import 'server-only';
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
-import { getStore } from '@/lib/store';
+import { getSettlementStore, getStore } from '@/lib/store';
 import { readEffectiveIssuePrice } from './issue-price';
 import { authorize, toResult } from './authorize';
 import { wptToVnd } from './issuance';
 import { err, ok, type Result } from './result';
 import { chainSchema, walletSchema } from './schemas';
 import type { TxnView } from './mint.service';
+import { daysBetween, todayVn } from './recall-phase';
+import { burnedAmountFromTxn, readRecallPhase } from './recall.service';
 
 /**
  * Nghiệp vụ VỊ THẾ NHÀ ĐẦU TƯ — chỉ đọc.
@@ -58,6 +60,13 @@ export interface PortfolioView {
     /** Tổng cung — ĐỌC TỪ CHAIN. */
     totalSupply: string;
   };
+  recall: null | {
+    maturityDate: string;
+    recallFrom: string;
+    daysLeft: number;
+    phase: 'NOTICE' | 'FROZEN' | 'CLOSED';
+    amount: string;
+  };
   /**
    * KHÔNG có trường số dư VNDB. `ILedgerPort.paymentBalanceOf` ĐÃ có (thêm ở BE-01, đang
    * được `purchase.service` dùng), nhưng hàm này chưa đọc tới — phần hiển thị số dư VNDB
@@ -85,16 +94,32 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
     const ledger = getLedger(chain);
     // Giá đọc CÙNG lô với số dư: một lời gọi, một con số, nên số hiển thị và số quy đổi không
     // thể lệch nhau trong cùng một phản hồi.
-    const [balance, whitelisted, frozen, info, issuePriceVnd] = await Promise.all([
+    const [balance, whitelisted, frozen, info, issuePriceVnd, recallPhase] = await Promise.all([
       ledger.balanceOf(wallet),
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
       ledger.tokenInfo(),
       // Giá áp dụng cho lệnh (FE-07, L-02): trên chain có OrderSettlement là giá trên hợp đồng.
       readEffectiveIssuePrice(chain),
+      readRecallPhase(chain),
     ]);
 
     const balanceString = balance.toString();
+
+    let recall: PortfolioView['recall'] = null;
+    if (['NOTICE', 'FROZEN', 'CLOSED'].includes(recallPhase.kind) && recallPhase.maturityDate && recallPhase.recallFrom) {
+      const settlement = getSettlementStore();
+      const round = await settlement.findActiveRound(chain) ?? await settlement.latestRecallRound(chain);
+      const recallCase = round ? (await settlement.listRoundCases({ roundId: round.id })).find((item) => item.holderWallet.toLowerCase() === wallet.toLowerCase()) : undefined;
+      const burnedAmount = recallCase ? await burnedAmountFromTxn(chain, recallCase) : null;
+      recall = {
+        maturityDate: recallPhase.maturityDate,
+        recallFrom: recallPhase.recallFrom,
+        daysLeft: daysBetween(todayVn(), recallPhase.recallFrom),
+        phase: recallPhase.kind as 'NOTICE' | 'FROZEN' | 'CLOSED',
+        amount: burnedAmount ?? balanceString,
+      };
+    }
 
     return ok({
       wallet,
@@ -110,6 +135,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
         decimals: info.decimals,
         totalSupply: info.totalSupply.toString(),
       },
+      recall,
     });
   } catch (error) {
     return toResult(error);

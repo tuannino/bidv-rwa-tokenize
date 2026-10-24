@@ -141,13 +141,19 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Tiền lợi nhuận vào quỹ | Bản thử Mint VNDB thẳng vào quỹ (bước tay); tự phát hiện tiền vào bằng sự kiện ở IN-02 | OP-05 lượt 13.6 | Một phần |
 | Nhà đầu tư xem kỳ chia và lợi tức | Chưa có màn | FE-09 | Chưa làm |
 
-### 1.9. Nhà đầu tư rút VNDB, tất toán
+### 1.9. Nhà đầu tư rút VNDB, thu hồi và tất toán
 
 | Quyết định | Nội dung | Nguồn | Trạng thái |
 |---|---|---|---|
 | Nhà đầu tư rút VNDB | Hoàn tất ngay, không mã một lần, không qua Giao dịch viên hay Kiểm soát viên | URD, CH-3 BE-13 | Chưa làm (FE-23) |
-| Tất toán (mua lại WPT theo NAV) | Khác Burn: thu hồi WPT của nhà đầu tư, trả VNDB theo NAV, trong chế độ tất toán ngừng mua bán. Chưa chốt cờ tất toán và giá NAV | SC-04, BE-05, FE-10 | Chưa làm |
-| Công tắc tạm dừng trên EVM | Tạm thời dùng `pause` của `OrderSettlement` | SC-03 | Đã chạy |
+| Thu hồi WPT khi dự án hết hạn (PoC) | Kiểm soát viên mở đợt, đặt ngày hết hạn và số ngày báo trước; tới hạn thì máy chủ chặn lệnh mới/Mint, sau ngày thu hồi có thể `pause` ProjectToken và agent đốt WPT ngoài vault theo lô 10. PoC không trả tiền trên chuỗi | BE-05 | Đã chạy ở backend; màn FE-10 chưa làm |
+| Mở đóng băng | Chỉ được `unpause` trước khi giao dịch đốt đầu tiên được gửi; sau đó việc thu hồi không đảo ngược | BE-05 QĐ-R14 | Đã chạy ở backend |
+| Tất toán đầy đủ (mua lại theo NAV) | Trả VNDB theo NAV và hợp đồng tất toán riêng | SC-04 | Chưa làm |
+
+Mốc ngày dùng múi giờ Việt Nam. `noticeDays` mặc định 30, tối đa 365; chỉ `mock`,
+`hardhat-local` hoặc môi trường bật `ENABLE_DEMO_RECALL=true` cho phép 0 ngày. Cờ trình diễn không
+bao giờ cho đặt ngày hết hạn trong quá khứ. Trên Sepolia, chỉ diễn tập sau khi Sếp quyết định:
+sau lần đốt đầu tiên, WPT đã mất không thể khôi phục bằng chức năng này.
 
 ### 1.10. Kết quả kiểm chứng trên Sepolia (OP-05, 21/10/2026)
 
@@ -226,7 +232,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | Cấu hình vault, Người bán rút | `/vault`, `/seller/withdraw` | Có | Mã một lần thật |
 | Chia lợi nhuận | `/distribution` | Có | Màn của Nhà đầu tư (FE-09); tự phát hiện tiền vào (IN-02) |
 | Nhà đầu tư rút VNDB | `/withdraw` | Chưa | FE-23 |
-| Tất toán | chưa có | Chưa | SC-04, BE-05, FE-10 |
+| Thu hồi khi hết hạn | chưa có màn | Backend có; chưa diễn tập Sepolia | FE-10; SC-04 cho trả tiền theo NAV |
 | Tổng quan, báo cáo | `/`, `/portfolio`, `/assets`, `/reconciliation` | Một phần | Số liệu thật thay dữ liệu mẫu |
 
 ---

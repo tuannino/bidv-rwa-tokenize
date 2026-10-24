@@ -225,6 +225,9 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async waitReceipt(): Promise<TxResult> {
       return todo('waitReceipt');
     },
+    async isTransactionKnown(): Promise<boolean> {
+      return todo('isTransactionKnown');
+    },
     async latestBlockNumber(): Promise<bigint> {
       return todoNeeds('latestBlockNumber', 'đọc ledger mới nhất của Soroban RPC (BE-13)');
     },

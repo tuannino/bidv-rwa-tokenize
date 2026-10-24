@@ -283,8 +283,22 @@ model SettlementRound {
   chain       String
   initiatedAt DateTime          @default(now()) @db.Timestamptz(3)
   completedAt DateTime?         @db.Timestamptz(3)
+  projectId             String?
+  maturityDate          String?
+  recallFrom            String?
+  noticeDays            Int?
+  openedBy              String?
+  reason                String?
+  freezeRequestedAt     DateTime? @db.Timestamptz(3)
+  freezeTxHash          String?
+  frozenAt              DateTime? @db.Timestamptz(3)
+  cancelledAt           DateTime? @db.Timestamptz(3)
+  unfreezeRequestedAt   DateTime? @db.Timestamptz(3)
+  unfreezeTxHash        String?
+  activeChain           String?
   cases       SettlementCase[]
 
+  @@unique([activeChain])
   @@index([status, initiatedAt])
   @@index([chain, initiatedAt])
 }
@@ -324,6 +338,9 @@ model SettlementCase {
   paidTxHash   String?
   burnedAt     DateTime?       @db.Timestamptz(3)
   burnTxHash   String?
+  burnSentAt   DateTime?       @db.Timestamptz(3)
+  failedAt     DateTime?       @db.Timestamptz(3)
+  reason       String?
   createdAt    DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
 

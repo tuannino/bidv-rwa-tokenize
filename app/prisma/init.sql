@@ -126,6 +126,19 @@ CREATE TABLE "SettlementRound" (
     "chain" TEXT NOT NULL,
     "initiatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completedAt" TIMESTAMPTZ(3),
+    "projectId" TEXT,
+    "maturityDate" TEXT,
+    "recallFrom" TEXT,
+    "noticeDays" INTEGER,
+    "openedBy" TEXT,
+    "reason" TEXT,
+    "freezeRequestedAt" TIMESTAMPTZ(3),
+    "freezeTxHash" TEXT,
+    "frozenAt" TIMESTAMPTZ(3),
+    "cancelledAt" TIMESTAMPTZ(3),
+    "unfreezeRequestedAt" TIMESTAMPTZ(3),
+    "unfreezeTxHash" TEXT,
+    "activeChain" TEXT,
 
     CONSTRAINT "SettlementRound_pkey" PRIMARY KEY ("id")
 );
@@ -144,6 +157,9 @@ CREATE TABLE "SettlementCase" (
     "paidTxHash" TEXT,
     "burnedAt" TIMESTAMPTZ(3),
     "burnTxHash" TEXT,
+    "burnSentAt" TIMESTAMPTZ(3),
+    "failedAt" TIMESTAMPTZ(3),
+    "reason" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
@@ -405,6 +421,9 @@ CREATE INDEX "SettlementRound_status_initiatedAt_idx" ON "SettlementRound"("stat
 
 -- CreateIndex
 CREATE INDEX "SettlementRound_chain_initiatedAt_idx" ON "SettlementRound"("chain", "initiatedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SettlementRound_activeChain_key" ON "SettlementRound"("activeChain");
 
 -- CreateIndex
 CREATE INDEX "SettlementCase_holderWallet_createdAt_idx" ON "SettlementCase"("holderWallet", "createdAt");

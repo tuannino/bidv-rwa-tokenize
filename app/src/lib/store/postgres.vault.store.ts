@@ -74,7 +74,7 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
   return {
     kind: 'prisma',
 
-    async acquireOperationLock({ chain, kind, refId, actor, takeOverConfigBefore }) {
+    async acquireOperationLock({ chain, kind, refId, actor, takeOverConfigBefore, takeOverRecallBefore }) {
       // MỘT câu: chèn khi chưa ai giữ; trùng khoá chính thì chỉ ghi đè khi cả hai là `CONFIG` và
       // khoá cũ đã treo quá mốc tiếp quản. Không có dòng trả về nghĩa là thua.
       const rows = await mapPgConstraintError(() =>
@@ -84,12 +84,16 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
            ON CONFLICT ("chain") DO UPDATE
               SET "kind" = EXCLUDED."kind", "refId" = EXCLUDED."refId",
                   "actor" = EXCLUDED."actor", "acquiredAt" = EXCLUDED."acquiredAt"
-            WHERE EXCLUDED."kind" = 'CONFIG'
+            WHERE (EXCLUDED."kind" = 'CONFIG'
               AND "VaultOperationLock"."kind" = 'CONFIG'
               AND $5::timestamptz IS NOT NULL
-              AND "VaultOperationLock"."acquiredAt" < $5::timestamptz
+              AND "VaultOperationLock"."acquiredAt" < $5::timestamptz)
+               OR (EXCLUDED."kind" = 'RECALL'
+              AND "VaultOperationLock"."kind" = 'RECALL'
+              AND $6::timestamptz IS NOT NULL
+              AND "VaultOperationLock"."acquiredAt" < $6::timestamptz)
            RETURNING *`,
-          [chain, assertVaultOperationKind(kind), refId, actor, takeOverConfigBefore ?? null],
+          [chain, assertVaultOperationKind(kind), refId, actor, takeOverConfigBefore ?? null, takeOverRecallBefore ?? null],
         ),
       );
       return rows[0] ? toLock(rows[0]) : null;

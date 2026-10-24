@@ -40,6 +40,8 @@ export const projectTokenAbi = [
     inputs: [],
     outputs: [{ name: '', type: 'bool' }],
   },
+  { type: 'function', name: 'pause', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { type: 'function', name: 'unpause', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   {
     type: 'function',
     name: 'setAddressFrozen',

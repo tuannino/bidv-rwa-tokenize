@@ -415,5 +415,28 @@ in ra stack đầy đủ. Nhớ `--noproxy '*'` nếu máy có biến proxy.
 2. Chain + tích hợp chọn qua feature-flag/registry, không hard-code.
 3. Bí mật (RPC key, server signer) qua biến môi trường; không commit.
 
+## Diễn tập thu hồi BE-05 trên Hardhat local
+
+Luồng này `pause` ProjectToken rồi đốt WPT của từng nhà đầu tư bằng quyền AGENT. Dùng
+`hardhat-local` cho diễn tập; **không chạy trên Sepolia nếu chưa có quyết định riêng của Sếp**.
+Sau giao dịch đốt đầu tiên, ứng dụng không cho mở đóng băng và token đã đốt không thể khôi phục.
+
+1. Dựng chain sạch: `bash scripts/evm-local.sh reset`.
+2. Chạy app với `NEXT_PUBLIC_DEFAULT_CHAIN=hardhat-local`, `RPC_HARDHAT=http://127.0.0.1:8545`,
+   khoá Hardhat account #0 và `ENABLE_DEMO_RECALL=false`.
+3. Phát hành WPT vào vault, tạo ít nhất hai nhà đầu tư có số dư và xử lý hết lệnh/kỳ chia đang dở.
+4. Với vai Kiểm soát viên, gọi luồng mở đợt với ngày hôm nay và `noticeDays=0`; kiểm lệnh mua/bán
+   mới và duyệt Mint đều bị chặn.
+5. Gõ đúng ký hiệu WPT để đóng băng. Kiểm `ProjectToken.paused() = true` và chuyển WPT thường bị
+   revert. Trước khi thu hồi có thể mở đóng băng để kiểm đường đảo ngược.
+6. Đóng băng lại và chạy từng lô thu hồi. Mỗi lượt gửi tối đa 10 lệnh đốt; tiếp tục tới khi
+   `supplyOutsideVault = 0`, đợt `COMPLETED`, dự án `CLOSED`.
+7. Kiểm mỗi hồ sơ có đúng mã giao dịch trong `SettlementCase`/`Txn`, sổ kiểm toán có hành động
+   `settlement:recall`, rồi dừng node bằng `bash scripts/evm-local.sh down`.
+
+`ENABLE_DEMO_RECALL=true` chỉ nới điều kiện 0 ngày cho chain khác; nó không cho lùi ngày hệ thống
+và không làm thao tác đốt có thể đảo ngược. Nếu mất kết nối sau khi gửi, không huỷ đợt hoặc gửi tay:
+chạy lại đúng thao tác để dịch vụ đối soát mã giao dịch/biên nhận đã lưu.
+
 ## Nếu chọn có phí (cân bằng chi phí)
 - VPS nhỏ bật-theo-lượt (bật lúc demo, tắt sau) hoặc Cloudflare/Supabase gói trả phí khi vượt free. Vì demo theo lượt, ưu tiên bật/tắt hơn là always-live.

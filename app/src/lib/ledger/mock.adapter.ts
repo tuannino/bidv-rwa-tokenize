@@ -446,6 +446,7 @@ export function createMockLedger(
       assertPositiveAmount(chain, 'mint', amount);
       const receiver = normalizeEvmAddress(to);
       return mutate('mint', (s) => {
+        if (s.settlementMode) reject('mint', 'Token đang tạm dừng: không thể phát hành thêm.');
         requireWhitelisted(s, 'mint', receiver, 'Bên nhận');
         requireNotFrozen(s, 'mint', receiver, 'Bên nhận');
         setBalance(s, receiver, balance(s, receiver) + amount);
@@ -505,6 +506,7 @@ export function createMockLedger(
       assertPositiveAmount(chain, 'mintInitialSupply', amount);
       const receiver = normalizeEvmAddress(to);
       return mutate('mintInitialSupply', (s) => {
+        if (s.settlementMode) reject('mintInitialSupply', 'Token đang tạm dừng: không thể phát hành thêm.');
         if (s.initialSupplyMinted) {
           reject(
             'mintInitialSupply',
@@ -887,6 +889,8 @@ export function createMockLedger(
     // =========================================================================
     async setSettlementMode(enabled) {
       return mutate('setSettlementMode', (s) => {
+        if (enabled && s.settlementMode) reject('setSettlementMode', 'Token đã được tạm dừng.');
+        if (!enabled && !s.settlementMode) reject('setSettlementMode', 'Token chưa được tạm dừng.');
         s.settlementMode = enabled;
         return confirmed(s);
       });
@@ -1112,6 +1116,14 @@ export function createMockLedger(
 
     async waitReceipt(txHash) {
       return read('waitReceipt', () => ({ txHash, status: 'CONFIRMED' as const }));
+    },
+
+    async isTransactionKnown(txHash) {
+      return read('isTransactionKnown', (s) => {
+        if (!/^0x[0-9a-f]{64}$/i.test(txHash)) return false;
+        const nonce = BigInt(txHash);
+        return nonce > 0n && nonce <= BigInt(s.nonce);
+      });
     },
 
     /** Mỗi giao dịch mock là một "block": bộ đếm `nonce` bền trong state. */

@@ -97,6 +97,7 @@ export const ACTIONS = [
    * `settlement:confirm` là của NHÀ ĐẦU TƯ (xác nhận thu hồi và hoàn vốn), không phải ngân hàng.
    */
   'settlement:initiate',
+  'settlement:recall',
   'settlement:set-nav',
   'settlement:confirm',
 
@@ -312,7 +313,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'order:expire',
     'distribution:snapshot',
     'distribution:execute',
-    'settlement:initiate',
     'settlement:set-nav',
     'treasury:manage',
     // Cần THÊM cờ ENABLE_DEMO_PAYMENT_MINT mới thực sự chạy — xem `demo-payment.ts`.
@@ -345,6 +345,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'vault:reconcile',
     // FE-08: duyệt tổng số của kỳ chia rồi chia; KHÔNG có `distribution:execute` trực tiếp.
     'distribution:approve',
+    // BE-05 (Sếp chốt 24/10): Kiểm soát viên mở và thực hiện đợt thu hồi.
+    'settlement:initiate',
+    'settlement:recall',
     ...READ_ONLY,
   ],
 };

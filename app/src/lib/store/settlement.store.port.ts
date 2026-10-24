@@ -1,4 +1,5 @@
 import type { ChainKey } from '@bidv/shared';
+import type { NewAudit } from './store.port';
 import { assertStatus, type StoreKind } from './store.errors';
 
 /**
@@ -15,7 +16,7 @@ import { assertStatus, type StoreKind } from './store.errors';
  *
  *     INITIATED ──► IN_PROGRESS ──► COMPLETED
  */
-export const SETTLEMENT_ROUND_STATUSES = ['INITIATED', 'IN_PROGRESS', 'COMPLETED'] as const;
+export const SETTLEMENT_ROUND_STATUSES = ['INITIATED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
 export type SettlementRoundStatus = (typeof SETTLEMENT_ROUND_STATUSES)[number];
 
 export const assertSettlementRoundStatus = (value: string): SettlementRoundStatus =>
@@ -31,7 +32,7 @@ export const assertSettlementRoundStatus = (value: string): SettlementRoundStatu
  * hai việc không nằm trong cùng một giao dịch, nên có thật một khoảng thời gian mà cái
  * trước đã xong và cái sau chưa.
  */
-export const SETTLEMENT_CASE_STATUSES = ['NOTIFIED', 'CONFIRMED', 'PAID', 'BURNED'] as const;
+export const SETTLEMENT_CASE_STATUSES = ['NOTIFIED', 'CONFIRMED', 'PAID', 'BURNING', 'BURNED', 'FAILED'] as const;
 export type SettlementCaseStatus = (typeof SETTLEMENT_CASE_STATUSES)[number];
 
 export const assertSettlementCaseStatus = (value: string): SettlementCaseStatus =>
@@ -52,7 +53,9 @@ export const SETTLEMENT_CASE_COLUMNS: Readonly<
   NOTIFIED: { at: 'notifiedAt', txHash: null },
   CONFIRMED: { at: 'confirmedAt', txHash: null },
   PAID: { at: 'paidAt', txHash: 'paidTxHash' },
+  BURNING: { at: 'burnSentAt', txHash: 'burnTxHash' },
   BURNED: { at: 'burnedAt', txHash: 'burnTxHash' },
+  FAILED: { at: 'failedAt', txHash: 'burnTxHash' },
 };
 
 export interface SettlementRoundRecord {
@@ -70,6 +73,19 @@ export interface SettlementRoundRecord {
   chain: ChainKey;
   initiatedAt: string;
   completedAt: string | null;
+  projectId: string | null;
+  maturityDate: string | null;
+  recallFrom: string | null;
+  noticeDays: number | null;
+  openedBy: string | null;
+  reason: string | null;
+  freezeRequestedAt: string | null;
+  freezeTxHash: string | null;
+  frozenAt: string | null;
+  cancelledAt: string | null;
+  unfreezeRequestedAt: string | null;
+  unfreezeTxHash: string | null;
+  activeChain: ChainKey | null;
 }
 
 export interface NewSettlementRound {
@@ -100,6 +116,9 @@ export interface SettlementCaseRecord {
   paidTxHash: string | null;
   burnedAt: string | null;
   burnTxHash: string | null;
+  burnSentAt: string | null;
+  failedAt: string | null;
+  reason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,4 +184,27 @@ export interface ISettlementStore {
     status?: SettlementCaseStatus;
     limit?: number;
   }): Promise<SettlementCaseRecord[]>;
+
+  openRecallRound(input: {
+    chain: ChainKey; projectId: string; maturityDate: string; recallFrom: string;
+    noticeDays: number; openedBy: string; reason: string;
+    /** Kho tự gắn `target` bằng mã đợt vừa sinh và ghi cùng thao tác mở đợt. */
+    audit: Omit<NewAudit, 'target'>;
+  }): Promise<SettlementRoundRecord>;
+  findActiveRound(chain: ChainKey): Promise<SettlementRoundRecord | null>;
+  latestRecallRound(chain: ChainKey): Promise<SettlementRoundRecord | null>;
+  requestFreeze(input: { id: string; at: string }): Promise<boolean>;
+  setFreezeTx(input: { id: string; txHash: string | null; clearRequest?: boolean }): Promise<void>;
+  completeFreeze(input: { id: string; frozenAt: string; cases: readonly NewSettlementCase[]; audit: NewAudit }): Promise<SettlementRoundRecord | null>;
+  cancelRound(input: { id: string; cancelledAt: string; audit: NewAudit }): Promise<SettlementRoundRecord | null>;
+  rescheduleRound(input: { id: string; maturityDate: string; recallFrom: string; noticeDays: number; audit: NewAudit }): Promise<SettlementRoundRecord | null>;
+  requestUnfreeze(input: { id: string; at: string }): Promise<boolean>;
+  setUnfreezeTx(input: { id: string; txHash: string | null; clearRequest?: boolean }): Promise<void>;
+  completeUnfreeze(input: { id: string; audit: NewAudit }): Promise<SettlementRoundRecord | null>;
+  addMissingCases(input: { roundId: string; rows: readonly NewSettlementCase[] }): Promise<number>;
+  claimCase(input: { roundId: string; holderWallet: string; at: string }): Promise<SettlementCaseRecord | null>;
+  attachBurnTx(input: { roundId: string; holderWallet: string; txHash: string }): Promise<boolean>;
+  settleCase(input: { roundId: string; holderWallet: string; to: 'BURNED' | 'FAILED'; at: string; reason?: string }): Promise<SettlementCaseRecord | null>;
+  listRoundCases(input: { roundId: string; statuses?: readonly SettlementCaseStatus[] }): Promise<SettlementCaseRecord[]>;
+  completeRound(input: { id: string; projectId: string; completedAt: string; audit: NewAudit }): Promise<SettlementRoundRecord | null>;
 }

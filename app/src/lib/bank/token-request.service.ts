@@ -3,7 +3,7 @@ import 'server-only';
 import { readStep } from '@/lib/diagnostics/read-trace';
 
 import type { ChainKey, TxResult } from '@bidv/shared';
-import { getLedger } from '@/lib/ledger';
+import { getLedger, LedgerNotImplementedError } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
@@ -36,6 +36,8 @@ import {
   tokenRequestDetailSchema,
   tokenRequestQuerySchema,
 } from './schemas';
+import { readRecallPhase } from './recall.service';
+import { tradingBlocked } from './recall-phase';
 
 /**
  * Nghiệp vụ LẬP–DUYỆT yêu cầu Mint / Burn (BE-12): Giao dịch viên lập, Kiểm soát viên duyệt.
@@ -144,6 +146,16 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
   const spv = await ledger.spvWallet();
 
   if (type === 'MINT') {
+    let settlementMode: boolean | null = null;
+    try { settlementMode = await ledger.isSettlementMode(); }
+    catch (error) { if (!(error instanceof LedgerNotImplementedError)) throw error; }
+    const recallBlock = tradingBlocked(await readRecallPhase(chain), settlementMode);
+    checks.push(check(
+      'recall',
+      'Dự án chưa tới hạn thu hồi',
+      !recallBlock.blocked,
+      recallBlock.message ?? 'Dự án chưa tới hạn thu hồi.',
+    ));
     const { cap, supply, remaining } = await remainingIssuanceCap(chain, project);
     checks.push(
       check(

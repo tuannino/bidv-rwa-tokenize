@@ -553,7 +553,7 @@ function functionBody(file: string, name: string): string {
 }
 
 describe('ca 10 — không còn nơi nào tạo token ngoài lập–duyệt, trừ đường dữ liệu thử hai lớp chặn', () => {
-  it('lời gọi mint / mintInitialSupply / burn của sổ cái chỉ nằm ở ba chỗ đã biết', () => {
+  it('lời gọi mint / mintInitialSupply / burn của sổ cái chỉ nằm ở các luồng đã biết', () => {
     // Ngoài `lib/ledger` (nơi định nghĩa), chỉ: lõi thực hiện sau khi duyệt (Mint, Burn) và đường
     // dữ liệu thử. Thêm chỗ thứ tư là thêm một đường tạo token không qua Kiểm soát viên.
     const callers = filesCalling(/\.(mint|mintInitialSupply|burn)\(/).filter(
@@ -562,6 +562,7 @@ describe('ca 10 — không còn nơi nào tạo token ngoài lập–duyệt, tr
     expect(callers).toEqual([
       'lib/bank/issuance.service.ts', // executeIssuance
       'lib/bank/mint.service.ts', // mintToInvestorDirect — dữ liệu thử
+      'lib/bank/recall.service.ts', // BE-05 — thu hồi sau khi đóng băng, quyền settlement:recall
       'lib/bank/token-request.service.ts', // executeBurn, chỉ gọi sau khi duyệt
     ]);
   });

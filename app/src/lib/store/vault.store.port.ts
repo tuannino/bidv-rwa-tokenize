@@ -9,7 +9,7 @@ import { assertStatus, StoreUsageError, type StoreKind } from './store.errors';
  */
 
 /** `CONFIG`: một lần lưu cấu hình khoá. `WITHDRAW`: một lệnh rút đang dở. */
-export const VAULT_OPERATION_KINDS = ['CONFIG', 'WITHDRAW'] as const;
+export const VAULT_OPERATION_KINDS = ['CONFIG', 'WITHDRAW', 'RECALL'] as const;
 export type VaultOperationKind = (typeof VAULT_OPERATION_KINDS)[number];
 
 export const assertVaultOperationKind = (value: string): VaultOperationKind =>
@@ -34,6 +34,8 @@ export interface AcquireVaultLockInput {
    * bị tiếp quản.
    */
   takeOverConfigBefore?: Date;
+  /** Chỉ tiếp quản một khoá RECALL treo quá toàn bộ ngân sách thu hồi cộng biên an toàn. */
+  takeOverRecallBefore?: Date;
 }
 
 export interface IVaultStore extends IVaultWithdrawStore {

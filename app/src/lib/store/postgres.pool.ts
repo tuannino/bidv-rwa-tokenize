@@ -387,6 +387,23 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "reapprovedFrom" DECIMAL(78,0)`,
   `ALTER TABLE IF EXISTS "DistributionPeriod" ADD COLUMN IF NOT EXISTS "activeChain" TEXT`,
   `ALTER TABLE IF EXISTS "KeeperRun" ADD COLUMN IF NOT EXISTS "triggerSource" TEXT NOT NULL DEFAULT 'KEEPER'`,
+  // BE-05: đợt thu hồi token theo ngày đáo hạn; cột rỗng giữ tương thích các đợt BE-09 cũ.
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "projectId" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "maturityDate" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "recallFrom" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "noticeDays" INTEGER`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "openedBy" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "reason" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "freezeRequestedAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "freezeTxHash" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "frozenAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "cancelledAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "unfreezeRequestedAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "unfreezeTxHash" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementRound" ADD COLUMN IF NOT EXISTS "activeChain" TEXT`,
+  `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "burnSentAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "failedAt" TIMESTAMPTZ(3)`,
+  `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "reason" TEXT`,
 ];
 
 /**

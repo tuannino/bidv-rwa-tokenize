@@ -1191,32 +1191,23 @@ export function createEvmLedger(
     // =========================================================================
     //  TẤT TOÁN
     // =========================================================================
-    /**
-     * Chưa contract nào phơi ra cờ "đang tất toán" đúng nghĩa.
-     * `ProjectToken.paused` chặn chuyển nhượng và vẫn cho agent `burn(address,uint256)` (khớp R6.3),
-     * còn `Redemption.paused` thì NGƯỢC hướng. Chọn sai một trong hai sẽ ra hệ thống
-     * chạy được nhưng làm ngược — cần Owner/Supervisor xác nhận trước khi nối.
-     *
-     * @blocked SC-04 | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau
-     */
-    async setSettlementMode() {
-      return pendingContract('setSettlementMode', 'xác nhận cờ tất toán nối vào contract nào');
+    async setSettlementMode(enabled) {
+      return write('setSettlementMode', enabled ? 'pause' : 'unpause', []);
     },
 
-    /** @blocked SC-04 | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc */
     async isSettlementMode() {
-      return pendingContract('isSettlementMode', 'xác nhận cờ tất toán nối vào contract nào');
+      return read<boolean>('isSettlementMode', 'paused', []);
     },
 
-    /** @blocked SC-04 | thiếu quyết định giá NAV có phải `Redemption.rate` hay không */
+    /** @blocked SC-04 | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi */
     async setNavRate(rate) {
       assertPositiveAmount(chain, 'setNavRate', rate);
-      return pendingContract('setNavRate', 'xác nhận giá NAV có phải Redemption.rate hay không');
+      return pendingContract('setNavRate', 'nợ kỹ thuật: bản tất toán đầy đủ sẽ quyết định giá NAV và chi trả trên chuỗi');
     },
 
-    /** @blocked SC-04 | thiếu quyết định giá NAV có phải `Redemption.rate` hay không */
+    /** @blocked SC-04 | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi */
     async navRate() {
-      return pendingContract('navRate', 'xác nhận giá NAV có phải Redemption.rate hay không');
+      return pendingContract('navRate', 'nợ kỹ thuật: bản tất toán đầy đủ sẽ quyết định giá NAV và chi trả trên chuỗi');
     },
 
     // =========================================================================
@@ -1527,6 +1518,17 @@ export function createEvmLedger(
             error instanceof BaseError ? error.shortMessage : String(error)
           }`,
         };
+      }
+    },
+
+    async isTransactionKnown(txHash) {
+      try {
+        await reader().getTransaction({ hash: txHash as Hex });
+        return true;
+      } catch (error) {
+        const message = error instanceof BaseError ? error.shortMessage : String(error);
+        if (/not found|could not be found/i.test(message)) return false;
+        return fail('isTransactionKnown', error);
       }
     },
 
