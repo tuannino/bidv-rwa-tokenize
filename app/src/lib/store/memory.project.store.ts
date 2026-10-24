@@ -80,6 +80,19 @@ export function stampIssuedInMemory(id: string, issuedAt: string): void {
   found.updatedAt = new Date().toISOString();
 }
 
+/** Được SettlementStore gọi trong cùng đoạn đồng bộ để đóng dự án nguyên tử với đợt thu hồi. */
+export function closeProjectInMemory(id: string): boolean {
+  const found = state().projects.find((project) => project.id === id);
+  if (!found) return false;
+  found.status = 'CLOSED';
+  found.updatedAt = new Date().toISOString();
+  return true;
+}
+
+export function projectExistsInMemory(id: string): boolean {
+  return state().projects.some((project) => project.id === id);
+}
+
 export function createMemoryProjectStore(): IProjectStore {
   return {
     kind: 'memory',

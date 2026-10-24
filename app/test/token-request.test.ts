@@ -191,6 +191,7 @@ describe('ca 1 — lập yêu cầu vượt trần còn lại bị chặn, nêu 
     expect(status).toEqual({
       permission: true,
       project: true,
+      recall: true,
       cap: false,
       wallet: true,
       noPending: true,

@@ -191,7 +191,7 @@ export async function createWithdrawRequest(input: unknown): Promise<Result<With
     const held = await vaultStore.findOperationLock(chain);
     return fail(
       'VAULT_BUSY',
-      `Vault đang có thao tác khác (${held?.kind === 'CONFIG' ? 'Kiểm soát viên đang lưu cấu hình khoá' : 'đã có lệnh rút đang dở'}); thử lại sau.`,
+      `Vault đang có thao tác khác (${held?.kind === 'CONFIG' ? 'Kiểm soát viên đang lưu cấu hình khoá' : held?.kind === 'RECALL' ? 'đang đóng băng hoặc thu hồi token' : 'đã có lệnh rút đang dở'}); thử lại sau.`,
     );
   }
 

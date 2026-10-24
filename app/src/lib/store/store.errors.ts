@@ -233,6 +233,7 @@ export const UNIQUE_CONSTRAINTS: Readonly<
     table: 'SettlementCase',
     columns: ['roundId', 'holderWallet'],
   },
+  SettlementRound_activeChain_key: { table: 'SettlementRound', columns: ['activeChain'] },
   KeeperRun_jobName_periodKey_key: { table: 'KeeperRun', columns: ['jobName', 'periodKey'] },
   Project_tokenSymbol_chain_key: { table: 'Project', columns: ['tokenSymbol', 'chain'] },
   TokenRequest_txHash_key: { table: 'TokenRequest', columns: ['txHash'] },

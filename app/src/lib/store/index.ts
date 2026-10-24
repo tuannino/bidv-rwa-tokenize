@@ -237,9 +237,7 @@ export function getDistributionStore(): IDistributionStore {
   return cache.distribution;
 }
 
-/**
- * @pending BE-05 | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ
- */
+/** Cổng đợt tất toán đầy đủ và đợt thu hồi PoC BE-05. */
 export function getSettlementStore(): ISettlementStore {
   cache.settlement ??= wantsMemoryStore()
     ? createMemorySettlementStore()

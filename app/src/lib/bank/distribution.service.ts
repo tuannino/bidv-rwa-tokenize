@@ -40,6 +40,7 @@ import {
   openPeriodSchema,
 } from './schemas';
 import type { ErrorCode } from './result';
+import { readRecallPhase } from './recall.service';
 
 /**
  * Nghiệp vụ CHIA LỢI NHUẬN theo sản lượng.
@@ -652,6 +653,10 @@ export async function openPeriod(input: unknown): Promise<Result<DistributionPer
   try {
     // `authorize` ghi sổ kiểm toán cho CẢ hai kết cục rồi mới ném.
     const role = await authorize('distribution:snapshot', periodKey, chain);
+    const recallPhase = await readRecallPhase(chain);
+    if (recallPhase.kind === 'FROZEN' || recallPhase.kind === 'CLOSED') {
+      return err('PERIOD_STATE', 'Dự án đang thu hồi hoặc đã đóng; không thể mở kỳ chia lợi nhuận mới.');
+    }
     const ledger = getLedger(chain);
     const ctx: ChainContext = { chain, ledger, store, txnStore, role, actor: await currentActorId(role) };
 

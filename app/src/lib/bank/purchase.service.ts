@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { findContractAddress, type ChainKey, type TxStatus } from '@bidv/shared';
-import { getLedger, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
+import { getLedger, LedgerNotImplementedError, receiptTimeoutFor, type ILedgerPort, type TxResult } from '@/lib/ledger';
 import { getBankSigner } from '@/lib/signer';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
@@ -39,6 +39,17 @@ import {
   type SettlementStepView,
   type SettlementView,
 } from './settlement-steps';
+import { readRecallPhase } from './recall.service';
+import { tradingBlocked } from './recall-phase';
+
+async function recallTradeBlock(chain: ChainKey): Promise<string | null> {
+  const ledger = getLedger(chain);
+  let settlementMode: boolean | null = null;
+  try { settlementMode = await ledger.isSettlementMode(); }
+  catch (error) { if (!(error instanceof LedgerNotImplementedError)) throw error; }
+  const verdict = tradingBlocked(await readRecallPhase(chain), settlementMode);
+  return verdict.blocked ? verdict.message : null;
+}
 
 /**
  * Nghiệp vụ LỆNH MUA WPT.
@@ -171,6 +182,8 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
 
   try {
     assertCan(await currentRole(), 'order:place');
+    const blocked = await recallTradeBlock(chain);
+    if (blocked) return err('REQUEST_STATE', blocked);
 
     // KHÔNG truyền `quotedVndAmount`: chưa có lệnh nào nên không có giá cũ để so.
     // FE-05 QĐ-F: trên chain thật, ủy quyền SẼ cấp bằng chữ ký lúc đặt lệnh, nên phép kiểm ủy quyền
@@ -245,6 +258,9 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       });
       return err(code, reason);
     };
+
+    const blocked = await recallTradeBlock(chain);
+    if (blocked) return await reject('REQUEST_STATE', blocked);
 
     let signed: OrderPermit | null = null;
     if (!isPermitChain(chain)) {

@@ -2,6 +2,8 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import { memoryState } from './memory.state';
+import { closeProjectInMemory, projectExistsInMemory } from './memory.project.store';
+import { appendAuditInMemory } from './memory.store';
 import {
   assertSettlementCaseStatus,
   assertSettlementRoundStatus,
@@ -21,6 +23,7 @@ import {
   ForeignKeyError,
   StoreUsageError,
   UniqueConstraintError,
+  MAX_BULK_ROWS,
 } from './store.errors';
 
 /**
@@ -45,6 +48,25 @@ const newestRoundFirst = (a: SettlementRoundRecord, b: SettlementRoundRecord) =>
 
 const newestCaseFirst = (a: SettlementCaseRecord, b: SettlementCaseRecord) =>
   b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
+
+const baseRoundFields = {
+  projectId: null, maturityDate: null, recallFrom: null, noticeDays: null, openedBy: null,
+  reason: null, freezeRequestedAt: null, freezeTxHash: null, frozenAt: null,
+  cancelledAt: null, unfreezeRequestedAt: null, unfreezeTxHash: null, activeChain: null,
+} as const;
+
+function newCase(roundId: string, row: NewSettlementCase, now: string): SettlementCaseRecord {
+  const record: SettlementCaseRecord = {
+    id: randomUUID(), roundId, holderWallet: row.holderWallet.toLowerCase(),
+    wptAmount: assertAmount('wptAmount', row.wptAmount),
+    payoutAmount: assertAmount('payoutAmount', row.payoutAmount), status: 'NOTIFIED',
+    notifiedAt: null, confirmedAt: null, paidAt: null, paidTxHash: null,
+    burnSentAt: null, burnedAt: null, burnTxHash: null, failedAt: null, reason: null,
+    createdAt: now, updatedAt: now,
+  };
+  stamp(record, assertSettlementCaseStatus(row.status ?? 'NOTIFIED'), now);
+  return record;
+}
 
 /** Ghi cột thời điểm (và cột mã giao dịch nếu bước đó có) theo `SETTLEMENT_CASE_COLUMNS`. */
 function stamp(
@@ -82,6 +104,7 @@ export function createMemorySettlementStore(): ISettlementStore {
         chain: round.chain,
         initiatedAt: new Date().toISOString(),
         completedAt: null,
+        ...baseRoundFields,
       };
       state().rounds.push(record);
       return { ...record };
@@ -121,27 +144,7 @@ export function createMemorySettlementStore(): ISettlementStore {
       );
 
       const now = new Date().toISOString();
-      const records: SettlementCaseRecord[] = rows.map((row: NewSettlementCase) => {
-        const record: SettlementCaseRecord = {
-          id: randomUUID(),
-          roundId,
-          holderWallet: row.holderWallet,
-          wptAmount: assertAmount('wptAmount', row.wptAmount),
-          payoutAmount: assertAmount('payoutAmount', row.payoutAmount),
-          status: 'NOTIFIED',
-          notifiedAt: null,
-          confirmedAt: null,
-          paidAt: null,
-          paidTxHash: null,
-          burnedAt: null,
-          burnTxHash: null,
-          createdAt: now,
-          updatedAt: now,
-        };
-        // Hồ sơ không bao giờ có trạng thái mà thiếu mốc thời gian của trạng thái đó.
-        stamp(record, assertSettlementCaseStatus(row.status ?? 'NOTIFIED'), now);
-        return record;
-      });
+      const records = rows.map((row) => newCase(roundId, row, now));
 
       // Đợt phải tồn tại: bản Postgres có khoá ngoài `SettlementCase_roundId_fkey`.
       if (!state().rounds.some((round) => round.id === roundId)) {
@@ -201,6 +204,153 @@ export function createMemorySettlementStore(): ISettlementStore {
         .sort(newestCaseFirst)
         .slice(0, limit)
         .map((item) => ({ ...item }));
+    },
+
+    async openRecallRound(input) {
+      if (state().rounds.some((round) => round.activeChain === input.chain)) {
+        throw new UniqueConstraintError('SettlementRound', ['activeChain']);
+      }
+      const record: SettlementRoundRecord = {
+        id: randomUUID(), snapshotId: 0, navRate: '0', status: 'INITIATED', chain: input.chain,
+        initiatedAt: new Date().toISOString(), completedAt: null,
+        projectId: input.projectId, maturityDate: input.maturityDate, recallFrom: input.recallFrom,
+        noticeDays: input.noticeDays, openedBy: input.openedBy, reason: input.reason,
+        freezeRequestedAt: null, freezeTxHash: null, frozenAt: null, cancelledAt: null,
+        unfreezeRequestedAt: null, unfreezeTxHash: null, activeChain: input.chain,
+      };
+      state().rounds.push(record);
+      return { ...record };
+    },
+
+    async findActiveRound(chain) {
+      const found = state().rounds.find((round) => round.activeChain === chain);
+      return found ? { ...found } : null;
+    },
+
+    async latestRecallRound(chain) {
+      const found = state().rounds.filter((round) => round.chain === chain && round.projectId !== null)
+        .sort(newestRoundFirst)[0];
+      return found ? { ...found } : null;
+    },
+
+    async requestFreeze({ id, at }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found || found.status !== 'INITIATED' || found.freezeRequestedAt !== null) return false;
+      found.freezeRequestedAt = at;
+      return true;
+    },
+
+    async setFreezeTx({ id, txHash, clearRequest = false }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found) return;
+      found.freezeTxHash = txHash;
+      if (clearRequest) found.freezeRequestedAt = null;
+    },
+
+    async completeFreeze({ id, frozenAt, cases, audit }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found || found.status !== 'INITIATED') return null;
+      assertNoDuplicateWallet('SettlementCase', 'holderWallet', cases.map((row) => row.holderWallet));
+      const now = new Date().toISOString();
+      const records = cases.map((row) => newCase(id, row, now));
+      if (records.some((record) => state().cases.some((item) => item.roundId === id && item.holderWallet === record.holderWallet))) {
+        throw new UniqueConstraintError('SettlementCase', ['roundId', 'holderWallet']);
+      }
+      found.status = 'IN_PROGRESS'; found.frozenAt = frozenAt;
+      for (let start = 0; start < records.length; start += MAX_BULK_ROWS) state().cases.push(...records.slice(start, start + MAX_BULK_ROWS));
+      appendAuditInMemory(audit);
+      return { ...found };
+    },
+
+    async cancelRound({ id, cancelledAt, audit }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found || found.status !== 'INITIATED' || found.freezeRequestedAt !== null) return null;
+      found.status = 'CANCELLED'; found.cancelledAt = cancelledAt; found.activeChain = null;
+      appendAuditInMemory(audit);
+      return { ...found };
+    },
+
+    async rescheduleRound({ id, maturityDate, recallFrom, noticeDays, audit }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found || found.status !== 'INITIATED' || found.freezeRequestedAt !== null) return null;
+      found.maturityDate = maturityDate; found.recallFrom = recallFrom; found.noticeDays = noticeDays;
+      appendAuditInMemory(audit);
+      return { ...found };
+    },
+
+    async requestUnfreeze({ id, at }) {
+      const found = state().rounds.find((round) => round.id === id);
+      const started = state().cases.some((item) => item.roundId === id && (item.status === 'BURNING' || (item.status === 'BURNED' && item.burnTxHash !== null)));
+      if (!found || found.status !== 'IN_PROGRESS' || found.unfreezeRequestedAt !== null || started) return false;
+      found.unfreezeRequestedAt = at;
+      return true;
+    },
+
+    async setUnfreezeTx({ id, txHash, clearRequest = false }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found) return;
+      found.unfreezeTxHash = txHash;
+      if (clearRequest) found.unfreezeRequestedAt = null;
+    },
+
+    async completeUnfreeze({ id, audit }) {
+      const found = state().rounds.find((round) => round.id === id);
+      const started = state().cases.some((item) => item.roundId === id && (item.status === 'BURNING' || (item.status === 'BURNED' && item.burnTxHash !== null)));
+      if (!found || found.status !== 'IN_PROGRESS' || started) return null;
+      found.status = 'INITIATED'; found.freezeRequestedAt = null; found.freezeTxHash = null;
+      found.frozenAt = null; found.unfreezeRequestedAt = null; found.unfreezeTxHash = null;
+      const kept = state().cases.filter((item) => item.roundId !== id || !(['NOTIFIED', 'FAILED'].includes(item.status) || (item.status === 'BURNED' && item.burnTxHash === null)));
+      state().cases.splice(0, state().cases.length, ...kept);
+      appendAuditInMemory(audit);
+      return { ...found };
+    },
+
+    async addMissingCases({ roundId, rows }) {
+      let added = 0;
+      for (let start = 0; start < rows.length; start += MAX_BULK_ROWS) {
+        for (const row of rows.slice(start, start + MAX_BULK_ROWS)) {
+          const wallet = row.holderWallet.toLowerCase();
+          if (state().cases.some((item) => item.roundId === roundId && item.holderWallet === wallet)) continue;
+          state().cases.push(newCase(roundId, row, new Date().toISOString())); added += 1;
+        }
+      }
+      return added;
+    },
+
+    async claimCase({ roundId, holderWallet, at }) {
+      const found = state().cases.find((item) => item.roundId === roundId && item.holderWallet === holderWallet.toLowerCase());
+      if (!found || !(['NOTIFIED', 'FAILED'] as SettlementCaseStatus[]).includes(found.status)) return null;
+      found.status = 'BURNING'; found.burnTxHash = null; found.burnSentAt = at;
+      found.failedAt = null; found.reason = null; found.updatedAt = at;
+      return { ...found };
+    },
+
+    async attachBurnTx({ roundId, holderWallet, txHash }) {
+      const found = state().cases.find((item) => item.roundId === roundId && item.holderWallet === holderWallet.toLowerCase());
+      if (!found || found.status !== 'BURNING' || found.burnTxHash !== null) return false;
+      found.burnTxHash = txHash; found.updatedAt = new Date().toISOString(); return true;
+    },
+
+    async settleCase({ roundId, holderWallet, to, at, reason }) {
+      const found = state().cases.find((item) => item.roundId === roundId && item.holderWallet === holderWallet.toLowerCase());
+      if (!found || found.status !== 'BURNING') return null;
+      found.status = to; found.updatedAt = at; found.reason = reason ?? null;
+      if (to === 'BURNED') found.burnedAt = at; else found.failedAt = at;
+      return { ...found };
+    },
+
+    async listRoundCases({ roundId, statuses }) {
+      return state().cases.filter((item) => item.roundId === roundId)
+        .filter((item) => statuses === undefined || statuses.includes(item.status))
+        .sort((a, b) => a.holderWallet.localeCompare(b.holderWallet)).map((item) => ({ ...item }));
+    },
+
+    async completeRound({ id, projectId, completedAt, audit }) {
+      const found = state().rounds.find((round) => round.id === id);
+      if (!found || found.status !== 'IN_PROGRESS' || found.projectId !== projectId || !projectExistsInMemory(projectId)) return null;
+      found.status = 'COMPLETED'; found.completedAt = completedAt; found.activeChain = null;
+      closeProjectInMemory(projectId); appendAuditInMemory(audit);
+      return { ...found };
     },
   };
 }

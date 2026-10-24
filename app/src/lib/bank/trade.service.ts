@@ -22,6 +22,8 @@ import {
   findOwnAccountProfile,
   type CustomerAccountProfile,
 } from './account-profile.service';
+import { readRecallPhase } from './recall.service';
+import { tradingBlocked } from './recall-phase';
 
 /**
  * PHÉP ĐỌC PHÍA MÁY CHỦ cho hai màn của Nhà đầu tư (FE-25): Giao dịch token và Quản lý lệnh.
@@ -134,7 +136,7 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`). Đọc MỘT
     // lần: ô "Giá" dùng thẳng, thẻ "Thông tin token" dùng lại qua `readEffectiveIssuePrice` (FE-07).
     const quoted = ledger.quotePurchase(1n);
-    const [projects, held, vndb, price, issuePrice, terms, settling] = await Promise.all([
+    const [projects, held, vndb, price, issuePrice, terms, settling, recallPhase] = await Promise.all([
       getProjectStore().listProjects({ chain }),
       ledger.balanceOf(wallet),
       ledger.paymentBalanceOf(wallet),
@@ -143,7 +145,11 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       readTokenTerms(),
       // Cùng quyết định với xem trước (FE-05): chain chưa có cờ tất toán thì không chặn cả màn.
       settlementModeOrUnknown(ledger),
+      readRecallPhase(chain),
     ]);
+
+    const block = tradingBlocked(recallPhase, settling);
+    if (block.blocked) return err('REQUEST_STATE', block.message ?? 'Giao dịch đang bị tạm dừng.');
 
     const project = projects[0] ?? null;
     const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, settling !== true) : null;

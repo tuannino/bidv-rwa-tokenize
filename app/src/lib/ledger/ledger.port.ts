@@ -474,6 +474,8 @@ export interface ILedgerRead {
   listTokenWallets(): Promise<TokenWalletList>;
   tokenInfo(): Promise<TokenInfo>;
   waitReceipt(txHash: string, timeoutMs?: number): Promise<TxResult>;
+  /** Giao dịch có tồn tại ở nút đang đọc hay không; false gồm cả mã chưa được nút biết tới. */
+  isTransactionKnown(txHash: string): Promise<boolean>;
   /**
    * Số block MỚI NHẤT (BE-13 QĐ-E): mốc `claimedBlock` của lệnh rút để quét sự kiện ứng viên.
    * Mock trả bộ đếm block bền trong state.

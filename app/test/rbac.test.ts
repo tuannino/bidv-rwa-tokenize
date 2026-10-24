@@ -301,7 +301,7 @@ const NEW_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why
   { action: 'order:execute', allowed: ['TELLER'], why: 'chỉ ngân hàng khớp lệnh và chuyển tiền' },
   { action: 'distribution:snapshot', allowed: ['TELLER'], why: 'chốt quyền là quyết định của ngân hàng' },
   { action: 'distribution:execute', allowed: ['TELLER'], why: 'kiểm soát viên giám sát, không tự chi trả' },
-  { action: 'settlement:initiate', allowed: ['TELLER'], why: 'ngân hàng điều phối đóng quỹ' },
+  { action: 'settlement:initiate', allowed: ['CONTROLLER'], why: 'BE-05 chuyển quyền mở đợt sang Kiểm soát viên' },
   { action: 'settlement:set-nav', allowed: ['TELLER'], why: 'đặt giá hoàn vốn là việc của ngân hàng' },
   { action: 'settlement:confirm', allowed: ['INVESTOR'], why: 'nhà đầu tư tự xác nhận hoàn vốn' },
   { action: 'treasury:manage', allowed: ['TELLER'], why: 'quản trị ví SPV và ví chia lợi nhuận' },
@@ -438,13 +438,17 @@ const FE08_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   },
 ];
 
+const BE05_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  { action: 'settlement:recall', allowed: ['CONTROLLER'], why: 'chỉ Kiểm soát viên đóng băng và thu hồi token' },
+];
+
 /**
  * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
  * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
  */
 const INTENTIONALLY_REMOVED: Partial<Record<Role, readonly Action[]>> = {
   // FE-22 việc 14: đóng đường đi vòng qua lập–duyệt.
-  TELLER: ['token:mint', 'token:burn'],
+  TELLER: ['token:mint', 'token:burn', 'settlement:initiate'],
 };
 
 /** Mọi hành động GHI — không vai chỉ-đọc nào được có, kể cả vai trò lạ. */
@@ -461,6 +465,7 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'distribution:snapshot',
   'distribution:execute',
   'settlement:initiate',
+  'settlement:recall',
   'settlement:set-nav',
   'settlement:confirm',
   'treasury:manage',
@@ -476,7 +481,7 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS, ...BE05_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -498,6 +503,7 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...FE22_ACTIONS.map((row) => row.action),
       ...BE13_ACTIONS.map((row) => row.action),
       ...FE08_ACTIONS.map((row) => row.action),
+      ...BE05_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
@@ -547,7 +553,7 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
     // vault (cấu hình khoá, xử lý lệnh rút cần xem xét) và FE-08 duyệt chia không có quyền ghi
     // nào, kể cả tự rút hay `distribution:execute` trực tiếp.
     const writes = ALL_WRITE_ACTIONS.filter((action) => can('CONTROLLER', action));
-    expect(writes).toEqual(['order:approve', 'vault:configure', 'vault:reconcile', 'distribution:approve']);
+    expect(writes).toEqual(['settlement:initiate', 'settlement:recall', 'order:approve', 'vault:configure', 'vault:reconcile', 'distribution:approve']);
   });
 
   it('BE-12 việc 4 — không vai nào có cả quyền lập lẫn quyền duyệt', () => {

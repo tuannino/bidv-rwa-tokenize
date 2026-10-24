@@ -147,6 +147,8 @@ const envSchema = z.object({
    * Điểm kiểm duy nhất: `lib/rbac/demo-payment.ts`. Đừng đọc cờ này ở chỗ khác.
    */
   enableDemoTokenMint: boolFlag(false),
+  /** Cho phép noticeDays=0 ngoài mock/hardhat để diễn tập; mặc định tắt. */
+  enableDemoRecall: boolFlag(false),
 
   /** OP-04: đăng ký dự án Sepolia đã deploy; không tự phát hành token. */
   enableSepoliaDemoProject: boolFlag(false),
@@ -207,6 +209,7 @@ function load(): ServerEnv {
     enableDemoPaymentMint: process.env.ENABLE_DEMO_PAYMENT_MINT,
     // Cùng lý do: không có biến thể NEXT_PUBLIC_.
     enableDemoTokenMint: process.env.ENABLE_DEMO_TOKEN_MINT,
+    enableDemoRecall: process.env.ENABLE_DEMO_RECALL,
     enableSepoliaDemoProject: process.env.ENABLE_SEPOLIA_DEMO_PROJECT,
     enableReadDiagnostics: process.env.ENABLE_READ_DIAGNOSTICS,
     // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle
