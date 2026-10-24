@@ -9,14 +9,19 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.22 |
-| Cập nhật lần cuối | 2026-10-21 |
-| Nhánh / commit | `feat/op-05-runbook` (PR A), từ `dev` @ `7d058de` (PR #61, FE-08 đã merge); spec `docs/op-05-sepolia-lan-hai/` bản 3 |
+| Phiên bản tài liệu | 4.23 |
+| Cập nhật lần cuối | 2026-10-24 |
+| Nhánh / commit | `feat/in-01-indexer`, từ `dev` @ `2fbdde8`; spec `docs/in-01-indexer/` bản 2 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
-| Hoàn thành mới ở bản này | **FE-08**: Kiểm soát viên duyệt con số kỳ rồi hệ thống mới chia lợi nhuận, màn `/distribution` mở bằng một action (PR #61, xem 3.27) |
-| Đang thực hiện | **OP-05**: PR A xong phần coder (liên kết ví trong hồ sơ 3.28, ước phí theo thao tác, chặn `dod-verify-sepolia.js`, runbook `docs/TESTNET_SEPOLIA.md`, kiểm thử vòng nghiệp vụ, diễn tập); còn PR B (Sếp: địa chỉ, ABI, Hyperdrive mới), vòng nghiệp vụ trên Sepolia và PR C |
-| Phase kế tiếp | Sếp chạy runbook OP-05 bước 0 đến 14 trên Sepolia với database Neon và Hyperdrive mới; AU-01 trả nợ ví liên kết |
-| Người cập nhật | Claude Code (OP-05 PR A, thực thi theo chỉ định của Owner). Supervisor rà soát |
+| Hoàn thành mới ở bản này | **IN-01**: Indexer gọn cho sự kiện vault/WPT và danh sách mọi ví từng chuyển WPT (xem 3.30) |
+| Đang thực hiện | Không có sau khi bàn giao IN-01; chờ Supervisor nghiệm thu và Sếp quyết định merge |
+| Phase kế tiếp | IN-02 dùng sự kiện Indexer để phát hiện tiền vào quỹ; đồng bộ Indexer theo lịch là nợ kỹ thuật |
+| Người cập nhật | Codex (IN-01). Supervisor rà soát |
+
+**4.22 lên 4.23 (IN-01): Indexer gọn theo nhu cầu.** Hai bảng `ChainEvent` và `IndexerCursor`
+lưu sự kiện đã đủ xác nhận của vault/WPT theo scope có anchor block triển khai. Năm hàm lịch sử EVM
+đọc bảng cộng phần đuôi live; `listTokenWallets` giữ cả ví số dư 0 và cấp nguồn thứ tư cho chia theo
+snapshot. Lease có owner fence, CAS cursor và gia hạn từng đoạn. Xem 3.30 và `CHECKPOINT_IN01.md`.
 
 **4.21 lên 4.22 (OP-05 PR A): chuẩn bị Sepolia lần hai.** Người dùng tự liên kết ví vào hồ sơ theo chain
 (bảng `ProfileWallet`, `linkProfileWalletAction`, khối "Ví liên kết" trên `/account`); `previewTrade` tra hồ sơ
@@ -462,6 +467,7 @@ bidv-rwa-tokenize/
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
 │   │   └── config/issue-price-key.ts # FE-27: khoá giá phát hành ghép theo chain
 │   │   └── diagnostics/read-trace.ts # OP-06: thời gian DB/RPC theo request
+│   │   └── indexer/event-index.ts # IN-01: đồng bộ cache sự kiện + đọc bảng và live tail
 │   │   └── store/configured-seed-data.ts # OP-04: đăng ký Sepolia khi bật cờ
 │   ├── e2e/                   # Playwright
 │   ├── test/                  # Vitest
@@ -698,6 +704,9 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Số kỳ trên chuỗi có thể khác số Kiểm soát viên duyệt** (FE-08 QĐ-H): `createDistributionFromPool` lấy toàn bộ phần chưa phân bổ lúc thực thi; app dừng ở `AMOUNT_CHANGED`, không chốt vault, không trả, bắt duyệt lại số thực tế | Đợt sửa hợp đồng: `openDistribution` nhận số tiền kỳ vọng, sai thì revert |
 | **P1** *(đề nghị, Supervisor chốt mức)* | **Một người duyệt, chỉ duyệt tổng số** (FE-08 QĐ-G, QĐ-H): Kiểm soát viên duyệt tổng VNDB của kỳ, không duyệt danh sách hay tỷ lệ; PoC một chữ ký | Quy trình ngân hàng khi lên production (nhiều cấp duyệt, chốt ảnh chụp danh sách trước khi duyệt) |
 | **P1** | **Ví liên kết trong hồ sơ không chứng minh quyền sở hữu** (OP-05 QĐ-I, CH-2; xem 3.28): người dùng tự gắn ví vào hồ sơ của mình, không ký thông điệp; hồ sơ, KYC, rủi ro là dữ liệu mẫu trong mã; phiên là cookie. Chỉ chấp nhận được với tiền thử | AU-01: đăng nhập thật, ký thông điệp chứng minh sở hữu ví trước khi ghi, hồ sơ từ hệ thống KYC, ngân hàng xác nhận ánh xạ ví cùng lúc whitelist |
+| **P2** | **Indexer chỉ đồng bộ theo nhu cầu**, nên lần mở đầu sau deploy/dựng lại có thể chậm và tạo tải RPC dài | Bổ sung Cron Trigger/tiến trình theo lịch khi lên production; PoC làm nóng bằng ba lần mở `/vault` |
+| **P1** | **Indexer không xử lý reorg sâu hơn `INDEXER_CONFIRMATIONS`**; cache có thể giữ log nhánh bị bỏ | Chỉ khi Sếp quyết: xoá `ChainEvent` và `IndexerCursor` của đúng chain theo runbook rồi dựng lại |
+| **P2** | **Danh sách ví WPT giới hạn 5.000, chưa phân trang** | Thêm phân trang trước khi số ví từng chuyển token chạm giới hạn; hiện `truncated` chặn chia thiếu |
 
 ### D. Cách làm việc
 
@@ -1349,7 +1358,7 @@ công mà phản hồi bị mất).
 
 ## 3.5. `app/src/lib/store/` và `providers/`
 
-**Tám cổng lưu trữ, mỗi cổng một nghiệp vụ** (BE-09 năm cổng, BE-04 thêm hai, BE-12 thêm một). Hai hiện thực cho
+**Chín cổng lưu trữ, mỗi cổng một nghiệp vụ** (IN-01 thêm cổng cache sự kiện). Hai hiện thực cho
 mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 
 | File | Cổng / vai trò | Hàm chính |
@@ -1374,6 +1383,7 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `components/maker-checker/token-info-read.ts` | Fetch GET độc lập hàng chờ action, timeout/hủy lượt cũ; không gọi thao tác ghi | `fetchTokenInfo`, `TokenInfoTimeoutError`, `TOKEN_INFO_TIMEOUT_MS` |
 | `store/postgres.pool.ts` | FE-05: phép kiểm "lược đồ sẵn sàng" (`schemaObjectsReady`) đếm thêm mọi cột của `ADDED_COLUMNS`; trước đó database đang chạy thiếu cột mới vẫn bị coi là sẵn sàng nên `ALTER` không chạy. OP-06: Worker dùng một `pg.Client` theo `ExecutionContext` cho các `pgQuery`; request khác và transaction dùng Client riêng. Node vẫn theo từng lời gọi. Khởi tạo nhanh chỉ kiểm catalog + seed; thiếu mới chạy transaction/DDL/seed. Chỉ cache thành công theo connection string, không cho request khác chờ Promise đang chạy. Seed chỉ cập nhật `contractAddress` khi `issuedAt IS NULL` | `pgQuery`, `pgTransaction`, `seedInitialData` |
 | `store/postgres.{store,order,distribution,settlement,keeper,config,project,token-request}.store.ts` | Bản Postgres, `pg` thuần, query tham số hoá | |
+| `store/chain-event.store.port.ts`, `memory.chain-event.store.ts`, `postgres.chain-event.store.ts` | IN-01: cursor/lease có owner fence; sự kiện idempotent theo scope; truy vấn lịch sử và tổng hợp ví Transfer kể cả số dư 0 | `IChainEventStore`, `createMemoryChainEventStore`, `createPostgresChainEventStore` |
 | `store/index.ts` | Factory theo `USE_MOCK_DB` | `getStore`, `getOrderStore`, `getDistributionStore`, `getSettlementStore`, `getKeeperStore`, `getConfigStore`, `getProjectStore`, `getTokenRequestStore`, `resetStoreCache`, `resetMemoryStore` |
 | `ledger/mock-state.store.ts` | OP-07: kiểu đủ 17 trường state, mã hoá/giải mã bigint/Map/Set/snapshot và kho RAM có rollback khi callback lỗi | `MockLedgerStateStore`, `memoryMockLedgerStateStore`, `encodeMockLedgerState`, `decodeMockLedgerState` |
 | `ledger/postgres-mock-state.store.ts` | OP-07: một dòng JSONB/chain; ghi trong transaction, `SELECT ... FOR UPDATE`, tăng version; cảnh báo trên 512 KiB | `createPostgresMockLedgerStateStore` |
@@ -1396,6 +1406,8 @@ sinh ra từ nó bằng `npm run db:sql`):
 | `SettlementRound` | — | (hồ sơ từng ví mới là chỗ cần chặn) |
 | `SystemConfig` | `key` là khoá chính | hai dòng cùng một tham số |
 | `SystemConfigHistory` | — | (bảng chỉ ghi thêm, không có gì phải chặn trùng) |
+| `ChainEvent` | `(chain, anchor, txHash, logIndex)` | ghi trùng cùng log khi retry; scope cũ không lẫn scope hiện hành |
+| `IndexerCursor` | `chain` là khoá chính | hai cursor cạnh tranh trên cùng chain; lease + owner/CAS quyết định lượt được tiến |
 
 ⚠️ **`Project` duy nhất theo `(tokenSymbol, chain)`, không phải `tokenSymbol` một mình.** Mỗi
 chuỗi có trạng thái phát hành riêng: đã phát hành trên `hardhat-local` không có nghĩa là đã phát
@@ -1467,6 +1479,15 @@ và chuỗi mặc định**, để bản demo free-tier phát hành được mà
 | `ENABLE_READ_DIAGNOSTICS` (OP-06) | **`false`** | Log bước/thời gian đọc; Wrangler bật tạm true để debug, tắt sau khi đo |
 | `ENABLE_SEPOLIA_DEMO_PROJECT` (OP-04) | **`false`** | Đăng ký WPT DRAFT trên `evm` đã deploy, không mint. Cùng dữ liệu cho memory/Postgres |
 | `DEMO_ACTOR` (BE-12) | trống | Mã tài khoản giả lập ghi vào người lập / người duyệt. Trống = mã mẫu của vai (`SAMPLE_ACCOUNTS` ở `lib/session/channel.ts`). **Không phải xác thực** — AU-01 thay |
+
+**Cấu hình Indexer (IN-01):**
+
+| Biến | Mặc định | Ý nghĩa |
+|---|:--:|---|
+| `INDEXER_CONFIRMATIONS` | `12` | Số block cuối chỉ đọc live, chưa ghi cache để tránh reorg nông |
+| `INDEXER_SEGMENT_BLOCKS` | `50000` | Cỡ tối đa một đoạn đồng bộ và gia hạn lease |
+| `INDEXER_MAX_BLOCKS_PER_SYNC` | `200000` | Số block tối đa một lượt đọc được phép đẩy cursor |
+| `INDEXER_LEASE_SECONDS` | `60` | Thời hạn lease; một đoạn phải xong dưới một nửa mốc này |
 
 **Bí mật trong `env.ts` (không phải cờ):**
 
@@ -1689,15 +1710,15 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
-| `BE-05` | cắm | `app/src/lib/store/index.ts:227` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
+| `BE-05` | cắm | `app/src/lib/store/index.ts:241` | cổng đợt tất toán đã sẵn ở cả hai bản (bộ nhớ + Postgres): hồ sơ có bốn trạng thái, `(roundId, holderWallet)` duy nhất chặn một ví vào hai hồ sơ trong cùng đợt. Thứ tự bốn bước CỐ Ý để cho nghiệp vụ quyết, cổng chỉ giữ tập giá trị hợp lệ |
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:76` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên hai vai vận hành đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:302` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được; kết cục vẫn là `AWAITING_APPROVAL` cho tới khi Kiểm soát viên duyệt |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1158` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1164` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1169` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1175` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1200` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào; hai ứng viên hiện có thì ngược hướng nhau |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1206` | thiếu quyết định cờ "đang tất toán" nằm ở contract nào, nên chưa có cờ nào để đọc |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1211` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1217` | thiếu quyết định giá NAV có phải `Redemption.rate` hay không |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -2855,6 +2876,41 @@ wallet)` để `previewTrade` không phải đổi.
   - **Indexer** (IN-01): đọc sự kiện chuỗi đã xảy ra, từ mọi nguồn (kể cả thao tác ngoài ứng dụng), là nguồn sự thật cho lịch sử và danh sách người nắm giữ.
 - Trạng thái hiện tại (số dư, phần rút được, giá) vẫn đọc trực tiếp bằng lời gọi chỉ đọc vì rẻ và cần mới nhất.
 
+## 3.30. Indexer gọn cho sự kiện vault và WPT (IN-01)
+
+Indexer là cache có thể dựng lại, không phải sổ nghiệp vụ. Mỗi lời đọc lịch sử EVM đồng bộ phần
+thiếu theo nhu cầu, đọc sự kiện đã xác nhận từ Postgres rồi gộp phần đuôi chưa xác nhận từ RPC.
+Trạng thái hiện tại như số dư, giá, phần được rút vẫn đọc trực tiếp từ chuỗi.
+
+| Quyết định | Hiện thực |
+|---|---|
+| QĐ-IN1 | Hai bảng: `ChainEvent` chứa log đã giải mã; `IndexerCursor` chứa scope, cursor và lease |
+| QĐ-IN2 | Đồng bộ theo nhu cầu; chưa có cron hay dịch vụ riêng |
+| QĐ-IN3 | Chỉ lưu tới `head - INDEXER_CONFIRMATIONS`; phần đuôi đọc live và bỏ sau khi dùng |
+| QĐ-IN4 | Lease trên cursor, owner fence khi trả/gia hạn, CAS `lastBlock`; commit mỗi đoạn trong một transaction |
+| QĐ-IN5 | Chỉ lấy log của `SpvPaymentVault` và `ProjectToken` |
+| QĐ-IN6 | Năm hàm lịch sử giữ chữ ký; thêm `ILedgerRead.listTokenWallets()` |
+| QĐ-IN7 | Mock giữ state trong bộ nhớ/Postgres như trước; danh sách ví đọc bảng số dư mock |
+| QĐ-IN8 | Scope `(anchor, vault, token)`; anchor là hash block triển khai, nên deploy/reset node không trộn dữ liệu cũ |
+
+| Tệp | Vai trò |
+|---|---|
+| `lib/indexer/event-index.ts` | Đồng bộ theo đoạn, gộp bảng + tail, tổng hợp số dư Transfer và truncation |
+| `lib/store/chain-event.store.port.ts` | Cổng độc lập với viem cho cursor, lease, sự kiện và ví token |
+| `lib/store/memory.chain-event.store.ts` | Bản test/mock, có đồng hồ tiêm được để kiểm lease |
+| `lib/store/postgres.chain-event.store.ts` | SQL tham số hoá, insert idempotent, transaction tiến cursor có owner/CAS |
+| `lib/ledger/evm.adapter.ts` | Nguồn viem: head, scope/anchor, log hai hợp đồng và timestamp block |
+
+`listTokenWallets()` giữ mọi ví từng gửi/nhận, kể cả số dư hiện tại bằng 0. Đây là điều kiện đúng
+cho chia theo snapshot: ví giữ WPT lúc chụp rồi chuyển hết trước khi lập hồ sơ vẫn phải xuất hiện để
+`balanceOfAt` quyết số tiền. Danh sách sắp theo địa chỉ chữ thường và dùng sentinel để bật
+`truncated` khi vượt 5.000.
+
+**Giới hạn và vận hành:** reorg sâu hơn 12 block không được tự sửa; lần đầu có thể cần nhiều lượt
+đọc để bắt kịp; danh sách ví chưa phân trang. Quy trình xoá cache đúng chain nằm ở
+`docs/DEPLOYMENT.md` và chỉ chạy khi Sếp quyết. Hướng mở rộng: thêm đồng bộ theo lịch, sau đó IN-02
+dùng cùng nguồn sự kiện để phát hiện tiền vào quỹ; không biến `ChainEvent` thành sổ nghiệp vụ.
+
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
 
 ⚠️ **FE-22: đường này nằm sau HAI LỚP CHẶN** — quyền `demo:mint-token` và cờ `ENABLE_DEMO_TOKEN_MINT`
@@ -3508,6 +3564,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | SC-09 WPT theo ERC-3643 PoC, sổ danh tính/bộ luật tách rời và ERC-2612 cho WPT/VNDB | ✅ Xong; đã đối chiếu bằng chứng Sepolia ngày 19/10/2026 |
 | — | SC-07 vault thanh toán SPV, khoá VNDB on-chain, lịch sử chốt kỳ và chặn Mint đầu sai đích (xem 3.23) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
 | — | SC-03 khớp mua/bán nguyên tử trên EVM, permit ở contract và phục hồi theo `orderRef` (xem 4.2) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
+| - | IN-01 Indexer gọn cho sự kiện vault/WPT và danh sách ví theo Transfer (xem 3.30) | ✅ Xong mã và kiểm chứng local; chờ Supervisor nghiệm thu |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |

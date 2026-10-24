@@ -31,6 +31,9 @@ import type { IVaultStore } from './vault.store.port';
 import { createMemoryProfileWalletStore } from './memory.profile-wallet.store';
 import { createPostgresProfileWalletStore } from './postgres.profile-wallet.store';
 import type { IProfileWalletStore } from './profile-wallet.store.port';
+import type { IChainEventStore } from './chain-event.store.port';
+import { createMemoryChainEventStore } from './memory.chain-event.store';
+import { createPostgresChainEventStore } from './postgres.chain-event.store';
 
 export {
   type AuditRecord,
@@ -167,6 +170,16 @@ export {
 } from './vault.store.port';
 
 export type { IProfileWalletStore, ProfileWalletRecord } from './profile-wallet.store.port';
+export type {
+  ChainEventQuery,
+  IChainEventStore,
+  IndexedEvent,
+  IndexedEventArgs,
+  IndexerCursorRow,
+  IndexerScope,
+  LiveIndexedEvent,
+  TokenWalletQuery,
+} from './chain-event.store.port';
 
 export { resetMemoryStore } from './memory.store';
 
@@ -194,6 +207,7 @@ const cache: {
   tokenRequest?: ITokenRequestStore;
   vault?: IVaultStore;
   profileWallet?: IProfileWalletStore;
+  chainEvent?: IChainEventStore;
 } = {};
 
 const wantsMemoryStore = (): boolean => serverEnv().useMockDb;
@@ -293,6 +307,14 @@ export function getProfileWalletStore(): IProfileWalletStore {
   return cache.profileWallet;
 }
 
+/** IN-01: bộ nhớ đệm sự kiện chuỗi; chọn cùng chế độ lưu trữ với các cổng khác. */
+export function getChainEventStore(): IChainEventStore {
+  cache.chainEvent ??= wantsMemoryStore()
+    ? createMemoryChainEventStore()
+    : createPostgresChainEventStore();
+  return cache.chainEvent;
+}
+
 /**
  * Xoá cache của MỌI cổng.
  *
@@ -311,4 +333,5 @@ export function resetStoreCache(): void {
   cache.tokenRequest = undefined;
   cache.vault = undefined;
   cache.profileWallet = undefined;
+  cache.chainEvent = undefined;
 }

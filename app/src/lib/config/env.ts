@@ -94,10 +94,16 @@ const envSchema = z.object({
    * 10 block mỗi lần, nên đọc lịch sử qua RPC chính hỏng. Trống thì dùng RPC công khai mặc định của chain.
    */
   rpcEvmLogs: optionalUrl,
-  /** Số block tối đa mỗi đoạn quét sự kiện OrderSettled. */
-  orderSettlementEventBlockChunk: positiveInteger(5_000),
   /** HF-03: số block tối đa mỗi đoạn `eth_getLogs` khi quét lịch sử vault (publicnode cho tối đa 50.000). */
   evmLogBlockChunk: positiveInteger(10_000),
+  /** IN-01: số block cuối chưa ghi bền để tránh reorg nông. */
+  indexerConfirmations: z.coerce.number().int().nonnegative().optional().default(12),
+  /** IN-01: số block tối đa trong một đoạn commit/gia hạn lease. */
+  indexerSegmentBlocks: positiveInteger(50_000),
+  /** IN-01: tổng số block tối đa một lượt đọc được phép đẩy cursor. */
+  indexerMaxBlocksPerSync: positiveInteger(200_000),
+  /** IN-01: thời gian lease; mỗi đoạn phải hoàn tất dưới một nửa mốc này. */
+  indexerLeaseSeconds: positiveInteger(60),
 
   // --- Signer (PoC) ---
   /** Khóa dùng chung, áp cho mọi chain không có khóa riêng. */
@@ -183,8 +189,11 @@ function load(): ServerEnv {
     rpcHardhat: process.env.RPC_HARDHAT ?? process.env.NEXT_PUBLIC_RPC_HARDHAT,
     rpcEvm: process.env.RPC_EVM ?? process.env.NEXT_PUBLIC_RPC_EVM,
     rpcEvmLogs: process.env.RPC_EVM_LOGS,
-    orderSettlementEventBlockChunk: process.env.ORDER_SETTLEMENT_EVENT_BLOCK_CHUNK,
     evmLogBlockChunk: process.env.EVM_LOG_BLOCK_CHUNK,
+    indexerConfirmations: process.env.INDEXER_CONFIRMATIONS,
+    indexerSegmentBlocks: process.env.INDEXER_SEGMENT_BLOCKS,
+    indexerMaxBlocksPerSync: process.env.INDEXER_MAX_BLOCKS_PER_SYNC,
+    indexerLeaseSeconds: process.env.INDEXER_LEASE_SECONDS,
     serverSignerPrivateKey: process.env.SERVER_SIGNER_PRIVATE_KEY,
     serverSignerPrivateKeyHardhatLocal: process.env.SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL,
     serverSignerPrivateKeyEvm: process.env.SERVER_SIGNER_PRIVATE_KEY_EVM,

@@ -25,7 +25,7 @@ flowchart TD
   s2["2 · getDistributionOverview()<br/>app/src/lib/bank/distribution-approval.service.ts<br/>kiểm quyền reconcile:read, đọc quỹ, dự kiến theo shareOf trên số dư hiện tại, kỳ hoạt động và…"]
   s3["3 · approveDistributionAction()<br/>app/src/app/actions/distribution.ts<br/>nhận lần duyệt chia của Kiểm soát viên kèm số VNDB đã xem trên màn"]
   s4["4 · approveDistribution()<br/>app/src/lib/bank/distribution-approval.service.ts<br/>kiểm quyền distribution:approve, chain phải có vault, số duyệt phải bằng phần chưa phân bổ, giữ…"]
-  s5["5 · collectRecipients()<br/>app/src/lib/bank/distribution.service.ts<br/>dựng danh sách người nhận từ cơ sở dữ liệu cộng ví SPV vì chuỗi không liệt kê được người nắm giữ"]
+  s5["5 · collectRecipients()<br/>app/src/lib/bank/distribution.service.ts<br/>dựng danh sách người nhận từ ba nguồn nghiệp vụ cộng mọi ví Transfer do Indexer trả"]
   s6["6 · driveOpening()<br/>app/src/lib/bank/distribution.service.ts<br/>mở kỳ trên chuỗi bằng nhãn dùng một lần, lưu mã giao dịch trước khi chờ, tra kỳ trên chuỗi để…"]
   s7["7 · decideApproval()<br/>app/src/lib/bank/distribution.service.ts<br/>so số thực tế của kỳ trên chuỗi với số đã duyệt: đúng thì APPROVED, khác thì AMOUNT_CHANGED và…"]
   s8["8 · reapproveDistributionAction()<br/>app/src/app/actions/distribution.ts<br/>nhận lần duyệt lại số thực tế trên chuỗi của kỳ AMOUNT_CHANGED hoặc kỳ cũ chưa duyệt"]
@@ -80,17 +80,17 @@ flowchart TD
 | 2 | `app/src/lib/bank/distribution-approval.service.ts:588` | `getDistributionOverview()` | kiểm quyền reconcile:read, đọc quỹ, dự kiến theo shareOf trên số dư hiện tại, kỳ hoạt động và lý do chưa duyệt được |
 | 3 | `app/src/app/actions/distribution.ts:45` | `approveDistributionAction()` | nhận lần duyệt chia của Kiểm soát viên kèm số VNDB đã xem trên màn |
 | 4 | `app/src/lib/bank/distribution-approval.service.ts:274` | `approveDistribution()` | kiểm quyền distribution:approve, chain phải có vault, số duyệt phải bằng phần chưa phân bổ, giữ chỗ kỳ OPENING một kỳ hoạt động mỗi chain, mở trên chuỗi rồi so số thực tế |
-| 5 | `app/src/lib/bank/distribution.service.ts:335` | `collectRecipients()` | dựng danh sách người nhận từ cơ sở dữ liệu cộng ví SPV vì chuỗi không liệt kê được người nắm giữ |
-| 6 | `app/src/lib/bank/distribution.service.ts:556` | `driveOpening()` | mở kỳ trên chuỗi bằng nhãn dùng một lần, lưu mã giao dịch trước khi chờ, tra kỳ trên chuỗi để hoàn tất hoặc phục hồi |
-| 7 | `app/src/lib/bank/distribution.service.ts:472` | `decideApproval()` | so số thực tế của kỳ trên chuỗi với số đã duyệt: đúng thì APPROVED, khác thì AMOUNT_CHANGED và dừng |
+| 5 | `app/src/lib/bank/distribution.service.ts:330` | `collectRecipients()` | dựng danh sách người nhận từ ba nguồn nghiệp vụ cộng mọi ví Transfer do Indexer trả |
+| 6 | `app/src/lib/bank/distribution.service.ts:557` | `driveOpening()` | mở kỳ trên chuỗi bằng nhãn dùng một lần, lưu mã giao dịch trước khi chờ, tra kỳ trên chuỗi để hoàn tất hoặc phục hồi |
+| 7 | `app/src/lib/bank/distribution.service.ts:473` | `decideApproval()` | so số thực tế của kỳ trên chuỗi với số đã duyệt: đúng thì APPROVED, khác thì AMOUNT_CHANGED và dừng |
 | 8 | `app/src/app/actions/distribution.ts:50` | `reapproveDistributionAction()` | nhận lần duyệt lại số thực tế trên chuỗi của kỳ AMOUNT_CHANGED hoặc kỳ cũ chưa duyệt |
 | 9 | `app/src/lib/bank/distribution-approval.service.ts:395` | `reapproveDistribution()` | kiểm quyền distribution:approve, kỳ AMOUNT_CHANGED hoặc chưa duyệt, số duyệt lại phải bằng đúng số trên chuỗi, ghi APPROVED rồi chia |
 | 10 | `app/src/app/actions/distribution.ts:55` | `continueDistributionAction()` | nhận yêu cầu tiếp tục kỳ đã duyệt: phục hồi, đối soát vault, chia lô còn lại |
 | 11 | `app/src/lib/bank/distribution-approval.service.ts:467` | `continueDistribution()` | kiểm quyền distribution:approve, phục hồi kỳ OPENING, kỳ phải APPROVED, chạy một lượt chia có ghi nguồn MANUAL |
 | 12 | `app/src/lib/bank/distribution-trigger.service.ts:479` | `runApprovedPeriod()` | chiếm số vòng KeeperRun kèm nguồn MANUAL hoặc KEEPER, chạy lõi một lượt chia, đóng vòng và ghi sổ |
-| 13 | `app/src/lib/bank/distribution.service.ts:1180` | `runDistributionRound()` | lõi một lượt chia: kỳ phải APPROVED, chốt kỳ vault phải DONE rồi mới lập hồ sơ chờ, đối soát đã trả và gửi từng lô |
-| 14 | `app/src/lib/bank/distribution.service.ts:815` | `syncVaultClose()` | đẩy số đã dành cho kỳ vào closePeriod của vault đúng một lần: giữ chỗ mã kỳ vault, đối soát PeriodClosed trước khi gửi lại |
-| 15 | `app/src/lib/bank/distribution.service.ts:261` | `allocate()` | đọc số dư từng ví tại ảnh chụp, tính phần chia nhân trước chia sau |
+| 13 | `app/src/lib/bank/distribution.service.ts:1181` | `runDistributionRound()` | lõi một lượt chia: kỳ phải APPROVED, chốt kỳ vault phải DONE rồi mới lập hồ sơ chờ, đối soát đã trả và gửi từng lô |
+| 14 | `app/src/lib/bank/distribution.service.ts:816` | `syncVaultClose()` | đẩy số đã dành cho kỳ vào closePeriod của vault đúng một lần: giữ chỗ mã kỳ vault, đối soát PeriodClosed trước khi gửi lại |
+| 15 | `app/src/lib/bank/distribution.service.ts:260` | `allocate()` | đọc số dư từng ví tại ảnh chụp, tính phần chia nhân trước chia sau |
 | 16 | `app/src/lib/bank/distribution-trigger.service.ts:382` | `settleBalanceMark()` | ghi mốc số dư đã xử lý sau khi kỳ chia xong trọn vẹn |
 | 17 | `app/src/lib/bank/distribution-trigger.service.ts:603` | `runDistributionCycle()` | chạy một vòng keeper: dọn kỳ OPENING và phần vault, đọc quỹ, chỉ tiếp tục kỳ đã APPROVED, không bao giờ mở kỳ |
 | 18 | `app/src/lib/bank/distribution-trigger.service.ts:303` | `decideCycle()` | đọc kỳ hoạt động và phần chưa phân bổ: chỉ tiếp tục kỳ APPROVED, còn lại AWAITING_APPROVAL, không bao giờ mở kỳ |

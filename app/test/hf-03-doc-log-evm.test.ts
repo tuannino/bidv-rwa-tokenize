@@ -27,6 +27,34 @@ const calls: RpcCall[] = [];
 function answer(call: RpcCall & { id: unknown }) {
   if (call.method === 'eth_blockNumber') return { result: `0x${LATEST.toString(16)}` };
   if (call.method === 'eth_chainId') return { result: '0xaa36a7' };
+  if (call.method === 'eth_getBlockByNumber') {
+    const number = String(call.params[0]);
+    return {
+      result: {
+        number,
+        hash: `0x${'a'.repeat(64)}`,
+        parentHash: `0x${'0'.repeat(64)}`,
+        nonce: '0x0000000000000000',
+        sha3Uncles: `0x${'0'.repeat(64)}`,
+        logsBloom: `0x${'0'.repeat(512)}`,
+        transactionsRoot: `0x${'0'.repeat(64)}`,
+        stateRoot: `0x${'0'.repeat(64)}`,
+        receiptsRoot: `0x${'0'.repeat(64)}`,
+        miner: `0x${'0'.repeat(40)}`,
+        difficulty: '0x0',
+        totalDifficulty: '0x0',
+        extraData: '0x',
+        size: '0x0',
+        gasLimit: '0x1',
+        gasUsed: '0x0',
+        timestamp: '0x1',
+        transactions: [],
+        uncles: [],
+        baseFeePerGas: '0x0',
+        mixHash: `0x${'0'.repeat(64)}`,
+      },
+    };
+  }
   if (call.method === 'eth_getLogs') {
     const filter = call.params[0] as { fromBlock: string; toBlock: string };
     const from = BigInt(filter.fromBlock);
@@ -45,7 +73,13 @@ const signer: ISigner = {
   async getAccount() { return { address: '0x0000000000000000000000000000000000000001', type: 'json-rpc' } as Account; },
 } as ISigner;
 
-const saved = { RPC_EVM: process.env.RPC_EVM, RPC_EVM_LOGS: process.env.RPC_EVM_LOGS, EVM_LOG_BLOCK_CHUNK: process.env.EVM_LOG_BLOCK_CHUNK };
+const saved = {
+  RPC_EVM: process.env.RPC_EVM,
+  RPC_EVM_LOGS: process.env.RPC_EVM_LOGS,
+  EVM_LOG_BLOCK_CHUNK: process.env.EVM_LOG_BLOCK_CHUNK,
+  INDEXER_CONFIRMATIONS: process.env.INDEXER_CONFIRMATIONS,
+  INDEXER_SEGMENT_BLOCKS: process.env.INDEXER_SEGMENT_BLOCKS,
+};
 
 function setEnv(env: Partial<typeof saved>) {
   for (const key of Object.keys(saved) as Array<keyof typeof saved>) {
@@ -96,23 +130,32 @@ describe('HF-03: đọc sự kiện EVM qua RPC riêng, theo từng đoạn bloc
   });
 
   it('ca 2: lịch sử cấu hình và lịch sử chốt kỳ quét theo đoạn không vượt giới hạn của RPC', async () => {
-    setEnv({ RPC_EVM: 'http://127.0.0.1:1', RPC_EVM_LOGS: url, EVM_LOG_BLOCK_CHUNK: String(MAX_RANGE) });
+    setEnv({
+      RPC_EVM: url,
+      RPC_EVM_LOGS: url,
+      EVM_LOG_BLOCK_CHUNK: String(MAX_RANGE),
+      INDEXER_CONFIRMATIONS: '12',
+      INDEXER_SEGMENT_BLOCKS: '50000',
+    });
     const ledger = createEvmLedger('evm', signer);
 
     await expect(ledger.vaultConfigEvents()).resolves.toEqual([]);
     await expect(ledger.vaultPeriodCloses(10)).resolves.toEqual([]);
 
     const scans = calls.filter((call) => call.method === 'eth_getLogs').map((call) => call.params[0] as { fromBlock: string; toBlock: string });
-    expect(scans.length).toBe(8); // 36 block, đoạn 10: 4 đoạn cho mỗi lần đọc
+    // Lần đầu index từ deploy block tới mốc xác nhận, đồng thời giữ lại phần đuôi chưa xác nhận.
+    // Lần hai chỉ đọc lại phần đuôi 12 block; tổng cộng 4 + 2 đoạn.
+    expect(scans.length).toBe(6);
     expect(BigInt(scans[0]!.fromBlock)).toBe(BigInt(addressBook.evm!.deployBlock!));
     const end = (scan: { toBlock: string }) => (scan.toBlock === 'latest' ? LATEST : BigInt(scan.toBlock));
     for (const scan of scans) expect(end(scan) - BigInt(scan.fromBlock) + 1n).toBeLessThanOrEqual(MAX_RANGE);
-    // đoạn cuối đọc tới `latest`: không sót block sinh ra trong lúc quét
-    expect(scans.filter((scan) => scan.toBlock === 'latest').length).toBe(2);
+    // Mỗi lượt chốt một head cố định, không trộn dữ liệu từ block mới sinh giữa lúc quét.
+    expect(scans.filter((scan) => scan.toBlock === 'latest')).toHaveLength(0);
+    expect(calls.filter((call) => call.method === 'eth_getBlockByNumber')).toHaveLength(1);
   });
 
   it('ca 3: một đoạn quá giới hạn thì báo lỗi LedgerError, không trả lịch sử rỗng giả', async () => {
-    setEnv({ RPC_EVM: 'http://127.0.0.1:1', RPC_EVM_LOGS: url, EVM_LOG_BLOCK_CHUNK: '50' });
+    setEnv({ RPC_EVM: url, RPC_EVM_LOGS: url, EVM_LOG_BLOCK_CHUNK: '50' });
     const ledger = createEvmLedger('evm', signer);
     await expect(ledger.vaultConfigEvents()).rejects.toThrow();
   });
