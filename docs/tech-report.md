@@ -9,19 +9,24 @@ inclusion: always
 
 | Trường | Giá trị |
 |---|---|
-| Phiên bản tài liệu | 4.25 |
+| Phiên bản tài liệu | 4.26 |
 | Cập nhật lần cuối | 2026-10-25 |
-| Nhánh / commit | `feat/be-05-fe-10-thu-hoi`, từ `dev` @ `c35fa17`; phạm vi bàn giao hiện tại: BE-05 |
+| Nhánh / commit | `feat/fe-10-man-thu-hoi`, từ `dev` @ `4767e01`; phạm vi bàn giao: FE-10 |
 | Phase đã hoàn thành | P0 (nền), P1 (mint), vòng dọn UI điện gió, P4 (mint trên Sepolia), tiếp nhận bộ test nghiệm thu P4/P7/P12, build+deploy Cloudflare (PR #12), FE-01 v2 (kênh nhà đầu tư + trang tổng quan), BE-01 (mở rộng `ILedgerPort` cho ba luồng), FE-02 (màn kết nối ví), BE-02 (nghiệp vụ lệnh mua WPT), BE-03 (xem trước điều kiện mua), BE-08 (bổ sung quyền RBAC cho ba luồng — **phục hồi** sau khi bị revert khỏi `dev`, xem `docs/CHECKPOINT_BE08.md`), BE-09 (mở rộng lược đồ dữ liệu + bốn cổng lưu trữ mới), **MC-01** (cơ chế điểm cắm — PR #21, xem 3.10), **MC-02** (khuôn checkpoint + máy kiểm — PR #22, xem 3.11), **BE-04** (giá phát hành cấu hình được + phát hành một lần — PR #25, xem 3.12 và 4.3), **BE-06** (nghiệp vụ chia lợi nhuận — PR #26, xem 4.5), **BE-07** (tiến trình tự động chia lợi nhuận — PR #27, xem 3.14 và 4.5 giai đoạn 4), **OP-01** (tích hợp liên tục + cổng bảo vệ `dev` + tạm dừng Stellar ở khâu kiểm chứng — PR #28, xem 2.6 và 2.7), **FE-20** (khung bốn vai trò — PR #29, xem 1.1 và 3.15), **BE-12** (lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần — PR #30, xem 3.3, 3.4 và 4.3), **FE-21** (ba màn Người bán — PR #31), **FE-22** (màn Lập lệnh, Phê duyệt lệnh — PR #32), **BE-14** (chiều bán token + năm bước quyết toán — PR #33), **FE-25** (màn Giao dịch token, Quản lý lệnh — PR #34), **BE-16** (nạp VNDB mô phỏng), **FE-06** (màn Giao dịch vận hành — PR #36), **FE-24** (Thông tin tài khoản + demo trọn luồng — PR #38), **OP-02 v3** (PR #39), **BE-17** (tự khớp mua/bán — PR #40), **OP-03** (hardhat một lệnh — PR #41), **SC-02** (khóa phát hành theo ví SPV), **OP-07** (mock ledger lưu bền — PR #50), **FE-27** (phạm vi chain — xem 3.22), **SC-07** (vault thanh toán SPV và luật khoá on-chain — xem 3.23), **SC-03** (khớp lệnh nguyên tử EVM — PR #57, xem 4.2), **SC-06** (quỹ chia một chiều, gộp SC-05 — PR #58, xem 3.24), **FE-05** (ký permit khi đặt lệnh trên chain thật — PR #59, xem 3.25) |
-| Hoàn thành mới ở bản này | **BE-05**: backend thu hồi WPT khi dự án hết hạn, chặn giao dịch, đóng/mở đóng băng và đốt theo lô (xem 3.31) |
-| Đang thực hiện | Không có trong phạm vi BE-05; FE-10 vẫn là task riêng chưa thực hiện |
-| Phase kế tiếp | FE-10 dựng màn thu hồi và thông báo; SC-04 bổ sung tất toán có chi trả theo NAV |
-| Người cập nhật | Codex (BE-05, bổ sung sau nghiệm thu lần 1). Supervisor rà soát |
+| Hoàn thành mới ở bản này | **FE-10**: màn `/recall`, thông báo Nhà đầu tư, trạng thái giao dịch theo pha thu hồi (xem 3.32) |
+| Đang thực hiện | Không có |
+| Phase kế tiếp | SC-04 bổ sung tất toán có chi trả theo NAV |
+| Người cập nhật | Codex (FE-10). Supervisor rà soát |
+
+**4.25 lên 4.26 (FE-10):** thêm màn `/recall` cho Kiểm soát viên và Giao dịch viên chỉ xem,
+gom quyết định hiển thị thành hàm thuần, hiển thị cảnh báo thu hồi cho Nhà đầu tư, chặn biểu mẫu
+giao dịch bằng dữ liệu có cấu trúc và dùng nhãn nghiệp vụ tiếng Việt. Tổng quan thu hồi trả sẵn
+điều kiện đóng băng, mốc ngày và trạng thái khoá chain. Xem 3.32 và `CHECKPOINT_FE10.md`.
 
 **4.24 lên 4.25 (BE-05, bổ sung kiểm chứng):** mở đợt ghi audit `SUCCESS` nguyên tử với mốc,
 số ngày báo trước và lý do; số đã đốt đọc từ `Txn recall` thật; lỗi gửi burn không phải revert trả
-về theo từng ví thay vì im lặng. Bổ sung các ca máy chủ còn thiếu, mở rộng Hardhat cho đóng băng →
-mở lại → chuyển → đóng băng lại → thu hồi, và xác nhận 15/15 đột biến ở spec đều làm test đỏ.
+về theo từng ví thay vì im lặng. Bổ sung các ca máy chủ còn thiếu, mở rộng Hardhat cho đóng băng ->
+mở lại -> chuyển -> đóng băng lại -> thu hồi, và xác nhận 15/15 đột biến ở spec đều làm test đỏ.
 Xem 3.31 và `CHECKPOINT_BE05.md`.
 
 **4.23 lên 4.24 (BE-05): thu hồi WPT khi dự án hết hạn.** Kiểm soát viên mở/sửa/huỷ đợt,
@@ -1387,7 +1392,7 @@ mỗi cổng, chọn bằng cùng cờ `USE_MOCK_DB`.
 | `store/store.port.ts` | `ITxnStore` — giao dịch + audit log | `saveTxn`, `updateTxnStatus`, `listTxns`, `appendAudit`, `listAudit` |
 | `store/order.store.port.ts` | `IOrderStore` — lệnh mua và bán WPT (BE-14: chiều + mốc bước; FE-06: tìm gần đúng, offset, đếm cùng bộ lọc và danh sách ví nhà đầu tư cho phân trang thật) | `createOrder`, `findOrder`, `transitionOrder`, `attachOrderTxHash`, `listOrders`, `countOrders`, `listOrderInvestors`, `summarizeCompleted`, `expireOrders` |
 | `store/distribution.store.port.ts` | `IDistributionStore` — kỳ chia + hồ sơ chia. **Đã có nghiệp vụ dùng thật** từ BE-06 (`lib/bank/distribution.service.ts`, xem 4.5) | `openPeriod`, `findPeriod`, `findPeriodByKey`, `listPeriods`, `setPeriodStatus`, `createPayouts`, `markPayout`, `listPayouts` |
-| `store/settlement.store.port.ts` | `ISettlementStore` — đợt tất toán + hồ sơ người nắm giữ; BE-05 thêm đợt thu hồi, CAS đóng/mở băng, chiếm hồ sơ burn và hoàn tất nguyên tử | Các hàm cũ cộng `openRecallRound`, `findActiveRound`, `requestFreeze`, `completeFreeze`, `requestUnfreeze`, `completeUnfreeze`, `addMissingCases`, `claimCase`, `attachBurnTx`, `settleCase`, `completeRound` |
+| `store/settlement.store.port.ts` | `ISettlementStore`: đợt tất toán + hồ sơ người nắm giữ; BE-05 thêm đợt thu hồi, CAS đóng/mở băng, chiếm hồ sơ burn và hoàn tất nguyên tử | Các hàm cũ cộng `openRecallRound`, `findActiveRound`, `requestFreeze`, `completeFreeze`, `requestUnfreeze`, `completeUnfreeze`, `addMissingCases`, `claimCase`, `attachBurnTx`, `settleCase`, `completeRound` |
 | `store/keeper.store.port.ts` | `IKeeperStore` — mốc chạy tiến trình hẹn giờ | `startRun`, `finishRun`, `findRun`, `listRuns` |
 | `store/config.store.port.ts` | `IConfigStore` — tham số hệ thống **và** lịch sử đổi tham số (BE-04). MỘT cổng cho HAI bảng: mọi lần ghi giá PHẢI kèm một dòng lịch sử, nên tách hai cổng là mở đường gọi một mà quên cái kia | `getConfig`, `setConfig`, `listConfigHistory` |
 | `store/project.store.port.ts` | `IProjectStore` — dự án đã token hoá; giữ **tổng cung** của đợt phát hành (BE-04) | `createProject`, `findProject`, `markIssued`, `listProjects` |
@@ -2938,7 +2943,7 @@ chain chỉ có một đợt chưa kết thúc.
 
 | Quyết định | Hiện thực |
 |---|---|
-| QĐ-R1–R3 | Đợt `INITIATED → IN_PROGRESS → COMPLETED`, có `CANCELLED`; hồ sơ `NOTIFIED → BURNING → BURNED/FAILED`; memory và Postgres cùng cổng |
+| QĐ-R1-R3 | Đợt `INITIATED -> IN_PROGRESS -> COMPLETED`, có `CANCELLED`; hồ sơ `NOTIFIED -> BURNING -> BURNED/FAILED`; memory và Postgres cùng cổng |
 | QĐ-R4–R5 | Ngày `YYYY-MM-DD` theo `Asia/Ho_Chi_Minh`; 0–365 ngày, 0 ngày chỉ mock/Hardhat hoặc `ENABLE_DEMO_RECALL` |
 | QĐ-R6–R7 | `setSettlementMode` nối `ProjectToken.pause/unpause`; danh sách ví từ Indexer, lọc số dư dương và loại vault SPV |
 | QĐ-R8 | Khoá bền theo chain dùng `VaultOperationLock` loại `RECALL`, không chạy chồng cấu hình/rút vault |
@@ -2949,8 +2954,8 @@ chain chỉ có một đợt chưa kết thúc.
 
 `recall-phase.ts` là phép quyết định dùng chung. Từ pha `NOTICE`, máy chủ chặn xem trước/đặt lệnh
 mua bán và duyệt Mint; từ `FROZEN` hoặc `CLOSED`, còn chặn mở/duyệt/tiếp tục kỳ chia. Kiểm tra nằm ở
-tầng service nên không phụ thuộc việc FE-10 đã có hay chưa. `getPortfolio` đã trả dữ liệu thu hồi
-trong action hiện hữu; màn `/recall` và nhãn giao diện vẫn thuộc FE-10.
+tầng service. `getPortfolio` trả dữ liệu thu hồi trong action hiện hữu; FE-10 dùng dữ liệu đó cho
+màn `/recall`, cảnh báo danh mục và trạng thái giao dịch.
 
 Đóng băng, mở đóng băng và burn đều lưu dấu bắt đầu cùng mã giao dịch trước lúc chờ biên nhận.
 Lỗi mạng không xoá dấu vì giao dịch có thể đã được phát; lần gọi sau đọc trạng thái chuỗi, biên nhận
@@ -2966,6 +2971,28 @@ Ma trận 15 đột biến và ca đỏ tương ứng nằm trong `CHECKPOINT_BE
 **Sai khác có chủ đích:** một Kiểm soát viên làm cả mở đợt và thu hồi. **Nợ kỹ thuật:** chi trả
 theo NAV/hợp đồng tất toán (SC-04), mở lại sau khi đã đốt, đốt phần WPT còn trong vault (dùng BE-12)
 và phân trang khi quá 5.000 ví. Runbook diễn tập an toàn nằm ở `docs/DEPLOYMENT.md`.
+
+## 3.32. Màn thu hồi và cảnh báo theo pha (FE-10)
+
+Màn `/recall` dùng một lần đọc `getRecallOverviewAction` cho cả Kiểm soát viên và Giao dịch viên.
+Quyền ghi do trường `canManage` từ máy chủ quyết định; Giao dịch viên vẫn xem được bước, mốc, khoá
+chain, danh sách dự kiến và hồ sơ nhưng không nhận nút thao tác. Các quyết định hiển thị nằm trong
+`components/recall/gates.ts`, tách khỏi JSX để kiểm đủ pha và quyền bằng Vitest.
+
+Kiểm soát viên mở, sửa, huỷ đợt; đóng hoặc mở đóng băng; rồi thu hồi theo lô. Hộp thoại đóng băng và
+lô đầu buộc gõ đúng ký hiệu token. Mã giao dịch mở trình duyệt khối khi chain có URL explorer, nếu
+không thì hiện mã rút gọn. Kết quả lô dùng vùng trạng thái sống, giữ số đã đốt, đang chờ, lỗi và số
+còn lại tới lần tải tiếp theo.
+
+`getTradeContext` không trả lỗi chỉ vì dự án tới pha thu hồi mà trả `tradeBlock` có cấu trúc. Vì vậy
+trang giao dịch vẫn tải được thông tin token, hiển thị lý do và khoá toàn bộ biểu mẫu. Danh mục Nhà
+đầu tư dùng dữ liệu thu hồi đã có để cảnh báo ngày, lượng WPT và phạm vi PoC; tổng quan Người bán dùng
+cùng phép đặt nhãn trạng thái. `operationLabel` gom nhãn lịch sử giao dịch tiếng Việt, gồm cả
+`recall`, `freeze` và `unfreeze`.
+
+Số server action khi mở `/portfolio`, `/trade` và tổng quan Người bán giữ nguyên so với mốc
+`4767e01`; `/recall` dùng đúng một action. Chi tiết ca kiểm, đột biến và số đo ở
+`CHECKPOINT_FE10.md`.
 
 ## 4.1. Luồng MINT LẺ (đã hoàn thành — P1; từ FE-22 là đường dữ liệu thử)
 
@@ -3389,7 +3416,7 @@ components/pages/redeem.tsx  (khu vực (investor))
 | Bước | File / hàm cần tạo hoặc dùng | Việc |
 |---|---|---|
 | 1 | `bank/schemas.ts` → thêm `redeemSchema` | Validate `wptAmount` |
-| 2 | `rbac/permissions.ts` — quyền **đã có sẵn** từ BE-08: `settlement:confirm` (INVESTOR), `settlement:set-nav` (TELLER); từ BE-05, `settlement:initiate` thuộc CONTROLLER | **KHÔNG** thêm `token:redeem`: BE-08 đã chốt tiền tố `settlement:*` vì luồng chốt là ngân hàng điều phối và đốt, không phải nhà đầu tư tự đổi |
+| 2 | `rbac/permissions.ts`: quyền **đã có sẵn** từ BE-08: `settlement:confirm` (INVESTOR), `settlement:set-nav` (TELLER); từ BE-05, `settlement:initiate` thuộc CONTROLLER | **KHÔNG** thêm `token:redeem`: BE-08 đã chốt tiền tố `settlement:*` vì luồng chốt là ngân hàng điều phối và đốt, không phải nhà đầu tư tự đổi |
 | 3 | `rbac/can.ts :: assertCan()` | Kiểm quyền + audit |
 | 4 | `ledger/ledger.port.ts` → **bổ sung** `quoteRedeem()`, `redeem()`, `approve()` | Mở rộng hợp đồng port |
 | 5 | `ledger/evm.adapter.ts` | Nối `Redemption.sol` qua ABI ở `packages/shared/generated/Redemption.abi.json` |
@@ -3621,7 +3648,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | SC-07 vault thanh toán SPV, khoá VNDB on-chain, lịch sử chốt kỳ và chặn Mint đầu sai đích (xem 3.23) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
 | — | SC-03 khớp mua/bán nguyên tử trên EVM, permit ở contract và phục hồi theo `orderRef` (xem 4.2) | ✅ Xong local; triển khai lại Sepolia thuộc OP-05 |
 | - | IN-01 Indexer gọn cho sự kiện vault/WPT và danh sách ví theo Transfer (xem 3.30) | ✅ Xong mã và kiểm chứng local; chờ Supervisor nghiệm thu |
-| — | BE-05 backend thu hồi WPT khi dự án hết hạn, đóng/mở đóng băng và burn theo lô (xem 3.31) | ✅ Xong mã và kiểm chứng local; FE-10 chưa thuộc phạm vi bàn giao này |
+| BE-05 / FE-10 | Thu hồi WPT khi dự án hết hạn: backend, màn vận hành và cảnh báo các kênh (xem 3.31, 3.32) | ✅ Xong mã và kiểm chứng local; chờ Supervisor nghiệm thu FE-10 |
 | — | MC-01 cơ chế điểm cắm: marker + script quét + sơ đồ luồng sinh từ mã + dọn phụ thuộc (xem 3.10) | ✅ Xong — PR #21 |
 | — | BE-03 xem trước điều kiện mua WPT + `placeOrder` chặn lệnh rác (xem 4.2) | ✅ Xong — PR #23 |
 | — | MC-02 khuôn checkpoint + máy kiểm `check-checkpoint.mjs` (xem 3.11) | ✅ Xong — PR #22 |
@@ -3632,7 +3659,7 @@ Tham chiếu `packages/contracts-evm/scripts/demo-cycle.js` — kịch bản đ�
 | — | BE-12 lập–duyệt yêu cầu Mint/Burn + phát hành nhiều lần theo trần còn lại + số việc đang chờ thật (xem 4.3) | ✅ Xong — PR #30 |
 | — | FE-21 ba màn Người bán: Tổng quan, Danh sách giao dịch, Tạo lệnh rút (xem 3.16) | ✅ Xong — PR #31; phần ghi của lệnh rút chờ BE-13 |
 | — | FE-22 màn Lập lệnh, Phê duyệt lệnh, chi tiết yêu cầu + đóng đường đi vòng (Giao dịch viên không còn `token:mint` / `token:burn`) (xem 3.17, 4.3) | 🔶 Mã xong trên nhánh `feat/maker-checker-ui`, **chưa nghiệm thu, chưa merge vào `dev`** |
-| P2 | Thu hồi WPT khi hết hạn (PoC, không trả tiền) | ✅ BE-05 backend xong; FE-10 chưa làm |
+| P2 | Thu hồi WPT khi hết hạn (PoC, không trả tiền) | ✅ BE-05 và FE-10 xong mã, kiểm chứng local |
 | P2 đầy đủ | **REDEEM/tất toán có trả VNDB theo NAV** (`Redemption.sol`) | ⏳ SC-04 |
 | P3 | **DISTRIBUTION** trên chuỗi thật: `evm.adapter.distributeBatch` + `EnergyOracle` | 🔶 SC-06 nối xong trên Hardhat (nhánh `feat/sc-06-chia-loi-nhuan`, chờ nghiệm thu); Sepolia ở OP-05; `EnergyOracle` không dùng (QĐ-11) |
 | P4 | KYC/audit/RBAC thật + Postgres + xác thực SIWE | ⏳ |

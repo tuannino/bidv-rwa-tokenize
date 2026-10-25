@@ -160,7 +160,7 @@ afterEach(() => {
   resetStoreCache();
 });
 
-describe('BE-05 — chặn duyệt Mint theo pha thu hồi', () => {
+describe('BE-05: chặn duyệt Mint theo pha thu hồi', () => {
   it('[ca 3] trước maturityDate vẫn duyệt Mint được', async () => {
     await issueDirect(1_000n);
     controller();

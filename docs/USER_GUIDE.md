@@ -146,8 +146,8 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Quyết định | Nội dung | Nguồn | Trạng thái |
 |---|---|---|---|
 | Nhà đầu tư rút VNDB | Hoàn tất ngay, không mã một lần, không qua Giao dịch viên hay Kiểm soát viên | URD, CH-3 BE-13 | Chưa làm (FE-23) |
-| Thu hồi WPT khi dự án hết hạn (PoC) | Kiểm soát viên mở đợt, đặt ngày hết hạn và số ngày báo trước; tới hạn thì máy chủ chặn lệnh mới/Mint, sau ngày thu hồi có thể `pause` ProjectToken và agent đốt WPT ngoài vault theo lô 10. PoC không trả tiền trên chuỗi | BE-05 | Đã chạy ở backend; màn FE-10 chưa làm |
-| Mở đóng băng | Chỉ được `unpause` trước khi giao dịch đốt đầu tiên được gửi; sau đó việc thu hồi không đảo ngược | BE-05 QĐ-R14 | Đã chạy ở backend |
+| Thu hồi WPT khi dự án hết hạn (PoC) | Kiểm soát viên mở đợt, đặt ngày hết hạn và số ngày báo trước; tới hạn thì máy chủ chặn lệnh mới/Mint, sau ngày thu hồi có thể `pause` ProjectToken và agent đốt WPT ngoài vault theo lô 10. PoC không trả tiền trên chuỗi | BE-05, FE-10 | Đã có màn `/recall`; Giao dịch viên chỉ xem |
+| Mở đóng băng | Chỉ được `unpause` trước khi giao dịch đốt đầu tiên được gửi; sau đó việc thu hồi không đảo ngược | BE-05 QĐ-R14, FE-10 | Đã có hộp xác nhận trên `/recall` |
 | Tất toán đầy đủ (mua lại theo NAV) | Trả VNDB theo NAV và hợp đồng tất toán riêng | SC-04 | Chưa làm |
 
 Mốc ngày dùng múi giờ Việt Nam. `noticeDays` mặc định 30, tối đa 365; chỉ `mock`,
@@ -182,6 +182,7 @@ Vòng nghiệp vụ chạy đủ trên Sepolia: Mint đầu vào vault, liên k�
 | `/distribution` | | | Chia lợi nhuận (chỉ xem) (C) | Chia lợi nhuận (C) |
 | `/vault` | | | Vault thanh toán SPV (K) | Vault thanh toán SPV (K) |
 | `/config` | | | Giá và phát hành (H) | Giá và phát hành (H) |
+| `/recall` | | | Thu hồi token (chỉ xem) (U) | Thu hồi token (U) |
 | `/approvals` | | | | Phê duyệt lệnh (P) |
 | `/demo-payment` | | | Nạp VNDB (trình diễn) (N), khi cờ bật | |
 | Không trong menu | `/orders/[id]`, `/tokens/[symbol]` | | `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation`, `/transactions/[id]` | `/approvals/[id]`, `/transactions/[id]`, `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation` |
@@ -213,6 +214,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/transactions/[id]` | Chi tiết lệnh | Giao dịch viên, Kiểm soát viên | Lệnh mua bán | M H S | Dùng được (chỉ xem) | 1 | Không | |
 | `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01 |
 | `/config` | Giá và phát hành | Giao dịch viên (đổi giá), Kiểm soát viên (xem) | Giá phát hành, tình trạng phát hành | M H S | Dùng được (FE-07) | 1 | Có (đổi giá) | Màn tham số hệ thống khác (nợ) |
+| `/recall` | Thu hồi token | Giao dịch viên (xem), Kiểm soát viên | Lập lịch, đóng băng, thu hồi theo lô | M H S | Dùng được; Stellar chưa có adapter token | 1 | Có (đóng băng, mở lại, burn) | SC-04 cho chi trả theo NAV |
 | `/distribution` | Chia lợi nhuận | Giao dịch viên (xem), Kiểm soát viên | Chia lợi nhuận | M H S | Dùng được | 1 | Có (mở kỳ, chốt vault, chia) | FE-09, IN-02 |
 | `/demo-payment` | Nạp VNDB (trình diễn) | Giao dịch viên | Nạp trình diễn | M H S | Dùng được (chỉ bản thử) | 1 | Có (mint VNDB) | |
 | `/mint` | Phát hành WPT (dữ liệu thử) | Giao dịch viên, Kiểm soát viên | KYC, danh sách được phép; phát hành thử | M H S (phát hành thử chỉ M) | Một phần: KYC dùng được, phát hành thử tắt mặc định | 1 hoặc 2 | Có (đăng ký ví) | |
@@ -232,7 +234,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | Cấu hình vault, Người bán rút | `/vault`, `/seller/withdraw` | Có | Mã một lần thật |
 | Chia lợi nhuận | `/distribution` | Có | Màn của Nhà đầu tư (FE-09); tự phát hiện tiền vào (IN-02) |
 | Nhà đầu tư rút VNDB | `/withdraw` | Chưa | FE-23 |
-| Thu hồi khi hết hạn | chưa có màn | Backend có; chưa diễn tập Sepolia | FE-10; SC-04 cho trả tiền theo NAV |
+| Thu hồi khi hết hạn | `/recall`, `/portfolio`, `/trade` | Hardhat local đã đạt; chưa diễn tập Sepolia | SC-04 cho trả tiền theo NAV |
 | Tổng quan, báo cáo | `/`, `/portfolio`, `/assets`, `/reconciliation` | Một phần | Số liệu thật thay dữ liệu mẫu |
 
 ---

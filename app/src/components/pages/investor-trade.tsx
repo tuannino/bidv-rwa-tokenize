@@ -38,6 +38,7 @@ import {
   quantityBlockReason,
   type TradePreviewState,
 } from '@/components/trading/gates';
+import { tradeBlockText, tradingStatusLabel } from '@/components/recall/gates';
 
 /**
  * Màn GIAO DỊCH TOKEN của Nhà đầu tư (FE-25 việc 1 đến 8).
@@ -142,7 +143,8 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
     : previewResult?.key === previewKey
       ? previewResult.value
       : { kind: 'loading' };
-  const blockReason = confirmBlockReason(quantity, side, caps, preview);
+  const tradeBlocked = ctx?.tradeBlock !== null && ctx?.tradeBlock !== undefined;
+  const blockReason = confirmBlockReason(quantity, side, caps, preview, tradeBlocked);
   const total = preview.kind === 'checked' && preview.wptAmount === amount ? preview.vndAmount : null;
 
   // --- Theo dõi lệnh vừa gửi tới khi có kết cục -------------------------------------
@@ -284,9 +286,16 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
               <CardTitle className="text-base">Đặt lệnh</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {ctx.tradeBlock && (
+                <div role="alert" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+                  <p className="font-semibold">Giao dịch tạm dừng</p>
+                  <p>{tradeBlockText(ctx.tradeBlock)}</p>
+                  <Link prefetch={false} href="/portfolio" className="underline underline-offset-4">Xem thông báo ở Tổng quan</Link>
+                </div>
+              )}
               <label className="block space-y-1 text-sm">
                 <span className="text-muted-foreground">Token</span>
-                <select aria-label="Token" className={FIELD} defaultValue={ctx.token?.tokenSymbol ?? ''} disabled={ctx.tokens.length <= 1}>
+                <select aria-label="Token" className={FIELD} defaultValue={ctx.token?.tokenSymbol ?? ''} disabled={ctx.tokens.length <= 1 || tradeBlocked}>
                   {ctx.tokens.map((t) => (
                     <option key={t.tokenSymbol} value={t.tokenSymbol}>
                       {t.tokenSymbol}: {t.projectName}
@@ -302,6 +311,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                     role="tab"
                     aria-selected={side === value}
                     variant={side === value ? 'default' : 'outline'}
+                    disabled={tradeBlocked}
                     onClick={() => setSide(value)}
                   >
                     {SIDE_LABELS[value]}
@@ -317,6 +327,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                   className={FIELD}
                   value={quantity}
                   aria-invalid={quantity !== '' && quantityReason !== null}
+                  disabled={tradeBlocked}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
                 <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
@@ -353,7 +364,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
           <div className="space-y-6">
             <OrderSummary side={side} quantity={amount} priceVnd={ctx.priceVnd} total={total} balances={ctx.balances} />
-            <TokenInfoCard token={ctx.token} />
+            <TokenInfoCard token={ctx.token} tradeBlock={ctx.tradeBlock} />
           </div>
         </div>
       ) : null}
@@ -505,7 +516,7 @@ const TOKEN_STATUS_LABELS: Record<InvestorTokenInfo['tokenStatus'], string> = {
   CLOSED: 'Đã đóng',
 };
 
-function TokenInfoCard({ token }: { token: InvestorTokenInfo | null }) {
+function TokenInfoCard({ token, tradeBlock }: { token: InvestorTokenInfo | null; tradeBlock: TradeContextView['tradeBlock'] }) {
   return (
     <Card size="sm" aria-label="Thông tin token" className="bg-muted/30">
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
@@ -523,7 +534,7 @@ function TokenInfoCard({ token }: { token: InvestorTokenInfo | null }) {
             <Row label="Trạng thái token">{TOKEN_STATUS_LABELS[token.tokenStatus]}</Row>
             <Row label="Trạng thái giao dịch">
               <Badge variant={token.tradingOpen ? 'secondary' : 'outline'}>
-                {token.tradingOpen ? 'Đang mở' : 'Tạm dừng (tất toán)'}
+                {tradingStatusLabel(tradeBlock?.phase ?? 'NONE', token.tradingOpen, 'trade')}
               </Badge>
             </Row>
             <Row label="Số chưa phân phối" mono>{formatAmount(token.undistributed)}</Row>

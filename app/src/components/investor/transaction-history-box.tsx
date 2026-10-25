@@ -18,6 +18,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getWalletTransactionsAction } from '@/app/actions/portfolio';
 import type { TxnView } from '@/lib/bank/mint.service';
 import { OnChainBadge } from './mock-badge';
+import { operationLabel } from '@/lib/txn-labels';
 
 /**
  * Hộp 3 — LỊCH SỬ GIAO DỊCH của ví đang kết nối.
@@ -116,7 +117,7 @@ export function TransactionHistoryBox() {
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {new Date(txn.createdAt).toLocaleString('vi-VN')}
                     </TableCell>
-                    <TableCell className="font-medium">{txn.operation}</TableCell>
+                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
                     <TableCell className="text-right font-mono">{txn.amount ?? '—'}</TableCell>
                     <TableCell>
                       <Badge

@@ -1,4 +1,4 @@
-# Báo cáo bàn giao — BE-05: thu hồi WPT khi dự án hết hạn
+# Báo cáo bàn giao: BE-05 thu hồi WPT khi dự án hết hạn
 
 | | |
 |---|---|
@@ -14,17 +14,17 @@
 
 | # | Điều kiện | | Bằng chứng |
 |---|---|---|---|
-| 1 | Lược đồ, cổng kho và hai hiện thực memory/Postgres đủ trạng thái thu hồi | ✅ | mục 1.1 · 3.2 |
-| 2 | Quyền mở/thu hồi chỉ Kiểm soát viên, từ chối có audit | ✅ | mục 1.2 · 3.1 |
-| 3 | Pha ngày Việt Nam chặn mua/bán, Mint và chia đúng thời điểm | ✅ | mục 1.3 · 3.1 |
-| 4 | Đóng/mở đóng băng có khoá chain, lưu hash trước receipt và phục hồi | ✅ | mục 1.4 · 3.1 · 3.3 |
-| 5 | Burn theo lô 10, loại SPV, đối soát treo và đóng dự án nguyên tử | ✅ | mục 1.5 · 3.1 · 3.3 |
-| 6 | Tổng quan và dữ liệu portfolio không thêm action/audit đọc | ✅ | mục 1.6 · 2 |
-| 7 | Mock và EVM nối pause/unpause, burn ví bị băng, `isTransactionKnown` | ✅ | mục 1.4 · 3.3 |
-| 8 | Tài liệu, runbook, trạng thái task và marker cập nhật | ✅ | mục 1.8 · 3.4 |
-| 9 | Các ca 3, 5–7, 9–16, 18–20, 22, 25–26, 28–30 và 15 đột biến của spec có bằng chứng | ✅ | mục 3.1 · 3.3 · 3.5 |
+| 1 | Lược đồ, cổng kho và hai hiện thực memory/Postgres đủ trạng thái thu hồi | ✅ | mục 1.1, 3.2 |
+| 2 | Quyền mở/thu hồi chỉ Kiểm soát viên, từ chối có audit | ✅ | mục 1.2, 3.1 |
+| 3 | Pha ngày Việt Nam chặn mua/bán, Mint và chia đúng thời điểm | ✅ | mục 1.3, 3.1 |
+| 4 | Đóng/mở đóng băng có khoá chain, lưu hash trước receipt và phục hồi | ✅ | mục 1.4, 3.1, 3.3 |
+| 5 | Burn theo lô 10, loại SPV, đối soát treo và đóng dự án nguyên tử | ✅ | mục 1.5, 3.1, 3.3 |
+| 6 | Tổng quan và dữ liệu portfolio không thêm action/audit đọc | ✅ | mục 1.6, 2 |
+| 7 | Mock và EVM nối pause/unpause, burn ví bị băng, `isTransactionKnown` | ✅ | mục 1.4, 3.3 |
+| 8 | Tài liệu, runbook, trạng thái task và marker cập nhật | ✅ | mục 1.8, 3.4 |
+| 9 | Các ca 3, 5-7, 9-16, 18-20, 22, 25-26, 28-30 và 15 đột biến của spec có bằng chứng | ✅ | mục 3.1, 3.3, 3.5 |
 
-**Kết luận:** 9 ✅ · 0 🔶 · 0 ❌. Nghiệm thu lần 1 phát hiện phần kiểm chứng quá mỏng; lượt sửa
+**Kết luận:** 9 ✅, 0 🔶, 0 ❌. Nghiệm thu lần 1 phát hiện phần kiểm chứng quá mỏng; lượt sửa
 này tăng 30 ca Vitest, mở rộng ca Hardhat và chạy đủ bảng đột biến ở mục 3.5.
 
 ### 0.2 Việc cần Owner quyết

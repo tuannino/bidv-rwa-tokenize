@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { isChainKey, type ChainKey, type TxResult } from '@bidv/shared';
 import { z } from 'zod';
 import { serverEnv } from '@/lib/config/env';
+import { formatVnDate } from '@/lib/format';
 import { getLedger, LedgerError, LedgerNotImplementedError, receiptTimeoutFor } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -35,16 +36,21 @@ function validation<T>(parsed: { success: true; data: T } | { success: false; er
   return parsed.success ? ok(parsed.data) : err('VALIDATION', parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.');
 }
 
+export function minNoticeDaysFor(chain: ChainKey, demo: boolean): 0 | 1 {
+  return chain === 'mock' || chain === 'hardhat-local' || demo ? 0 : 1;
+}
+
 export function validateRecallDates(input: {
   chain: ChainKey; maturityDate: string; noticeDays: number; today: string; demo: boolean;
 }): { maturityDate: string; recallFrom: string; noticeDays: number } {
   if (!isCalendarDate(input.maturityDate)) throw new Error('Ngày hết hạn không có thật hoặc không theo dạng YYYY-MM-DD.');
   if (input.maturityDate < input.today) throw new Error('Ngày hết hạn không được trước hôm nay.');
-  if (!Number.isInteger(input.noticeDays) || input.noticeDays < 0 || input.noticeDays > 365) {
-    throw new Error('Số ngày báo trước phải là số nguyên từ 0 đến 365.');
-  }
-  if (input.noticeDays === 0 && !input.demo && input.chain !== 'mock' && input.chain !== 'hardhat-local') {
+  const minimum = minNoticeDaysFor(input.chain, input.demo);
+  if (input.noticeDays === 0 && minimum === 1) {
     throw new Error('Chain này cần ít nhất 1 ngày báo trước; chỉ mock, hardhat-local hoặc chế độ trình diễn cho phép 0 ngày.');
+  }
+  if (!Number.isInteger(input.noticeDays) || input.noticeDays < minimum || input.noticeDays > 365) {
+    throw new Error(`Số ngày báo trước phải là số nguyên từ ${minimum} đến 365.`);
   }
   return { maturityDate: input.maturityDate, noticeDays: input.noticeDays, recallFrom: addDays(input.maturityDate, input.noticeDays) };
 }
@@ -71,6 +77,43 @@ function successAudit(role: Role, action: 'settlement:initiate' | 'settlement:re
 }
 
 function recallBudget(chain: ChainKey): number { return receiptTimeoutFor(chain) + 60_000; }
+
+export function isRecallLockStale(
+  lock: { kind: string; acquiredAt: string },
+  chain: ChainKey,
+  now: number,
+): boolean {
+  return lock.kind === 'RECALL' && now - Date.parse(lock.acquiredAt) > recallBudget(chain) + 120_000;
+}
+
+type InFlightCounts = Awaited<ReturnType<typeof countInFlightOrders>>;
+
+export function freezeBlockers(input: {
+  chain: ChainKey;
+  round: SettlementRoundRecord;
+  today: string;
+  orders: InFlightCounts;
+  activeDistribution: boolean;
+  walletsTruncated: boolean;
+  lock: { kind: string; acquiredAt: string } | null;
+  settlementMode: boolean | null;
+  now: number;
+}): string[] {
+  const blockers: string[] = [];
+  if (!input.round.recallFrom || input.today < input.round.recallFrom) {
+    blockers.push(`Chưa tới ngày bắt đầu thu hồi ${input.round.recallFrom ? formatVnDate(input.round.recallFrom) : '(chưa đặt)'}.`);
+  }
+  if (input.orders.PLACED + input.orders.CHECKING + input.orders.EXECUTING > 0) {
+    blockers.push('Vẫn còn lệnh đang xử lý; phải xử lý hết trước khi đóng băng.');
+  }
+  if (input.activeDistribution) blockers.push('Vẫn còn kỳ chia lợi nhuận đang hoạt động.');
+  if (input.walletsTruncated) blockers.push('Danh sách ví bị cắt; không thể đóng băng an toàn.');
+  if (input.lock && !isRecallLockStale(input.lock, input.chain, input.now)) {
+    blockers.push('Đang có thao tác khác trên chain; vui lòng chờ thao tác đó kết thúc.');
+  }
+  if (input.settlementMode === null) blockers.push('Không đọc được trạng thái đóng băng token trên chuỗi.');
+  return blockers;
+}
 
 async function withRecallLock<T>(chain: ChainKey, role: Role, body: () => Promise<Result<T>>): Promise<Result<T>> {
   const refId = randomUUID();
@@ -187,7 +230,8 @@ export async function freezeToken(input: unknown): Promise<Result<SettlementRoun
       const round = await store.findActiveRound(chain); const project = await projectFor(chain, round?.projectId);
       if (!roundMatches(round, roundId, 'INITIATED') || !project) return err('REQUEST_STATE', 'Không có đợt INITIATED tương ứng.');
       if (confirmSymbol !== project.tokenSymbol) return err('VALIDATION', `Hãy gõ đúng ký hiệu ${project.tokenSymbol} để xác nhận.`);
-      if (await ledger.isSettlementMode()) return completeFreeze(chain, round, role);
+      const settlementMode = await ledger.isSettlementMode();
+      if (settlementMode) return completeFreeze(chain, round, role);
 
       let shouldSend = !round.freezeRequestedAt;
       if (round.freezeRequestedAt) {
@@ -206,11 +250,12 @@ export async function freezeToken(input: unknown): Promise<Result<SettlementRoun
       }
 
       if (!round.freezeRequestedAt) {
-        if (!round.recallFrom || todayVn() < round.recallFrom) return err('REQUEST_STATE', `Chưa tới ngày bắt đầu thu hồi ${round.recallFrom ?? '(chưa đặt)'}.`);
         const [orders, activeDistribution, wallets] = await Promise.all([countInFlightOrders(chain), getDistributionStore().findActivePeriod(chain), recallWallets(chain)]);
-        if (orders.PLACED + orders.CHECKING + orders.EXECUTING > 0) return err('REQUEST_STATE', 'Vẫn còn lệnh đang xử lý; phải xử lý hết trước khi đóng băng.');
-        if (activeDistribution) return err('REQUEST_STATE', 'Vẫn còn kỳ chia lợi nhuận đang hoạt động.');
-        if (wallets.truncated) return err('REQUEST_STATE', 'Danh sách ví bị cắt; không thể đóng băng an toàn.');
+        const blockers = freezeBlockers({
+          chain, round, today: todayVn(), orders, activeDistribution: Boolean(activeDistribution),
+          walletsTruncated: wallets.truncated, lock: null, settlementMode, now: Date.now(),
+        });
+        if (blockers[0]) return err('REQUEST_STATE', blockers[0]);
         if (!(await store.requestFreeze({ id: round.id, at: new Date().toISOString() }))) return err('REQUEST_STATE', 'Một lượt khác vừa bắt đầu đóng băng.');
       }
 
@@ -371,11 +416,14 @@ export interface RecallOverview {
   settlementMode: boolean | null;
   inFlightOrders: Awaited<ReturnType<typeof countInFlightOrders>>;
   activeDistribution: boolean;
-  chainLock: { kind: string; acquiredAt: string } | null;
+  chainLock: { kind: string; acquiredAt: string; stale: boolean } | null;
   cases: Array<{ wallet: string; wptAmount: string; burnedAmount: string | null; status: string; txHash: string | null; reason: string | null }>;
   preview: { wallets: Array<{ wallet: string; balance: string }>; truncated: boolean } | null;
   supplyOutsideVault: string;
-  canManage: boolean; canUnfreeze: boolean; demoMode: boolean;
+  canManage: boolean; canUnfreeze: boolean; canFreeze: boolean; demoMode: boolean;
+  today: string;
+  minNoticeDays: 0 | 1;
+  freezeBlockers: string[];
 }
 
 /** Số đốt hiển thị phải lấy từ giao dịch thật, không lấy số dư chụp lúc lập hồ sơ. */
@@ -398,21 +446,31 @@ export async function getRecallOverview(input: unknown): Promise<Result<RecallOv
     const [settlementMode, orders, distribution, lock, cases, token, spv, previewData] = await Promise.all([
       settlementModeOrUnknown(chain), countInFlightOrders(chain), getDistributionStore().findActivePeriod(chain), getVaultStore().findOperationLock(chain),
       round ? store.listRoundCases({ roundId: round.id }) : Promise.resolve([]), ledger.tokenInfo(), ledger.spvWallet(),
-      !round || round.status === 'INITIATED' ? ledger.listTokenWallets() : Promise.resolve(null),
+      !round || round.status === 'INITIATED' || round.status === 'CANCELLED' ? ledger.listTokenWallets() : Promise.resolve(null),
     ]);
     const spvBalance = spv ? await ledger.balanceOf(spv) : 0n;
     const outside = token.totalSupply > spvBalance ? token.totalSupply - spvBalance : 0n;
     const burnedAmounts = await Promise.all(cases.map((item) => burnedAmountFromTxn(chain, item)));
     const today = todayVn(); const phase = recallPhaseOf(round, project, today);
+    const now = Date.now();
+    const blockers = round?.status === 'INITIATED'
+      ? freezeBlockers({
+          chain, round, today, orders, activeDistribution: Boolean(distribution),
+          walletsTruncated: previewData?.truncated ?? false, lock, settlementMode, now,
+        })
+      : [];
     const startedBurn = cases.some((item) => item.status === 'BURNING' || (item.status === 'BURNED' && item.burnTxHash));
     return ok({
       chain, project: project ? { id: project.id, tokenSymbol: project.tokenSymbol, name: project.name, status: project.status } : null,
       round: round ? { ...round, phase: phase.kind, daysToMaturity: round.maturityDate ? daysBetween(today, round.maturityDate) : 0, daysToRecall: round.recallFrom ? daysBetween(today, round.recallFrom) : 0 } : null,
-      settlementMode, inFlightOrders: orders, activeDistribution: Boolean(distribution), chainLock: lock ? { kind: lock.kind, acquiredAt: lock.acquiredAt } : null,
+      settlementMode, inFlightOrders: orders, activeDistribution: Boolean(distribution),
+      chainLock: lock ? { kind: lock.kind, acquiredAt: lock.acquiredAt, stale: isRecallLockStale(lock, chain, now) } : null,
       cases: cases.map((item, index) => ({ wallet: item.holderWallet, wptAmount: item.wptAmount, burnedAmount: burnedAmounts[index], status: item.status, txHash: item.burnTxHash, reason: item.reason })),
       preview: previewData ? { wallets: previewData.wallets.filter((item) => item.balance > 0n && item.wallet.toLowerCase() !== spv?.toLowerCase()).map((item) => ({ wallet: item.wallet, balance: item.balance.toString() })), truncated: previewData.truncated } : null,
       supplyOutsideVault: outside.toString(), canManage: can(role, 'settlement:recall'), canUnfreeze: round?.status === 'IN_PROGRESS' && !startedBurn,
-      demoMode: serverEnv().enableDemoRecall,
+      canFreeze: round?.status === 'INITIATED' && !round.freezeRequestedAt && blockers.length === 0,
+      demoMode: serverEnv().enableDemoRecall, today,
+      minNoticeDays: minNoticeDaysFor(chain, serverEnv().enableDemoRecall), freezeBlockers: blockers,
     });
   } catch (error) { return toResult(error); }
 }

@@ -41,7 +41,8 @@ export type NavIconName =
   | 'ClipboardList'
   | 'ShieldCheck'
   | 'ArrowLeftRight'
-  | 'Receipt';
+  | 'Receipt'
+  | 'Undo2';
 
 /**
  * Mục menu nào mang **số việc đang chờ**.
@@ -165,6 +166,7 @@ export const TELLER_NAV: NavSection = {
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
         /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
         { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
+        { href: '/recall', label: 'Thu hồi token (chỉ xem)', icon: 'Undo2', shortcut: 'U' },
       ],
     },
     {
@@ -187,6 +189,7 @@ export const CONTROLLER_NAV: NavSection = {
         { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
         /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
         { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
+        { href: '/recall', label: 'Thu hồi token', icon: 'Undo2', shortcut: 'U' },
       ],
     },
     {

@@ -562,7 +562,7 @@ describe('ca 10 — không còn nơi nào tạo token ngoài lập–duyệt, tr
     expect(callers).toEqual([
       'lib/bank/issuance.service.ts', // executeIssuance
       'lib/bank/mint.service.ts', // mintToInvestorDirect — dữ liệu thử
-      'lib/bank/recall.service.ts', // BE-05 — thu hồi sau khi đóng băng, quyền settlement:recall
+      'lib/bank/recall.service.ts', // BE-05: thu hồi sau khi đóng băng, quyền settlement:recall
       'lib/bank/token-request.service.ts', // executeBurn, chỉ gọi sau khi duyệt
     ]);
   });

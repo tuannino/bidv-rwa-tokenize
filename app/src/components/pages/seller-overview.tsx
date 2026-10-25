@@ -10,6 +10,7 @@ import { getSellerOverviewAction } from '@/app/actions/seller';
 import type { SellerOverviewView, SellerWithdrawPolicy } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { ProjectStatus } from '@/lib/store/project.store.port';
+import { tradingStatusLabel } from '@/components/recall/gates';
 
 /**
  * Màn TỔNG QUAN NGƯỜI BÁN (FE-21 việc 1–7) — CHỈ ĐỌC.
@@ -204,7 +205,7 @@ export function SellerOverviewPage() {
                   <dt className="text-muted-foreground">Trạng thái token</dt>
                   <dd>{TOKEN_STATUS_LABELS[token.tokenStatus]}</dd>
                   <dt className="text-muted-foreground">Trạng thái giao dịch</dt>
-                  <dd>{token.tradingOpen ? 'Đang mở bán' : 'Ngừng bán (đang tất toán)'}</dd>
+                  <dd>{tradingStatusLabel(data.recallPhase, token.tradingOpen, 'seller')}</dd>
                 </dl>
               ) : (
                 <p className="text-sm text-muted-foreground">Chưa có dự án trên chuỗi này.</p>
