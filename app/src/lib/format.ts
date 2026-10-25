@@ -20,6 +20,12 @@ export function formatAmount(value: string | bigint | number | null | undefined)
   }
 }
 
+/** Ngày lịch nghiệp vụ `YYYY-MM-DD` -> `dd/mm/yyyy`, không đổi múi giờ. */
+export function formatVnDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
 /** Múi giờ hiển thị cố định: người dùng là cán bộ ngân hàng ở Việt Nam, máy chủ có thể chạy UTC. */
 const DISPLAY_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   TrendingUp,
+  Undo2,
   UserCheck,
   UserCog,
   Wallet,
@@ -56,6 +57,7 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   ShieldCheck,
   ArrowLeftRight,
   Receipt,
+  Undo2,
 };
 
 const NO_COUNTS: PendingWorkCounts = { draft: 0, approval: 0 };

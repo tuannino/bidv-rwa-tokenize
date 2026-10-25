@@ -10,6 +10,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getPortfolioAction } from '@/app/actions/portfolio';
 import type { PortfolioView } from '@/lib/bank/portfolio.service';
 import { OnChainBadge } from './mock-badge';
+import { recallNoticeText } from '@/components/recall/gates';
 
 /**
  * Hộp 1 — TÀI SẢN ĐÃ ĐẦU TƯ của ví đang kết nối.
@@ -104,6 +105,15 @@ export function AssetSummary() {
           <p className="py-6 text-sm text-destructive">{error}</p>
         ) : data ? (
           <div className="space-y-4">
+            {data.recall && (() => {
+              const notice = recallNoticeText(data.recall);
+              return (
+                <div role="status" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+                  <p className="font-semibold">{notice.title}</p>
+                  <p>{notice.body}</p>
+                </div>
+              );
+            })()}
             <div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 {data.token.symbol} đang giữ

@@ -23,7 +23,7 @@ import {
   type CustomerAccountProfile,
 } from './account-profile.service';
 import { readRecallPhase } from './recall.service';
-import { tradingBlocked } from './recall-phase';
+import { tradingBlocked, type RecallPhaseKind } from './recall-phase';
 
 /**
  * PHÉP ĐỌC PHÍA MÁY CHỦ cho hai màn của Nhà đầu tư (FE-25): Giao dịch token và Quản lý lệnh.
@@ -89,6 +89,12 @@ export interface TradeContextView {
   /** Giá dùng để khớp lệnh: cùng nguồn với số VNDB chốt khi đặt lệnh. */
   priceVnd: string;
   caps: Record<OrderSide, QuantityCap>;
+  tradeBlock: {
+    phase: RecallPhaseKind;
+    settlementMode: boolean | null;
+    maturityDate: string | null;
+    recallFrom: string | null;
+  } | null;
 }
 
 /**
@@ -149,10 +155,9 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     ]);
 
     const block = tradingBlocked(recallPhase, settling);
-    if (block.blocked) return err('REQUEST_STATE', block.message ?? 'Giao dịch đang bị tạm dừng.');
 
     const project = projects[0] ?? null;
-    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, settling !== true) : null;
+    const token = project ? await tokenInfoOf(chain, project, issuePrice, terms, !block.blocked) : null;
     const undistributed = token ? BigInt(token.undistributed) : 0n;
 
     return ok({
@@ -163,6 +168,14 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       balances: { wpt: held.toString(), vndb: vndb.toString() },
       priceVnd: price.toString(),
       caps: quantityCaps(vndb, price, undistributed, held),
+      tradeBlock: block.blocked
+        ? {
+            phase: recallPhase.kind,
+            settlementMode: settling,
+            maturityDate: recallPhase.maturityDate,
+            recallFrom: recallPhase.recallFrom,
+          }
+        : null,
     });
   } catch (error) {
     return toResult(error);

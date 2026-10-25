@@ -88,7 +88,9 @@ export function confirmBlockReason(
   side: OrderSide,
   caps: Record<OrderSide, QuantityCap> | null,
   preview: TradePreviewState,
+  tradeBlocked = false,
 ): string | null {
+  if (tradeBlocked) return 'Giao dịch đang tạm dừng theo đợt thu hồi.';
   const quantity = quantityBlockReason(input, side, caps);
   if (quantity) return quantity;
   if (preview.kind === 'idle' || preview.kind === 'loading') return 'Đang kiểm tra điều kiện trước lệnh.';

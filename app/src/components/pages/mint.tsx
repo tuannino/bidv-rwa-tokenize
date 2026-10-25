@@ -18,6 +18,7 @@ import {
   readBalanceAction,
 } from '@/app/actions/bank';
 import type { TxnView } from '@/lib/bank/mint.service';
+import { operationLabel } from '@/lib/txn-labels';
 
 /**
  * Trang KYC + PHÁT HÀNH DỮ LIỆU THỬ — kênh cán bộ ngân hàng.
@@ -320,7 +321,7 @@ export function MintPage() {
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {new Date(txn.createdAt).toLocaleTimeString('vi-VN')}
                     </TableCell>
-                    <TableCell className="font-medium">{txn.operation}</TableCell>
+                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
                     <TableCell className="font-mono text-xs">
                       {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '—'}
                     </TableCell>

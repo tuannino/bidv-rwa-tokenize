@@ -160,7 +160,7 @@ afterEach(() => {
   resetStoreCache();
 });
 
-describe('BE-05 — pha và mốc ngày Việt Nam', () => {
+describe('BE-05: pha và mốc ngày Việt Nam', () => {
   it('đổi ngày đúng tại 17:00Z và cộng ngày không lệch múi giờ', () => {
     expect(todayVn(new Date('2026-10-23T16:59:59Z'))).toBe('2026-10-23');
     expect(todayVn(new Date('2026-10-23T17:00:00Z'))).toBe('2026-10-24');
@@ -178,9 +178,17 @@ describe('BE-05 — pha và mốc ngày Việt Nam', () => {
     expect(recallPhaseOf({ ...base, status: 'IN_PROGRESS' }, project, '2026-10-23').kind).toBe('FROZEN');
     expect(recallPhaseOf(null, { ...project, status: 'CLOSED' }, '2026-10-23').kind).toBe('CLOSED');
   });
+
+  it('[FE-10 ca 11] mức báo trước tối thiểu theo chain và cờ trình diễn', async () => {
+    const { minNoticeDaysFor } = await import('@/lib/bank/recall.service');
+    expect(minNoticeDaysFor('mock', false)).toBe(0);
+    expect(minNoticeDaysFor('hardhat-local', false)).toBe(0);
+    expect(minNoticeDaysFor('evm', false)).toBe(1);
+    expect(minNoticeDaysFor('evm', true)).toBe(0);
+  });
 });
 
-describe('BE-05 — mở, sửa, huỷ và quyền', () => {
+describe('BE-05: mở, sửa, huỷ và quyền', () => {
   it('Giao dịch viên bị chặn và có audit DENIED', async () => {
     await issueAndDistribute();
     actAs('TELLER', 'GDV001');
@@ -269,7 +277,7 @@ describe('BE-05 — mở, sửa, huỷ và quyền', () => {
   });
 });
 
-describe('BE-05 — chốt chặn giao dịch, Mint và chia lợi nhuận', () => {
+describe('BE-05: chốt chặn giao dịch, Mint và chia lợi nhuận', () => {
   async function readyInvestor() {
     await issueAndDistribute(10n);
     seedMockLedger({
@@ -327,6 +335,39 @@ describe('BE-05 — chốt chặn giao dịch, Mint và chia lợi nhuận', () 
       .toMatchObject({ ok: false, code: 'REQUEST_STATE' });
   });
 
+  it('[FE-10 ca 9] getTradeContext trả dữ liệu và tradeBlock ở NOTICE, FROZEN, CLOSED', async () => {
+    await readyInvestor();
+    const opened = await openToday(); expect(opened.ok).toBe(true); if (!opened.ok) return;
+    actAs('INVESTOR', 'NDT001');
+    const { getTradeContext } = await import('@/lib/bank/trade.service');
+    const notice = await getTradeContext({ chain: CHAIN, wallet: INVESTOR });
+    expect(notice).toMatchObject({ ok: true, data: { tradeBlock: { phase: 'NOTICE' }, token: { tradingOpen: false } } });
+
+    actAs('CONTROLLER', 'KSV001');
+    const { freezeToken, recallBatch } = await import('@/lib/bank/recall.service');
+    expect((await freezeToken({ chain: CHAIN, roundId: opened.data.id, confirmSymbol: 'WPT' })).ok).toBe(true);
+    actAs('INVESTOR', 'NDT001');
+    expect(await getTradeContext({ chain: CHAIN, wallet: INVESTOR }))
+      .toMatchObject({ ok: true, data: { tradeBlock: { phase: 'FROZEN' }, token: { tradingOpen: false } } });
+
+    actAs('CONTROLLER', 'KSV001');
+    expect(await recallBatch({ chain: CHAIN, roundId: opened.data.id })).toMatchObject({ ok: true, data: { completed: true } });
+    actAs('INVESTOR', 'NDT001');
+    expect(await getTradeContext({ chain: CHAIN, wallet: INVESTOR }))
+      .toMatchObject({ ok: true, data: { tradeBlock: { phase: 'CLOSED' }, token: { tradingOpen: false } } });
+  });
+
+  it('[FE-10 ca 9] cờ đóng băng ngoài đợt trả tradeBlock; trạng thái mở thì không chặn', async () => {
+    await readyInvestor();
+    actAs('INVESTOR', 'NDT001');
+    const { getTradeContext } = await import('@/lib/bank/trade.service');
+    expect(await getTradeContext({ chain: CHAIN, wallet: INVESTOR }))
+      .toMatchObject({ ok: true, data: { tradeBlock: null, token: { tradingOpen: true } } });
+    await (await ledger()).setSettlementMode(true);
+    expect(await getTradeContext({ chain: CHAIN, wallet: INVESTOR }))
+      .toMatchObject({ ok: true, data: { tradeBlock: { phase: 'NONE', settlementMode: true }, token: { tradingOpen: false } } });
+  });
+
   it('[ca 20] pha FROZEN chặn cả mở kỳ và duyệt chia lợi nhuận', async () => {
     await issueAndDistribute();
     const opened = await openToday(); expect(opened.ok).toBe(true); if (!opened.ok) return;
@@ -358,7 +399,39 @@ describe('BE-05 — chốt chặn giao dịch, Mint và chia lợi nhuận', () 
   });
 });
 
-describe('BE-05 — đóng băng, phục hồi và thu hồi', () => {
+describe('BE-05: đóng băng, phục hồi và thu hồi', () => {
+  it('[FE-10 ca 10] tổng quan và freezeBlockers dùng cùng điều kiện, bỏ qua khoá RECALL quá hạn', async () => {
+    await issueAndDistribute();
+    const opened = await openToday(); expect(opened.ok).toBe(true); if (!opened.ok) return;
+    const { freezeBlockers, getRecallOverview, isRecallLockStale } = await import('@/lib/bank/recall.service');
+    const clean = await getRecallOverview({ chain: CHAIN });
+    expect(clean).toMatchObject({
+      ok: true,
+      data: { today: todayVn(), minNoticeDays: 0, canFreeze: true, freezeBlockers: [] },
+    });
+    if (!clean.ok || !clean.data.round) return;
+    const base = {
+      chain: CHAIN,
+      round: clean.data.round,
+      today: clean.data.today,
+      orders: { PLACED: 0, CHECKING: 0, EXECUTING: 0 },
+      activeDistribution: false,
+      walletsTruncated: false,
+      settlementMode: false,
+      now: Date.now(),
+    };
+    expect(freezeBlockers({ ...base, activeDistribution: true, lock: null })[0]).toMatch(/kỳ chia/);
+    expect(freezeBlockers({ ...base, walletsTruncated: true, lock: null })[0]).toMatch(/bị cắt/);
+    expect(freezeBlockers({ ...base, orders: { PLACED: 1, CHECKING: 0, EXECUTING: 0 }, lock: null })[0]).toMatch(/lệnh đang xử lý/);
+    const current = { kind: 'RECALL', acquiredAt: new Date(Date.now() - 1_000).toISOString() };
+    const stale = { kind: 'RECALL', acquiredAt: new Date(Date.now() - 10_000_000).toISOString() };
+    expect(isRecallLockStale(current, CHAIN, Date.now())).toBe(false);
+    expect(isRecallLockStale(stale, CHAIN, Date.now())).toBe(true);
+    expect(freezeBlockers({ ...base, lock: current })[0]).toMatch(/thao tác khác/);
+    expect(freezeBlockers({ ...base, lock: stale })).toEqual([]);
+    expect(freezeBlockers({ ...base, lock: { kind: 'WITHDRAW', acquiredAt: stale.acquiredAt } })[0]).toMatch(/thao tác khác/);
+  });
+
   it('đóng băng loại ví SPV và ví số dư 0 khỏi hồ sơ', async () => {
     await issueAndDistribute();
     const opened = await openToday(); expect(opened.ok).toBe(true); if (!opened.ok) return;
