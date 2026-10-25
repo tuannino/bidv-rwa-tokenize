@@ -18,7 +18,7 @@ export function RecallSteps({ current }: { current: 1 | 2 | 3 | 4 | null }) {
             className={cn(
               'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm',
               active && 'border-primary bg-primary/5 font-semibold',
-              done && 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30',
+              done && 'border-emerald-300 bg-emerald-50 font-medium text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100',
             )}
           >
             <span className="flex size-6 items-center justify-center rounded-full border text-xs tabular-nums">

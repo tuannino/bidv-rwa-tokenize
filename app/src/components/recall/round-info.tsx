@@ -7,7 +7,7 @@ const PHASE_LABEL: Record<string, string> = {
   NONE: 'Chưa mở',
   SCHEDULED: 'Đã lập lịch',
   NOTICE: 'Đang báo trước',
-  FROZEN: 'Đang đóng băng',
+  FROZEN: 'Đang thu hồi',
   CLOSED: 'Đã hoàn tất',
 };
 
@@ -23,14 +23,18 @@ function Item({ label, value }: { label: string; value: string }) {
 export function RoundInfo({ overview, progress }: { overview: RecallOverview; progress: RecallBatchProgress | null }) {
   const round = overview.round;
   const lockMessage = chainLockMessage(overview.chainLock);
+  const completed = round?.phase === 'CLOSED';
+  const chainStatus = overview.settlementMode === true
+    ? completed ? 'Đã đóng băng sau thu hồi' : 'Đang đóng băng'
+    : overview.settlementMode === false ? 'Đang mở' : 'Không đọc được';
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{round ? PHASE_LABEL[round.phase] ?? round.phase : 'Chưa có đợt'}</Badge>
+        <Badge variant="secondary">Đợt: {round ? PHASE_LABEL[round.phase] ?? round.phase : 'Chưa có đợt'}</Badge>
         {overview.demoMode && <Badge variant="outline">Chế độ trình diễn</Badge>}
         {round?.status === 'CANCELLED' && <Badge variant="destructive">Đã huỷ</Badge>}
-        <Badge variant={overview.settlementMode === true ? 'destructive' : 'outline'}>
-          {overview.settlementMode === true ? 'Đang đóng băng' : overview.settlementMode === false ? 'Đang mở' : 'Không đọc được'}
+        <Badge variant={overview.settlementMode === true && !completed ? 'destructive' : 'outline'}>
+          Token trên chuỗi: {chainStatus}
         </Badge>
       </div>
       <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

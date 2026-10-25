@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { isChainKey, type ChainKey, type TxResult } from '@bidv/shared';
 import { z } from 'zod';
 import { serverEnv } from '@/lib/config/env';
+import { formatVnDate } from '@/lib/format';
 import { getLedger, LedgerError, LedgerNotImplementedError, receiptTimeoutFor } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -100,7 +101,7 @@ export function freezeBlockers(input: {
 }): string[] {
   const blockers: string[] = [];
   if (!input.round.recallFrom || input.today < input.round.recallFrom) {
-    blockers.push(`Chưa tới ngày bắt đầu thu hồi ${input.round.recallFrom ?? '(chưa đặt)'}.`);
+    blockers.push(`Chưa tới ngày bắt đầu thu hồi ${input.round.recallFrom ? formatVnDate(input.round.recallFrom) : '(chưa đặt)'}.`);
   }
   if (input.orders.PLACED + input.orders.CHECKING + input.orders.EXECUTING > 0) {
     blockers.push('Vẫn còn lệnh đang xử lý; phải xử lý hết trước khi đóng băng.');
