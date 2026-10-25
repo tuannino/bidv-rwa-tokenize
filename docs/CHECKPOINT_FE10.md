@@ -77,9 +77,11 @@ của worktree. Bản webpack hoàn chỉnh đạt; cảnh báo optional MetaMas
 
 ### 2.2 E2E mock
 
-`npx playwright test e2e/recall.spec.ts --project=mock` đạt 1 ca. Kịch bản tự dựng dữ liệu phát
-hành nếu chạy riêng, đếm action của cả hai vai, kiểm giao dịch bị khoá, đóng băng, mở lại, huỷ đợt
-và có `afterAll` phục hồi trạng thái nếu hỏng giữa chừng.
+`npx playwright test e2e/recall.spec.ts --project=mock` đạt 1 ca. Chạy toàn bộ project mock đạt
+75 ca, bỏ qua 7 ca dành cho chain khác. Kịch bản tự dựng dữ liệu phát hành nếu chạy riêng, đếm
+action của cả hai vai, kiểm giao dịch bị khoá, đóng băng, mở lại, huỷ đợt và có `afterAll` phục hồi
+trạng thái nếu hỏng giữa chừng. Ca cũ ở `mint.spec.ts` được cập nhật để đòi nhãn tiếng Việt
+"Phát hành" theo R17 thay vì mã thô `mint`.
 
 ### 2.3 Hardhat local
 

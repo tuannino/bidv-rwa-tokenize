@@ -14,6 +14,7 @@ async function actAs(context: BrowserContext, baseURL: string, role: Role) {
 async function ensureIssued(page: Page, context: BrowserContext, baseURL: string) {
   await actAs(context, baseURL, 'CONTROLLER');
   await page.goto('/recall');
+  await expect(page.getByText('Đang tải tình trạng thu hồi...')).toHaveCount(0);
   if (await page.getByRole('button', { name: 'Mở đợt thu hồi' }).count()) return;
   await expect(page.getByText(/Dự án chưa phát hành/)).toBeVisible();
   await actAs(context, baseURL, 'TELLER');

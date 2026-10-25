@@ -82,7 +82,7 @@ test.describe('Phát hành token điện gió', () => {
 
     // Giao dịch đã được lưu và hiển thị trong lịch sử.
     const history = page.getByRole('table').last();
-    await expect(history).toContainText('mint');
+    await expect(history).toContainText('Phát hành');
     await expect(history).toContainText('CONFIRMED');
   });
 
