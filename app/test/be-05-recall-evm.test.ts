@@ -29,7 +29,7 @@ async function confirmed(ledger: ILedgerPort, pending: Promise<{ txHash: string 
 
 const live = RPC ? describe.sequential : describe.skip;
 
-live('BE-05 — thu hồi đầu tư trên nút Hardhat thật', () => {
+live('BE-05: thu hồi đầu tư trên nút Hardhat thật', () => {
   let ledger: ILedgerPort;
   const original = Object.fromEntries([
     'RPC_HARDHAT', 'SERVER_SIGNER_PRIVATE_KEY_HARDHAT_LOCAL', 'USE_MOCK_DB',

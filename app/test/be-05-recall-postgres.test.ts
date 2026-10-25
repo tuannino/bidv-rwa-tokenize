@@ -28,7 +28,7 @@ async function stores() {
 
 const live = TEST_DATABASE_URL ? describe.sequential : describe.skip;
 
-live('BE-05 — kho thu hồi trên PostgreSQL thật', () => {
+live('BE-05: kho thu hồi trên PostgreSQL thật', () => {
   beforeAll(async () => {
     await admin(`DROP DATABASE IF EXISTS "${DB_NAME}"`);
     await admin(`CREATE DATABASE "${DB_NAME}"`);
