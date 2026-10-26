@@ -100,11 +100,16 @@ export function DemoPaymentPage() {
           className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-          <span>
-            Chức năng <strong>chỉ dùng cho bản trình diễn</strong>: tạo VNDB không có tiền gửi thật đứng
-            sau. Sẽ tắt khi lên môi trường thật (cờ ENABLE_DEMO_PAYMENT_MINT). Chuỗi đang dùng:{' '}
-            <span className="font-mono">{chain}</span>.
-          </span>
+          <ul className="list-disc space-y-1 pl-4">
+            <li>
+              <strong>VNDB (giả lập theo yêu cầu của nghiệp vụ):</strong> Là đồng Stablecoin do bên thứ ba
+              phát hành dùng để thanh toán mua bán WPT Token
+            </li>
+            <li>
+              <strong>Chức năng chỉ dùng cho bản PoC:</strong> tạo VNDB không có tiền gửi thật đứng sau. Sẽ
+              tắt khi lên môi trường thật
+            </li>
+          </ul>
         </div>
       </header>
 

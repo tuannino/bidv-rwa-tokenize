@@ -55,3 +55,16 @@ export function formatDateTime(iso: string | null | undefined): string {
   );
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
+
+/**
+ * Giữ lại chữ số của chuỗi người dùng gõ (UIUX-01 A1): bỏ mọi ký tự không phải 0-9, kể cả dấu chấm
+ * hàng nghìn mà ô số tự chèn, rồi bỏ số 0 đứng đầu (chỉ toàn 0 thì giữ một `'0'`). Chuỗi rỗng trả rỗng.
+ *
+ * Ô số lưu và gửi máy chủ chuỗi THÔ này; dấu chấm chỉ là cách hiển thị.
+ */
+export function digitsOnly(text: string): string {
+  const digits = text.replace(/\D/g, '');
+  if (digits === '') return '';
+  const trimmed = digits.replace(/^0+/, '');
+  return trimmed === '' ? '0' : trimmed;
+}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Coins, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -211,11 +212,10 @@ export function MintPage() {
               <label htmlFor="mint-amount" className="text-sm font-medium">
                 Số lượng WPT
               </label>
-              <input
+              <AmountInput
                 id="mint-amount"
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                inputMode="numeric"
+                onValueChange={setAmount}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <p className="text-xs text-muted-foreground">WPT có 0 chữ số thập phân — nhập số nguyên.</p>

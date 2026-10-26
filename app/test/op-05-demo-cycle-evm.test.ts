@@ -142,7 +142,7 @@ live('OP-05 ca 4: vòng trình diễn lượt 12 đến 13.8 trên nút Hardhat 
   it('lượt 12: Kiểm soát viên đặt ví nhận, PERCENT 20%, không số cố định: ba giao dịch; màn /vault hiện PERCENT, 20%, khoá 0', async () => {
     const { getVaultOverview, saveVaultConfig } = await import('@/lib/bank/vault.service');
     actAs('CONTROLLER', 'KSV001');
-    const saved = await saveVaultConfig({ chain: CHAIN, percent: '20', fixedLock: '', payoutWallet: PAYOUT_WALLET });
+    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT_WALLET });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPayoutWallet', 'setPercentRate', 'setLockMode']);
     const overview = await getVaultOverview({ chain: CHAIN });

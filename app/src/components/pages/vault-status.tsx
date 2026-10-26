@@ -9,6 +9,7 @@ import {
   reconcileWithdrawRequestsAction,
   resolveWithdrawRequestAction,
 } from '@/app/actions/withdraw';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +23,7 @@ import type {
 } from '@/lib/bank/vault.service';
 import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
+import { formatDateTime } from '@/lib/format';
 
 const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
 const percent = (bps: string) => `${Number(bps) / 100}%`;
@@ -45,21 +47,25 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
 const FIELD =
   'w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
 
+const CONFIG_MODES = [
+  { value: 'PERCENT', label: 'Theo tỷ lệ %' },
+  { value: 'FIXED', label: 'Khoá số cố định' },
+] as const;
+
 /**
- * Mục "Cấu hình khoá" (BE-13 QĐ-C). Máy chủ kiểm lại mọi ô, đọc trạng thái chuỗi và chỉ gửi giao
- * dịch còn khác; màn chỉ gửi ba ô dạng chuỗi.
+ * Mục "Cấu hình khoá" (BE-13 QĐ-C, UIUX-01 C1 tới C5). Người dùng chọn MỘT chế độ, màn chỉ hiện và
+ * chỉ gửi ô của chế độ đó; máy chủ kiểm lại, đọc trạng thái chuỗi và chỉ gửi giao dịch còn khác.
  */
 function VaultConfigCard({
   chain,
-  status,
   config,
   onSaved,
 }: {
   chain: ChainKey;
-  status: VaultStatusView;
   config: VaultConfigFormView;
   onSaved: () => void;
 }) {
+  const [mode, setMode] = useState<VaultConfigFormView['mode']>(config.mode);
   const [form, setForm] = useState({ percent: config.percent, fixedLock: config.fixedLock, payoutWallet: config.payoutWallet });
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<
@@ -72,13 +78,22 @@ function VaultConfigCard({
   const fieldError = (key: string) =>
     result?.tone === 'error' ? result.fieldErrors[key]?.join(' ') : undefined;
   const disabled = !config.canConfigure || saving;
-  const afterFirstPeriod = BigInt(status.lastPeriodRef) > 0n;
+  const effectNote =
+    mode === 'PERCENT' && config.percentApplies === 'NEXT_PERIOD'
+      ? 'Tỷ lệ mới áp từ lần chốt kỳ tiếp theo.'
+      : 'Có hiệu lực ngay khi lưu.';
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
     setResult(null);
-    const saved = await saveVaultConfigAction({ chain, ...form });
+    const saved = await saveVaultConfigAction({
+      chain,
+      mode,
+      percent: mode === 'PERCENT' ? form.percent : '',
+      fixedLock: mode === 'FIXED' ? form.fixedLock : '',
+      payoutWallet: form.payoutWallet,
+    });
     setSaving(false);
     if (saved.ok) {
       setResult({
@@ -98,10 +113,7 @@ function VaultConfigCard({
       <CardHeader><CardTitle className="text-base">Cấu hình khoá</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Có số khoá cố định thì vault khoá đúng số đó (FIXED); để trống thì khoá theo tỷ lệ PERCENT trên thu ròng
-          của kỳ. {afterFirstPeriod
-            ? 'Vault đã qua kỳ chia đầu: tỷ lệ mới chỉ được ghi chờ, có hiệu lực ở lần chốt kỳ kế tiếp; trong lúc đó khoá vẫn theo tỷ lệ đang áp.'
-            : 'Vault chưa qua kỳ chia nào: tỷ lệ mới có hiệu lực ngay.'}
+          Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định.
         </p>
         {!config.canConfigure && (
           <p className="text-sm text-muted-foreground">Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem.</p>
@@ -112,24 +124,56 @@ function VaultConfigCard({
             {new Date(config.busy.acquiredAt).toLocaleString('vi-VN')}.
           </p>
         )}
-        <form onSubmit={save} className="grid gap-4 sm:grid-cols-3" aria-label="Biểu mẫu cấu hình khoá">
-          <div className="space-y-1.5">
-            <label htmlFor="vault-percent" className="text-sm font-medium">Tỷ lệ khoá PERCENT (%)</label>
-            <input id="vault-percent" inputMode="decimal" value={form.percent} onChange={set('percent')} disabled={disabled} className={FIELD} />
-            {fieldError('percent') && <p role="alert" className="text-xs text-destructive">{fieldError('percent')}</p>}
+        <form onSubmit={save} className="grid gap-4 sm:grid-cols-2" aria-label="Biểu mẫu cấu hình khoá">
+          <div role="radiogroup" aria-label="Chế độ khoá" className="flex flex-wrap gap-4 sm:col-span-2">
+            {CONFIG_MODES.map((option) => (
+              <label key={option.value} className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="vault-mode"
+                  value={option.value}
+                  checked={mode === option.value}
+                  onChange={() => setMode(option.value)}
+                  disabled={disabled}
+                />
+                {option.label}
+              </label>
+            ))}
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="vault-fixed" className="text-sm font-medium">Số khoá cố định (VNDB, để trống được)</label>
-            <input id="vault-fixed" inputMode="numeric" value={form.fixedLock} onChange={set('fixedLock')} disabled={disabled} className={FIELD} />
-            {fieldError('fixedLock') && <p role="alert" className="text-xs text-destructive">{fieldError('fixedLock')}</p>}
-          </div>
-          <div className="space-y-1.5">
+          {mode === 'PERCENT' ? (
+            <div className="space-y-1.5">
+              <label htmlFor="vault-percent" className="text-sm font-medium">Tỷ lệ khoá (%)</label>
+              <input id="vault-percent" inputMode="decimal" value={form.percent} onChange={set('percent')} disabled={disabled} className={FIELD} />
+              {fieldError('percent') && <p role="alert" className="text-xs text-destructive">{fieldError('percent')}</p>}
+              <p role="note" className="text-xs text-muted-foreground">{effectNote}</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label htmlFor="vault-fixed" className="text-sm font-medium">Số khoá cố định (VNDB)</label>
+              <AmountInput
+                id="vault-fixed"
+                value={form.fixedLock}
+                onValueChange={(raw) => setForm((current) => ({ ...current, fixedLock: raw }))}
+                disabled={disabled}
+                className={FIELD}
+              />
+              {fieldError('fixedLock') && <p role="alert" className="text-xs text-destructive">{fieldError('fixedLock')}</p>}
+              <p role="note" className="text-xs text-muted-foreground">{effectNote}</p>
+            </div>
+          )}
+          {/* Lỗi "chỉ nhập một trong hai" gắn vào ô của chế độ kia, ô đó đang ẩn nên hiện ở đây. */}
+          {fieldError(mode === 'PERCENT' ? 'fixedLock' : 'percent') && (
+            <p role="alert" className="text-xs text-destructive sm:col-span-2">
+              {fieldError(mode === 'PERCENT' ? 'fixedLock' : 'percent')}
+            </p>
+          )}
+          <div className="space-y-1.5 sm:col-span-2">
             <label htmlFor="vault-payout" className="text-sm font-medium">Ví nhận tiền rút</label>
             <input id="vault-payout" spellCheck={false} value={form.payoutWallet} onChange={set('payoutWallet')} disabled={disabled} className={FIELD} />
             {fieldError('payoutWallet') && <p role="alert" className="text-xs text-destructive">{fieldError('payoutWallet')}</p>}
           </div>
           {config.canConfigure && (
-            <div className="sm:col-span-3">
+            <div className="sm:col-span-2">
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                 Lưu cấu hình khoá
@@ -369,6 +413,59 @@ function VaultConfigHistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadK
   );
 }
 
+/** Ngày cấu hình hiện hành có hiệu lực (UIUX-01 D4), viết cho người đọc. */
+function configEffectiveText(
+  effective: VaultOverviewView['configEffective'],
+  error: string | null,
+): string {
+  if (error !== null || effective === null) return 'Không đọc được';
+  if (effective.unknown) return 'Không xác định được';
+  if (effective.at === null) return 'Chưa cấu hình';
+  return formatDateTime(new Date(effective.at * 1000).toISOString());
+}
+
+/**
+ * Khối "Trạng thái hiện tại" (UIUX-01 D1, D2): đúng 11 trường nghiệp vụ cần, đúng thứ tự; tỷ lệ áp
+ * chỉ hiện khi khoá theo tỷ lệ, mức khoá cố định chỉ hiện khi khoá số cố định.
+ */
+function VaultStatusMetrics({
+  status,
+  configEffective,
+  configEffectiveError,
+}: {
+  status: VaultStatusView;
+  configEffective: VaultOverviewView['configEffective'];
+  configEffectiveError: string | null;
+}) {
+  return (
+    <div className="space-y-3">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Số dư VNDB" value={`${amount(status.vndbBalance)} VNDB`} />
+        <Metric label="Số VNDB đang khoá" value={`${amount(status.lockedAmount)} VNDB`} />
+        <Metric label="Số dư WPT" value={`${amount(status.wptBalance)} WPT`} />
+        <Metric label="VNDB có thể rút" value={`${amount(status.withdrawable)} VNDB`} />
+        <Metric label="Chế độ khoá" value={MODE_LABEL[status.lockMode]} />
+        {status.lockMode === 'PERCENT' && <Metric label="Tỷ lệ áp" value={percent(status.percentRateBps)} />}
+        {status.lockMode === 'FIXED' && (
+          <Metric label="Mức khoá cố định" value={`${amount(status.fixedLockAmount)} VNDB`} />
+        )}
+        <Metric label="Lợi nhuận chia quý trước" value={`${amount(status.lastDistributedPrev)} VNDB`} />
+        <Metric
+          label="Ngày cấu hình có hiệu lực"
+          value={<span title={configEffectiveError ?? undefined}>{configEffectiveText(configEffective, configEffectiveError)}</span>}
+        />
+        <Metric label="Địa chỉ vault" value={status.address} />
+        <Metric label="Trạng thái rút" value={status.withdrawalsPaused ? 'Đang tạm dừng' : 'Đang hoạt động'} />
+      </dl>
+      {status.pendingPercentRateBps !== null && (
+        <p role="note" className="text-sm text-muted-foreground">
+          Tỷ lệ {percent(status.pendingPercentRateBps)} đã lưu, áp từ lần chốt kỳ tiếp theo.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Trạng thái vault, lịch sử chốt kỳ, cấu hình khoá, lịch sử cấu hình và lệnh rút cần xem xét. */
 export function VaultStatusPage() {
   const { chain } = useSelectedChain();
@@ -420,26 +517,11 @@ export function VaultStatusPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Trạng thái hiện tại</CardTitle></CardHeader>
             <CardContent>
-              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Metric label="Địa chỉ vault" value={data.status.address} />
-                <Metric label="Chế độ khoá" value={MODE_LABEL[data.status.lockMode]} />
-                <Metric label="Số dư WPT" value={`${amount(data.status.wptBalance)} WPT`} />
-                <Metric label="Số dư VNDB" value={`${amount(data.status.vndbBalance)} VNDB`} />
-                <Metric label="Khoá cố định" value={`${amount(data.status.fixedLockAmount)} VNDB`} />
-                <Metric label="Tỷ lệ đang áp" value={percent(data.status.percentRateBps)} />
-                <Metric
-                  label="Tỷ lệ chờ áp"
-                  value={data.status.pendingPercentRateBps === null ? 'Không có' : percent(data.status.pendingPercentRateBps)}
-                />
-                <Metric label="Thu ròng" value={`${amount(data.status.netProceeds)} VNDB`} />
-                <Metric label="Đang khoá" value={`${amount(data.status.lockedAmount)} VNDB`} />
-                <Metric label="Có thể rút" value={`${amount(data.status.withdrawable)} VNDB`} />
-                <Metric label="Kỳ gần nhất" value={amount(data.status.lastPeriodRef)} />
-                <Metric label="Đã chia kỳ trước" value={`${amount(data.status.lastDistributedPrev)} VNDB`} />
-                <Metric label="Phần khoá theo kỳ" value={`${amount(data.status.percentLocked)} VNDB`} />
-                <Metric label="Ví nhận tiền rút" value={data.status.payoutWallet ?? 'Chưa cấu hình'} />
-                <Metric label="Trạng thái rút" value={data.status.withdrawalsPaused ? 'Đang tạm dừng' : 'Đang hoạt động'} />
-              </dl>
+              <VaultStatusMetrics
+                status={data.status}
+                configEffective={data.configEffective}
+                configEffectiveError={data.configEffectiveError}
+              />
             </CardContent>
           </Card>
 
@@ -447,7 +529,6 @@ export function VaultStatusPage() {
             <VaultConfigCard
               key={chain}
               chain={chain}
-              status={data.status}
               config={data.config}
               onSaved={() => setReloadKey((value) => value + 1)}
             />

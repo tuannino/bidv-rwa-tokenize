@@ -47,7 +47,7 @@ export function validateRecallDates(input: {
   if (input.maturityDate < input.today) throw new Error('Ngày hết hạn không được trước hôm nay.');
   const minimum = minNoticeDaysFor(input.chain, input.demo);
   if (input.noticeDays === 0 && minimum === 1) {
-    throw new Error('Chain này cần ít nhất 1 ngày báo trước; chỉ mock, hardhat-local hoặc chế độ trình diễn cho phép 0 ngày.');
+    throw new Error('Chain này cần ít nhất 1 ngày báo trước; chỉ mock, hardhat-local hoặc chế độ PoC cho phép 0 ngày.');
   }
   if (!Number.isInteger(input.noticeDays) || input.noticeDays < minimum || input.noticeDays > 365) {
     throw new Error(`Số ngày báo trước phải là số nguyên từ ${minimum} đến 365.`);

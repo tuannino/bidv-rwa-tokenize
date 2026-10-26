@@ -78,7 +78,7 @@ async function preparedVault(vndb = 1_000n) {
   const ledger = getLedger(CHAIN);
   await ledger.whitelist(PAYOUT);
   await seedMockLedger({ paymentBalances: { [MOCK_VAULT_ADDRESS]: vndb } }, getMockLedgerStateStore(CHAIN));
-  const saved = await saveVaultConfig({ chain: CHAIN, percent: '20', fixedLock: '400', payoutWallet: PAYOUT });
+  const saved = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400', payoutWallet: PAYOUT });
   expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
   actAs('SELLER');
   hooks.withdrawCalls = [];

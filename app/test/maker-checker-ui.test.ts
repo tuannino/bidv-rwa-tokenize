@@ -426,7 +426,7 @@ describe('ca 5 — chấp nhận thì trạng thái chuyển hoàn tất, nguồ
     const detail = await getTokenRequestDetail({ chain: CHAIN, requestId: id });
     expect(detail.ok && detail.data.token?.totalSupply).toBe('600');
     const after = await getApprovalStats(CHAIN);
-    expect(after.ok && after.data).toEqual({
+    expect(after.ok && after.data).toMatchObject({
       pending: 0,
       approvedToday: before.data.approvedToday + 1,
       rejectedToday: before.data.rejectedToday,

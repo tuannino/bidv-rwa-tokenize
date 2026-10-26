@@ -137,6 +137,7 @@ export {
 } from './project.store.port';
 
 export {
+  APPROVAL_HISTORY_LIMIT,
   assertTokenRequestStatus,
   type ITokenRequestStore,
   type NewTokenRequest,

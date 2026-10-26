@@ -24,12 +24,14 @@ import { err, ok, type Result } from './result';
 import { chainSchema } from './schemas';
 import {
   bpsToPercent,
+  configEffectiveAt,
   describeVaultConfigStep,
   parseFixedLock,
   percentToBps,
   planVaultConfig,
   VAULT_CONFIG_STEP_LABELS,
   type VaultConfigStep,
+  type VaultConfigTarget,
 } from './vault-config';
 
 export interface VaultStatusView {
@@ -65,11 +67,18 @@ export interface VaultPeriodCloseView {
 export interface VaultConfigFormView {
   /** Chỉ Kiểm soát viên lưu được; vai khác chỉ xem. */
   canConfigure: boolean;
+  /** Chế độ chọn sẵn (UIUX-01 C1): chế độ hiện hành, vault `UNSET` thì PERCENT. */
+  mode: 'PERCENT' | 'FIXED';
   /** Phần trăm điền sẵn: tỷ lệ chờ, rồi tỷ lệ trên chuỗi; vault `UNSET` thì lấy `vault.default_percent_bps`. */
   percent: string;
-  /** Số khoá cố định điền sẵn: chỉ khi chế độ hiện hành là FIXED, còn lại để trống. */
+  /** Số khoá cố định điền sẵn: số trên chuỗi khi lớn hơn 0, còn lại để trống. */
   fixedLock: string;
   payoutWallet: string;
+  /**
+   * Tỷ lệ % mới có hiệu lực khi nào (UIUX-01 C4, QĐ-1). Hiện hợp đồng chỉ ghi tỷ lệ chờ sau kỳ đầu,
+   * nên `NEXT_PERIOD` khi `lastPeriodRef > 0`. SC-11 sửa hợp đồng thì chỉ đổi chỗ tính này.
+   */
+  percentApplies: 'NOW' | 'NEXT_PERIOD';
   /** Thao tác đang giữ khoá vận hành của chain, `null` khi rảnh. */
   busy: { kind: 'CONFIG' | 'WITHDRAW' | 'RECALL'; acquiredAt: string } | null;
 }
@@ -80,6 +89,10 @@ export interface VaultOverviewView {
   history: VaultPeriodCloseView[];
   /** Lỗi lịch sử không được che trạng thái hiện tại, nhất là khi address book cũ thiếu deployBlock. */
   historyError: string | null;
+  /** Mốc cấu hình hiện hành có hiệu lực (UIUX-01 D4); `null` khi có `configEffectiveError`. */
+  configEffective: { at: number | null; unknown: boolean } | null;
+  /** Lỗi đọc sự kiện cấu hình; không che trạng thái hay lịch sử chốt kỳ. */
+  configEffectiveError: string | null;
   /** `null` khi chain không có vault. */
   config: VaultConfigFormView | null;
   /** Kiểm soát viên chốt được lệnh rút `NEEDS_REVIEW` (`vault:reconcile`, QĐ-F). */
@@ -100,31 +113,40 @@ export async function getVaultOverview(input: unknown): Promise<Result<VaultOver
     const status = await ledger.vaultStatus();
     const canResolveWithdrawals = can(role, 'vault:reconcile');
     if (status === null) {
-      return ok({ chain, status: null, history: [], historyError: null, config: null, canResolveWithdrawals });
+      return ok({
+        chain,
+        status: null,
+        history: [],
+        historyError: null,
+        configEffective: null,
+        configEffectiveError: null,
+        config: null,
+        canResolveWithdrawals,
+      });
     }
 
-    let history: VaultPeriodCloseView[] = [];
-    let historyError: string | null = null;
-    try {
-      history = (await ledger.vaultPeriodCloses(10)).map((entry) => ({
-        periodRef: entry.periodRef.toString(),
-        distributedPrev: entry.distributedPrev.toString(),
-        rateBps: entry.rateBps.toString(),
-        percentLocked: entry.percentLocked.toString(),
-        operator: entry.operator,
-        txHash: entry.txHash,
-        blockNumber: entry.blockNumber.toString(),
-        timestamp: entry.timestamp,
-      }));
-    } catch (error) {
-      const converted = toResult<never>(error);
-      historyError = converted.ok ? null : converted.error;
-    }
-
-    const [defaultBps, busy] = await Promise.all([
+    // Hai phép đọc lịch sử chạy song song, mỗi phép tự bắt lỗi: lỗi bên này không làm mất bên kia.
+    const [closes, configEvents, defaultBps, busy] = await Promise.all([
+      settle(ledger.vaultPeriodCloses(10)),
+      settle(ledger.vaultConfigEvents()),
       readVaultDefaultPercentBps(),
       getVaultStore().findOperationLock(chain),
     ]);
+    const history: VaultPeriodCloseView[] = closes.ok
+      ? closes.value.map((entry) => ({
+          periodRef: entry.periodRef.toString(),
+          distributedPrev: entry.distributedPrev.toString(),
+          rateBps: entry.rateBps.toString(),
+          percentLocked: entry.percentLocked.toString(),
+          operator: entry.operator,
+          txHash: entry.txHash,
+          blockNumber: entry.blockNumber.toString(),
+          timestamp: entry.timestamp,
+        }))
+      : [];
+    const configEffective = configEvents.ok
+      ? configEffectiveAt({ lockMode: status.lockMode, events: configEvents.value })
+      : null;
     const percentBps =
       status.lockMode === 'UNSET' ? BigInt(defaultBps) : (status.pendingPercentRateBps ?? status.percentRateBps);
 
@@ -132,18 +154,32 @@ export async function getVaultOverview(input: unknown): Promise<Result<VaultOver
       chain,
       status: toStatusView(status),
       history,
-      historyError,
+      historyError: closes.ok ? null : closes.error,
+      configEffective,
+      configEffectiveError: configEvents.ok ? null : configEvents.error,
       config: {
         canConfigure: can(role, 'vault:configure'),
+        mode: status.lockMode === 'FIXED' ? 'FIXED' : 'PERCENT',
         percent: percentBps > 0n ? bpsToPercent(percentBps) : bpsToPercent(defaultBps),
-        fixedLock: status.lockMode === 'FIXED' ? status.fixedLockAmount.toString() : '',
+        fixedLock: status.fixedLockAmount > 0n ? status.fixedLockAmount.toString() : '',
         payoutWallet: status.payoutWallet ?? '',
+        percentApplies: status.lastPeriodRef > 0n ? 'NEXT_PERIOD' : 'NOW',
         busy: busy ? { kind: busy.kind, acquiredAt: busy.acquiredAt } : null,
       },
       canResolveWithdrawals,
     });
   } catch (error) {
     return toResult(error);
+  }
+}
+
+/** Đợi một phép đọc chuỗi và giữ lỗi dưới dạng câu cho người dùng, không ném ra ngoài. */
+async function settle<T>(read: Promise<T>): Promise<{ ok: true; value: T } | { ok: false; error: string }> {
+  try {
+    return { ok: true, value: await read };
+  } catch (error) {
+    const converted = toResult<never>(error);
+    return { ok: false, error: converted.ok ? 'Không đọc được.' : converted.error };
   }
 }
 
@@ -175,10 +211,14 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const saveVaultConfigSchema = z.object({
   chain: chainSchema,
-  percent: z.string().max(20),
+  /** UIUX-01 C3: cấu hình theo MỘT chế độ; chỉ ô của chế độ này được có giá trị. */
+  mode: z.enum(['PERCENT', 'FIXED']),
+  percent: z.string().max(20).optional().default(''),
   fixedLock: z.string().max(80).optional().default(''),
   payoutWallet: z.string().max(80),
 });
+
+const ONE_MODE_ONLY = 'Chỉ nhập một trong hai: tỷ lệ % hoặc số khoá cố định.';
 
 export interface VaultConfigStepView {
   kind: VaultConfigStep['kind'];
@@ -219,8 +259,8 @@ function sendConfigStep(ledger: ILedgerPort, step: VaultConfigStep): Promise<TxR
 /**
  * Kiểm soát viên lưu cấu hình khoá vault (BE-13 QĐ-C).
  *
- * Thứ tự: kiểm quyền, kiểm dạng ba ô, lấy khoá vận hành `CONFIG`, đọc trạng thái chuỗi, kiểm ví
- * nhận (khác 0, khác vault, đã whitelist), lập danh sách giao dịch theo bảng chuyển tiếp rồi gửi
+ * Thứ tự: kiểm quyền, kiểm dạng (một chế độ, UIUX-01 C3), lấy khoá vận hành `CONFIG`, đọc trạng
+ * thái chuỗi, kiểm ví nhận (khác 0, khác vault, đã whitelist), lập danh sách giao dịch theo bảng chuyển tiếp rồi gửi
  * TỪNG giao dịch: lưu `Txn` trước khi chờ biên nhận, chờ xong mới gửi bước sau, ghi audit giá trị cũ
  * và mới. Lỗi giữa chừng thì dừng và trả bước đã xong, bước lỗi; lần lưu sau đọc lại chuỗi nên chỉ
  * gửi phần còn thiếu.
@@ -242,12 +282,27 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
 
   // Kiểm dạng TRƯỚC khi lấy khoá hay chạm chuỗi.
   const fieldErrors: Record<string, string[]> = {};
-  const percentBps = percentToBps(parsed.data.percent);
-  if (percentBps === null) {
-    fieldErrors.percent = ['Tỷ lệ là số phần trăm lớn hơn 0, không quá 100, tối đa hai chữ số thập phân.'];
+  const { mode } = parsed.data;
+  const hasPercent = parsed.data.percent.trim() !== '';
+  const hasFixedLock = parsed.data.fixedLock.trim() !== '';
+  let percentBps: bigint | null = null;
+  let fixedLock: bigint | null = null;
+  if (hasPercent && hasFixedLock) {
+    // Gắn vào ô KHÔNG thuộc chế độ đã chọn: đó là ô người dùng cần xoá.
+    fieldErrors[mode === 'PERCENT' ? 'fixedLock' : 'percent'] = [ONE_MODE_ONLY];
+  } else if (mode === 'PERCENT') {
+    percentBps = percentToBps(parsed.data.percent);
+    if (percentBps === null) {
+      fieldErrors.percent = ['Tỷ lệ là số phần trăm lớn hơn 0, không quá 100, tối đa hai chữ số thập phân.'];
+    }
+  } else {
+    const parsedLock = parseFixedLock(parsed.data.fixedLock);
+    if (parsedLock === null || parsedLock === 'INVALID') {
+      fieldErrors.fixedLock = ['Số khoá cố định là số nguyên VNDB lớn hơn 0.'];
+    } else {
+      fixedLock = parsedLock;
+    }
   }
-  const fixedLock = parseFixedLock(parsed.data.fixedLock);
-  if (fixedLock === 'INVALID') fieldErrors.fixedLock = ['Số khoá cố định là số nguyên VNDB lớn hơn 0, hoặc để trống.'];
   let payoutWallet: string | null = null;
   try {
     payoutWallet = normalizeEvmAddress(parsed.data.payoutWallet);
@@ -258,7 +313,11 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
     if (!(error instanceof InvalidAddressError)) throw error;
     fieldErrors.payoutWallet = ['Ví nhận không phải địa chỉ hợp lệ (0x + 40 ký tự hex).'];
   }
-  if (Object.keys(fieldErrors).length > 0 || percentBps === null || fixedLock === 'INVALID' || !payoutWallet) {
+  const target: VaultConfigTarget | null =
+    mode === 'PERCENT'
+      ? percentBps === null || !payoutWallet ? null : { mode, percentBps, payoutWallet }
+      : fixedLock === null || !payoutWallet ? null : { mode, fixedLock, payoutWallet };
+  if (Object.keys(fieldErrors).length > 0 || target === null || !payoutWallet) {
     await audit('FAILURE', `Từ chối trước khi gửi: ${Object.values(fieldErrors).flat().join(' ')}`);
     return err('VALIDATION', 'Cấu hình khoá chưa hợp lệ.', fieldErrors);
   }
@@ -301,7 +360,7 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
       return err('VALIDATION', 'Cấu hình khoá chưa hợp lệ.', fieldErrors);
     }
 
-    const steps = planVaultConfig(status, { percentBps, fixedLock, payoutWallet });
+    const steps = planVaultConfig(status, target);
     const done: VaultConfigStepView[] = [];
     for (const step of steps) {
       const label = VAULT_CONFIG_STEP_LABELS[step.kind];

@@ -7,14 +7,8 @@ import type {
   IdentityStatus,
   RiskRating,
 } from '@/lib/bank/account-profile.service';
-import type { Role } from '@/lib/rbac';
-
-const ROLE_LABELS: Record<Role, string> = {
-  INVESTOR: 'Nhà đầu tư',
-  SELLER: 'Người bán',
-  TELLER: 'Giao dịch viên',
-  CONTROLLER: 'Kiểm soát viên',
-};
+import { ROLE_LABELS } from '@/lib/role-labels';
+import { PaymentWalletValue } from './profile-wallet';
 
 const IDENTITY_LABELS: Record<IdentityStatus, string> = {
   APPROVED: 'Đã xác minh',
@@ -90,8 +84,9 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
                   {IDENTITY_LABELS[customer.identityStatus]}
                 </Badge>
               </Field>
-              <Field label={customer.customerType === 'ORGANIZATION' ? 'Ví thanh toán' : 'Địa chỉ ví'} wide>
-                <span className="break-all font-mono text-xs">{customer.wallet}</span>
+              {/* UIUX-01 F1: ví hiệu lực trên chain đang chọn, đọc ở máy khách qua ProfileWalletProvider. */}
+              <Field label="Ví thanh toán" wide>
+                <PaymentWalletValue />
               </Field>
             </Section>
 

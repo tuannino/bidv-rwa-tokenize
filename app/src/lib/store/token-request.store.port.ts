@@ -96,6 +96,12 @@ export const DECISION_STATUSES: readonly TokenRequestStatus[] = ['EXECUTING', 'R
 /** Đích của KẾT CỤC on-chain — ghi mốc `completedAt`. */
 export const OUTCOME_STATUSES: readonly TokenRequestStatus[] = ['COMPLETED', 'FAILED'];
 
+/**
+ * UIUX-01: số dòng tối đa của thẻ "Lịch sử phê duyệt". Đặt ở đây để máy chủ (lấy dữ liệu) và màn
+ * hình (câu "Hiện 50 quyết định gần nhất.") dùng chung một số.
+ */
+export const APPROVAL_HISTORY_LIMIT = 50;
+
 export interface TokenRequestRecord {
   id: string;
   chain: ChainKey;
@@ -208,6 +214,11 @@ export interface ITokenRequestStore {
     type?: TokenRequestType;
     status?: TokenRequestStatus;
     makerId?: string;
+    /**
+     * UIUX-01: chỉ yêu cầu đã có quyết định (`decidedAt` khác null), xếp mới quyết định trước,
+     * cho thẻ "Lịch sử phê duyệt".
+     */
+    decided?: boolean;
     limit?: number;
   }): Promise<TokenRequestRecord[]>;
 

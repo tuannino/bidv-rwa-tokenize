@@ -8,6 +8,7 @@ import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
 import {
+  APPROVAL_HISTORY_LIMIT,
   getProjectStore,
   getStore,
   getTokenRequestStore,
@@ -25,6 +26,7 @@ import {
   trackTxn,
   vaultMintTargetError,
 } from './issuance.service';
+import { formatAmount } from '@/lib/format';
 import { err, ok, type Result } from './result';
 import {
   approveTokenRequestSchema,
@@ -162,7 +164,7 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
         'cap',
         'Không vượt trần còn lại',
         amount <= remaining,
-        `Số lượng ${amount}; trần còn lại ${remaining} (trần ${cap} − tổng cung ${supply}).`,
+        `Số lượng ${formatAmount(amount)}; trần còn lại ${formatAmount(remaining)} (trần ${formatAmount(cap)} trừ tổng cung ${formatAmount(supply)}).`,
       ),
     );
 
@@ -236,7 +238,7 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
       'undistributed',
       'Không vượt phần chưa phân phối',
       amount <= undistributed,
-      `Số lượng ${amount}; phần chưa phân phối trong ví SPV ${undistributed}.`,
+      `Số lượng ${formatAmount(amount)}; phần chưa phân phối trong ví SPV ${formatAmount(undistributed)}.`,
     ),
   );
   if (draft.burnSource === 'TOTAL_SUPPLY') {
@@ -247,7 +249,7 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
         circulating === 0n,
         circulating === 0n
           ? 'Toàn bộ nguồn cung còn trong ví SPV.'
-          : `Còn ${circulating} token đang lưu hành ngoài ví SPV — không đốt theo toàn bộ nguồn cung.`,
+          : `Còn ${formatAmount(circulating)} token đang lưu hành ngoài ví SPV, không đốt theo toàn bộ nguồn cung.`,
       ),
     );
   }
@@ -1065,6 +1067,11 @@ export interface ApprovalStatsView {
   /** Đã duyệt hôm nay: quyết định duyệt từ đầu ngày, bất kể kết cục sau đó trên chuỗi. */
   approvedToday: number;
   rejectedToday: number;
+  /**
+   * UIUX-01: 50 yêu cầu đã có quyết định gần nhất của chain, mới quyết định trước. Đi kèm action
+   * thẻ số liệu để màn không thêm action khi mở.
+   */
+  history: TokenRequestRecord[];
 }
 
 /**
@@ -1093,7 +1100,7 @@ export async function getApprovalStats(chain: unknown): Promise<Result<ApprovalS
     const actorId = await currentActorId(role);
     const decidedFrom = startOfVietnamDay();
     const store = getTokenRequestStore();
-    const [work, approved, rejectedToday] = await Promise.all([
+    const [work, approved, rejectedToday, history] = await Promise.all([
       countPendingWork(role, actorId, parsed.data),
       Promise.all(
         APPROVED_STATUSES.map((status) =>
@@ -1101,11 +1108,13 @@ export async function getApprovalStats(chain: unknown): Promise<Result<ApprovalS
         ),
       ),
       store.countRequests({ chain: parsed.data, status: 'REJECTED', decidedFrom }),
+      store.listRequests({ chain: parsed.data, decided: true, limit: APPROVAL_HISTORY_LIMIT }),
     ]);
     return ok({
       pending: work.approval,
       approvedToday: approved.reduce((sum, n) => sum + n, 0),
       rejectedToday,
+      history,
     });
   } catch (error) {
     return toResult(error);
