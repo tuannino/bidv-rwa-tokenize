@@ -31,7 +31,7 @@ export function RoundInfo({ overview, progress }: { overview: RecallOverview; pr
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary">Đợt: {round ? PHASE_LABEL[round.phase] ?? round.phase : 'Chưa có đợt'}</Badge>
-        {overview.demoMode && <Badge variant="outline">Chế độ trình diễn</Badge>}
+        {overview.demoMode && <Badge variant="outline">Chế độ PoC</Badge>}
         {round?.status === 'CANCELLED' && <Badge variant="destructive">Đã huỷ</Badge>}
         <Badge variant={overview.settlementMode === true && !completed ? 'destructive' : 'outline'}>
           Token trên chuỗi: {chainStatus}

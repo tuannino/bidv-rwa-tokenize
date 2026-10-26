@@ -11,6 +11,7 @@ import { getApprovalStatsAction, listTokenRequestsAction } from '@/app/actions/t
 import type { ApprovalStatsView } from '@/lib/bank/token-request.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import {
+  APPROVAL_HISTORY_LIMIT,
   TOKEN_REQUEST_STATUSES,
   type TokenRequestRecord,
   type TokenRequestStatus,
@@ -20,8 +21,8 @@ import {
 /**
  * Màn **Phê duyệt lệnh** — vai Kiểm soát viên (FE-22 việc 8, 9).
  *
- * Ba thẻ số liệu và hai hàng chờ (tạo token, huỷ token). Duyệt / từ chối làm ở màn chi tiết
- * `/approvals/<mã>`, nơi có đủ khối thông tin token và nhật ký để quyết.
+ * Ba thẻ số liệu, hai hàng chờ (tạo token, huỷ token) và lịch sử phê duyệt (UIUX-01). Duyệt /
+ * từ chối làm ở màn chi tiết `/approvals/<mã>`, nơi có đủ khối thông tin token và nhật ký để quyết.
  *
  * Bộ lọc trạng thái gửi lên máy chủ; ô tìm kiếm chỉ lọc các dòng ĐÃ tải về theo chữ — nó không
  * quyết định gì về nghiệp vụ, chỉ giúp tìm một dòng trong bảng.
@@ -75,7 +76,45 @@ export function ApprovalsPage() {
 
       <Queue chain={chain} type="MINT" title="Hàng chờ tạo token" />
       <Queue chain={chain} type="BURN" title="Hàng chờ huỷ token" />
+      <ApprovalHistory stats={freshStats} />
     </div>
+  );
+}
+
+/**
+ * Thẻ "Lịch sử phê duyệt" (UIUX-01 A3): đọc `history` đi kèm action thẻ số liệu, không gọi thêm
+ * action. Lỗi đọc dùng chung câu lỗi của thẻ số liệu.
+ */
+function ApprovalHistory({
+  stats,
+}: {
+  stats: { data: ApprovalStatsView | null; error: string | null } | null;
+}) {
+  const title = 'Lịch sử phê duyệt';
+  const rows = stats?.data?.history ?? [];
+  return (
+    <Card aria-label={title}>
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription>Các yêu cầu đã được duyệt hoặc từ chối trên chain này, mới quyết định trước.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {stats?.error ? (
+          <p className="text-sm text-destructive">{stats.error}</p>
+        ) : (
+          <RequestTable
+            variant="history"
+            caption={title}
+            rows={rows}
+            detailHref={(id) => `/approvals/${id}`}
+            emptyText={stats ? 'Chưa có quyết định nào.' : 'Đang tải…'}
+          />
+        )}
+        {rows.length >= APPROVAL_HISTORY_LIMIT && (
+          <p className="text-xs text-muted-foreground">Hiện {APPROVAL_HISTORY_LIMIT} quyết định gần nhất.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

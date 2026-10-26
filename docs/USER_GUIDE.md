@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-07-cau-hinh-gia` @ `61cdbae` (FE-07, từ `dev` @ `f11f1ae`), ngày 23/10/2026 |
+| Chốt tại | nhánh `uiux/uiux-01-giao-dien` @ `ea9fe5f` (UIUX-01, từ `dev` @ `2541c8a`), ngày 26/10/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -89,12 +89,12 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Giá phát hành | Mặc định 100.000 VNDB mỗi WPT, mỗi chain một giá (`wpt.issue_price_vnd.<chain>`), Giao dịch viên đặt ở màn `/config`; giá trên hợp đồng `OrderSettlement.price` là giá chốt lệnh | BE-04, FE-27, FE-07 | Đã chạy |
 | Phát hành thẳng dữ liệu thử | Chỉ trên `mock`, sau hai lớp chặn (cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt, rồi quyền) | FE-22 | Đã chạy |
 
-### 1.5. Tiền VNDB và nạp trình diễn
+### 1.5. Tiền VNDB và nạp PoC
 
 | Quyết định | Nội dung | Nguồn | Trạng thái |
 |---|---|---|---|
 | VNDB | 1 VNDB bằng 1 VND, token thanh toán trên chuỗi | PoC | Đã chạy |
-| Nạp trình diễn | Giao dịch viên nạp VNDB cho ví đã đăng ký hoặc ví Người bán, sau hai lớp chặn (cờ `ENABLE_DEMO_PAYMENT_MINT` bật cho bản thử, rồi quyền `demo:mint-payment`); trần một lần mặc định 1.000.000.000 | BE-16, CH-6 OP-05 | Đã chạy |
+| Nạp PoC | Giao dịch viên nạp VNDB cho ví đã đăng ký hoặc ví Người bán, sau hai lớp chặn (cờ `ENABLE_DEMO_PAYMENT_MINT` bật cho bản thử, rồi quyền `demo:mint-payment`); trần một lần mặc định 1.000.000.000 | BE-16, CH-6 OP-05 | Đã chạy |
 | Trước triển khai thật | Tắt cờ nạp và gỡ màn nạp | Nợ P1 | Chưa làm |
 
 ### 1.6. Mua bán token
@@ -118,8 +118,9 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 |---|---|---|---|
 | Vault là hợp đồng | Tiền bán WPT vào `SpvPaymentVault`; luật khoá ép trên chuỗi | PA-02, SC-07 | Đã chạy |
 | Hai chế độ khoá | FIXED: khoá một số VNDB cố định. PERCENT: trước kỳ chia đầu khoá tỷ lệ nhân thu ròng; từ kỳ đầu khoá tỷ lệ nhân số đã chia kỳ trước. Hợp đồng khởi tạo UNSET (khoá toàn bộ) | DS-01 QĐ-13 bản 5, QĐ-25 | Đã chạy |
-| Ưu tiên và mặc định | Kiểm soát viên nhập số cố định thì chuyển FIXED (ưu tiên); để trống thì PERCENT, mặc định 20%, cấu hình được | CH-1 OP-05, chốt 20/10 | Đã chạy |
-| Tỷ lệ mới | Trước kỳ đầu áp ngay; sau đó ghi "chờ áp", áp ở lần chốt kỳ kế tiếp. FIXED áp ngay | Chốt 19/10 | Đã chạy |
+| Ưu tiên và mặc định | Kiểm soát viên nhập số cố định thì chuyển FIXED (ưu tiên); để trống thì PERCENT, mặc định 20%, cấu hình được | CH-1 OP-05, chốt 20/10 | Thay bởi dòng "Một chế độ khoá" (UIUX-01) |
+| Một chế độ khoá | Kiểm soát viên chọn MỘT chế độ: "Theo tỷ lệ %" hoặc "Khoá số cố định", chỉ nhập ô của chế độ đó; nhập cả hai thì máy chủ từ chối. Mặc định chọn theo chế độ hiện hành (UNSET thì theo tỷ lệ %, mặc định 20%) | UIUX-01 C1, C3, chốt 26/10 | Đã chạy |
+| Tỷ lệ mới | Trước kỳ đầu áp ngay; sau đó ghi "chờ áp", áp ở lần chốt kỳ kế tiếp. FIXED áp ngay. Màn hiện câu hiệu lực theo trường `percentApplies` của máy chủ; SC-11 sẽ sửa hợp đồng để tỷ lệ áp ngay, khi đó chỉ máy chủ đổi | Chốt 19/10, UIUX-01 QĐ-1 | Đã chạy (SC-11 chờ) |
 | Ví nhận tiền rút | Do Kiểm soát viên đặt, phải đã đăng ký trên chuỗi, khác địa chỉ vault; tiền rút luôn về ví này | CH-3 SC-07, BE-13 | Đã chạy |
 | Rút tiền | Người bán tạo lệnh, xác nhận mã một lần sáu số, hoàn tất ngay, không qua duyệt, không thu phí; mỗi chain một lệnh rút đang dở | URD III.5, BE-13 | Đã chạy |
 | Mã một lần | Bản thử chỉ kiểm định dạng sáu chữ số, chưa gửi mã thật | Nợ AU-01 | Một phần |
@@ -151,7 +152,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Tất toán đầy đủ (mua lại theo NAV) | Trả VNDB theo NAV và hợp đồng tất toán riêng | SC-04 | Chưa làm |
 
 Mốc ngày dùng múi giờ Việt Nam. `noticeDays` mặc định 30, tối đa 365; chỉ `mock`,
-`hardhat-local` hoặc môi trường bật `ENABLE_DEMO_RECALL=true` cho phép 0 ngày. Cờ trình diễn không
+`hardhat-local` hoặc môi trường bật `ENABLE_DEMO_RECALL=true` cho phép 0 ngày. Cờ PoC không
 bao giờ cho đặt ngày hết hạn trong quá khứ. Trên Sepolia, chỉ diễn tập sau khi Sếp quyết định:
 sau lần đốt đầu tiên, WPT đã mất không thể khôi phục bằng chức năng này.
 
@@ -184,7 +185,7 @@ Vòng nghiệp vụ chạy đủ trên Sepolia: Mint đầu vào vault, liên k�
 | `/config` | | | Giá và phát hành (H) | Giá và phát hành (H) |
 | `/recall` | | | Thu hồi token (chỉ xem) (U) | Thu hồi token (U) |
 | `/approvals` | | | | Phê duyệt lệnh (P) |
-| `/demo-payment` | | | Nạp VNDB (trình diễn) (N), khi cờ bật | |
+| `/demo-payment` | | | Nạp VNDB (N), khi cờ bật | |
 | Không trong menu | `/orders/[id]`, `/tokens/[symbol]` | | `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation`, `/transactions/[id]` | `/approvals/[id]`, `/transactions/[id]`, `/mint`, `/kyc`, `/assets`, `/audit`, `/reconciliation` |
 
 Chữ trong ngoặc là phím tắt hiển thị cạnh menu. Hiện chỉ là nhãn, bấm phím chưa chuyển màn (`components/layout/sidebar.tsx:204`).
@@ -205,18 +206,18 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/seller/transactions` | Danh sách giao dịch | Người bán | Sổ giao dịch | M H S | Dùng được; lọc trong bộ nhớ trên 500 dòng gần nhất | 1 | Không | |
 | `/seller/withdraw` | Tạo lệnh rút | Người bán | Rút tiền SPV | M H S | Dùng được (cần Kiểm soát viên cấu hình vault trước) | 2 | Có (rút) | AU-01 (mã một lần thật) |
 | `/wallet` | Kết nối ví | Nhà đầu tư, Người bán | Ví | H S (mock không cần ví) | Dùng được | 0 | Không | |
-| `/account` | Thông tin tài khoản | Cả bốn vai | Hồ sơ, liên kết ví | M H S | Một phần: hồ sơ là dữ liệu mẫu; liên kết ví dùng được | 0 (nhân viên), 1 (khách hàng) | Không | AU-01 |
+| `/account` | Thông tin tài khoản | Cả bốn vai | Hồ sơ, ví thanh toán | M H S | Một phần: hồ sơ là dữ liệu mẫu; ví thanh toán dùng được | 0 (nhân viên), 1 (khách hàng) | Không | AU-01, FIX-01 |
 | `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | | Chỗ trống: toàn bộ số mẫu | 0 | Không | |
 | `/draft` | Lập lệnh | Giao dịch viên | Mint, Burn (lập) | M H S | Dùng được | 2 | Không (chỉ lập) | |
-| `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được | 1 + 1 mỗi hàng chờ | Không | |
+| `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được; có thẻ Lịch sử phê duyệt (UIUX-01) | 1 + 1 mỗi hàng chờ | Không | |
 | `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05) | 1 | Có (mint, burn) | |
 | `/transactions` | Giao dịch | Giao dịch viên, Kiểm soát viên | Lệnh mua bán, can thiệp lệnh kẹt | M H S | Một phần: thiếu nút cho lệnh EXECUTING mất mã | 1 | Có (can thiệp) | |
 | `/transactions/[id]` | Chi tiết lệnh | Giao dịch viên, Kiểm soát viên | Lệnh mua bán | M H S | Dùng được (chỉ xem) | 1 | Không | |
-| `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01 |
+| `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; cấu hình theo một chế độ (UIUX-01); mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01, SC-11 |
 | `/config` | Giá và phát hành | Giao dịch viên (đổi giá), Kiểm soát viên (xem) | Giá phát hành, tình trạng phát hành | M H S | Dùng được (FE-07) | 1 | Có (đổi giá) | Màn tham số hệ thống khác (nợ) |
 | `/recall` | Thu hồi token | Giao dịch viên (xem), Kiểm soát viên | Lập lịch, đóng băng, thu hồi theo lô | M H S | Dùng được; Stellar chưa có adapter token | 1 | Có (đóng băng, mở lại, burn) | SC-04 cho chi trả theo NAV |
 | `/distribution` | Chia lợi nhuận | Giao dịch viên (xem), Kiểm soát viên | Chia lợi nhuận | M H S | Dùng được | 1 | Có (mở kỳ, chốt vault, chia) | FE-09, IN-02 |
-| `/demo-payment` | Nạp VNDB (trình diễn) | Giao dịch viên | Nạp trình diễn | M H S | Dùng được (chỉ bản thử) | 1 | Có (mint VNDB) | |
+| `/demo-payment` | Nạp VNDB | Giao dịch viên | Nạp PoC | M H S | Dùng được (chỉ bản thử) | 1 | Có (mint VNDB) | |
 | `/mint` | Phát hành WPT (dữ liệu thử) | Giao dịch viên, Kiểm soát viên | KYC, danh sách được phép; phát hành thử | M H S (phát hành thử chỉ M) | Một phần: KYC dùng được, phát hành thử tắt mặc định | 1 hoặc 2 | Có (đăng ký ví) | |
 | `/kyc` | Nhà đầu tư và KYC | Giao dịch viên, Kiểm soát viên | KYC | | Chỗ trống | 0 | | |
 | `/assets` | Dự án điện gió | Giao dịch viên, Kiểm soát viên | Danh mục dự án | | Chỗ trống (số mẫu) | 0 | | |
@@ -229,7 +230,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 |---|---|---|---|
 | Phát hành, huỷ token | `/draft`, `/approvals` | Có | Màn cấu hình giá (FE-07) |
 | Đăng ký ví, liên kết ví | `/mint`, `/account` | Có | Màn KYC thật (`/kyc`), ký chứng minh sở hữu ví |
-| Nạp VNDB trình diễn | `/demo-payment` | Có | |
+| Nạp VNDB PoC | `/demo-payment` | Có | |
 | Mua bán token | `/trade`, `/orders`, `/transactions` | Có | Nút cho lệnh EXECUTING mất mã; quét lệnh kẹt tự động |
 | Cấu hình vault, Người bán rút | `/vault`, `/seller/withdraw` | Có | Mã một lần thật |
 | Chia lợi nhuận | `/distribution` | Có | Màn của Nhà đầu tư (FE-09); tự phát hiện tiền vào (IN-02) |
@@ -379,7 +380,7 @@ Quy ước chung cho Phần 3:
 
 - **L-04.** Ô "Token" không có `onChange` (`components/pages/investor-trade.tsx:289`). Server luôn lấy `projects[0]` (`lib/bank/trade.service.ts:145`), và `placeOrder` không nhận trường token. Chọn token khác không có tác dụng.
 - **L-05.** "Trạng thái giao dịch" được tính là `settling !== true` (`lib/bank/trade.service.ts:146`). Giá trị này bỏ qua `Project.status`, và trên evm `settling` luôn null, nên huy hiệu hiện "Đang mở" kể cả khi dự án CLOSED. Trong khi đó điều kiện 4 lại trượt ("đang ở giai đoạn tất toán hoặc đã đóng", `:380-386`).
-- **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:119`).
+- **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:114`).
 - **L-34.** Định danh, AML và hạng rủi ro lấy từ hồ sơ mẫu viết cứng (`lib/bank/account-profile.service.ts:55-114`), không lấy từ DB.
 - **L-01.** Vòng hỏi lại 3 giây gọi `listOrders`, hàm này dùng `authorize` (`lib/bank/purchase.service.ts:1710`), nên mỗi lần hỏi ghi một dòng `AuditLog` `order:read`. Điều này ngược với lý do ghi ở `lib/bank/trade.service.ts:35-37` (không ghi sổ kiểm toán cho lần đọc lặp lại).
 - **L-35.** "Phí giao dịch" chỉ để hiển thị; không có phép trừ phí nào trong `placeOrder`.
@@ -576,7 +577,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | VNDB | Số dư VNDB của vault | Chuỗi: `VNDToken.balanceOf(vault)` (`vaultStatus().vndbBalance`); không có vault thì `paymentBalanceOf(spvWallet)` | |
 | VNDB đã khoá | Phần khoá | Chuỗi: getter vault `lockedAmount()` | |
 | VNDB còn rút được | Phần vượt khoá | Chuỗi: getter vault `withdrawable()` | |
-| Ví thanh toán: <địa chỉ> | Địa chỉ vault, hoặc ví SPV | `vault.address` hoặc `spvWallet()` | |
+| Địa chỉ vault: <địa chỉ> | Địa chỉ vault, hoặc ví SPV (UIUX-01 E1 đổi nhãn để không trùng nghĩa với ví thanh toán của tài khoản) | `vault.address` hoặc `spvWallet()` | |
 | Cảnh báo đỏ | "Ví SPV trên chuỗi không phải vault: ..." | Tính: `spvWallet()` khác `vault.address` (`seller.service.ts:159-162`) | Đối soát cấu hình |
 | "Chưa phát hành lần nào nên chưa có ví thanh toán." | | `paymentWallet === null` | |
 | **Khối Số dư ví** | | | |
@@ -651,7 +652,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Số tiền rút (VNDB) | Số nguyên VNDB | Người dùng nhập. Màn kiểm bằng `quoteWithdraw` (`lib/bank/withdraw-limit.ts`). Server kiểm `^\d+$` và > 0 (`withdraw.service.ts:176`) | |
+| Số tiền rút (VNDB) | Số nguyên VNDB, ô tự thêm dấu chấm hàng nghìn khi gõ (UIUX-01 A1), gửi máy chủ chuỗi chữ số thô | Người dùng nhập. Màn kiểm bằng `quoteWithdraw` (`lib/bank/withdraw-limit.ts`). Server kiểm `^\d+$` và > 0 (`withdraw.service.ts:176`) | |
 | "Vượt phần được rút: chỉ rút được tối đa X VNDB." | Cảnh báo ngay khi gõ | So với `withdrawable()` đọc lúc mở màn | Chặn nút |
 | Mạng | Chỉ đọc | Nhãn chain từ public config | |
 | Ví nhận (đặt bởi Kiểm soát viên) | Chỉ đọc; "Chưa đặt" khi null | Chuỗi: getter vault `payoutWallet()`; địa chỉ 0x0 coi là null | Tiền luôn về ví này |
@@ -748,16 +749,16 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 #### 3.3.2. `/account` Thông tin tài khoản
 
 - **Vai:** cả 4 vai, cổng `balance:read` (`app/(account)/layout.tsx`). Phím tắt T.
-  - Khối "Ví liên kết trên chain" chỉ hiện với vai khách hàng (INVESTOR, SELLER) (`app/(account)/account/page.tsx:15`). Service kiểm lại `wallet:connect` (`account-profile.service.ts:208`).
-- **Chain:** phần hồ sơ không phụ thuộc chain. Khối ví liên kết theo chain đang chọn:
+  - Ô "Ví thanh toán" và khối "Ví thanh toán trên chain" chỉ hiện với vai khách hàng (INVESTOR, SELLER): trang bọc hai chỗ trong `ProfileWalletProvider` (`app/(account)/account/page.tsx`, `components/pages/profile-wallet.tsx`). Service kiểm lại `wallet:connect` (`account-profile.service.ts:208`).
+- **Chain:** phần hồ sơ không phụ thuộc chain. Ví thanh toán theo chain đang chọn:
   - mock, hardhat-local: chưa liên kết thì dùng ví mẫu; nhận cả ví mẫu.
   - evm: bắt buộc tự liên kết; ví mẫu công khai của Hardhat bị từ chối.
   - stellar: chỉ nhận định dạng EVM `0x` + 40 hex.
-- **Trạng thái:** Dùng được một phần. Hồ sơ là dữ liệu mẫu cố định trong mã (`SAMPLE_ACCOUNT_PROFILES`, `account-profile.service.ts:55-114`), chờ AU-01 thay bằng phiên đăng nhập thật. Khối liên kết ví thì dùng được.
-- **Nghiệp vụ:** Hồ sơ, và Liên kết ví (OP-05 QĐ-I).
+- **Trạng thái:** Dùng được một phần. Hồ sơ là dữ liệu mẫu cố định trong mã (`SAMPLE_ACCOUNT_PROFILES`, `account-profile.service.ts:55-114`), chờ AU-01 thay bằng phiên đăng nhập thật. Khối ví thanh toán thì dùng được.
+- **Nghiệp vụ:** Hồ sơ, và Ví thanh toán (OP-05 QĐ-I, UIUX-01 F1). Đồng bộ ví thanh toán với ví nhận tiền rút của vault làm ở FIX-01.
 - **Action khi mở:**
   - Vai nhân viên: 0 server action. `getOwnAccountProfile()` được gọi thẳng trong Server Component, không ghi AuditLog.
-  - Vai khách hàng: thêm 1 action `getProfileWalletAction({chain})`, không ghi AuditLog. Đổi chain thì gọi lại.
+  - Vai khách hàng: thêm 1 action `getProfileWalletAction({chain})`, không ghi AuditLog. Ô "Ví thanh toán" và khối ví dùng chung kết quả này (UIUX-01). Đổi chain thì gọi lại.
   - Bấm Lưu: 1 action `linkProfileWalletAction`.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
@@ -768,7 +769,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Người liên hệ | Chỉ với tổ chức | `contactPerson` | |
 | Số điện thoại / Thư điện tử | | `phone` / `email` | |
 | Trạng thái định danh | Đã xác minh / Đang xác minh / Không đạt | `identityStatus` | Hiện hai lần trên màn |
-| Địa chỉ ví / Ví thanh toán (tổ chức) | | `SAMPLE_WALLETS.NDT001` hoặc `.NB001` (`packages/shared/src/index.ts:23`) | Xem phần Lệch |
+| Ví thanh toán | Ví hiệu lực trên chain đang chọn: ví đã lưu; chưa lưu thì ví mẫu (chỉ mock, hardhat-local); không có thì "Chưa có ví thanh toán trên chain này". Đang đọc thì "Đang đọc…" | `getProfileWallet` > `linked` hoặc `effective` (`account-profile.service.ts:215`) | Cả cá nhân và tổ chức cùng một nhãn (UIUX-01 F1); lưu ví mới thì ô này đổi theo |
 | **Khách hàng: Thông tin tài khoản** | | | |
 | Mã người dùng / Vai trò / Trạng thái | | `actorId`, `role`, `status` (Đang hoạt động / Đã khoá) | |
 | Ngày tạo / Hoạt động gần nhất | | `createdAt` / `lastActiveAt`, chuỗi cố định | |
@@ -777,14 +778,13 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Xếp hạng rủi ro / Phòng chống rửa tiền | | `riskRating` / `amlStatus` | Màn Giao dịch token đọc hai trường này khi kiểm tra trước lệnh (`trade.service.ts:245-253`) |
 | Hạn mức giao dịch mỗi ngày | VNDB | `dailyTransactionLimitVnd` | Xem phần Lệch |
 | **Nhân viên: Thông tin cán bộ** | Mã cán bộ, Họ và tên, Vai trò, Trạng thái, SĐT, Email, Hoạt động gần nhất | Hồ sơ mẫu GDV001, KSV001 | |
-| **Khối Ví liên kết trên chain <nhãn chain>** | | | |
-| Ví đang liên kết | Ví đã liên kết, hoặc "chưa liên kết (đang dùng ví mẫu X)", hoặc "chưa liên kết" | DB: `ProfileWallet.wallet` theo (`actorId`, `chain`); ví mẫu chỉ áp trên mock và hardhat-local | |
-| Cập nhật lúc | | `ProfileWallet.updatedAt` | |
-| Ô Địa chỉ ví | Placeholder "0x…" | Người dùng nhập | |
+| **Khối Ví thanh toán trên chain <nhãn chain>** | | | |
+| Cập nhật lúc | Chỉ hiện khi đã lưu ví | `ProfileWallet.updatedAt` | |
+| Ô Dùng địa chỉ ví mới | Luôn để trống khi mở và sau khi lưu xong, placeholder "0x…" | Người dùng nhập | Ví hiện hành xem ở ô "Ví thanh toán" phía trên |
 | **Dùng ví đang kết nối** (nút) | Điền địa chỉ của ví đang kết nối | wagmi `address`; tắt khi chưa kết nối | |
-| **Lưu** (nút) | Liên kết ví vào hồ sơ | `linkProfileWallet`, xem luồng bên dưới | |
-| Dòng ghi chú | "Liên kết chỉ ghi ví vào hồ sơ để app so với ví bạn kết nối khi đặt lệnh. Ví vẫn phải được ngân hàng đưa vào danh sách được phép trên chuỗi." | Tĩnh | |
-| Thông báo kết quả | "Đã liên kết ví ... trên chain ...", hoặc câu lỗi | Kết quả action | |
+| **Lưu** (nút) | Lưu ví vào hồ sơ | `linkProfileWallet`, xem luồng bên dưới (máy chủ không đổi ở UIUX-01) | |
+| Dòng ghi chú | "Lưu chỉ ghi ví vào hồ sơ để app so với ví bạn kết nối khi đặt lệnh. Ví vẫn phải được ngân hàng đưa vào danh sách được phép trên chuỗi." | Tĩnh | |
+| Thông báo kết quả | "Đã lưu ví thanh toán ... trên chain ...", hoặc câu lỗi | Kết quả action | |
 
 **Luồng "Lưu"** (`account-profile.service.ts:242-278`):
 1. zod kiểm `^0x[0-9a-fA-F]{40}$` (`lib/bank/schemas.ts:16-19`).
@@ -799,8 +799,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-10.** Badge "Chỉ đọc" và câu "Mọi thay đổi cần được ngân hàng xác minh" (`account-info.tsx:71-74`), nhưng cùng trang có form ghi ví liên kết. Form lưu ngay, không qua bước xác minh nào của ngân hàng.
-- **L-10.** Trường "Địa chỉ ví" / "Ví thanh toán" luôn hiện ví mẫu cố định (`account-info.tsx:93-95`), không theo chain và không theo ví đã liên kết. Trên evm, chính ví mẫu đó bị từ chối liên kết. Với SELLER, nhãn "Ví thanh toán" dễ nhầm với ví thanh toán SPV (vault) trên `/seller`.
+- **L-10.** Badge "Chỉ đọc" và câu "Mọi thay đổi cần được ngân hàng xác minh" (`account-info.tsx:65-68`), nhưng cùng trang có form ghi ví liên kết. Form lưu ngay, không qua bước xác minh nào của ngân hàng.
 - **L-06.** "Hạn mức giao dịch mỗi ngày" chỉ để hiển thị. Không service nào kiểm trường `dailyTransactionLimitVnd`.
 - **L-66.** Sai định dạng địa chỉ bị chặn ở zod trước khi ghi sổ (`account-profile.service.ts:244`), nên không có dòng AuditLog. Điều này trái với chú thích "Mọi kết cục vào sổ kiểm toán" (`account-profile.service.ts:238`).
 - **L-67.** Stellar: chú thích nói "bắt buộc liên kết" (`account-profile.service.ts:136-138`), nhưng schema và `normalizeEvmAddress` chỉ nhận địa chỉ EVM, nên không liên kết được địa chỉ Stellar nào.
@@ -873,15 +872,15 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Ví đích (ví thanh toán SPV), chỉ thẻ Mint | Đã có ví SPV thì khoá ô và tự điền; chưa có thì nhập tay "0x…" | `spvWallet` | Vào `TokenRequest.wallet` |
 | Nguồn huỷ, chỉ thẻ Burn | "Phần chưa phân phối" / "Toàn bộ nguồn cung" | `BURN_SOURCE_LABELS` (`components/maker-checker/gates.ts:87`) | Chọn toàn bộ thì tự điền số lượng = tổng cung, khoá ô, hiện cảnh báo |
 | Tôi xác nhận huỷ toàn bộ nguồn cung (ô tích) | Xác nhận lại | trạng thái máy khách | Bắt buộc mới gửi được |
-| Số lượng | Số nguyên lớn hơn 0 | `amountSchema` | `TokenRequest.amount` |
+| Số lượng | Số nguyên lớn hơn 0; ô tự thêm dấu chấm hàng nghìn khi gõ (UIUX-01 A1), gửi máy chủ chuỗi chữ số thô | `amountSchema` | `TokenRequest.amount` |
 | Ngày hiệu lực | YYYY-MM-DD, tuỳ chọn | | `TokenRequest.effectiveDate` |
 | Lý do | Bắt buộc, 1 đến 500 ký tự | | `TokenRequest.reason` |
 | Chứng từ | Tuỳ chọn, tối đa 120 ký tự | | `documentRef` |
 | Ghi chú | Tuỳ chọn, tối đa 1000 ký tự | | `note` |
-| Kiểm tra trước khi lập | Danh sách điều kiện, mỗi dòng "Đạt" hoặc "Không đạt: chi tiết" | `previewTokenRequest` (`S:276`). Mint: quyền lập, Dự án tồn tại, Không vượt trần còn lại, Ví đích hợp lệ (whitelist, không đóng băng, đúng vault R6, đúng ví SPV), Không có yêu cầu Mint khác đang chờ (PENDING hoặc EXECUTING). Burn: quyền lập, Dự án tồn tại, Có ví SPV, Không vượt phần chưa phân phối, Không còn token lưu hành (chỉ khi chọn toàn bộ) | Khoá nút gửi nếu trượt; không ghi gì |
+| Kiểm tra trước khi lập | Danh sách điều kiện, mỗi dòng "Đạt" hoặc "Không đạt: chi tiết"; số trong câu có dấu chấm hàng nghìn (UIUX-01 A2) | `previewTokenRequest` (`S:276`). Mint: quyền lập, Dự án tồn tại, Không vượt trần còn lại, Ví đích hợp lệ (whitelist, không đóng băng, đúng vault R6, đúng ví SPV), Không có yêu cầu Mint khác đang chờ (PENDING hoặc EXECUTING). Burn: quyền lập, Dự án tồn tại, Có ví SPV, Không vượt phần chưa phân phối, Không còn token lưu hành (chỉ khi chọn toàn bộ) | Khoá nút gửi nếu trượt; không ghi gì |
 | Gửi yêu cầu tạo token / Gửi yêu cầu huỷ token (nút), dòng "Chưa gửi được: ..." | Lập yêu cầu | `createTokenRequest` (`S:305`): `authorize('order:draft')` ghi AuditLog ALLOWED/DENIED; đánh giá lại điều kiện; ghi `TokenRequest` PENDING; AuditLog `order:draft` SUCCESS/FAILURE | Chưa đổi gì trên chuỗi |
 | Bảng "Yêu cầu đã lập" (2 bảng con: tạo / huỷ) | Yêu cầu của chính mình, mới nhất trước, tối đa 50 | `listTokenRequests` với `mine` | Không có liên kết sang chi tiết |
-| Cột bảng: Mã yêu cầu (8 ký tự), Thời điểm lập, Token (chain), Số lượng, Nguồn (chỉ khi có Burn), Người lập, Lý do, Trạng thái, Kết quả | | các cột `TokenRequest` | "Kết quả" theo trạng thái: lý do từ chối kèm người duyệt; lý do thất bại; "Đã gửi tx..., chờ kết cục"; người duyệt kèm tx |
+| Cột bảng: Mã yêu cầu (8 ký tự), Thời điểm lập, Token (chỉ ký hiệu), Số lượng, Nguồn (chỉ khi có Burn), Người lập, Lý do, Trạng thái, Chain (nhãn chain), Kết quả | | các cột `TokenRequest`; Chain là `CHAINS[chain].label` | "Kết quả" theo trạng thái: từ chối là "<vai> <mã người> từ chối do: <lý do>", ví dụ "Kiểm soát viên KSV001 từ chối do: Sai chứng từ"; lý do thất bại; "Đã gửi tx..., chờ kết cục"; hoàn tất là "<mã người> duyệt, tx <12 ký tự đầu>…" (UIUX-01 A4, B1 tới B3) |
 | Badge trạng thái | PENDING = Chờ duyệt; EXECUTING = Đang xử lý; COMPLETED = Hoàn tất; REJECTED = Từ chối; FAILED = Thất bại | `STATUS_LABELS` (`gates.ts:17`) | Chỉ đi một chiều: PENDING sang EXECUTING hoặc REJECTED; EXECUTING sang COMPLETED hoặc FAILED |
 
 
@@ -904,7 +903,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 - **Trạng thái:** **Dùng được**.
 - **Nghiệp vụ:** Phát hành và huỷ token (người duyệt).
 - **Action khi mở:**
-  - `getApprovalStatsAction(chain)`
+  - `getApprovalStatsAction(chain)`: trả cả ba số liệu và lịch sử phê duyệt (UIUX-01 QĐ-5), không thêm action
   - `listTokenRequestsAction({chain, type, status, limit:200})` cho mỗi hàng chờ; gọi lại khi đổi bộ lọc trạng thái
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
@@ -917,6 +916,8 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Trạng thái (bộ lọc) | Mặc định "Chờ duyệt"; có "Tất cả trạng thái" và đủ 5 trạng thái | gửi lên máy chủ | |
 | Dòng báo "Đang hiện 200 yêu cầu mới nhất..." | Báo chạm ngưỡng | `QUEUE_LIMIT` = 200 | Không có phân trang |
 | Bảng: cùng cột với màn /draft; "Mã yêu cầu" là liên kết `/approvals/<id>` | | `components/maker-checker/request-table.tsx` | Mở chi tiết để quyết |
+| **Thẻ "Lịch sử phê duyệt"** (dưới hai hàng chờ) | 50 yêu cầu đã có quyết định gần nhất của chain, mọi loại, mới quyết định trước | `getApprovalStats` > `history`: `listRequests({chain, decided:true, limit:50})` (`TokenRequest.decidedAt` khác null) | Tra lại các quyết định đã đưa ra |
+| Cột thẻ lịch sử: Mã yêu cầu (liên kết), Loại ("Tạo token" / "Huỷ token"), Token, Số lượng, Nguồn (chỉ khi có Burn), Người lập, Người duyệt, Thời điểm duyệt, Trạng thái, Chain, Kết quả | | `checkerId`, `decidedAt` | Đủ 50 dòng thì có câu "Hiện 50 quyết định gần nhất."; đang tải hiện "Đang tải…"; lỗi đọc dùng chung câu lỗi của thẻ số liệu |
 
 
 **Lệch** (tra mã ở Phụ lục C)
@@ -1037,21 +1038,21 @@ Yêu cầu EXECUTING **không có** mã giao dịch (tiến trình chết trư�
 - **L-76.** Không có nút can thiệp ở màn chi tiết; can thiệp chỉ làm được ở danh sách.
 
 
-#### 3.4.7. `/demo-payment` Nạp VNDB (trình diễn)
+#### 3.4.7. `/demo-payment` Nạp VNDB
 
 **Thông tin chung**
 - **Vai:** chặn 2 lớp, kiểm cờ trước, quyền sau: cờ `ENABLE_DEMO_PAYMENT_MINT` (mặc định `true`, `env.ts:134`; `wrangler.json` và `docker-compose` đều `true`), rồi quyền `demo:mint-payment` (chỉ Giao dịch viên).
-- **Menu:** mục được ghép vào cuối nhóm "Vận hành" khi qua cả 2 lớp (`components/layout/nav-config.ts:230-245`), nhãn "Nạp VNDB (trình diễn)", phím N.
+- **Menu:** mục được ghép vào cuối nhóm "Vận hành" khi qua cả 2 lớp (`components/layout/nav-config.ts:230-245`), nhãn "Nạp VNDB", phím N.
 - **Vai khác hoặc cờ tắt:** trang hiện "Chức năng nạp VNDB mô phỏng không khả dụng" (`app/(ops)/demo-payment/page.tsx:17`).
 - **Chain:** `ledger.mintPayment` chạy trên mock, hardhat-local, evm.
-- **Trạng thái:** **Dùng được** (chỉ cho trình diễn).
-- **Nghiệp vụ:** Nạp tiền trình diễn.
+- **Trạng thái:** **Dùng được** (chỉ cho bản PoC).
+- **Nghiệp vụ:** Nạp tiền PoC.
 - **Action khi mở:** `demoPaymentContextAction({chain})` (kiểm 2 lớp, không ghi sổ).
 - **Action khi tương tác:** `mintDemoPaymentAction`.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Hộp cảnh báo "chỉ dùng cho bản trình diễn", chuỗi đang dùng | | | |
+| Hộp ghi chú hai dòng: "VNDB (giả lập theo yêu cầu của nghiệp vụ): Là đồng Stablecoin do bên thứ ba phát hành dùng để thanh toán mua bán WPT Token" và "Chức năng chỉ dùng cho bản PoC: tạo VNDB không có tiền gửi thật đứng sau. Sẽ tắt khi lên môi trường thật" | | Tĩnh (UIUX-01 G2) | |
 | Ví đích, danh sách gợi ý ("Ví người bán" / "Đã nạp trước đó"), nút địa chỉ ví người bán | Ví nhận VNDB | `spvWallet` cùng các ví trong lịch sử | Chỉ nhận ví đã whitelist hoặc ví người bán (SPV) |
 | Số VNDB | Số nguyên lớn hơn 0 | | |
 | Gợi ý nhanh: "Nhà đầu tư mẫu: 500.000.000", "Ví người bán: 1.000.000.000" | Điền nhanh số tiền | `DEMO_PAYMENT_QUICK_AMOUNTS`, lọc bỏ mức vượt trần | |
@@ -1118,13 +1119,13 @@ Quyền nằm trong `lib/rbac/permissions.ts`:
 
 **Nghiệp vụ:**
 - Xem số dư và phần bị khoá của vault.
-- Kiểm soát viên đặt chế độ khoá FIXED hoặc PERCENT và ví nhận tiền rút.
+- Kiểm soát viên chọn MỘT chế độ khoá (theo tỷ lệ % hoặc khoá số cố định) và đặt ví nhận tiền rút.
 - Xem lịch sử cấu hình đọc từ sự kiện trên chuỗi.
 - Xem lịch sử chốt kỳ.
 - Đối soát lệnh rút và chốt lệnh `NEEDS_REVIEW`.
 
 **Action khi mở:** tổng 3 server action, chạy nối tiếp. Mỗi action gọi `authorize()` nên ghi 1 dòng audit ALLOWED (`lib/bank/authorize.ts:35`).
-1. `getVaultOverviewAction` > `getVaultOverview`.
+1. `getVaultOverviewAction` > `getVaultOverview`. Trong cùng action đọc song song `vaultPeriodCloses(10)` và `vaultConfigEvents()` (UIUX-01 QĐ-6), mỗi phép đọc tự bắt lỗi.
 2. Chỉ khi vault tồn tại thì mới mount thêm `getVaultConfigHistoryAction({page:1,pageSize:10})` và `listWithdrawReviewsAction`.
 
 Trên stellar chỉ có action 1.
@@ -1139,41 +1140,42 @@ Trên stellar chỉ có action 1.
 | Đổi trang lịch sử | `getVaultConfigHistoryAction` | |
 
 ##### Card "Trạng thái hiện tại"
-Nguồn chung: `getVaultOverviewAction` > `vault.service.getVaultOverview` > `ledger.vaultStatus()`. Getter là của contract `SpvPaymentVault`, trừ khi ghi khác.
+Nguồn chung: `getVaultOverviewAction` > `vault.service.getVaultOverview` > `ledger.vaultStatus()`. Getter là của contract `SpvPaymentVault`, trừ khi ghi khác. Từ UIUX-01 khối chỉ hiện các trường dưới đây, đúng thứ tự (`VaultStatusMetrics` trong `components/pages/vault-status.tsx`).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng để |
 |---|---|---|---|
-| Địa chỉ vault | Địa chỉ hợp đồng vault | address book (mock: địa chỉ mô phỏng) | Đối chiếu |
-| Chế độ khoá | UNSET "Chưa cấu hình, khoá toàn bộ"; FIXED "Khoá số tiền cố định"; PERCENT "Khoá theo tỷ lệ kỳ" | `lockMode()` | Biết cách tính phần khoá |
-| Số dư WPT | WPT vault đang giữ (chưa bán) | `ProjectToken.balanceOf(vault)` | Vault cũng được chia lợi nhuận |
 | Số dư VNDB | VNDB trong vault | `VNDToken.balanceOf(vault)` | |
-| Khoá cố định | Số khoá ở chế độ FIXED | `fixedLockAmount()` | Hiện ở mọi chế độ, kể cả khi không áp |
-| Tỷ lệ đang áp | Tỷ lệ PERCENT hiện hành | `percentRateBps()` / 100 | |
-| Tỷ lệ chờ áp | Tỷ lệ mới, áp ở lần chốt kỳ kế tiếp; không có thì "Không có" | `pendingPercentRateBps()` khi `hasPendingRate()` | |
-| Thu ròng | Tiền bán WPT thuần | `netProceeds()` | Cơ sở khoá PERCENT trước kỳ đầu |
-| Đang khoá | Phần không được rút | `lockedAmount()`: UNSET = toàn bộ số dư; FIXED = fixedLock; PERCENT = netProceeds nhân tỷ lệ trước kỳ đầu, `percentLocked` từ kỳ đầu | |
-| Có thể rút | Số dư trừ phần khoá, thấp nhất 0 | `withdrawable()` | Hạn mức rút của Người bán |
-| Kỳ gần nhất | Mã kỳ vault đã chốt | `lastPeriodRef()` | 0 = chưa qua kỳ nào |
-| Đã chia kỳ trước | Số đã chia ở lần chốt gần nhất | `lastDistributedPrev()` | |
-| Phần khoá theo kỳ | Số đã chia kỳ trước nhân tỷ lệ | `percentLocked()` | |
-| Ví nhận tiền rút | Ví nhận khi rút; địa chỉ 0 hiện "Chưa cấu hình" | `payoutWallet()` | |
+| Số VNDB đang khoá | Phần không được rút | `lockedAmount()`: UNSET = toàn bộ số dư; FIXED = fixedLock; PERCENT = thu ròng nhân tỷ lệ trước kỳ đầu, `percentLocked` từ kỳ đầu | |
+| Số dư WPT | WPT vault đang giữ (chưa bán) | `ProjectToken.balanceOf(vault)` | Vault cũng được chia lợi nhuận |
+| VNDB có thể rút | Số dư trừ phần khoá, thấp nhất 0 | `withdrawable()` | Hạn mức rút của Người bán |
+| Chế độ khoá | UNSET "Chưa cấu hình, khoá toàn bộ"; FIXED "Khoá số tiền cố định"; PERCENT "Khoá theo tỷ lệ kỳ" | `lockMode()` | Biết cách tính phần khoá |
+| Tỷ lệ áp | Chỉ hiện khi PERCENT | `percentRateBps()` / 100 | |
+| Mức khoá cố định | Chỉ hiện khi FIXED | `fixedLockAmount()` | |
+| Lợi nhuận chia quý trước | Số đã chia ở lần chốt kỳ gần nhất | `lastDistributedPrev()` | |
+| Ngày cấu hình có hiệu lực | Mốc của sự kiện cấu hình mới nhất còn hiệu lực: `LOCK_MODE` cùng `FIXED_LOCK` (khi FIXED) hoặc `PERCENT_RATE` (khi PERCENT); tỷ lệ chờ không tính. "Chưa cấu hình" khi UNSET hoặc chưa có sự kiện; "Không xác định được" khi block không có giờ; "Không đọc được" khi lỗi đọc sự kiện | `vaultConfigEvents()` qua hàm thuần `configEffectiveAt` (`lib/bank/vault-config.ts`), xếp theo block rồi logIndex | Sau kỳ đầu, khi tỷ lệ chờ được áp ở lần chốt kỳ, ngày ở đây vẫn là ngày lưu tỷ lệ (chấp nhận, SC-11 bỏ tỷ lệ chờ) |
+| Địa chỉ vault | Địa chỉ hợp đồng vault | address book (mock: địa chỉ mô phỏng) | Đối chiếu |
 | Trạng thái rút | "Đang tạm dừng" hoặc "Đang hoạt động" | `paused()` | |
+| Ghi chú dưới bảng (khi có tỷ lệ chờ) | "Tỷ lệ X% đã lưu, áp từ lần chốt kỳ tiếp theo." | `pendingPercentRateBps()` khi `hasPendingRate()` | |
+
+UIUX-01 bỏ khỏi khối này: Thu ròng, Kỳ gần nhất, Phần khoá theo kỳ, Tỷ lệ chờ áp (thành ghi chú), Ví nhận tiền rút (xem ô của biểu mẫu "Cấu hình khoá"), Khoá cố định khi không ở chế độ FIXED. Máy chủ vẫn trả các trường này.
 
 ##### Card "Cấu hình khoá"
-`components/pages/vault-status.tsx:52-157`
+`components/pages/vault-status.tsx`, hàm `VaultConfigCard`
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng để |
 |---|---|---|---|
-| Câu giải thích | Chưa qua kỳ chia nào: tỷ lệ mới có hiệu lực ngay. Đã qua kỳ đầu: tỷ lệ mới chỉ ghi chờ | `status.lastPeriodRef > 0` | |
+| Câu giải thích | "Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định." | Tĩnh | |
+| Nhóm chọn "Chế độ khoá" | "Theo tỷ lệ %" hoặc "Khoá số cố định"; chỉ hiện ô của chế độ đang chọn | Chọn sẵn theo `config.mode`: chế độ hiện hành, UNSET thì theo tỷ lệ % | UIUX-01 C1 |
 | "Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem." | Vai TELLER thấy câu này | `config.canConfigure = can(role,'vault:configure')` | Teller thấy ô nhưng bị khoá, không có nút |
 | "Vault đang có thao tác khác (lệnh rút đang dở / lần lưu cấu hình khác) từ ..." | Khoá vận hành của chain đang bị giữ | `VaultOperationLock` (kind, acquiredAt) | |
-| Tỷ lệ khoá PERCENT (%) | Ô nhập tỷ lệ | Điền sẵn: UNSET dùng `vault.default_percent_bps` (mặc định 2000 = 20%); chế độ khác dùng tỷ lệ chờ, không có thì tỷ lệ đang áp; bằng 0 thì về mặc định | Lớn hơn 0, tối đa 100, tối đa 2 chữ số thập phân (`vault-config.ts:13`) |
-| Số khoá cố định (VNDB, để trống được) | Có giá trị thì đích là FIXED, trống thì đích là PERCENT | Chỉ điền sẵn khi đang FIXED | Số nguyên lớn hơn 0 |
-| Ví nhận tiền rút | Ô nhập ví | `status.payoutWallet` | Hợp lệ khi: 0x + 40 hex, khác địa chỉ 0, khác địa chỉ vault, đã whitelist (`vault.service.ts:252-295`) |
+| Tỷ lệ khoá (%) | Ô nhập tỷ lệ, chỉ khi chọn "Theo tỷ lệ %" | Điền sẵn: UNSET dùng `vault.default_percent_bps` (mặc định 2000 = 20%); chế độ khác dùng tỷ lệ chờ, không có thì tỷ lệ đang áp; bằng 0 thì về mặc định | Lớn hơn 0, tối đa 100, tối đa 2 chữ số thập phân (`vault-config.ts:13`) |
+| Số khoá cố định (VNDB) | Ô nhập số, chỉ khi chọn "Khoá số cố định"; tự thêm dấu chấm hàng nghìn khi gõ | Điền sẵn `fixedLockAmount` khi lớn hơn 0 | Bắt buộc, số nguyên lớn hơn 0 |
+| Câu hiệu lực dưới ô | "Khoá số cố định": "Có hiệu lực ngay khi lưu."; "Theo tỷ lệ %": "Có hiệu lực ngay khi lưu." khi `percentApplies` là NOW, "Tỷ lệ mới áp từ lần chốt kỳ tiếp theo." khi NEXT_PERIOD | `config.percentApplies`: hiện NEXT_PERIOD khi `lastPeriodRef > 0` (QĐ-1; SC-11 sẽ đổi thành luôn NOW) | UIUX-01 C4 |
+| Ví nhận tiền rút | Ô nhập ví, đặt dưới nhóm chế độ (giữ nguyên, QĐ-2; FIX-01 chuyển sang Người bán tự đặt) | `status.payoutWallet` | Hợp lệ khi: 0x + 40 hex, khác địa chỉ 0, khác địa chỉ vault, đã whitelist (`vault.service.ts:252-295`) |
 | Nút "Lưu cấu hình khoá" | Chỉ Kiểm soát viên thấy | `saveVaultConfigAction` > `saveVaultConfig` | Kiểm quyền `vault:configure`, kiểm dạng, lấy khoá CONFIG, đọc chuỗi, lập các bước rồi gửi lần lượt từng giao dịch |
 | Kết quả: "Đã lưu cấu hình lên chuỗi." kèm danh sách bước | Mỗi bước: nhãn ("Đặt ví nhận tiền", "Đặt số khoá cố định", "Đặt tỷ lệ khoá", "Đổi chế độ khoá"), cũ sang mới, mã giao dịch | `planVaultConfig` (`vault-config.ts:87`) | |
 | Kết quả: "Chuỗi đã đúng cấu hình này, không gửi giao dịch nào." | outcome NO_CHANGE | | |
-| Lỗi | "Cấu hình khoá chưa hợp lệ." kèm lỗi từng ô; VAULT_BUSY; LEDGER: "Lưu cấu hình dừng ở bước ...: ... Đã xong: ... Ví nhận đã/chưa đổi. Lưu lại để gửi phần còn thiếu." | `vault.service.ts:344-356` | Khi lỗi LEDGER thì màn tải lại |
+| Lỗi | "Cấu hình khoá chưa hợp lệ." kèm lỗi từng ô; gửi cả tỷ lệ và số cố định thì lỗi "Chỉ nhập một trong hai: tỷ lệ % hoặc số khoá cố định." gắn vào ô không thuộc chế độ đã chọn, kiểm trước khi lấy khoá hay chạm chuỗi (UIUX-01 C3); VAULT_BUSY; LEDGER: "Lưu cấu hình dừng ở bước ...: ... Đã xong: ... Ví nhận đã/chưa đổi. Lưu lại để gửi phần còn thiếu." | `vault.service.ts:344-356` | Khi lỗi LEDGER thì màn tải lại |
 
 Thứ tự giao dịch khi lưu:
 1. `setPayoutWallet`, nếu ví khác.
@@ -1226,13 +1228,12 @@ Nguồn: overview > `ledger.vaultPeriodCloses(10)`, sự kiện `PeriodClosed`. 
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-80.** Tên quyền đúng là `vault:configure`, không có `vault:config`; tài liệu nào ghi `vault:config` là ghi sai (`permissions.ts:212`).
-- **L-16.** Mở màn ghi 3 dòng audit ALLOWED và gọi 3 action nối tiếp. Màn /distribution đã gom về một action (HF-01), màn này chưa (`vault-status.tsx:384`, `:313`, `:178`).
+- **L-16.** Mở màn ghi 3 dòng audit ALLOWED và gọi 3 action nối tiếp. Màn /distribution đã gom về một action (HF-01), màn này chưa (`vault-status.tsx:481`, `:357`, `:222`).
 - **L-17.** `closePeriod` áp tỷ lệ chờ mà không phát `PercentRateSet` (`SpvPaymentVault.sol:153-157`; mock tương tự ở `mock.adapter.ts:948`). Vì vậy "Lịch sử cấu hình" không có dòng "Tỷ lệ khoá" cho lần áp này; giá trị cũ của lần đặt sau suy theo sự kiện PERCENT_RATE trước đó.
 - **L-18.** Giao dịch viên bấm được "Đối soát lệnh rút" (quyền `vault:read` hoặc `vault:withdraw`). Dòng audit chuyển `NEEDS_REVIEW` khi đó ghi action `vault:reconcile` dưới vai TELLER (`withdraw.service.ts:409`, `:428`), dù TELLER không có quyền `vault:reconcile`.
-- **L-81.** Giao dịch viên thấy toàn bộ form cấu hình nhưng bị khoá kèm câu giải thích. Nút lưu ẩn (`vault-status.tsx:106`, `:131`).
-- **L-82.** "Kỳ gần nhất" được định dạng như số tiền, có dấu chấm nghìn (`vault-status.tsx:437`). Cột "Kỳ" ở lịch sử chốt kỳ thì hiện số thô.
+- **L-81.** Giao dịch viên thấy toàn bộ form cấu hình nhưng bị khoá kèm câu giải thích. Nút lưu ẩn (`vault-status.tsx:119`, `:175`).
 - **L-83.** "Khoá cố định" vẫn hiện số cũ khi đang ở chế độ PERCENT, dễ hiểu nhầm là đang áp (`:428`).
-- **L-84.** Card "Lệnh rút cần xem xét" không tải lại khi lưu cấu hình. Nó chỉ tải lại khi chính nó thao tác (`:458-463`).
+- **L-84.** Card "Lệnh rút cần xem xét" không tải lại khi lưu cấu hình. Nó chỉ tải lại khi chính nó thao tác (`:539-544`).
 
 
 #### 3.5.2. `/distribution` Chia lợi nhuận
@@ -1687,7 +1688,7 @@ Khoá khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts:95`). Bảng chưa có 
 | `distribution.dust_wallet` | Ví nhận phần dư làm tròn | không | Tiến trình chia |
 | `distribution.last_settled_balance` | Số dư ví lợi nhuận đã xử lý xong, mốc để nhận ra tiền mới | không | Tiến trình chia tự ghi |
 | `vault.default_percent_bps` | Tỷ lệ PERCENT điền sẵn khi vault UNSET, phần vạn | 2.000 (20%) | `/vault` |
-| `demo.payment_mint_max_vnd` | Số VNDB tối đa một lần nạp trình diễn | 1.000.000.000 | `/demo-payment`. Bật tắt bằng biến môi trường `ENABLE_DEMO_PAYMENT_MINT`, không bằng khoá này |
+| `demo.payment_mint_max_vnd` | Số VNDB tối đa một lần nạp PoC | 1.000.000.000 | `/demo-payment`. Bật tắt bằng biến môi trường `ENABLE_DEMO_PAYMENT_MINT`, không bằng khoá này |
 
 Ba khoá `seller.withdraw_limit_mode`, `seller.withdraw_limit_value`, `seller.withdraw_fee_vnd` của FE-21 đã bị gỡ ở BE-13 (QĐ-H). Dòng cũ trong database để yên, không mã nào đọc.
 
@@ -1709,7 +1710,7 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | L-07 | `/seller` | Hai ô "bán" gắn cứng dấu gạch, dù service đã trả số lệnh bán trong ngày (BE-14) | Thấp | FE-28 (đề xuất) |
 | L-08 | `/seller`, `/seller/withdraw` | Chú thích chế độ PERCENT in cả "thu ròng" lẫn "phần khoá kỳ gần nhất" mà không nói số nào đang áp; trước kỳ đầu khoá theo thu ròng, sau đó theo lợi nhuận đã chia kỳ trước | Vừa | FE-28 (đề xuất) |
 | L-09 | `/seller` | Nhãn "Hạn mức còn rút được" là chữ của mô hình FE-21 đã gỡ; giá trị thật là `withdrawable()` của vault | Thấp | FE-28 (đề xuất) |
-| L-10 | `/account` | Badge "Chỉ đọc" nhưng có form ghi ví lưu ngay; trường "Địa chỉ ví" luôn hiện ví mẫu cố định, không theo chain hay ví đã liên kết | Vừa | AU-01 |
+| L-10 | `/account` | Badge "Chỉ đọc" nhưng có form ghi ví lưu ngay (phần "trường ví luôn hiện ví mẫu" đã sửa ở UIUX-01) | Vừa | AU-01 |
 | L-11 | `/draft` | Ngày hiệu lực chỉ được lưu; duyệt là thực hiện ngay, không so ngày | Vừa | Chờ Sếp chốt: bỏ trường hay ràng buộc |
 | L-12 | `/draft` | Một yêu cầu Mint kẹt ở EXECUTING chặn mọi yêu cầu Mint mới, không có màn hay action đối soát | Cao | Task mới: đối soát yêu cầu phát hành kẹt |
 | L-14 | `/transactions` | Lệnh EXECUTING mất mã giao dịch chỉ hiện "Cần đối soát tay" dù máy chủ có `recoverExecutingWithoutTx`; lệnh PLACED không can thiệp được | Vừa | Task mới (cùng nhóm BE-17) |
@@ -1787,10 +1788,9 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-78 | `/mint` | Cột Thời điểm chỉ hiện giờ, không có ngày (`components/pages/mint.tsx:321`). |
 | L-79 | `/mint` | Đây là nơi duy nhất làm KYC/whitelist; trang `/kyc` là chỗ trống. |
 | L-80 | `/vault` | Tên quyền đúng là `vault:configure`, không có `vault:config`; tài liệu nào ghi `vault:config` là ghi sai (`permissions.ts:212`). |
-| L-81 | `/vault` | Giao dịch viên thấy toàn bộ form cấu hình nhưng bị khoá, nút lưu ẩn (`vault-status.tsx:106`, `:131`). |
-| L-82 | `/vault` | "Kỳ gần nhất" được định dạng như số tiền, có dấu chấm nghìn (`vault-status.tsx:437`). |
+| L-81 | `/vault` | Giao dịch viên thấy toàn bộ form cấu hình nhưng bị khoá, nút lưu ẩn (`vault-status.tsx:119`, `:175`). |
 | L-83 | `/vault` | "Khoá cố định" vẫn hiện số cũ khi đang ở chế độ PERCENT, dễ hiểu nhầm là đang áp (`:428`). |
-| L-84 | `/vault` | Card "Lệnh rút cần xem xét" không tải lại khi lưu cấu hình (`vault-status.tsx:458-463`). |
+| L-84 | `/vault` | Card "Lệnh rút cần xem xét" không tải lại khi lưu cấu hình (`vault-status.tsx:539-544`). |
 | L-85 | `/distribution` | "Phần dư làm tròn" gồm cả phần của ví ngoài danh sách: mẫu số là tổng cung, danh sách lấy từ database (`distribution.service.ts:331`). |
 | L-86 | `/distribution` | Cổng trang là `reconcile:read`, không có `distribution:read` (`page.tsx:8`). |
 | L-87 | `/distribution` | Chain không hỗ trợ: Kiểm soát viên vẫn thấy card "Duyệt chia" với nút "Duyệt chia 0 VNDB" bị khoá. |
@@ -1808,3 +1808,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 22/10/2026 | `8359009` | Dev (Claude) | HF-05: tệp vào repo. Sửa L-13 (giao dịch phát hành, huỷ chưa có biên nhận giữ Đang thực hiện; nút Đối soát ở `/approvals/[id]`), L-20 (`/distribution` hiện số đã duyệt `approvedAmount`), L-91 (lệnh mua bán chưa có biên nhận, tra chuỗi chưa thấy `OrderSettled`: giữ Đang quyết toán, không ghi Thất bại; áp cả gửi lần đầu và đối soát ở `/transactions`). Sửa mục 3.4.4, 3.5.2, Phần 2, Phụ lục A.2, C |
 | 23/10/2026 | `61cdbae` | Dev (Claude) | FE-07: màn `/config` "Giá và phát hành" (mục 3.5.3 mới); đổi giá chờ xác nhận chuỗi, chặn khi còn lệnh đang xử lý, lý do bắt buộc. Sửa L-02 (một nguồn giá cho màn khách hàng: `/portfolio`, `/trade`, `/seller`, `/seller/withdraw`, `/tokens/[symbol]`). Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1, 3.2, 3.5.3; Phụ lục B, C |
 | 24/10/2026 | `feat/in-01-indexer` | Codex | IN-01: thêm Indexer làm nguồn lịch sử vault và danh sách ví WPT; ghi giới hạn reorg sâu và thời gian bắt kịp lần đầu ở L-92, L-93 |
+| 26/10/2026 | `ea9fe5f` | Dev (Claude) | UIUX-01: ô số có dấu chấm hàng nghìn (`/draft`, `/mint`, `/vault`, `/seller/withdraw`); thẻ Lịch sử phê duyệt, cột Chain, câu từ chối có vai ở bảng yêu cầu; cấu hình vault theo một chế độ và câu hiệu lực; khối Trạng thái hiện tại của `/vault` còn 11 trường, có Ngày cấu hình có hiệu lực; "Ví thanh toán" ở `/account` theo chain; nhãn "Địa chỉ vault" ở `/seller`; nhãn bản thử ở menu, `/demo-payment`, `/recall` và tài liệu này thống nhất là "PoC". Sửa phần ví mẫu của L-10, bỏ L-82 (trường "Kỳ gần nhất" không còn trên màn). Sửa Phần 1 mục 1.5, 1.7, 1.9; Phần 2; Phần 3 mục 3.2.1, 3.2.3, 3.3.2, 3.4.2, 3.4.3, 3.4.7, 3.5.1; Phụ lục B, C |

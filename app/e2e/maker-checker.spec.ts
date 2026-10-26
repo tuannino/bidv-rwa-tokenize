@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { MOCK_VAULT_ADDRESS } from '../../packages/shared/src/mock-vault';
+import { formatAmount } from '../src/lib/format';
 
 /**
  * E2E màn Lập lệnh và Phê duyệt lệnh (FE-22).
@@ -115,7 +116,8 @@ test.describe.serial('Lập lệnh và Phê duyệt lệnh', () => {
     await expect(warning.getByLabel('Tôi xác nhận huỷ toàn bộ nguồn cung')).not.toBeChecked();
     // Tự điền số lượng bằng tổng cung máy chủ trả.
     const total = await infoNumber(page, card.getByLabel('Khối thông tin token'), 'Tổng cung hiện tại');
-    await expect(card.getByLabel('Số lượng')).toHaveValue(total.toString());
+    // UIUX-01 A1: ô số lượng hiện có dấu chấm hàng nghìn.
+    await expect(card.getByLabel('Số lượng')).toHaveValue(formatAmount(total));
     await expect(card.getByRole('button', { name: /Gửi yêu cầu huỷ token/ })).toBeDisabled();
   });
 

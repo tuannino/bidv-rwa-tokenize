@@ -39,6 +39,10 @@ const state = (): TokenRequestState => memoryState('tokenRequest', () => ({ requ
 const newestFirst = (a: TokenRequestRecord, b: TokenRequestRecord) =>
   b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
 
+/** UIUX-01: lịch sử phê duyệt, mới quyết định trước; cùng thứ tự với bản Postgres. */
+const newestDecidedFirst = (a: TokenRequestRecord, b: TokenRequestRecord) =>
+  (b.decidedAt ?? '').localeCompare(a.decidedAt ?? '') || newestFirst(a, b);
+
 /** Postgres coi mỗi NULL là khác nhau, nên chỉ kiểm khi có mã giao dịch. */
 function assertTxHashFree(txHash: string | undefined, ownerId: string): void {
   if (txHash === undefined) return;
@@ -153,14 +157,15 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
     },
 
     async listRequests(options = {}) {
-      const { chain, tokenSymbol, type, status, makerId, limit = 50 } = options;
+      const { chain, tokenSymbol, type, status, makerId, decided, limit = 50 } = options;
       return state()
         .requests.filter((r) => (chain ? r.chain === chain : true))
         .filter((r) => (tokenSymbol ? r.tokenSymbol === tokenSymbol : true))
         .filter((r) => (type ? r.type === type : true))
         .filter((r) => (status ? r.status === status : true))
         .filter((r) => (makerId ? r.makerId === makerId : true))
-        .sort(newestFirst)
+        .filter((r) => (decided ? r.decidedAt !== null : true))
+        .sort(decided ? newestDecidedFirst : newestFirst)
         .slice(0, limit)
         .map((r) => ({ ...r }));
     },

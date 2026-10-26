@@ -4,7 +4,7 @@
  * ghi gì: service đọc trạng thái chuỗi rồi gọi các hàm này, nên thứ tự giao dịch kiểm được bằng
  * kiểm thử thuần.
  */
-import type { VaultLockMode } from '@/lib/ledger';
+import type { VaultConfigParam, VaultLockMode } from '@/lib/ledger';
 
 /** Phần trăm tối đa hai chữ số thập phân, lớn hơn 0 và không quá 100. Không dùng số thực. */
 const PERCENT_PATTERN = /^(\d{1,3})(?:\.(\d{1,2}))?$/;
@@ -59,12 +59,10 @@ export interface VaultConfigCurrent {
   payoutWallet: string | null;
 }
 
-export interface VaultConfigTarget {
-  percentBps: bigint;
-  /** `null` = để trống: đích là PERCENT. */
-  fixedLock: bigint | null;
-  payoutWallet: string;
-}
+/** Đích cấu hình theo MỘT chế độ (UIUX-01 C1): chỉ mang giá trị của chế độ đã chọn. */
+export type VaultConfigTarget =
+  | { mode: 'PERCENT'; percentBps: bigint; payoutWallet: string }
+  | { mode: 'FIXED'; fixedLock: bigint; payoutWallet: string };
 
 /**
  * Giao dịch còn phải gửi, đúng thứ tự (bảng QĐ-C). Chỉ gửi phần còn khác trạng thái chuỗi:
@@ -89,7 +87,7 @@ export function planVaultConfig(current: VaultConfigCurrent, target: VaultConfig
   if (current.payoutWallet?.toLowerCase() !== target.payoutWallet.toLowerCase()) {
     steps.push({ kind: 'setPayoutWallet', wallet: target.payoutWallet, previous: current.payoutWallet });
   }
-  if (target.fixedLock !== null) {
+  if (target.mode === 'FIXED') {
     if (current.fixedLockAmount !== target.fixedLock) {
       steps.push({ kind: 'setFixedLock', amount: target.fixedLock, previous: current.fixedLockAmount });
     }
@@ -102,6 +100,38 @@ export function planVaultConfig(current: VaultConfigCurrent, target: VaultConfig
   }
   if (current.lockMode !== 'PERCENT') steps.push({ kind: 'setLockMode', mode: 'PERCENT', previous: current.lockMode });
   return steps;
+}
+
+/**
+ * Mốc cấu hình hiện hành có hiệu lực (UIUX-01 D4), tính từ lịch sử sự kiện cấu hình.
+ *
+ * Sự kiện đến theo thứ tự bất kỳ; hàm tự xếp theo `blockNumber` rồi `logIndex`, KHÔNG theo
+ * `timestamp` (mock gán nhiều sự kiện cùng giây). Lấy sự kiện mới nhất trong: `LOCK_MODE` (mọi chế
+ * độ), `FIXED_LOCK` khi chế độ FIXED, `PERCENT_RATE` khi chế độ PERCENT. Tỷ lệ chờ
+ * (`PENDING_PERCENT_RATE`) không tính: nó chưa có hiệu lực.
+ *
+ * `at: null` khi chưa cấu hình (`UNSET`) hoặc không có sự kiện nào; `unknown: true` khi sự kiện
+ * chọn ra không có giờ block (`timestamp` bằng 0).
+ */
+export function configEffectiveAt(input: {
+  lockMode: VaultLockMode;
+  events: readonly { param: VaultConfigParam; blockNumber: bigint; logIndex: number; timestamp: number }[];
+}): { at: number | null; unknown: boolean } {
+  if (input.lockMode === 'UNSET') return { at: null, unknown: false };
+  const valueParam: VaultConfigParam = input.lockMode === 'FIXED' ? 'FIXED_LOCK' : 'PERCENT_RATE';
+  let latest: (typeof input.events)[number] | null = null;
+  for (const event of input.events) {
+    if (event.param !== 'LOCK_MODE' && event.param !== valueParam) continue;
+    if (
+      latest === null ||
+      event.blockNumber > latest.blockNumber ||
+      (event.blockNumber === latest.blockNumber && event.logIndex > latest.logIndex)
+    ) {
+      latest = event;
+    }
+  }
+  if (latest === null) return { at: null, unknown: false };
+  return latest.timestamp === 0 ? { at: null, unknown: true } : { at: latest.timestamp, unknown: false };
 }
 
 /** Giá trị cũ và mới của một bước, viết cho sổ kiểm toán. */

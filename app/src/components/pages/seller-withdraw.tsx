@@ -7,6 +7,7 @@ import {
   createWithdrawRequestAction,
   reconcileAndListMyWithdrawRequestsAction,
 } from '@/app/actions/withdraw';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,7 +161,12 @@ export function SellerWithdrawPage() {
                 }}
               >
                 <Field id="w-amount" label="Số tiền rút (VNDB)">
-                  <input id="w-amount" inputMode="numeric" value={form.amount} onChange={set('amount')} className={`${FIELD} font-mono`} />
+                  <AmountInput
+                    id="w-amount"
+                    value={form.amount}
+                    onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
+                    className={`${FIELD} font-mono`}
+                  />
                 </Field>
                 {quote?.exceedsLimit && (
                   <p role="alert" className="text-sm font-medium text-destructive">

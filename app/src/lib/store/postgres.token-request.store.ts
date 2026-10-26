@@ -234,7 +234,7 @@ export function createPostgresTokenRequestStore(
     },
 
     async listRequests(options = {}) {
-      const { chain, tokenSymbol, type, status, makerId, limit = 50 } = options;
+      const { chain, tokenSymbol, type, status, makerId, decided, limit = 50 } = options;
       const rows = await query<TokenRequestRow>(
         `SELECT * FROM "TokenRequest"
           WHERE ($1::text IS NULL OR "chain" = $1)
@@ -242,9 +242,10 @@ export function createPostgresTokenRequestStore(
             AND ($3::text IS NULL OR "type" = $3)
             AND ($4::text IS NULL OR "status" = $4)
             AND ($5::text IS NULL OR "makerId" = $5)
-          ORDER BY "createdAt" DESC, "id" DESC
+            AND ($7::boolean IS NOT TRUE OR "decidedAt" IS NOT NULL)
+          ORDER BY CASE WHEN $7::boolean THEN "decidedAt" END DESC NULLS LAST, "createdAt" DESC, "id" DESC
           LIMIT $6`,
-        [chain ?? null, tokenSymbol ?? null, type ?? null, status ?? null, makerId ?? null, limit],
+        [chain ?? null, tokenSymbol ?? null, type ?? null, status ?? null, makerId ?? null, limit, decided ?? false],
       );
       return rows.map(toRequest);
     },

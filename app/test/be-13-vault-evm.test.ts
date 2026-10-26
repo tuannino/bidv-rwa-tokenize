@@ -79,7 +79,7 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
     const { getStore, getVaultStore } = await import('@/lib/store');
 
     await actAs('CONTROLLER', 'KSV001');
-    const saved = await saveVaultConfig({ chain: 'hardhat-local', percent: '20', fixedLock: '', payoutWallet: PAYOUT });
+    const saved = await saveVaultConfig({ chain: 'hardhat-local', mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPayoutWallet', 'setPercentRate', 'setLockMode']);
 
@@ -120,7 +120,7 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
   it('ca 5b (QĐ-C1): hai lần lưu nữa và một lần đổi bằng vault-admin.js; lịch sử đủ, dòng script ghi "ngoài app"', async () => {
     const { getVaultConfigHistory, saveVaultConfig } = await import('@/lib/bank/vault.service');
     await actAs('CONTROLLER', 'KSV001');
-    for (const input of [{ percent: '25', fixedLock: '' }, { percent: '25', fixedLock: '500' }]) {
+    for (const input of [{ mode: 'PERCENT', percent: '25' }, { mode: 'FIXED', fixedLock: '500' }]) {
       const saved = await saveVaultConfig({ chain: 'hardhat-local', payoutWallet: PAYOUT, ...input });
       expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     }

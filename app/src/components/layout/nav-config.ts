@@ -218,7 +218,7 @@ export const CONTROLLER_NAV: NavSection = {
  */
 export const DEMO_PAYMENT_NAV_ITEM: NavItem = {
   href: '/demo-payment',
-  label: 'Nạp VNDB (trình diễn)',
+  label: 'Nạp VNDB',
   icon: 'Coins',
   shortcut: 'N',
 };

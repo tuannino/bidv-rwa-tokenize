@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { CHAINS } from '@bidv/shared';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatAmount, formatDateTime } from '@/lib/format';
+import { ROLE_LABELS } from '@/lib/role-labels';
 import type { TokenRequestRecord } from '@/lib/store/token-request.store.port';
 import { BURN_SOURCE_LABELS } from './gates';
 import { StatusBadge } from './status-badge';
@@ -11,34 +13,48 @@ import { StatusBadge } from './status-badge';
  *
  * `detailHref`: có thì mã yêu cầu thành liên kết sang màn chi tiết. Màn Lập lệnh KHÔNG truyền, vì
  * màn chi tiết nằm trong khu vực Kiểm soát mà Giao dịch viên không vào được.
+ *
+ * `variant` (UIUX-01): `'history'` cho thẻ "Lịch sử phê duyệt", thêm cột Loại, Người duyệt, Thời
+ * điểm duyệt và bỏ Thời điểm lập, Lý do. Cột Chain đứng sau Trạng thái ở cả hai biến thể.
  */
 export function RequestTable({
   rows,
   caption,
   detailHref,
   emptyText,
+  variant = 'queue',
 }: {
   rows: readonly TokenRequestRecord[];
   caption: string;
   detailHref?: (id: string) => string;
   emptyText: string;
+  variant?: 'queue' | 'history';
 }) {
   if (rows.length === 0) {
     return <p className="py-4 text-sm text-muted-foreground">{emptyText}</p>;
   }
   const showSource = rows.some((row) => row.type === 'BURN');
+  const history = variant === 'history';
   return (
     <Table aria-label={caption}>
       <TableHeader>
         <TableRow>
           <TableHead>Mã yêu cầu</TableHead>
-          <TableHead>Thời điểm lập</TableHead>
+          {history ? <TableHead>Loại</TableHead> : <TableHead>Thời điểm lập</TableHead>}
           <TableHead>Token</TableHead>
           <TableHead className="text-right">Số lượng</TableHead>
           {showSource && <TableHead>Nguồn</TableHead>}
           <TableHead>Người lập</TableHead>
-          <TableHead>Lý do</TableHead>
+          {history ? (
+            <>
+              <TableHead>Người duyệt</TableHead>
+              <TableHead>Thời điểm duyệt</TableHead>
+            </>
+          ) : (
+            <TableHead>Lý do</TableHead>
+          )}
           <TableHead>Trạng thái</TableHead>
+          <TableHead>Chain</TableHead>
           <TableHead>Kết quả</TableHead>
         </TableRow>
       </TableHeader>
@@ -54,12 +70,14 @@ export function RequestTable({
                 <span title={row.id}>{row.id.slice(0, 8)}</span>
               )}
             </TableCell>
-            <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-              {formatDateTime(row.createdAt)}
-            </TableCell>
-            <TableCell className="text-xs">
-              {row.tokenSymbol} <span className="text-muted-foreground">({row.chain})</span>
-            </TableCell>
+            {history ? (
+              <TableCell className="whitespace-nowrap text-xs">{TYPE_LABELS[row.type]}</TableCell>
+            ) : (
+              <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                {formatDateTime(row.createdAt)}
+              </TableCell>
+            )}
+            <TableCell className="text-xs">{row.tokenSymbol}</TableCell>
             <TableCell className="text-right font-mono">{formatAmount(row.amount)}</TableCell>
             {showSource && (
               <TableCell className="text-xs">
@@ -67,13 +85,23 @@ export function RequestTable({
               </TableCell>
             )}
             <TableCell className="text-xs">{row.makerId}</TableCell>
-            <TableCell className="max-w-[16rem] truncate text-xs" title={row.reason}>
-              {row.reason}
-            </TableCell>
+            {history ? (
+              <>
+                <TableCell className="text-xs">{row.checkerId ?? 'Không có'}</TableCell>
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                  {row.decidedAt ? formatDateTime(row.decidedAt) : 'Không có'}
+                </TableCell>
+              </>
+            ) : (
+              <TableCell className="max-w-[16rem] truncate text-xs" title={row.reason}>
+                {row.reason}
+              </TableCell>
+            )}
             <TableCell>
               <StatusBadge status={row.status} />
             </TableCell>
-            <TableCell className="max-w-[16rem] truncate text-xs text-muted-foreground">
+            <TableCell className="whitespace-nowrap text-xs">{CHAINS[row.chain].label}</TableCell>
+            <TableCell className="max-w-[16rem] truncate text-xs text-muted-foreground" title={resultText(row)}>
               {resultText(row)}
             </TableCell>
           </TableRow>
@@ -83,18 +111,32 @@ export function RequestTable({
   );
 }
 
-/** Một dòng kết quả theo trạng thái, đọc nguyên từ các cột máy chủ đã ghi. */
-function resultText(row: TokenRequestRecord): string {
+const TYPE_LABELS: Record<TokenRequestRecord['type'], string> = {
+  MINT: 'Tạo token',
+  BURN: 'Huỷ token',
+};
+
+/**
+ * Một dòng kết quả theo trạng thái, đọc nguyên từ các cột máy chủ đã ghi. Xuất ra để test câu
+ * từ chối (UIUX-01 A4).
+ */
+export function resultText(row: TokenRequestRecord): string {
   switch (row.status) {
     case 'PENDING':
       return '—';
-    case 'REJECTED':
-      return `${row.checkerId ?? ''}: ${row.rejectReason ?? ''}`;
+    case 'REJECTED': {
+      const who = [row.checkerRole ? ROLE_LABELS[row.checkerRole] : null, row.checkerId]
+        .filter(Boolean)
+        .join(' ');
+      return `${who} từ chối do: ${row.rejectReason ?? 'Không có'}`.trim();
+    }
     case 'FAILED':
       return row.failureReason ?? 'Thất bại khi thực hiện';
     case 'EXECUTING':
       return row.txHash ? `Đã gửi ${row.txHash.slice(0, 12)}…, chờ kết cục` : `${row.checkerId ?? ''} đã duyệt, đang gửi`;
     case 'COMPLETED':
-      return `${row.checkerId ?? ''} duyệt · tx ${row.txHash ? `${row.txHash.slice(0, 12)}…` : '—'}`;
+      return row.txHash
+        ? `${row.checkerId ?? ''} duyệt, tx ${row.txHash.slice(0, 12)}…`
+        : `${row.checkerId ?? ''} duyệt`;
   }
 }

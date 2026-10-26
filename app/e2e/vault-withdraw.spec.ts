@@ -33,8 +33,10 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
     await page.goto('/vault');
     const form = page.getByRole('form', { name: 'Biểu mẫu cấu hình khoá' });
     await expect(form).toBeVisible();
-    await form.getByLabel('Tỷ lệ khoá PERCENT (%)').fill('20');
-    await form.getByLabel('Số khoá cố định (VNDB, để trống được)').fill('1');
+    // UIUX-01 C1: chọn một chế độ, chỉ ô của chế độ đó hiện ra.
+    await form.getByRole('radiogroup', { name: 'Chế độ khoá' }).getByLabel('Khoá số cố định').check();
+    await expect(form.getByLabel('Tỷ lệ khoá (%)')).toHaveCount(0);
+    await form.getByLabel('Số khoá cố định (VNDB)').fill('1');
     await form.getByLabel('Ví nhận tiền rút').fill(PAYOUT);
     await form.getByRole('button', { name: 'Lưu cấu hình khoá' }).click();
     await expect(page.getByLabel('Kết quả lưu cấu hình')).toContainText(
@@ -44,7 +46,8 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
     // QĐ-C1: lịch sử cấu hình đọc từ sự kiện trên chuỗi có dòng đổi chế độ sang khoá cố định.
     const history = page.getByRole('table', { name: 'Lịch sử cấu hình' });
     await expect(history.locator('tbody tr[data-param="LOCK_MODE"]').first()).toContainText('Khoá số tiền cố định');
-    await expect(page.getByText(PAYOUT, { exact: true }).first()).toBeVisible();
+    // UIUX-01 D3: khối trạng thái không còn hiện ví nhận; ô "Ví nhận tiền rút" của biểu mẫu giữ giá trị đã lưu.
+    await expect(form.getByLabel('Ví nhận tiền rút')).toHaveValue(PAYOUT);
   });
 
   test('vai khác chỉ xem cấu hình', async ({ page, context, baseURL }) => {

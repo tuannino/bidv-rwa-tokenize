@@ -255,7 +255,7 @@ export function SellerOverviewPage() {
               </div>
               {wallet?.paymentWallet && (
                 <p className="mt-3 break-all text-xs text-muted-foreground">
-                  Ví thanh toán: <span className="font-mono">{wallet.paymentWallet}</span>
+                  Địa chỉ vault: <span className="font-mono">{wallet.paymentWallet}</span>
                 </p>
               )}
               {wallet?.warning && (

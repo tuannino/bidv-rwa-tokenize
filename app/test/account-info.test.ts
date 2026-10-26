@@ -25,7 +25,9 @@ describe('FE-24 — màn Thông tin tài khoản', () => {
       'Nguyễn Văn An',
       'NDT001',
       'Nhà đầu tư',
-      'Địa chỉ ví',
+      // UIUX-01 F1: một nhãn "Ví thanh toán"; giá trị đọc ở máy khách nên dựng ở máy chủ là "Đang đọc…".
+      'Ví thanh toán',
+      'Đang đọc…',
       'Hồ sơ định danh và rủi ro',
       'Hạn mức giao dịch mỗi ngày',
     ]) {

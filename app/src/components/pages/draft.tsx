@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Flame, Loader2, PlusCircle, Send, XCircle } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
+import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RequestCheckBlock } from '@/components/maker-checker/request-check-block';
@@ -447,12 +448,11 @@ function RequestForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id={id('amount')} label="Số lượng">
-            <input
+            <AmountInput
               id={id('amount')}
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={setAmount}
               readOnly={type === 'BURN' && burnSource === 'TOTAL_SUPPLY'}
-              inputMode="numeric"
               className={`${INPUT_CLASS} font-mono`}
             />
           </Field>

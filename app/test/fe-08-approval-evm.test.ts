@@ -183,7 +183,7 @@ live('FE-08 trên nút Hardhat thật', () => {
     await confirmed(direct.mintPayment(INVESTOR, 2_000_000_000n));
     const { saveVaultConfig } = await import('@/lib/bank/vault.service');
     actAs('CONTROLLER', 'KSV001');
-    const saved = await saveVaultConfig({ chain: CHAIN, percent: '20', fixedLock: '', payoutWallet: PAYOUT });
+    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     actAs('INVESTOR', 'NDT001');
     for (const [side, wptAmount] of [['BUY', '100'], ['SELL', '40']] as const) {
