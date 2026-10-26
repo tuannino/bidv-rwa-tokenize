@@ -74,10 +74,37 @@
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
     eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
   };
-  const icon = (n, cls = '') => `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || I.info}</svg>`;
+  // pathLength="1" cho mọi nét để hiệu ứng "vẽ lại nét" khi rê chuột dùng chung một độ dài.
+  const icon = (n, cls = '') => `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(I[n] || I.info).replace(/<(path|line|circle|polyline|polygon|rect|ellipse)\b/g, '<$1 pathLength="1"')}</svg>`;
   const turbine = (color = 'currentColor', speed = '') => `<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="19" y="18" width="2" height="20" rx="1" fill="${color}" opacity=".7"/><g class="blades ${speed}"><path d="M20 18 L19 4 L21 18Z M20 18 L32 25 L19.4 19Z M20 18 L8 25 L20.6 19Z" fill="${color}"/><circle cx="20" cy="18" r="2.4" fill="#e0b44a"/></g></svg>`;
   const nf = (v, d = 0) => Number(v).toLocaleString('vi-VN', { minimumFractionDigits: d, maximumFractionDigits: d });
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Lò xo vật lý: khi đích đổi giữa chừng vẫn giữ vận tốc đang có, nên chuyển động liền mạch, không giật.
+  // k: độ cứng, c: lực cản. k cao thì nhanh, c thấp thì nảy nhiều hơn.
+  const spring = (set, { k = 180, c = 24 } = {}) => {
+    let x = null, v = 0, to = 0, raf = 0, last = 0;
+    const tick = (t) => {
+      const dt = Math.min(.032, (t - last) / 1000) || .016; last = t;
+      v += (-k * (x - to) - c * v) * dt; x += v * dt;
+      if (Math.abs(v) < .02 && Math.abs(x - to) < .02) { x = to; v = 0; set(x, 0); raf = 0; return; }
+      set(x, v); raf = requestAnimationFrame(tick);
+    };
+    return {
+      to(t, jump) { to = t; if (x === null || jump || reduce) { x = t; v = 0; cancelAnimationFrame(raf); raf = 0; set(x, 0); return; } if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } },
+      get v() { return v; },
+    };
+  };
+  // Đổi sáng tối: một vòng tròn lan ra từ chính nút bấm (View Transitions), trình duyệt cũ thì đổi ngay.
+  const swapTheme = (btn, after) => {
+    const flip = () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', root.dataset.theme); } catch {} after?.(); };
+    if (reduce || !document.startViewTransition || !btn) { flip(); return; }
+    const r = btn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.classList.add('vt-theme');
+    const t = document.startViewTransition(flip);
+    t.ready.then(() => root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${R}px at ${x}px ${y}px)`] }, { duration: 800, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
+    t.finished.finally(() => root.classList.remove('vt-theme'));
+  };
 
 
   // ===== Minh hoạ SVG tự vẽ (tạm thay ảnh thật, chủ dự án sẽ thay) =====
@@ -218,22 +245,30 @@
     document.addEventListener('click', (e) => { if (!e.target.closest('.dd')) closeAll(); });
     document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; });
 
-    document.getElementById('theme').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-theme', root.dataset.theme); } catch {} charts.forEach((f) => f(false)); });
+    document.getElementById('theme').addEventListener('click', (e) => swapTheme(e.currentTarget, () => charts.forEach((f) => f(false))));
     const sb = document.getElementById('sb'), menu = document.getElementById('menu');
     menu.addEventListener('click', () => { const o = sb.classList.toggle('open'); menu.setAttribute('aria-expanded', String(o)); });
     document.addEventListener('click', (e) => { if (sb.classList.contains('open') && !sb.contains(e.target) && !menu.contains(e.target)) { sb.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); } });
 
-    // Menu: một viên nang đánh dấu mục đang mở, một viên nang mờ trượt theo chuột như cơn gió.
+    // Menu: viên nang đậm đánh dấu mục đang mở, viên nang mờ đuổi theo chuột. Cả hai chạy bằng lò xo vật lý
+    // và hơi kéo giãn theo vận tốc như giọt nước, nên lướt nhanh qua nhiều mục vẫn liền một dải.
     const nav = document.getElementById('nav'), act = nav.querySelector('.glide.act'), hov = nav.querySelector('.glide.hov');
-    const place = (g, a) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; g.style.transform = `translateY(${a.offsetTop}px)`; g.style.height = `${a.offsetHeight}px`; };
+    const pill = (g, k, c) => {
+      let y = 0, h = 0;
+      const paint = () => { const st = Math.min(16, Math.abs(sy.v) / 70); g.style.transform = `translateY(${y - st / 2}px)`; g.style.height = `${h + st}px`; };
+      const sy = spring((v) => { y = v; paint(); }, { k, c }), sh = spring((v) => { h = v; paint(); }, { k, c: c + 4 });
+      return (a, jump) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; sy.to(a.offsetTop, jump); sh.to(a.offsetHeight, jump); };
+    };
+    const placeAct = pill(act, 210, 22), placeHov = pill(hov, 320, 28);
     const cur = nav.querySelector('a[aria-current]');
-    const settle = () => { place(act, cur); };
-    act.classList.add('instant'); settle(); requestAnimationFrame(() => act.classList.remove('instant'));
-    nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { place(hov, a); hov.classList.toggle('on-act', a === cur); }));
-    nav.addEventListener('mouseleave', () => { hov.style.opacity = 0; });
+    const settle = (jump) => placeAct(cur, jump === true);
+    settle(true);
+    let hovOn = false;
+    nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { placeHov(a, !hovOn); hovOn = true; hov.classList.toggle('on-act', a === cur); }));
+    nav.addEventListener('mouseleave', () => { hov.style.opacity = 0; hovOn = false; });
     document.getElementById('rail').addEventListener('click', () => { body.classList.toggle('rail'); try { localStorage.setItem('bidv-rail', body.classList.contains('rail') ? '1' : '0'); } catch {} setTimeout(settle, 380); });
-    addEventListener('resize', settle);
-    document.fonts?.ready.then(settle);
+    addEventListener('resize', () => settle(true));
+    document.fonts?.ready.then(() => settle(true));
 
     // Thanh trên: nổi lên khi cuộn.
     const tb = document.getElementById('topbar');
@@ -266,7 +301,22 @@
     g.setAttribute('role', 'img'); g.setAttribute('aria-label', `${g.dataset.label || ''} ${nf(v, 1)}%`);
     g.innerHTML = `<svg viewBox="0 0 80 80"><circle class="trk" cx="40" cy="40" r="34"/><circle class="arc" cx="40" cy="40" r="34" stroke="${g.dataset.color || 'var(--p1)'}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${C * (1 - Math.min(100, v) / 100)}"/></svg><span class="t">${nf(v, 1)}%${g.dataset.label ? `<small>${g.dataset.label}</small>` : ''}</span>`;
   });
-  document.querySelectorAll('[data-copy]').forEach((b) => { if (!b.innerHTML.trim()) b.innerHTML = icon('copy'); b.classList.add('copy'); b.setAttribute('aria-label', 'Chép'); b.addEventListener('click', () => navigator.clipboard?.writeText(b.dataset.copy).catch(() => {})); });
+  document.querySelectorAll('[data-copy]').forEach((b) => {
+    if (!b.innerHTML.trim()) b.innerHTML = icon('copy');
+    b.classList.add('copy'); b.setAttribute('aria-label', 'Chép');
+    b.insertAdjacentHTML('beforeend', `${icon('check', 'ok')}<span class="bub" role="status">Đã chép</span>`);
+    b.addEventListener('click', () => { navigator.clipboard?.writeText(b.dataset.copy).catch(() => {}); b.classList.add('done'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('done'), 1500); });
+  });
+  // Biểu tượng 3D cạnh tiêu đề trang (Fluent Emoji 3D, MIT, tạm để thử; thay bằng bộ chính thức sau).
+  const P3D = { dashboard: 'leaf', draft: 'memo', transactions: 'ledger', 'transaction-detail': 'receipt', distribution: 'moneybag', vault: 'classic', 'demo-payment': 'banknote', account: 'id', approvals: 'scales', 'approval-detail': 'check', portfolio: 'bars', 'token-detail': 'coin', trade: 'chart', orders: 'clipboard', 'order-detail': 'receipt', withdraw: 'outbox', wallet: 'card', seller: 'office', 'seller-transactions': 'ledger', 'seller-withdraw': 'flymoney' };
+  const ph = document.querySelector('.pagehead > div:first-child'), p3 = P3D[body.dataset.page];
+  if (ph && p3) { ph.classList.add('has3d'); ph.insertAdjacentHTML('afterbegin', `<span class="p3d" aria-hidden="true"><img src="assets/3d/${p3}.webp" alt="" width="56" height="56"></span>`); }
+  document.querySelectorAll('img[data-3d]').forEach((m) => { m.src = `assets/3d/${m.dataset['3d']}.webp`; m.alt = ''; m.width = m.height = 64; });
+  // Trang giới thiệu: cuộn mượt có quán tính (Lenis, MIT). Trang nghiệp vụ giữ cuộn gốc để thao tác bảng nhanh, chính xác.
+  if (body.classList.contains('lp') && window.Lenis && !reduce) {
+    const lenis = new window.Lenis({ lerp: .09, wheelMultiplier: .9, anchors: { offset: -80 } });
+    const raf = (t) => { lenis.raf(t); requestAnimationFrame(raf); }; requestAnimationFrame(raf);
+  }
   // Nhóm nút chuyển (Mua và Bán, tab): chỉ đổi trạng thái hiển thị.
   document.querySelectorAll('.seg, .tabs').forEach((g) => g.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b || !g.contains(b)) return;
@@ -274,6 +324,25 @@
     g.querySelectorAll('button').forEach((x) => x.setAttribute(attr, String(x === b)));
     if (b.dataset.show) { document.querySelectorAll(`[data-panel-group="${g.dataset.group}"]`).forEach((p) => { p.hidden = p.dataset.panel !== b.dataset.show; reveal(p, 0); }); }
   }));
+
+  // Viên nang chỉ mục đang chọn trượt theo lò xo (như "animated background" của Motion Primitives).
+  // Theo dõi thuộc tính aria nên các trang tự đổi trạng thái bằng script riêng cũng chạy đúng.
+  document.querySelectorAll('.seg, .tabs').forEach((g) => {
+    if (!g.querySelector('button')) return;
+    const ind = document.createElement('span'); ind.className = 'ind'; ind.setAttribute('aria-hidden', 'true'); g.prepend(ind); g.classList.add('has-ind');
+    const st = { x: 0, y: 0, w: 0, h: 0 }, paint = () => { ind.style.transform = `translate(${st.x}px, ${st.y}px)`; ind.style.width = `${st.w}px`; ind.style.height = `${st.h}px`; };
+    const sp = Object.fromEntries(['x', 'y', 'w', 'h'].map((k) => [k, spring((v) => { st[k] = v; paint(); }, { k: 260, c: 26 })]));
+    let first = true;
+    const sync = () => {
+      const b = g.querySelector('button[aria-selected="true"], button[aria-pressed="true"]');
+      if (!b || !b.offsetWidth) { ind.style.opacity = 0; return; }
+      ind.style.opacity = 1;
+      sp.x.to(b.offsetLeft, first); sp.y.to(b.offsetTop, first); sp.w.to(b.offsetWidth, first); sp.h.to(b.offsetHeight, first); first = false;
+    };
+    new MutationObserver(sync).observe(g, { subtree: true, attributes: true, attributeFilter: ['aria-selected', 'aria-pressed'] });
+    new ResizeObserver(() => { first = true; sync(); }).observe(g);
+    sync();
+  });
 
   // Video giới thiệu: mở trình phát trong hộp nổi.
   const canEmbed = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -296,12 +365,17 @@
     : n.matches('.kpi') ? 'gust'
     : n.matches('.alert') ? 'slide'
     : 'lift');
+  const DIG = [...'01234567890123456789'].map((n) => `<span>${n}</span>`).join('');
   const countUp = (el) => {
-    const to = +el.dataset.count, d = +(el.dataset.d || 0);
-    if (reduce) { el.textContent = nf(to, d); return; }
-    const t0 = performance.now(), dur = 1700;
-    const step = (t) => { const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 5); el.textContent = nf(to * e, d); if (k < 1) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
+    const s = nf(+el.dataset.count, +(el.dataset.d || 0));
+    if (reduce) { el.textContent = s; return; }
+    el.classList.add('odo'); el.setAttribute('aria-label', s); el.setAttribute('role', 'text');
+    el.innerHTML = [...s].map((ch) => (/\d/.test(ch) ? `<span class="od" aria-hidden="true"><span class="og">${ch}</span><span class="os">${DIG}</span></span>` : `<span class="oc" aria-hidden="true">${ch}</span>`)).join('');
+    const cols = [...el.querySelectorAll('.os')], digits = s.replace(/\D/g, '');
+    requestAnimationFrame(() => requestAnimationFrame(() => cols.forEach((c, i) => {
+      c.style.transitionDelay = `${(cols.length - 1 - i) * 70}ms`;
+      c.style.transform = `translateY(${-(10 + +digits[i]) * 5}%)`;
+    })));
   };
   const fill = (scope) => {
     scope.querySelectorAll('.bar i[data-w]').forEach((b) => { b.style.width = `${b.dataset.w}%`; });
@@ -309,6 +383,18 @@
     scope.querySelectorAll('[data-count]').forEach((c) => { if (!c._done) { c._done = 1; countUp(c); } });
     scope.querySelectorAll('.chart').forEach((c) => c._go?.());
   };
+  const splitWords = (h) => {
+    if (h._split) return; h._split = 1; let i = 0;
+    const walk = (n) => [...n.childNodes].forEach((c) => {
+      if (c.nodeType === 3) {
+        const f = document.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach((w) => { if (!w) return; if (/^\s+$/.test(w)) { f.append(w); return; } const sp = document.createElement('span'); sp.className = 'w'; sp.style.setProperty('--wi', i++); sp.textContent = w; f.append(sp); });
+        c.replaceWith(f);
+      } else if (c.nodeType === 1) walk(c);
+    });
+    walk(h);
+  };
+  if (!reduce) document.querySelectorAll('.pagehead h1, .hero h1, .blk h2.t, .cta h2').forEach(splitWords);
   const KIDS = '.tbl tbody tr, .kv > div, .list > *, .checks li, .timeline li, .steps li, .kv-grid > div';
   function reveal(n, delay) {
     if (n._shown) return; n._shown = 1;
@@ -316,7 +402,7 @@
     n.style.setProperty('--d', `${delay}s`);
     n.classList.add('in', `in-${kindOf(n)}`);
     n.classList.remove('pre');
-    [...n.querySelectorAll(KIDS)].slice(0, 16).forEach((k, i) => { k.classList.add('kid'); k.style.setProperty('--d', `${delay + .35 + i * .055}s`); });
+    [...n.querySelectorAll(KIDS)].slice(0, 16).forEach((k, i) => { k.classList.add('kid'); k.style.setProperty('--d', `${delay + .3 + i * .045}s`); });
     setTimeout(() => fill(n), (delay + .25) * 1000);
     n.addEventListener('animationend', (e) => { if (e.target === n) n.classList.add('done'); }, { once: true });
   }
@@ -336,15 +422,33 @@
       items.forEach((n) => io.observe(n));
     }
   }
-  // Ánh sáng theo chuột trên thẻ, và độ nghiêng rất nhẹ trên ô số liệu.
+  // Ánh sáng theo chuột trên thẻ và độ nghiêng nhẹ trên ô số liệu: chạy bằng lò xo nên đuổi theo chuột mềm,
+  // thả ra thì về chỗ chậm rãi. Nút chính có lực hút nhẹ về phía con trỏ (magnetic).
   if (!reduce && matchMedia('(hover: hover)').matches) {
+    const rig = (c) => {
+      if (c._rig) return c._rig;
+      const set = (k, u) => (v) => c.style.setProperty(k, `${v}${u}`);
+      const isKpi = c.matches('.kpi');
+      return (c._rig = {
+        mx: spring(set('--mx', '%'), { k: 120, c: 20 }), my: spring(set('--my', '%'), { k: 120, c: 20 }),
+        rx: isKpi ? spring(set('--rx', 'deg'), { k: 140, c: 14 }) : null, ry: isKpi ? spring(set('--ry', 'deg'), { k: 140, c: 14 }) : null,
+      });
+    };
     document.addEventListener('pointermove', (e) => {
       const c = e.target.closest?.('.card, .kpi'); if (!c) return;
-      const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      c.style.setProperty('--mx', `${x * 100}%`); c.style.setProperty('--my', `${y * 100}%`);
-      if (c.matches('.kpi')) { c.style.setProperty('--rx', `${(.5 - y) * 4}deg`); c.style.setProperty('--ry', `${(x - .5) * 5}deg`); }
+      const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height, R = rig(c);
+      const fresh = !c._in; c._in = 1;
+      R.mx.to(x * 100, fresh); R.my.to(y * 100, fresh);
+      if (R.rx) { R.rx.to((.5 - y) * 5); R.ry.to((x - .5) * 6); }
     }, { passive: true });
-    document.addEventListener('pointerout', (e) => { const c = e.target.closest?.('.kpi'); if (c && !c.contains(e.relatedTarget)) { c.style.setProperty('--rx', '0deg'); c.style.setProperty('--ry', '0deg'); } });
+    document.addEventListener('pointerout', (e) => { const c = e.target.closest?.('.card, .kpi'); if (c && !c.contains(e.relatedTarget)) { c._in = 0; const R = rig(c); R.rx?.to(0); R.ry?.to(0); } });
+    const MAG = '.btn.primary, .btn.gold, .btn.lg, .bigplay, .play';
+    document.querySelectorAll(MAG).forEach((b) => {
+      const sx = spring((v) => b.style.setProperty('--tx', `${v}px`), { k: 200, c: 12 }), sy = spring((v) => b.style.setProperty('--ty', `${v}px`), { k: 200, c: 12 });
+      b.classList.add('mag');
+      b.addEventListener('pointermove', (e) => { const r = b.getBoundingClientRect(); sx.to((e.clientX - r.left - r.width / 2) * .22); sy.to((e.clientY - r.top - r.height / 2) * .3); });
+      b.addEventListener('pointerleave', () => { sx.to(0); sy.to(0); });
+    });
   }
   // Gợn sóng khi bấm nút.
   document.addEventListener('pointerdown', (e) => {
@@ -382,27 +486,31 @@
         const side = s.axis || main, col = s.color || 'var(--c-gen)';
         if (s.type === 'bars') {
           const k = bars.indexOf(s), bw = Math.min(36, band * .62 / bars.length);
-          s.values.forEach((v, i) => { const bx = x(i) - (bw * bars.length) / 2 + k * bw, by = y(side, v); marks += `<rect x="${bx + 2}" y="${by}" width="${bw - 4}" height="${Math.max(0, y(side, 0) - by)}" rx="8" fill="${col}" opacity="${s.highlight == null || s.highlight === i ? 1 : .35}"><animate attributeName="height" from="0" to="${Math.max(0, y(side, 0) - by)}" dur="${animate ? 1 : .01}s" fill="freeze" calcMode="spline" keySplines=".22 1 .36 1" keyTimes="0;1"/><animate attributeName="y" from="${y(side, 0)}" to="${by}" dur="${animate ? 1 : .01}s" fill="freeze" calcMode="spline" keySplines=".22 1 .36 1" keyTimes="0;1"/></rect>`; });
+          s.values.forEach((v, i) => { const bx = x(i) - (bw * bars.length) / 2 + k * bw, by = y(side, v); marks += `<rect class="br" style="--i:${i + k * .5}" x="${bx + 2}" y="${by}" width="${bw - 4}" height="${Math.max(0, y(side, 0) - by)}" rx="8" fill="${col}" opacity="${s.highlight == null || s.highlight === i ? 1 : .35}"/>`; });
           return;
         }
         const pts = s.values.map((v, i) => [x(i), y(side, v)]);
         if (s.type === 'area') {
           defs += `<linearGradient id="g${si}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".38"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>`;
-          marks += `<path d="${smooth(pts)} L${x(n - 1)},${y(side, 0)} L${x(0)},${y(side, 0)} Z" fill="url(#g${si})"/>`;
+          marks += `<path class="ar" d="${smooth(pts)} L${x(n - 1)},${y(side, 0)} L${x(0)},${y(side, 0)} Z" fill="url(#g${si})"/>`;
         }
-        marks += `<path d="${smooth(pts)}" fill="none" stroke="${col}" stroke-width="2.5"/>`;
-        if (s.dots) marks += pts.map(([px, py]) => `<circle cx="${px}" cy="${py}" r="4" fill="var(--surface)" stroke="${col}" stroke-width="2"/>`).join('');
+        marks += `<path class="ln" pathLength="1" style="--s:${si}" d="${smooth(pts)}" fill="none" stroke="${col}" stroke-width="2.5"/>`;
+        if (s.dots) marks += pts.map(([px, py], i) => `<circle class="dt" style="--i:${n === 1 ? 0 : i / (n - 1)}" cx="${px}" cy="${py}" r="4" fill="var(--surface)" stroke="${col}" stroke-width="2"/>`).join('');
       });
-      el.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${cfg.label || cfg.series.map((s) => s.name).join(', ')}"><defs>${defs}<clipPath id="rv-${el.id}"><rect x="0" y="0" width="${W}" height="${H}">${animate ? `<animate attributeName="width" from="0" to="${W}" dur="1.6s" fill="freeze" calcMode="spline" keySplines=".22 1 .36 1" keyTimes="0;1"/>` : ''}</rect></clipPath></defs>${g}<g clip-path="url(#rv-${el.id})">${marks}</g><line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="0"/><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" class="hit"/></svg>`);
+      el.insertAdjacentHTML('afterbegin', `<svg class="${animate ? 'anim' : ''}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${cfg.label || cfg.series.map((s) => s.name).join(', ')}"><defs>${defs}</defs>${g}<g>${marks}</g><line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="0"/><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" class="hit"/></svg>`);
       const s = el.querySelector('svg'), hit = s.querySelector('.hit'), cross = s.querySelector('.cross');
+      tip.style.top = `${T + 10}px`;
+      const cx = spring((v) => { cross.setAttribute('x1', v); cross.setAttribute('x2', v); }, { k: 300, c: 30 });
+      const tx = spring((v) => { tip.style.left = `${v}px`; }, { k: 240, c: 26 });
+      let on = false, last = -1;
       hit.addEventListener('mousemove', (e) => {
         const r = s.getBoundingClientRect(), px = e.clientX - r.left;
         const i = Math.max(0, Math.min(n - 1, hasBars ? Math.floor((px - L) / band) : Math.round((px - L) / ((W - L - R) / Math.max(1, n - 1)))));
-        cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('opacity', 1);
-        tip.innerHTML = `<b>${cfg.tipTitle ? cfg.tipTitle(i) : cfg.labels[i]}</b>${cfg.series.map((sr) => `<span><i style="background:${sr.color || 'var(--c-gen)'}"></i>${sr.name}: ${sr.fmt ? sr.fmt(sr.values[i]) : nf(sr.values[i])}</span>`).join('<br>')}`;
-        tip.style.left = `${x(i) > W - 260 ? x(i) - 250 : x(i) + 14}px`; tip.style.top = `${T + 10}px`; tip.classList.add('on');
+        cross.setAttribute('opacity', 1);
+        if (i !== last) { last = i; tip.innerHTML = `<b>${cfg.tipTitle ? cfg.tipTitle(i) : cfg.labels[i]}</b>${cfg.series.map((sr) => `<span><i style="background:${sr.color || 'var(--c-gen)'}"></i>${sr.name}: ${sr.fmt ? sr.fmt(sr.values[i]) : nf(sr.values[i])}</span>`).join('<br>')}`; }
+        cx.to(x(i), !on); tx.to(x(i) > W - 260 ? x(i) - 250 : x(i) + 14, !on); on = true; tip.classList.add('on');
       });
-      hit.addEventListener('mouseleave', () => { cross.setAttribute('opacity', 0); tip.classList.remove('on'); });
+      hit.addEventListener('mouseleave', () => { cross.setAttribute('opacity', 0); tip.classList.remove('on'); on = false; last = -1; });
     };
     if (cfg.legend !== false && !el.nextElementSibling?.classList.contains('legend')) {
       el.insertAdjacentHTML('afterend', `<div class="legend">${cfg.series.map((s) => `<span><i style="background:${s.color || 'var(--c-gen)'}"></i>${s.name}</span>`).join('')}</div>`);
@@ -413,5 +521,5 @@
   };
   let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => charts.forEach((f) => f(false)), 150); });
 
-  window.UI = { icon, turbine, scene, coins, emblem, nf, chart, role, ROLES, withRole };
+  window.UI = { icon, turbine, scene, coins, emblem, nf, chart, role, ROLES, withRole, spring, swapTheme };
 })();

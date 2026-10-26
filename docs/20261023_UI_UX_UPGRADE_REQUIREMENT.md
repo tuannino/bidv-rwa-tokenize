@@ -1,4 +1,4 @@
-# Yêu cầu nâng cấp UI/UX (bản 2, cập nhật ý tưởng "Gió hoá dòng tiền"): bàn giao cho Supervisor
+# Yêu cầu nâng cấp UI/UX (bản 3: ý tưởng "Gió hoá dòng tiền", chuyển động mềm): bàn giao cho Supervisor
 
 | | |
 |---|---|
@@ -22,6 +22,8 @@
 | QĐ-UX-6 | Ý tưởng chủ đạo **"Gió hoá dòng tiền"** (mục 3.0): chuyển động theo hướng gió, màu có nghĩa (xanh là token và năng lượng, vàng là tiền), sidebar "trụ tua-bin", header "đường chân trời" |
 | QĐ-UX-7 | Demo trình bày cho cả lãnh đạo và đội vận hành: cân bằng giữa ấn tượng và rõ ràng |
 | QĐ-UX-8 | Logo, ảnh, video trong bản xem thử là tạm để thử giao diện, chủ dự án thay sau (mục 3.6) |
+| QĐ-UX-9 | Trang giới thiệu dự án là **một trang riêng** như bản xem thử, sẽ cải thiện ở đợt sau (FE-UX-X5) |
+| QĐ-UX-10 | Hệ thống phải "mượt": chuyển động mềm theo kiểu lò xo (spring), có vi tương tác khi rê chuột và bấm, icon đẹp hơn (mục 3.3, 3.4) |
 
 ---
 
@@ -37,6 +39,8 @@
 | Khung | `app/src/components/layout/*` | Markup, class, vị trí; sidebar gập trên điện thoại | Đổi logic `ChannelSwitcher`, `ChainSelector` (vẫn `<select>`), `NAV_BY_ROLE`, `withDemoPayment`, cách đọc số việc chờ, `ChannelGuard` |
 | Màn hình | `app/src/components/pages/*.tsx`, `components/investor/*`, `components/maker-checker/*.tsx`, `components/trading/*.tsx`, `components/wallet/*.tsx`, `components/bidv-logo.tsx` | Bố cục JSX, class, biểu đồ recharts (màu, kiểu, animation), icon, hiệu ứng | Đổi lời gọi server action hoặc API (tên, tham số, số lần gọi khi mở màn), đổi state nghiệp vụ, đổi điều kiện khoá nút |
 | Chữ hiển thị trong frontend | chuỗi JSX trong các tệp trên | Đổi dấu chấm giữa thành dấu phẩy, sửa chính tả | Đổi nghĩa câu, bỏ câu hướng dẫn |
+| Chuyển động | `app/src/components/motion/*` (thư mục mới) | Hook lò xo, thành phần số lăn, viên nang trượt, tách chữ tiêu đề | Gọi dữ liệu, đổi state nghiệp vụ |
+| Ảnh tĩnh | `app/public/3d/*` (chỉ khi FE-DEP-3 được duyệt) | Thêm ảnh icon 3D | |
 | Kiểm thử e2e | `app/e2e/*` | Sửa selector khi markup đổi | Bỏ bước kiểm, nới điều kiện |
 
 ### 1.2. Không được sửa (backend và logic dùng chung)
@@ -47,7 +51,17 @@
 
 ### 1.3. Phụ thuộc
 
-Không thêm gói npm. Font Be Vietnam Pro nạp qua `next/font/google` (có sẵn trong Next). Animation dùng CSS và `tw-animate-css` đã có. Biểu đồ giữ `recharts`, chỉ đổi kiểu.
+Mặc định không thêm gói npm. Font Be Vietnam Pro nạp qua `next/font/google` (có sẵn trong Next). Biểu đồ giữ `recharts`, chỉ đổi kiểu.
+
+Toàn bộ chuyển động mềm của bản 3 **làm được mà không cần gói mới**: đường cong lò xo viết bằng CSS `linear()` (token ở mục 3.3) và một hook lò xo nhỏ (khoảng 20 dòng, đặt ở `app/src/components/motion/`, không đặt trong `lib/`). Bản xem thử cũng tự viết như vậy (`spring()` trong `ui.js`).
+
+Ba hạng mục dưới đây chỉ là **tuỳ chọn**, đều thuộc frontend, không đụng backend, nhưng vẫn **cần chủ dự án duyệt** trước khi thêm:
+
+| Mã | Hạng mục | Giấy phép | Dùng để | Nếu không duyệt |
+|---|---|---|---|---|
+| FE-DEP-1 | Gói `motion` (Motion for React, trước là Framer Motion) | MIT | Viên nang menu và tab chuyển giữa các mục bằng `layoutId`, hiệu ứng ra vào `AnimatePresence` với ít mã hơn | Dùng hook lò xo tự viết và CSS `linear()`, kết quả nhìn tương đương |
+| FE-DEP-2 | Gói `lenis` | MIT | Cuộn mượt có quán tính, **chỉ ở trang giới thiệu** (bản xem thử nhúng sẵn `assets/vendor/lenis.min.js`). Trang nghiệp vụ giữ cuộn gốc để thao tác bảng nhanh, chính xác | Trang giới thiệu dùng cuộn gốc |
+| FE-DEP-3 | Ảnh icon 3D Fluent Emoji (21 tệp webp, tổng 116 KB, chép vào `app/public/3d/`, không phải gói npm) | MIT (Microsoft Fluent UI Emoji, bản đóng gói của LobeHub) | Icon cạnh tiêu đề trang, các chặng, vai và thẻ minh bạch ở trang giới thiệu | Bỏ icon 3D, giữ icon nét lucide |
 
 ### 1.4. Ánh xạ dữ liệu 1-1
 
@@ -119,28 +133,64 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
 
-### 3.3. Biên đạo chuyển động (bản 2)
+### 3.3. Biên đạo chuyển động (bản 3, chuyển động mềm)
 
-| Đối tượng | Kiểu vào | Thông số |
+Bản 2 dùng một đường cong `cubic-bezier` cho mọi thứ nên khối hiện ra nhanh, dừng gắt, cảm giác "cứng". Bản 3 đổi sang **lò xo**: vật có đà, về đích hơi lố một chút rồi lắng lại; độ mờ chỉ dịu dần, không nảy. Tham khảo cách làm của Motion, Motion Primitives, Kinetics (lò xo), MicroKit UI (vi tương tác), Anime.js; không chép mã của các thư viện đó.
+
+**Token đường cong** (sinh từ phương trình lò xo tắt dần, xem `--sp-*` trong `assets/c.css`):
+
+| Token | Hệ số tắt dần | Vượt đích | Dùng cho |
+|---|---|---|---|
+| `--sp-soft` | 0,85 | khoảng 0,6% | Nội dung vào trang, số lăn, thanh tiến độ, vòng đo, thanh trên |
+| `--sp-gentle` | 0,72 | khoảng 4% | Điều khiển: dropdown, viên nang chuyển trang, cột biểu đồ, thẻ nhấc lên |
+| `--sp-bounce` | 0,55 | khoảng 12% | Phản hồi bấm: nút bật lại, icon nảy, điểm biểu đồ, dấu tích đã chép |
+| `--ease-out` | `cubic-bezier(.22, 1, .36, 1)` | không | Độ mờ, nhoè, ánh sáng |
+
+Lò xo vật lý trong JS (`spring({ k, c })`) dùng cho thứ đi theo con trỏ: khi đích đổi giữa chừng vẫn giữ vận tốc, nên lướt nhanh qua nhiều mục vẫn liền một dải.
+
+| Đối tượng | Hiệu ứng | Thông số |
 |---|---|---|
-| Hàng tiêu đề trang | chữ trồi lên qua mặt nạ | 1,1 s |
-| Ô nổi bật xanh, vàng, thẻ hero | màn mở từ trái sang phải, nội dung trồi lên sau, minh hoạ trôi vào | 1,4 s; nội dung trễ 0,35 s |
-| Ô số liệu thường | "cơn gió": lướt từ trái, nghiêng nhẹ, nhoè rồi rõ | 1,15 s |
-| Thẻ nội dung | nhấc lên, nhoè rồi rõ | 1,15 s |
-| Thông báo | trượt từ trái | 1,15 s |
-| Hàng trong bảng, danh sách, điều kiện, dòng thời gian | lần lượt sau thẻ chứa | trễ 0,35 s rồi 0,055 s mỗi hàng, tối đa 16 hàng |
-| Thứ tự trong một đợt | trễ theo vị trí: khối bên trái và phía trên tới trước | 0,06 đến 0,9 s |
-| Kích hoạt | chỉ khi khối cuộn vào màn hình (IntersectionObserver) | ngưỡng 8% |
-| Số đếm lên, thanh tiến độ, vòng đo, biểu đồ | chạy khi khối vừa hiện | 1,7 s; biểu đồ 1,6 s |
-| Rê chuột trên thẻ | ánh sáng tròn theo con trỏ; ô số liệu nghiêng tối đa 4 đến 5 độ và nhấc 3 px | 0,5 s |
-| Bấm nút, mục menu, tab | gợn sóng từ điểm bấm | 0,7 s |
-| Menu | viên nang hover trượt đàn hồi `cubic-bezier(.34, 1.4, .64, 1)` | 0,55 s |
-| Mở trang | cơn gió quét qua phần nội dung | 1,6 s |
-| Chuyển trang | View Transitions: sidebar và header đứng yên, nội dung mờ trái rồi hiện phải | 0,28 s ra, 0,55 s vào |
-| Nền | quầng sáng lục vàng trôi chậm, đường gió mảnh chạy | 26 đến 40 s mỗi chu kỳ |
-| Giảm chuyển động | `prefers-reduced-motion` tắt toàn bộ, nội dung hiện ngay | |
+| Tiêu đề trang, tiêu đề mục trang giới thiệu | Hiện **từng từ**: thấp, nhoè, mờ rồi rõ dần | `--sp-soft` 1,1 s, cách nhau 55 ms mỗi từ |
+| Chữ nhấn ở tiêu đề trang giới thiệu | Ánh kim chạy qua chữ vàng | 4,5 s, lặp |
+| Icon 3D cạnh tiêu đề | Nảy ra rồi bồng bềnh nhẹ | `--sp-bounce` 1 s; trôi 5 s |
+| Ô nổi bật xanh, vàng | Màn mở trái sang phải, cả khối phóng nhẹ, nội dung và minh hoạ vào sau | mở 1,3 s; khối `--sp-soft` 1,5 s; nội dung trễ 0,3 s |
+| Ô số liệu thường | "Cơn gió": lướt từ trái, nghiêng nhẹ | chuyển động `--sp-soft` 1,4 s, độ hiện 0,9 s |
+| Thẻ nội dung | Nhấc lên 22 px, thu nhỏ 3% rồi về | chuyển động `--sp-soft` 1,25 s, độ hiện 0,8 s |
+| Hàng trong bảng, danh sách | Lần lượt sau thẻ chứa, nhô lên 10 px | trễ 0,3 s rồi 45 ms mỗi hàng, tối đa 16 hàng |
+| Thứ tự trong một đợt, kích hoạt | Giữ như bản 2: khối trái và trên tới trước; chỉ chạy khi cuộn tới (ngưỡng 8%) | 0,06 đến 0,9 s |
+| Số liệu | **Số lăn** (odometer): mỗi chữ số một cột cuộn qua ít nhất một vòng rồi dừng bằng lò xo, cột bên phải dừng trước | `--sp-soft` 1,9 s, lệch 70 ms mỗi cột; đọc màn hình đọc số cuối qua `aria-label` |
+| Thanh tiến độ, vòng đo | Chạy tới giá trị, lắng nhẹ | `--sp-soft` 1,6 s và 1,9 s |
+| Biểu đồ đường, vùng | Nét đường **tự vẽ** từ trái; vùng dâng lên; điểm nảy ra khi nét vẽ tới | 1,8 s; vùng `--sp-soft` 1,6 s; điểm `--sp-bounce` 0,8 s |
+| Biểu đồ cột | Cột mọc từ đáy, lệch nhau | `--sp-gentle` 1,2 s, 70 ms mỗi cột |
+| Chú giải biểu đồ | Đường dóng và hộp chú giải **trượt** sang kỳ mới thay vì nhảy | lò xo k 300, c 30 |
+| Menu bên trái | Viên nang đậm (mục đang mở) và viên nang mờ (rê chuột) chạy bằng lò xo vật lý, **kéo giãn theo vận tốc** như giọt nước; icon nảy khi rê, nhún khi bấm. Khi đổi trang, viên nang đậm **trượt từ mục cũ sang mục mới** (View Transitions, `view-transition-name: navpill`) | lò xo k 210 đến 320; chuyển trang `--sp-gentle` 0,7 s |
+| Nhóm nút chuyển (Mua, Bán) và tab | Viên nang chỉ mục đang chọn **trượt** sang mục mới (như "animated background") | lò xo k 260, c 26 |
+| Thẻ, ô số liệu khi rê chuột | Ánh sáng theo con trỏ trễ mềm; ô số liệu nghiêng tối đa 5 đến 6 độ; nhấc 4 px bằng lò xo; thả ra về chậm | lò xo k 120 đến 140 |
+| Nút | Nhích lên khi rê; **nhún 5%** khi bấm rồi bật lại; nút chính có **lực hút nhẹ** theo con trỏ (magnetic) | `--sp-bounce` 0,7 s; hút 22% đến 30% độ lệch |
+| Icon nét | Khi rê chuột, nét icon **vẽ lại** từ đầu (menu, nút, ô số liệu, liên kết "Xem thêm") | 0,75 s, nét sau trễ 80 ms |
+| Dropdown Chain, Vai trò | Mở bằng lò xo, các dòng lần lượt; chevron xoay nảy | `--sp-gentle` 0,6 s |
+| Thanh trên | Ẩn khi cuộn xuống, hiện khi cuộn lên bằng lò xo | `--sp-soft` 0,8 s |
+| Nút sao chép (Ví của tôi) | Icon chép đổi thành dấu tích nảy ra | `--sp-bounce` 0,7 s |
+| Đổi Sáng, Tối | **Vòng tròn lan ra từ nút** đổi giao diện (View Transitions); trình duyệt chưa hỗ trợ thì đổi ngay | 0,8 s |
+| Chuyển trang | Nội dung cũ mờ, thu nhẹ; nội dung mới nhô lên bằng lò xo; sidebar và thanh trên đứng yên | 0,3 s ra; `--sp-soft` 0,8 s vào |
+| Trang giới thiệu | Cuộn mượt có quán tính (FE-DEP-2); cảnh tua-bin màn đầu trôi chậm hơn nội dung (thị sai, CSS scroll-driven); ảnh dự án trượt nhẹ khi cuộn qua | theo cuộn |
+| Nền, mở trang | Giữ như bản 2 (quầng sáng trôi chậm, cơn gió quét qua khi mở trang) | |
+| Giảm chuyển động | `prefers-reduced-motion` tắt toàn bộ, số hiện ngay, không tách chữ, không cuộn mượt | |
 
-Easing chính `cubic-bezier(.16, 1, .3, 1)`. Ưu tiên `transform`, `opacity`, `filter`, `clip-path`. Không chặn thao tác trong lúc chạy hiệu ứng.
+Nguyên tắc: chỉ động vào `transform`, `opacity`, `filter`, `clip-path` (và `translate`, `scale` tách riêng); không chặn thao tác trong lúc chạy; không hiệu ứng nào kéo dài thời gian chờ dữ liệu; mỗi màn chỉ một nhịp vào trang.
+
+**Cách làm trong Next.js (không cần gói mới):**
+
+| Phần | Cách làm |
+|---|---|
+| Token `--sp-*` | Thêm vào `globals.css` cùng nhóm token màu; dùng qua class Tailwind tuỳ ý (`ease-[var(--sp-soft)]`) |
+| Hook `useSpring` | `components/motion/use-spring.ts`: cập nhật bằng `requestAnimationFrame`, ghi thẳng vào `style` qua ref (không `setState` mỗi khung hình) |
+| `<NavPill>`, `<SegIndicator>` | Đo vị trí mục đang chọn bằng ref, đẩy vào `useSpring`. Nếu FE-DEP-1 được duyệt thì thay bằng `motion.span layoutId` |
+| `<Odometer value>` | Định dạng bằng `lib/format.ts` có sẵn rồi tách thành cột; `aria-label` là chuỗi đã định dạng |
+| `<WordReveal>` | Tách chữ tiêu đề thành từ ở phía client, không đổi nội dung |
+| recharts | Dùng `isAnimationActive`, `animationDuration`, `animationEasing` có sẵn; điểm và cột nảy bằng `shape` tuỳ biến hoặc CSS trên class |
+| Đổi theme | Bọc `setTheme` của next-themes trong `document.startViewTransition` khi trình duyệt hỗ trợ |
+| Chuyển trang | CSS `@view-transition` hoặc `unstable_ViewTransition` của React khi bản Next đang dùng hỗ trợ; không thì bỏ, không ảnh hưởng chức năng |
 
 ### 3.4b. Ô theo ngữ nghĩa
 
@@ -156,7 +206,7 @@ Ví dụ ô "Tối đa một lần" ở màn Nạp VNDB: ô vàng đậm, cột 
 
 ### 3.4. Biểu tượng và mũi tên
 
-Bộ lucide hiện có, nét 1,7. Mũi tên chỉ là icon: liên kết "Xem thêm" có mũi tên trượt sang phải khi rê chuột, "Về danh sách" trượt sang trái; breadcrumb dùng chevron mờ. Không dùng ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ hiển thị.
+Bộ lucide hiện có, nét 1,7, có hiệu ứng **vẽ lại nét** khi rê chuột (mục 3.3). Icon 3D (FE-DEP-3, cần duyệt) chỉ dùng ở chỗ trang trí: ô cạnh tiêu đề mỗi trang (Bảng điều khiển lá gió, Lập lệnh giấy bút, Giao dịch sổ cái, Chia lợi nhuận túi tiền, Vault toà nhà, Phê duyệt cán cân, Ví thẻ, ...) và các chặng, vai, thẻ minh bạch ở trang giới thiệu. Menu, nút, ô số liệu vẫn dùng icon nét để gọn và đồng bộ. Mũi tên chỉ là icon: liên kết "Xem thêm" có mũi tên trượt sang phải khi rê chuột, "Về danh sách" trượt sang trái; breadcrumb dùng chevron mờ. Không dùng ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ hiển thị.
 
 ### 3.5. Minh hoạ
 
@@ -171,6 +221,7 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 | Logo BIDV | Logo SVG có sẵn trong dự án (`components/bidv-logo.tsx`) | Bộ logo SVG chính thức (ngang, biểu tượng, nền sáng và tối), màu và font thương hiệu | Sidebar, trang lối vào |
 | Ảnh dự án điện gió | Minh hoạ SVG `scene` | 3 đến 5 ảnh thật 16:9 từ 2400 px (toàn cảnh flycam, cận cánh quạt, bình minh) | Ô WPT ở Bảng điều khiển, Tổng quan và Chi tiết token của Nhà đầu tư, trang lối vào |
 | Ảnh từng dự án | Tua-bin SVG | Ảnh vuông từ 800 px của An Viên, Phú Quý, Ninh Thuận | Thẻ dự án, danh sách token |
+| Icon 3D | Fluent Emoji 3D (MIT), 21 tệp webp trong `assets/3d/` | Bộ icon 3D theo nhận diện BIDV (nếu có), cùng tên tệp để thay thẳng | Cạnh tiêu đề trang, trang giới thiệu |
 | Video giới thiệu | YouTube `M52hkUDVe5w` (clip chủ dự án gửi), nhúng `youtube-nocookie` ở giữa trang chủ. Trình xem artifact chặn khung nhúng ngoài nên ở đó hiện ảnh nền và nút phát mở YouTube; mở tệp trên máy hoặc trong app thì phát tại chỗ | Video chính thức (MP4 tự lưu trữ để không phụ thuộc YouTube và CSP, hoặc kênh BIDV) | Trang chủ (FE-UX-X5); dải đề xuất ở Tổng quan Nhà đầu tư (FE-UX-X3) |
 
 ---
@@ -231,6 +282,7 @@ Các điểm 3 đến 8 sửa được thuần frontend nhưng làm đổi chữ
 5. Ảnh chụp Light và Dark, 1440 và 390 px cho mỗi màn đã làm; không tràn ngang ở 390 px; font Be Vietnam Pro nạp thật.
 6. Không còn ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ do frontend dựng.
 7. UserGuide cập nhật Phần 2, 3 cho màn bị đổi giao diện.
+8. Chuyển động: đúng token và thông số mục 3.3; bật "giảm chuyển động" của hệ điều hành thì mọi nội dung hiện ngay; không giật khung hình khi cuộn ở 1440 px (Performance của Chrome không có khung đỏ kéo dài); số lăn đọc được bằng trình đọc màn hình.
 
 ---
 
@@ -256,3 +308,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q4. BE-UX-1, BE-UX-2: có mở task backend hoặc dữ liệu mẫu riêng không.
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
+- Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
