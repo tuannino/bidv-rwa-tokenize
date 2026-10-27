@@ -41,6 +41,7 @@ export {
   type TransferCheck,
   type VaultConfigEvent,
   type VaultConfigParam,
+  type TxReceiptStatus,
   type VaultLockMode,
   type VaultPeriodClose,
   type VaultStatus,

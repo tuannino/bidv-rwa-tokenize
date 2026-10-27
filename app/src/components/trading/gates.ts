@@ -35,6 +35,9 @@ export const STEP_STATE_LABELS: Record<SettlementStepState, string> = {
   failed: 'Dừng ở bước này',
 };
 
+/** Lý do khoá khi ví đang dùng chưa được ngân hàng gắn cho hồ sơ phiên (FIX-01 E2). */
+export const WALLET_NOT_BOUND_REASON = 'Ví chưa được định danh';
+
 /** Chuỗi người dùng gõ thành số nguyên dương, `null` khi không phải. */
 export function parseQuantity(input: string): bigint | null {
   const trimmed = input.trim();
@@ -53,7 +56,10 @@ export function quantityBlockReason(
   input: string,
   side: OrderSide,
   caps: Record<OrderSide, QuantityCap> | null,
+  /** FIX-01 E2: `getTradeContext` báo ví chưa được gắn cho hồ sơ phiên thì khoá ngay. */
+  walletBound = true,
 ): string | null {
+  if (!walletBound) return WALLET_NOT_BOUND_REASON;
   if (input.trim() === '') return 'Nhập số lượng token.';
   const amount = parseQuantity(input);
   if (amount === null) return 'Số lượng phải là số nguyên lớn hơn 0.';
@@ -75,7 +81,8 @@ export type TradePreviewState =
       conditions: TradeCondition[];
       canConfirm: boolean;
     }
-  | { kind: 'error'; message: string };
+  /** `notBound`: máy chủ trả `WALLET_NOT_BOUND` (FIX-01 E1). */
+  | { kind: 'error'; message: string; notBound?: boolean };
 
 /**
  * Lý do KHOÁ nút xác nhận, hoặc `null` khi mở được (FE-25 việc 7: chỉ mở khi mọi điều kiện đạt).
@@ -89,9 +96,10 @@ export function confirmBlockReason(
   caps: Record<OrderSide, QuantityCap> | null,
   preview: TradePreviewState,
   tradeBlocked = false,
+  walletBound = true,
 ): string | null {
   if (tradeBlocked) return 'Giao dịch đang tạm dừng theo đợt thu hồi.';
-  const quantity = quantityBlockReason(input, side, caps);
+  const quantity = quantityBlockReason(input, side, caps, walletBound);
   if (quantity) return quantity;
   if (preview.kind === 'idle' || preview.kind === 'loading') return 'Đang kiểm tra điều kiện trước lệnh.';
   if (preview.kind === 'error') return preview.message;

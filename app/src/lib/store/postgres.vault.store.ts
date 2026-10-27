@@ -5,6 +5,7 @@ import { pgQuery, type PgQuery } from './postgres.pool';
 import { assertAmount, mapPgConstraintError } from './store.errors';
 import {
   assertVaultOperationKind,
+  assertWithdrawStatus,
   assertWithdrawTransition,
   WITHDRAW_TERMINAL_STATUSES,
   type IVaultStore,
@@ -44,6 +45,7 @@ interface WithdrawRow {
   activeChain: string | null;
   claimedBlock: string | null;
   txHash: string | null;
+  payoutTxHash: string | null;
   reason: string | null;
   createdBy: string;
   createdAt: Date;
@@ -63,6 +65,7 @@ const toWithdraw = (row: WithdrawRow): WithdrawRequestRecord => ({
   activeChain: row.activeChain as ChainKey | null,
   claimedBlock: row.claimedBlock,
   txHash: row.txHash,
+  payoutTxHash: row.payoutTxHash ?? null,
   reason: row.reason,
   createdBy: row.createdBy,
   createdAt: row.createdAt.toISOString(),
@@ -118,7 +121,7 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
           `INSERT INTO "WithdrawRequest"
              ("id","chain","clientRequestId","amount","purpose","note","payoutWallet","status",
               "activeChain","claimedBlock","createdBy","updatedAt")
-           VALUES ($1,$2,$3,$4::numeric,$5,$6,$7,'SENDING',$2,$8::numeric,$9,CURRENT_TIMESTAMP)
+           VALUES ($1,$2,$3,$4::numeric,$5,$6,$7,$10,$2,$8::numeric,$9,CURRENT_TIMESTAMP)
            RETURNING *`,
           [
             input.id,
@@ -130,6 +133,7 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
             input.payoutWallet,
             input.claimedBlock === null ? null : assertAmount('claimedBlock', input.claimedBlock),
             input.createdBy,
+            assertWithdrawStatus(input.status),
           ],
         ),
       );
@@ -154,7 +158,7 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
       return rows[0] ? toWithdraw(rows[0]) : null;
     },
 
-    async transitionWithdrawRequest({ id, from, to, txHash, reason }) {
+    async transitionWithdrawRequest({ id, from, to, txHash, payoutTxHash, reason }) {
       assertWithdrawTransition(from, to);
       const terminal = WITHDRAW_TERMINAL_STATUSES.includes(to);
       // MỘT câu có điều kiện trạng thái: về trạng thái cuối thì `activeChain` về NULL cùng lúc.
@@ -164,12 +168,24 @@ export function createPostgresVaultStore(query: PgQuery = pgQuery): IVaultStore 
               SET "status" = $3,
                   "txHash" = CASE WHEN $4::boolean THEN $5 ELSE "txHash" END,
                   "reason" = CASE WHEN $6::boolean THEN $7 ELSE "reason" END,
+                  "payoutTxHash" = CASE WHEN $9::boolean THEN $10 ELSE "payoutTxHash" END,
                   "activeChain" = CASE WHEN $8::boolean THEN NULL ELSE "activeChain" END,
                   "completedAt" = CASE WHEN $8::boolean THEN CURRENT_TIMESTAMP ELSE "completedAt" END,
                   "updatedAt" = CURRENT_TIMESTAMP
             WHERE "id" = $1 AND "status" = $2
             RETURNING *`,
-          [id, from, to, txHash !== undefined, txHash ?? null, reason !== undefined, reason ?? null, terminal],
+          [
+            id,
+            from,
+            to,
+            txHash !== undefined,
+            txHash ?? null,
+            reason !== undefined,
+            reason ?? null,
+            terminal,
+            payoutTxHash !== undefined,
+            payoutTxHash ?? null,
+          ],
         ),
       );
       return rows[0] ? toWithdraw(rows[0]) : null;

@@ -7,6 +7,7 @@ import { assertCanMintDemoToken } from '@/lib/rbac/demo-payment';
 import { getBankSigner } from '@/lib/signer';
 import { getStore } from '@/lib/store';
 import { authorize, toResult } from './authorize';
+import { assertSessionWallet, holdsOwnWallet } from './wallet-owner';
 import { err, ok, type Result } from './result';
 import {
   balanceQuerySchema,
@@ -263,7 +264,9 @@ export async function readBalance(input: unknown): Promise<
   const { chain, wallet } = parsed.data;
 
   try {
-    await authorize('balance:read', wallet, chain);
+    const role = await authorize('balance:read', wallet, chain);
+    // FIX-01 D2: vai khách hàng chỉ đọc số dư ví đã gắn cho hồ sơ phiên; kiểm XONG rồi mới đọc chuỗi.
+    await assertSessionWallet({ role, chain, wallet, audit: { action: 'balance:read' } });
     const ledger = getLedger(chain);
     const [balance, whitelisted, frozen] = await Promise.all([
       ledger.balanceOf(wallet),
@@ -283,7 +286,19 @@ export async function listTransactions(input: unknown): Promise<Result<TxnView[]
   }
 
   try {
-    await authorize('txn:read', null, parsed.data.chain ?? null);
+    const role = await authorize('txn:read', null, parsed.data.chain ?? null);
+    // FIX-01 D2, QĐ-11: vai khách hàng phải truyền CẢ chain và ví; ví phải thuộc hồ sơ phiên trên
+    // đúng chain đó, và truy vấn dùng đúng chain đã kiểm. Vai nhân viên giữ nguyên (toàn hệ).
+    if (holdsOwnWallet(role)) {
+      const { chain, wallet } = parsed.data;
+      if (!chain || !wallet) {
+        return err('VALIDATION', 'Thiếu chain hoặc ví. Vai này chỉ xem được giao dịch của một ví trên một chain.', {
+          ...(chain ? {} : { chain: ['Bắt buộc với vai khách hàng.'] }),
+          ...(wallet ? {} : { wallet: ['Bắt buộc với vai khách hàng.'] }),
+        });
+      }
+      await assertSessionWallet({ role, chain, wallet, audit: { action: 'txn:read' } });
+    }
     const rows = await getStore().listTxns(parsed.data);
     return ok(
       rows.map((row) => ({

@@ -98,6 +98,7 @@ describe.skipIf(!TEST_DATABASE_URL)('BE-13 ca 17: nâng lược đồ trên data
       note: null,
       payoutWallet: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
       claimedBlock: '1',
+      status: 'SENDING',
       createdBy: 'NB001',
     });
     expect(created).toMatchObject({ status: 'SENDING', activeChain: 'evm', amount: '5' });

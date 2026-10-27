@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client } from 'pg';
-import { MOCK_VAULT_ADDRESS, SAMPLE_WALLETS, type ChainKey } from '@bidv/shared';
+import { SAMPLE_WALLETS, type ChainKey } from '@bidv/shared';
 import type { ILedgerPort, VaultStatus } from '@/lib/ledger';
 import type { IVaultStore } from '@/lib/store';
 
@@ -64,8 +64,9 @@ function actAs(role: string) {
   resetServerEnvCache();
 }
 
-const raw = (input: { mode: 'PERCENT' | 'FIXED'; percent?: string; fixedLock?: string; payoutWallet?: string }) =>
-  saveVaultConfig({ chain: CHAIN, payoutWallet: PAYOUT, ...input });
+// FIX-01 QĐ-8: cấu hình vault không còn ví nhận; ví nhận do Người bán chọn khi rút.
+const raw = (input: { mode: 'PERCENT' | 'FIXED'; percent?: string; fixedLock?: string }) =>
+  saveVaultConfig({ chain: CHAIN, ...input });
 
 async function saveOk(input: Parameters<typeof raw>[0]) {
   const result = await raw(input);
@@ -139,16 +140,16 @@ describe('BE-13 ca 3: thứ tự giao dịch theo bảng chuyển tiếp QĐ-C',
     }
   }
 
-  it('dòng 1, UNSET sang PERCENT: ví nhận, setPercentRate, rồi setLockMode(PERCENT)', async () => {
+  it('dòng 1, UNSET sang PERCENT: setPercentRate, rồi setLockMode(PERCENT)', async () => {
     const saved = await saveOk({ mode: 'PERCENT', percent: '20' });
-    expect(sentKinds()).toEqual(['setVaultPayoutWallet', 'setVaultPercentRate', 'setVaultLockMode(PERCENT)']);
-    expect(saved.steps.map((step) => step.kind)).toEqual(['setPayoutWallet', 'setPercentRate', 'setLockMode']);
+    expect(sentKinds()).toEqual(['setVaultPercentRate', 'setVaultLockMode(PERCENT)']);
+    expect(saved.steps.map((step) => step.kind)).toEqual(['setPercentRate', 'setLockMode']);
     expectNoZeroMode();
   });
 
-  it('dòng 2, UNSET sang FIXED: ví nhận, setFixedLock, rồi setLockMode(FIXED); không gửi tỷ lệ', async () => {
+  it('dòng 2, UNSET sang FIXED: setFixedLock, rồi setLockMode(FIXED); không gửi tỷ lệ', async () => {
     await saveOk({ mode: 'FIXED', fixedLock: '700' });
-    expect(sentKinds()).toEqual(['setVaultPayoutWallet', 'setVaultFixedLock', 'setVaultLockMode(FIXED)']);
+    expect(sentKinds()).toEqual(['setVaultFixedLock', 'setVaultLockMode(FIXED)']);
     expectNoZeroMode();
   });
 
@@ -185,17 +186,13 @@ describe('BE-13 ca 3: thứ tự giao dịch theo bảng chuyển tiếp QĐ-C',
     expect(sentKinds()).toEqual(['setVaultPercentRate']);
     expect((await status()).percentRateBps).toBe(2_250n);
 
+    await saveOk({ mode: 'FIXED', fixedLock: '10' });
     hooks.sent = [];
-    await saveOk({ mode: 'PERCENT', percent: '22.5', payoutWallet: OTHER_PAYOUT });
-    expect(sentKinds()).toEqual(['setVaultPayoutWallet']);
-
-    await saveOk({ mode: 'FIXED', fixedLock: '10', payoutWallet: OTHER_PAYOUT });
-    hooks.sent = [];
-    await saveOk({ mode: 'FIXED', fixedLock: '11', payoutWallet: OTHER_PAYOUT });
+    await saveOk({ mode: 'FIXED', fixedLock: '11' });
     expect(sentKinds()).toEqual(['setVaultFixedLock']);
 
     hooks.sent = [];
-    const same = await saveOk({ mode: 'FIXED', fixedLock: '11', payoutWallet: OTHER_PAYOUT });
+    const same = await saveOk({ mode: 'FIXED', fixedLock: '11' });
     expect(same.outcome).toBe('NO_CHANGE');
     expect(hooks.sent).toEqual([]);
   });
@@ -211,9 +208,8 @@ describe('BE-13 ca 3: thứ tự giao dịch theo bảng chuyển tiếp QĐ-C',
     expect(failed.fieldErrors).toMatchObject({
       completedSteps: ['setFixedLock'],
       failedStep: ['Đổi chế độ khoá'],
-      payoutChanged: ['false'],
     });
-    expect(failed.error).toContain('Ví nhận chưa đổi');
+    expect(failed.error).toContain('Lưu lại để gửi phần còn thiếu');
     expect(await status()).toMatchObject({ lockMode: 'PERCENT', percentRateBps: 2_000n, fixedLockAmount: 400n });
     expect(await getVaultStore().findOperationLock(CHAIN)).toBeNull();
 
@@ -233,7 +229,6 @@ describe('BE-13 ca 3: thứ tự giao dịch theo bảng chuyển tiếp QĐ-C',
     );
     expect(audits.map((row) => row.detail)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining(`ví nhận (chưa đặt) -> ${PAYOUT}`),
         expect.stringContaining('tỷ lệ khoá 0% -> 20%'),
         expect.stringContaining('chế độ khoá UNSET -> PERCENT'),
       ]),
@@ -253,10 +248,6 @@ describe('BE-13 ca 4: kiểm đầu vào, từ chối trước khi gửi', () =>
     ['số cố định 0', { mode: 'FIXED', fixedLock: '0' }, 'fixedLock'],
     ['số cố định âm', { mode: 'FIXED', fixedLock: '-5' }, 'fixedLock'],
     ['số cố định lẻ', { mode: 'FIXED', fixedLock: '1.5' }, 'fixedLock'],
-    ['ví nhận bằng 0', { mode: 'PERCENT', percent: '20', payoutWallet: '0x0000000000000000000000000000000000000000' }, 'payoutWallet'],
-    ['ví nhận bằng vault', { mode: 'PERCENT', percent: '20', payoutWallet: MOCK_VAULT_ADDRESS }, 'payoutWallet'],
-    ['ví nhận chưa whitelist', { mode: 'PERCENT', percent: '20', payoutWallet: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc' }, 'payoutWallet'],
-    ['ví nhận sai dạng', { mode: 'PERCENT', percent: '20', payoutWallet: '0x1234' }, 'payoutWallet'],
   ];
   for (const [label, input, field] of invalid) {
     it(`${label}: VALIDATION ở ô ${field}, không giao dịch, khoá đã nhả`, async () => {
@@ -316,9 +307,9 @@ describe('BE-13 ca 5: tỷ lệ chờ áp sau kỳ đầu', () => {
   });
 
   it('kế hoạch so với tỷ lệ chờ khi có', () => {
-    const current = { lockMode: 'PERCENT' as const, fixedLockAmount: 0n, percentRateBps: 2_000n, pendingPercentRateBps: 3_000n, payoutWallet: PAYOUT };
-    expect(planVaultConfig(current, { mode: 'PERCENT', percentBps: 3_000n, payoutWallet: PAYOUT })).toEqual([]);
-    expect(planVaultConfig(current, { mode: 'PERCENT', percentBps: 2_000n, payoutWallet: PAYOUT })).toEqual([
+    const current = { lockMode: 'PERCENT' as const, fixedLockAmount: 0n, percentRateBps: 2_000n, pendingPercentRateBps: 3_000n };
+    expect(planVaultConfig(current, { mode: 'PERCENT', percentBps: 3_000n })).toEqual([]);
+    expect(planVaultConfig(current, { mode: 'PERCENT', percentBps: 2_000n })).toEqual([
       { kind: 'setPercentRate', bps: 2_000n, previous: 3_000n },
     ]);
   });
@@ -336,7 +327,7 @@ describe('BE-13 ca 5b (QĐ-C1): lịch sử cấu hình', () => {
     expect(history.ok, history.ok ? '' : history.error).toBe(true);
     if (!history.ok) return;
     const app = { source: 'APP', role: 'CONTROLLER', signer: '0x0000000000000000000000000000000000000001' };
-    expect(history.data.total).toBe(7);
+    expect(history.data.total).toBe(6);
     expect(history.data.rows.map(({ param, oldValue, newValue, actor }) => ({ param, oldValue, newValue, actor }))).toEqual([
       { param: 'PERCENT_RATE', oldValue: '2500', newValue: '3000', actor: { source: 'OUTSIDE_APP' } },
       { param: 'LOCK_MODE', oldValue: 'PERCENT', newValue: 'FIXED', actor: app },
@@ -344,7 +335,6 @@ describe('BE-13 ca 5b (QĐ-C1): lịch sử cấu hình', () => {
       { param: 'PERCENT_RATE', oldValue: '2000', newValue: '2500', actor: app },
       { param: 'LOCK_MODE', oldValue: 'UNSET', newValue: 'PERCENT', actor: app },
       { param: 'PERCENT_RATE', oldValue: '0', newValue: '2000', actor: app },
-      { param: 'PAYOUT_WALLET', oldValue: null, newValue: PAYOUT, actor: app },
     ]);
     // Mới nhất trước theo block; mỗi dòng có mã giao dịch và thời điểm.
     const blocks = history.data.rows.map((row) => BigInt(row.blockNumber));
@@ -385,7 +375,7 @@ describe('BE-13 ca 6: khoá vận hành', () => {
     open();
     hooks.gate = null;
     expect((await first).ok).toBe(true);
-    expect(sentKinds()).toEqual(['setVaultPayoutWallet', 'setVaultPercentRate', 'setVaultLockMode(PERCENT)']);
+    expect(sentKinds()).toEqual(['setVaultPercentRate', 'setVaultLockMode(PERCENT)']);
     expect(await getVaultStore().findOperationLock(CHAIN)).toBeNull();
   });
 

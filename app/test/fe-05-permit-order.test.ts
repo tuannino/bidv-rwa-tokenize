@@ -3,6 +3,7 @@ import { verifyTypedData } from 'viem';
 import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { buildPermitTypedData, findContractAddress } from '@bidv/shared';
 import type { ILedgerPort, PermitToken, SettlementOrder, SettlementPermit } from '@/lib/ledger/ledger.port';
+import { bindWalletForTest } from './helpers/wallet-binding';
 
 /**
  * FE-05: chữ ký permit khi đặt lệnh, phần KHÔNG cần nút Hardhat (ca 1, 2, 3, 6a, 7a, 9, 10, 11
@@ -214,6 +215,9 @@ beforeEach(async () => {
   process.env.USE_MOCK_DB = 'true';
   actAs('INVESTOR');
   await seedMarket();
+  // FIX-01 D2: ví ngẫu nhiên của nhà đầu tư phải được ngân hàng gắn cho hồ sơ phiên (cả `evm` giả,
+  // để ca thiếu OrderSettlement vẫn tới lỗi cấu hình như trước; `mock` cho các ca chạy trên mock).
+  for (const chain of [CHAIN, 'evm', 'mock'] as const) await bindWalletForTest(chain, investor.address, 'NDT001');
 });
 
 afterEach(() => {

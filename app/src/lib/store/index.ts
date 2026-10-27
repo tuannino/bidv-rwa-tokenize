@@ -28,9 +28,9 @@ import type { ITokenRequestStore } from './token-request.store.port';
 import { createMemoryVaultStore } from './memory.vault.store';
 import { createPostgresVaultStore } from './postgres.vault.store';
 import type { IVaultStore } from './vault.store.port';
-import { createMemoryProfileWalletStore } from './memory.profile-wallet.store';
-import { createPostgresProfileWalletStore } from './postgres.profile-wallet.store';
-import type { IProfileWalletStore } from './profile-wallet.store.port';
+import { createMemoryWalletBindingStore } from './memory.wallet-binding.store';
+import { createPostgresWalletBindingStore } from './postgres.wallet-binding.store';
+import type { IWalletBindingStore } from './wallet-binding.store.port';
 import type { IChainEventStore } from './chain-event.store.port';
 import { createMemoryChainEventStore } from './memory.chain-event.store';
 import { createPostgresChainEventStore } from './postgres.chain-event.store';
@@ -170,7 +170,7 @@ export {
   type WithdrawTransition,
 } from './vault.store.port';
 
-export type { IProfileWalletStore, ProfileWalletRecord } from './profile-wallet.store.port';
+export type { IWalletBindingStore, WalletBindingRecord } from './wallet-binding.store.port';
 export type {
   ChainEventQuery,
   IChainEventStore,
@@ -207,7 +207,7 @@ const cache: {
   project?: IProjectStore;
   tokenRequest?: ITokenRequestStore;
   vault?: IVaultStore;
-  profileWallet?: IProfileWalletStore;
+  walletBinding?: IWalletBindingStore;
   chainEvent?: IChainEventStore;
 } = {};
 
@@ -296,14 +296,14 @@ export function getVaultStore(): IVaultStore {
 }
 
 /**
- * Cổng ví liên kết vào hồ sơ (OP-05 QĐ-I). Trọng tài "một ví một hồ sơ trên một chain" là ràng buộc
- * duy nhất `(chain, walletKey)`, không phải phép đọc trước trong nghiệp vụ.
+ * Cổng ví đã gắn cho hồ sơ (FIX-01 QĐ-1). Trọng tài "một ví một hồ sơ trên một chain" là khoá chính
+ * `(chain, walletKey)`, không phải phép đọc trước trong nghiệp vụ.
  */
-export function getProfileWalletStore(): IProfileWalletStore {
-  cache.profileWallet ??= wantsMemoryStore()
-    ? createMemoryProfileWalletStore()
-    : createPostgresProfileWalletStore();
-  return cache.profileWallet;
+export function getWalletBindingStore(): IWalletBindingStore {
+  cache.walletBinding ??= wantsMemoryStore()
+    ? createMemoryWalletBindingStore()
+    : createPostgresWalletBindingStore();
+  return cache.walletBinding;
 }
 
 /** IN-01: bộ nhớ đệm sự kiện chuỗi; chọn cùng chế độ lưu trữ với các cổng khác. */
@@ -331,6 +331,6 @@ export function resetStoreCache(): void {
   cache.project = undefined;
   cache.tokenRequest = undefined;
   cache.vault = undefined;
-  cache.profileWallet = undefined;
+  cache.walletBinding = undefined;
   cache.chainEvent = undefined;
 }

@@ -10,6 +10,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getPortfolioAction } from '@/app/actions/portfolio';
 import type { PortfolioView } from '@/lib/bank/portfolio.service';
 import { OnChainBadge } from './mock-badge';
+import { WalletNotBoundNotice } from './wallet-not-bound-notice';
 import { recallNoticeText } from '@/components/recall/gates';
 
 /**
@@ -47,6 +48,8 @@ export function AssetSummary() {
     key: string;
     data: PortfolioView | null;
     error: string | null;
+    /** FIX-01 E1: máy chủ trả `WALLET_NOT_BOUND`, không có số liệu của ví này. */
+    notBound: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -60,8 +63,8 @@ export function AssetSummary() {
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: requestKey, data: result.data, error: null }
-          : { key: requestKey, data: null, error: result.error },
+          ? { key: requestKey, data: result.data, error: null, notBound: false }
+          : { key: requestKey, data: null, error: result.error, notBound: result.code === 'WALLET_NOT_BOUND' },
       );
     });
 
@@ -101,6 +104,8 @@ export function AssetSummary() {
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Đang đọc số dư từ chuỗi…
           </div>
+        ) : fresh?.notBound ? (
+          <WalletNotBoundNotice wallet={address} />
         ) : error ? (
           <p className="py-6 text-sm text-destructive">{error}</p>
         ) : data ? (

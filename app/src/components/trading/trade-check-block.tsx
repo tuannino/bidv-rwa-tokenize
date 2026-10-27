@@ -1,4 +1,5 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 import type { TradePreviewState } from './gates';
 
 /**
@@ -7,7 +8,7 @@ import type { TradePreviewState } from './gates';
  * Hiện ĐÚNG `conditions` của `previewTradeAction`, không tự đánh giá điều kiện nào: khối này và lần
  * đặt lệnh thật đi qua cùng bộ kiểm ở máy chủ.
  */
-export function TradeCheckBlock({ preview }: { preview: TradePreviewState }) {
+export function TradeCheckBlock({ preview, wallet }: { preview: TradePreviewState; wallet: string }) {
   return (
     <section aria-label="Khối kiểm tra trước lệnh" className="space-y-2 rounded-lg border border-border p-3">
       <h3 className="text-sm font-medium">Kiểm tra trước lệnh</h3>
@@ -20,7 +21,12 @@ export function TradeCheckBlock({ preview }: { preview: TradePreviewState }) {
           Đang kiểm tra điều kiện…
         </p>
       )}
-      {preview.kind === 'error' && <p className="text-sm text-destructive">{preview.message}</p>}
+      {preview.kind === 'error' &&
+        (preview.notBound ? (
+          <WalletNotBoundNotice wallet={wallet} />
+        ) : (
+          <p className="text-sm text-destructive">{preview.message}</p>
+        ))}
       {preview.kind === 'checked' && (
         <ul className="space-y-1.5">
           {preview.conditions.map((check) => (

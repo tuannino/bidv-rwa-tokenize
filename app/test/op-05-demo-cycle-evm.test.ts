@@ -99,6 +99,8 @@ live('OP-05 ca 4: vòng trình diễn lượt 12 đến 13.8 trên nút Hardhat 
   async function identityPassed(wptAmount: string, side: 'BUY' | 'SELL') {
     const { previewTrade } = await import('@/lib/bank/trade.service');
     const preview = await previewTrade({ chain: CHAIN, investorWallet: INVESTOR_WALLET, wptAmount, side });
+    // FIX-01 D2: ví chưa được ngân hàng gắn cho hồ sơ thì máy chủ chặn trước khối kiểm tra.
+    if (!preview.ok && preview.code === 'WALLET_NOT_BOUND') return false;
     expect(preview.ok, preview.ok ? '' : preview.error).toBe(true);
     return preview.ok && preview.data.conditions.find((condition) => condition.key === 'identity')!.passed;
   }
@@ -139,18 +141,18 @@ live('OP-05 ca 4: vòng trình diễn lượt 12 đến 13.8 trên nút Hardhat 
     resetServerEnvCache();
   });
 
-  it('lượt 12: Kiểm soát viên đặt ví nhận, PERCENT 20%, không số cố định: ba giao dịch; màn /vault hiện PERCENT, 20%, khoá 0', async () => {
+  it('lượt 12: Kiểm soát viên đặt PERCENT 20%, không số cố định: hai giao dịch; màn /vault hiện PERCENT, 20%, khoá 0', async () => {
     const { getVaultOverview, saveVaultConfig } = await import('@/lib/bank/vault.service');
     actAs('CONTROLLER', 'KSV001');
-    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT_WALLET });
+    // FIX-01 QĐ-8: Kiểm soát viên không còn đặt ví nhận; Người bán chọn ví nhận ở lượt 13.8.
+    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20' });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
-    expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPayoutWallet', 'setPercentRate', 'setLockMode']);
+    expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPercentRate', 'setLockMode']);
     const overview = await getVaultOverview({ chain: CHAIN });
     expect(overview.ok && overview.data.status).toMatchObject({
       lockMode: 'PERCENT',
       percentRateBps: '2000',
       lockedAmount: '0',
-      payoutWallet: PAYOUT_WALLET,
     });
   });
 
@@ -172,12 +174,14 @@ live('OP-05 ca 4: vòng trình diễn lượt 12 đến 13.8 trên nút Hardhat 
     await expectRow('13.1');
   });
 
-  it('lượt 13.2: Nhà đầu tư liên kết INVESTOR_WALLET vào hồ sơ NDT001; trước đó điều kiện Định danh trượt', async () => {
-    const { linkProfileWallet } = await import('@/lib/bank/account-profile.service');
+  it('lượt 13.2: Giao dịch viên gắn INVESTOR_WALLET cho hồ sơ NDT001 (FIX-01); trước đó điều kiện Định danh trượt', async () => {
+    const { bindProfileWallet } = await import('@/lib/bank/wallet-binding.service');
     actAs('INVESTOR', 'NDT001');
     expect(await identityPassed('100', 'BUY')).toBe(false);
-    const linked = await linkProfileWallet({ chain: CHAIN, wallet: INVESTOR_WALLET });
-    expect(linked.ok && linked.data.linked, linked.ok ? '' : linked.error).toBe(INVESTOR_WALLET);
+    actAs('TELLER', 'GDV001');
+    const bound = await bindProfileWallet({ chain: CHAIN, actorId: 'NDT001', wallet: INVESTOR_WALLET });
+    expect(bound.ok && bound.data.binding.wallet, bound.ok ? '' : bound.error).toBe(INVESTOR_WALLET);
+    actAs('INVESTOR', 'NDT001');
     expect(await identityPassed('100', 'BUY')).toBe(true);
   });
 
@@ -228,6 +232,8 @@ live('OP-05 ca 4: vòng trình diễn lượt 12 đến 13.8 trên nút Hardhat 
       note: '',
       otp: '123456',
       clientRequestId: randomUUID(),
+      // FIX-01 G5: vault chưa có ví nhận, lệnh tự đặt ví nhận trước khi rút.
+      payoutWallet: PAYOUT_WALLET,
     });
     expect(created.ok, created.ok ? '' : created.error).toBe(true);
     expect(created.ok && created.data).toMatchObject({ status: 'COMPLETED', payoutWallet: PAYOUT_WALLET });

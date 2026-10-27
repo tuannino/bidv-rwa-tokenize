@@ -61,7 +61,10 @@ function actAs(role: string) {
   resetServerEnvCache();
 }
 
-const request = (input: Partial<{ amount: string; otp: string; clientRequestId: string; purpose: string; note: string }> = {}) =>
+// FIX-01 G3: ví nhận do Người bán chọn ở lệnh; mặc định đúng ví đang đặt trên vault (không đổi ví).
+const request = (
+  input: Partial<{ amount: string; otp: string; clientRequestId: string; purpose: string; note: string; payoutWallet: string }> = {},
+) =>
   createWithdrawRequest({
     chain: CHAIN,
     amount: '100',
@@ -69,6 +72,7 @@ const request = (input: Partial<{ amount: string; otp: string; clientRequestId: 
     note: '',
     otp: '123456',
     clientRequestId: uuid(),
+    payoutWallet: PAYOUT,
     ...input,
   });
 
@@ -78,8 +82,10 @@ async function preparedVault(vndb = 1_000n) {
   const ledger = getLedger(CHAIN);
   await ledger.whitelist(PAYOUT);
   await seedMockLedger({ paymentBalances: { [MOCK_VAULT_ADDRESS]: vndb } }, getMockLedgerStateStore(CHAIN));
-  const saved = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400', payoutWallet: PAYOUT });
+  const saved = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400' });
   expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
+  // FIX-01 QĐ-8: Kiểm soát viên không còn đặt ví nhận; phần chuẩn bị đặt thẳng trên vault.
+  await ledger.setVaultPayoutWallet(PAYOUT);
   actAs('SELLER');
   hooks.withdrawCalls = [];
 }
@@ -170,11 +176,20 @@ describe('BE-13 ca 8: chặn trước khi gửi', () => {
     await expectBlocked(() => request({ amount: '601' }), 'VALIDATION', 'vượt phần được rút 600');
   });
 
-  it('chưa đặt ví nhận', async () => {
+  it('FIX-01 G2b: vault chưa đặt ví nhận vẫn rút được, lệnh tự đặt ví nhận trước', async () => {
     await resetMockLedger();
     resetMemoryStore();
+    await getLedger(CHAIN).whitelist(PAYOUT);
     await seedMockLedger({ paymentBalances: { [MOCK_VAULT_ADDRESS]: 1_000n } });
-    await expectBlocked(() => request(), 'WITHDRAW_STATE', 'chưa có ví nhận');
+    actAs('CONTROLLER');
+    expect((await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400' })).ok).toBe(true);
+    actAs('SELLER');
+    expect((await getLedger(CHAIN).vaultStatus())?.payoutWallet ?? null).toBeNull();
+    const created = await request();
+    expect(created.ok, created.ok ? '' : created.error).toBe(true);
+    if (!created.ok) return;
+    expect(created.data).toMatchObject({ status: 'COMPLETED', payoutWallet: PAYOUT });
+    expect(created.data.payoutTxHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
   it('vault tạm dừng rút', async () => {
@@ -384,6 +399,7 @@ function withdrawStoreContract(label: string, makeStore: () => IVaultStore, chai
       payoutWallet: PAYOUT,
       claimedBlock: '7',
       createdBy: 'NB001',
+      status: 'SENDING' as const,
     });
     beforeEach(() => {
       store = makeStore();

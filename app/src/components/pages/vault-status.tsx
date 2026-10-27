@@ -66,7 +66,7 @@ function VaultConfigCard({
   onSaved: () => void;
 }) {
   const [mode, setMode] = useState<VaultConfigFormView['mode']>(config.mode);
-  const [form, setForm] = useState({ percent: config.percent, fixedLock: config.fixedLock, payoutWallet: config.payoutWallet });
+  const [form, setForm] = useState({ percent: config.percent, fixedLock: config.fixedLock });
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<
     | { tone: 'ok'; message: string; steps: VaultConfigStepView[] }
@@ -92,7 +92,6 @@ function VaultConfigCard({
       mode,
       percent: mode === 'PERCENT' ? form.percent : '',
       fixedLock: mode === 'FIXED' ? form.fixedLock : '',
-      payoutWallet: form.payoutWallet,
     });
     setSaving(false);
     if (saved.ok) {
@@ -113,7 +112,8 @@ function VaultConfigCard({
       <CardHeader><CardTitle className="text-base">Cấu hình khoá</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định.
+          Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định. Ví nhận
+          tiền rút do Người bán chọn khi tạo lệnh rút.
         </p>
         {!config.canConfigure && (
           <p className="text-sm text-muted-foreground">Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem.</p>
@@ -167,11 +167,6 @@ function VaultConfigCard({
               {fieldError(mode === 'PERCENT' ? 'fixedLock' : 'percent')}
             </p>
           )}
-          <div className="space-y-1.5 sm:col-span-2">
-            <label htmlFor="vault-payout" className="text-sm font-medium">Ví nhận tiền rút</label>
-            <input id="vault-payout" spellCheck={false} value={form.payoutWallet} onChange={set('payoutWallet')} disabled={disabled} className={FIELD} />
-            {fieldError('payoutWallet') && <p role="alert" className="text-xs text-destructive">{fieldError('payoutWallet')}</p>}
-          </div>
           {config.canConfigure && (
             <div className="sm:col-span-2">
               <Button type="submit" disabled={saving}>
@@ -282,11 +277,32 @@ function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey;
                 <span className="font-mono">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
               </p>
               <p className="text-muted-foreground">{row.reason}</p>
-              <p className="text-xs text-muted-foreground">
-                Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này):{' '}
-                {row.candidates.length === 0 ? 'không có' : row.candidates.map((c) => `${short(c.txHash)} (block ${c.blockNumber})`).join(', ')}
-              </p>
-              {canResolve && (
+              {row.status === 'PAYOUT_REVIEW' ? (
+                <p className="text-xs text-muted-foreground">
+                  Lệnh dừng ở bước đặt ví nhận{row.payoutTxHash ? ` (giao dịch ${short(row.payoutTxHash)})` : ''}, chưa rút
+                  tiền: chỉ đánh dấu thất bại được, khi ví ký ngân hàng không còn giao dịch đang chờ.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này):{' '}
+                  {row.candidates.length === 0 ? 'không có' : row.candidates.map((c) => `${short(c.txHash)} (block ${c.blockNumber})`).join(', ')}
+                </p>
+              )}
+              {canResolve && row.status === 'PAYOUT_REVIEW' && (
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input
+                    aria-label={`Lý do thất bại ${row.id}`}
+                    placeholder="Lý do, ví dụ đã kiểm explorer"
+                    value={field(row.id).reason}
+                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
+                    className={`${FIELD} font-sans`}
+                  />
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
+                    Đánh dấu thất bại
+                  </Button>
+                </div>
+              )}
+              {canResolve && row.status !== 'PAYOUT_REVIEW' && (
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto]">
                   <input
                     aria-label={`Mã giao dịch xác nhận ${row.id}`}

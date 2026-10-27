@@ -1,6 +1,9 @@
 'use server';
 
+import { checkPayoutWallet } from '@/lib/bank/payout-wallet';
 import {
+  cancelWithdrawRequest,
+  continueWithdrawRequest,
   createWithdrawRequest,
   listMyWithdrawRequests,
   listWithdrawReviews,
@@ -15,6 +18,21 @@ import {
 
 export async function createWithdrawRequestAction(input: unknown) {
   return createWithdrawRequest(input);
+}
+
+/** FIX-01 G2: kiểm ví nhận trước khi mở hộp mã một lần; không chạy khi mở màn. */
+export async function checkPayoutWalletAction(input: unknown) {
+  return checkPayoutWallet(input);
+}
+
+/** FIX-01 G6: gửi rút cho lệnh đã đặt ví nhận (`PAYOUT_SET`). */
+export async function continueWithdrawRequestAction(input: unknown) {
+  return continueWithdrawRequest(input);
+}
+
+/** FIX-01 G6d: huỷ lệnh đã đặt ví nhận mà chưa gửi rút (`PAYOUT_SET`). */
+export async function cancelWithdrawRequestAction(input: unknown) {
+  return cancelWithdrawRequest(input);
 }
 
 export async function listMyWithdrawRequestsAction(input: unknown) {

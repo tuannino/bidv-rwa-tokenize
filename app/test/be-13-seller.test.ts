@@ -25,7 +25,15 @@ function actAs(role: string) {
 }
 
 const withdraw = (amount: string) =>
-  createWithdrawRequest({ chain: CHAIN, amount, purpose: 'Chi trả vận hành', note: '', otp: '000000', clientRequestId: uuid() });
+  createWithdrawRequest({
+    chain: CHAIN,
+    amount,
+    purpose: 'Chi trả vận hành',
+    note: '',
+    otp: '000000',
+    clientRequestId: uuid(),
+    payoutWallet: PAYOUT,
+  });
 
 beforeEach(async () => {
   process.env.USE_MOCK_DB = 'true';
@@ -35,8 +43,10 @@ beforeEach(async () => {
   actAs('CONTROLLER');
   await getLedger(CHAIN).whitelist(PAYOUT);
   await seedMockLedger({ paymentBalances: { [MOCK_VAULT_ADDRESS]: 1_000n } });
-  const saved = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400', payoutWallet: PAYOUT });
+  const saved = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', fixedLock: '400' });
   expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
+  // FIX-01 QĐ-8: Kiểm soát viên không còn đặt ví nhận; phần chuẩn bị đặt thẳng trên vault.
+  await getLedger(CHAIN).setVaultPayoutWallet(PAYOUT);
   actAs('SELLER');
 });
 
@@ -146,6 +156,7 @@ describe('BE-13 ca 14: danh sách giao dịch Người bán gộp lệnh rút', 
       payoutWallet: PAYOUT,
       claimedBlock: '0',
       createdBy: 'NB001',
+      status: 'SENDING',
     });
     await getVaultStore().transitionWithdrawRequest({ id: review.id, from: 'SENDING', to: 'NEEDS_REVIEW', reason: 'r' });
 

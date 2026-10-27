@@ -88,10 +88,11 @@ export function createMemoryVaultStore(): IVaultStore {
         purpose: input.purpose,
         note: input.note,
         payoutWallet: input.payoutWallet,
-        status: 'SENDING',
+        status: input.status,
         activeChain: input.chain,
         claimedBlock: input.claimedBlock === null ? null : assertAmount('claimedBlock', input.claimedBlock),
         txHash: null,
+        payoutTxHash: null,
         reason: null,
         createdBy: input.createdBy,
         createdAt: now,
@@ -117,7 +118,7 @@ export function createMemoryVaultStore(): IVaultStore {
       return found ? { ...found } : null;
     },
 
-    async transitionWithdrawRequest({ id, from, to, txHash, reason }) {
+    async transitionWithdrawRequest({ id, from, to, txHash, payoutTxHash, reason }) {
       assertWithdrawTransition(from, to);
       const found = state().withdrawals.find((row) => row.id === id);
       if (!found || found.status !== from) return null;
@@ -127,6 +128,7 @@ export function createMemoryVaultStore(): IVaultStore {
       const now = new Date().toISOString();
       found.status = to;
       if (txHash !== undefined) found.txHash = txHash;
+      if (payoutTxHash !== undefined) found.payoutTxHash = payoutTxHash;
       if (reason !== undefined) found.reason = reason;
       if (WITHDRAW_TERMINAL_STATUSES.includes(to)) {
         found.activeChain = null;

@@ -17,12 +17,11 @@ async function actAs(context: BrowserContext, baseURL: string, role: AccountRole
 }
 
 /**
- * Khối hồ sơ FE-24 (phần chỉ đọc) và khối "Ví thanh toán" của OP-05 QĐ-I (UIUX-01 F1) nằm cạnh nhau
- * trong `main`. Phép kiểm "không có điều khiển sửa" khoanh vào khối hồ sơ; khối ví có ô nhập và nút
- * là đúng phạm vi mới, và chỉ vai khách hàng có.
+ * Khối hồ sơ FE-24 chỉ đọc. FIX-01 F1: khối nhập ví (ô "Dùng địa chỉ ví mới", nút "Dùng ví đang kết
+ * nối", nút "Lưu") đã bỏ; ô "Ví thanh toán" nằm trong khối hồ sơ, chỉ hiện ví và nhãn định danh. Liên
+ * kết "Kết nối ví" là `<a>`, nên phép kiểm "không có nút hay ô nhập" vẫn khoanh cả khối hồ sơ.
  */
 const profileBlock = (page: Page) => page.getByRole('main').locator('[data-account-role]');
-const walletBlock = (page: Page) => page.getByRole('main').locator('[aria-label="Ví thanh toán"]');
 
 test.describe('FE-24 — Thông tin tài khoản', () => {
   for (const [role, name, actorId, customer] of [
@@ -44,21 +43,23 @@ test.describe('FE-24 — Thông tin tài khoản', () => {
       await expect(profile.locator('button, input, textarea, select')).toHaveCount(0);
     });
 
-    test(`${role} ${customer ? 'thấy' : 'không thấy'} khối ví thanh toán (OP-05 QĐ-I)`, async ({ page, context, baseURL }) => {
+    test(`${role} ${customer ? 'thấy ví thanh toán kèm nhãn định danh' : 'không thấy ví thanh toán'} (FIX-01 F)`, async ({ page, context, baseURL }) => {
       await actAs(context, baseURL!, role);
       await page.goto('/account');
+      const main = page.getByRole('main');
       await expect(profileBlock(page)).toBeVisible();
 
-      const wallet = walletBlock(page);
+      // F1: khối nhập ví cũ không còn ở bất kỳ vai nào.
+      await expect(main.getByLabel('Dùng địa chỉ ví mới')).toHaveCount(0);
+      await expect(main.getByRole('button', { name: 'Lưu' })).toHaveCount(0);
+      await expect(main.getByRole('heading', { name: /^Ví thanh toán trên chain/ })).toHaveCount(0);
       if (!customer) {
-        await expect(wallet).toHaveCount(0);
-        await expect(page.getByRole('main').getByRole('heading', { name: /^Ví thanh toán trên chain/ })).toHaveCount(0);
+        await expect(main.locator('[data-payment-wallet]')).toHaveCount(0);
         return;
       }
-      await expect(wallet.getByRole('heading', { name: /^Ví thanh toán trên chain/ })).toBeVisible();
-      await expect(wallet.getByLabel('Dùng địa chỉ ví mới')).toHaveValue('');
-      await expect(wallet.getByRole('button', { name: 'Dùng ví đang kết nối' })).toBeVisible();
-      await expect(wallet.getByRole('button', { name: 'Lưu' })).toBeVisible();
+      // F2: project `mock` hiện ví mẫu của hồ sơ, nhãn "Đã định danh".
+      await expect(main.locator('[data-payment-wallet]')).toHaveText(/^0x[0-9a-fA-F]{40}$/);
+      await expect(main.locator('[data-wallet-bound="true"]')).toHaveText('Đã định danh');
     });
   }
 

@@ -36,8 +36,10 @@ import {
   isSettled,
   parseQuantity,
   quantityBlockReason,
+  WALLET_NOT_BOUND_REASON,
   type TradePreviewState,
 } from '@/components/trading/gates';
+import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 import { tradeBlockText, tradingStatusLabel } from '@/components/recall/gates';
 
 /**
@@ -118,7 +120,9 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
   // --- Khối kiểm tra: gọi lại khi đổi chiều / số lượng, đã hoãn ---------------------
   const caps = ctx?.caps ?? null;
-  const quantityReason = quantityBlockReason(quantity, side, caps);
+  // FIX-01 E2: ví chưa gắn cho hồ sơ phiên thì khoá ô số lượng và nút gửi, không xem trước.
+  const walletBound = ctx?.walletBound ?? true;
+  const quantityReason = quantityBlockReason(quantity, side, caps, walletBound);
   const amount = quantityReason === null ? parseQuantity(quantity)!.toString() : null;
   const previewKey = amount && wallet ? `${chain}|${wallet}|${side}|${amount}|${contextTick}` : null;
   useEffect(() => {
@@ -129,7 +133,9 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
         if (cancelled) return;
         setPreviewResult({
           key: previewKey,
-          value: result.ok ? { kind: 'checked', ...result.data } : { kind: 'error', message: result.error },
+          value: result.ok
+            ? { kind: 'checked', ...result.data }
+            : { kind: 'error', message: result.error, notBound: result.code === 'WALLET_NOT_BOUND' },
         });
       });
     }, PREVIEW_DEBOUNCE_MS);
@@ -144,7 +150,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
       ? previewResult.value
       : { kind: 'loading' };
   const tradeBlocked = ctx?.tradeBlock !== null && ctx?.tradeBlock !== undefined;
-  const blockReason = confirmBlockReason(quantity, side, caps, preview, tradeBlocked);
+  const blockReason = confirmBlockReason(quantity, side, caps, preview, tradeBlocked, walletBound);
   const total = preview.kind === 'checked' && preview.wptAmount === amount ? preview.vndAmount : null;
 
   // --- Theo dõi lệnh vừa gửi tới khi có kết cục -------------------------------------
@@ -286,6 +292,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
               <CardTitle className="text-base">Đặt lệnh</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!ctx.walletBound && <WalletNotBoundNotice wallet={ctx.wallet} />}
               {ctx.tradeBlock && (
                 <div role="alert" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
                   <p className="font-semibold">Giao dịch tạm dừng</p>
@@ -327,11 +334,11 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                   className={FIELD}
                   value={quantity}
                   aria-invalid={quantity !== '' && quantityReason !== null}
-                  disabled={tradeBlocked}
+                  disabled={tradeBlocked || !ctx.walletBound}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
                 <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
-                  {ctx.caps[side].reason}
+                  {ctx.walletBound ? ctx.caps[side].reason : WALLET_NOT_BOUND_REASON}
                 </span>
                 {quantity !== '' && quantityReason && (
                   <span className="block text-xs text-destructive" role="alert">
@@ -350,7 +357,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                 <span className="font-mono text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
               </div>
 
-              <TradeCheckBlock preview={preview} />
+              <TradeCheckBlock preview={preview} wallet={ctx.wallet} />
 
               <div className="space-y-1">
                 <Button className="w-full" disabled={blockReason !== null} onClick={openConfirm}>
@@ -502,8 +509,9 @@ function OrderSummary({
           <Row label="Số lượng" mono>{formatAmount(quantity)}</Row>
           <Row label="Giá" mono>{formatAmount(priceVnd)} VNDB</Row>
           <Row label="Tổng giá trị dự kiến" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
-          <Row label="Token đang giữ" mono>{formatAmount(balances.wpt)}</Row>
-          <Row label="Số dư VNDB" mono>{formatAmount(balances.vndb)}</Row>
+          {/* FIX-01 E1: ví chưa được định danh thì máy chủ không trả số dư; không hiện số cũ. */}
+          <Row label="Token đang giữ" mono>{balances ? formatAmount(balances.wpt) : 'Không có'}</Row>
+          <Row label="Số dư VNDB" mono>{balances ? formatAmount(balances.vndb) : 'Không có'}</Row>
         </dl>
       </CardContent>
     </Card>

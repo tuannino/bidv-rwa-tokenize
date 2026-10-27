@@ -1740,8 +1740,8 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
 | `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:302` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được; kết cục vẫn là `AWAITING_APPROVAL` cho tới khi Kiểm soát viên duyệt |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1202` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1208` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1203` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1209` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 

@@ -42,7 +42,8 @@ export type NavIconName =
   | 'ShieldCheck'
   | 'ArrowLeftRight'
   | 'Receipt'
-  | 'Undo2';
+  | 'Undo2'
+  | 'BadgeCheck';
 
 /**
  * Mục menu nào mang **số việc đang chờ**.
@@ -82,6 +83,11 @@ export interface NavGroup {
   /** `null` = nhóm trên cùng, không có tiêu đề. */
   label: string | null;
   items: readonly NavItem[];
+  /**
+   * FIX-01 C1: nhóm thu gọn được. Mặc định thu gọn; mở sẵn khi trang đang xem nằm trong nhóm.
+   * Nhóm thu gọn phải có `label` (tiêu đề là nút mở, đóng).
+   */
+  collapsible?: boolean;
 }
 
 /**
@@ -223,14 +229,33 @@ export const DEMO_PAYMENT_NAV_ITEM: NavItem = {
   shortcut: 'N',
 };
 
+/** Mục Định danh ví (FIX-01 C2): chỉ vai có `investor:whitelist`, tức Giao dịch viên. */
+export const WALLET_BINDING_NAV_ITEM: NavItem = {
+  href: '/wallet-binding',
+  label: 'Định danh ví',
+  icon: 'BadgeCheck',
+  shortcut: 'I',
+};
+
+export const HIDDEN_OPS_GROUP_LABEL = 'Nghiệp vụ ẩn';
+
 /**
- * Ghép mục Nạp VNDB vào cuối nhóm đầu tiên khi `show`. `show` PHẢI là `canMintDemoPayment(role)`
- * tính ở máy chủ (`AppLayout`), để menu và chốt chặn đọc cùng một hàm.
+ * Chèn nhóm thu gọn "Nghiệp vụ ẩn" ngay sau nhóm đầu tiên (FIX-01 QĐ-5, C2): Nạp VNDB (khi
+ * `demoPayment`) rồi Định danh ví (khi `walletBinding`). Không có mục nào thì menu giữ nguyên. Hai cờ
+ * PHẢI tính ở máy chủ (`AppLayout`) bằng đúng hàm chốt chặn của trang: `canMintDemoPayment(role)` và
+ * `can(role, 'investor:whitelist')`, để menu và chốt chặn đọc cùng một nguồn.
  */
-export function withDemoPayment(nav: NavSection, show: boolean): NavSection {
-  if (!show) return nav;
+export function withHiddenOps(
+  nav: NavSection,
+  input: { demoPayment: boolean; walletBinding: boolean },
+): NavSection {
+  const items = [
+    ...(input.demoPayment ? [DEMO_PAYMENT_NAV_ITEM] : []),
+    ...(input.walletBinding ? [WALLET_BINDING_NAV_ITEM] : []),
+  ];
+  if (items.length === 0) return nav;
   const [first, ...rest] = nav.groups;
-  return { groups: [{ ...first, items: [...first.items, DEMO_PAYMENT_NAV_ITEM] }, ...rest] };
+  return { groups: [first, { label: HIDDEN_OPS_GROUP_LABEL, collapsible: true, items }, ...rest] };
 }
 
 /**

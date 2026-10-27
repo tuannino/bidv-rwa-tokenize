@@ -8,6 +8,7 @@ import { currentRole } from '@/lib/rbac/session';
 import { SignerUnavailableError } from '@/lib/signer';
 import { getStore } from '@/lib/store';
 import { err, type Result } from './result';
+import { WalletNotBoundError } from './wallet-owner';
 
 /**
  * Guard + quy lỗi dùng chung cho MỌI nghiệp vụ trong `lib/bank/`.
@@ -25,6 +26,7 @@ export function toResult<T>(error: unknown): Result<T> {
   if (error instanceof SignerUnavailableError) return err('SIGNER', error.message);
   if (error instanceof KycProviderError) return err('PROVIDER', error.message);
   if (error instanceof LedgerError) return err('LEDGER', error.message);
+  if (error instanceof WalletNotBoundError) return err('WALLET_NOT_BOUND', error.message);
   return err('UNKNOWN', error instanceof Error ? error.message : 'Lỗi không xác định.');
 }
 

@@ -1,6 +1,6 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { AccountInfoPage } from '@/components/pages/account-info';
-import { ProfileWalletCard, ProfileWalletProvider } from '@/components/pages/profile-wallet';
+import { AccountWalletProvider } from '@/components/pages/account-wallet';
 import { getOwnAccountProfile } from '@/lib/bank/account-profile.service';
 
 export default async function AccountPage() {
@@ -10,13 +10,12 @@ export default async function AccountPage() {
     <AppLayout breadcrumbs={[{ label: 'Thông tin tài khoản' }]}>
       {result.ok ? (
         result.data.kind === 'CUSTOMER' ? (
-          // OP-05 QĐ-I, UIUX-01 F1: chỉ vai khách hàng có ví thanh toán; hai chỗ hiện ví đọc chung một action.
-          <ProfileWalletProvider>
+          // FIX-01 F3: chỉ vai khách hàng có ví thanh toán; ô ví đọc một action qua provider.
+          <AccountWalletProvider>
             <div className="space-y-6">
               <AccountInfoPage profile={result.data} />
-              <ProfileWalletCard />
             </div>
-          </ProfileWalletProvider>
+          </AccountWalletProvider>
         ) : (
           <div className="space-y-6">
             <AccountInfoPage profile={result.data} />

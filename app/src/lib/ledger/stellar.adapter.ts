@@ -204,6 +204,12 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async findVaultWithdrawals(): Promise<never> {
       return todoNeeds('findVaultWithdrawals', 'sự kiện rút của vault thanh toán SPV bản Soroban');
     },
+    async hasPendingSignerTx(): Promise<never> {
+      return todo('hasPendingSignerTx');
+    },
+    async txReceiptStatus(): Promise<never> {
+      return todo('txReceiptStatus');
+    },
     async vaultWithdrawalReceipt(): Promise<never> {
       return todoNeeds('vaultWithdrawalReceipt', 'sự kiện rút của vault thanh toán SPV bản Soroban');
     },
