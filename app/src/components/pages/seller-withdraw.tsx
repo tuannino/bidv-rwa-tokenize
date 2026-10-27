@@ -1,9 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import { explorerTxUrl } from '@bidv/shared';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import {
+  cancelWithdrawRequestAction,
+  checkPayoutWalletAction,
+  continueWithdrawRequestAction,
   createWithdrawRequestAction,
   reconcileAndListMyWithdrawRequestsAction,
 } from '@/app/actions/withdraw';
@@ -21,11 +25,12 @@ import { describePolicy, nf, useSellerOverview } from './seller-overview';
 import { WITHDRAW_STATUS_LABELS } from './seller-transactions';
 
 /**
- * Màn TẠO LỆNH RÚT NGƯỜI BÁN (FE-21 việc 10–15, BE-13 QĐ-I).
+ * Màn TẠO LỆNH RÚT NGƯỜI BÁN (FE-21 việc 10–15, BE-13 QĐ-I, FIX-01 G1 tới G6).
  *
- * Số dư, phần khoá và phần được rút là SỐ THẬT của vault trên chuỗi (`getSellerOverview`). Lệnh rút
- * đi qua `createWithdrawRequest`: hệ thống gọi `withdraw` của vault, tiền về ví nhận đã đặt trên
- * vault. Mạng và ví nhận chỉ đọc. Không thu phí trong PoC: số nhận bằng số rút.
+ * Số dư, phần khoá và phần được rút là SỐ THẬT của vault trên chuỗi (`getSellerOverview`). Người bán
+ * chọn ví nhận ngay ở lệnh (điền sẵn ví đang đặt trên vault); ví khác ví đang đặt thì hệ thống gửi
+ * thêm một giao dịch đặt ví nhận trước khi rút. Bấm "Tạo lệnh rút" thì máy chủ kiểm ví nhận TRƯỚC khi
+ * mở hộp mã một lần. Không thu phí trong PoC: số nhận bằng số rút.
  */
 
 const FIELD =
@@ -49,8 +54,22 @@ export function SellerWithdrawPage() {
   const { chain } = useSelectedChain();
   const chainLabel = usePublicConfig().chains.find((c) => c.key === chain)?.label ?? chain;
 
+  const { address } = useAccount();
   const [form, setForm] = useState({ amount: '', purpose: '', note: '' });
-  const [otpOpen, setOtpOpen] = useState(false);
+  /** Ví nhận người dùng đã sửa, theo chain; chưa sửa thì dùng ví đang đặt trên vault (G1). */
+  const [payoutDraft, setPayoutDraft] = useState<{ chain: string; value: string } | null>(null);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  /** Hộp mã một lần dùng chung: tạo lệnh mới, hoặc gửi rút cho lệnh đã đặt ví nhận (G6). */
+  const [dialog, setDialog] = useState<
+    | { kind: 'create'; wallet: string }
+    | { kind: 'continue'; id: string; amount: string; wallet: string }
+    | null
+  >(null);
+  const otpOpen = dialog !== null;
+  const setOtpOpen = (open: boolean) => {
+    if (!open) setDialog(null);
+  };
   const [otp, setOtp] = useState('');
   /** Sinh MỘT lần cho mỗi lần mở hộp xác nhận: bấm lại hay gửi lại trong cùng lần đó không tạo lệnh thứ hai. */
   const [clientRequestId, setClientRequestId] = useState('');
@@ -73,55 +92,103 @@ export function SellerWithdrawPage() {
 
   const wallet = data?.wallet;
   const withdrawable = wallet?.withdrawableVnd ?? null;
-  const payoutWallet = wallet?.payoutWallet ?? null;
+  const vaultPayoutWallet = wallet?.payoutWallet ?? null;
+  const payoutInput = payoutDraft?.chain === chain ? payoutDraft.value : (vaultPayoutWallet ?? '');
+  const changesPayout =
+    payoutInput.trim() !== '' && payoutInput.trim().toLowerCase() !== (vaultPayoutWallet ?? '').toLowerCase();
   const quote = withdrawable !== null ? quoteWithdraw(form.amount, withdrawable) : null;
+  // G2b: vault chưa có ví nhận vẫn rút được: ví nhận do chính lệnh rút đặt.
   const blocker =
     withdrawable === null
       ? 'Chain này chưa có vault thanh toán: chưa rút được.'
-      : !payoutWallet
-        ? 'Vault chưa có ví nhận tiền rút. Liên hệ Kiểm soát viên đặt ví nhận trên màn Vault.'
-        : wallet?.withdrawalsPaused
-          ? 'Vault đang tạm dừng rút.'
-          : null;
+      : wallet?.withdrawalsPaused
+        ? 'Vault đang tạm dừng rút.'
+        : null;
   const canSubmit =
-    blocker === null && quote !== null && quote.receivedVnd !== null && !quote.exceedsLimit && form.purpose.trim() !== '';
+    blocker === null &&
+    quote !== null &&
+    quote.receivedVnd !== null &&
+    !quote.exceedsLimit &&
+    form.purpose.trim() !== '' &&
+    payoutInput.trim() !== '' &&
+    !checking;
+  const setPayout = (value: string) => {
+    setPayoutDraft({ chain, value });
+    setPayoutError(null);
+  };
 
   const set = (name: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [name]: e.target.value }));
 
-  const openConfirm = () => {
+  /** G2: kiểm ví nhận ở máy chủ trước; không đạt thì hiện câu dưới ô, không mở hộp mã một lần. */
+  const openConfirm = async () => {
+    setChecking(true);
+    setFeedback(null);
+    const checked = await checkPayoutWalletAction({ chain, wallet: payoutInput.trim() });
+    setChecking(false);
+    if (!checked.ok) {
+      setPayoutError(checked.fieldErrors?.payoutWallet?.[0] ?? checked.error);
+      return;
+    }
+    setPayoutError(null);
     setClientRequestId(crypto.randomUUID());
     setOtp('');
-    setFeedback(null);
-    setOtpOpen(true);
+    setDialog({ kind: 'create', wallet: checked.data.wallet });
   };
 
+  const openContinue = (row: WithdrawRequestView) => {
+    setOtp('');
+    setFeedback(null);
+    setDialog({ kind: 'continue', id: row.id, amount: row.amount, wallet: row.payoutWallet });
+  };
+
+  const settledMessage = (view: WithdrawRequestView): { tone: 'ok' | 'error'; message: string } =>
+    view.status === 'COMPLETED'
+      ? { tone: 'ok', message: `Đã rút ${nf(view.amount)} VNDB về ví ${view.payoutWallet}.` }
+      : view.status === 'PAYOUT_SENT'
+        ? { tone: 'ok', message: 'Đang chờ biên nhận đặt ví nhận; mở lại màn sau ít phút để gửi rút.' }
+        : { tone: 'error', message: `Lệnh rút đang ở trạng thái: ${WITHDRAW_STATUS_LABELS[view.status]}.` };
+
   const confirm = async () => {
+    if (!dialog) return;
     setSubmitting(true);
-    const result = await createWithdrawRequestAction({
-      chain,
-      amount: form.amount.trim(),
-      purpose: form.purpose.trim(),
-      note: form.note.trim(),
-      otp,
-      clientRequestId,
-    });
+    const result =
+      dialog.kind === 'create'
+        ? await createWithdrawRequestAction({
+            chain,
+            amount: form.amount.trim(),
+            purpose: form.purpose.trim(),
+            note: form.note.trim(),
+            otp,
+            clientRequestId,
+            payoutWallet: dialog.wallet,
+          })
+        : await continueWithdrawRequestAction({ chain, id: dialog.id, otp });
     setSubmitting(false);
     setOtp('');
     if (result.ok) {
-      setOtpOpen(false);
-      setForm({ amount: '', purpose: '', note: '' });
-      setFeedback({
-        tone: result.data.status === 'COMPLETED' ? 'ok' : 'error',
-        message:
-          result.data.status === 'COMPLETED'
-            ? `Đã rút ${nf(result.data.amount)} VNDB về ví ${result.data.payoutWallet}.`
-            : `Lệnh rút đang ở trạng thái: ${WITHDRAW_STATUS_LABELS[result.data.status]}.`,
-      });
+      if (dialog.kind === 'create') {
+        setForm({ amount: '', purpose: '', note: '' });
+        setPayoutDraft(null);
+      }
+      setDialog(null);
+      setFeedback(settledMessage(result.data));
     } else {
-      setOtpOpen(result.fieldErrors?.otp !== undefined);
+      if (result.fieldErrors?.otp === undefined) setDialog(null);
       setFeedback({ tone: 'error', message: result.error });
     }
+    reload();
+    setRequestsVersion((value) => value + 1);
+  };
+
+  const cancel = async (id: string) => {
+    setFeedback(null);
+    const result = await cancelWithdrawRequestAction({ chain, id });
+    setFeedback(
+      result.ok
+        ? { tone: 'ok', message: `Đã huỷ lệnh rút ${id.slice(0, 8)}.` }
+        : { tone: 'error', message: result.error },
+    );
     reload();
     setRequestsVersion((value) => value + 1);
   };
@@ -133,7 +200,7 @@ export function SellerWithdrawPage() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Tạo lệnh rút</h1>
         <p className="text-sm text-muted-foreground">
-          Rút VNDB từ vault thanh toán về ví nhận đã đặt. Xác nhận bằng mã một lần sáu chữ số, không qua phê duyệt.
+          Rút VNDB từ vault thanh toán về ví nhận bạn chọn. Xác nhận bằng mã một lần sáu chữ số, không qua phê duyệt.
         </p>
       </header>
 
@@ -157,7 +224,7 @@ export function SellerWithdrawPage() {
                 className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (canSubmit) openConfirm();
+                  if (canSubmit) void openConfirm();
                 }}
               >
                 <Field id="w-amount" label="Số tiền rút (VNDB)">
@@ -176,9 +243,32 @@ export function SellerWithdrawPage() {
                 <Field id="w-network" label="Mạng">
                   <input id="w-network" readOnly value={chainLabel} className={FIELD} />
                 </Field>
-                <Field id="w-address" label="Ví nhận (đặt bởi Kiểm soát viên)">
-                  <input id="w-address" readOnly value={payoutWallet ?? 'Chưa đặt'} className={`${FIELD} font-mono`} />
+                <Field id="w-address" label="Ví nhận">
+                  <input
+                    id="w-address"
+                    value={payoutInput}
+                    onChange={(e) => setPayout(e.target.value)}
+                    placeholder="0x…"
+                    spellCheck={false}
+                    aria-invalid={payoutError !== null}
+                    className={`${FIELD} font-mono`}
+                  />
                 </Field>
+                {chain !== 'mock' && (
+                  <Button type="button" variant="outline" disabled={!address} onClick={() => address && setPayout(address)}>
+                    Dùng ví đang kết nối
+                  </Button>
+                )}
+                {changesPayout && (
+                  <p role="note" className="text-xs text-muted-foreground">
+                    Đổi ví nhận: hệ thống gửi thêm một giao dịch đặt ví nhận trước khi rút.
+                  </p>
+                )}
+                {payoutError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {payoutError}
+                  </p>
+                )}
                 <Field id="w-purpose" label="Mục đích">
                   <input id="w-purpose" value={form.purpose} onChange={set('purpose')} className={FIELD} />
                 </Field>
@@ -191,6 +281,7 @@ export function SellerWithdrawPage() {
                   </p>
                 )}
                 <Button type="submit" disabled={!canSubmit}>
+                  {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                   Tạo lệnh rút
                 </Button>
                 {feedback && !otpOpen && (
@@ -254,6 +345,7 @@ export function SellerWithdrawPage() {
                   <TableHead>Trạng thái</TableHead>
                   <TableHead>Giao dịch</TableHead>
                   <TableHead>Thời điểm</TableHead>
+                  <TableHead>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -287,6 +379,18 @@ export function SellerWithdrawPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs">{new Date(r.createdAt).toLocaleString('vi-VN')}</TableCell>
+                      <TableCell>
+                        {r.status === 'PAYOUT_SET' ? (
+                          <div className="flex gap-2">
+                            <Button type="button" size="sm" onClick={() => openContinue(r)}>
+                              Gửi lệnh rút
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => void cancel(r.id)}>
+                              Huỷ
+                            </Button>
+                          </div>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -301,10 +405,15 @@ export function SellerWithdrawPage() {
           <DialogHeader>
             <DialogTitle>Xác nhận mã một lần</DialogTitle>
             <DialogDescription>
-              Nhập mã sáu chữ số để rút {nf(form.amount)} VNDB về ví nhận. Bản thử: chưa gửi mã thật, hệ thống chỉ kiểm
-              đúng sáu chữ số.
+              Nhập mã sáu chữ số để rút {nf(dialog?.kind === 'continue' ? dialog.amount : form.amount)} VNDB về ví nhận.
+              Bản thử: chưa gửi mã thật, hệ thống chỉ kiểm đúng sáu chữ số.
             </DialogDescription>
           </DialogHeader>
+          {dialog && (
+            <p className="break-all text-sm" data-testid="otp-payout-wallet">
+              Ví nhận: <span className="font-mono">{dialog.wallet}</span> (đã whitelist)
+            </p>
+          )}
           <input
             aria-label="Mã một lần"
             inputMode="numeric"

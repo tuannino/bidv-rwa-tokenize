@@ -608,6 +608,8 @@ model WithdrawRequest {
   /// Block mới nhất lúc tạo lệnh: mốc quét sự kiện ứng viên khi mất mã giao dịch.
   claimedBlock    Decimal?  @db.Decimal(78, 0)
   txHash          String?
+  /// FIX-01: mã giao dịch đặt ví nhận (`setPayoutWallet`) của lệnh, lưu TRƯỚC khi chờ biên nhận.
+  payoutTxHash    String?
   /// Lý do thất bại hoặc lý do chuyển người xem.
   reason          String?
   /// Mã tài khoản Người bán đã tạo lệnh.
@@ -625,7 +627,24 @@ model WithdrawRequest {
   @@index([chain, status])
 }
 
-/// OP-05 QĐ-I: ví người dùng tự liên kết vào hồ sơ của mình, theo chain. App so ví đang kết nối với
+/// FIX-01: ví đã được ngân hàng định danh và gắn cho hồ sơ. Một hồ sơ nhiều ví mỗi chain, một ví một hồ sơ mỗi chain.
+model WalletBinding {
+  chain     String
+  /// Địa chỉ viết thường, khoá duy nhất theo chain.
+  walletKey String
+  /// Địa chỉ đã chuẩn hoá checksum.
+  wallet    String
+  actorId   String
+  boundBy   String
+  boundAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([chain, walletKey])
+  @@index([chain, actorId])
+  @@index([chain, boundAt])
+}
+
+/// OP-05 QĐ-I: ví người dùng tự liên kết vào hồ sơ của mình, theo chain. FIX-01: bảng giữ trong lược
+/// đồ nhưng mã không còn đọc hay ghi; ví phải được Giao dịch viên gắn lại ở `WalletBinding`. App so ví đang kết nối với
 /// ví này ở điều kiện "Định danh" khi đặt lệnh. ⚠️ Liên kết KHÔNG chứng minh quyền sở hữu ví và KHÔNG
 /// whitelist trên chuỗi (nợ kỹ thuật, AU-01 trả).
 model ProfileWallet {

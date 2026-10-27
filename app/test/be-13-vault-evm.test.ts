@@ -79,9 +79,10 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
     const { getStore, getVaultStore } = await import('@/lib/store');
 
     await actAs('CONTROLLER', 'KSV001');
-    const saved = await saveVaultConfig({ chain: 'hardhat-local', mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT });
+    // FIX-01 QĐ-8: cấu hình không còn ví nhận; Người bán chọn ví nhận ở lệnh rút bên dưới.
+    const saved = await saveVaultConfig({ chain: 'hardhat-local', mode: 'PERCENT', percent: '20' });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
-    expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPayoutWallet', 'setPercentRate', 'setLockMode']);
+    expect(saved.ok && saved.data.steps.map((step) => step.kind)).toEqual(['setPercentRate', 'setLockMode']);
 
     await actAs('INVESTOR', 'NDT001');
     const { result: buy } = await placeSignedOrder(HARDHAT_RPC!, { investorWallet: INVESTOR, side: 'BUY', wptAmount: '100' });
@@ -98,10 +99,13 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
       note: '',
       otp: '123456',
       clientRequestId: randomUUID(),
+      payoutWallet: PAYOUT,
     });
     expect(created.ok, created.ok ? '' : created.error).toBe(true);
     if (!created.ok) return;
     expect(created.data).toMatchObject({ status: 'COMPLETED', amount: '3000000', payoutWallet: PAYOUT });
+    // Vault mới triển khai chưa có ví nhận: lệnh tự đặt ví nhận (G5 bước 7) rồi mới rút.
+    expect(created.data.payoutTxHash).toMatch(/^0x[0-9a-f]{64}$/);
     expect(await ledger.paymentBalanceOf(PAYOUT)).toBe(payoutBefore + 3_000_000n);
     expect((await ledger.vaultStatus())?.withdrawable).toBe(5_000_000n);
 
@@ -121,7 +125,7 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
     const { getVaultConfigHistory, saveVaultConfig } = await import('@/lib/bank/vault.service');
     await actAs('CONTROLLER', 'KSV001');
     for (const input of [{ mode: 'PERCENT', percent: '25' }, { mode: 'FIXED', fixedLock: '500' }]) {
-      const saved = await saveVaultConfig({ chain: 'hardhat-local', payoutWallet: PAYOUT, ...input });
+      const saved = await saveVaultConfig({ chain: 'hardhat-local', ...input });
       expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     }
     // Script khẩn cấp: cùng ví admin #0 ký nhưng không đi qua app, nên không có dòng Txn.
@@ -140,9 +144,10 @@ live('BE-13 ca 7: Kiểm soát viên cấu hình, Người bán rút qua service
       { param: 'LOCK_MODE', oldValue: 'PERCENT', newValue: 'FIXED', actor: app },
       { param: 'FIXED_LOCK', oldValue: '0', newValue: '500', actor: app },
       { param: 'PERCENT_RATE', oldValue: '2000', newValue: '2500', actor: app },
+      // FIX-01: ví nhận do lệnh rút của Người bán ở ca 7 đặt, sau khi Kiểm soát viên lưu cấu hình.
+      { param: 'PAYOUT_WALLET', oldValue: null, newValue: PAYOUT, actor: { ...app, role: 'SELLER' } },
       { param: 'LOCK_MODE', oldValue: 'UNSET', newValue: 'PERCENT', actor: app },
       { param: 'PERCENT_RATE', oldValue: '0', newValue: '2000', actor: app },
-      { param: 'PAYOUT_WALLET', oldValue: null, newValue: PAYOUT, actor: app },
     ]);
     expect(history.data.rows.every((row) => row.timestamp > 0)).toBe(true);
   }, 120_000);

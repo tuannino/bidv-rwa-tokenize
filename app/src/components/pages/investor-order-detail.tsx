@@ -7,6 +7,7 @@ import { getOrderDetailAction } from '@/app/actions/trade';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { OrderDetailView } from '@/lib/bank/trade.service';
 import { OrderDetailContent } from '@/components/trading/order-detail-content';
+import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 
 /**
  * Màn CHI TIẾT LỆNH của Nhà đầu tư (FE-25 việc 11, 12): thông tin lệnh, tiến trình quyết toán năm
@@ -19,7 +20,13 @@ export function InvestorOrderDetailPage({ orderId, mockWallet }: { orderId: stri
   const { address, isConnected } = useAccount();
   const { chain } = useSelectedChain();
   const wallet = chain === 'mock' ? mockWallet : address;
-  const [loaded, setLoaded] = useState<{ key: string; data: OrderDetailView | null; error: string | null } | null>(null);
+  // FIX-01 E6: kết quả giữ khoá `chain|ví|mã lệnh` của lần gọi; khoá khác hiện tại thì bỏ.
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    data: OrderDetailView | null;
+    error: string | null;
+    notBound: boolean;
+  } | null>(null);
 
   const requestKey = wallet ? `${chain}|${wallet}|${orderId}` : null;
   useEffect(() => {
@@ -29,8 +36,8 @@ export function InvestorOrderDetailPage({ orderId, mockWallet }: { orderId: stri
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: requestKey, data: result.data, error: null }
-          : { key: requestKey, data: null, error: result.error },
+          ? { key: requestKey, data: result.data, error: null, notBound: false }
+          : { key: requestKey, data: null, error: result.error, notBound: result.code === 'WALLET_NOT_BOUND' },
       );
     });
     return () => {
@@ -56,6 +63,7 @@ export function InvestorOrderDetailPage({ orderId, mockWallet }: { orderId: stri
       </p>
     );
   }
+  if (fresh.notBound) return <WalletNotBoundNotice wallet={wallet} />;
   if (fresh.error || !fresh.data) return <p className="text-sm text-destructive">{fresh.error}</p>;
 
   return <OrderDetailContent detail={fresh.data} />;

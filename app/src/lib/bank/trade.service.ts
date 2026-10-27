@@ -3,7 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger, LedgerNotImplementedError, type ILedgerPort } from '@/lib/ledger';
-import { assertCan, can } from '@/lib/rbac';
+import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { getProjectStore, getStore } from '@/lib/store';
 import { readTokenTerms, type TokenTerms } from '@/lib/store/config-values';
@@ -17,11 +17,8 @@ import { readSupplyMetrics } from './issuance.service';
 import { listOrders, previewPurchase, type OrderView, type PurchasePreviewView } from './purchase.service';
 import { err, ok, type Result } from './result';
 import { chainSchema, previewPurchaseSchema, walletSchema } from './schemas';
-import {
-  findInvestorProfileByWallet,
-  findOwnAccountProfile,
-  type CustomerAccountProfile,
-} from './account-profile.service';
+import type { CustomerAccountProfile } from './account-profile.service';
+import { holdsOwnWallet, resolveWalletOwner } from './wallet-owner';
 import { readRecallPhase } from './recall.service';
 import { tradingBlocked, type RecallPhaseKind } from './recall-phase';
 
@@ -80,12 +77,17 @@ export interface TradeContextView {
   tokens: Array<{ tokenSymbol: string; projectName: string }>;
   /** Thông tin token đang chọn; `null` khi chuỗi chưa có dự án nào. */
   token: InvestorTokenInfo | null;
+  /**
+   * FIX-01 D2: ví có được ngân hàng gắn cho hồ sơ phiên trên chain này không. `false` thì máy chủ
+   * KHÔNG đọc số dư của ví (`balances` là `null`, trần hai chiều bằng 0); thông tin token vẫn trả.
+   */
+  walletBound: boolean;
   balances: {
     /** WPT ví đang giữ. */
     wpt: string;
     /** VNDB ví đang có. */
     vndb: string;
-  };
+  } | null;
   /** Giá dùng để khớp lệnh: cùng nguồn với số VNDB chốt khi đặt lệnh. */
   priceVnd: string;
   caps: Record<OrderSide, QuantityCap>;
@@ -123,6 +125,13 @@ function quantityCaps(
   };
 }
 
+/** Ví có thuộc hồ sơ phiên không (FIX-01 QĐ-2); vai nhân viên luôn đúng như `assertOwnWallet`. */
+async function isSessionWallet(role: Role, chain: ChainKey, wallet: string): Promise<boolean> {
+  if (!holdsOwnWallet(role)) return true;
+  const owner = await resolveWalletOwner(chain, wallet);
+  return owner?.actorId === (await currentActorId(role));
+}
+
 /**
  * Bối cảnh màn Giao dịch token cho một ví: token, số dư, giá, trần số lượng hai chiều.
  *
@@ -136,7 +145,11 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
   const { chain, wallet } = parsed.data;
 
   try {
-    assertCan(await currentRole(), 'order:place');
+    const role = await currentRole();
+    assertCan(role, 'order:place');
+    // FIX-01 D2: không ném lỗi để thông tin token vẫn hiện; ví chưa gắn thì không đọc số dư ví.
+    // Kiểm XONG rồi mới đọc chuỗi.
+    const walletBound = await isSessionWallet(role, chain, wallet);
 
     const ledger = getLedger(chain);
     // Giá MỘT token theo đúng nguồn mà đặt lệnh dùng để chốt số VNDB (`quotePurchase`). Đọc MỘT
@@ -144,8 +157,8 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
     const quoted = ledger.quotePurchase(1n);
     const [projects, held, vndb, price, issuePrice, terms, settling, recallPhase] = await Promise.all([
       getProjectStore().listProjects({ chain }),
-      ledger.balanceOf(wallet),
-      ledger.paymentBalanceOf(wallet),
+      walletBound ? ledger.balanceOf(wallet) : null,
+      walletBound ? ledger.paymentBalanceOf(wallet) : null,
       quoted,
       readEffectiveIssuePrice(chain, quoted),
       readTokenTerms(),
@@ -165,9 +178,10 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       wallet,
       tokens: projects.map((p) => ({ tokenSymbol: p.tokenSymbol, projectName: p.name })),
       token,
-      balances: { wpt: held.toString(), vndb: vndb.toString() },
+      walletBound,
+      balances: held !== null && vndb !== null ? { wpt: held.toString(), vndb: vndb.toString() } : null,
       priceVnd: price.toString(),
-      caps: quantityCaps(vndb, price, undistributed, held),
+      caps: quantityCaps(vndb ?? 0n, price, undistributed, held ?? 0n),
       tradeBlock: block.blocked
         ? {
             phase: recallPhase.kind,
@@ -316,9 +330,10 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
     const ledger = getLedger(chain);
     const role = await currentRole();
     const actorId = await currentActorId(role);
-    const ownProfile = findOwnAccountProfile(role, actorId);
-    const investorProfile = await findInvestorProfileByWallet(chain, investorWallet);
-    const profileBelongsToSession = ownProfile === investorProfile;
+    // FIX-01 D3: hồ sơ của ví qua MỘT nguồn (`resolveWalletOwner`), so bằng mã hồ sơ. Ví không thuộc
+    // phiên đã bị `previewPurchase` chặn ở trên (WALLET_NOT_BOUND) nên không còn câu riêng cho nó.
+    const investorProfile = await resolveWalletOwner(chain, investorWallet);
+    const profileBelongsToSession = investorProfile?.actorId === actorId;
     const [whitelisted, frozen, settling, spv, projects] = await Promise.all([
       ledger.isWhitelisted(investorWallet),
       ledger.isFrozen(investorWallet),
@@ -338,9 +353,7 @@ export async function previewTrade(input: unknown): Promise<Result<TradePreviewV
       condition(
         'identity',
         profileBelongsToSession && investorProfile?.identityStatus === 'APPROVED' && whitelisted,
-        !profileBelongsToSession
-          ? 'Ví không thuộc hồ sơ nhà đầu tư đang đăng nhập.'
-          : investorProfile?.identityStatus !== 'APPROVED'
+        !profileBelongsToSession || investorProfile?.identityStatus !== 'APPROVED'
             ? 'Hồ sơ nhà đầu tư chưa hoàn tất định danh (KYC).'
             : whitelisted
               ? `Hồ sơ đã định danh và ví ${investorWallet} nằm trong danh sách được phép.`

@@ -55,15 +55,33 @@ export interface IVaultStore extends IVaultWithdrawStore {
 }
 
 /**
- * Trạng thái lệnh rút (QĐ-E):
+ * Trạng thái lệnh rút (BE-13 QĐ-E, FIX-01 G4). Ví nhận chọn ở lệnh khác ví đang đặt trên vault thì
+ * lệnh đi qua bước đặt ví nhận (`PAYOUT_*`) trước khi rút:
  *
- *     (tạo) ──► SENDING ──► SENT ──► COMPLETED
- *                  │          ├────► FAILED
- *                  │          └────► NEEDS_REVIEW ──► COMPLETED / FAILED (Kiểm soát viên)
- *                  ├────► FAILED        (revert hoặc RPC từ chối TRƯỚC khi gửi)
- *                  └────► NEEDS_REVIEW  (mất mã giao dịch)
+ *     (tạo) ─► PAYOUT_SENDING ─► PAYOUT_SENT ─► SENDING (đường thẳng, cùng lần tạo lệnh)
+ *                   │                 ├──────► PAYOUT_SET ─► SENDING (Người bán bấm gửi rút)
+ *                   │                 │             └──────► FAILED (kiểm lại không đạt, huỷ)
+ *                   │                 ├──────► FAILED (biên nhận FAILED)
+ *                   │                 └──────► PAYOUT_REVIEW ─► FAILED (Kiểm soát viên)
+ *                   ├──► FAILED (revert, chắc chắn chưa lên chuỗi)
+ *                   └──► PAYOUT_REVIEW (mất mã)
+ *     (tạo) ─► SENDING ─► SENT ─► COMPLETED
+ *                  │        ├───► FAILED
+ *                  │        └───► NEEDS_REVIEW ─► COMPLETED / FAILED (Kiểm soát viên)
+ *                  ├───► FAILED        (revert hoặc RPC từ chối TRƯỚC khi gửi)
+ *                  └───► NEEDS_REVIEW  (mất mã giao dịch)
  */
-export const WITHDRAW_STATUSES = ['SENDING', 'SENT', 'COMPLETED', 'FAILED', 'NEEDS_REVIEW'] as const;
+export const WITHDRAW_STATUSES = [
+  'PAYOUT_SENDING',
+  'PAYOUT_SENT',
+  'PAYOUT_SET',
+  'PAYOUT_REVIEW',
+  'SENDING',
+  'SENT',
+  'COMPLETED',
+  'FAILED',
+  'NEEDS_REVIEW',
+] as const;
 export type WithdrawStatus = (typeof WITHDRAW_STATUSES)[number];
 
 export const assertWithdrawStatus = (value: string): WithdrawStatus =>
@@ -71,6 +89,10 @@ export const assertWithdrawStatus = (value: string): WithdrawStatus =>
 
 /** Bảng chuyển tiếp trong mã: cả hai bản cổng từ chối chuyển nào không có ở đây. */
 export const WITHDRAW_TRANSITIONS: Readonly<Record<WithdrawStatus, readonly WithdrawStatus[]>> = {
+  PAYOUT_SENDING: ['PAYOUT_SENT', 'FAILED', 'PAYOUT_REVIEW'],
+  PAYOUT_SENT: ['SENDING', 'PAYOUT_SET', 'FAILED', 'PAYOUT_REVIEW'],
+  PAYOUT_SET: ['SENDING', 'FAILED'],
+  PAYOUT_REVIEW: ['FAILED'],
   SENDING: ['SENT', 'FAILED', 'NEEDS_REVIEW'],
   SENT: ['COMPLETED', 'FAILED', 'NEEDS_REVIEW'],
   NEEDS_REVIEW: ['COMPLETED', 'FAILED'],
@@ -101,6 +123,8 @@ export interface WithdrawRequestRecord {
   activeChain: ChainKey | null;
   claimedBlock: string | null;
   txHash: string | null;
+  /** FIX-01: mã giao dịch đặt ví nhận của lệnh, lưu TRƯỚC khi chờ biên nhận. */
+  payoutTxHash: string | null;
   reason: string | null;
   createdBy: string;
   createdAt: string;
@@ -119,6 +143,8 @@ export interface NewWithdrawRequest {
   payoutWallet: string;
   claimedBlock: string | null;
   createdBy: string;
+  /** FIX-01 G5 bước 6: `PAYOUT_SENDING` khi ví chọn khác ví đang đặt trên vault, ngược lại `SENDING`. */
+  status: Extract<WithdrawStatus, 'PAYOUT_SENDING' | 'SENDING'>;
 }
 
 export interface WithdrawTransition {
@@ -127,12 +153,14 @@ export interface WithdrawTransition {
   to: WithdrawStatus;
   /** Ghi khi chuyển `SENDING -> SENT` hoặc khi Kiểm soát viên xác nhận `COMPLETED`. */
   txHash?: string;
+  /** FIX-01: ghi khi chuyển `PAYOUT_SENDING -> PAYOUT_SENT`. */
+  payoutTxHash?: string;
   reason?: string | null;
 }
 
 export interface IVaultWithdrawStore {
   /**
-   * Tạo lệnh ở `SENDING`, `activeChain = chain`. Ném `UniqueConstraintError` khi trùng
+   * Tạo lệnh ở trạng thái đầu `input.status`, `activeChain = chain`. Ném `UniqueConstraintError` khi trùng
    * `(chain, clientRequestId)` hoặc chain đã có lệnh đang dở (`activeChain`).
    */
   createWithdrawRequest(input: NewWithdrawRequest): Promise<WithdrawRequestRecord>;

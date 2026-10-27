@@ -37,14 +37,16 @@ export function parseFixedLock(input: string | null | undefined): bigint | null 
   return amount > 0n ? amount : 'INVALID';
 }
 
+/**
+ * Bước cấu hình của Kiểm soát viên. FIX-01 QĐ-8: không còn bước đặt ví nhận; ví nhận do Người bán
+ * chọn trong vòng đời lệnh rút (`withdraw.service.ts`).
+ */
 export type VaultConfigStep =
-  | { kind: 'setPayoutWallet'; wallet: string; previous: string | null }
   | { kind: 'setFixedLock'; amount: bigint; previous: bigint }
   | { kind: 'setPercentRate'; bps: bigint; previous: bigint }
   | { kind: 'setLockMode'; mode: Exclude<VaultLockMode, 'UNSET'>; previous: VaultLockMode };
 
 export const VAULT_CONFIG_STEP_LABELS: Readonly<Record<VaultConfigStep['kind'], string>> = {
-  setPayoutWallet: 'Đặt ví nhận tiền',
   setFixedLock: 'Đặt số khoá cố định',
   setPercentRate: 'Đặt tỷ lệ khoá',
   setLockMode: 'Đổi chế độ khoá',
@@ -56,13 +58,10 @@ export interface VaultConfigCurrent {
   percentRateBps: bigint;
   /** Tỷ lệ chờ áp sau kỳ đầu; `null` khi không có. */
   pendingPercentRateBps: bigint | null;
-  payoutWallet: string | null;
 }
 
 /** Đích cấu hình theo MỘT chế độ (UIUX-01 C1): chỉ mang giá trị của chế độ đã chọn. */
-export type VaultConfigTarget =
-  | { mode: 'PERCENT'; percentBps: bigint; payoutWallet: string }
-  | { mode: 'FIXED'; fixedLock: bigint; payoutWallet: string };
+export type VaultConfigTarget = { mode: 'PERCENT'; percentBps: bigint } | { mode: 'FIXED'; fixedLock: bigint };
 
 /**
  * Giao dịch còn phải gửi, đúng thứ tự (bảng QĐ-C). Chỉ gửi phần còn khác trạng thái chuỗi:
@@ -74,7 +73,7 @@ export type VaultConfigTarget =
  * | FIXED          | PERCENT | `setPercentRate` (nếu khác), rồi `setLockMode(PERCENT)`   |
  * | giữ chế độ     |         | chỉ setter của giá trị đổi                                |
  *
- * `setPayoutWallet` độc lập, đứng trước. Giá trị luôn lên chuỗi TRƯỚC khi đổi chế độ, nên chế độ
+ * Giá trị luôn lên chuỗi TRƯỚC khi đổi chế độ, nên chế độ
  * hiện hành không bao giờ mang giá trị 0 hay giá trị chưa lên chuỗi. FIXED sang PERCENT KHÔNG gửi
  * `setFixedLock(0)`: chế độ PERCENT không dùng số đó, để nguyên. Đích FIXED không gửi tỷ lệ (bảng
  * chỉ có hai giao dịch cho dòng này); tỷ lệ lên chuỗi khi đích là PERCENT.
@@ -84,9 +83,6 @@ export type VaultConfigTarget =
  */
 export function planVaultConfig(current: VaultConfigCurrent, target: VaultConfigTarget): VaultConfigStep[] {
   const steps: VaultConfigStep[] = [];
-  if (current.payoutWallet?.toLowerCase() !== target.payoutWallet.toLowerCase()) {
-    steps.push({ kind: 'setPayoutWallet', wallet: target.payoutWallet, previous: current.payoutWallet });
-  }
   if (target.mode === 'FIXED') {
     if (current.fixedLockAmount !== target.fixedLock) {
       steps.push({ kind: 'setFixedLock', amount: target.fixedLock, previous: current.fixedLockAmount });
@@ -137,8 +133,6 @@ export function configEffectiveAt(input: {
 /** Giá trị cũ và mới của một bước, viết cho sổ kiểm toán. */
 export function describeVaultConfigStep(step: VaultConfigStep): string {
   switch (step.kind) {
-    case 'setPayoutWallet':
-      return `ví nhận ${step.previous ?? '(chưa đặt)'} -> ${step.wallet}`;
     case 'setFixedLock':
       return `số khoá cố định ${step.previous} -> ${step.amount} VNDB`;
     case 'setPercentRate':

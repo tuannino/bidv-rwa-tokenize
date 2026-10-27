@@ -6,6 +6,7 @@ import { getLedger } from '@/lib/ledger';
 import { getSettlementStore, getStore } from '@/lib/store';
 import { readEffectiveIssuePrice } from './issue-price';
 import { authorize, toResult } from './authorize';
+import { assertSessionWallet } from './wallet-owner';
 import { wptToVnd } from './issuance';
 import { err, ok, type Result } from './result';
 import { chainSchema, walletSchema } from './schemas';
@@ -89,7 +90,9 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
   const { chain, wallet } = parsed.data;
 
   try {
-    await authorize('portfolio:read', wallet, chain);
+    const role = await authorize('portfolio:read', wallet, chain);
+    // FIX-01 D2: ví phải thuộc hồ sơ phiên, kiểm XONG rồi mới đọc chuỗi.
+    await assertSessionWallet({ role, chain, wallet, audit: { action: 'portfolio:read' } });
 
     const ledger = getLedger(chain);
     // Giá đọc CÙNG lô với số dư: một lời gọi, một con số, nên số hiển thị và số quy đổi không
@@ -161,7 +164,8 @@ export async function getWalletTransactions(input: unknown): Promise<Result<TxnV
   const { chain, wallet, limit } = parsed.data;
 
   try {
-    await authorize('portfolio:read', wallet, chain);
+    const role = await authorize('portfolio:read', wallet, chain);
+    await assertSessionWallet({ role, chain, wallet, audit: { action: 'portfolio:read' } });
 
     const rows = await getStore().listTxns({ chain, wallet, limit });
 

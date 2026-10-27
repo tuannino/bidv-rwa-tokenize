@@ -43,7 +43,6 @@ const { resultText } = await import('@/components/maker-checker/request-table');
 
 const CHAIN = 'mock' as const;
 const PAYOUT = SAMPLE_WALLETS.NB001;
-const OTHER_PAYOUT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 
 function actAs(role: string, actor?: string) {
   process.env.DEMO_ROLE = role;
@@ -80,7 +79,7 @@ describe('UIUX-01 ca 1: saveVaultConfig kiểm một chế độ', () => {
   ] as const) {
     it(`chế độ ${mode} có cả hai ô: VALIDATION gắn vào ô ${wrongField}, không lấy khoá, không giao dịch`, async () => {
       const acquire = vi.spyOn(getVaultStore(), 'acquireOperationLock');
-      const result = await saveVaultConfig({ chain: CHAIN, mode, percent: '20', fixedLock: '400', payoutWallet: PAYOUT });
+      const result = await saveVaultConfig({ chain: CHAIN, mode, percent: '20', fixedLock: '400' });
       expect(result.ok).toBe(false);
       if (result.ok) return;
       expect(result.code).toBe('VALIDATION');
@@ -92,7 +91,7 @@ describe('UIUX-01 ca 1: saveVaultConfig kiểm một chế độ', () => {
 
   it('chế độ FIXED thiếu fixedLock: VALIDATION ở ô fixedLock', async () => {
     const acquire = vi.spyOn(getVaultStore(), 'acquireOperationLock');
-    const result = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED', payoutWallet: PAYOUT });
+    const result = await saveVaultConfig({ chain: CHAIN, mode: 'FIXED' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe('VALIDATION');
@@ -108,27 +107,17 @@ describe('UIUX-01 ca 2: planVaultConfig theo một chế độ', () => {
     fixedLockAmount: 0n,
     percentRateBps: 2_000n,
     pendingPercentRateBps: null,
-    payoutWallet: PAYOUT,
   };
 
   it('đích FIXED không có setPercentRate', () => {
-    const steps = planVaultConfig(current, { mode: 'FIXED', fixedLock: 400n, payoutWallet: PAYOUT });
+    const steps = planVaultConfig(current, { mode: 'FIXED', fixedLock: 400n });
     expect(steps.map((step) => step.kind)).toEqual(['setFixedLock', 'setLockMode']);
   });
 
   it('đích PERCENT không có setFixedLock', () => {
     const fixed = { ...current, lockMode: 'FIXED' as const, fixedLockAmount: 400n };
-    const steps = planVaultConfig(fixed, { mode: 'PERCENT', percentBps: 3_000n, payoutWallet: PAYOUT });
+    const steps = planVaultConfig(fixed, { mode: 'PERCENT', percentBps: 3_000n });
     expect(steps.map((step) => step.kind)).toEqual(['setPercentRate', 'setLockMode']);
-  });
-
-  it('ví nhận đổi: setPayoutWallet đứng đầu ở cả hai chế độ', () => {
-    expect(
-      planVaultConfig(current, { mode: 'FIXED', fixedLock: 400n, payoutWallet: OTHER_PAYOUT }).map((step) => step.kind),
-    ).toEqual(['setPayoutWallet', 'setFixedLock', 'setLockMode']);
-    expect(
-      planVaultConfig(current, { mode: 'PERCENT', percentBps: 2_500n, payoutWallet: OTHER_PAYOUT }).map((step) => step.kind),
-    ).toEqual(['setPayoutWallet', 'setPercentRate']);
   });
 });
 
@@ -232,7 +221,7 @@ describe('UIUX-01 ca 4: lịch sử phê duyệt', () => {
 
 describe('UIUX-01 ca 5: getVaultOverview cách ly lỗi đọc sự kiện cấu hình', () => {
   it('vaultConfigEvents ném lỗi: vẫn trả trạng thái và lịch sử chốt kỳ, configEffectiveError có giá trị', async () => {
-    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20', payoutWallet: PAYOUT });
+    const saved = await saveVaultConfig({ chain: CHAIN, mode: 'PERCENT', percent: '20' });
     expect(saved.ok, saved.ok ? '' : saved.error).toBe(true);
     await getLedger(CHAIN).closeVaultPeriod(1n, 1_000_000n);
 

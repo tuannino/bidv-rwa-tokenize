@@ -37,7 +37,7 @@ SELECT 'KeeperRun', count(*), string_agg("jobName" || ' ' || "periodKey", ', ')
 UNION ALL
 SELECT 'WithdrawRequest', count(*), string_agg("id", ', ')
   FROM "WithdrawRequest" WHERE "chain" = :'chain'
-   AND "status" IN ('SENDING', 'SENT', 'NEEDS_REVIEW');           -- nguồn: WITHDRAW_STATUSES trừ WITHDRAW_TERMINAL_STATUSES, app/src/lib/store/vault.store.port.ts
+   AND "status" IN ('PAYOUT_SENDING', 'PAYOUT_SENT', 'PAYOUT_SET', 'PAYOUT_REVIEW', 'SENDING', 'SENT', 'NEEDS_REVIEW'); -- nguồn: WITHDRAW_STATUSES trừ WITHDRAW_TERMINAL_STATUSES, app/src/lib/store/vault.store.port.ts
 
 -- Phần 2 (database mới, bước 11): dự án WPT trỏ đúng ProjectToken mới và chưa phát hành.
 SELECT "tokenSymbol", "chain", "contractAddress",

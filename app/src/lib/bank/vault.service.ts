@@ -5,9 +5,7 @@ import { z } from 'zod';
 import type { ChainKey, TxResult } from '@bidv/shared';
 import {
   getLedger,
-  InvalidAddressError,
   LedgerError,
-  normalizeEvmAddress,
   receiptTimeoutFor,
   type ILedgerPort,
   type VaultConfigParam,
@@ -73,7 +71,6 @@ export interface VaultConfigFormView {
   percent: string;
   /** Số khoá cố định điền sẵn: số trên chuỗi khi lớn hơn 0, còn lại để trống. */
   fixedLock: string;
-  payoutWallet: string;
   /**
    * Tỷ lệ % mới có hiệu lực khi nào (UIUX-01 C4, QĐ-1). Hiện hợp đồng chỉ ghi tỷ lệ chờ sau kỳ đầu,
    * nên `NEXT_PERIOD` khi `lastPeriodRef > 0`. SC-11 sửa hợp đồng thì chỉ đổi chỗ tính này.
@@ -162,7 +159,6 @@ export async function getVaultOverview(input: unknown): Promise<Result<VaultOver
         mode: status.lockMode === 'FIXED' ? 'FIXED' : 'PERCENT',
         percent: percentBps > 0n ? bpsToPercent(percentBps) : bpsToPercent(defaultBps),
         fixedLock: status.fixedLockAmount > 0n ? status.fixedLockAmount.toString() : '',
-        payoutWallet: status.payoutWallet ?? '',
         percentApplies: status.lastPeriodRef > 0n ? 'NEXT_PERIOD' : 'NOW',
         busy: busy ? { kind: busy.kind, acquiredAt: busy.acquiredAt } : null,
       },
@@ -207,15 +203,16 @@ function toStatusView(status: VaultStatus): VaultStatusView {
 //  CẤU HÌNH KHOÁ (BE-13 QĐ-C, QĐ-D)
 // =============================================================================
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-
+/**
+ * FIX-01 H1: không còn `payoutWallet`. Đầu vào còn trường đó thì zod bỏ qua (không lỗi) và không
+ * dùng: ví nhận do Người bán chọn khi tạo lệnh rút.
+ */
 const saveVaultConfigSchema = z.object({
   chain: chainSchema,
   /** UIUX-01 C3: cấu hình theo MỘT chế độ; chỉ ô của chế độ này được có giá trị. */
   mode: z.enum(['PERCENT', 'FIXED']),
   percent: z.string().max(20).optional().default(''),
   fixedLock: z.string().max(80).optional().default(''),
-  payoutWallet: z.string().max(80),
 });
 
 const ONE_MODE_ONLY = 'Chỉ nhập một trong hai: tỷ lệ % hoặc số khoá cố định.';
@@ -245,8 +242,6 @@ export function vaultConfigLockTakeOverBefore(chain: ChainKey, now: Date = new D
 /** Gửi một bước cấu hình theo đúng setter của cổng. */
 function sendConfigStep(ledger: ILedgerPort, step: VaultConfigStep): Promise<TxResult> {
   switch (step.kind) {
-    case 'setPayoutWallet':
-      return ledger.setVaultPayoutWallet(step.wallet);
     case 'setFixedLock':
       return ledger.setVaultFixedLock(step.amount);
     case 'setPercentRate':
@@ -260,7 +255,7 @@ function sendConfigStep(ledger: ILedgerPort, step: VaultConfigStep): Promise<TxR
  * Kiểm soát viên lưu cấu hình khoá vault (BE-13 QĐ-C).
  *
  * Thứ tự: kiểm quyền, kiểm dạng (một chế độ, UIUX-01 C3), lấy khoá vận hành `CONFIG`, đọc trạng
- * thái chuỗi, kiểm ví nhận (khác 0, khác vault, đã whitelist), lập danh sách giao dịch theo bảng chuyển tiếp rồi gửi
+ * thái chuỗi, lập danh sách giao dịch theo bảng chuyển tiếp rồi gửi
  * TỪNG giao dịch: lưu `Txn` trước khi chờ biên nhận, chờ xong mới gửi bước sau, ghi audit giá trị cũ
  * và mới. Lỗi giữa chừng thì dừng và trả bước đã xong, bước lỗi; lần lưu sau đọc lại chuỗi nên chỉ
  * gửi phần còn thiếu.
@@ -303,21 +298,11 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
       fixedLock = parsedLock;
     }
   }
-  let payoutWallet: string | null = null;
-  try {
-    payoutWallet = normalizeEvmAddress(parsed.data.payoutWallet);
-    if (payoutWallet.toLowerCase() === ZERO_ADDRESS) {
-      fieldErrors.payoutWallet = ['Ví nhận không được là địa chỉ 0.'];
-    }
-  } catch (error) {
-    if (!(error instanceof InvalidAddressError)) throw error;
-    fieldErrors.payoutWallet = ['Ví nhận không phải địa chỉ hợp lệ (0x + 40 ký tự hex).'];
-  }
   const target: VaultConfigTarget | null =
     mode === 'PERCENT'
-      ? percentBps === null || !payoutWallet ? null : { mode, percentBps, payoutWallet }
-      : fixedLock === null || !payoutWallet ? null : { mode, fixedLock, payoutWallet };
-  if (Object.keys(fieldErrors).length > 0 || target === null || !payoutWallet) {
+      ? percentBps === null ? null : { mode, percentBps }
+      : fixedLock === null ? null : { mode, fixedLock };
+  if (Object.keys(fieldErrors).length > 0 || target === null) {
     await audit('FAILURE', `Từ chối trước khi gửi: ${Object.values(fieldErrors).flat().join(' ')}`);
     return err('VALIDATION', 'Cấu hình khoá chưa hợp lệ.', fieldErrors);
   }
@@ -349,16 +334,6 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
     const ledger = getLedger(chain);
     const status = await ledger.vaultStatus();
     if (!status) return err('VALIDATION', `Chain "${chain}" không có vault thanh toán SPV để cấu hình.`);
-
-    if (payoutWallet.toLowerCase() === status.address.toLowerCase()) {
-      fieldErrors.payoutWallet = ['Ví nhận phải khác địa chỉ vault.'];
-    } else if (!(await ledger.isWhitelisted(payoutWallet))) {
-      fieldErrors.payoutWallet = [`Ví nhận ${payoutWallet} chưa được whitelist (chưa xác minh danh tính).`];
-    }
-    if (Object.keys(fieldErrors).length > 0) {
-      await audit('FAILURE', `Từ chối trước khi gửi: ${Object.values(fieldErrors).flat().join(' ')}`);
-      return err('VALIDATION', 'Cấu hình khoá chưa hợp lệ.', fieldErrors);
-    }
 
     const steps = planVaultConfig(status, target);
     const done: VaultConfigStepView[] = [];
@@ -404,16 +379,14 @@ export async function saveVaultConfig(input: unknown): Promise<Result<SaveVaultC
   }
 
   async function configFailure(done: VaultConfigStepView[], failedLabel: string, reason: string) {
-    const payoutChanged = done.some((step) => step.kind === 'setPayoutWallet');
     const summary =
       `Lưu cấu hình dừng ở bước "${failedLabel}": ${reason} ` +
       (done.length > 0 ? `Đã xong: ${done.map((step) => step.label).join(', ')}. ` : 'Chưa bước nào lên chuỗi. ') +
-      `Ví nhận ${payoutChanged ? 'đã' : 'chưa'} đổi. Lưu lại để gửi phần còn thiếu.`;
+      'Lưu lại để gửi phần còn thiếu.';
     await audit('FAILURE', summary);
     return err<SaveVaultConfigView>('LEDGER', summary, {
       completedSteps: done.map((step) => step.kind),
       failedStep: [failedLabel],
-      payoutChanged: [String(payoutChanged)],
     });
   }
 }

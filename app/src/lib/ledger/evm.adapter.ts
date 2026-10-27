@@ -10,6 +10,7 @@ import {
   http,
   parseEventLogs,
   toFunctionSelector,
+  TransactionNotFoundError,
   TransactionReceiptNotFoundError,
   type Abi,
   type Account,
@@ -1431,6 +1432,40 @@ export function createEvmLedger(
           return null;
         }
         return fail('vaultWithdrawalReceipt', error);
+      }
+    },
+
+    async hasPendingSignerTx() {
+      try {
+        const address = await signer.getAddress();
+        if (!address) return false;
+        const [pending, latest] = await Promise.all([
+          reader().getTransactionCount({ address, blockTag: 'pending' }),
+          reader().getTransactionCount({ address, blockTag: 'latest' }),
+        ]);
+        return pending > latest;
+      } catch (error) {
+        return fail('hasPendingSignerTx', error);
+      }
+    },
+
+    async txReceiptStatus(txHash) {
+      const hash = txHash as Hex;
+      try {
+        const receipt = await reader().getTransactionReceipt({ hash });
+        return receipt.status === 'success' ? 'CONFIRMED' : 'FAILED';
+      } catch (error) {
+        if (!(error instanceof BaseError && error.walk((e) => e instanceof TransactionReceiptNotFoundError))) {
+          return fail('txReceiptStatus', error);
+        }
+      }
+      // Chưa có biên nhận: nút còn thấy giao dịch thì đang chờ, không thấy thì đã rơi hoặc bị thay.
+      try {
+        await reader().getTransaction({ hash });
+        return 'PENDING';
+      } catch (error) {
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionNotFoundError)) return 'UNKNOWN';
+        return fail('txReceiptStatus', error);
       }
     },
 

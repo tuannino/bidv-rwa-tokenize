@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { NAV_BY_ROLE, withDemoPayment } from '@/components/layout/nav-config';
-import { ROLES } from '@/lib/rbac';
+import { HIDDEN_OPS_GROUP_LABEL, NAV_BY_ROLE, withHiddenOps } from '@/components/layout/nav-config';
+import { can, ROLES } from '@/lib/rbac';
 import { canMintDemoPayment } from '@/lib/rbac/demo-payment';
 import { CONFIG_KEYS, DEMO_PAYMENT_MINT_MAX_VND } from '@/lib/config/issue-terms';
 import { resetServerEnvCache } from '@/lib/config/env';
@@ -209,23 +209,24 @@ describe('ca 6 — mọi lần nạp và mọi lần bị chặn đều có bả
 
 describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đường dẫn bị chặn', () => {
   const SRC = path.resolve(__dirname, '../src');
-  const hrefs = (role: (typeof ROLES)[number]) =>
-    withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role)).groups.flatMap((g) =>
-      g.items.map((i) => i.href),
-    );
+  // FIX-01 C2: mục Nạp VNDB nằm trong nhóm thu gọn "Nghiệp vụ ẩn", cùng hàm ghép menu với AppLayout.
+  const menu = (role: (typeof ROLES)[number]) =>
+    withHiddenOps(NAV_BY_ROLE[role], { demoPayment: canMintDemoPayment(role), walletBinding: can(role, 'investor:whitelist') });
+  const hrefs = (role: (typeof ROLES)[number]) => menu(role).groups.flatMap((g) => g.items.map((i) => i.href));
 
   it('cờ tắt: không vai nào thấy mục Nạp VNDB', () => {
     setFlag('false');
     for (const role of ROLES) expect(hrefs(role), role).not.toContain('/demo-payment');
   });
 
-  it('cờ bật: chỉ Giao dịch viên thấy, ở nhóm Vận hành', () => {
+  it('cờ bật: chỉ Giao dịch viên thấy, ở nhóm Nghiệp vụ ẩn ngay sau nhóm Vận hành', () => {
     for (const role of ROLES) {
       expect(hrefs(role).includes('/demo-payment'), role).toBe(role === 'TELLER');
     }
-    const ops = withDemoPayment(NAV_BY_ROLE.TELLER, true).groups[0];
+    const [ops, hidden] = menu('TELLER').groups;
     expect(ops.label).toBe('Vận hành');
-    expect(ops.items.at(-1)?.href).toBe('/demo-payment');
+    expect(hidden.label).toBe(HIDDEN_OPS_GROUP_LABEL);
+    expect(hidden.items[0]?.href).toBe('/demo-payment');
   });
 
   it('menu và trang dùng ĐÚNG hàm hai lớp của nghiệp vụ; trang nằm trong khu vực vận hành', () => {
@@ -233,7 +234,7 @@ describe('ca 7 — cờ tắt thì mục menu không hiện, vào bằng đườ
     const page = readFileSync(path.join(SRC, 'app/(ops)/demo-payment/page.tsx'), 'utf8');
     expect(page).toMatch(/canMintDemoPayment\(role\) \?\s*\(?\s*<DemoPaymentPage/);
     const layout = readFileSync(path.join(SRC, 'components/layout/app-layout.tsx'), 'utf8');
-    expect(layout).toContain('withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role))');
+    expect(layout).toMatch(/withHiddenOps\(NAV_BY_ROLE\[role\], \{\s*demoPayment: canMintDemoPayment\(role\),/);
   });
 });
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
+  BadgeCheck,
   Banknote,
   ClipboardList,
   Coins,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   TrendingUp,
+  ChevronRight,
   Undo2,
   UserCheck,
   UserCog,
@@ -29,6 +31,7 @@ import { usePublicConfig } from "@/lib/config/config-context";
 import { getPendingWorkAction } from "@/app/actions/token-request";
 import {
   TELLER_NAV,
+  type NavGroup,
   type NavIconName,
   type NavItem,
   type NavSection,
@@ -58,6 +61,7 @@ const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   ArrowLeftRight,
   Receipt,
   Undo2,
+  BadgeCheck,
 };
 
 const NO_COUNTS: PendingWorkCounts = { draft: 0, approval: 0 };
@@ -129,31 +133,91 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {nav.groups.map((group, index) => (
-          <div key={group.label ?? `group-${index}`} className="space-y-0.5">
-            {group.label !== null && (
-              <div className="pt-4 pb-1.5 px-2">
-                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                  {group.label}
-                </span>
-              </div>
-            )}
+        {nav.groups.map((group, index) =>
+          group.collapsible && group.label !== null ? (
+            <CollapsibleGroup
+              key={group.label}
+              group={group}
+              index={index}
+              isActive={isActive}
+              renderItem={(item) => (
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  active={isActive(item)}
+                  pendingCount={item.pendingWork ? activePendingWork[item.pendingWork] : undefined}
+                />
+              )}
+            />
+          ) : (
+            <div key={group.label ?? `group-${index}`} className="space-y-0.5">
+              {group.label !== null && (
+                <div className="pt-4 pb-1.5 px-2">
+                  <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                    {group.label}
+                  </span>
+                </div>
+              )}
 
-            {group.items.map((item) => (
-              <NavLink
-                key={item.href}
-                item={item}
-                active={isActive(item)}
-                pendingCount={item.pendingWork ? activePendingWork[item.pendingWork] : undefined}
-              />
-            ))}
-          </div>
-        ))}
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  active={isActive(item)}
+                  pendingCount={item.pendingWork ? activePendingWork[item.pendingWork] : undefined}
+                />
+              ))}
+            </div>
+          ),
+        )}
       </nav>
 
       {/* Network status */}
       <NetworkStatus />
     </aside>
+  );
+}
+
+/**
+ * Nhóm menu thu gọn (FIX-01 C1): tiêu đề là nút có `aria-expanded`, `aria-controls`. Mặc định thu
+ * gọn; mở sẵn khi trang đang xem nằm trong nhóm. Người dùng đã bấm thì giữ lựa chọn đó.
+ */
+function CollapsibleGroup({
+  group,
+  index,
+  isActive,
+  renderItem,
+}: {
+  group: NavGroup;
+  index: number;
+  isActive: (item: NavItem) => boolean;
+  renderItem: (item: NavItem) => React.ReactNode;
+}) {
+  const containsActive = group.items.some(isActive);
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const open = toggled ?? containsActive;
+  const listId = `nav-group-${index}`;
+  return (
+    <div className="space-y-0.5">
+      <div className="pt-4 pb-1.5 px-2">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setToggled(!open)}
+          className="flex w-full items-center gap-1 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase hover:text-foreground"
+        >
+          <ChevronRight
+            className={cn("h-3 w-3 transition-transform", open && "rotate-90")}
+            aria-hidden="true"
+          />
+          {group.label}
+        </button>
+      </div>
+      <div id={listId} hidden={!open} className="space-y-0.5">
+        {group.items.map(renderItem)}
+      </div>
+    </div>
   );
 }
 

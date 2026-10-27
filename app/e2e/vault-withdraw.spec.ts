@@ -5,6 +5,9 @@ import sampleWallets from '../../packages/shared/src/sample-wallets.json';
  * BE-13 ca 15: Kiểm soát viên lưu cấu hình khoá trên `/vault` và thấy màn cập nhật; Người bán tạo
  * lệnh rút ở `/seller/withdraw` và thấy `COMPLETED`. Chạy cả project `mock` lẫn `hardhat`.
  *
+ * FIX-01: ví nhận do Người bán chọn ở lệnh rút (biểu mẫu cấu hình vault không còn ô ví nhận); bước
+ * chuẩn bị định danh ví NB001 ở màn `/wallet-binding` thay cho màn `/mint`.
+ *
  * Vault cần sẵn VNDB từ lệnh mua của tệp chạy trước (Playwright chạy tệp theo tên): `mock` có lệnh
  * mua của `ops-transactions.spec.ts`, `hardhat` có lệnh mua của `permit-order.spec.ts`. Khoá cố định
  * 1 VNDB nên phần được rút là toàn bộ số dư trừ 1, đủ cho lần rút 1 VNDB dù số dư là bao nhiêu.
@@ -20,12 +23,16 @@ async function actAs(context: BrowserContext, baseURL: string, role: 'TELLER' | 
 }
 
 test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hình', () => {
-  test('chuẩn bị: whitelist ví nhận NB001 bằng màn KYC có sẵn', async ({ page, context, baseURL }) => {
+  test('chuẩn bị: Giao dịch viên định danh và gắn ví NB001 ở màn Định danh ví', async ({ page, context, baseURL }) => {
     await actAs(context, baseURL!, 'TELLER');
-    await page.goto('/mint');
-    await page.getByLabel('Ví nhà đầu tư').fill(PAYOUT);
-    await page.getByRole('button', { name: /KYC \+ Whitelist/i }).click();
-    await expect(page.getByRole('status')).toContainText(/whitelist=true/i);
+    await page.goto('/wallet-binding');
+    const form = page.getByRole('form', { name: 'Biểu mẫu định danh ví' });
+    await form.getByLabel('Hồ sơ').selectOption('NB001');
+    await form.getByLabel('Địa chỉ ví').fill(PAYOUT);
+    await form.getByRole('button', { name: 'Định danh và gắn ví' }).click();
+    // Chạy lại trên cùng database: ví đã gắn từ trước cho đúng hồ sơ cũng là thành công.
+    await expect(page.getByLabel('Kết quả định danh ví')).toContainText(/(Đã định danh và gắn|Ví đã được gắn từ trước cho) ví .* cho hồ sơ NB001/);
+    await expect(page.getByRole('table', { name: 'Ví đã định danh' }).locator(`tr[data-wallet="${PAYOUT}"]`)).toContainText('NB001');
   });
 
   test('Kiểm soát viên lưu cấu hình, /vault cập nhật', async ({ page, context, baseURL }) => {
@@ -37,7 +44,8 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
     await form.getByRole('radiogroup', { name: 'Chế độ khoá' }).getByLabel('Khoá số cố định').check();
     await expect(form.getByLabel('Tỷ lệ khoá (%)')).toHaveCount(0);
     await form.getByLabel('Số khoá cố định (VNDB)').fill('1');
-    await form.getByLabel('Ví nhận tiền rút').fill(PAYOUT);
+    // FIX-01 H1: biểu mẫu không còn ô ví nhận.
+    await expect(form.getByLabel('Ví nhận tiền rút')).toHaveCount(0);
     await form.getByRole('button', { name: 'Lưu cấu hình khoá' }).click();
     await expect(page.getByLabel('Kết quả lưu cấu hình')).toContainText(
       /Đã lưu cấu hình lên chuỗi|Chuỗi đã đúng cấu hình này/,
@@ -46,8 +54,6 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
     // QĐ-C1: lịch sử cấu hình đọc từ sự kiện trên chuỗi có dòng đổi chế độ sang khoá cố định.
     const history = page.getByRole('table', { name: 'Lịch sử cấu hình' });
     await expect(history.locator('tbody tr[data-param="LOCK_MODE"]').first()).toContainText('Khoá số tiền cố định');
-    // UIUX-01 D3: khối trạng thái không còn hiện ví nhận; ô "Ví nhận tiền rút" của biểu mẫu giữ giá trị đã lưu.
-    await expect(form.getByLabel('Ví nhận tiền rút')).toHaveValue(PAYOUT);
   });
 
   test('vai khác chỉ xem cấu hình', async ({ page, context, baseURL }) => {
@@ -60,13 +66,15 @@ test.describe.serial('BE-13 ca 15: cấu hình khoá vault và rút qua màn hì
   test('Người bán tạo lệnh rút, thấy COMPLETED', async ({ page, context, baseURL }) => {
     await actAs(context, baseURL!, 'SELLER');
     await page.goto('/seller/withdraw');
-    await expect(page.getByLabel('Ví nhận (đặt bởi Kiểm soát viên)')).toHaveValue(PAYOUT);
     await expect(page.getByText('Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).')).toBeVisible();
+    // FIX-01 G1: Người bán chọn ví nhận ở lệnh (điền sẵn ví đang đặt trên vault nếu có).
+    await page.getByLabel('Ví nhận', { exact: true }).fill(PAYOUT);
     await page.getByLabel('Số tiền rút (VNDB)').fill('1');
     await page.getByLabel('Mục đích').fill('Rút thử e2e BE-13');
     await page.getByRole('button', { name: 'Tạo lệnh rút' }).click();
 
     const dialog = page.getByRole('dialog');
+    await expect(dialog.getByTestId('otp-payout-wallet')).toContainText(`${PAYOUT} (đã whitelist)`);
     await dialog.getByLabel('Mã một lần').fill('12345');
     await expect(dialog.getByRole('button', { name: 'Xác nhận' })).toBeDisabled();
     await dialog.getByLabel('Mã một lần').fill('123456');

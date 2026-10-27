@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetServerEnvCache } from '@/lib/config/env';
 import type { Role } from '@/lib/rbac';
-import {
-  findInvestorProfileByWallet,
-  findOwnAccountProfile,
-  getOwnAccountProfile,
-} from '@/lib/bank/account-profile.service';
+import { findOwnAccountProfile, getOwnAccountProfile } from '@/lib/bank/account-profile.service';
+import { resolveWalletOwner } from '@/lib/bank/wallet-owner';
 
 const ACTORS: Record<Role, string> = {
   INVESTOR: 'NDT001',
@@ -82,15 +79,17 @@ describe('FE-24 — nguồn hồ sơ bốn vai', () => {
     }
   });
 
+  // FIX-01 QĐ-2: một hàm chủ ví cho mọi hồ sơ khách hàng; ví người bán thuộc hồ sơ người bán, không
+  // bao giờ khớp hồ sơ nhà đầu tư.
   it('khối trước lệnh tra đúng hồ sơ bằng ví, không khớp ví người bán', async () => {
     const investor = findOwnAccountProfile('INVESTOR', ACTORS.INVESTOR);
     expect(investor?.kind).toBe('CUSTOMER');
     if (!investor || investor.kind !== 'CUSTOMER') return;
-    expect((await findInvestorProfileByWallet('mock', investor.wallet))?.actorId).toBe('NDT001');
+    expect((await resolveWalletOwner('mock', investor.wallet))?.actorId).toBe('NDT001');
 
     const seller = findOwnAccountProfile('SELLER', ACTORS.SELLER);
     expect(seller?.kind).toBe('CUSTOMER');
     if (!seller || seller.kind !== 'CUSTOMER') return;
-    expect(await findInvestorProfileByWallet('mock', seller.wallet)).toBeNull();
+    expect((await resolveWalletOwner('mock', seller.wallet))?.actorId).toBe('NB001');
   });
 });

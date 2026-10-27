@@ -172,7 +172,20 @@ export interface ILedgerVault {
    * Chain không có vault trả rỗng.
    */
   vaultConfigEvents(filter?: { fromBlock?: bigint }): Promise<VaultConfigEvent[]>;
+  /**
+   * FIX-01 QĐ-10: ví ký máy chủ còn giao dịch đang chờ vào block không (nonce `pending` lớn hơn
+   * `latest`). Còn thì chốt thất bại một bước chưa rõ kết cục là không an toàn.
+   */
+  hasPendingSignerTx(): Promise<boolean>;
+  /**
+   * FIX-01: kết cục hiện tại của `txHash`, KHÔNG chờ. `PENDING`: nút còn thấy giao dịch nhưng chưa có
+   * biên nhận; `UNKNOWN`: không thấy giao dịch nào (rơi, bị thay, mã lạ).
+   */
+  txReceiptStatus(txHash: string): Promise<TxReceiptStatus>;
 }
+
+/** Kết cục đọc ngay của một giao dịch (FIX-01), không chờ biên nhận. */
+export type TxReceiptStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'UNKNOWN';
 
 // =============================================================================
 //  1. TUÂN THỦ — whitelist/KYC, đóng băng, và kiểm tra trước khi chuyển

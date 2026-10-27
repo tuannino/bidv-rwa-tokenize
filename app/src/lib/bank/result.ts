@@ -45,6 +45,8 @@ export type ErrorCode =
   // --- Vault (BE-13) ---
   | 'VAULT_BUSY' // chain đang có thao tác vault khác giữ khoá vận hành (QĐ-D)
   | 'WITHDRAW_STATE' // lệnh rút không ở trạng thái cho phép thao tác, hoặc mã chống trùng khác nội dung
+  // --- Ví của phiên (FIX-01) ---
+  | 'WALLET_NOT_BOUND' // ví đang dùng chưa được ngân hàng gắn cho hồ sơ của phiên
   | 'UNKNOWN';
 
 export type Result<T> =
@@ -99,6 +101,8 @@ export const httpStatusFor: Record<ErrorCode, number> = {
   /** BE-13: thử lại sau khi thao tác đang giữ khoá kết thúc; dữ liệu vào không sai. */
   VAULT_BUSY: 409,
   WITHDRAW_STATE: 409,
+  /** FIX-01: ví không thuộc hồ sơ của phiên; như thiếu quyền trên chính dữ liệu đó. */
+  WALLET_NOT_BOUND: 403,
 
   UNKNOWN: 500,
 };

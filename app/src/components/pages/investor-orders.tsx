@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { listOrdersAction } from '@/app/actions/purchase';
+import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount, formatDateTime } from '@/lib/format';
 import type { OrderView } from '@/lib/bank/purchase.service';
@@ -55,7 +56,13 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
     column: 'createdAt',
     direction: 'desc',
   });
-  const [loaded, setLoaded] = useState<{ key: string; rows: OrderView[] | null; error: string | null } | null>(null);
+  // FIX-01 E6: kết quả giữ khoá của lần gọi (chain, ví, bộ lọc); khoá khác hiện tại thì bỏ.
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    rows: OrderView[] | null;
+    error: string | null;
+    notBound: boolean;
+  } | null>(null);
 
   const query = wallet ? orderQueryOf(chain, wallet, filters) : null;
   const requestKey = query ? JSON.stringify(query) : null;
@@ -66,8 +73,8 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: requestKey, rows: result.data, error: null }
-          : { key: requestKey, rows: null, error: result.error },
+          ? { key: requestKey, rows: result.data, error: null, notBound: false }
+          : { key: requestKey, rows: null, error: result.error, notBound: result.code === 'WALLET_NOT_BOUND' },
       );
     });
     return () => {
@@ -145,6 +152,8 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Đang tải lệnh…
             </p>
+          ) : fresh.notBound ? (
+            <WalletNotBoundNotice wallet={wallet} />
           ) : fresh.error ? (
             <p className="text-sm text-destructive">{fresh.error}</p>
           ) : rows && rows.length === 0 ? (

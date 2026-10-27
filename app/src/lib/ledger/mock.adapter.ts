@@ -1074,6 +1074,15 @@ export function createMockLedger(
     },
 
     /** Mọi giao dịch mock đều thành công; mã chưa từng cấp (lớn hơn bộ đếm) là chưa có biên nhận. */
+    // Mock xác nhận giao dịch ngay khi gửi: không có giao dịch chờ, mọi mã đều đã có kết cục.
+    async hasPendingSignerTx() {
+      return false;
+    },
+
+    async txReceiptStatus() {
+      return 'CONFIRMED' as const;
+    },
+
     async vaultWithdrawalReceipt(txHash) {
       if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return null;
       return read('vaultWithdrawalReceipt', (s) => {

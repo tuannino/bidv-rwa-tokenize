@@ -1,16 +1,13 @@
 'use server';
 
-import { getProfileWallet, linkProfileWallet } from '@/lib/bank/account-profile.service';
+import { getAccountWallet } from '@/lib/bank/account-profile.service';
 
 /**
- * Ví liên kết vào hồ sơ (OP-05 QĐ-I): vỏ mỏng quanh service. Kiểm quyền, lấy hồ sơ từ phiên và ghi
- * sổ kiểm toán nằm TRONG service, vì server action gọi được bằng POST trực tiếp.
+ * Ví thanh toán trên màn tài khoản (FIX-01 F3): vỏ mỏng quanh service. Kiểm quyền và lấy hồ sơ từ
+ * phiên nằm TRONG service, vì server action gọi được bằng POST trực tiếp. Không còn action ghi ví:
+ * chỉ Giao dịch viên gắn ví cho hồ sơ (`actions/wallet-binding.ts`).
  */
 
-export async function getProfileWalletAction(input: unknown) {
-  return getProfileWallet(input);
-}
-
-export async function linkProfileWalletAction(input: unknown) {
-  return linkProfileWallet(input);
+export async function getAccountWalletAction(input: unknown) {
+  return getAccountWallet(input);
 }

@@ -27,6 +27,7 @@ import {
   type TradePreviewState,
 } from '@/components/trading/gates';
 import { MOCK_VAULT_ADDRESS } from '@bidv/shared';
+import { bindWalletForTest } from './helpers/wallet-binding';
 
 /**
  * FE-25: màn Giao dịch token và Quản lý lệnh của Nhà đầu tư.
@@ -84,7 +85,10 @@ async function context(wallet = ALICE) {
   const result = await getTradeContext({ chain: CHAIN, wallet });
   expect(result.ok, result.ok ? '' : result.error).toBe(true);
   if (!result.ok) throw new Error(result.error);
-  return result.data;
+  // FIX-01: ví chưa gắn không có số dư; các ca ở đây đều dùng ví đã gắn.
+  const { balances } = result.data;
+  if (!balances) throw new Error('Ví chưa được định danh');
+  return { ...result.data, balances };
 }
 
 async function preview(wptAmount: string, side: 'BUY' | 'SELL' = 'BUY', wallet = ALICE) {
@@ -209,9 +213,16 @@ describe('ca 3: một điều kiện trước lệnh không đạt thì nút xá
     expect(confirmBlockReason('2', 'BUY', ctx.caps, asState(data))).toMatch(/Chưa đạt điều kiện: .*Ví/);
   });
 
-  it('ví chưa định danh: điều kiện Định danh trượt', async () => {
+  it('ví chưa định danh: không xác nhận được lệnh', async () => {
     await seed(1_000n, 10n * PRICE, []);
     seedMockLedger({ paymentBalances: { [BOB]: 10n * PRICE }, paymentAllowances: { [BOB]: 10n * PRICE } });
+    // FIX-01 D2: ví chưa được ngân hàng gắn cho hồ sơ phiên bị chặn trước khối kiểm tra.
+    const { previewTrade } = await trade();
+    const result = await previewTrade({ chain: CHAIN, investorWallet: BOB, wptAmount: '1', side: 'BUY' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('WALLET_NOT_BOUND');
+    // Ví đã gắn nhưng chưa whitelist trên chuỗi: điều kiện Định danh trượt như trước.
+    await bindWalletForTest(CHAIN, BOB, 'NDT001');
     const data = await preview('1', 'BUY', BOB);
     expect(data.conditions.find((c) => c.key === 'identity')?.passed).toBe(false);
     expect(data.canConfirm).toBe(false);
@@ -361,6 +372,8 @@ describe('ca 6: bộ lọc hoạt động theo từng tiêu chí; mọi cột s�
 
 describe('ca 7: nhà đầu tư không thấy lệnh của ví khác', () => {
   it('danh sách và màn chi tiết đều không lộ lệnh của BOB cho ALICE', async () => {
+    // FIX-01: BOB là ví thứ hai ngân hàng gắn cho cùng hồ sơ để đặt được lệnh; danh sách vẫn lọc theo ví.
+    await bindWalletForTest(CHAIN, BOB, 'NDT001');
     await seed(1_000n, 10n * PRICE, [ALICE, BOB]);
     await place('1', 'BUY', ALICE);
     const bobOrder = await place('2', 'BUY', BOB);

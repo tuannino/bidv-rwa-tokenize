@@ -1,9 +1,10 @@
+import { can } from "@/lib/rbac";
 import { canMintDemoPayment } from "@/lib/rbac/demo-payment";
 import { currentRole } from "@/lib/rbac/session";
 import { pendingWorkCounts } from "@/lib/nav/pending-work";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
-import { NAV_BY_ROLE, withDemoPayment } from "./nav-config";
+import { NAV_BY_ROLE, withHiddenOps } from "./nav-config";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -30,7 +31,10 @@ export async function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
-        nav={withDemoPayment(NAV_BY_ROLE[role], canMintDemoPayment(role))}
+        nav={withHiddenOps(NAV_BY_ROLE[role], {
+          demoPayment: canMintDemoPayment(role),
+          walletBinding: can(role, "investor:whitelist"),
+        })}
         pendingWork={pendingWork}
       />
       <div className="flex flex-1 flex-col overflow-hidden">

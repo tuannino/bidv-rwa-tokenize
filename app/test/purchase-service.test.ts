@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
 import type { ILedgerPort, SettlementOrder, TxResult } from '@/lib/ledger/ledger.port';
 import { settlementOrder } from './helpers/settlement-order';
+import { bindWalletForTest } from './helpers/wallet-binding';
 
 /**
  * Nghiệp vụ lệnh mua WPT — chín ca ở `tasks.md` bước 7.
@@ -404,6 +405,8 @@ describe('placeOrder', () => {
   it('hai ví được dùng cùng mã yêu cầu mà không va chạm', async () => {
     await seedReadyToBuy();
     await fundInvestor(BOB);
+    // FIX-01: ví thứ hai phải được ngân hàng gắn cho hồ sơ phiên mới đặt được lệnh.
+    await bindWalletForTest(CHAIN, BOB, 'NDT001');
     const clientRequestId = crypto.randomUUID();
     const [alice, bob] = await Promise.all([
       placeOrderService({

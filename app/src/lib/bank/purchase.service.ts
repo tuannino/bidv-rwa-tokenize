@@ -10,6 +10,7 @@ import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
 import type { OrderPermit } from '@/lib/store/order.store.port';
 import { readOrderPermitWindow } from '@/lib/store/config-values';
 import { authorize, toResult } from './authorize';
+import { assertSessionWallet } from './wallet-owner';
 import { err, ok, type ErrorCode, type Result } from './result';
 import {
   executeOrderSchema,
@@ -181,7 +182,10 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
   const { chain, investorWallet, wptAmount, side } = parsed.data;
 
   try {
-    assertCan(await currentRole(), 'order:place');
+    const role = await currentRole();
+    assertCan(role, 'order:place');
+    // FIX-01 D2: không ghi sổ, giữ đúng chủ đích dùng `assertCan` ở trên.
+    await assertSessionWallet({ role, chain, wallet: investorWallet });
     const blocked = await recallTradeBlock(chain);
     if (blocked) return err('REQUEST_STATE', blocked);
 
@@ -242,6 +246,8 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
   try {
     // `authorize` ghi audit cho CẢ hai kết cục (ALLOWED và DENIED) rồi mới ném — R1.4.
     const role = await authorize('order:place', investorWallet, chain);
+    // FIX-01 D2: ví phải thuộc hồ sơ phiên, kiểm XONG trước mọi phép đọc khác; không tạo lệnh.
+    await assertSessionWallet({ role, chain, wallet: investorWallet, audit: { action: 'order:place' } });
     const orderStore = getOrderStore();
     const ledger = getLedger(chain);
 
@@ -486,7 +492,10 @@ export async function preparePermit(input: unknown): Promise<Result<PermitPrepar
   const { chain, investorWallet, wptAmount, side } = parsed.data;
 
   try {
-    assertCan(await currentRole(), 'order:place');
+    const role = await currentRole();
+    assertCan(role, 'order:place');
+    // FIX-01 D2: trước cả lỗi cấu hình chain, không ghi sổ (như `previewPurchase`).
+    await assertSessionWallet({ role, chain, wallet: investorWallet });
     if (!isPermitChain(chain)) {
       return err('VALIDATION', `Chain "${chain}" không dùng chữ ký ủy quyền; đặt lệnh không cần ký.`);
     }
@@ -1732,11 +1741,9 @@ async function bankAddressOrNull(chain: ChainKey): Promise<string | null> {
  *   - Vai không có (nhà đầu tư): `investorWallet` là BẮT BUỘC, và kết quả chỉ chứa lệnh
  *     của đúng ví đó.
  *
- * ⚠️ GIỚI HẠN ĐÃ BIẾT — giống `portfolio.service.ts`: chưa có SIWE (AU-01) nên server KHÔNG
- * biết ví nào thuộc phiên đăng nhập; ví chỉ tồn tại ở client qua wagmi. Vì vậy hàm này bảo
- * đảm được "danh sách trả về không lẫn lệnh của ví khác", nhưng KHÔNG chặn được một nhà
- * đầu tư chủ động truyền ví của người khác vào. Ràng buộc ví ↔ phiên là việc của AU-01;
- * đã ghi thành câu hỏi mở trong checkpoint.
+ * FIX-01 D2, QĐ-11: vai không xem toàn hệ phải truyền CẢ chain và ví, và ví phải được ngân hàng
+ * gắn cho hồ sơ phiên trên CHÍNH chain đó (`assertSessionWallet`); truy vấn dùng đúng chain đã kiểm.
+ * Vẫn chưa có chữ ký chứng minh sở hữu ví (AU-01): ví đã gắn cho hồ sơ là đủ.
  *
  * BE-14: lọc thêm theo chiều, mã lệnh và khoảng ngày tạo (gồm cả hai đầu, theo giờ Việt Nam).
  * Người bán có `order:read:all` như hai vai vận hành, nên xem được toàn bộ sổ lệnh.
@@ -1763,6 +1770,14 @@ export async function listOrders(input: unknown): Promise<Result<OrderView[]>> {
         'Thiếu địa chỉ ví. Vai này chỉ xem được lệnh của một ví cụ thể.',
         { investorWallet: ['Bắt buộc với vai không có quyền xem toàn bộ lệnh.'] },
       );
+    }
+    if (!seesEveryOrder && !chain) {
+      return err('VALIDATION', 'Thiếu chain. Vai này chỉ xem được lệnh của một ví trên một chain.', {
+        chain: ['Bắt buộc với vai không có quyền xem toàn bộ lệnh.'],
+      });
+    }
+    if (!seesEveryOrder && chain && investorWallet) {
+      await assertSessionWallet({ role, chain, wallet: investorWallet, audit: { action: 'order:read' } });
     }
 
     // Lọc theo ví ĐI CÙNG mọi bộ lọc khác, kể cả lọc theo mã lệnh: nhà đầu tư dò đúng mã lệnh

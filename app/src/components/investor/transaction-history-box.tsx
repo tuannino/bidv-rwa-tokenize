@@ -18,6 +18,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getWalletTransactionsAction } from '@/app/actions/portfolio';
 import type { TxnView } from '@/lib/bank/mint.service';
 import { OnChainBadge } from './mock-badge';
+import { WalletNotBoundNotice } from './wallet-not-bound-notice';
 import { operationLabel } from '@/lib/txn-labels';
 
 /**
@@ -38,6 +39,8 @@ export function TransactionHistoryBox() {
     key: string;
     rows: TxnView[];
     error: string | null;
+    /** FIX-01 E1: máy chủ trả `WALLET_NOT_BOUND`, không có giao dịch của ví này. */
+    notBound: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -49,8 +52,8 @@ export function TransactionHistoryBox() {
       if (cancelled) return;
       setLoaded(
         result.ok
-          ? { key: requestKey, rows: result.data, error: null }
-          : { key: requestKey, rows: [], error: result.error },
+          ? { key: requestKey, rows: result.data, error: null, notBound: false }
+          : { key: requestKey, rows: [], error: result.error, notBound: result.code === 'WALLET_NOT_BOUND' },
       );
     });
 
@@ -87,6 +90,8 @@ export function TransactionHistoryBox() {
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Đang tải…
           </div>
+        ) : fresh?.notBound ? (
+          <WalletNotBoundNotice wallet={address} />
         ) : error ? (
           <p className="py-6 text-sm text-destructive">{error}</p>
         ) : rows.length === 0 ? (

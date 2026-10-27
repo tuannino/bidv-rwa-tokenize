@@ -404,6 +404,8 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "burnSentAt" TIMESTAMPTZ(3)`,
   `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "failedAt" TIMESTAMPTZ(3)`,
   `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "reason" TEXT`,
+  // FIX-01 G6c: mã giao dịch đặt ví nhận của lệnh rút. Lệnh có trước FIX-01 để trống.
+  `ALTER TABLE IF EXISTS "WithdrawRequest" ADD COLUMN IF NOT EXISTS "payoutTxHash" TEXT`,
 ];
 
 /**

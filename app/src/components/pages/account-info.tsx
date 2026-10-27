@@ -8,7 +8,7 @@ import type {
   RiskRating,
 } from '@/lib/bank/account-profile.service';
 import { ROLE_LABELS } from '@/lib/role-labels';
-import { PaymentWalletValue } from './profile-wallet';
+import { PaymentWalletValue } from './account-wallet';
 
 const IDENTITY_LABELS: Record<IdentityStatus, string> = {
   APPROVED: 'Đã xác minh',
@@ -84,7 +84,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
                   {IDENTITY_LABELS[customer.identityStatus]}
                 </Badge>
               </Field>
-              {/* UIUX-01 F1: ví hiệu lực trên chain đang chọn, đọc ở máy khách qua ProfileWalletProvider. */}
+              {/* FIX-01 F2: ví thanh toán và trạng thái định danh trên chain đang chọn, đọc qua AccountWalletProvider. */}
               <Field label="Ví thanh toán" wide>
                 <PaymentWalletValue />
               </Field>
