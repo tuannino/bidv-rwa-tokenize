@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/fix-01-vi-ket-noi` @ `9d87e22` (FIX-01, từ `dev` @ `c9163d5`), ngày 27/10/2026 |
+| Chốt tại | nhánh `feat/fe-23-rut-vndb` @ `017ec56` (FE-23, từ `dev` @ `a7151b8`), ngày 28/10/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -149,7 +149,12 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 
 | Quyết định | Nội dung | Nguồn | Trạng thái |
 |---|---|---|---|
-| Nhà đầu tư rút VNDB | Hoàn tất ngay, không mã một lần, không qua Giao dịch viên hay Kiểm soát viên | URD, CH-3 BE-13 | Chưa làm (FE-23) |
+| Nhà đầu tư rút VNDB | Hoàn tất ngay, không mã một lần, không qua Giao dịch viên hay Kiểm soát viên | URD, CH-3 BE-13 | Thay bởi các dòng FE-23 dưới đây |
+| Rút VNDB ra ví ngoài | Nhà đầu tư chuyển VNDB từ ví đã định danh của mình sang một ví nhận đã whitelist (không bắt buộc gắn cho hồ sơ nào; khác ví gửi; không là địa chỉ hệ thống). Xác nhận bằng mã một lần sáu chữ số, không qua Giao dịch viên hay Kiểm soát viên. Rút về tài khoản ngân hàng chưa làm | FE-23 QĐ-2, QĐ-7, chốt 28/10 | Đã chạy |
+| Ví của Nhà đầu tư ký | VNDB nằm trong ví của Nhà đầu tư nên máy chủ không chuyển được: máy chủ lập lệnh và trả giao dịch cần gửi đúng một lần, ví trình duyệt ký và gửi, Nhà đầu tư trả phí gas. Chain mock không có ví: máy chủ chuyển thay | FE-23 QĐ-1, QĐ-4, QĐ-13 | Đã chạy |
+| Bằng chứng hoàn tất | Máy chủ không tin mã trình duyệt báo: chỉ chốt "Hoàn tất" khi trên chuỗi có giao dịch do ví gửi gửi, dữ liệu gọi mang nhãn của lệnh (32 byte nối sau `transfer`), và có log `Transfer` của VNDB đúng ví gửi, ví nhận, số lượng. Mất mã thì đối soát tìm theo nhãn; lệnh huỷ, hết hạn, thất bại trong 24 giờ được quét lại | FE-23 QĐ-9 tới QĐ-12 | Đã chạy |
+| Hạn mức ngày khi rút | `dailyTransactionLimitVnd` của hồ sơ chưa áp cho lệnh rút | FE-23 mục 3 | Nợ kỹ thuật |
+| Ví Fireblocks thay ví trình duyệt | Trao đổi sau | FE-23 mục 3 | Nợ kỹ thuật |
 | Thu hồi WPT khi dự án hết hạn (PoC) | Kiểm soát viên mở đợt, đặt ngày hết hạn và số ngày báo trước; tới hạn thì máy chủ chặn lệnh mới/Mint, sau ngày thu hồi có thể `pause` ProjectToken và agent đốt WPT ngoài vault theo lô 10. PoC không trả tiền trên chuỗi | BE-05, FE-10 | Đã có màn `/recall`; Giao dịch viên chỉ xem |
 | Mở đóng băng | Chỉ được `unpause` trước khi giao dịch đốt đầu tiên được gửi; sau đó việc thu hồi không đảo ngược | BE-05 QĐ-R14, FE-10 | Đã có hộp xác nhận trên `/recall` |
 | Tất toán đầy đủ (mua lại theo NAV) | Trả VNDB theo NAV và hợp đồng tất toán riêng | SC-04 | Chưa làm |
@@ -207,7 +212,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/orders` | Quản lý lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; tối đa 200 lệnh, không phân trang | 1 | Không | |
 | `/orders/[id]` | Chi tiết lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; nhật ký chỉ quét 500 dòng gần nhất | 1 | Không | |
 | `/tokens/[symbol]` | Chi tiết token dự án | Nhà đầu tư | Danh mục | M H S | Một phần: chỉ WPT có số thật, hai dự án khác là mẫu | 0 hoặc 1 | Không | |
-| `/withdraw` | Rút VNDB | Nhà đầu tư | Rút VNDB | | Chỗ trống | 0 | | FE-23 |
+| `/withdraw` | Rút VNDB | Nhà đầu tư | Rút VNDB ra ví nhận đã whitelist | M H S | Dùng được (FE-23); ví của Nhà đầu tư ký, trả gas | 1 | Có (ví Nhà đầu tư gửi; mock: máy chủ chuyển thay) | Hạn mức ngày, rút về tài khoản ngân hàng, ví Fireblocks (nợ) |
 | `/seller` | Tổng quan Người bán | Người bán | Tổng quan, vault | M H S | Một phần: hai ô "bán" gắn cứng dấu gạch | 1 | Không | |
 | `/seller/transactions` | Danh sách giao dịch | Người bán | Sổ giao dịch | M H S | Dùng được; lọc trong bộ nhớ trên 500 dòng gần nhất | 1 | Không | |
 | `/seller/withdraw` | Tạo lệnh rút | Người bán | Rút tiền SPV | M H S | Dùng được (cần Kiểm soát viên cấu hình khoá trước); Người bán chọn ví nhận (FIX-01) | 2 | Có (đặt ví nhận, rút) | AU-01 (mã một lần thật) |
@@ -241,7 +246,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | Mua bán token | `/trade`, `/orders`, `/transactions` | Có | Nút cho lệnh EXECUTING mất mã; quét lệnh kẹt tự động |
 | Cấu hình vault, Người bán rút | `/vault`, `/seller/withdraw` | Có | Mã một lần thật |
 | Chia lợi nhuận | `/distribution` | Có | Màn của Nhà đầu tư (FE-09); tự phát hiện tiền vào (IN-02) |
-| Nhà đầu tư rút VNDB | `/withdraw` | Chưa | FE-23 |
+| Nhà đầu tư rút VNDB | `/withdraw` | Có (cần ví trình duyệt có ETH trả gas) | Rút về tài khoản ngân hàng, hạn mức ngày |
 | Thu hồi khi hết hạn | `/recall`, `/portfolio`, `/trade` | Hardhat local đã đạt; chưa diễn tập Sepolia | SC-04 cho trả tiền theo NAV |
 | Tổng quan, báo cáo | `/`, `/portfolio`, `/assets`, `/reconciliation` | Một phần | Số liệu thật thay dữ liệu mẫu |
 
@@ -517,25 +522,37 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 #### 3.1.6. `/withdraw` Rút VNDB
 
-- **Vai:** INVESTOR (vẫn qua cổng `portfolio:read`). Menu "Rút VNDB", phím tắt R.
-- **Chain:** không phụ thuộc chain, vì không đọc dữ liệu gì.
-- **Trạng thái:** Chỗ trống (chưa làm). Marker `// @pending FE-23 | ... nghiệp vụ rút chưa có ở tầng backend` (`app/(investor)/withdraw/page.tsx:4`).
-- **Nghiệp vụ:** Rút VNDB (nhà đầu tư chuyển VNDB trong ví về tài khoản ngân hàng).
-- **Action khi mở:** 0 action. Khi người dùng thao tác: 0 action.
+- **Vai:** INVESTOR (cổng `portfolio:read` của khu vực; tạo lệnh cần `payment:withdraw`, chỉ INVESTOR). Menu "Rút VNDB", phím tắt R.
+- **Chain:**
+  - mock: ví gửi là ví mẫu của hồ sơ; không có ví trình duyệt nên máy chủ chuyển thay (`mockTransferPayment`), lệnh về "Hoàn tất" ngay sau khi xác nhận.
+  - hardhat-local, evm: ví gửi là ví đang kết nối; ví ký và gửi `transfer` của VNDB, Nhà đầu tư trả gas bằng ETH của mạng. Chưa kết nối ví thì màn mời kết nối, liên kết tới `/wallet`.
+  - stellar: chưa có (`LedgerNotImplementedError`).
+- **Trạng thái:** Dùng được (FE-23).
+- **Nghiệp vụ:** Rút VNDB từ ví đã định danh sang ví nhận đã whitelist.
+- **Action khi mở:** 1 action `getPaymentWithdrawPageAction({chain, wallet})`: `assertCan` (không ghi sổ mỗi lần mở), chốt chặn ví của phiên, đối soát lệnh đang dở của ví và tối đa 5 lệnh cuối âm đã từng gửi trong 24 giờ, đọc số dư VNDB (`paymentBalanceOf`), 50 lệnh gần nhất của ví trên chain. Kết quả giữ kèm khoá `chain|ví`.
+- **Action khi thao tác:**
+  - "Tạo lệnh rút": `checkPaymentWithdrawTargetAction` (kiểm ví nhận, không ghi sổ), đạt thì mở hộp mã một lần.
+  - "Xác nhận": `createPaymentWithdrawAction` (A1) rồi ngay `beginPaymentSendAction` (A8); chain khác mock: ví gửi giao dịch rồi `submitPaymentWithdrawTxAction` (A2); từ chối ký (4001) thì `cancelPaymentWithdrawAction` với `walletRejected`.
+  - Dòng "Chờ gửi": "Gửi từ ví" (A8), "Huỷ" (A3). Dòng "Chờ ký trong ví": chỉ "Huỷ".
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Rút VNDB + huy hiệu "chờ FE-23" | Tiêu đề, task sẽ thay trang | Props cố định truyền vào `PlaceholderPage` | Chỉ hiển thị |
-| Nhà đầu tư chuyển VNDB trong ví về tài khoản ngân hàng của mình. | Mục đích màn | Văn bản cố định | Chỉ hiển thị |
-| Màn hình chưa dựng | Thông báo chỗ trống | `components/pages/placeholder.tsx` | Chỉ hiển thị |
-| Đã sẵn (2 dòng) | Đường dẫn, cổng quyền, `useWalletStatus().canSign` | Văn bản cố định | Chỉ hiển thị |
-| Lưu ý (2 dòng) | Backend chưa có service và quyền; mã FE-23 do FE-20 đặt trước | Văn bản cố định | Chỉ hiển thị |
+| Số tiền rút (VNDB) | Số nguyên VNDB, ô tự thêm dấu chấm hàng nghìn | Người dùng nhập; máy chủ kiểm `^\d+$`, lớn hơn 0, không vượt số dư | Vượt số dư thì hiện "Vượt số dư: chỉ rút được tối đa X VNDB." và khoá nút |
+| Mạng | Chỉ đọc | Nhãn chain | |
+| Ví gửi + nhãn "Đã định danh" | Chỉ đọc | Mock: ví mẫu (`ownMockWallet`); chain khác: ví wagmi | Ví chưa gắn cho hồ sơ: cả màn thay bằng "Ví chưa được định danh" |
+| Ví nhận | Ô nhập địa chỉ | Người dùng nhập. Máy chủ kiểm: đúng dạng, khác 0, không là ví mẫu công khai trên chain thật, khác ví gửi, không là địa chỉ hệ thống (mọi hợp đồng trong sổ địa chỉ, vault, quỹ chia lợi nhuận, ví SPV), đã whitelist | Không bắt buộc gắn cho hồ sơ nào |
+| Mục đích, Ghi chú | Bắt buộc tối đa 200 ký tự; tuỳ chọn tối đa 500 | `PaymentWithdrawRequest.purpose`, `note` | |
+| Hộp "Xác nhận mã một lần" | 6 chữ số; dòng "Ví nhận: <ví> (đã whitelist)" | Chỉ kiểm dạng; mã không lưu, không vào log, sổ kiểm toán hay câu lỗi | |
+| Dòng kết quả | "Đã rút X VNDB tới ví ..."; "Đã gửi, chờ xác nhận trên chuỗi; mở lại màn sau ít phút."; câu lỗi | Kết quả action | |
+| **Khối Hệ thống tính** | Số dư VNDB, Số rút, Số dư sau rút; "Phí gas do ví của bạn trả bằng ETH của mạng." (ẩn trên mock) | `paymentBalanceOf` lúc mở màn | Ảnh chụp lúc mở; máy chủ đọc lại khi tạo và khi gửi |
+| **Bảng Lệnh rút của tôi** | Mã, Thời điểm, Số tiền, Ví nhận, Trạng thái, Mã giao dịch (`completedTxHash` hoặc `submittedTxHash`, link explorer trên evm), Lý do, Thao tác | Bảng `PaymentWithdrawRequest` lọc theo chain và ví gửi | |
 
-
-**Lệch** (tra mã ở Phụ lục C)
-
-- **L-48.** `app/actions/withdraw.ts` và `lib/bank/withdraw.service.ts` đã có, nhưng đó là luồng rút vault SPV của **Người bán**, dùng quyền `vault:withdraw` chỉ cấp cho SELLER (`lib/rbac/permissions.ts:213-214` và `:283-291`). Màn này không dùng chúng. Câu "chưa có quyền RBAC" là đúng với vai INVESTOR.
-- **L-49.** Câu lưu ý "Khác với ba màn kia" (`app/(investor)/withdraw/page.tsx:17`) là văn bản từ lúc dựng khung; ba màn kia nay đã có phần thân.
+**Luồng** (`lib/bank/payment-withdraw.service.ts`):
+1. A1 tạo lệnh: `authorize('payment:withdraw')`; dạng mã một lần và số tiền; chốt chặn ví gửi; ví nhận; chống trùng `clientRequestId` theo ví (cùng nội dung trả lệnh cũ, KHÔNG kèm giao dịch); mỗi ví mỗi chain một lệnh đang dở; whitelist ví nhận và số dư đọc ngay trên chuỗi; ghi lệnh "Chờ gửi" kèm khối mới nhất. Mọi kết cục từ bước ví nhận trở đi ghi sổ `payment:withdraw`. A1 không chuyển tiền.
+2. A8 bắt đầu gửi: đọc lại whitelist và số dư (không đạt thì huỷ); chuyển "Chờ ký trong ví" bằng câu có điều kiện, chỉ lần chuyển thành công mới trả giao dịch: `to` là VNDB, `data` là `transfer(ví nhận, số)` nối 32 byte nhãn lệnh. Lần gọi sau: "Lệnh đã được gửi tới ví; chờ kết quả hoặc huỷ.".
+3. A2 báo mã: người gửi khác ví gửi thì từ chối; nút chưa thấy giao dịch vẫn nhận ("Đã gửi, chờ xác nhận"), rồi đối soát ngay.
+4. Đối soát: lệnh "Chờ ký trong ví" luôn quét theo nhãn, quá 30 phút không thấy thì "Hết hạn"; lệnh "Đã gửi" đọc biên nhận ngay, khớp bằng chứng thì "Hoàn tất", thất bại hoặc không khớp (hoặc chuỗi không biết mã quá 30 phút) thì quét theo nhãn trước rồi mới "Thất bại"; lệnh huỷ, hết hạn, thất bại trong 24 giờ được quét lại.
+5. A3 huỷ: từ "Chờ gửi" huỷ ngay; từ "Chờ ký trong ví" quét theo nhãn trước, thấy thì "Hoàn tất".
 
 
 ### 3.2. Người bán
@@ -1641,6 +1658,18 @@ Khoá vận hành vault (`VaultOperationLock.kind`): CONFIG (một lần lưu c�
 
 Chế độ khoá của vault: UNSET (khoá toàn bộ), FIXED (khoá một số cố định), PERCENT (khoá theo tỷ lệ, phần vạn). Chi tiết cách tính ở mục 1.7.
 
+### A.3b. Lệnh rút VNDB của Nhà đầu tư (`PaymentWithdrawRequest.status`, `lib/store/payment-withdraw.store.port.ts`, FE-23)
+
+| Mã | Nhãn | Nghĩa | Kết thúc |
+|---|---|---|---|
+| CREATED | Chờ gửi | Máy chủ đã kiểm và tạo lệnh, chưa trả giao dịch | Không |
+| SENDING | Chờ ký trong ví | Đã trả giao dịch cho ví (đúng một lần) | Không (quá 30 phút không thấy giao dịch thì Hết hạn) |
+| SUBMITTED | Đã gửi, chờ xác nhận | Trình duyệt đã báo mã | Không |
+| COMPLETED | Hoàn tất | Có bằng chứng trên chuỗi, mã lưu ở `completedTxHash` | Có |
+| FAILED | Thất bại | Giao dịch thất bại hoặc không khớp, quét theo nhãn không thấy | Có (quét lại 24 giờ) |
+| CANCELLED | Đã huỷ | Nhà đầu tư huỷ, hoặc trình duyệt báo từ chối ký | Có (quét lại 24 giờ nếu đã từng gửi) |
+| EXPIRED | Hết hạn | Quá 30 phút từ lúc gửi tới ví, không thấy giao dịch | Có (quét lại 24 giờ) |
+
 ### A.4. Chia lợi nhuận (`lib/store/distribution.store.port.ts`)
 
 **Kỳ chia** (`DistributionPeriod.status`, dòng 36):
@@ -1780,8 +1809,6 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. |
 | L-46 | `/tokens/[symbol]` | Trang tra dự án trong `MOCK_PROJECTS` viết cứng (`app/(investor)/tokens/[symbol]/page.tsx:22`), không tra bảng `Project` mà /trade dùng. |
 | L-47 | `/tokens/[symbol]` | Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:180-196`) mà không báo là đang tải hay đã lỗi. |
-| L-48 | `/withdraw` | `app/actions/withdraw.ts` và `lib/bank/withdraw.service.ts` đã có, nhưng đó là luồng rút vault SPV của Người bán, dùng quyền `vault:withdraw` chỉ cấp cho SELLER (`lib/rbac/permissions.ts:213-214` và `:283-291`). |
-| L-49 | `/withdraw` | Câu lưu ý "Khác với ba màn kia" (`app/(investor)/withdraw/page.tsx:17`) là văn bản từ lúc dựng khung; ba màn kia nay đã có phần thân. |
 | L-50 | `/seller` | Bảng Tồn kho lặp một dòng cho mỗi `Project`, nhưng mọi dòng đọc chung một `tokenInfo()` và `balanceOf` của chain. |
 | L-51 | `/seller` | Định nghĩa "Chưa phân phối" ghi "ví thanh toán của Người bán", thực chất là số dư WPT của vault SPV. |
 | L-52 | `/seller` | `payoutWallet` và `withdrawalsPaused` có trong dữ liệu trả về nhưng màn này không hiển thị. |
@@ -1832,3 +1859,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 24/10/2026 | `feat/in-01-indexer` | Codex | IN-01: thêm Indexer làm nguồn lịch sử vault và danh sách ví WPT; ghi giới hạn reorg sâu và thời gian bắt kịp lần đầu ở L-92, L-93 |
 | 26/10/2026 | `ea9fe5f` | Dev (Claude) | UIUX-01: ô số có dấu chấm hàng nghìn (`/draft`, `/mint`, `/vault`, `/seller/withdraw`); thẻ Lịch sử phê duyệt, cột Chain, câu từ chối có vai ở bảng yêu cầu; cấu hình vault theo một chế độ và câu hiệu lực; khối Trạng thái hiện tại của `/vault` còn 11 trường, có Ngày cấu hình có hiệu lực; "Ví thanh toán" ở `/account` theo chain; nhãn "Địa chỉ vault" ở `/seller`; nhãn bản thử ở menu, `/demo-payment`, `/recall` và tài liệu này thống nhất là "PoC". Sửa phần ví mẫu của L-10, bỏ L-82 (trường "Kỳ gần nhất" không còn trên màn). Sửa Phần 1 mục 1.5, 1.7, 1.9; Phần 2; Phần 3 mục 3.2.1, 3.2.3, 3.3.2, 3.4.2, 3.4.3, 3.4.7, 3.5.1; Phụ lục B, C |
 | 27/10/2026 | `9d87e22` | Dev (Claude) | FIX-01: định danh ví do ngân hàng làm ở màn mới `/wallet-binding` (mục 3.4.9, nhóm menu thu gọn "Nghiệp vụ ẩn" cùng "Nạp VNDB"); bảng `WalletBinding` thay `ProfileWallet`; dữ liệu tài khoản và lệnh của khách hàng chỉ phục vụ ví đã gắn, ví khác báo "Ví chưa được định danh"; `/account` bỏ khối tự nhập ví, ô "Ví thanh toán" có nhãn định danh; Người bán chọn ví nhận ở `/seller/withdraw` (thêm bước đặt ví nhận, trạng thái PAYOUT_*); `/vault` bỏ ô ví nhận. Sửa L-10, L-66, L-67, L-68; cập nhật L-64, L-79. Sửa Phần 1 mục 1.3, 1.7; Phần 2; Phần 3 quy ước chung, mục 3.1.2, 3.2.3, 3.3.1, 3.3.2, 3.4.7, 3.4.8, 3.4.9 (mới), 3.5.1; Phụ lục C |
+| 28/10/2026 | `017ec56` | Dev (Claude) | FE-23: màn `/withdraw` Rút VNDB dùng được (mục 3.1.6 viết lại): Nhà đầu tư chuyển VNDB từ ví đã định danh sang ví nhận đã whitelist, ví trình duyệt ký và trả gas, máy chủ kiểm bằng chứng trên chuỗi theo nhãn lệnh; quyền `payment:withdraw`; bảng `PaymentWithdrawRequest`. Bỏ L-48, L-49 (trang chờ đã thay). Sửa Phần 1 mục 1.9; Phần 2; Phần 3 mục 3.1.6; Phụ lục A (A.3b mới), C |
