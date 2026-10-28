@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-23-rut-vndb` @ `017ec56` (FE-23, từ `dev` @ `a7151b8`), ngày 28/10/2026 |
+| Chốt tại | nhánh `fix/fix-02-sua-nho` @ `90995a1` (FIX-02, từ `dev` @ `a1ff3aa`), ngày 29/10/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -87,7 +87,10 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Mint luôn vào ví thanh toán SPV | Lần đầu `mintInitialSupply` ghi ví SPV vĩnh viễn; các lần sau chỉ Mint vào đúng ví đó | SC-02 | Đã chạy |
 | Ví thanh toán SPV là vault (R6) | Chain có `SpvPaymentVault` thì mọi lần Mint phải đích là địa chỉ vault | SC-07 R6 | Đã chạy |
 | Burn | Chỉ đốt phần WPT chưa phân phối trong ví SPV (vault); chọn "Toàn bộ nguồn cung" khi không còn WPT lưu hành | SC-02, BE-12 | Đã chạy |
-| Một yêu cầu Mint đang chờ mỗi lúc | Đang có yêu cầu Mint PENDING hoặc EXECUTING thì không lập yêu cầu Mint mới | BE-12 | Đã chạy (xem lệch L-12) |
+| Burn toàn bộ nguồn cung bằng đúng tổng cung | Chọn "Toàn bộ nguồn cung" thì số lượng luôn lấy tổng cung hiện tại (tự điền, không sửa được, đọc lại thì điền lại); máy chủ chặn khi số lượng khác tổng cung, cả lúc lập lẫn lúc duyệt (điều kiện "Số lượng bằng tổng cung") | FIX-02 QĐ-5, chốt 29/10 | Đã chạy |
+| Một yêu cầu Mint đang chờ mỗi lúc | Đang có yêu cầu Mint PENDING hoặc EXECUTING thì không lập yêu cầu Mint mới | BE-12 | Thay bởi dòng "Nhiều yêu cầu Mint cùng lúc" (FIX-02) |
+| Nhiều yêu cầu Mint cùng lúc | Giao dịch viên lập được nhiều yêu cầu Mint cho cùng token khi yêu cầu trước còn chờ; mỗi yêu cầu vẫn phải không vượt trần còn lại tại lúc lập | FIX-02 QĐ-3, chốt 29/10 | Đã chạy |
+| Cảnh báo khi duyệt | Mở chi tiết yêu cầu đang chờ, máy chủ so số lượng với số liệu token đọc trong cùng lần: Mint vượt phần còn được phép phát hành, Burn toàn bộ nguồn cung mà tổng cung đã đổi, Burn vượt phần chưa phân phối, hoặc không đọc được số liệu token thì hiện khối cảnh báo vàng và khoá nút "Chấp nhận"; "Từ chối" vẫn dùng được. Lúc bấm duyệt máy chủ vẫn kiểm lại toàn bộ | FIX-02 QĐ-4, chốt 29/10 | Đã chạy |
 | Giá phát hành | Mặc định 100.000 VNDB mỗi WPT, mỗi chain một giá (`wpt.issue_price_vnd.<chain>`), Giao dịch viên đặt ở màn `/config`; giá trên hợp đồng `OrderSettlement.price` là giá chốt lệnh | BE-04, FE-27, FE-07 | Đã chạy |
 | Phát hành thẳng dữ liệu thử | Chỉ trên `mock`, sau hai lớp chặn (cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt, rồi quyền) | FE-22 | Đã chạy |
 
@@ -103,6 +106,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 
 | Quyết định | Nội dung | Nguồn | Trạng thái |
 |---|---|---|---|
+| Nhà đầu tư chỉ mua | Mặc định Nhà đầu tư chỉ đặt lệnh mua; lệnh bán mới bị máy chủ chặn ở xem trước, chuẩn bị chữ ký và đặt lệnh ("Nhà đầu tư không được bán token."), màn `/trade` không hiện nút Bán. Bật lại bằng cờ `ENABLE_INVESTOR_SELL=true`. Gửi lại đúng yêu cầu bán đã tạo khi cờ còn bật vẫn nhận lại lệnh cũ | FIX-02 QĐ-1, QĐ-2, chốt 29/10 | Đã chạy |
 | Tự khớp | Lệnh hợp lệ tự quyết toán, không chờ người bấm | BE-17 | Đã chạy |
 | Quyết toán nguyên tử trên chuỗi | `OrderSettlement` chuyển VNDB và WPT trong một giao dịch, tiền vào thẳng vault; kiểm `vndb = wpt nhân giá hiện tại` | SC-03, QĐ-15 | Đã chạy |
 | Chống trùng hai tầng | Ngoài chuỗi: `clientRequestId` duy nhất theo ví. Trên chuỗi: `orderRef` (mã lệnh) đã dùng thì hợp đồng từ chối | BE-17, SC-03 QĐ-17 | Đã chạy |
@@ -208,7 +212,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | Route | Tên | Vai | Nghiệp vụ | Chain | Trạng thái | Action khi mở | Ghi chuỗi | Còn chờ |
 |---|---|---|---|---|---|---|---|---|
 | `/portfolio` | Tổng quan nhà đầu tư | Nhà đầu tư | Danh mục | M H S | Một phần: thiếu số dư VNDB, dự án và số nhà đầu tư là dữ liệu mẫu; trên mock vẫn đòi ví trình duyệt | 3 (1 khi chưa có ví) | Không | FE-04 |
-| `/trade` | Giao dịch token | Nhà đầu tư | Mua bán token | M H S | Dùng được; ô chọn token chưa có tác dụng | 1 | Có (mua, bán) | SC-04 (cờ tất toán EVM) |
+| `/trade` | Giao dịch token | Nhà đầu tư | Mua bán token | M H S | Dùng được; mặc định chỉ mua (cờ `ENABLE_INVESTOR_SELL`, FIX-02); ô chọn token chưa có tác dụng | 1 | Có (mua; bán khi bật cờ) | SC-04 (cờ tất toán EVM) |
 | `/orders` | Quản lý lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; tối đa 200 lệnh, không phân trang | 1 | Không | |
 | `/orders/[id]` | Chi tiết lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; nhật ký chỉ quét 500 dòng gần nhất | 1 | Không | |
 | `/tokens/[symbol]` | Chi tiết token dự án | Nhà đầu tư | Danh mục | M H S | Một phần: chỉ WPT có số thật, hai dự án khác là mẫu | 0 hoặc 1 | Không | |
@@ -221,7 +225,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | | Chỗ trống: toàn bộ số mẫu | 0 | Không | |
 | `/draft` | Lập lệnh | Giao dịch viên | Mint, Burn (lập) | M H S | Dùng được | 2 | Không (chỉ lập) | |
 | `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được; có thẻ Lịch sử phê duyệt (UIUX-01) | 1 + 1 mỗi hàng chờ | Không | |
-| `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05) | 1 | Có (mint, burn) | |
+| `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05); cảnh báo số liệu khoá nút Chấp nhận (FIX-02) | 1 | Có (mint, burn) | |
 | `/transactions` | Giao dịch | Giao dịch viên, Kiểm soát viên | Lệnh mua bán, can thiệp lệnh kẹt | M H S | Một phần: thiếu nút cho lệnh EXECUTING mất mã | 1 | Có (can thiệp) | |
 | `/transactions/[id]` | Chi tiết lệnh | Giao dịch viên, Kiểm soát viên | Lệnh mua bán | M H S | Dùng được (chỉ xem) | 1 | Không | |
 | `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; cấu hình theo một chế độ (UIUX-01), không còn ô ví nhận (FIX-01); mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01, SC-11 |
@@ -335,7 +339,7 @@ Quy ước chung cho Phần 3:
   - **Sepolia:** ví phải liên kết trong hồ sơ, nếu không điều kiện "Định danh" trượt với câu "Ví không thuộc hồ sơ nhà đầu tư đang đăng nhập".
   - **Cờ tất toán trên evm:** `@blocked SC-04` (`lib/ledger/evm.adapter.ts:1164-1166`), nên trạng thái tất toán dựa vào bảng `Project`.
 - **Trạng thái:** Dùng được. Riêng ô "Token" chưa có tác dụng, và cờ tất toán trên evm chờ SC-04.
-- **Nghiệp vụ:** Mua bán token (mua WPT từ ví SPV của người bán, bán lại cho ví SPV).
+- **Nghiệp vụ:** Mua bán token (mua WPT từ ví SPV của người bán; bán lại cho ví SPV chỉ khi bật cờ `ENABLE_INVESTOR_SELL`, mặc định tắt, FIX-02).
 - **Action khi mở:**
   - 1 action: `getTradeContextAction`.
 - **Action khi thao tác:**
@@ -352,7 +356,7 @@ Quy ước chung cho Phần 3:
 | Chưa kết nối ví | Chặn màn khi thiếu ví | wagmi | Liên kết sang /wallet |
 | **Đặt lệnh** | Khung nhập lệnh | | |
 | Token (ô chọn) | Token của lệnh | `getTradeContext` > `projectStore.listProjects({chain})` (bảng `Project`: `tokenSymbol`, `name`) | Bị khoá khi chỉ có 1 token. Không gửi đi đâu, xem phần Lệch |
-| Mua / Bán | Chiều lệnh | State giao diện | Gửi kèm `side` trong preview, preparePermit, placeOrder; quyết định trần áp dụng |
+| Mua / Bán | Chiều lệnh. Cờ tắt (mặc định): không có hai nút chọn chiều, câu mô tả là "Mua token từ người bán theo giá phát hành do ngân hàng cấu hình."; cờ bật: hai nút Mua, Bán | `getTradeContext` > `sellEnabled` (cờ `ENABLE_INVESTOR_SELL`), danh sách chiều `tradeSides` (`components/trading/sides.ts`); chiều đang chọn là state giao diện | Gửi kèm `side` trong preview, preparePermit, placeOrder; quyết định trần áp dụng. Máy chủ chặn `SELL` khi cờ tắt dù giao diện gửi lên |
 | Số lượng | Số WPT | Người dùng nhập. Kiểm ở giao diện: số nguyên > 0 và ≤ `caps[side].max` (`components/trading/gates.ts:52-64`). Kiểm ở server: `amountSchema`, chuỗi `^\d+$` và > 0 (`lib/bank/schemas.ts:52-57`) | Gửi làm `wptAmount` |
 | Câu trần (Tối đa ... token: ...) | Giới hạn đang ràng buộc | Tính trong `quantityCaps` (`lib/bank/trade.service.ts:97-115`). Mua: min(số dư VNDB / giá, số chưa phân phối). Bán: số WPT đang giữ | Chặn ô số lượng |
 | Giá (VNDB / token, chỉ để xem) | Đơn giá dùng để chốt lệnh | On-chain `ledger.quotePurchase(1n)` (evm: `OrderSettlement.price`; mock: giá trong state ledger) | Chỉ hiển thị; cũng là mẫu số khi tính trần mua |
@@ -880,14 +884,14 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 | Phát hành lần đầu | Mốc phát hành đầu | `Project.issuedAt` | |
 | Thử đọc lại thông tin token (nút) | Đọc lại khi lỗi | `/api/token-info` | |
 | Ví đích (ví thanh toán SPV), chỉ thẻ Mint | Đã có ví SPV thì khoá ô và tự điền; chưa có thì nhập tay "0x…" | `spvWallet` | Vào `TokenRequest.wallet` |
-| Nguồn huỷ, chỉ thẻ Burn | "Phần chưa phân phối" / "Toàn bộ nguồn cung" | `BURN_SOURCE_LABELS` (`components/maker-checker/gates.ts:87`) | Chọn toàn bộ thì tự điền số lượng = tổng cung, khoá ô, hiện cảnh báo |
+| Nguồn huỷ, chỉ thẻ Burn | "Phần chưa phân phối" / "Toàn bộ nguồn cung" | `BURN_SOURCE_LABELS` (`components/maker-checker/gates.ts:87`) | Chọn toàn bộ thì ô số lượng lấy tổng cung hiện tại, khoá ô, hiện cảnh báo; quay về "Phần chưa phân phối" thì ô số lượng rỗng |
 | Tôi xác nhận huỷ toàn bộ nguồn cung (ô tích) | Xác nhận lại | trạng thái máy khách | Bắt buộc mới gửi được |
-| Số lượng | Số nguyên lớn hơn 0; ô tự thêm dấu chấm hàng nghìn khi gõ (UIUX-01 A1), gửi máy chủ chuỗi chữ số thô | `amountSchema` | `TokenRequest.amount` |
+| Số lượng | Số nguyên lớn hơn 0; ô tự thêm dấu chấm hàng nghìn khi gõ (UIUX-01 A1), gửi máy chủ chuỗi chữ số thô. Burn "Toàn bộ nguồn cung" (FIX-02): ô chỉ đọc, nền xám, luôn bằng tổng cung của khối "Thông tin token" kể cả khi khối đó tải xong hoặc tải lại sau lúc chọn nguồn; chú thích "Tự điền bằng tổng cung hiện tại, không sửa được."; chưa có thông tin token thì ô rỗng, chú thích "Nhập mã token để hệ thống điền tổng cung." và nút gửi khoá | Gõ tay: `amountSchema`. Toàn bộ nguồn cung: `burnAmountShown` (`components/maker-checker/gates.ts`) lấy `totalSupply` của `readTokenInfo` | `TokenRequest.amount` |
 | Ngày hiệu lực | YYYY-MM-DD, tuỳ chọn | | `TokenRequest.effectiveDate` |
 | Lý do | Bắt buộc, 1 đến 500 ký tự | | `TokenRequest.reason` |
 | Chứng từ | Tuỳ chọn, tối đa 120 ký tự | | `documentRef` |
 | Ghi chú | Tuỳ chọn, tối đa 1000 ký tự | | `note` |
-| Kiểm tra trước khi lập | Danh sách điều kiện, mỗi dòng "Đạt" hoặc "Không đạt: chi tiết"; số trong câu có dấu chấm hàng nghìn (UIUX-01 A2) | `previewTokenRequest` (`S:276`). Mint: quyền lập, Dự án tồn tại, Không vượt trần còn lại, Ví đích hợp lệ (whitelist, không đóng băng, đúng vault R6, đúng ví SPV), Không có yêu cầu Mint khác đang chờ (PENDING hoặc EXECUTING). Burn: quyền lập, Dự án tồn tại, Có ví SPV, Không vượt phần chưa phân phối, Không còn token lưu hành (chỉ khi chọn toàn bộ) | Khoá nút gửi nếu trượt; không ghi gì |
+| Kiểm tra trước khi lập | Danh sách điều kiện, mỗi dòng "Đạt" hoặc "Không đạt: chi tiết"; số trong câu có dấu chấm hàng nghìn (UIUX-01 A2) | `previewTokenRequest` (`S:276`). Mint: quyền lập, Dự án tồn tại, Không vượt trần còn lại, Ví đích hợp lệ (whitelist, không đóng băng, đúng vault R6, đúng ví SPV). Từ FIX-02 không còn điều kiện "Không có yêu cầu Mint khác đang chờ": lập được nhiều yêu cầu Mint cùng token. Burn: quyền lập, Dự án tồn tại, Có ví SPV, Không vượt phần chưa phân phối; khi chọn toàn bộ thêm Số lượng bằng tổng cung ("Số lượng X; tổng cung hiện tại Y.", FIX-02) và Không còn token lưu hành | Khoá nút gửi nếu trượt; không ghi gì |
 | Gửi yêu cầu tạo token / Gửi yêu cầu huỷ token (nút), dòng "Chưa gửi được: ..." | Lập yêu cầu | `createTokenRequest` (`S:305`): `authorize('order:draft')` ghi AuditLog ALLOWED/DENIED; đánh giá lại điều kiện; ghi `TokenRequest` PENDING; AuditLog `order:draft` SUCCESS/FAILURE | Chưa đổi gì trên chuỗi |
 | Bảng "Yêu cầu đã lập" (2 bảng con: tạo / huỷ) | Yêu cầu của chính mình, mới nhất trước, tối đa 50 | `listTokenRequests` với `mine` | Không có liên kết sang chi tiết |
 | Cột bảng: Mã yêu cầu (8 ký tự), Thời điểm lập, Token (chỉ ký hiệu), Số lượng, Nguồn (chỉ khi có Burn), Người lập, Lý do, Trạng thái, Chain (nhãn chain), Kết quả | | các cột `TokenRequest`; Chain là `CHAINS[chain].label` | "Kết quả" theo trạng thái: từ chối là "<vai> <mã người> từ chối do: <lý do>", ví dụ "Kiểm soát viên KSV001 từ chối do: Sai chứng từ"; lý do thất bại; "Đã gửi tx..., chờ kết cục"; hoàn tất là "<mã người> duyệt, tx <12 ký tự đầu>…" (UIUX-01 A4, B1 tới B3) |
@@ -897,7 +901,6 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-11.** **Ngày hiệu lực chỉ được lưu, không ràng buộc.** Lúc duyệt hệ thống thực hiện ngay, không so ngày (`S:350`, không có chỗ dùng nào khác).
-- **L-12.** **Yêu cầu Mint kẹt chặn mọi Mint mới.** Một yêu cầu Mint kẹt ở EXECUTING (đã gửi tx nhưng chưa biết kết cục, `S:524-549`) làm điều kiện "Không có yêu cầu Mint khác đang chờ" trượt vĩnh viễn (`S:179-199`). Không có màn hay action nào để đối soát hoặc đóng yêu cầu kẹt.
 - **L-71.** **Vault không hiện trên màn.** Khi chưa có ví SPV, ô ví đích bắt nhập tay, nhưng màn không hiện địa chỉ vault mà R6 bắt buộc. Người dùng chỉ thấy địa chỉ vault trong câu lỗi của khối kiểm tra (`draft.tsx:395-413`).
 - **L-72.** **Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm.** Hệ thống chỉ tra theo `tokenSymbol` (`lib/bank/schemas.ts` `tokenInfoQuerySchema`).
 - **L-73.** **"Mã người bán" là hằng NB001**, không đọc từ dữ liệu dự án (`S:729-732`).
@@ -951,6 +954,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 | Chi tiết yêu cầu, mã UUID, "Về danh sách" | | URL | |
 | Khối "Hành động", badge trạng thái | 5 trạng thái như ở /draft | `TokenRequest.status` | |
 | Hộp lý do khoá nút | Yêu cầu không còn PENDING: "Yêu cầu đang ở trạng thái ..."; người xem là người lập: "Bạn (...) đã lập yêu cầu này nên không được duyệt hay từ chối nó" | `selfApprovalReason` (`S:1209`): so `makerId` với mã người đang xem | Luật lập duyệt: người lập không tự duyệt, không tự từ chối |
+| Khối cảnh báo vàng trên hai nút (FIX-02) | Yêu cầu đang chờ mà số liệu token hiện tại không đủ để thực hiện. Câu theo loại, xét theo thứ tự, lấy cái đầu: "Không đọc được số liệu token để kiểm tra."; Mint vượt phần còn được phép phát hành: "Không đủ số lượng token còn được phép phát hành." kèm "Số lượng yêu cầu X; còn được phép phát hành Y."; Burn toàn bộ nguồn cung mà tổng cung đã đổi: "Tổng cung đã đổi so với lúc lập yêu cầu huỷ toàn bộ nguồn cung." kèm "Số lượng yêu cầu X; tổng cung hiện tại Y."; Burn vượt phần chưa phân phối: "Không đủ số lượng token chưa phân phối còn lại." kèm "Số lượng yêu cầu X; phần chưa phân phối còn Y.". Dòng cuối: nút "Chấp nhận" đã khoá, có thể từ chối | `approveWarning` tính ở máy chủ trong cùng lần đọc chi tiết (`approveWarningOf`, `lib/bank/token-request.service.ts`), không thêm action | Chỉ khoá nút "Chấp nhận" (`approveBlockReason`); nút "Từ chối" giữ luật cũ. Lúc bấm duyệt máy chủ vẫn kiểm lại toàn bộ |
 | Lý do từ chối | Bắt buộc khi từ chối, 1 đến 500 ký tự | | `TokenRequest.rejectReason` |
 | Chấp nhận (nút) | Duyệt | `approveTokenRequest` (`S:418`), chi tiết bên dưới bảng | |
 | Từ chối (nút) | Từ chối | `rejectTokenRequest` (`S:831`): `authorize('order:approve')`; chặn tự từ chối; PENDING sang REJECTED; AuditLog SUCCESS. Thiếu lý do thì ghi AuditLog FAILURE | Không tác động chuỗi |
@@ -1766,9 +1770,8 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | L-08 | `/seller`, `/seller/withdraw` | Chú thích chế độ PERCENT in cả "thu ròng" lẫn "phần khoá kỳ gần nhất" mà không nói số nào đang áp; trước kỳ đầu khoá theo thu ròng, sau đó theo lợi nhuận đã chia kỳ trước | Vừa | FE-28 (đề xuất) |
 | L-09 | `/seller` | Nhãn "Hạn mức còn rút được" là chữ của mô hình FE-21 đã gỡ; giá trị thật là `withdrawable()` của vault | Thấp | FE-28 (đề xuất) |
 | L-11 | `/draft` | Ngày hiệu lực chỉ được lưu; duyệt là thực hiện ngay, không so ngày | Vừa | Chờ Sếp chốt: bỏ trường hay ràng buộc |
-| L-12 | `/draft` | Một yêu cầu Mint kẹt ở EXECUTING chặn mọi yêu cầu Mint mới, không có màn hay action đối soát | Cao | Task mới: đối soát yêu cầu phát hành kẹt |
 | L-14 | `/transactions` | Lệnh EXECUTING mất mã giao dịch chỉ hiện "Cần đối soát tay" dù máy chủ có `recoverExecutingWithoutTx`; lệnh PLACED không can thiệp được | Vừa | Task mới (cùng nhóm BE-17) |
-| L-15 | `/approvals/[id]` | Không có hộp xác nhận trước "Chấp nhận" (gửi chuỗi ngay); yêu cầu EXECUTING kẹt không có nút xử lý | Vừa | Gộp với L-12 |
+| L-15 | `/approvals/[id]` | Không có hộp xác nhận trước "Chấp nhận" (gửi chuỗi ngay); yêu cầu EXECUTING kẹt không có nút xử lý | Vừa | Task mới: xử lý yêu cầu phát hành kẹt không có mã giao dịch |
 | L-16 | `/vault` | Mở màn gọi 3 action nối tiếp, ghi 3 dòng sổ | Vừa | PERF-01 |
 | L-17 | `/vault` | `closePeriod` áp tỷ lệ chờ mà không phát `PercentRateSet`, nên "Lịch sử cấu hình" thiếu dòng cho lần áp này | Thấp | Ghi nhận; sửa hợp đồng khi có đợt nâng cấp |
 | L-18 | `/vault`, `/seller/withdraw` | Giao dịch viên bấm được "Đối soát lệnh rút"; sổ ghi `vault:reconcile` dưới vai TELLER và `vault:read` dưới vai SELLER dù hai vai không có quyền đó | Vừa | Task phân quyền (đề xuất gộp vào PERF-01 khi sửa L-01) |
@@ -1860,3 +1863,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 26/10/2026 | `ea9fe5f` | Dev (Claude) | UIUX-01: ô số có dấu chấm hàng nghìn (`/draft`, `/mint`, `/vault`, `/seller/withdraw`); thẻ Lịch sử phê duyệt, cột Chain, câu từ chối có vai ở bảng yêu cầu; cấu hình vault theo một chế độ và câu hiệu lực; khối Trạng thái hiện tại của `/vault` còn 11 trường, có Ngày cấu hình có hiệu lực; "Ví thanh toán" ở `/account` theo chain; nhãn "Địa chỉ vault" ở `/seller`; nhãn bản thử ở menu, `/demo-payment`, `/recall` và tài liệu này thống nhất là "PoC". Sửa phần ví mẫu của L-10, bỏ L-82 (trường "Kỳ gần nhất" không còn trên màn). Sửa Phần 1 mục 1.5, 1.7, 1.9; Phần 2; Phần 3 mục 3.2.1, 3.2.3, 3.3.2, 3.4.2, 3.4.3, 3.4.7, 3.5.1; Phụ lục B, C |
 | 27/10/2026 | `9d87e22` | Dev (Claude) | FIX-01: định danh ví do ngân hàng làm ở màn mới `/wallet-binding` (mục 3.4.9, nhóm menu thu gọn "Nghiệp vụ ẩn" cùng "Nạp VNDB"); bảng `WalletBinding` thay `ProfileWallet`; dữ liệu tài khoản và lệnh của khách hàng chỉ phục vụ ví đã gắn, ví khác báo "Ví chưa được định danh"; `/account` bỏ khối tự nhập ví, ô "Ví thanh toán" có nhãn định danh; Người bán chọn ví nhận ở `/seller/withdraw` (thêm bước đặt ví nhận, trạng thái PAYOUT_*); `/vault` bỏ ô ví nhận. Sửa L-10, L-66, L-67, L-68; cập nhật L-64, L-79. Sửa Phần 1 mục 1.3, 1.7; Phần 2; Phần 3 quy ước chung, mục 3.1.2, 3.2.3, 3.3.1, 3.3.2, 3.4.7, 3.4.8, 3.4.9 (mới), 3.5.1; Phụ lục C |
 | 28/10/2026 | `017ec56` | Dev (Claude) | FE-23: màn `/withdraw` Rút VNDB dùng được (mục 3.1.6 viết lại): Nhà đầu tư chuyển VNDB từ ví đã định danh sang ví nhận đã whitelist, ví trình duyệt ký và trả gas, máy chủ kiểm bằng chứng trên chuỗi theo nhãn lệnh; quyền `payment:withdraw`; bảng `PaymentWithdrawRequest`. Bỏ L-48, L-49 (trang chờ đã thay). Sửa Phần 1 mục 1.9; Phần 2; Phần 3 mục 3.1.6; Phụ lục A (A.3b mới), C |
+| 29/10/2026 | `90995a1` | Dev (Claude) | FIX-02: Nhà đầu tư mặc định chỉ mua (cờ `ENABLE_INVESTOR_SELL`, máy chủ chặn lệnh bán mới, `/trade` không hiện nút Bán); bỏ điều kiện "Không có yêu cầu Mint khác đang chờ", lập được nhiều yêu cầu Mint cùng token; khối cảnh báo vàng ở `/approvals/[id]` khoá nút Chấp nhận khi số liệu token không đủ; Burn "Toàn bộ nguồn cung" tự điền tổng cung, ô chỉ đọc, máy chủ kiểm "Số lượng bằng tổng cung". Bỏ L-12 (điều kiện gây kẹt đã gỡ); L-15 đổi đề xuất. Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1.2, 3.4.2, 3.4.4; Phụ lục C |
