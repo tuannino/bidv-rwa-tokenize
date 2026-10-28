@@ -124,10 +124,10 @@ const describeFailed = (checks: RequestCheck[]): string =>
  * Đánh giá MỌI điều kiện nghiệp vụ của một yêu cầu, không dừng ở điều kiện trượt đầu tiên — khối
  * kiểm tra phải hiện đủ để người lập sửa một lần.
  *
- * `excludeRequestId`: lúc duyệt, chính yêu cầu đang duyệt là một yêu cầu "đang chờ"; không loại
- * nó ra thì điều kiện "không có yêu cầu đang chờ" không bao giờ đạt.
+ * FIX-02 QĐ-3: không còn điều kiện "không có yêu cầu Mint khác đang chờ"; Giao dịch viên lập được
+ * nhiều yêu cầu Mint cùng token, Kiểm soát viên thấy cảnh báo khi số không còn đủ (`approveWarningOf`).
  */
-async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise<Evaluation> {
+async function evaluate(draft: RequestDraft): Promise<Evaluation> {
   const { chain, tokenSymbol, type, amount } = draft;
   const checks: RequestCheck[] = [];
 
@@ -193,27 +193,6 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
       ),
     );
 
-    // Đang chờ = chưa có kết cục: PENDING hoặc đang thực hiện.
-    const store = getTokenRequestStore();
-    const open = (
-      await Promise.all(
-        (['PENDING', 'EXECUTING'] as const).map((status) =>
-          store.listRequests({ chain, tokenSymbol, type: 'MINT', status, limit: 2 }),
-        ),
-      )
-    )
-      .flat()
-      .filter((r) => r.id !== excludeRequestId);
-    checks.push(
-      check(
-        'noPending',
-        'Không có yêu cầu Mint khác đang chờ cho token này',
-        open.length === 0,
-        open.length === 0
-          ? 'Không có.'
-          : `Yêu cầu ${open[0].id} đang ở trạng thái ${open[0].status}.`,
-      ),
-    );
     return { checks, project, wallet };
   }
 
@@ -242,6 +221,17 @@ async function evaluate(draft: RequestDraft, excludeRequestId?: string): Promise
     ),
   );
   if (draft.burnSource === 'TOTAL_SUPPLY') {
+    // FIX-02 QĐ-5: dùng `metrics` đã đọc ở trên, không đọc thêm. Tổng cung đổi sau khi lập (có Mint
+    // khác hoàn tất) thì lần duyệt trượt điều kiện này.
+    const totalSupply = BigInt(metrics.totalSupply);
+    checks.push(
+      check(
+        'fullSupply',
+        'Số lượng bằng tổng cung',
+        amount === totalSupply,
+        `Số lượng ${formatAmount(amount)}; tổng cung hiện tại ${formatAmount(totalSupply)}.`,
+      ),
+    );
     checks.push(
       check(
         'circulation',
@@ -452,7 +442,7 @@ export async function approveTokenRequest(
     }
 
     // Kiểm lại TOÀN BỘ điều kiện tại thời điểm duyệt.
-    const evaluation = await evaluate(draftOf(request), request.id);
+    const evaluation = await evaluate(draftOf(request));
     const walletMoved =
       evaluation.wallet !== null && evaluation.wallet.toLowerCase() !== request.wallet.toLowerCase();
     const checks = walletMoved
@@ -1145,7 +1135,65 @@ export interface TokenRequestDetailView {
    * duyệt. Tính ở đây, trong CÙNG lần đọc chi tiết, để màn không phải gọi thêm action khi mở.
    */
   canReconcile: boolean;
+  /**
+   * FIX-02 QĐ-4: lý do yêu cầu `PENDING` không thực hiện được với số liệu token hiện tại; `null` khi
+   * bấm "Chấp nhận" được. Tính trong CÙNG lần đọc chi tiết, không thêm action. Chỉ khoá "Chấp nhận".
+   */
+  approveWarning: ApproveWarning | null;
   timeline: TimelineEntry[];
+}
+
+export type ApproveWarningKind = 'TOKEN_UNREADABLE' | 'MINT_REMAINING' | 'BURN_FULL_SUPPLY' | 'BURN_UNDISTRIBUTED';
+
+export interface ApproveWarning {
+  kind: ApproveWarningKind;
+  message: string;
+  /** Số lượng của yêu cầu; `null` với `TOKEN_UNREADABLE`. */
+  requested: string | null;
+  /** Số còn lại để so (trần còn lại, tổng cung, phần chưa phân phối); `null` với `TOKEN_UNREADABLE`. */
+  available: string | null;
+}
+
+/**
+ * Cảnh báo lúc duyệt (FIX-02 QĐ-4), xét theo thứ tự và lấy cái đầu tiên. Không cộng trừ các yêu cầu
+ * đang `EXECUTING`; lớp chặn cuối vẫn là lần kiểm lại trong `approveTokenRequest` và hợp đồng.
+ */
+export function approveWarningOf(
+  request: Pick<TokenRequestRecord, 'status' | 'type' | 'amount' | 'burnSource'>,
+  token: Pick<TokenInfoView, 'remaining' | 'undistributed' | 'totalSupply'> | null,
+): ApproveWarning | null {
+  if (request.status !== 'PENDING') return null;
+  if (!token) {
+    return { kind: 'TOKEN_UNREADABLE', message: 'Không đọc được số liệu token để kiểm tra.', requested: null, available: null };
+  }
+  const amount = BigInt(request.amount);
+  if (request.type === 'MINT') {
+    return amount > BigInt(token.remaining)
+      ? {
+          kind: 'MINT_REMAINING',
+          message: 'Không đủ số lượng token còn được phép phát hành.',
+          requested: request.amount,
+          available: token.remaining,
+        }
+      : null;
+  }
+  if (request.burnSource === 'TOTAL_SUPPLY' && amount !== BigInt(token.totalSupply)) {
+    return {
+      kind: 'BURN_FULL_SUPPLY',
+      message: 'Tổng cung đã đổi so với lúc lập yêu cầu huỷ toàn bộ nguồn cung.',
+      requested: request.amount,
+      available: token.totalSupply,
+    };
+  }
+  if (amount > BigInt(token.undistributed)) {
+    return {
+      kind: 'BURN_UNDISTRIBUTED',
+      message: 'Không đủ số lượng token chưa phân phối còn lại.',
+      requested: request.amount,
+      available: token.undistributed,
+    };
+  }
+  return null;
 }
 
 /**
@@ -1233,6 +1281,7 @@ export async function getTokenRequestDetail(
           : null,
       canReconcile:
         request.status === 'EXECUTING' && request.txHash !== null && can(role, 'order:approve'),
+      approveWarning: approveWarningOf(request, token),
       timeline: timelineOf(request),
     });
   } catch (error) {

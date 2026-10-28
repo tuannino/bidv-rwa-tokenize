@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/maker-checker/status-badge';
 import { INPUT_CLASS } from '@/components/maker-checker/stat-card';
 import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
 import {
+  approveBlockReason,
+  approveWarningFigures,
   BURN_SOURCE_LABELS,
   decisionBlockReason,
   describeInvalid,
@@ -130,7 +132,9 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
   const fresh = loaded?.key === loadKey ? loaded : null;
   const detail = fresh?.data ?? null;
   const decisionBlock = detail ? decisionBlockReason(detail) : 'Đang tải yêu cầu…';
-  const approveBlock = working ? 'Đang xử lý…' : decisionBlock;
+  // FIX-02 B3: cảnh báo số liệu khoá RIÊNG nút "Chấp nhận"; "Từ chối" vẫn bấm được.
+  const approveBlock = working ? 'Đang xử lý…' : detail ? approveBlockReason(detail) : 'Đang tải yêu cầu…';
+  const approveWarning = detail?.approveWarning ?? null;
   const rejectBlock = working ? 'Đang xử lý…' : (decisionBlock ?? rejectBlockReason(rejectReason));
 
   const approve = () =>
@@ -204,6 +208,16 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                   className={INPUT_CLASS}
                 />
               </div>
+              {approveWarning && (
+                <div role="alert" data-testid="approve-warning" className={FEEDBACK_STYLE.warning}>
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold">{approveWarning.message}</p>
+                    {approveWarningFigures(approveWarning) && <p>{approveWarningFigures(approveWarning)}</p>}
+                    <p className="text-xs">Nút &quot;Chấp nhận&quot; đã khoá; có thể từ chối yêu cầu này.</p>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <Button type="button" onClick={approve} disabled={approveBlock !== null} title={approveBlock ?? undefined}>
                   {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}

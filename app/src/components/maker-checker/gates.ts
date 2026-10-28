@@ -103,8 +103,11 @@ export function burnSourceEffect(
     return {
       amount: totalSupply,
       needsConfirmation: true,
+      // FIX-02 C3: chưa có tổng cung thì câu không in số (không in dấu thay cho số).
       warning:
-        `Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung (${formatAmount(totalSupply)} token). ` +
+        (totalSupply === null
+          ? 'Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung. '
+          : `Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung (${formatAmount(totalSupply)} token). `) +
         'Chỉ thực hiện được khi không còn token nào đang lưu hành. Đánh dấu ô xác nhận để tiếp tục.',
     };
   }
@@ -129,4 +132,40 @@ export function decisionBlockReason(
     return `Yêu cầu đang ở trạng thái "${STATUS_LABELS[detail.request.status]}", không còn chờ duyệt.`;
   }
   return detail.selfApprovalReason;
+}
+
+/**
+ * FIX-02 B3: lý do KHOÁ RIÊNG nút "Chấp nhận": như `decisionBlockReason`, cộng cảnh báo số liệu của
+ * máy chủ (`approveWarning`). Nút "Từ chối" vẫn chỉ dùng `decisionBlockReason`.
+ */
+export function approveBlockReason(
+  detail: Pick<TokenRequestDetailView, 'request' | 'selfApprovalReason' | 'approveWarning'>,
+): string | null {
+  return decisionBlockReason(detail) ?? detail.approveWarning?.message ?? null;
+}
+
+/**
+ * FIX-02 C1: số lượng hiện ở ô và gửi đi. Burn "Toàn bộ nguồn cung" là giá trị SUY RA từ tổng cung
+ * hiện tại (`''` khi chưa có), không phải ô nhập; mọi trường hợp khác là số người dùng gõ.
+ */
+export function burnAmountShown(
+  type: 'MINT' | 'BURN',
+  source: BurnSource,
+  typedAmount: string,
+  totalSupply: string | null,
+): string {
+  return type === 'BURN' && source === 'TOTAL_SUPPLY' ? (totalSupply ?? '') : typedAmount;
+}
+
+/** FIX-02 B3: dòng số liệu dưới câu cảnh báo lúc duyệt; `null` với `TOKEN_UNREADABLE`. */
+export function approveWarningFigures(warning: NonNullable<TokenRequestDetailView['approveWarning']>): string | null {
+  if (warning.requested === null || warning.available === null) return null;
+  const available = {
+    MINT_REMAINING: 'còn được phép phát hành',
+    BURN_FULL_SUPPLY: 'tổng cung hiện tại',
+    BURN_UNDISTRIBUTED: 'phần chưa phân phối còn',
+    TOKEN_UNREADABLE: null,
+  }[warning.kind];
+  if (available === null) return null;
+  return `Số lượng yêu cầu ${formatAmount(warning.requested)}; ${available} ${formatAmount(warning.available)}.`;
 }

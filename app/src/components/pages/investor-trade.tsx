@@ -25,6 +25,7 @@ import { WrongChainBanner } from '@/components/wallet/wrong-chain-banner';
 import { useWalletStatus } from '@/lib/hooks/use-wallet-status';
 import { signPermitWithWallet } from '@/lib/signer/wallet-permit';
 import { isUserRejection } from '@/lib/wallet/switch-error';
+import { tradeSides } from '@/components/trading/sides';
 import type { InvestorTokenInfo, TradeContextView } from '@/lib/bank/trade.service';
 import type { OrderSide } from '@/lib/store/order.store.port';
 import { SettlementProgress } from '@/components/trading/settlement-progress';
@@ -267,7 +268,9 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Giao dịch token</h1>
         <p className="text-sm text-muted-foreground">
-          Mua token từ người bán hoặc bán lại cho người bán, theo giá phát hành do ngân hàng cấu hình.
+          {ctx?.sellEnabled
+            ? 'Mua token từ người bán hoặc bán lại cho người bán, theo giá phát hành do ngân hàng cấu hình.'
+            : 'Mua token từ người bán theo giá phát hành do ngân hàng cấu hình.'}
         </p>
       </header>
 
@@ -311,8 +314,10 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                 </select>
               </label>
 
+              {/* FIX-02 A4: chỉ một chiều (Nhà đầu tư chỉ mua) thì không dựng cụm nút; `side` giữ BUY. */}
+              {tradeSides(ctx.sellEnabled).length > 1 && (
               <div role="tablist" aria-label="Chiều lệnh" className="grid grid-cols-2 gap-2">
-                {(['BUY', 'SELL'] as const).map((value) => (
+                {tradeSides(ctx.sellEnabled).map((value) => (
                   <Button
                     key={value}
                     role="tab"
@@ -325,6 +330,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                   </Button>
                 ))}
               </div>
+              )}
 
               <label className="block space-y-1 text-sm">
                 <span className="text-muted-foreground">Số lượng</span>

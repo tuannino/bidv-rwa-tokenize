@@ -14,5 +14,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    // FIX-02: bật bán để giữ các ca bán có sẵn; hành vi mặc định là tắt (ca tắt cờ ở fix-02.test.ts).
+    env: { ENABLE_INVESTOR_SELL: 'true' },
   },
 });

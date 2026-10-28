@@ -149,6 +149,11 @@ const envSchema = z.object({
   enableDemoTokenMint: boolFlag(false),
   /** Cho phép noticeDays=0 ngoài mock/hardhat để diễn tập; mặc định tắt. */
   enableDemoRecall: boolFlag(false),
+  /**
+   * FIX-02 QĐ-1: Nhà đầu tư được đặt lệnh BÁN WPT. Mặc định TẮT: Nhà đầu tư chỉ mua. Giữ cờ để bật lại
+   * khi nghiệp vụ đổi; điểm kiểm duy nhất là `investorSellBlocked` ở `lib/bank/purchase.service.ts`.
+   */
+  enableInvestorSell: boolFlag(false),
 
   /** OP-04: đăng ký dự án Sepolia đã deploy; không tự phát hành token. */
   enableSepoliaDemoProject: boolFlag(false),
@@ -210,6 +215,7 @@ function load(): ServerEnv {
     // Cùng lý do: không có biến thể NEXT_PUBLIC_.
     enableDemoTokenMint: process.env.ENABLE_DEMO_TOKEN_MINT,
     enableDemoRecall: process.env.ENABLE_DEMO_RECALL,
+    enableInvestorSell: process.env.ENABLE_INVESTOR_SELL,
     enableSepoliaDemoProject: process.env.ENABLE_SEPOLIA_DEMO_PROJECT,
     enableReadDiagnostics: process.env.ENABLE_READ_DIAGNOSTICS,
     // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle
