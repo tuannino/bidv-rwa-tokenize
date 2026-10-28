@@ -1,9 +1,11 @@
 import 'server-only';
 
+import { concat, encodeFunctionData, type Hex } from 'viem';
 import {
   MOCK_PROFIT_DISTRIBUTOR_ADDRESS,
   MOCK_VAULT_ADDRESS,
   orderRefFromOrderId,
+  vndTokenAbi,
   type ChainKey,
 } from '@bidv/shared';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/config/issue-terms';
@@ -14,6 +16,7 @@ import {
   type MockDistributionRecord,
   type MockLedgerState,
   type MockLedgerStateStore,
+  type MockPaymentTransfer,
   type MockSnapshotRecord,
   type MockVaultPeriodClose,
   type MockVaultWithdrawal,
@@ -119,6 +122,18 @@ export function seedMockLedger(
     }
     if (seed.vaultPaused !== undefined) s.vault.paused = seed.vaultPaused;
   });
+}
+
+function findPaymentTransfer(s: Readonly<MockLedgerState>, txHash: string): MockPaymentTransfer | undefined {
+  return s.paymentTransfers.find((transfer) => transfer.txHash.toLowerCase() === txHash.toLowerCase());
+}
+
+/** Dựng lại dữ liệu gọi của lần chuyển như trên chuỗi: `transfer(to, value)` nối nhãn lệnh (FE-23 QĐ-12). */
+function paymentTransferInput(transfer: MockPaymentTransfer): Hex {
+  return concat([
+    encodeFunctionData({ abi: vndTokenAbi, functionName: 'transfer', args: [transfer.to as Hex, transfer.value] }),
+    transfer.tag as Hex,
+  ]);
 }
 
 function fakeTxHash(s: MockLedgerState): string {
@@ -1081,6 +1096,72 @@ export function createMockLedger(
 
     async txReceiptStatus() {
       return 'CONFIRMED' as const;
+    },
+
+    // =========================================================================
+    //  RÚT VNDB CỦA NHÀ ĐẦU TƯ (FE-23 QĐ-4)
+    // =========================================================================
+
+    /**
+     * Mock không có ví trình duyệt: máy chủ chuyển THAY, kèm nhãn lệnh. Như `VNDToken.transfer` (không
+     * kiểm whitelist, đóng băng, tất toán); thiếu số dư thì revert. Cùng nhãn thì trả lại giao dịch cũ,
+     * KHÔNG chuyển lần hai, nên lỗi giữa bước chuyển và bước chốt không làm chuyển lặp.
+     */
+    async mockTransferPayment(from, to, amount, tag) {
+      assertPositiveAmount(chain, 'mockTransferPayment', amount);
+      const sender = normalizeEvmAddress(from);
+      const receiver = normalizeEvmAddress(to);
+      const key = tag.toLowerCase();
+      return mutate('mockTransferPayment', (s) => {
+        const existing = s.paymentTransfers.find((transfer) => transfer.tag === key);
+        if (existing) return { txHash: existing.txHash, status: 'CONFIRMED' as const };
+        const available = paymentBalance(s, sender);
+        if (available < amount) {
+          reject('mockTransferPayment', `Số dư VNDB không đủ (có ${available}, cần ${amount}).`);
+        }
+        setPaymentBalance(s, sender, available - amount);
+        setPaymentBalance(s, receiver, paymentBalance(s, receiver) + amount);
+        const tx = confirmed(s);
+        s.paymentTransfers.push({ tag: key, txHash: tx.txHash, from: sender, to: receiver, value: amount, blockNumber: s.nonce });
+        return tx;
+      });
+    },
+
+    async paymentTxSender(txHash) {
+      return read('paymentTxSender', (s) => findPaymentTransfer(s, txHash)?.from ?? null);
+    },
+
+    async paymentTransferReceipt(txHash) {
+      return read('paymentTransferReceipt', (s) => {
+        const transfer = findPaymentTransfer(s, txHash);
+        if (transfer) {
+          return {
+            status: 'CONFIRMED' as const,
+            txFrom: transfer.from,
+            input: paymentTransferInput(transfer),
+            transfers: [{ from: transfer.from, to: transfer.to, value: transfer.value }],
+          };
+        }
+        // Mã đã cấp cho giao dịch mock khác: thành công nhưng không có `Transfer` VNDB nào của lệnh rút.
+        const issued = /^0x[0-9a-fA-F]{64}$/.test(txHash) && BigInt(txHash) > 0n && BigInt(txHash) <= BigInt(s.nonce);
+        return { status: issued ? ('CONFIRMED' as const) : ('UNKNOWN' as const), txFrom: null, input: null, transfers: [] };
+      });
+    },
+
+    async findPaymentTransferByTag({ from, to, value, tag, fromBlock }) {
+      const sender = addressKey(normalizeEvmAddress(from));
+      const receiver = addressKey(normalizeEvmAddress(to));
+      return read('findPaymentTransferByTag', (s) => {
+        const found = s.paymentTransfers.find(
+          (transfer) =>
+            transfer.tag === tag.toLowerCase() &&
+            addressKey(transfer.from) === sender &&
+            addressKey(transfer.to) === receiver &&
+            transfer.value === value &&
+            BigInt(transfer.blockNumber) >= fromBlock,
+        );
+        return found ? { txHash: found.txHash, blockNumber: BigInt(found.blockNumber) } : null;
+      });
     },
 
     async vaultWithdrawalReceipt(txHash) {

@@ -1,23 +1,17 @@
 import { AppLayout } from '@/components/layout/app-layout';
-import { PlaceholderPage } from '@/components/pages/placeholder';
+import { InvestorWithdrawPage } from '@/components/pages/investor-withdraw';
+import { ownMockWallet } from '@/lib/bank/account-profile.service';
 
-// @pending FE-23 | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend
-export default function InvestorWithdrawPage() {
+/**
+ * Màn Rút VNDB (FE-23). Cổng `portfolio:read` ở layout của khu vực Nhà đầu tư; tạo lệnh còn qua
+ * `payment:withdraw` và chốt chặn ví của phiên ở tầng nghiệp vụ.
+ */
+export default async function InvestorWithdraw() {
+  const mockWallet = await ownMockWallet();
+
   return (
     <AppLayout breadcrumbs={[{ label: 'Nhà đầu tư' }, { label: 'Rút VNDB' }]}>
-      <PlaceholderPage
-        title="Rút VNDB"
-        purpose="Nhà đầu tư chuyển VNDB trong ví về tài khoản ngân hàng của mình."
-        task="FE-23"
-        ready={[
-          'Đường dẫn /withdraw nằm trong khu vực Nhà đầu tư, cổng portfolio:read.',
-          'useWalletStatus() trả canSign — một chỗ duy nhất trả lời "ví sẵn sàng ký chưa".',
-        ]}
-        notes={[
-          'Khác với ba màn kia, nghiệp vụ rút VNDB CHƯA có ở tầng backend: chưa có service, chưa có quyền RBAC. FE-23 phụ thuộc task backend tương ứng, không chỉ dựng giao diện.',
-          'Mã task FE-23 do FE-20 đặt trước vì lộ trình chưa có mã cho màn này — xem docs/CHECKPOINT_FE20.md.',
-        ]}
-      />
+      <InvestorWithdrawPage mockWallet={mockWallet} />
     </AppLayout>
   );
 }

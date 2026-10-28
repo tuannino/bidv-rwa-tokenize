@@ -31,6 +31,9 @@ import type { IVaultStore } from './vault.store.port';
 import { createMemoryWalletBindingStore } from './memory.wallet-binding.store';
 import { createPostgresWalletBindingStore } from './postgres.wallet-binding.store';
 import type { IWalletBindingStore } from './wallet-binding.store.port';
+import { createMemoryPaymentWithdrawStore } from './memory.payment-withdraw.store';
+import { createPostgresPaymentWithdrawStore } from './postgres.payment-withdraw.store';
+import type { IPaymentWithdrawStore } from './payment-withdraw.store.port';
 import type { IChainEventStore } from './chain-event.store.port';
 import { createMemoryChainEventStore } from './memory.chain-event.store';
 import { createPostgresChainEventStore } from './postgres.chain-event.store';
@@ -171,6 +174,15 @@ export {
 } from './vault.store.port';
 
 export type { IWalletBindingStore, WalletBindingRecord } from './wallet-binding.store.port';
+export {
+  PAYMENT_WITHDRAW_NEGATIVE_STATUSES,
+  PAYMENT_WITHDRAW_PENDING_STATUSES,
+  PAYMENT_WITHDRAW_STATUSES,
+  PAYMENT_WITHDRAW_TRANSITIONS,
+  type IPaymentWithdrawStore,
+  type PaymentWithdrawRecord,
+  type PaymentWithdrawStatus,
+} from './payment-withdraw.store.port';
 export type {
   ChainEventQuery,
   IChainEventStore,
@@ -208,6 +220,7 @@ const cache: {
   tokenRequest?: ITokenRequestStore;
   vault?: IVaultStore;
   walletBinding?: IWalletBindingStore;
+  paymentWithdraw?: IPaymentWithdrawStore;
   chainEvent?: IChainEventStore;
 } = {};
 
@@ -306,6 +319,17 @@ export function getWalletBindingStore(): IWalletBindingStore {
   return cache.walletBinding;
 }
 
+/**
+ * Cổng lệnh rút VNDB của Nhà đầu tư (FE-23 QĐ-6). Trọng tài "một lệnh đang dở mỗi ví" và "một mã
+ * giao dịch một lệnh" là ràng buộc duy nhất, không phải phép đọc trước trong nghiệp vụ.
+ */
+export function getPaymentWithdrawStore(): IPaymentWithdrawStore {
+  cache.paymentWithdraw ??= wantsMemoryStore()
+    ? createMemoryPaymentWithdrawStore()
+    : createPostgresPaymentWithdrawStore();
+  return cache.paymentWithdraw;
+}
+
 /** IN-01: bộ nhớ đệm sự kiện chuỗi; chọn cùng chế độ lưu trữ với các cổng khác. */
 export function getChainEventStore(): IChainEventStore {
   cache.chainEvent ??= wantsMemoryStore()
@@ -332,5 +356,6 @@ export function resetStoreCache(): void {
   cache.tokenRequest = undefined;
   cache.vault = undefined;
   cache.walletBinding = undefined;
+  cache.paymentWithdraw = undefined;
   cache.chainEvent = undefined;
 }

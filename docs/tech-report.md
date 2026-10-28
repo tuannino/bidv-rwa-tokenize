@@ -478,7 +478,7 @@ bidv-rwa-tokenize/
 │   │   │                      #   approval-detail (FE-22), investor-trade, investor-orders,
 │   │   │                      #   investor-order-detail (FE-25), demo-payment (BE-16),
 │   │   │                      #   ops-transactions + ops-order-detail (FE-06), account-info (FE-24),
-│   │   │                      #   placeholder (2 trang: FE-08, FE-23)
+│   │   │                      #   investor-withdraw (FE-23); placeholder đã xoá (không còn trang chờ)
 │   │   └── ui/                # shadcn/ui primitives
 │   ├── scripts/local-proxy.mjs # OP-04: bootstrap fetch qua proxy, chỉ Node local
 │   ├── src/lib/               # ★ LÕI — xem Phần 3
@@ -1038,6 +1038,10 @@ Cột adapter: ✅ đã hiện thực · ⏳ ném `LedgerNotImplementedError` (c
 | 32e | | `findVaultWithdrawals({ fromBlock, to, amount })` (BE-13) | ✅ | ✅ | ⏳ | sự kiện ứng viên khi mất mã giao dịch |
 | 32f | | `vaultWithdrawalReceipt(txHash)` (BE-13) | ✅ | ✅ | ⏳ | biên nhận kèm `Withdrawn` của chính vault; chưa có thì `null` |
 | 32g | | `vaultConfigEvents({ fromBlock })` (BE-13 QĐ-C1) | ✅ | ✅ | ✅ (mảng rỗng) | bốn sự kiện cấu hình từ `deployBlock` |
+| 32h | `ILedgerPaymentTransfer` | `paymentTxSender(txHash)` (FE-23) | ✅ (sổ `paymentTransfers`) | ✅ (`getTransaction`) | ⏳ | người gửi giao dịch; nút chưa thấy thì `null` |
+| 32i | | `paymentTransferReceipt(txHash)` (FE-23) | ✅ | ✅ | ⏳ | đọc ngay, không chờ: `PENDING`, `CONFIRMED`, `FAILED`, `UNKNOWN`; chỉ log `Transfer` của VNDB |
+| 32j | | `findPaymentTransferByTag(query)` (FE-23) | ✅ | ✅ (`getLogs` theo `evmLogBlockChunk`) | ⏳ | tìm giao dịch của lệnh rút theo nhãn 32 byte trong `input` |
+| 32k | | `mockTransferPayment?` (FE-23) | ✅ | không có | không có | chỉ mock: máy chủ chuyển thay ví, cùng nhãn không chuyển lần hai |
 | 33 | `ILedgerRead` | `balanceOf` | ✅ | ✅ | ⏳ | Phase 7 |
 | 34 | | `tokenInfo` | ✅ | ✅ | ⏳ | Phase 7 |
 | 35 | | `waitReceipt` | ✅ | ✅ | ⏳ | Phase 7 |
@@ -1183,6 +1187,7 @@ Cột "Nguồn" nói action do phase nào khai: **BE-08** (bổ sung quyền cho
 | `vault:configure` | ❌ | ❌ | ❌ | ✅ | BE-13 |
 | `vault:withdraw` | ❌ | ✅ | ❌ | ❌ | BE-13 |
 | `vault:reconcile` | ❌ | ❌ | ❌ | ✅ | BE-13 |
+| `payment:withdraw` | ✅ | ❌ | ❌ | ❌ | FE-23 |
 
 **5 cổng khu vực FE-20 thêm vào** — `seller:read`, `wallet:connect`, `ops:read`,
 `ops:draft:read`, `ops:approve:read` — là **quyền HIỂN THỊ**, mỗi cái trả lời đúng một câu: "vai
@@ -1731,17 +1736,16 @@ Hai loại marker trả lời hai câu hỏi khác nhau, nên **đừng gộp kh
 | **cắm** (`@pending`) | đã chạy được, chưa ai gọi | **chỉ cần gọi** — làm được ngay |
 | **chặn** (`@blocked`) | đang ném lỗi | **phải xong trước**, rồi mới nối được |
 
-**5 điểm cắm · 2 điểm chặn**, nhóm theo task đang chờ.
+**4 điểm cắm · 2 điểm chặn**, nhóm theo task đang chờ.
 
 | Task | Loại | Vị trí | Đã sẵn gì (cắm) / thiếu gì (chặn) |
 |---|---|---|---|
 | `AU-01` | cắm | `app/src/app/actions/session.ts:34` | setDemoRole đã sẵn: đặt cookie vai rồi refresh, KHÔNG điều hướng — dùng được để nối phiên SIWE mà giữ người dùng ở lại trang đang mở |
 | `FE-09` | cắm | `app/src/app/actions/distribution.ts:76` | đã sẵn đầu cuối ở `getDistributionPeriod`: tra kỳ theo `periodKey` hoặc `periodId`, trả trạng thái kỳ kèm số hồ sơ theo từng trạng thái, tổng đã chi và số hồ sơ còn phải chi. Kiểm quyền `reconcile:read` nên hai vai vận hành đọc được và nhà đầu tư thì không. Hàm chỉ đọc và KHÔNG ghi sổ kiểm toán, nên màn theo dõi gọi lại theo chu kỳ được mà không nhấn chìm sổ |
 | `FE-09` | cắm | `app/src/lib/signer/wallet.signer.ts:10` | đã sẵn: `ISigner` dựng từ provider EIP-1193 của ví, account dạng `json-rpc` nên KHÔNG giữ khóa, thiếu ví thì ném `SignerUnavailableError` có hướng dẫn. FE-05 đã dùng hàm này để ký permit (`wallet-permit.ts`); FE-09 và FE-11 dùng lại đúng hàm này cho nút ký của họ |
-| `FE-23` | cắm | `app/src/app/(investor)/withdraw/page.tsx:4` | đường dẫn /withdraw, cổng portfolio:read và mục menu "Rút VNDB" đã chạy — FE-23 dựng phần thân; nghiệp vụ rút chưa có ở tầng backend |
 | `IN-02` | cắm | `app/src/lib/bank/distribution-trigger.service.ts:302` | đã sẵn đầu cuối cách phát hiện bằng hỏi định kỳ: đọc `unallocatedProfit` của quỹ, có chặn ngưỡng tối thiểu và phát hiện quỹ hụt so với dự trữ ở `runDistributionCycle`. IN-02 chỉ cần đổi NGUỒN tín hiệu sang sự kiện `Transfer` vào quỹ do Indexer đọc được; kết cục vẫn là `AWAITING_APPROVAL` cho tới khi Kiểm soát viên duyệt |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1203` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
-| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1209` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1204` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
+| `SC-04` | chặn | `app/src/lib/ledger/evm.adapter.ts:1210` | nợ kỹ thuật của bản tất toán đầy đủ: giá NAV và chi trả trên chuỗi |
 
 **Luồng nghiệp vụ đã gắn `@flow`** (sơ đồ cũng sinh từ marker, xem `docs/flows/`):
 
@@ -2108,7 +2112,7 @@ Task **chỉ dựng khung**, không làm nghiệp vụ. Bảng vai trò và bả
 | `lib/session/channel.ts` | 4 khu vực + `CHANNEL_HOME` + `CHANNEL_ROLE` + `ROLE_CHANNEL` (suy ra) + `homeForRole()` |
 | `lib/nav/pending-work.ts` | `pendingWorkCounts()` — số ban đầu cho SSR ở chain mặc định; FE-27 sidebar tải lại bằng `getPendingWork(chain)` khi selector đổi; `server-only` |
 | `components/layout/nav-config.ts` | `NAV_BY_ROLE` — 4 menu, mỗi menu là **danh sách nhóm** |
-| `components/pages/placeholder.tsx` | `PlaceholderPage` — khuôn trang chỗ trống, hiện còn dùng ở 2 trang: `/distribution` (FE-08) và `/withdraw` (FE-23). FE-24 đã thay `/account` |
+| `components/pages/placeholder.tsx` | Đã xoá ở FE-23: trang chờ cuối cùng (`/withdraw`) đã có phần thân; FE-08 đã thay `/distribution`, FE-24 đã thay `/account` |
 | `test/four-roles-shell.test.ts` | Menu khớp tài liệu yêu cầu, khu vực ↔ vai, số việc chờ |
 | `test/four-roles-routes.test.ts` | Đọc **cây route thật** trên đĩa rồi đối chiếu với bảng khu vực |
 

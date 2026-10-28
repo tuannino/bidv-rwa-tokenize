@@ -7,6 +7,7 @@ import {
   createPublicClient,
   createWalletClient,
   decodeEventLog,
+  getAbiItem,
   http,
   parseEventLogs,
   toFunctionSelector,
@@ -1466,6 +1467,109 @@ export function createEvmLedger(
       } catch (error) {
         if (error instanceof BaseError && error.walk((e) => e instanceof TransactionNotFoundError)) return 'UNKNOWN';
         return fail('txReceiptStatus', error);
+      }
+    },
+
+    // =========================================================================
+    //  RÚT VNDB CỦA NHÀ ĐẦU TƯ (FE-23): ví của Nhà đầu tư gửi, máy chủ chỉ ĐỌC để kiểm
+    // =========================================================================
+
+    async paymentTxSender(txHash) {
+      try {
+        const tx = await reader().getTransaction({ hash: txHash as Hex });
+        return normalizeEvmAddress(tx.from);
+      } catch (error) {
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionNotFoundError)) return null;
+        return fail('paymentTxSender', error);
+      }
+    },
+
+    async paymentTransferReceipt(txHash) {
+      const hash = txHash as Hex;
+      const token = addressOf('VNDToken').toLowerCase();
+      let sent: { from: string; input: Hex };
+      try {
+        const tx = await reader().getTransaction({ hash });
+        sent = { from: normalizeEvmAddress(tx.from), input: tx.input };
+      } catch (error) {
+        // Nút không biết mã: chưa phát, đã rơi, hoặc bị thay (tăng tốc, huỷ trong ví).
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionNotFoundError)) {
+          return { status: 'UNKNOWN' as const, txFrom: null, input: null, transfers: [] };
+        }
+        return fail('paymentTransferReceipt', error);
+      }
+      try {
+        const receipt = await reader().getTransactionReceipt({ hash });
+        // Chỉ nhận log do CHÍNH hợp đồng VNDB phát: hợp đồng khác cùng chữ ký sự kiện không tính.
+        const logs = receipt.logs.filter((log) => log.address.toLowerCase() === token);
+        const transfers = parseEventLogs({ abi: vndTokenAbi, logs, eventName: 'Transfer' }).map((event) => ({
+          from: normalizeEvmAddress(event.args.from),
+          to: normalizeEvmAddress(event.args.to),
+          value: event.args.value,
+        }));
+        return {
+          status: receipt.status === 'success' ? ('CONFIRMED' as const) : ('FAILED' as const),
+          txFrom: sent.from,
+          input: sent.input,
+          transfers,
+        };
+      } catch (error) {
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionReceiptNotFoundError)) {
+          return { status: 'PENDING' as const, txFrom: sent.from, input: sent.input, transfers: [] };
+        }
+        return fail('paymentTransferReceipt', error);
+      }
+    },
+
+    /**
+     * Tìm giao dịch của một lệnh rút theo nhãn (QĐ-11): log `Transfer` của VNDB lọc `from`, `to` bằng
+     * topic, theo đoạn `evmLogBlockChunk` như Indexer; với từng ứng viên đúng số, đọc giao dịch và chỉ
+     * nhận khi người gửi là ví gửi và `input` kết thúc bằng nhãn. Không dựa vào khoảng khối.
+     */
+    async findPaymentTransferByTag({ from, to, value, tag, fromBlock }) {
+      const token = addressOf('VNDToken');
+      const sender = normalizeEvmAddress(from);
+      const receiver = normalizeEvmAddress(to);
+      const wanted = tag.toLowerCase().replace(/^0x/, '');
+      try {
+        const latest = await reader().getBlockNumber();
+        if (fromBlock > latest) return null;
+        const chunk = BigInt(serverEnv().evmLogBlockChunk);
+        const ranges: Array<[bigint, bigint]> = [];
+        for (let start = fromBlock; start <= latest; start += chunk) {
+          ranges.push([start, start + chunk - 1n < latest ? start + chunk - 1n : latest]);
+        }
+        const transferEvent = getAbiItem({ abi: vndTokenAbi, name: 'Transfer' });
+        const parts = await Promise.all(
+          ranges.map(([start, end]) =>
+            logReader().getLogs({
+              address: token,
+              event: transferEvent,
+              args: { from: sender as Hex, to: receiver as Hex },
+              fromBlock: start,
+              toBlock: end,
+            }),
+          ),
+        );
+        const candidates = parts
+          .flat()
+          .filter((log) => log.args.value === value && log.transactionHash !== null && log.blockNumber !== null)
+          .sort((a, b) =>
+            a.blockNumber! < b.blockNumber! ? -1 : a.blockNumber! > b.blockNumber! ? 1 : (a.logIndex ?? 0) - (b.logIndex ?? 0),
+          );
+        const checked = new Set<string>();
+        for (const log of candidates) {
+          const hash = log.transactionHash!;
+          if (checked.has(hash)) continue;
+          checked.add(hash);
+          const tx = await reader().getTransaction({ hash });
+          if (tx.from.toLowerCase() === sender.toLowerCase() && tx.input.toLowerCase().endsWith(wanted)) {
+            return { txHash: hash, blockNumber: log.blockNumber! };
+          }
+        }
+        return null;
+      } catch (error) {
+        return fail('findPaymentTransferByTag', error);
       }
     },
 

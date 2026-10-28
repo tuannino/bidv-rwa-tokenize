@@ -244,6 +244,16 @@ export const UNIQUE_CONSTRAINTS: Readonly<
   },
   WithdrawRequest_activeChain_key: { table: 'WithdrawRequest', columns: ['activeChain'] },
   WithdrawRequest_txHash_key: { table: 'WithdrawRequest', columns: ['txHash'] },
+  // FE-23 QĐ-5, QĐ-11: chống trùng theo ví, một lệnh đang dở mỗi ví, một mã giao dịch một lệnh mỗi chain.
+  PaymentWithdrawRequest_chain_fromWalletKey_clientRequestId_key: {
+    table: 'PaymentWithdrawRequest',
+    columns: ['chain', 'fromWalletKey', 'clientRequestId'],
+  },
+  PaymentWithdrawRequest_activeWallet_key: { table: 'PaymentWithdrawRequest', columns: ['activeWallet'] },
+  PaymentWithdrawRequest_chain_completedTxHash_key: {
+    table: 'PaymentWithdrawRequest',
+    columns: ['chain', 'completedTxHash'],
+  },
 };
 
 /** Tên khoá ngoài trong `prisma/init.sql` → bảng + cột. */

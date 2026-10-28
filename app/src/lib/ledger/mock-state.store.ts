@@ -66,6 +66,19 @@ export interface MockVaultConfigEvent {
   timestamp: number;
 }
 
+/**
+ * FE-23 QĐ-4: một lần chuyển VNDB mà máy chủ làm THAY ví của Nhà đầu tư trên mock, kèm nhãn lệnh.
+ * Nhãn là khoá chống chuyển lần hai: cùng nhãn thì trả lại giao dịch cũ.
+ */
+export interface MockPaymentTransfer {
+  tag: string;
+  txHash: string;
+  from: string;
+  to: string;
+  value: bigint;
+  blockNumber: number;
+}
+
 /** Biến trạng thái của `SpvPaymentVault`, ngang hàng từng biến của hợp đồng (BE-13 QĐ-G). */
 export interface MockVaultState {
   lockMode: VaultLockMode;
@@ -110,6 +123,8 @@ export interface MockLedgerState {
   navRate: bigint;
   /** Vault thanh toán mock ở địa chỉ logic `MOCK_VAULT_ADDRESS`. */
   vault: MockVaultState;
+  /** FE-23: các lần chuyển VNDB rút của Nhà đầu tư, mỗi nhãn một lần. */
+  paymentTransfers: MockPaymentTransfer[];
 }
 
 /** Callback phải đồng bộ để một mutate luôn nằm trọn trong cùng critical section/transaction. */
@@ -173,6 +188,7 @@ export function createDefaultMockLedgerState(): MockLedgerState {
     settlementMode: false,
     navRate: DEFAULT_WPT_PRICE_VND,
     vault: createDefaultMockVaultState(),
+    paymentTransfers: [],
   };
 }
 
@@ -217,6 +233,7 @@ export function cloneMockLedgerState(source: Readonly<MockLedgerState>): MockLed
       periodCloses: source.vault.periodCloses.map((event) => ({ ...event })),
       configEvents: source.vault.configEvents.map((event) => ({ ...event })),
     },
+    paymentTransfers: source.paymentTransfers.map((transfer) => ({ ...transfer })),
   };
 }
 
@@ -301,6 +318,8 @@ export type EncodedMockLedgerState = {
   navRate: string;
   /** Thiếu ở dòng lưu trước BE-13: giải mã thành vault `UNSET` (QĐ-G). */
   vault?: EncodedVaultState;
+  /** Thiếu ở dòng lưu trước FE-23: đọc ra rỗng. */
+  paymentTransfers?: Array<Omit<MockPaymentTransfer, 'value'> & { value: string }>;
 };
 
 const sortedStrings = (values: Iterable<string>): string[] => [...values].sort();
@@ -394,6 +413,7 @@ export function encodeMockLedgerState(state: Readonly<MockLedgerState>): Encoded
     settlementMode: state.settlementMode,
     navRate: state.navRate.toString(),
     vault: encodeVault(state.vault),
+    paymentTransfers: state.paymentTransfers.map((transfer) => ({ ...transfer, value: transfer.value.toString() })),
   };
 }
 
@@ -671,6 +691,20 @@ export function decodeMockLedgerState(value: unknown, now: number = Date.now()):
     settlementMode: booleanValue(root.settlementMode, 'settlementMode'),
     navRate: bigintValue(root.navRate, 'navRate'),
     vault,
+    paymentTransfers: (root.paymentTransfers === undefined ? [] : arrayValue(root.paymentTransfers, 'paymentTransfers')).map(
+      (raw, index) => {
+        const label = `paymentTransfers.${index}`;
+        const item = record(raw, label);
+        return {
+          tag: stringValue(item.tag, `${label}.tag`),
+          txHash: stringValue(item.txHash, `${label}.txHash`),
+          from: stringValue(item.from, `${label}.from`),
+          to: stringValue(item.to, `${label}.to`),
+          value: bigintValue(item.value, `${label}.value`),
+          blockNumber: integerValue(item.blockNumber, `${label}.blockNumber`),
+        };
+      },
+    ),
   };
 }
 

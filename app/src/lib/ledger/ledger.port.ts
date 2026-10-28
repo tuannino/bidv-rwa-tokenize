@@ -342,6 +342,55 @@ export interface ILedgerPurchase {
   executeSale(order: SettlementOrder): Promise<TxResult>;
 }
 
+// =============================================================================
+//  RÚT VNDB CỦA NHÀ ĐẦU TƯ (FE-23): ví của Nhà đầu tư ký và gửi; máy chủ chỉ ĐỌC để kiểm
+// =============================================================================
+
+/** Một log `Transfer` của hợp đồng VNDB, đã giải mã. */
+export interface PaymentTransferLog {
+  from: string;
+  to: string;
+  value: bigint;
+}
+
+/**
+ * Kết quả đọc NGAY (không chờ) một giao dịch chuyển VNDB. `txFrom`, `input` đọc từ giao dịch (đọc được
+ * cả khi còn chờ); `transfers` chỉ gồm log `Transfer` do chính hợp đồng VNDB phát.
+ */
+export interface PaymentTransferEvidence {
+  status: TxReceiptStatus;
+  txFrom: string | null;
+  input: `0x${string}` | null;
+  transfers: PaymentTransferLog[];
+}
+
+/** Tìm giao dịch của một lệnh rút theo nhãn (FE-23 QĐ-11). */
+export interface PaymentTransferQuery {
+  from: string;
+  to: string;
+  value: bigint;
+  /** 32 byte nhãn lệnh nối sau calldata `transfer` (QĐ-12). */
+  tag: `0x${string}`;
+  fromBlock: bigint;
+}
+
+export interface ILedgerPaymentTransfer {
+  /** Người gửi của giao dịch; `null` khi nút chưa thấy giao dịch. */
+  paymentTxSender(txHash: string): Promise<string | null>;
+  /** Biên nhận đọc ngay: không có biên nhận thì `PENDING` (nút còn thấy giao dịch) hoặc `UNKNOWN`. */
+  paymentTransferReceipt(txHash: string): Promise<PaymentTransferEvidence>;
+  /**
+   * Log `Transfer` của VNDB từ `from` tới `to` đúng `value`, từ `fromBlock` tới khối mới nhất; chỉ nhận
+   * ứng viên mà giao dịch do `from` gửi và `input` kết thúc bằng `tag`. Trả ứng viên đầu tiên theo khối.
+   */
+  findPaymentTransferByTag(query: PaymentTransferQuery): Promise<{ txHash: string; blockNumber: bigint } | null>;
+  /**
+   * CHỈ chain họ mock (QĐ-4): mock không có ví trình duyệt, máy chủ chuyển thay. Cùng nhãn thì trả lại
+   * giao dịch cũ, KHÔNG chuyển lần hai. Adapter khác không có phương thức này.
+   */
+  mockTransferPayment?(from: string, to: string, amount: bigint, tag: `0x${string}`): Promise<TxResult>;
+}
+
 export interface SettlementOrder {
   orderId: string;
   investor: string;
@@ -508,6 +557,7 @@ export interface ILedgerPort
     ILedgerDistribution,
     ILedgerSettlement,
     ILedgerVault,
+    ILedgerPaymentTransfer,
     ILedgerRead {
   readonly chain: ChainKey;
 }
