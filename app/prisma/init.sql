@@ -309,6 +309,33 @@ CREATE TABLE "WithdrawRequest" (
 );
 
 -- CreateTable
+CREATE TABLE "PaymentWithdrawRequest" (
+    "id" TEXT NOT NULL,
+    "chain" TEXT NOT NULL,
+    "clientRequestId" TEXT NOT NULL,
+    "actorId" TEXT NOT NULL,
+    "fromWallet" TEXT NOT NULL,
+    "fromWalletKey" TEXT NOT NULL,
+    "toWallet" TEXT NOT NULL,
+    "amount" DECIMAL(78,0) NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "note" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'CREATED',
+    "activeWallet" TEXT,
+    "createdBlock" DECIMAL(78,0),
+    "submittedTxHash" TEXT,
+    "submittedAt" TIMESTAMPTZ(3),
+    "sendingAt" TIMESTAMPTZ(3),
+    "completedTxHash" TEXT,
+    "reason" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+    "completedAt" TIMESTAMPTZ(3),
+
+    CONSTRAINT "PaymentWithdrawRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "WalletBinding" (
     "chain" TEXT NOT NULL,
     "walletKey" TEXT NOT NULL,
@@ -497,6 +524,18 @@ CREATE UNIQUE INDEX "WithdrawRequest_activeChain_key" ON "WithdrawRequest"("acti
 
 -- CreateIndex
 CREATE UNIQUE INDEX "WithdrawRequest_txHash_key" ON "WithdrawRequest"("txHash");
+
+-- CreateIndex
+CREATE INDEX "PaymentWithdrawRequest_chain_fromWalletKey_createdAt_idx" ON "PaymentWithdrawRequest"("chain", "fromWalletKey", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PaymentWithdrawRequest_chain_fromWalletKey_clientRequestId_key" ON "PaymentWithdrawRequest"("chain", "fromWalletKey", "clientRequestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PaymentWithdrawRequest_activeWallet_key" ON "PaymentWithdrawRequest"("activeWallet");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PaymentWithdrawRequest_chain_completedTxHash_key" ON "PaymentWithdrawRequest"("chain", "completedTxHash");
 
 -- CreateIndex
 CREATE INDEX "WalletBinding_chain_actorId_idx" ON "WalletBinding"("chain", "actorId");

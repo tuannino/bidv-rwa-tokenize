@@ -442,6 +442,11 @@ const BE05_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   { action: 'settlement:recall', allowed: ['CONTROLLER'], why: 'chỉ Kiểm soát viên đóng băng và thu hồi token' },
 ];
 
+/** FE-23 QĐ-7: Nhà đầu tư rút VNDB từ ví của mình, ví của Nhà đầu tư ký. */
+const FE23_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  { action: 'payment:withdraw', allowed: ['INVESTOR'], why: 'chỉ Nhà đầu tư rút VNDB từ ví đã định danh của mình' },
+];
+
 /**
  * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
  * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
@@ -478,10 +483,11 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'vault:withdraw',
   'vault:reconcile',
   'distribution:approve',
+  'payment:withdraw',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS, ...BE05_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS, ...BE05_ACTIONS, ...FE23_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -504,6 +510,7 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...BE13_ACTIONS.map((row) => row.action),
       ...FE08_ACTIONS.map((row) => row.action),
       ...BE05_ACTIONS.map((row) => row.action),
+      ...FE23_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(

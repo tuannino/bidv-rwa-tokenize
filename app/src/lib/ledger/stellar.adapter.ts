@@ -210,6 +210,16 @@ export function createStellarLedger(chain: ChainKey = 'stellar'): ILedgerPort {
     async txReceiptStatus(): Promise<never> {
       return todo('txReceiptStatus');
     },
+    // FE-23: rút VNDB của Nhà đầu tư chưa có trên Stellar.
+    async paymentTxSender(): Promise<never> {
+      return todo('paymentTxSender');
+    },
+    async paymentTransferReceipt(): Promise<never> {
+      return todo('paymentTransferReceipt');
+    },
+    async findPaymentTransferByTag(): Promise<never> {
+      return todo('findPaymentTransferByTag');
+    },
     async vaultWithdrawalReceipt(): Promise<never> {
       return todoNeeds('vaultWithdrawalReceipt', 'sự kiện rút của vault thanh toán SPV bản Soroban');
     },

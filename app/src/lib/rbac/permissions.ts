@@ -215,6 +215,12 @@ export const ACTIONS = [
   'vault:withdraw',
   /** Xử lý lệnh rút `NEEDS_REVIEW` (không xác định được kết cục). CHỈ CONTROLLER. */
   'vault:reconcile',
+
+  /**
+   * FE-23: Nhà đầu tư rút VNDB từ ví của mình sang ví nhận đã whitelist. CHỈ INVESTOR. Ví của Nhà đầu
+   * tư ký và gửi giao dịch; máy chủ lập lệnh và kiểm kết quả trên chuỗi.
+   */
+  'payment:withdraw',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -273,6 +279,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'wallet:connect',
     'balance:read',
     'txn:read',
+    'payment:withdraw',
   ],
   /**
    * Người bán: vai MỚI của FE-20.

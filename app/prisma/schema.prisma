@@ -627,6 +627,45 @@ model WithdrawRequest {
   @@index([chain, status])
 }
 
+/// FE-23: Nhà đầu tư rút VNDB từ ví của mình sang ví nhận đã whitelist. Ví của Nhà đầu tư ký và gửi.
+model PaymentWithdrawRequest {
+  id              String    @id
+  chain           String
+  /// Mã chống trùng do màn sinh một lần cho mỗi lần xác nhận.
+  clientRequestId String
+  /// Mã tài khoản Nhà đầu tư đã tạo lệnh.
+  actorId         String
+  fromWallet      String
+  /// Ví gửi viết thường.
+  fromWalletKey   String
+  toWallet        String
+  amount          Decimal   @db.Decimal(78, 0)
+  purpose         String
+  note            String?
+  /// Giá trị hợp lệ: PAYMENT_WITHDRAW_STATUSES ở lib/store/payment-withdraw.store.port.ts
+  status          String    @default("CREATED")
+  /// `chain:fromWalletKey` khi đang chờ (CREATED, SENDING, SUBMITTED), NULL khi đã cuối: mỗi ví một lệnh đang dở.
+  activeWallet    String?
+  /// Block mới nhất lúc tạo lệnh: mốc quét giao dịch theo nhãn.
+  createdBlock    Decimal?  @db.Decimal(78, 0)
+  /// Mã trình duyệt báo; KHÔNG duy nhất (mã người khác báo bừa không được chiếm chỗ của lệnh thật).
+  submittedTxHash String?
+  submittedAt     DateTime? @db.Timestamptz(3)
+  /// Lúc chuyển SENDING: mốc tính hết hạn.
+  sendingAt       DateTime? @db.Timestamptz(3)
+  /// Mã đã chứng minh trên chuỗi; duy nhất theo chain.
+  completedTxHash String?
+  reason          String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  completedAt     DateTime? @db.Timestamptz(3)
+
+  @@unique([chain, fromWalletKey, clientRequestId])
+  @@unique([activeWallet])
+  @@unique([chain, completedTxHash])
+  @@index([chain, fromWalletKey, createdAt])
+}
+
 /// FIX-01: ví đã được ngân hàng định danh và gắn cho hồ sơ. Một hồ sơ nhiều ví mỗi chain, một ví một hồ sơ mỗi chain.
 model WalletBinding {
   chain     String
