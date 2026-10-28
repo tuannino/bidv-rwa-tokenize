@@ -5,6 +5,7 @@ import { getLedger, LedgerNotImplementedError, receiptTimeoutFor, type ILedgerPo
 import { getBankSigner } from '@/lib/signer';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
+import { serverEnv } from '@/lib/config/env';
 import { getOrderStore, getStore, UniqueConstraintError } from '@/lib/store';
 import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
 import type { OrderPermit } from '@/lib/store/order.store.port';
@@ -156,6 +157,20 @@ export interface PurchasePreviewView {
   checks: OrderCheckResult[];
 }
 
+/** FIX-02 QĐ-2: câu lỗi dùng chung khi Nhà đầu tư đặt lệnh bán mà cờ `ENABLE_INVESTOR_SELL` tắt. */
+export const INVESTOR_SELL_DISABLED_MESSAGE = 'Nhà đầu tư không được bán token.';
+
+/**
+ * FIX-02 QĐ-1: Nhà đầu tư chỉ mua, trừ khi cờ `ENABLE_INVESTOR_SELL` bật. Điểm kiểm DUY NHẤT của cờ;
+ * gọi SAU phân quyền và chốt ví phiên, TRƯỚC mọi lần đọc chuỗi.
+ */
+export function investorSellBlocked(side: OrderSide): boolean {
+  return side === 'SELL' && !serverEnv().enableInvestorSell;
+}
+
+const sellBlockedResult = <T>() =>
+  err<T>('VALIDATION', INVESTOR_SELL_DISABLED_MESSAGE, { side: [INVESTOR_SELL_DISABLED_MESSAGE] });
+
 /**
  * XEM TRƯỚC ĐIỀU KIỆN MUA — không tạo lệnh, KHÔNG ghi một dòng nào vào cơ sở dữ liệu.
  *
@@ -186,6 +201,7 @@ export async function previewPurchase(input: unknown): Promise<Result<PurchasePr
     assertCan(role, 'order:place');
     // FIX-01 D2: không ghi sổ, giữ đúng chủ đích dùng `assertCan` ở trên.
     await assertSessionWallet({ role, chain, wallet: investorWallet });
+    if (investorSellBlocked(side)) return sellBlockedResult<PurchasePreviewView>();
     const blocked = await recallTradeBlock(chain);
     if (blocked) return err('REQUEST_STATE', blocked);
 
@@ -297,6 +313,9 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
     // đã được dùng. Đặt SAU khi kiểm chữ ký: một chữ ký không khớp ví không được dùng để dò lệnh.
     const repeated = await orderStore.findOrderByClientRequest({ investorWallet, clientRequestId });
     if (repeated) return repeatedOrderResult(repeated, { chain, side, wptAmount });
+    // FIX-02 QĐ-2: SAU bước tìm lệnh cũ, để gửi lại đúng yêu cầu đã tạo (lúc cờ còn bật) vẫn nhận lại
+    // lệnh cũ; chỉ lệnh bán MỚI bị chặn, kèm một dòng sổ kiểm toán FAILURE.
+    if (investorSellBlocked(side)) return await reject('VALIDATION', INVESTOR_SELL_DISABLED_MESSAGE);
 
     if (signed) {
       const usable = await classifyPlacementPermit(ledger, { side, investorWallet, permit: signed });
@@ -496,6 +515,7 @@ export async function preparePermit(input: unknown): Promise<Result<PermitPrepar
     assertCan(role, 'order:place');
     // FIX-01 D2: trước cả lỗi cấu hình chain, không ghi sổ (như `previewPurchase`).
     await assertSessionWallet({ role, chain, wallet: investorWallet });
+    if (investorSellBlocked(side)) return sellBlockedResult<PermitPreparationView>();
     if (!isPermitChain(chain)) {
       return err('VALIDATION', `Chain "${chain}" không dùng chữ ký ủy quyền; đặt lệnh không cần ký.`);
     }

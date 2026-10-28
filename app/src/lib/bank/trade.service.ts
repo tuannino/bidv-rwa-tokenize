@@ -2,6 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
+import { serverEnv } from '@/lib/config/env';
 import { getLedger, LedgerNotImplementedError, type ILedgerPort } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -82,6 +83,8 @@ export interface TradeContextView {
    * KHÔNG đọc số dư của ví (`balances` là `null`, trần hai chiều bằng 0); thông tin token vẫn trả.
    */
   walletBound: boolean;
+  /** FIX-02 A3: Nhà đầu tư được bán không (cờ `ENABLE_INVESTOR_SELL`); đọc cờ, không đọc chuỗi. */
+  sellEnabled: boolean;
   balances: {
     /** WPT ví đang giữ. */
     wpt: string;
@@ -179,6 +182,7 @@ export async function getTradeContext(input: unknown): Promise<Result<TradeConte
       tokens: projects.map((p) => ({ tokenSymbol: p.tokenSymbol, projectName: p.name })),
       token,
       walletBound,
+      sellEnabled: serverEnv().enableInvestorSell,
       balances: held !== null && vndb !== null ? { wpt: held.toString(), vndb: vndb.toString() } : null,
       priceVnd: price.toString(),
       caps: quantityCaps(vndb ?? 0n, price, undistributed, held ?? 0n),

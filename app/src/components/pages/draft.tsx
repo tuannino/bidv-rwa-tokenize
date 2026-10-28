@@ -14,6 +14,7 @@ import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
 import { fetchTokenInfo, tokenInfoReadErrorMessage } from '@/components/maker-checker/token-info-read';
 import {
   BURN_SOURCE_LABELS,
+  burnAmountShown,
   burnSourceEffect,
   describeInvalid,
   submitBlockReason,
@@ -276,13 +277,15 @@ function RequestForm({
   const effectiveWallet = info?.spvWallet ?? wallet.trim();
 
   // ---- Khối kiểm tra: hỏi máy chủ mỗi khi nội dung đổi ----
+  // FIX-02 C1: Burn "Toàn bộ nguồn cung" luôn lấy tổng cung hiện tại, không lấy số đã gõ.
+  const amountShown = burnAmountShown(type, burnSource, amount, info?.totalSupply ?? null);
   const payload =
-    info && amount.trim() !== ''
+    info && amountShown.trim() !== ''
       ? {
           type,
           chain,
           tokenSymbol: info.tokenSymbol,
-          amount: amount.trim(),
+          amount: amountShown.trim(),
           ...(type === 'MINT' ? { wallet: effectiveWallet } : { burnSource }),
           reason,
           documentRef,
@@ -325,11 +328,12 @@ function RequestForm({
     ? 'Đang gửi…'
     : submitBlockReason(preview, Boolean(sourceEffect?.needsConfirmation) && !confirmed);
 
+  const fullSupplyAmount = type === 'BURN' && burnSource === 'TOTAL_SUPPLY';
+
   const chooseSource = (source: BurnSource) => {
     setBurnSource(source);
     setConfirmed(false);
-    const effect = burnSourceEffect(source, info?.totalSupply ?? null);
-    if (effect.amount !== null) setAmount(effect.amount);
+    if (source === 'UNDISTRIBUTED') setAmount('');
   };
 
   const submit = () => {
@@ -447,13 +451,23 @@ function RequestForm({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id={id('amount')} label="Số lượng">
+          <Field
+            id={id('amount')}
+            label="Số lượng"
+            hint={
+              fullSupplyAmount
+                ? info
+                  ? 'Tự điền bằng tổng cung hiện tại, không sửa được.'
+                  : 'Nhập mã token để hệ thống điền tổng cung.'
+                : undefined
+            }
+          >
             <AmountInput
               id={id('amount')}
-              value={amount}
+              value={amountShown}
               onValueChange={setAmount}
-              readOnly={type === 'BURN' && burnSource === 'TOTAL_SUPPLY'}
-              className={`${INPUT_CLASS} font-mono`}
+              readOnly={fullSupplyAmount}
+              className={`${fullSupplyAmount ? INPUT_CLASS.replace('bg-background', 'bg-muted/40') : INPUT_CLASS} font-mono`}
             />
           </Field>
           <Field id={id('effective')} label="Ngày hiệu lực">

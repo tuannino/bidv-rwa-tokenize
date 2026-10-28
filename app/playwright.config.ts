@@ -101,6 +101,8 @@ export default defineConfig({
           // `/mint`, `POST /api/mint`). Môi trường thật để cờ này tắt — xem `.env.example`.
           ENABLE_DEMO_TOKEN_MINT: 'true',
           ENABLE_DEMO_PAYMENT_MINT: 'true',
+          // FIX-02: bật bán để giữ các luồng bán có sẵn của e2e; hành vi mặc định là tắt.
+          ENABLE_INVESTOR_SELL: 'true',
           // Không cần khóa thật ở chế độ mock, nhưng đặt sẵn để đổi sang hardhat-local là chạy.
           SERVER_SIGNER_PRIVATE_KEY:
             '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

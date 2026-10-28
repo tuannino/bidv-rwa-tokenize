@@ -227,11 +227,10 @@ describe('ca 1 — lập yêu cầu vượt trần còn lại bị chặn, nêu 
       recall: true,
       cap: false,
       wallet: true,
-      noPending: true,
     });
   });
 
-  it('ví đích khác ví SPV đã đăng ký và yêu cầu Mint đang chờ cùng token đều bị chặn', async () => {
+  it('ví đích khác ví SPV đã đăng ký bị chặn; yêu cầu Mint đang chờ cùng token không còn chặn (FIX-02 QĐ-3)', async () => {
     const { createTokenRequest } = await service();
     await issueDirect(10n);
     await (await ledger()).whitelist(INVESTOR);
@@ -241,7 +240,7 @@ describe('ca 1 — lập yêu cầu vượt trần còn lại bị chặn, nêu 
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(Object.keys(result.fieldErrors ?? {}).sort()).toEqual(['noPending', 'wallet']);
+    expect(Object.keys(result.fieldErrors ?? {}).sort()).toEqual(['wallet']);
   });
 
   it('vai không có quyền lập bị chặn và lần bị chặn vào sổ kiểm toán', async () => {
@@ -309,7 +308,8 @@ describe('ca 6 — Burn theo toàn bộ nguồn cung bị chặn khi còn token 
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(Object.keys(result.fieldErrors ?? {})).toEqual(['circulation']);
+    // FIX-02 QĐ-5: số 10 cũng khác tổng cung 1.000 nên điều kiện `fullSupply` trượt cùng lúc.
+    expect(Object.keys(result.fieldErrors ?? {})).toEqual(['fullSupply', 'circulation']);
   });
 
   it('cùng tình huống, nguồn UNDISTRIBUTED vẫn lập được', async () => {
