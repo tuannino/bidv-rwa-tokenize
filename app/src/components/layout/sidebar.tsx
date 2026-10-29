@@ -29,6 +29,7 @@ import { BidvLogo } from "@/components/bidv-logo";
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { usePublicConfig } from "@/lib/config/config-context";
 import { getPendingWorkAction } from "@/app/actions/token-request";
+import { CustodyToggle, type CustodyToggleState } from "./custody-toggle";
 import {
   TELLER_NAV,
   type NavGroup,
@@ -69,9 +70,12 @@ const NO_COUNTS: PendingWorkCounts = { draft: 0, approval: 0 };
 export function Sidebar({
   nav = TELLER_NAV,
   pendingWork = NO_COUNTS,
+  custody = null,
 }: {
   nav?: NavSection;
   pendingWork?: PendingWorkCounts;
+  /** IN-04: công tắc Lưu ký Fireblocks; `null` với vai không có quyền `custody:toggle`. */
+  custody?: CustodyToggleState | null;
 }) {
   const pathname = usePathname();
   const config = usePublicConfig();
@@ -171,6 +175,9 @@ export function Sidebar({
           ),
         )}
       </nav>
+
+      {/* IN-04: công tắc Lưu ký Fireblocks, ngay trên khối trạng thái mạng */}
+      {custody && <CustodyToggle state={custody} />}
 
       {/* Network status */}
       <NetworkStatus />

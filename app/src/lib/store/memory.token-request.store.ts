@@ -7,6 +7,7 @@ import { appendAuditInMemory } from './memory.store';
 import { assertAmount, UniqueConstraintError } from './store.errors';
 import {
   assertTokenRequestBurnSource,
+  assertTokenRequestCustody,
   assertTokenRequestStatus,
   assertTokenRequestTransition,
   assertTokenRequestType,
@@ -14,6 +15,8 @@ import {
   type ITokenRequestStore,
   type NewTokenRequest,
   OUTCOME_STATUSES,
+  parseCustodyContext,
+  serializeCustodyContext,
   type TokenRequestFinalization,
   type TokenRequestRecord,
   type TokenRequestTransition,
@@ -35,6 +38,12 @@ interface TokenRequestState {
 }
 
 const state = (): TokenRequestState => memoryState('tokenRequest', () => ({ requests: [] }));
+
+/** Bản sao trả ra ngoài: bối cảnh ký là đối tượng lồng nên chép riêng, người gọi sửa không lây vào kho. */
+const copy = (record: TokenRequestRecord): TokenRequestRecord => ({
+  ...record,
+  custodyContext: record.custodyContext ? { ...record.custodyContext } : null,
+});
 
 const newestFirst = (a: TokenRequestRecord, b: TokenRequestRecord) =>
   b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id);
@@ -86,18 +95,21 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
         rejectReason: null,
         failureReason: null,
         txHash: null,
+        custody: 'SERVER',
+        custodyTxId: null,
+        custodyContext: null,
         createdAt: now,
         decidedAt: null,
         completedAt: null,
         updatedAt: now,
       };
       state().requests.push(record);
-      return { ...record };
+      return copy(record);
     },
 
     async findRequest(id) {
       const found = state().requests.find((r) => r.id === id);
-      return found ? { ...found } : null;
+      return found ? copy(found) : null;
     },
 
     async transitionRequest(transition: TokenRequestTransition) {
@@ -117,10 +129,15 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
       if (transition.rejectReason !== undefined) found.rejectReason = transition.rejectReason;
       if (transition.failureReason !== undefined) found.failureReason = transition.failureReason;
       if (transition.txHash !== undefined) found.txHash = transition.txHash;
+      if (transition.custody !== undefined) found.custody = assertTokenRequestCustody(transition.custody);
+      if (transition.custodyContext !== undefined) {
+        // Đi qua JSON như bản Postgres: kiểm dạng và tách khỏi đối tượng của người gọi.
+        found.custodyContext = parseCustodyContext(serializeCustodyContext(transition.custodyContext));
+      }
       if (DECISION_STATUSES.includes(to)) found.decidedAt = now;
       if (OUTCOME_STATUSES.includes(to)) found.completedAt = now;
       found.updatedAt = now;
-      return { ...found };
+      return copy(found);
     },
 
     async attachRequestTxHash({ id, txHash }) {
@@ -131,7 +148,34 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
 
       found.txHash = txHash;
       found.updatedAt = new Date().toISOString();
-      return { ...found };
+      return copy(found);
+    },
+
+    async attachCustodyTxId({ id, custodyTxId }) {
+      const found = state().requests.find((r) => r.id === id);
+      if (!found || found.status !== 'EXECUTING') return null;
+      found.custodyTxId = custodyTxId;
+      found.updatedAt = new Date().toISOString();
+      return copy(found);
+    },
+
+    async setCustodyCall({ id, contract, callDataHash }) {
+      const found = state().requests.find((r) => r.id === id);
+      if (!found || found.status !== 'EXECUTING' || !found.custodyContext) return null;
+      found.custodyContext = parseCustodyContext(
+        serializeCustodyContext({ ...found.custodyContext, contract, callDataHash }),
+      );
+      found.updatedAt = new Date().toISOString();
+      return copy(found);
+    },
+
+    async claimTxHash({ id, txHash }) {
+      const found = state().requests.find((r) => r.id === id);
+      if (!found || found.status !== 'EXECUTING' || found.txHash !== null) return null;
+      assertTxHashFree(txHash, found.id);
+      found.txHash = txHash;
+      found.updatedAt = new Date().toISOString();
+      return copy(found);
     },
 
     async finalizeTokenRequest(input: TokenRequestFinalization) {
@@ -153,7 +197,7 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
       found.updatedAt = now;
       if (input.markIssuedProjectId !== undefined) stampIssuedInMemory(input.markIssuedProjectId, now);
       for (const entry of input.audits) appendAuditInMemory(entry);
-      return { ...found };
+      return copy(found);
     },
 
     async listRequests(options = {}) {
@@ -167,7 +211,7 @@ export function createMemoryTokenRequestStore(): ITokenRequestStore {
         .filter((r) => (decided ? r.decidedAt !== null : true))
         .sort(decided ? newestDecidedFirst : newestFirst)
         .slice(0, limit)
-        .map((r) => ({ ...r }));
+        .map(copy);
     },
 
     async countRequests({ chain, status, makerId, excludeMakerId, type, decidedFrom }) {

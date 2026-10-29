@@ -60,11 +60,13 @@ const FEEDBACK_STYLE: Record<Feedback['tone'], string> = {
 
 /** Câu báo theo trạng thái yêu cầu SAU khi duyệt hoặc đối soát. */
 export function outcomeFeedback(
-  result: Result<TokenRequestRecord>,
+  result: Result<TokenRequestRecord & { notice?: string }>,
   after: 'approve' | 'reconcile',
 ): Feedback {
   if (!result.ok) return { tone: 'error', message: describeInvalid(result.error, result.fieldErrors) };
   const request = result.data;
+  // IN-04: máy chủ nêu sẵn câu khi yêu cầu giữ Đang thực hiện vì chưa rõ (Fireblocks, lượt khác, không khớp).
+  if (request.notice && request.status === 'EXECUTING') return { tone: 'warning', message: request.notice };
   switch (request.status) {
     case 'COMPLETED':
       return {
@@ -297,6 +299,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                   <Row label="Mã giao dịch" mono>
                     {detail.request.txHash ?? '—'}
                   </Row>
+                  <Row label="Thực hiện qua">{detail.custodyLabel}</Row>
                 </dl>
               </CardContent>
             </Card>

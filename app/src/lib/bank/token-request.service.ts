@@ -4,6 +4,9 @@ import { readStep } from '@/lib/diagnostics/read-trace';
 
 import type { ChainKey, TxResult } from '@bidv/shared';
 import { getLedger, LedgerNotImplementedError } from '@/lib/ledger';
+import { fireblocksConfig } from '@/lib/custody/fireblocks-config';
+import { getFireblocksClient } from '@/lib/custody/fireblocks-client';
+import { fireblocksCallMismatch, reconcileViaFireblocks } from '@/lib/custody/fireblocks-execution';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import { SAMPLE_ACCOUNTS } from '@/lib/session/channel';
@@ -14,16 +17,21 @@ import {
   getTokenRequestStore,
   type NewAudit,
   type ProjectRecord,
+  type TokenRequestCustodyContext,
   type TokenRequestRecord,
   type TokenRequestStatus,
 } from '@/lib/store';
+import { custodyFor, getCustodyState, getCustodyStateForLayout, type CustodyState } from './custody.service';
 import { authorize, toResult } from './authorize';
 import {
   executeIssuance,
+  sendViaCustody,
+  type ApprovalSubmission,
+  type CustodyRoute,
+  type ExecutionResult,
   readSupplyMetrics,
   remainingIssuanceCap,
   signerAddressOrNull,
-  trackTxn,
   vaultMintTargetError,
 } from './issuance.service';
 import { formatAmount } from '@/lib/format';
@@ -76,6 +84,12 @@ export interface CreatedTokenRequestView {
   request: TokenRequestRecord;
   checks: RequestCheck[];
 }
+
+/**
+ * IN-04: kết quả của lần duyệt và lần đối soát. `notice` là câu cho người bấm khi yêu cầu giữ
+ * `EXECUTING` vì chưa rõ (Fireblocks chưa có mã, thua lượt gắn mã, cấu hình đã đổi, giao dịch không khớp).
+ */
+export type TokenRequestOutcomeView = TokenRequestRecord & { notice?: string };
 
 export interface PendingWorkView {
   /** Yêu cầu người này đã lập, đang chờ người khác duyệt. */
@@ -421,7 +435,7 @@ async function loadForDecision(
  */
 export async function approveTokenRequest(
   input: unknown,
-): Promise<Result<TokenRequestRecord>> {
+): Promise<Result<TokenRequestOutcomeView>> {
   const parsed = approveTokenRequestSchema.safeParse(input);
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
@@ -467,7 +481,24 @@ export async function approveTokenRequest(
       );
     }
 
+    // IN-04 C1: cách thực hiện quyết định TẠI LÚC DUYỆT, trước khi chiếm quyền. Mọi lần chặn ở đây
+    // để yêu cầu giữ `PENDING` và KHÔNG BAO GIỜ tự quay về khoá máy chủ (QĐ-13).
+    const custodyCheck = await decideCustody(request);
+    if (!custodyCheck.ok) {
+      await audit({
+        role,
+        action: 'order:approve',
+        target: requestId,
+        outcome: 'FAILURE',
+        detail: `${checkerId} duyệt yêu cầu ${requestId} bị chặn: ${custodyCheck.error}`,
+        chain,
+      });
+      return err('REQUEST_CHECK', custodyCheck.error);
+    }
+    const { custody, custodyContext } = custodyCheck.data;
+
     // Chiếm quyền thực hiện. `null` = một lần duyệt khác đã chiếm trước — dừng, KHÔNG gửi gì.
+    // IN-04 QĐ-6: cách thực hiện và bối cảnh ký ghi TRONG cùng câu chiếm quyền.
     const store = getTokenRequestStore();
     const claimed = await store.transitionRequest({
       id: requestId,
@@ -475,6 +506,8 @@ export async function approveTokenRequest(
       to: 'EXECUTING',
       checkerId,
       checkerRole: role,
+      custody,
+      ...(custodyContext ? { custodyContext } : {}),
     });
     if (!claimed) {
       return err('REQUEST_STATE', `Yêu cầu ${requestId} vừa được một lần duyệt khác xử lý.`);
@@ -485,11 +518,27 @@ export async function approveTokenRequest(
       submitted = true;
       await store.attachRequestTxHash({ id: requestId, txHash });
     };
+    // IN-04 QĐ-8b: bật NGAY TRƯỚC lời gọi tạo giao dịch Fireblocks. Từ đó không lối nào ghi `FAILED`
+    // trừ kết quả mang cờ chắc chắn chưa lên chuỗi, hoặc biên nhận `FAILED`.
+    let fireblocksAttempted = false;
+    const route: CustodyRoute =
+      custody === 'FIREBLOCKS' && claimed.custodyContext
+        ? {
+            kind: 'FIREBLOCKS',
+            requestId,
+            context: claimed.custodyContext,
+            note: `IN-04 ${request.type} ${requestId}`,
+            markAttempted: () => {
+              fireblocksAttempted = true;
+            },
+          }
+        : { kind: 'SERVER', onSubmitted };
+    const via = custody === 'FIREBLOCKS' ? ' qua Fireblocks' : '';
 
     try {
       const amount = BigInt(request.amount);
       const auditContext = `Duyệt yêu cầu ${requestId} (lập bởi ${request.makerId}, duyệt bởi ${checkerId})`;
-      const outcome =
+      const outcome: ExecutionResult<ApprovalSubmission> =
         request.type === 'MINT'
           ? await executeIssuance({
               chain,
@@ -498,22 +547,66 @@ export async function approveTokenRequest(
               amount,
               role,
               auditContext,
-              onSubmitted,
+              route,
             })
-          : await executeBurn({ chain, wallet: request.wallet, amount, role, auditContext, onSubmitted });
+          : await executeBurn({ chain, wallet: request.wallet, amount, role, auditContext, route });
 
       if (!outcome.ok) {
+        if (fireblocksAttempted && !outcome.definitelyNotOnChain && !outcome.receiptFailed) {
+          // Đã gọi tạo giao dịch mà lỗi không chứng minh "chưa lên chuỗi": giữ `EXECUTING`.
+          return await keepExecuting({
+            requestId,
+            role,
+            chain,
+            detail:
+              `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}${via}: ` +
+              `đã gửi Fireblocks, chưa rõ kết quả (${outcome.error}), cần đối soát.`,
+            notice: `Đã gửi Fireblocks, chưa rõ kết quả (${outcome.error}); bấm Đối soát sau.`,
+          });
+        }
         await store.transitionRequest({
           id: requestId,
           from: ['EXECUTING'],
           to: 'FAILED',
           failureReason: outcome.error,
         });
-        return outcome;
+        if (custody === 'FIREBLOCKS') {
+          await audit({
+            role,
+            action: 'order:approve',
+            target: requestId,
+            outcome: 'FAILURE',
+            detail: `${auditContext}${via}: không thực hiện được (${outcome.error}).`,
+            chain,
+          });
+        }
+        return { ok: false, code: outcome.code, error: outcome.error, fieldErrors: outcome.fieldErrors };
       }
 
-      const { txHash } = outcome.data;
-      if (outcome.data.status !== 'CONFIRMED') {
+      const result = outcome.data;
+      if (result.status === 'UNKNOWN') {
+        if (result.lostClaim) {
+          // QĐ-16: lượt khác đã gắn mã và đi tiếp; lượt này KHÔNG ghi sổ, chỉ trả câu.
+          const current = await store.findRequest(requestId);
+          return current
+            ? ok({ ...current, notice: result.reason })
+            : err('REQUEST_STATE', `Không đọc lại được yêu cầu ${requestId}.`);
+        }
+        return await keepExecuting({
+          requestId,
+          role,
+          chain,
+          detail:
+            `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}${via}: ` +
+            `đã gửi Fireblocks, chưa rõ kết quả, cần đối soát (${result.reason}).`,
+          notice: result.reason,
+        });
+      }
+
+      const { txHash } = result;
+      const executed = result.claimed ?? request;
+      const fireblocksNote = executed.custodyTxId ? `; mã Fireblocks ${executed.custodyTxId}` : '';
+      if (result.status !== 'CONFIRMED') {
         /**
          * HF-05: hết giờ chờ biên nhận KHÔNG chứng minh giao dịch hỏng, cũng không chứng minh nó
          * xong. Giữ `EXECUTING` kèm mã giao dịch (đã gắn qua `attachRequestTxHash`), không ghi mốc
@@ -525,12 +618,19 @@ export async function approveTokenRequest(
           target: requestId,
           outcome: 'SUCCESS',
           detail:
-            `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}; ` +
-            `tx ${txHash}: đã gửi, chưa có biên nhận, cần đối soát.`,
+            `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}${via}; ` +
+            `tx ${txHash}: đã gửi, chưa có biên nhận, cần đối soát${fireblocksNote}.`,
           chain,
         });
         const current = await store.findRequest(requestId);
         return current ? ok(current) : err('REQUEST_STATE', `Không đọc lại được yêu cầu ${requestId}.`);
+      }
+
+      if (custody === 'FIREBLOCKS') {
+        // QĐ-15: biên nhận CONFIRMED vẫn chỉ chốt khi giao dịch đúng lời gọi đã chuẩn bị, theo bối
+        // cảnh của CHÍNH bản ghi vừa gắn mã.
+        const blocked = await mismatchBlock({ request: executed, role, chain, auditContext });
+        if (blocked) return blocked;
       }
 
       return await finalizeConfirmed({
@@ -538,7 +638,7 @@ export async function approveTokenRequest(
         role,
         auditContext,
         txHash,
-        approveDetail: `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}; tx ${txHash}`,
+        approveDetail: `${checkerId} duyệt yêu cầu ${request.type} ${request.amount} ${request.tokenSymbol}${via}; tx ${txHash}${fireblocksNote}`,
       });
     } catch (error) {
       /**
@@ -548,7 +648,8 @@ export async function approveTokenRequest(
        * dịch đã thành công trên chuỗi.
        */
       const message = error instanceof Error ? error.message : String(error);
-      if (!submitted) {
+      const unsure = submitted || fireblocksAttempted;
+      if (!unsure) {
         await store.transitionRequest({
           id: requestId,
           from: ['EXECUTING'],
@@ -561,8 +662,8 @@ export async function approveTokenRequest(
         action: 'order:approve',
         target: requestId,
         outcome: 'FAILURE',
-        detail: submitted
-          ? `Duyệt yêu cầu ${requestId}: đã gửi giao dịch nhưng chưa biết kết cục (${message}) — cần đối soát.`
+        detail: unsure
+          ? `Duyệt yêu cầu ${requestId}${via}: đã gửi giao dịch nhưng chưa biết kết cục (${message}) — cần đối soát.`
           : `Duyệt yêu cầu ${requestId}: không gửi được giao dịch (${message}).`,
         chain,
       });
@@ -585,20 +686,26 @@ async function executeBurn(input: {
   amount: bigint;
   role: Role;
   auditContext: string;
-  onSubmitted: (txHash: string) => Promise<void>;
-}): Promise<Result<{ txHash: string; status: TxResult['status'] }>> {
+  route: CustodyRoute;
+}): Promise<ExecutionResult<ApprovalSubmission>> {
   const { chain, wallet, amount, role } = input;
-  const pending = await getLedger(chain).burn(wallet, amount);
-  const receipt = await trackTxn({
+  const sent = await sendViaCustody({
     chain,
-    pending,
     operation: 'burn',
-    fromWallet: wallet,
-    toWallet: null,
+    wallet,
     amount,
     role,
-    onSubmitted: input.onSubmitted,
+    fromWallet: wallet,
+    toWallet: null,
+    route: input.route,
+    sendWithServerKey: () => getLedger(chain).burn(wallet, amount),
   });
+  if (sent.kind === 'NOT_SENT') return { ok: false, code: 'LEDGER', error: sent.reason, definitelyNotOnChain: true };
+  if (sent.kind === 'STORE_ERROR') return { ok: false, code: 'LEDGER', error: sent.reason };
+  if (sent.kind === 'UNKNOWN') {
+    return ok({ status: 'UNKNOWN', txHash: null, reason: sent.reason, lostClaim: sent.lostClaim });
+  }
+  const { receipt } = sent;
   if (receipt.status === 'FAILED') {
     await getStore().appendAudit({
       actorRole: role,
@@ -608,9 +715,112 @@ async function executeBurn(input: {
       detail: `${input.auditContext}: đốt ${amount} tại ví SPV thất bại; tx ${receipt.txHash}`,
       chain,
     });
-    return err('LEDGER', receipt.reason ?? 'Giao dịch đốt thất bại on-chain.');
+    return { ok: false, code: 'LEDGER', error: receipt.reason ?? 'Giao dịch đốt thất bại on-chain.', receiptFailed: true };
   }
-  return ok({ txHash: receipt.txHash, status: receipt.status });
+  return ok({ txHash: receipt.txHash, status: receipt.status, issuedAt: null, claimed: sent.claimed });
+}
+
+/**
+ * IN-04 C1: cách thực hiện lần duyệt và bối cảnh ký, TRƯỚC khi chiếm quyền. Trả lỗi (câu cho người
+ * duyệt) ở mọi tình huống chưa chắc: đọc công tắc lỗi, bảng chain sai, công tắc bật mà thiếu cấu hình,
+ * vault thiếu vai. Không có nhánh nào rơi về khoá máy chủ khi công tắc đang bật cho chain này.
+ */
+async function decideCustody(
+  request: TokenRequestRecord,
+): Promise<Result<{ custody: 'SERVER' | 'FIREBLOCKS'; custodyContext: TokenRequestCustodyContext | null }>> {
+  const { chain } = request;
+  let state: CustodyState;
+  try {
+    state = await getCustodyState();
+  } catch {
+    return err('REQUEST_CHECK', 'Không đọc được trạng thái Lưu ký Fireblocks; thử lại.');
+  }
+  const choice = custodyFor(chain, state);
+  if (choice === 'SERVER') return ok({ custody: 'SERVER', custodyContext: null });
+  if (choice === 'UNRESOLVED' || !state.scope.ok) {
+    const reason = state.scope.ok ? 'không đọc được' : state.scope.reason;
+    return err('REQUEST_CHECK', `Bảng chain của Lưu ký Fireblocks sai (${reason}); chưa duyệt được.`);
+  }
+  const { config, reason } = fireblocksConfig();
+  if (!state.configured || !config) {
+    return err(
+      'REQUEST_CHECK',
+      `Lưu ký Fireblocks đang bật nhưng thiếu cấu hình (${state.configError ?? reason}); chưa duyệt được.`,
+    );
+  }
+  const assetId = state.scope.chainAssets[chain];
+  if (!assetId) return err('REQUEST_CHECK', `Bảng chain của Lưu ký Fireblocks không có chain ${chain}.`);
+
+  // QĐ-9: vault phải có đúng vai trên ProjectToken TRƯỚC khi chiếm quyền (D3: thiếu phương thức là lỗi lập trình).
+  const ledger = getLedger(chain);
+  if (!ledger.projectTokenRolesOf || !ledger.prepareContractCall || !ledger.transactionCallOf) {
+    throw new Error(`Lỗi lập trình: ledger chain ${chain} không hỗ trợ Lưu ký Fireblocks.`);
+  }
+  const roles = await ledger.projectTokenRolesOf(config.vaultAddress);
+  const needed = request.type === 'MINT' ? 'MINTER_ROLE' : 'AGENT_ROLE';
+  if (!(request.type === 'MINT' ? roles.minter : roles.agent)) {
+    return err('REQUEST_CHECK', `Vault Fireblocks ${config.vaultAddress} chưa có quyền ${needed} trên ProjectToken.`);
+  }
+  return ok({
+    custody: 'FIREBLOCKS',
+    custodyContext: {
+      configRef: config.configRef,
+      vaultId: config.vaultId,
+      address: config.vaultAddress,
+      assetId,
+      chain,
+      contract: null,
+      callDataHash: null,
+    },
+  });
+}
+
+/** Giữ `EXECUTING`, ghi một dòng sổ "chưa rõ, cần đối soát" (như nhánh hết giờ HF-05), trả câu. */
+async function keepExecuting(input: {
+  requestId: string;
+  role: Role;
+  chain: ChainKey;
+  detail: string;
+  notice: string;
+}): Promise<Result<TokenRequestOutcomeView>> {
+  await audit({
+    role: input.role,
+    action: 'order:approve',
+    target: input.requestId,
+    outcome: 'SUCCESS',
+    detail: input.detail,
+    chain: input.chain,
+  });
+  const current = await getTokenRequestStore().findRequest(input.requestId);
+  return current
+    ? ok({ ...current, notice: input.notice })
+    : err('REQUEST_STATE', `Không đọc lại được yêu cầu ${input.requestId}.`);
+}
+
+/**
+ * QĐ-15: giao dịch đã gắn không khớp lời gọi đã chuẩn bị thì KHÔNG chốt: giữ `EXECUTING`, ghi sổ
+ * FAILURE nêu trường lệch, trả câu cần đối soát tay. Khớp thì trả `null` để người gọi chốt tiếp.
+ */
+async function mismatchBlock(input: {
+  request: TokenRequestRecord;
+  role: Role;
+  chain: ChainKey;
+  auditContext: string;
+}): Promise<Result<TokenRequestOutcomeView> | null> {
+  const { request, role, chain } = input;
+  const mismatch = await fireblocksCallMismatch(request);
+  if (mismatch === null) return null;
+  const notice = `Giao dịch ${request.txHash} không khớp lời gọi đã chuẩn bị; cần đối soát tay.`;
+  await audit({
+    role,
+    action: 'order:approve',
+    target: request.id,
+    outcome: 'FAILURE',
+    detail: `${input.auditContext} qua Fireblocks: ${notice} Trường lệch: ${mismatch}.`,
+    chain,
+  });
+  const current = await getTokenRequestStore().findRequest(request.id);
+  return current ? ok({ ...current, notice }) : err('REQUEST_STATE', `Không đọc lại được yêu cầu ${request.id}.`);
 }
 
 /** Câu báo khi chuỗi đã xác nhận mà database chưa chốt được: yêu cầu còn `EXECUTING`. */
@@ -722,6 +932,9 @@ async function syncTxnFromReceipt(
     }
     return;
   }
+  // IN-04 QĐ-16: yêu cầu Fireblocks CHỈ cập nhật dòng đã có. Dòng `Txn` do đúng lượt gắn mã thắng ghi;
+  // bảng `Txn` không có khoá duy nhất theo mã, nên thêm ở đây là có thể ra hai dòng cho một giao dịch.
+  if (request.custody === 'FIREBLOCKS') return;
   await store.saveTxn({
     chain: request.chain,
     operation: request.type === 'MINT' ? 'mint' : 'burn',
@@ -746,7 +959,7 @@ async function syncTxnFromReceipt(
  */
 export async function reconcileTokenRequest(
   input: unknown,
-): Promise<Result<TokenRequestRecord>> {
+): Promise<Result<TokenRequestOutcomeView>> {
   const parsed = reconcileTokenRequestSchema.safeParse(input);
   if (!parsed.success) {
     return err('VALIDATION', 'Dữ liệu không hợp lệ.', parsed.error.flatten().fieldErrors);
@@ -756,7 +969,7 @@ export async function reconcileTokenRequest(
   try {
     const role = await authorize('order:approve', requestId, selectedChain);
     const actorId = await currentActorId(role);
-    const request = await getTokenRequestStore().findRequest(requestId);
+    let request = await getTokenRequestStore().findRequest(requestId);
     if (!request) {
       return err('VALIDATION', `Không có yêu cầu ${requestId}.`);
     }
@@ -773,12 +986,21 @@ export async function reconcileTokenRequest(
       );
     }
     if (!request.txHash) {
-      return err(
-        'REQUEST_STATE',
-        `Yêu cầu ${requestId} chưa có mã giao dịch, không đối soát được bằng biên nhận; cần đối soát tay.`,
-      );
+      if (request.custody !== 'FIREBLOCKS') {
+        return err(
+          'REQUEST_STATE',
+          `Yêu cầu ${requestId} chưa có mã giao dịch, không đối soát được bằng biên nhận; cần đối soát tay.`,
+        );
+      }
+      // IN-04 C4: tra Fireblocks theo bối cảnh đã ghi; KHÔNG BAO GIỜ tạo giao dịch mới.
+      const attached = await reconcileFireblocksHash(request, role, actorId);
+      if (!attached.ok || attached.data.notice !== undefined || attached.data.status !== 'EXECUTING') {
+        return attached;
+      }
+      request = attached.data;
     }
-    const { chain, txHash } = request;
+    const { chain } = request;
+    const txHash = request.txHash as string;
 
     let receipt: TxResult;
     try {
@@ -791,6 +1013,10 @@ export async function reconcileTokenRequest(
 
     const auditContext = `Đối soát yêu cầu ${requestId} (lập bởi ${request.makerId}, đối soát bởi ${actorId})`;
     if (receipt.status === 'CONFIRMED') {
+      if (request.custody === 'FIREBLOCKS') {
+        const blocked = await mismatchBlock({ request, role, chain, auditContext });
+        if (blocked) return blocked;
+      }
       return await finalizeConfirmed({
         request,
         role,
@@ -828,6 +1054,81 @@ export async function reconcileTokenRequest(
     return ok(request);
   } catch (error) {
     return toResult(error);
+  }
+}
+
+/**
+ * IN-04 C4: yêu cầu `FIREBLOCKS` chưa có mã giao dịch. Tra Fireblocks MỘT lần theo bối cảnh đã ghi:
+ * - chưa thấy, chưa có mã, cấu hình đã đổi, tra lỗi: giữ nguyên, trả câu (`notice`);
+ * - `DEAD`: chốt `FAILED` cùng dòng sổ (chắc chắn chưa phát lên chuỗi);
+ * - có mã: gắn CÓ ĐIỀU KIỆN (QĐ-16). Thua thì trả câu, không ghi gì; thắng thì ghi MỘT dòng `Txn` (lỗi
+ *   chỉ log) và trả bản ghi vừa gắn mã để đi tiếp đường biên nhận.
+ */
+async function reconcileFireblocksHash(
+  request: TokenRequestRecord,
+  role: Role,
+  actorId: string,
+): Promise<Result<TokenRequestOutcomeView>> {
+  const store = getTokenRequestStore();
+  const { config } = fireblocksConfig();
+  const verdict = await reconcileViaFireblocks(request, {
+    currentConfig: config,
+    client: config ? getFireblocksClient() : null,
+  });
+  if (verdict.kind === 'WAIT') {
+    if (verdict.fireblocksId && !request.custodyTxId) await noteCustodyTxId(request.id, verdict.fireblocksId);
+    return ok({ ...request, notice: verdict.message });
+  }
+  if (verdict.kind === 'FAILED') {
+    const failed = await store.finalizeTokenRequest({
+      id: request.id,
+      to: 'FAILED',
+      failureReason: verdict.reason,
+      audits: [
+        {
+          actorRole: role,
+          action: 'order:approve',
+          target: request.id,
+          outcome: 'FAILURE',
+          detail: `Đối soát yêu cầu ${request.id} (đối soát bởi ${actorId}) qua Fireblocks: ${verdict.reason}`,
+          chain: request.chain,
+        },
+      ],
+    });
+    return failed ? ok(failed) : err('REQUEST_STATE', `Yêu cầu ${request.id} đã được chốt ở lượt khác.`);
+  }
+
+  if (!request.custodyTxId) await noteCustodyTxId(request.id, verdict.fireblocksId);
+  const claimed = await store.claimTxHash({ id: request.id, txHash: verdict.txHash });
+  if (!claimed) {
+    const current = await store.findRequest(request.id);
+    return ok({ ...(current ?? request), notice: 'Yêu cầu đang được đối soát ở lượt khác.' });
+  }
+  try {
+    await getStore().saveTxn({
+      chain: claimed.chain,
+      operation: claimed.type === 'MINT' ? 'mint' : 'burn',
+      txHash: verdict.txHash,
+      status: 'PENDING',
+      fromWallet: claimed.type === 'MINT' ? null : claimed.wallet,
+      toWallet: claimed.type === 'MINT' ? claimed.wallet : null,
+      amount: claimed.amount,
+      reason: null,
+      actorRole: role,
+      actorAddress: claimed.custodyContext?.address ?? null,
+    });
+  } catch (error) {
+    console.error(`[fireblocks] Không ghi được dòng Txn cho yêu cầu ${claimed.id}:`, errorMessage(error));
+  }
+  return ok(claimed);
+}
+
+/** Ghi `custodyTxId` khi đối soát tìm thấy giao dịch theo `externalTxId`; lỗi chỉ log. */
+async function noteCustodyTxId(id: string, custodyTxId: string): Promise<void> {
+  try {
+    await getTokenRequestStore().attachCustodyTxId({ id, custodyTxId });
+  } catch (error) {
+    console.error(`[fireblocks] Không ghi được mã Fireblocks cho yêu cầu ${id}:`, errorMessage(error));
   }
 }
 
@@ -1140,7 +1441,40 @@ export interface TokenRequestDetailView {
    * bấm "Chấp nhận" được. Tính trong CÙNG lần đọc chi tiết, không thêm action. Chỉ khoá "Chấp nhận".
    */
   approveWarning: ApproveWarning | null;
+  /**
+   * IN-04 C7: dòng "Thực hiện qua". Yêu cầu chờ duyệt: cách sẽ dùng nếu duyệt bây giờ; đã duyệt: cách
+   * đã ghi lúc chiếm quyền. Dựng sẵn ở máy chủ trong CÙNG lần đọc chi tiết, không thêm action.
+   */
+  custodyLabel: string;
   timeline: TimelineEntry[];
+}
+
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+const SERVER_CUSTODY_LABEL = 'Khoá ký máy chủ';
+
+/** IN-04 C7 (hàm thuần): nhãn cách thực hiện của một yêu cầu đã chiếm quyền. */
+export function recordedCustodyLabel(request: Pick<TokenRequestRecord, 'custody' | 'custodyContext' | 'custodyTxId'>): string {
+  if (request.custody !== 'FIREBLOCKS' || !request.custodyContext) return SERVER_CUSTODY_LABEL;
+  const { vaultId, address } = request.custodyContext;
+  return (
+    `Fireblocks, vault ${vaultId} (${shortAddress(address)})` +
+    (request.custodyTxId ? `; mã Fireblocks ${request.custodyTxId}` : '')
+  );
+}
+
+/** Nhãn "Thực hiện qua" cho màn chi tiết; đọc công tắc bằng bản cho hiển thị (không ném). */
+async function custodyLabelOf(request: TokenRequestRecord): Promise<string> {
+  if (request.status === 'REJECTED') return 'Không thực hiện (đã từ chối)';
+  if (request.status !== 'PENDING') return recordedCustodyLabel(request);
+  const state = await getCustodyStateForLayout();
+  if (state.unreadable) return 'Chưa đọc được';
+  const choice = custodyFor(request.chain, state);
+  if (choice === 'SERVER') return SERVER_CUSTODY_LABEL;
+  if (choice === 'UNRESOLVED') return 'Chưa xác định (bảng chain của Lưu ký Fireblocks sai)';
+  const { config } = fireblocksConfig();
+  return config
+    ? `Fireblocks, vault ${config.vaultId} (${shortAddress(config.vaultAddress)})`
+    : 'Fireblocks (thiếu cấu hình; lần duyệt sẽ bị chặn)';
 }
 
 export type ApproveWarningKind = 'TOKEN_UNREADABLE' | 'MINT_REMAINING' | 'BURN_FULL_SUPPLY' | 'BURN_UNDISTRIBUTED';
@@ -1279,9 +1613,13 @@ export async function getTokenRequestDetail(
         request.makerId === actorId
           ? `Bạn (${actorId}) đã lập yêu cầu này nên không được duyệt hay từ chối nó, kể cả khi có quyền.`
           : null,
+      // IN-04 C6: yêu cầu Fireblocks chưa có mã vẫn đối soát được (tra Fireblocks).
       canReconcile:
-        request.status === 'EXECUTING' && request.txHash !== null && can(role, 'order:approve'),
+        request.status === 'EXECUTING' &&
+        (request.txHash !== null || request.custody === 'FIREBLOCKS') &&
+        can(role, 'order:approve'),
       approveWarning: approveWarningOf(request, token),
+      custodyLabel: await custodyLabelOf(request),
       timeline: timelineOf(request),
     });
   } catch (error) {

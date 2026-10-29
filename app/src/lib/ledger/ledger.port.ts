@@ -545,6 +545,29 @@ export interface ILedgerRead {
   latestBlockNumber(): Promise<bigint>;
 }
 
+/** IN-04: ba lời gọi của luồng lập và duyệt mà Fireblocks thực hiện thay khoá máy chủ (QĐ-3). */
+export type CustodyCallOperation = 'mint' | 'mintInitialSupply' | 'burn';
+
+/**
+ * IN-04: phương thức tuỳ chọn cho Lưu ký Fireblocks. CHỈ adapter EVM cài (dùng chung cho `evm` và
+ * `hardhat-local`); mock và Stellar không có. Không phương thức nào gửi giao dịch hay cần khoá.
+ */
+export interface ILedgerCustodyCall {
+  /** D1: hai vai của `account` trên `ProjectToken` (đọc `hasRole` hai lần song song). */
+  projectTokenRolesOf?(account: string): Promise<{ minter: boolean; agent: boolean }>;
+  /**
+   * D2: mô phỏng lời gọi với `from` là địa chỉ ký (chỉ địa chỉ, không khoá) rồi trả `to` là
+   * `ProjectToken` và `data` đã mã hoá. Revert thì ném `LedgerError` có câu đọc được. Không gửi gì.
+   */
+  prepareContractCall?(
+    operation: CustodyCallOperation,
+    args: readonly [wallet: string, amount: bigint],
+    from: string,
+  ): Promise<{ to: string; data: string }>;
+  /** D2b: người gửi, đích và dữ liệu gọi của giao dịch; `null` khi nút chưa thấy giao dịch. */
+  transactionCallOf?(txHash: string): Promise<{ from: string; to: string | null; input: string } | null>;
+}
+
 /**
  * Cổng duy nhất mà tầng nghiệp vụ nhìn thấy. Giữ nguyên tên `ILedgerPort` để
  * không lời gọi hiện tại nào phải sửa.
@@ -558,6 +581,7 @@ export interface ILedgerPort
     ILedgerSettlement,
     ILedgerVault,
     ILedgerPaymentTransfer,
+    ILedgerCustodyCall,
     ILedgerRead {
   readonly chain: ChainKey;
 }

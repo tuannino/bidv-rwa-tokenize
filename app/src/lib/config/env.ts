@@ -84,6 +84,28 @@ const keeperSecretSchema = z
     message: `KEEPER_SECRET phải dài ít nhất ${KEEPER_SECRET_MIN_LENGTH} ký tự (sinh bằng \`openssl rand -hex 16\`)`,
   });
 
+/** Chuỗi tuỳ chọn, cắt khoảng trắng; rỗng coi như không đặt. */
+const optionalText = z
+  .string()
+  .optional()
+  .transform((value) => (value && value.trim() !== '' ? value.trim() : undefined));
+
+/**
+ * IN-04: khoá riêng RSA của Fireblocks (PEM PKCS#8). Cho phép `\n` viết tắt thay xuống dòng, vì biến
+ * môi trường một dòng (Cloudflare Secrets, `.env`) không giữ được xuống dòng thật. Không kiểm dạng ở
+ * đây: kiểm ở `lib/custody/fireblocks-config.ts` để câu lỗi nêu lý do mà không làm hỏng cả cấu hình.
+ */
+const pemText = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed.replace(/\\n/g, '\n') : undefined;
+  });
+
+/** IN-04 A2: KHÔNG đặt biến thì dùng mặc định; đặt rỗng là chủ động "không chain nào dùng Fireblocks". */
+const DEFAULT_FIREBLOCKS_CHAIN_ASSETS = 'evm:ETH_TEST5';
+
 const envSchema = z.object({
   // --- Chain ---
   defaultChain: chainKeySchema,
@@ -155,6 +177,25 @@ const envSchema = z.object({
    */
   enableInvestorSell: boolFlag(false),
 
+  // --- IN-04: Lưu ký Fireblocks (Vault Account) cho Mint, Burn của luồng lập và duyệt ---
+  /** Bí mật. Chỉ ở `.env` (gitignored) và Cloudflare Secrets; KHÔNG có trong `wrangler.json`. */
+  fireblocksApiKey: optionalText,
+  /** Bí mật: khoá riêng RSA dạng PEM PKCS#8. Cùng chỗ đặt với khoá API. */
+  fireblocksSecretKey: pemText,
+  fireblocksBaseUrl: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim() !== '' ? value.trim().replace(/\/+$/, '') : 'https://sandbox-api.fireblocks.io')),
+  fireblocksVaultId: optionalText,
+  fireblocksVaultAddress: optionalText,
+  /** Bảng `chain:assetId` cách nhau bằng dấu phẩy; đọc và kiểm ở `fireblocksChainScope()`. */
+  fireblocksChainAssets: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined ? DEFAULT_FIREBLOCKS_CHAIN_ASSETS : value.trim())),
+  /** Thời gian tối đa chờ Fireblocks trả mã giao dịch trong một lần duyệt. */
+  fireblocksHashWaitMs: positiveInteger(30_000),
+
   /** OP-04: đăng ký dự án Sepolia đã deploy; không tự phát hành token. */
   enableSepoliaDemoProject: boolFlag(false),
   /** OP-06: log thời gian đọc, không log credential/SQL/payload. */
@@ -216,6 +257,14 @@ function load(): ServerEnv {
     enableDemoTokenMint: process.env.ENABLE_DEMO_TOKEN_MINT,
     enableDemoRecall: process.env.ENABLE_DEMO_RECALL,
     enableInvestorSell: process.env.ENABLE_INVESTOR_SELL,
+    // IN-04: hai khoá Fireblocks KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với khoá ký máy chủ.
+    fireblocksApiKey: process.env.FIREBLOCKS_API_KEY,
+    fireblocksSecretKey: process.env.FIREBLOCKS_SECRET_KEY,
+    fireblocksBaseUrl: process.env.FIREBLOCKS_BASE_URL,
+    fireblocksVaultId: process.env.FIREBLOCKS_VAULT_ID,
+    fireblocksVaultAddress: process.env.FIREBLOCKS_VAULT_ADDRESS,
+    fireblocksChainAssets: process.env.FIREBLOCKS_CHAIN_ASSETS,
+    fireblocksHashWaitMs: process.env.FIREBLOCKS_HASH_WAIT_MS,
     enableSepoliaDemoProject: process.env.ENABLE_SEPOLIA_DEMO_PROJECT,
     enableReadDiagnostics: process.env.ENABLE_READ_DIAGNOSTICS,
     // KHÔNG có biến thể NEXT_PUBLIC_, cùng lý do với cờ trên: một khoá bí mật lọt vào bundle

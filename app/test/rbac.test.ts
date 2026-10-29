@@ -447,6 +447,11 @@ const FE23_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; wh
   { action: 'payment:withdraw', allowed: ['INVESTOR'], why: 'chỉ Nhà đầu tư rút VNDB từ ví đã định danh của mình' },
 ];
 
+/** IN-04 QĐ-5: công tắc Lưu ký Fireblocks, hai vai vận hành bật tắt được, mỗi lần ghi sổ. */
+const IN04_ACTIONS: ReadonlyArray<{ action: Action; allowed: readonly Role[]; why: string }> = [
+  { action: 'custody:toggle', allowed: ['TELLER', 'CONTROLLER'], why: 'hai vai vận hành bật tắt Lưu ký Fireblocks' },
+];
+
 /**
  * Quyền bị gỡ CÓ CHỦ Ý so với mốc trước BE-08, kèm task đã gỡ. Phép kiểm "không vai trò nào mất
  * quyền" bỏ qua đúng các cặp này và KHÔNG gì khác — gỡ thêm mà không ghi vào đây vẫn đỏ.
@@ -484,10 +489,11 @@ const ALL_WRITE_ACTIONS: readonly Action[] = [
   'vault:reconcile',
   'distribution:approve',
   'payment:withdraw',
+  'custody:toggle',
 ];
 
 describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-20)', () => {
-  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS, ...BE05_ACTIONS, ...FE23_ACTIONS])(
+  it.each([...NEW_ACTIONS, ...BE02_ACTIONS, ...FE20_AREA_GATES, ...BE12_ACTIONS, ...FE22_ACTIONS, ...BE13_ACTIONS, ...FE08_ACTIONS, ...BE05_ACTIONS, ...FE23_ACTIONS, ...IN04_ACTIONS])(
     '$action: chỉ $allowed được, các vai khác bị chặn ($why)',
     ({ action, allowed }) => {
       for (const role of ROLES) {
@@ -511,6 +517,7 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
       ...FE08_ACTIONS.map((row) => row.action),
       ...BE05_ACTIONS.map((row) => row.action),
       ...FE23_ACTIONS.map((row) => row.action),
+      ...IN04_ACTIONS.map((row) => row.action),
     ]);
     const missing = ACTIONS.filter((action) => !covered.has(action));
     expect(
@@ -560,7 +567,8 @@ describe('RBAC — ma trận quyền ba luồng (BE-08) + cổng khu vực (FE-2
     // vault (cấu hình khoá, xử lý lệnh rút cần xem xét) và FE-08 duyệt chia không có quyền ghi
     // nào, kể cả tự rút hay `distribution:execute` trực tiếp.
     const writes = ALL_WRITE_ACTIONS.filter((action) => can('CONTROLLER', action));
-    expect(writes).toEqual(['settlement:initiate', 'settlement:recall', 'order:approve', 'vault:configure', 'vault:reconcile', 'distribution:approve']);
+    // IN-04: thêm công tắc Lưu ký Fireblocks (cấu hình dùng chung, không tự phát hành).
+    expect(writes).toEqual(['settlement:initiate', 'settlement:recall', 'order:approve', 'vault:configure', 'vault:reconcile', 'distribution:approve', 'custody:toggle']);
   });
 
   it('BE-12 việc 4 — không vai nào có cả quyền lập lẫn quyền duyệt', () => {

@@ -3,10 +3,21 @@ import 'server-only';
 import { readStep } from '@/lib/diagnostics/read-trace';
 
 import { vaultAddressFor, type ChainKey, type TxResult, type TxStatus } from '@bidv/shared';
-import { getLedger, receiptTimeoutFor } from '@/lib/ledger';
+import { serverEnv } from '@/lib/config/env';
+import { getFireblocksClient } from '@/lib/custody/fireblocks-client';
+import { submitViaFireblocks } from '@/lib/custody/fireblocks-execution';
+import { getLedger, receiptTimeoutFor, type CustodyCallOperation } from '@/lib/ledger';
 import type { Role } from '@/lib/rbac';
 import { getBankSigner } from '@/lib/signer';
-import { getProjectStore, getStore, type ProjectRecord, type TxnRecord } from '@/lib/store';
+import {
+  getProjectStore,
+  getStore,
+  getTokenRequestStore,
+  type ProjectRecord,
+  type TokenRequestCustodyContext,
+  type TokenRequestRecord,
+  type TxnRecord,
+} from '@/lib/store';
 import { assertCanMintDemoToken } from '@/lib/rbac/demo-payment';
 import { authorize, toResult } from './authorize';
 import { err, ok, type Result } from './result';
@@ -81,6 +92,11 @@ export interface SubmitTxnInput {
   amount: bigint | null;
   role: Role;
   onSubmitted?: (txHash: string) => Promise<void>;
+  /**
+   * IN-04 E3: địa chỉ ký ghi vào `Txn.actorAddress`. Có thì dùng thay địa chỉ khoá máy chủ: giao dịch
+   * qua Fireblocks do vault ký, không do khoá trên máy chủ.
+   */
+  actorAddress?: string;
 }
 
 /** Lưu giao dịch PENDING và gắn hash vào hồ sơ nghiệp vụ, tuyệt đối không chờ receipt. */
@@ -98,7 +114,7 @@ export async function submitTxn(input: SubmitTxnInput): Promise<TxnRecord> {
     amount: input.amount?.toString() ?? null,
     reason: null,
     actorRole: input.role,
-    actorAddress: await signerAddressOrNull(chain),
+    actorAddress: input.actorAddress ?? (await signerAddressOrNull(chain)),
   });
   await input.onSubmitted?.(pending.txHash);
   return saved;
@@ -188,6 +204,144 @@ export interface IssueInitialSupplyView {
   issuedAt: string;
 }
 
+/**
+ * IN-04: cách gửi của lần duyệt. `SERVER` là khoá máy chủ (như trước IN-04). `FIREBLOCKS` gửi qua
+ * vault theo bối cảnh ký đã ghi lúc chiếm quyền; `markAttempted` báo cho người gọi là đã gọi tạo
+ * giao dịch (QĐ-8b).
+ */
+export type CustodyRoute =
+  | { kind: 'SERVER'; onSubmitted?: (txHash: string) => Promise<void> }
+  | {
+      kind: 'FIREBLOCKS';
+      requestId: string;
+      context: TokenRequestCustodyContext;
+      note: string;
+      markAttempted(): void;
+    };
+
+/** IN-04: lần gửi qua Fireblocks chưa rõ kết quả, hoặc thua lượt gắn mã (QĐ-16): giữ `EXECUTING`. */
+export interface CustodyUnknown {
+  status: 'UNKNOWN';
+  txHash: null;
+  reason: string;
+  /** Thua lượt gắn mã: lượt khác đã gắn; KHÔNG ghi sổ. */
+  lostClaim: boolean;
+}
+
+/**
+ * IN-04: lỗi của lần thực hiện, kèm hai cờ cho người gọi biết có được ghi `FAILED` sau khi đã gọi tạo
+ * giao dịch Fireblocks hay không (QĐ-8b): chắc chắn chưa lên chuỗi, hoặc biên nhận `FAILED`.
+ */
+export type ExecutionResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      code: Extract<Result<never>, { ok: false }>['code'];
+      error: string;
+      fieldErrors?: Record<string, string[]>;
+      definitelyNotOnChain?: boolean;
+      receiptFailed?: boolean;
+    };
+
+/** Kết quả gửi của lần duyệt: biên nhận (kèm bản ghi vừa gắn mã với Fireblocks), hoặc chưa rõ. */
+export type ApprovalSubmission = (IssuanceSubmission & { claimed: TokenRequestRecord | null }) | CustodyUnknown;
+
+type CustodySend =
+  | { kind: 'RECEIPT'; receipt: TxResult; claimed: TokenRequestRecord | null }
+  | { kind: 'NOT_SENT'; reason: string }
+  | { kind: 'UNKNOWN'; reason: string; lostClaim: boolean }
+  /** Lỗi lưu trữ SAU khi đã gọi tạo giao dịch: không chứng minh gì về chuỗi, người gọi giữ `EXECUTING`. */
+  | { kind: 'STORE_ERROR'; reason: string };
+
+const FIREBLOCKS_POLL_MS = 3_000;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Gửi MỘT trong ba lời gọi của luồng lập và duyệt (`mintInitialSupply`, `mint`, `burn`) theo cách gửi.
+ *
+ * `SERVER`: y như trước IN-04 (khoá máy chủ, `trackTxn`). `FIREBLOCKS`: `submitViaFireblocks`, rồi
+ * gắn mã CÓ ĐIỀU KIỆN (`claimTxHash`, QĐ-16): CHỈ lượt thắng ghi `Txn` (địa chỉ ký là vault) và chờ
+ * biên nhận; lượt thua dừng, không ghi gì.
+ */
+export async function sendViaCustody(input: {
+  chain: ChainKey;
+  operation: CustodyCallOperation;
+  wallet: string;
+  amount: bigint;
+  role: Role;
+  fromWallet: string | null;
+  toWallet: string | null;
+  route: CustodyRoute;
+  /** Đường `SERVER`: lời gọi khoá máy chủ, giữ ở chính hàm thực hiện (Mint ở đây, Burn ở `executeBurn`). */
+  sendWithServerKey: () => Promise<TxResult>;
+}): Promise<CustodySend> {
+  const { chain, operation, wallet, amount, role, route } = input;
+  const ledger = getLedger(chain);
+  if (route.kind === 'SERVER') {
+    const pending = await input.sendWithServerKey();
+    const receipt = await trackTxn({
+      chain,
+      pending,
+      operation,
+      fromWallet: input.fromWallet,
+      toWallet: input.toWallet,
+      amount,
+      role,
+      onSubmitted: route.onSubmitted,
+    });
+    return { kind: 'RECEIPT', receipt, claimed: null };
+  }
+
+  const prepareContractCall = ledger.prepareContractCall;
+  if (!prepareContractCall) {
+    throw new Error(`Lỗi lập trình: ledger chain ${chain} không có prepareContractCall cho Lưu ký Fireblocks.`);
+  }
+  const store = getTokenRequestStore();
+  const { requestId, context } = route;
+  const outcome = await submitViaFireblocks(
+    { requestId, note: route.note, context },
+    {
+      prepare: () => prepareContractCall.call(ledger, operation, [wallet, amount], context.address),
+      setCustodyCall: (call) => store.setCustodyCall({ id: requestId, ...call }),
+      markAttempted: () => route.markAttempted(),
+      client: getFireblocksClient(),
+      onCreated: async (custodyTxId) => {
+        await store.attachCustodyTxId({ id: requestId, custodyTxId });
+      },
+      sleep,
+      hashWaitMs: serverEnv().fireblocksHashWaitMs,
+      pollMs: FIREBLOCKS_POLL_MS,
+    },
+  );
+  if (outcome.kind === 'FAILED') return { kind: 'NOT_SENT', reason: outcome.reason };
+  if (outcome.kind === 'UNKNOWN') return { kind: 'UNKNOWN', reason: outcome.reason, lostClaim: false };
+
+  let claimed: TokenRequestRecord | null;
+  try {
+    claimed = await store.claimTxHash({ id: requestId, txHash: outcome.txHash });
+  } catch (error) {
+    return {
+      kind: 'STORE_ERROR',
+      reason: `Không gắn được mã giao dịch ${outcome.txHash} vào yêu cầu: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (!claimed) {
+    return { kind: 'UNKNOWN', reason: 'Yêu cầu đang được đối soát ở lượt khác.', lostClaim: true };
+  }
+  // Mã đã gắn ở bước claim: `trackTxn` chỉ ghi `Txn` (địa chỉ ký là vault) rồi chờ biên nhận.
+  const receipt = await trackTxn({
+    chain,
+    pending: { txHash: outcome.txHash, status: 'PENDING' },
+    operation,
+    fromWallet: input.fromWallet,
+    toWallet: input.toWallet,
+    amount,
+    role,
+    actorAddress: claimed.custodyContext?.address ?? context.address,
+  });
+  return { kind: 'RECEIPT', receipt, claimed };
+}
+
 /** Kết quả gửi phát hành khi biên nhận KHÔNG phải `FAILED` (HF-05). */
 export interface IssuanceSubmission {
   txHash: string;
@@ -226,7 +380,9 @@ export async function executeIssuance(input: {
   /** Câu mở đầu cho dòng sổ kiểm toán, ví dụ mã yêu cầu đã được duyệt. */
   auditContext?: string;
   onSubmitted?: (txHash: string) => Promise<void>;
-}): Promise<Result<IssuanceSubmission>> {
+  /** IN-04: cách gửi; mặc định khoá máy chủ với `onSubmitted` ở trên. */
+  route?: CustodyRoute;
+}): Promise<ExecutionResult<ApprovalSubmission>> {
   const { chain, project, spvWallet, amount, role } = input;
   const { tokenSymbol } = project;
   const ledger = getLedger(chain);
@@ -294,20 +450,23 @@ export async function executeIssuance(input: {
   }
 
   // @flow issue:3 | gửi giao dịch phát hành vào ví SPV: lần đầu qua mintInitialSupply, các lần sau qua mint
-  const pending = minted
-    ? await ledger.mint(spvWallet, amount)
-    : await ledger.mintInitialSupply(spvWallet, amount);
-
-  const receipt = await trackTxn({
+  const sent = await sendViaCustody({
     chain,
-    pending,
     operation: minted ? 'mint' : 'mintInitialSupply',
-    fromWallet: null,
-    toWallet: spvWallet,
+    wallet: spvWallet,
     amount,
     role,
-    onSubmitted: input.onSubmitted,
+    fromWallet: null,
+    toWallet: spvWallet,
+    route: input.route ?? { kind: 'SERVER', onSubmitted: input.onSubmitted },
+    sendWithServerKey: () => (minted ? ledger.mint(spvWallet, amount) : ledger.mintInitialSupply(spvWallet, amount)),
   });
+  if (sent.kind === 'NOT_SENT') return { ok: false, code: 'LEDGER', error: sent.reason, definitelyNotOnChain: true };
+  if (sent.kind === 'STORE_ERROR') return { ok: false, code: 'LEDGER', error: sent.reason };
+  if (sent.kind === 'UNKNOWN') {
+    return ok({ status: 'UNKNOWN', txHash: null, reason: sent.reason, lostClaim: sent.lostClaim });
+  }
+  const { receipt } = sent;
 
   if (receipt.status === 'FAILED') {
     await store.appendAudit({
@@ -320,10 +479,10 @@ export async function executeIssuance(input: {
     });
     // KHÔNG đánh dấu `issuedAt`: giao dịch revert nghĩa là chưa phát hành, và đánh dấu ở đây sẽ
     // làm bảng dự án nói đã phát hành trong khi chuỗi chưa có token nào.
-    return err('LEDGER', receipt.reason ?? 'Giao dịch phát hành thất bại on-chain.');
+    return { ok: false, code: 'LEDGER', error: receipt.reason ?? 'Giao dịch phát hành thất bại on-chain.', receiptFailed: true };
   }
 
-  return ok({ txHash: receipt.txHash, status: receipt.status, issuedAt });
+  return ok({ txHash: receipt.txHash, status: receipt.status, issuedAt, claimed: sent.claimed });
 }
 
 /**
@@ -451,6 +610,10 @@ export async function issueInitialSupply(
 
     const submitted = await executeIssuance({ chain, project, spvWallet, amount, role });
     if (!submitted.ok) return submitted;
+    // Đường dữ liệu thử luôn đi khoá máy chủ (không truyền `route`), nên không có kết quả "chưa rõ".
+    if (submitted.data.status === 'UNKNOWN') {
+      throw new Error('Lỗi lập trình: đường phát hành thử nhận kết quả chưa rõ của Lưu ký Fireblocks.');
+    }
     return await completeDirectIssuance({
       chain,
       project,
