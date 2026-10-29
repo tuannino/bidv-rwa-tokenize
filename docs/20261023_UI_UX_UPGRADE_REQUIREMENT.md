@@ -24,6 +24,7 @@
 | QĐ-UX-8 | Logo, ảnh, video trong bản xem thử là tạm để thử giao diện, chủ dự án thay sau (mục 3.6) |
 | QĐ-UX-9 | Trang giới thiệu dự án là **một trang riêng** như bản xem thử, sẽ cải thiện ở đợt sau (FE-UX-X5) |
 | QĐ-UX-10 | Hệ thống phải "mượt": chuyển động mềm theo kiểu lò xo (spring), có vi tương tác khi rê chuột và bấm, icon đẹp hơn (mục 3.3, 3.4) |
+| QĐ-UX-11 | **Font chữ thương hiệu Roboto** cho toàn bộ dự án (theo bộ nhận diện BIDV, ngày 29/10/2026): Light 300, Regular 400, Medium 500, Bold 700 và các bản nghiêng. Thay cho Be Vietnam Pro của bản 2, bản 3 |
 
 ---
 
@@ -51,7 +52,7 @@
 
 ### 1.3. Phụ thuộc
 
-Mặc định không thêm gói npm. Font Be Vietnam Pro nạp qua `next/font/google` (có sẵn trong Next). Biểu đồ giữ `recharts`, chỉ đổi kiểu.
+Mặc định không thêm gói npm. Font Roboto và Roboto Mono nạp qua `next/font/google` (có sẵn trong Next, không phải gói mới), subsets `latin` và `vietnamese`. Biểu đồ giữ `recharts`, chỉ đổi kiểu.
 
 Toàn bộ chuyển động mềm của bản 3 **làm được mà không cần gói mới**: đường cong lò xo viết bằng CSS `linear()` (token ở mục 3.3) và một hook lò xo nhỏ (khoảng 20 dòng, đặt ở `app/src/components/motion/`, không đặt trong `lib/`). Bản xem thử cũng tự viết như vậy (`spring()` trong `ui.js`).
 
@@ -88,8 +89,8 @@ Kết luận của 21 trang: **không trang nào cần sửa backend.**
 
 | Mã | Lỗi | Bằng chứng | Cách sửa (frontend) |
 |---|---|---|---|
-| UX-01 | Toàn bộ app hiển thị bằng Times New Roman: `--font-sans: var(--font-sans)` tự trỏ vào chính nó | `app/src/app/globals.css:10-11`, `layout.tsx` chỉ nạp Geist Mono | Nạp Be Vietnam Pro (subsets latin, vietnamese) qua `next/font/google`, gán biến `--font-sans`. Đã thử cách sửa tương tự trên bản local, đạt |
-| UX-02 | Khi font được sửa, khoảng 160 chỗ `font-mono` ở 36 tệp sẽ hiện thật thành chữ đơn cách | quét `lint` | Số liệu dùng `tabular-nums` của font chính; mono chỉ cho mã yêu cầu, địa chỉ ví, mã giao dịch |
+| UX-01 | Toàn bộ app hiển thị bằng Times New Roman: `--font-sans: var(--font-sans)` tự trỏ vào chính nó | `app/src/app/globals.css:10-11`, `layout.tsx` chỉ nạp Geist Mono | Nạp **Roboto** (weight 300, 400, 500, 700, có italic; subsets latin, vietnamese) qua `next/font/google`, gán biến `--font-sans`; thay Geist Mono bằng **Roboto Mono** cho `--font-mono`. Đã thử cách sửa tương tự trên bản local, đạt |
+| UX-02 | Khi font được sửa, khoảng 160 chỗ `font-mono` ở 36 tệp sẽ hiện thật thành chữ đơn cách | quét `lint` | Số tiền, số lượng, ngày giờ dùng Roboto với `tabular-nums` (chữ số đều cột); Roboto Mono chỉ cho địa chỉ ví, mã băm giao dịch, UUID, mã kỹ thuật dạng `order:place`. Mã lệnh dạng `ORD-2026-0023` dùng Roboto |
 | UX-03 | Mặc định Dark | `providers.tsx:29-31, 45` | `defaultTheme="light"`, sửa nhánh trước khi mount của RainbowKit |
 | UX-04 | Điện thoại: sidebar 240 px không gập, tiêu đề vỡ 4 dòng ở 390 px | `app-layout.tsx`, `sidebar.tsx` (`w-60`) | Sidebar thành ngăn kéo dưới 900 px, nút menu; thanh trên xuống dòng |
 
@@ -128,7 +129,9 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 
 ### 3.2. Chữ, hình khối, khoảng cách
 
-- Font **Be Vietnam Pro** 400, 500, 600, 700 (thiết kế cho tiếng Việt). Tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/600; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ.
+- Font **Roboto** theo bộ nhận diện BIDV, chỉ dùng bốn độ đậm có trong bộ nhận diện: Light 300 (chữ phụ cỡ lớn nếu cần), Regular 400 (chữ thường), Medium 500 (nhãn, nút, tiêu đề thẻ, mục menu), Bold 700 (tiêu đề màn, tiêu đề mục, số KPI). **Không dùng 600, 800, 900** (bản 2 dùng 600, 800 với Be Vietnam Pro, đã quy về 500 và 700). Nghiêng chỉ dùng khi cần nhấn trích dẫn.
+- Cỡ chữ: tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/500; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ. Tiêu đề lớn giãn chữ âm tối đa -0,02 em (Roboto hẹp hơn Be Vietnam Pro, giãn âm hơn sẽ dính chữ có dấu).
+- **Roboto Mono** (cùng họ Roboto) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật. Bản xem thử tự nhận diện các chuỗi này (lớp `.mono.code`); trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02.
 - Bo góc: thẻ 28 px (điện thoại 22 px), khối trong 18 px, ô nhập 14 px, nút và dropdown bo tròn hoàn toàn.
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
@@ -279,7 +282,7 @@ Các điểm 3 đến 8 sửa được thuần frontend nhưng làm đổi chữ
 2. Diff chỉ chạm các tệp ở mục 1.1. `git diff --stat` của PR không có tệp ở mục 1.2.
 3. Mỗi màn tối đa một server action khi mở (HF-01), đo như checkpoint HF-01.
 4. `npm run typecheck`, `npm test`, `npm run test:e2e` xanh.
-5. Ảnh chụp Light và Dark, 1440 và 390 px cho mỗi màn đã làm; không tràn ngang ở 390 px; font Be Vietnam Pro nạp thật.
+5. Ảnh chụp Light và Dark, 1440 và 390 px cho mỗi màn đã làm; không tràn ngang ở 390 px; font Roboto và Roboto Mono nạp thật, chữ tiếng Việt có dấu hiển thị đúng ở cả bốn độ đậm.
 6. Không còn ký tự mũi tên, chấm giữa, gạch ngang dài trong chữ do frontend dựng.
 7. UserGuide cập nhật Phần 2, 3 cho màn bị đổi giao diện.
 8. Chuyển động: đúng token và thông số mục 3.3; bật "giảm chuyển động" của hệ điều hành thì mọi nội dung hiện ngay; không giật khung hình khi cuộn ở 1440 px (Performance của Chrome không có khung đỏ kéo dài); số lăn đọc được bằng trình đọc màn hình.

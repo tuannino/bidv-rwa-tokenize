@@ -135,7 +135,7 @@
       g += `<g class="coin" style="animation-delay:${.15 + i * .12}s"><ellipse cx="80" cy="${y + 6}" rx="46" ry="14" fill="#8a6406"/><rect x="34" y="${y - 6}" width="92" height="12" fill="#b07f0b"/><ellipse cx="80" cy="${y - 6}" rx="46" ry="14" fill="url(#cg)"/><ellipse cx="80" cy="${y - 6}" rx="34" ry="9.5" fill="none" stroke="#fff3c9" stroke-opacity=".55" stroke-width="1.5"/></g>`;
     }
     const top = 150 - (n - 1) * 15 - 6;
-    return `<svg class="coins" viewBox="0 0 160 190" aria-hidden="true"><defs><linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="#f5d27a"/><stop offset=".55" stop-color="#e0b44a"/><stop offset="1" stop-color="#c9971c"/></linearGradient></defs>${g}<text class="coin" style="animation-delay:${.15 + (n - 1) * .12}s" x="80" y="${top + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="#6e4b00" font-family="Be Vietnam Pro, sans-serif">VNDB</text><g class="spark"><path d="M128 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="#fff6d6"/><path d="M28 70 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff6d6"/></g></svg>`;
+    return `<svg class="coins" viewBox="0 0 160 190" aria-hidden="true"><defs><linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="#f5d27a"/><stop offset=".55" stop-color="#e0b44a"/><stop offset="1" stop-color="#c9971c"/></linearGradient></defs>${g}<text class="coin" style="animation-delay:${.15 + (n - 1) * .12}s" x="80" y="${top + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="#6e4b00" font-family="Roboto, sans-serif">VNDB</text><g class="spark"><path d="M128 40 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="#fff6d6"/><path d="M28 70 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff6d6"/></g></svg>`;
   };
   // Huy hiệu token WPT: lục giác xanh có tua-bin.
   const emblem = () => `<svg class="emblem" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ba366"/><stop offset="1" stop-color="#0f4d2b"/></linearGradient></defs><path d="M32 3 57 17.5v29L32 61 7 46.5v-29Z" fill="url(#eg)"/><path d="M32 7.5 53 19.7v24.6L32 56.5 11 44.3V19.7Z" fill="none" stroke="#e0b44a" stroke-opacity=".7"/><rect x="31" y="30" width="2" height="18" rx="1" fill="#fff" opacity=".8"/><g style="transform-origin:32px 30px;animation:spin 5s linear infinite"><path d="M32 30 31 14 33 30Z M32 30 46 38 31.5 31Z M32 30 18 38 32.5 31Z" fill="#fff"/></g><circle cx="32" cy="30" r="2.6" fill="#e0b44a"/></svg>`;
@@ -307,6 +307,13 @@
     b.insertAdjacentHTML('beforeend', `${icon('check', 'ok')}<span class="bub" role="status">Đã chép</span>`);
     b.addEventListener('click', () => { navigator.clipboard?.writeText(b.dataset.copy).catch(() => {}); b.classList.add('done'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('done'), 1500); });
   });
+  // Font thương hiệu Roboto: số tiền, số lượng, ngày giờ dùng Roboto với chữ số đều cột (tabular-nums);
+  // chỉ địa chỉ ví, mã băm, UUID và mã kỹ thuật dạng "a:b" mới dùng Roboto Mono để dễ dò từng ký tự.
+  const CODE = /0x[0-9a-f]|^[0-9a-f]{8}(-|$)|^[a-z]+:[a-z0-9]/i;
+  const tagMono = () => document.querySelectorAll('.mono').forEach((m) => m.classList.toggle('code', CODE.test(m.textContent.trim())));
+  tagMono();
+  let monoRaf = 0;
+  new MutationObserver(() => { if (!monoRaf) monoRaf = requestAnimationFrame(() => { monoRaf = 0; tagMono(); }); }).observe(body, { subtree: true, childList: true, characterData: true });
   // Biểu tượng 3D cạnh tiêu đề trang (Fluent Emoji 3D, MIT, tạm để thử; thay bằng bộ chính thức sau).
   const P3D = { dashboard: 'leaf', draft: 'memo', transactions: 'ledger', 'transaction-detail': 'receipt', distribution: 'moneybag', vault: 'classic', 'demo-payment': 'banknote', account: 'id', approvals: 'scales', 'approval-detail': 'check', portfolio: 'bars', 'token-detail': 'coin', trade: 'chart', orders: 'clipboard', 'order-detail': 'receipt', withdraw: 'outbox', wallet: 'card', seller: 'office', 'seller-transactions': 'ledger', 'seller-withdraw': 'flymoney' };
   const ph = document.querySelector('.pagehead > div:first-child'), p3 = P3D[body.dataset.page];

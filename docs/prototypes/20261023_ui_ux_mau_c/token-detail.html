@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chi tiết token WPT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="assets/c.css">
 <style>
 .kv dt { flex: 0 1 auto; min-width: 0; }
 .periods { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .periods > div { background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: 12px; }
-.periods dt { color: var(--muted); font-family: var(--mono); }
-.periods dd { font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.periods dt { color: var(--muted); font-variant-numeric: tabular-nums; }
+.periods dd { font-weight: 500; font-variant-numeric: tabular-nums; }
 .op-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); gap: 24px; }
 @media (max-width: 900px) { .periods { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1180px) { .op-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -40,10 +40,10 @@
       <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">ON-CHAIN</span>
     </div>
     <div class="muted small">Đang giữ</div>
-    <div style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.02em;font-family:var(--mono)"><span data-count="150">150</span></div>
+    <div style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.02em;font-family:var(--font);font-variant-numeric:tabular-nums"><span data-count="150">150</span></div>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.18);position:relative">
       <div class="muted small">Giá trị theo giá phát hành</div>
-      <div style="font-size:22px;font-weight:700;font-family:var(--mono)">15.000.000 ₫</div>
+      <div style="font-size:22px;font-weight:700;font-family:var(--font);font-variant-numeric:tabular-nums">15.000.000 ₫</div>
       <p class="muted small" style="margin-top:6px">Không phải giá thị trường, hệ thống chưa có thị trường thứ cấp.</p>
     </div>
   </section>
@@ -99,7 +99,7 @@
         </div>
       </div>
       <div style="min-width:0">
-        <h3 class="small muted" style="font-weight:600;margin-bottom:4px">Sản lượng theo kỳ</h3>
+        <h3 class="small muted" style="font-weight: 500;margin-bottom:4px">Sản lượng theo kỳ</h3>
         <div class="chart" id="gen" style="height:170px"></div>
         <dl class="periods">
           <div><dt>02/2026</dt><dd>24.180 MWh</dd></div>
