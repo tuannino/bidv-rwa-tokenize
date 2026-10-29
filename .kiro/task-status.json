@@ -54,7 +54,8 @@
     "UIUX-01",
     "FIX-01",
     "FE-23",
-    "FIX-02"
+    "FIX-02",
+    "IN-04"
   ],
   "inProgress": [],
   "planned": [
@@ -68,8 +69,7 @@
     "IN-02",
     "SC-04",
     "SC-08",
-    "IN-03",
-    "IN-04"
+    "IN-03"
   ],
   "_reservedByFE20": {
     "_why": "FE-20 phải ghi 'màn nào chờ task nào' lên từng trang chỗ trống, nhưng lộ trình chưa có mã cho năm việc dưới đây. Đặt trước ở đây để marker hợp lệ; Owner đổi tên thì grep đúng mã là xong. Xem docs/CHECKPOINT_FE20.md mục câu hỏi mở.",
