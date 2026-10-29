@@ -663,7 +663,7 @@ export async function approveTokenRequest(
         target: requestId,
         outcome: 'FAILURE',
         detail: unsure
-          ? `Duyệt yêu cầu ${requestId}${via}: đã gửi giao dịch nhưng chưa biết kết cục (${message}) — cần đối soát.`
+          ? `Duyệt yêu cầu ${requestId}${via}: đã gửi giao dịch nhưng chưa biết kết cục (${message}); cần đối soát.`
           : `Duyệt yêu cầu ${requestId}: không gửi được giao dịch (${message}).`,
         chain,
       });

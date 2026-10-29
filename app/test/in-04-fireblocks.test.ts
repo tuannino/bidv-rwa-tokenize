@@ -474,7 +474,8 @@ describe('IN-04 ca 3: fireblocksConfig và bảng chain', () => {
   });
 
   it('PEM sai thì null kèm lý do không chứa khoá', () => {
-    const body = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcw';
+    // Thân giả rõ ràng (base64 của "KhongPhaiKhoa"), không phải một phần khoá nào.
+    const body = 'S2hvbmdQaGFpS2hvYQ==';
     for (const pem of [
       `-----BEGIN RSA PRIVATE KEY-----\\n${body}\\n-----END RSA PRIVATE KEY-----`,
       `khong-phai-pem-${body}`,
