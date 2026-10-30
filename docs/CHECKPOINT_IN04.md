@@ -276,6 +276,8 @@ bước của sơ đồ từ trước; IN-04 chỉ đổi tên biến của bư�
 
 ## 10. Việc của chủ dự án sau khi merge (không phải điều kiện của PR)
 
+Hướng dẫn từng bước, kèm kiến thức nền, vận hành và đường lùi: `docs/RUNBOOK_FIREBLOCKS.md` (Phần D).
+
 1. Nạp SepoliaETH vào vault 11 (đủ cho vài chục giao dịch).
 2. Trên máy mình, với khoá quản trị trong `.env`: `FIREBLOCKS_VAULT_ADDRESS=0xc7F6... npx hardhat run scripts/fireblocks-roles.js --network sepolia` (xem kế hoạch), rồi chạy lại với `FIREBLOCKS_ROLES_CONFIRM=yes` (và `FIREBLOCKS_ROLES_ACTION=grant`).
 3. `wrangler secret put FIREBLOCKS_API_KEY`, `wrangler secret put FIREBLOCKS_SECRET_KEY` (PEM PKCS#8; khoá dạng `BEGIN RSA PRIVATE KEY` thì đổi bằng `openssl pkcs8 -topk8 -nocrypt`).
