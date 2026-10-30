@@ -7,14 +7,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
 <link rel="stylesheet" href="assets/brand.css">
+<link rel="stylesheet" href="assets/fx.css">
 <style>
   /* Hàng đợi duyệt: người lập và người duyệt là hai người khác nhau, nên mỗi dòng ghi rõ ai lập và lúc nào. */
   .q-head { display: flex; align-items: baseline; gap: 12px; }
   .q-head .pill { transform: translateY(-1px); }
-  .oldest { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 16px; border-radius: var(--radius-card); background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
-  .oldest svg { width: 16px; height: 16px; }
-  .oldest .t { flex: 1; min-width: 0; }
-  .oldest b { font-weight: 500; }
+  /* Khối trọng tâm: số đang chờ to nhất, yêu cầu chờ lâu nhất kèm nút duyệt, hai số trong ngày bên phải */
+  .qhero { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.5fr) minmax(0, .8fr); gap: 32px; align-items: center; }
+  .qhero .old { padding: 16px 18px; border-radius: var(--radius-card); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+  .qhero .old .k { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gold-soft); font-weight: 500; }
+  .qhero .old .k svg { width: 14px; height: 14px; }
+  .qhero .old p { margin: 6px 0 12px; font-size: 15px; line-height: 22px; color: rgba(255, 255, 255, .9); }
+  .qhero .old b { color: #fff; font-weight: 700; }
+  .qhero .minis { display: grid; gap: 14px; }
+  .qhero .minis > div { padding-left: 14px; border-left: 2px solid rgba(255, 255, 255, .22); }
+  .qhero .minis .fig { font-size: 26px; line-height: 30px; }
+  @media (max-width: 1100px) { .qhero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .qhero .old { grid-column: 1 / -1; grid-row: 2; } }
   td.reason { max-width: 260px; }
   td.res { max-width: 220px; }
   .maker { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
@@ -34,11 +42,11 @@
     .q-head { flex-wrap: wrap; }
     .panel > header .meta { display: none; }
     td.reason, td.res { max-width: none; }
-    .oldest { align-items: flex-start; flex-wrap: wrap; }
+    .qhero { gap: 18px; }
   }
 </style>
 </head>
-<body data-nav="approvals.html" data-roles="controller">
+<body data-nav="approvals.html" data-roles="controller" data-icon3d="scales">
 <main class="canvas">
   <div class="crumb"><span>Kiểm soát</span></div>
   <div class="titlerow">
@@ -50,8 +58,13 @@
   </div>
 
   <div class="grid">
-    <div class="kpis s12" id="kpis" aria-label="Thống kê duyệt trong ngày"></div>
-    <div class="s12" id="oldest-wrap"></div>
+    <section class="panel hero s12" aria-label="Thống kê duyệt trong ngày">
+      <div class="qhero">
+        <div class="big"><div class="lbl">Đang chờ duyệt</div><div class="lead-fig num"><span data-count id="k-pending"></span><span class="unit">yêu cầu</span></div><div class="subl" id="k-pending-sub"></div></div>
+        <div class="old" id="oldest-wrap"></div>
+        <div class="minis" id="k-minis"></div>
+      </div>
+    </section>
     <section class="panel s12" data-queue="MINT" aria-labelledby="q-mint-h">
       <header><div class="q-head"><h2 id="q-mint-h">Hàng chờ tạo token</h2><span class="pill warn" data-pending-pill></span></div><span class="meta">Bấm mã yêu cầu để xem chi tiết và quyết định</span></header>
       <div class="toolbar">
@@ -59,7 +72,7 @@
         <select class="select" data-status-filter aria-label="Trạng thái">
           <option value="ALL">Tất cả trạng thái</option><option value="PENDING" selected>Chờ duyệt</option><option value="EXECUTING">Đang xử lý</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Từ chối</option><option value="FAILED">Thất bại</option>
         </select>
-        <span class="count" data-count></span>
+        <span class="count" data-tally></span>
       </div>
       <div class="table-wrap"><table class="q"><thead></thead><tbody></tbody></table></div>
       <p class="empty-row" data-empty hidden>Không có yêu cầu nào khớp.</p>
@@ -71,7 +84,7 @@
         <select class="select" data-status-filter aria-label="Trạng thái">
           <option value="ALL">Tất cả trạng thái</option><option value="PENDING" selected>Chờ duyệt</option><option value="EXECUTING">Đang xử lý</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Từ chối</option><option value="FAILED">Thất bại</option>
         </select>
-        <span class="count" data-count></span>
+        <span class="count" data-tally></span>
       </div>
       <div class="table-wrap"><table class="q"><thead></thead><tbody></tbody></table></div>
       <p class="empty-row" data-empty hidden>Không có yêu cầu nào khớp.</p>
@@ -102,15 +115,16 @@
   const mins = (s) => { const [d, t] = s.split(' '); const [dd, mm, yy] = d.split('/').map(Number); const [h, m] = t.split(':').map(Number); return Date.UTC(yy, mm - 1, dd, h, m) / 60000; };
   const waited = (s) => { const m = mins(NOW) - mins(s), h = Math.floor(m / 60); return h ? `${h} giờ ${m % 60} phút` : `${m} phút`; };
 
-  document.getElementById('kpis').innerHTML = [
-    ['Đang chờ duyệt', pending.length, `${pending.filter((r) => r.type === 'MINT').length} tạo, ${pending.filter((r) => r.type === 'BURN').length} huỷ`],
+  document.getElementById('k-pending').textContent = nf(pending.length);
+  document.getElementById('k-pending-sub').textContent = `${pending.filter((r) => r.type === 'MINT').length} tạo token, ${pending.filter((r) => r.type === 'BURN').length} huỷ token`;
+  document.getElementById('k-minis').innerHTML = [
     ['Đã duyệt hôm nay', approved.length, `${approved.filter((r) => r.status === 'COMPLETED').length} hoàn tất, ${approved.filter((r) => r.status === 'EXECUTING').length} đang xử lý`],
     ['Đã từ chối hôm nay', rejected.length, `${rejected.filter((r) => r.type === 'MINT').length} tạo, ${rejected.filter((r) => r.type === 'BURN').length} huỷ`],
-  ].map(([l, v, s]) => `<div class="kpi"><div class="lbl">${l}</div><div class="fig num">${nf(v)}</div><div class="subl">${s}</div></div>`).join('');
+  ].map(([l, v, t]) => `<div><div class="lbl">${l}</div><div class="fig num"><span data-count>${nf(v)}</span></div><div class="subl">${t}</div></div>`).join('');
 
   // Phát hiện của màn: yêu cầu chờ lâu nhất, kèm nút đi thẳng vào duyệt
   const old = [...pending].sort((a, b) => mins(a.at) - mins(b.at))[0];
-  if (old) document.getElementById('oldest-wrap').innerHTML = `<div class="oldest">${icon('clock')}<span class="t">Chờ lâu nhất: <b>${old.type === 'MINT' ? 'tạo' : 'huỷ'} ${nf(old.amount)} WPT</b> do ${old.maker} lập lúc ${old.at.split(' ')[1]}, đã chờ <b>${waited(old.at)}</b>.</span><a class="btn primary sm" href="#" data-go="approval-detail.html#${old.id.slice(0, 8)}">Xem và duyệt</a></div>`;
+  if (old) document.getElementById('oldest-wrap').innerHTML = `<div class="k">${icon('clock')}Chờ lâu nhất</div><p><b>${old.type === 'MINT' ? 'Tạo' : 'Huỷ'} ${nf(old.amount)} WPT</b> do ${old.maker} lập lúc ${old.at.split(' ')[1]}, đã chờ <b>${waited(old.at)}</b>. ${old.reason}.</p><a class="btn gold" href="#" data-go="approval-detail.html#${old.id.slice(0, 8)}">Xem và duyệt${icon('right')}</a>`;
 
   document.querySelectorAll('[data-queue]').forEach((card) => {
     const type = card.dataset.queue;
@@ -122,7 +136,7 @@
       const rows = ROWS.filter((r) => r.type === type && (status.value === 'ALL' || r.status === status.value)
         && (needle === '' || [r.id, r.maker, r.reason, 'WPT', r.doc].join(' ').toLowerCase().includes(needle)));
       const all = ROWS.filter((r) => r.type === type).length;
-      card.querySelector('[data-count]').textContent = `${rows.length} trên ${all} yêu cầu`;
+      card.querySelector("[data-tally]").textContent = `${rows.length} trên ${all} yêu cầu`;
       const showSource = type === 'BURN';
       const table = card.querySelector('table');
       card.querySelector('.table-wrap').hidden = rows.length === 0;
@@ -150,5 +164,6 @@
   console.assert(pending.length === 2, 'Chờ duyệt phải bằng số dòng PENDING');
 })();
 </script>
+<script src="assets/fx.js"></script>
 </body>
 </html>

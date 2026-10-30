@@ -110,12 +110,19 @@
     const flip = () => { root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('bidv-v4-theme', root.dataset.theme); } catch {} window.dispatchEvent(new Event('themechange')); };
     if (reduce || !document.startViewTransition) { flip(); return; }
     const r = btn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.classList.add('vt-theme');
     const t = document.startViewTransition(flip);
     t.ready.then(() => root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${R}px at ${x}px ${y}px)`] }, { duration: 600, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
+    t.finished.finally(() => root.classList.remove('vt-theme'));
   };
 
   // ===== Dựng khung =====
   const canvas = document.querySelector('main.canvas');
+  // Favicon theo logo C (chủ dự án chốt 30/10/2026): ở cỡ 16 đến 32 px chữ không đọc được nên chỉ giữ bông mai trên nền xanh ngọc.
+  { const L = window.BIDV.LOGO, m = L.mark, pad = m[3] * .16, ico = document.createElement('link');
+    ico.rel = 'icon'; ico.type = 'image/svg+xml';
+    ico.href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${L.flower}"/></svg>`);
+    document.head.appendChild(ico); }
   const logo = (h = 26) => window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: h });
   const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(([href, label, ic, pend]) => {
     const on = body.dataset.nav === href, built = BUILT.includes(href), c = pend ? PENDING[pend] : null;
@@ -145,7 +152,7 @@
       </div>
     </aside>
     <div class="work">
-      <div class="mbar"><button class="btn ghost icon" type="button" id="menu-open" aria-label="Mở menu" aria-controls="sb">${icon('menu')}</button>${window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: 18 })}<span class="t">${document.title}</span></div>
+      <div class="mbar"><button class="btn ghost icon" type="button" id="menu-open" aria-label="Mở menu" aria-controls="sb">${icon('menu')}</button><span class="mlogo">${window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: 16 })}<small><b>RWA</b> Tokenize Platform</small></span><span class="t">${document.title}</span></div>
     </div>`;
   canvas.replaceWith(app);
   app.querySelector('.work').appendChild(canvas);
@@ -181,8 +188,9 @@
 
   // Viên nang menu: nền xám trung tính (không tô màu thương hiệu), trượt bằng lò xo khi rê chuột.
   const nav = document.getElementById('nav'), pa = nav.querySelector('.pill-act'), ph = nav.querySelector('.pill-hov');
-  const pill = (g) => { let y = 0, h = 0; const paint = () => { g.style.transform = `translateY(${y}px)`; g.style.height = `${h}px`; }; const sy = spring((v) => { y = v; paint(); }), sh = spring((v) => { h = v; paint(); }); return (a, jump) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; sy.to(a.offsetTop, jump); sh.to(a.offsetHeight, jump); }; };
-  const placeA = pill(pa), placeH = pill(ph), cur = nav.querySelector('a[aria-current]');
+  // Viên nang kéo giãn theo vận tốc như giọt nước (bản 3), lướt nhanh qua nhiều mục vẫn liền một dải.
+  const pill = (g, k = 230, c = 24) => { let y = 0, h = 0, py = null, vy = 0; const paint = () => { const st = Math.min(14, vy / 70); g.style.transform = `translateY(${y - st / 2}px)`; g.style.height = `${h + st}px`; }; const sy = spring((v) => { vy = py == null ? 0 : Math.abs(v - py) * 60; py = v; y = v; paint(); }, { k, c }), sh = spring((v) => { h = v; paint(); }, { k, c: c + 4 }); return (a, jump) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; sy.to(a.offsetTop, jump); sh.to(a.offsetHeight, jump); }; };
+  const placeA = pill(pa), placeH = pill(ph, 320, 28), cur = nav.querySelector('a[aria-current]');
   placeA(cur, true); document.fonts?.ready.then(() => placeA(cur, true));
   let hovOn = false;
   nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { if (a === cur) { ph.style.opacity = 0; hovOn = false; return; } placeH(a, !hovOn); hovOn = true; }));
@@ -206,5 +214,5 @@
   });
   segs();
 
-  window.V4 = { icon, nf, role, withRole, ROLES };
+  window.V4 = { icon, nf, role, withRole, ROLES, spring, reduce };
 })();

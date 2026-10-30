@@ -1,0 +1,194 @@
+/* Bản mẫu 5: lớp điểm nhấn và chuyển động đặt lên khung "Sổ cái xanh ngọc" của bản 4.
+   Mỗi màn có đúng một khối trọng tâm xanh ngọc (.hero) mang con số trả lời câu hỏi của màn;
+   các khối còn lại giữ nền trắng yên tĩnh. Chuyển động lấy từ bản 3: lò xo, gió lướt, số lăn, nét tự vẽ. */
+
+:root {
+  --sp-soft: linear(0, .0355, .1205, .2303, .3479, .4627, .5681, .6609, .74, .8054, .8581, .8997, .9317, .9558, .9734, .9859, .9945, 1.0001, 1.0035, 1.0054, 1.0062, 1.0063, 1.0059, 1.0053, 1.0046, 1.0038, 1.0031, 1.0025, 1);
+  --sp-bounce: linear(0, .0307, .1105, .2225, .3522, .4875, .6191, .7403, .8465, .9353, 1.0058, 1.0584, 1.0944, 1.116, 1.1254, 1.1251, 1.1176, 1.105, 1.0895, 1.0725, 1.0556, 1.0396, 1.0252, 1.013, 1.003, .9954, .9899, .9864, .9845, .984, .9846, .9859, .9878, .9899, .992, .9941, .996, .9977, .9991, 1.0002, 1.001, 1.0015, 1.0019, 1.002, 1);
+  --hero-1: #0a8580; --hero-2: #016b69; --hero-3: #01403f;
+  --gold-soft: #ffdb73;
+}
+:root[data-theme="dark"] { --hero-1: #0b6f6b; --hero-2: #05514f; --hero-3: #022a29; }
+
+/* ---------- Nền: hai quầng sáng xanh ngọc và vàng trôi rất chậm, đường gió mảnh ---------- */
+.bgfx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.bgfx i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .5; animation: fxDrift 32s ease-in-out infinite alternate; }
+.bgfx i:nth-child(1) { width: 520px; height: 520px; right: -140px; top: -180px; background: radial-gradient(circle, rgba(1, 107, 105, .16), transparent 70%); }
+.bgfx i:nth-child(2) { width: 420px; height: 420px; left: 30%; bottom: -220px; background: radial-gradient(circle, rgba(254, 198, 41, .14), transparent 70%); animation-duration: 40s; }
+.bgfx svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bgfx path { fill: none; stroke: var(--accent); stroke-opacity: .07; stroke-width: 1.2; stroke-dasharray: 6 10; animation: fxFlow 60s linear infinite; }
+[data-theme="dark"] .bgfx i { opacity: .35; }
+@keyframes fxDrift { to { transform: translate(-60px, 40px) scale(1.08); } }
+@keyframes fxFlow { to { stroke-dashoffset: -800; } }
+.sidebar { background: color-mix(in srgb, var(--ground) 88%, transparent); backdrop-filter: blur(6px); }
+
+/* Cơn gió quét qua khi mở trang */
+.gust { position: fixed; left: var(--sidebar-width); right: 0; top: 60px; height: 360px; pointer-events: none; z-index: 5; opacity: 0; animation: fxGustIn 1.7s var(--ease-out) .15s both; }
+.gust path { fill: none; stroke: var(--accent); stroke-opacity: .28; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 240 1400; stroke-dashoffset: 240; animation: fxGustLine 1.7s var(--ease-out) .15s both; }
+.gust path:nth-child(2) { stroke: var(--bidv-gold); stroke-opacity: .5; animation-delay: .3s; }
+@keyframes fxGustIn { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fxGustLine { to { stroke-dashoffset: -1400; } }
+@media (max-width: 1100px) { .gust { left: 0; } }
+
+/* ---------- Thanh bên: mục đang mở là viên nang xanh ngọc, chấm vàng, vệt sáng chạy ---------- */
+.nav .pill-act { background: linear-gradient(120deg, var(--hero-2), var(--hero-3)); box-shadow: 0 10px 22px -14px rgba(1, 64, 63, .9); overflow: hidden; }
+.nav .pill-act::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(254, 198, 41, .22) 50%, transparent 80%); background-size: 220% 100%; animation: fxSheen 5s ease-in-out infinite; }
+@keyframes fxSheen { 0%, 100% { background-position: 120% 0; } 50% { background-position: -20% 0; } }
+.nav a[aria-current="page"] { color: #fff; }
+.nav a[aria-current="page"] svg { color: var(--bidv-gold); }
+.nav a svg { transition: transform .7s var(--sp-bounce), color .2s; }
+.nav a:hover svg { transform: scale(1.12) rotate(-6deg); }
+.nav a .cnt { box-shadow: 0 0 0 0 rgba(254, 198, 41, .6); animation: fxBeacon 2.4s ease-in-out infinite; }
+@keyframes fxBeacon { 50% { box-shadow: 0 0 0 5px rgba(254, 198, 41, 0); } }
+
+/* ---------- Tiêu đề trang: biểu tượng 3D, chữ hiện từng từ, gạch vàng mảnh ---------- */
+.titlerow .tt { display: grid; grid-template-columns: 52px minmax(0, 1fr); column-gap: 14px; align-items: center; }
+.titlerow .tt > :not(.p3d) { grid-column: 2; }
+.p3d { grid-row: 1 / span 3; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: var(--surface); box-shadow: 0 0 0 1px var(--border), 0 12px 24px -18px rgba(1, 64, 63, .6); }
+.p3d img { width: 36px; height: 36px; animation: fxBob 5s ease-in-out infinite; }
+@keyframes fxBob { 50% { transform: translateY(-3px) rotate(-3deg); } }
+.titlerow h1 { position: relative; }
+.w { display: inline-block; }
+
+/* ---------- Khối trọng tâm xanh ngọc ---------- */
+.hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; border: 0; background: radial-gradient(120% 160% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 42%, var(--hero-3) 100%); box-shadow: 0 24px 48px -32px rgba(1, 64, 63, .75); }
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: repeating-linear-gradient(115deg, transparent 0 26px, rgba(255, 255, 255, .035) 26px 27px); }
+.hero::after { content: ""; position: absolute; left: var(--card-pad); top: 0; width: 56px; height: 3px; border-radius: 0 0 3px 3px; background: var(--bidv-gold); }
+.hero .scene-wrap { position: absolute; left: 0; right: 0; bottom: 0; height: 74%; z-index: -1; opacity: .16; pointer-events: none; }
+.hero .scene { width: 100%; height: 100%; }
+.hero h2, .hero .fig { color: #fff; }
+.hero .lbl, .hero .subl, .hero .meta, .hero .unit { color: rgba(255, 255, 255, .78); }
+.hero .lbl svg { color: var(--gold-soft) !important; }
+.hero .src { color: rgba(255, 255, 255, .8); }
+.hero .src::before { background: var(--gold-soft); }
+.hero .src.sample::before { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .8); }
+.hero .pill.pos { background: rgba(255, 255, 255, .16); color: #fff; }
+.hero .pill.gold { background: var(--bidv-gold); color: #3a2a00; }
+.hero .note { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .88); }
+.hero .note svg { color: var(--gold-soft); }
+.hero .btn { border-color: transparent; background: #fff; color: var(--bidv-teal-ink); }
+.hero .btn:hover { background: #f0f7f6; }
+.hero .btn.gold { background: var(--bidv-gold); color: #3a2a00; }
+.hero .btn.gold:hover { background: var(--gold-soft); }
+.hero .finding { color: rgba(255, 255, 255, .82); }
+.hero .finding b { color: #fff; }
+.hero .delta-bad { color: #ffc2b8; }
+.hero .code { color: #fff; }
+.hero .copy { color: rgba(255, 255, 255, .7); }
+.hero .copy:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.hero .wallet-line { border-top-color: rgba(255, 255, 255, .16); }
+.hero { padding: 24px; }
+.hero .lead-fig { font-size: 52px; line-height: 58px; font-weight: 700; letter-spacing: -.02em; }
+.hero .lead-fig .unit { font-size: 16px; color: var(--gold-soft); font-weight: 500; }
+
+.hero .windlines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.hero .windlines path { fill: none; stroke: #fff; stroke-opacity: .1; stroke-width: 1.2; stroke-dasharray: 160 520; animation: fxWind 12s linear infinite; }
+.hero .windlines path:nth-child(even) { stroke: var(--bidv-gold); stroke-opacity: .16; animation-duration: 16s; }
+@keyframes fxWind { from { stroke-dashoffset: 680; } to { stroke-dashoffset: 0; } }
+
+/* Đường dẫn giá trị trong khối trọng tâm: vạch trắng có chấm vàng chạy theo hướng dòng tiền */
+.hero .link-c line { stroke: rgba(255, 255, 255, .5); }
+.hero .link-c path { fill: rgba(255, 255, 255, .7); }
+.hero .link-c span { color: rgba(255, 255, 255, .78); }
+.link-c .pulse { position: absolute; left: 14px; bottom: 1px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--bidv-gold); box-shadow: 0 0 0 4px rgba(254, 198, 41, .25); animation: fxTravel 3.2s var(--ease-out) infinite; }
+.link-c:nth-of-type(4) .pulse { animation-delay: 1.05s; }
+.link-c:nth-of-type(6) .pulse { animation-delay: 2.1s; }
+@keyframes fxTravel { 0% { left: 14px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 20px); opacity: 0; } }
+
+/* ---------- Thẻ trắng: tiêu đề có gạch xanh ngọc, nhấc lên và ánh sáng theo chuột ---------- */
+.panel { transition: translate .8s var(--sp-gentle), box-shadow .5s var(--ease-out), border-color .3s; }
+.panel:not(.hero) > header h2::before { content: ""; display: inline-block; width: 3px; height: 14px; margin-right: 10px; border-radius: 3px; background: var(--accent); vertical-align: -1px; }
+.panel:not(.hero):hover { translate: 0 -3px; box-shadow: 0 18px 36px -28px rgba(1, 64, 63, .45); border-color: var(--control); }
+.panel::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .5s; background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(1, 107, 105, .07), transparent 60%); }
+.panel.hero::after { inset: 0 auto auto var(--card-pad); width: 56px; height: 3px; border-radius: 0 0 3px 3px; background: var(--bidv-gold); opacity: 1; }
+.panel { position: relative; }
+.panel:hover::after { opacity: 1; }
+.hero.spot::before { background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, .12), transparent 60%), repeating-linear-gradient(115deg, transparent 0 26px, rgba(255, 255, 255, .035) 26px 27px); }
+
+/* ---------- Nút: nhún khi bấm, nút chính hút nhẹ theo con trỏ, gợn sóng ---------- */
+.btn { overflow: hidden; transition: background-color .15s, border-color .15s, scale .6s var(--sp-bounce), translate .9s var(--sp-bounce), box-shadow .3s; }
+.btn:active { scale: .95; transition-duration: .15s, .15s, .1s, .9s, .3s; }
+.btn.primary { box-shadow: 0 10px 22px -14px rgba(1, 107, 105, .9); }
+.btn.primary::after, .hero .btn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease-out); }
+.btn.primary:hover::after, .hero .btn:hover::after { transform: translateX(120%); }
+.mag { translate: var(--tx, 0px) var(--ty, 0px); }
+.ripple { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: currentColor; opacity: .25; pointer-events: none; animation: fxRip .9s var(--ease-out) forwards; }
+@keyframes fxRip { from { transform: scale(0); opacity: .28; } to { transform: scale(34); opacity: 0; } }
+.nav a, .seg button, .switch-btn { overflow: hidden; }
+
+/* Icon nét vẽ lại khi rê chuột */
+@keyframes fxDraw { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+.nav a:hover svg > *, .btn:hover > svg > *, .link:hover svg > * { animation: fxDraw .75s var(--ease-out) both; }
+
+/* ---------- Bảng: dòng hiện lần lượt, rê chuột có vạch xanh ngọc bên trái ---------- */
+tbody tr.go, .tk { position: relative; }
+tbody tr.go td:first-child { box-shadow: inset 0 0 0 0 var(--accent); transition: box-shadow .3s var(--ease-out); }
+tbody tr.go:hover td:first-child { box-shadow: inset 3px 0 0 0 var(--accent); }
+
+/* ---------- Biểu đồ: cột mọc bằng lò xo, cột cuối có mũ vàng ---------- */
+.chart.go svg rect[shape-rendering] { transform-box: fill-box; transform-origin: 50% 100%; animation: fxBar 1.2s var(--sp-gentle) both; }
+.chart.go svg rect[shape-rendering]:nth-of-type(1) { animation-delay: .05s; } .chart.go svg rect[shape-rendering]:nth-of-type(2) { animation-delay: .12s; }
+.chart.go svg rect[shape-rendering]:nth-of-type(3) { animation-delay: .19s; } .chart.go svg rect[shape-rendering]:nth-of-type(4) { animation-delay: .26s; }
+.chart.go svg rect[shape-rendering]:nth-of-type(5) { animation-delay: .33s; } .chart.go svg rect[shape-rendering]:nth-of-type(6) { animation-delay: .4s; }
+.chart.wait svg rect[shape-rendering] { transform: scaleY(0); transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes fxBar { from { transform: scaleY(0); } to { transform: none; } }
+.chart svg rect[shape-rendering] { transition: opacity .2s; }
+.chart svg:hover rect[shape-rendering] { opacity: .6; }
+.chart svg rect[shape-rendering]:hover { opacity: 1; }
+
+/* ---------- Số lăn ---------- */
+.odo { display: inline-flex; align-items: flex-end; }
+.odo .od, .odo .oc { display: inline-block; height: 1.18em; line-height: 1.18em; }
+.odo .od { position: relative; clip-path: inset(0 -40%); }
+.odo .og { visibility: hidden; }
+.odo .os { position: absolute; left: -20%; right: -20%; top: 0; text-align: center; transition: transform 1.9s var(--sp-soft); }
+.odo .os span { display: block; height: 1.18em; }
+
+/* ---------- Vào trang: khối trọng tâm mở màn, khối khác lướt lên theo hướng gió ---------- */
+.pre { opacity: 0; }
+.in { animation-fill-mode: both; animation-delay: var(--d, 0s); }
+.in-lift { animation-name: fxLift, fxFade; animation-duration: 1.2s, .7s; animation-timing-function: var(--sp-soft), var(--ease-out); }
+.in-gust { animation-name: fxGust, fxFade; animation-duration: 1.35s, .8s; animation-timing-function: var(--sp-soft), var(--ease-out); }
+.in-unveil { animation-name: fxUnveil, fxScale; animation-duration: 1.2s, 1.4s; animation-timing-function: var(--ease-out), var(--sp-soft); }
+.in-unveil > :not(.scene-wrap):not(.windlines) { animation: fxLift 1.2s var(--sp-soft) both, fxFade .7s var(--ease-out) both; animation-delay: calc(var(--d, 0s) + .3s); }
+.in-unveil > .scene-wrap { animation: fxDriftIn 2s var(--sp-soft) both, fxFade 1.2s var(--ease-out) both; animation-delay: calc(var(--d, 0s) + .15s); }
+.in-title { animation: fxFade .5s var(--ease-out) both; animation-delay: var(--d, 0s); }
+.in-title .p3d { animation: fxPop 1s var(--sp-bounce) both; animation-delay: calc(var(--d, 0s) + .05s); }
+.pre .w { opacity: 0; }
+.in .w { animation: fxWord 1.1s var(--sp-soft) both, fxFade .7s var(--ease-out) both; animation-delay: calc(var(--d, 0s) + var(--wi, 0) * 55ms + .05s); }
+.kid { animation: fxKid 1s var(--sp-soft) both, fxFadeQ .5s var(--ease-out) both; animation-delay: var(--d, 0s); }
+.pre .kid, .pre .p3d { opacity: 0; }
+@keyframes fxFade { from { opacity: 0; filter: blur(6px); } to { opacity: 1; filter: none; } }
+@keyframes fxFadeQ { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fxLift { from { transform: translateY(20px) scale(.98); } to { transform: none; } }
+@keyframes fxGust { from { transform: translateX(-28px) skewX(-4deg); } to { transform: none; } }
+@keyframes fxUnveil { from { clip-path: inset(0 100% 0 0 round 8px); } to { clip-path: inset(0 0 0 0 round 8px); } }
+@keyframes fxScale { from { transform: scale(.97); } to { transform: none; } }
+@keyframes fxDriftIn { from { transform: translateX(-46px); } to { transform: none; } }
+@keyframes fxWord { from { transform: translateY(.45em) rotate(2deg); } to { transform: none; } }
+@keyframes fxKid { from { transform: translateY(10px); } to { transform: none; } }
+@keyframes fxPop { from { transform: scale(0); } to { transform: none; } }
+
+/* Tua-bin trong minh hoạ */
+@keyframes spin { to { transform: rotate(360deg); } }
+.scene .streak { stroke-dasharray: 90 700; animation: fxStreak 7s linear infinite; }
+@keyframes fxStreak { from { stroke-dashoffset: 790; } to { stroke-dashoffset: 0; } }
+.scene .sea { animation: fxSea 6s ease-in-out infinite alternate; }
+@keyframes fxSea { to { transform: translateX(-14px); } }
+
+/* Chuyển trang mềm (View Transitions giữa các trang) */
+@view-transition { navigation: auto; }
+.sidebar { view-transition-name: sidebar; }
+.nav .pill-act { view-transition-name: navpill; }
+::view-transition-group(navpill) { animation-duration: .6s; animation-timing-function: var(--sp-gentle); }
+::view-transition-old(root) { animation: fxVtOut .25s var(--ease-out) both; }
+::view-transition-new(root) { animation: fxVtIn .7s var(--sp-soft) both, fxFade .4s var(--ease-out) both; }
+@keyframes fxVtOut { to { opacity: 0; transform: scale(.99); } }
+@keyframes fxVtIn { from { transform: translateY(12px); } to { transform: none; } }
+.vt-theme::view-transition-old(root), .vt-theme::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+.vt-theme .sidebar, .vt-theme .nav .pill-act { view-transition-name: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pre, .pre .w, .pre .kid, .pre .p3d { opacity: 1 !important; }
+  .gust, .bgfx svg { display: none; }
+}

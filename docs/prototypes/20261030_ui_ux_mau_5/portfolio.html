@@ -7,13 +7,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
 <link rel="stylesheet" href="assets/brand.css">
+<link rel="stylesheet" href="assets/fx.css">
 <style>
   .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); }
   .row2.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .row2 > .panel { display: flex; flex-direction: column; }
   .row2 > .panel > .foot { padding-top: 14px; }
   .hold { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
-  .hold .fig.lead { font-size: 40px; line-height: 46px; }
+  .hero .empty-block { border-color: rgba(255,255,255,.3); color: rgba(255,255,255,.85); }
+  .hero .empty-block b { color: #fff; }
   .wallet-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; margin-top: 18px; border-top: 1px solid var(--rule); }
   .wallet-line .code { font-size: 15px; }
   .copy { width: 28px; height: 28px; border-radius: var(--radius-control); border: 0; background: none; display: grid; place-items: center; color: var(--faint); cursor: pointer; transition: background-color .15s, scale .4s var(--sp-gentle); }
@@ -49,7 +51,7 @@
   }
 </style>
 </head>
-<body data-nav="portfolio.html" data-roles="investor">
+<body data-nav="portfolio.html" data-roles="investor" data-icon3d="bars">
 <main class="canvas">
   <div class="titlerow">
     <div>
@@ -61,15 +63,15 @@
 
   <div class="grid">
     <div class="row2 s12 even">
-      <section class="panel" aria-labelledby="as-h">
+      <section class="panel hero" aria-labelledby="as-h">
         <header><h2 id="as-h">Tài sản đã đầu tư</h2><span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span></header>
         <div data-states="data empty">
           <div class="hold">
-            <div><div class="lbl">WPT đang giữ</div><div class="fig lead num" id="held"></div></div>
+            <div><div class="lbl">WPT đang giữ</div><div class="lead-fig num" id="held"></div></div>
             <div><div class="lbl">Giá trị theo giá phát hành</div><div class="fig num" id="value"></div><div class="subl" id="value-sub"></div></div>
           </div>
-          <div class="wallet-line"><span class="pill pos">Đã KYC</span><span class="code" id="addr" title=""></span><button class="copy" type="button" id="copy" aria-label="Sao chép địa chỉ ví"></button><span class="faint" id="copy-st" role="status"></span></div>
-          <div class="note warn" id="vndb"></div>
+          <div class="wallet-line"><span class="pill gold">Đã KYC</span><span class="code" id="addr" title=""></span><button class="copy" type="button" id="copy" aria-label="Sao chép địa chỉ ví"></button><span class="faint" id="copy-st" role="status"></span></div>
+          <div class="note" id="vndb"></div>
         </div>
         <div data-states="nowallet" hidden>
           <div class="empty-block"><b>Chưa kết nối ví</b><span>Kết nối ví ở thanh bên trái, hoặc mở Ví của tôi để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.</span></div>
@@ -131,8 +133,8 @@
   const short = (a) => `${a.slice(0, 10)}…${a.slice(-4)}`;
   const on = '<span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span>', sample = (t) => `<span class="src sample" title="${t}">Dữ liệu mẫu</span>`;
 
-  document.getElementById('held').innerHTML = `${nf(D.held)}<span class="unit">WPT</span>`;
-  document.getElementById('value').innerHTML = `${nf(value)}<span class="unit">₫</span>`;
+  document.getElementById('held').innerHTML = `<span data-count>${nf(D.held)}</span><span class="unit">WPT</span>`;
+  document.getElementById('value').innerHTML = `<span data-count>${nf(value)}</span><span class="unit">₫</span>`;
   document.getElementById('value-sub').textContent = `Quy đổi theo giá phát hành ${nf(D.price)} ₫/WPT`;
   const addr = document.getElementById('addr'); addr.textContent = D.addr; addr.title = D.addr;
   document.getElementById('vndb').innerHTML = `${icon('info')}<span>Số dư VNDB chưa hiển thị được: tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01).</span>`;
@@ -160,5 +162,6 @@
   });
 })();
 </script>
+<script src="assets/fx.js"></script>
 </body>
 </html>

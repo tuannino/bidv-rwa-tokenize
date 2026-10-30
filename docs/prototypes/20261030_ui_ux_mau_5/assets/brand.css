@@ -40,6 +40,7 @@
   --chart-1: var(--bidv-teal);
   --chart-muted: #c3ccc9;
   --chart-2: #9eaba8;
+  --chart-soft: #9fd0cc;
   --chart-mark: var(--text);
   --chart-span: 0.06;
   --grid: #e6ebe9;
@@ -89,6 +90,7 @@
   --chart-1: #3fb6ae;
   --chart-muted: #3c4847;
   --chart-2: #5b6a67;
+  --chart-soft: #1f5a57;
   --grid: #1f2928;
   --chart-span: .12;
 }
@@ -278,7 +280,10 @@ tbody tr.go:hover { background: var(--raised); }
   body.menu-open .sidebar { transform: none; visibility: visible; transition: transform .45s var(--sp-gentle), visibility 0s; }
   body.menu-open { overflow: hidden; }
   .mbar { display: flex; position: sticky; top: 0; z-index: 40; height: 52px; align-items: center; gap: 10px; padding: 0 16px; background: var(--ground); border-bottom: 1px solid var(--border); }
-  .mbar .t { font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mbar .t { font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; color: var(--muted); font-size: 13px; }
+  .mlogo { display: grid; gap: 2px; flex: none; }
+  .mlogo small { font-size: 10px; line-height: 12px; color: var(--muted); white-space: nowrap; }
+  .mlogo small b { color: var(--text); }
   .sidebar .close { display: inline-flex; }
   .canvas { padding: 20px 20px 40px; }
   .subl, td .two, .panel .meta, .crumb, .stamp, .src, .lbl { font-size: 13px; line-height: 18px; }

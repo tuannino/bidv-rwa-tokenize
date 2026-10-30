@@ -26,8 +26,9 @@
 | QĐ-UX-10 | Hệ thống phải "mượt": chuyển động mềm theo kiểu lò xo (spring), có vi tương tác khi rê chuột và bấm, icon đẹp hơn (mục 3.3, 3.4) |
 | QĐ-UX-11 | **Font chữ thương hiệu Roboto** cho toàn bộ dự án (theo bộ nhận diện BIDV, ngày 29/10/2026): Light 300, Regular 400, Medium 500, Bold 700 và các bản nghiêng. Thay cho Be Vietnam Pro của bản 2, bản 3 |
 | QĐ-UX-12 | Địa chỉ ví, mã băm, mã yêu cầu và vùng tương tự dùng **Roboto Condensed** (dự phòng Arial Bold), thay cho Roboto Mono (30/10/2026) |
-| QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 4 (mục 3.7), chờ duyệt phong cách |
-| QĐ-UX-14 | Logo BIDV giữ nguyên, ghép thêm "RWA Tokenize Platform" theo một trong bốn phương án ở bản mẫu 4 (chờ chủ dự án chọn) |
+| QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 5 (mục 3.7) |
+| QĐ-UX-14 | Logo: **phương án A** (logo, vạch mảnh, "RWA" trên "Tokenize Platform") cho trang giới thiệu, tài liệu, slide; **phương án C** (logo trên, "RWA Tokenize Platform" dưới) cho ứng dụng: thanh bên, favicon, thanh thu gọn, ứng dụng di động (30/10/2026). Dưới 40 px chỉ giữ bông mai trên ô xanh ngọc, chờ chủ dự án xác nhận |
+| QĐ-UX-15 | Phong cách là **bản mẫu 5**: nền tin cậy của bản 4 kết hợp điểm nhấn, đường nét và **toàn bộ hiệu ứng của bản 3**; mỗi màn có một khối trọng tâm rõ ràng (30/10/2026) |
 
 ---
 
@@ -134,7 +135,7 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 
 - Font **Roboto** theo bộ nhận diện BIDV, chỉ dùng bốn độ đậm có trong bộ nhận diện: Light 300 (chữ phụ cỡ lớn nếu cần), Regular 400 (chữ thường), Medium 500 (nhãn, nút, tiêu đề thẻ, mục menu), Bold 700 (tiêu đề màn, tiêu đề mục, số KPI). **Không dùng 600, 800, 900** (bản 2 dùng 600, 800 với Be Vietnam Pro, đã quy về 500 và 700). Nghiêng chỉ dùng khi cần nhấn trích dẫn.
 - Cỡ chữ: tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/500; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ. Tiêu đề lớn giãn chữ âm tối đa -0,02 em (Roboto hẹp hơn Be Vietnam Pro, giãn âm hơn sẽ dính chữ có dấu).
-- **Roboto Condensed** weight 500 (QĐ-UX-12, dự phòng Arial Bold) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật; hẹp nên hiện đủ 42 ký tự địa chỉ ví trên một dòng. Trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02. (Bản mẫu C cũ còn dùng Roboto Mono; bản mẫu 4 đã đổi.)
+- **Roboto Condensed** weight 500 (QĐ-UX-12, dự phòng Arial Bold) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật; hẹp nên hiện đủ 42 ký tự địa chỉ ví trên một dòng. Trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02. (Bản mẫu C cũ còn dùng Roboto Mono; bản mẫu 5 đã đổi.)
 - Bo góc: thẻ 28 px (điện thoại 22 px), khối trong 18 px, ô nhập 14 px, nút và dropdown bo tròn hoàn toàn.
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
@@ -232,16 +233,16 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
-### 3.7. Bản mẫu 4 "Sổ cái xanh ngọc" (chờ chủ dự án duyệt)
+### 3.7. Bản mẫu 5 "Xanh ngọc có trọng tâm" (QĐ-UX-15, chờ duyệt để làm đủ 21 màn)
 
-Thư mục `docs/prototypes/20261030_ui_ux_mau_4/` (mở `index.html`): bốn phương án logo và ba màn đại diện (Tổng quan điện gió, Phê duyệt lệnh, Tổng quan nhà đầu tư), dựng theo skill design-taste-frontend, kiểu achromatic-ledger (seed 2076738530). Nếu được duyệt, bản này thay mục 3.0 đến 3.5 cho màn nghiệp vụ:
+Thư mục `docs/prototypes/20261030_ui_ux_mau_5/` (mở `index.html`): logo A và C, ba màn đại diện (Tổng quan điện gió, Phê duyệt lệnh, Tổng quan nhà đầu tư). Bản 4 (khung không màu, không hiệu ứng vào trang) chủ dự án đánh giá đơn điệu, khó thấy trọng tâm, nên bản 5 giữ nền của bản 4 và thêm lại phần của bản 3. Thay mục 3.0 đến 3.5 cho màn nghiệp vụ:
 
-- **Màu:** nền #F2F5F4, thẻ trắng viền #E0E6E4, chữ #0E1B1A, chữ phụ #4F5D5A (đạt 4,5:1). Xanh ngọc #016B69 chỉ trên dữ liệu chính của màn và nút chính; trạng thái tốt dùng chung họ xanh ngọc; vàng #FEC629 chỉ ở logo. Không gradient, không bóng trên thẻ đứng yên, không icon trong ô màu. Tối: nền #0A0E0E, xanh ngọc nâng sáng #3FB6AE.
-- **Khung:** thanh bên 256 px trên nền trang, không thanh trên. Đầu thanh bên: logo (phương án C) và dropdown Vai trò; cuối: dropdown Chain, Kết nối ví, đổi sáng tối. Mục đang mở là viên nang xám trung tính.
-- **Số liệu:** con số trả lời câu hỏi của màn to nhất (32 đến 40 px), số khác 24 px, chữ số đều cột, số căn phải. Ô số liệu gộp thành một khối chia vạch.
-- **Bảng:** tiêu đề cột 12 px xám, không sọc, dòng 48 px; trên điện thoại thành dòng hai tầng.
-- **Chuyển động:** chỉ phản hồi thao tác (lò xo cho viên nang menu, nút chuyển, nút nhún, dropdown, vòng tròn đổi sáng tối); không hiệu ứng vào trang trên màn nghiệp vụ. Trang giới thiệu giữ hiệu ứng của bản 3.
-- **Logo:** `assets/logo.js` là logo BIDV vector hoá từ ảnh chủ dự án gửi, tạm dùng tới khi có SVG chính thức.
+- **Nền (từ bản 4):** nền #F2F5F4, thẻ trắng viền #E0E6E4, chữ #0E1B1A, chữ phụ #4F5D5A (đạt 4,5:1); số căn phải, chữ số đều cột; mỗi màn trả lời một câu hỏi, con số trả lời to nhất; ô số liệu không đặt icon trong ô màu.
+- **Khối trọng tâm (mới):** mỗi màn đúng một khối `.hero` nền chuyển sắc xanh ngọc (#0A8580, #016B69, #01403F), vân chéo mảnh, đường gió chạy, gạch vàng #FEC629 ở mép trên, chữ trắng, số chính 52 px. Nút chính trong khối là nút vàng. Các khối khác giữ nền trắng.
+- **Đường nét:** gạch xanh ngọc 3 px trước tiêu đề thẻ; đường gió mảnh trên nền trang; vạch xanh ngọc bên trái dòng bảng khi rê chuột; đường dẫn giá trị có chấm vàng chạy theo hướng dòng tiền.
+- **Khung:** thanh bên 256 px với logo C, dropdown Vai trò (đầu) và Chain (cuối), Kết nối ví, đổi sáng tối. Mục đang mở là viên nang xanh ngọc có vệt sáng vàng, icon vàng.
+- **Hiệu ứng (giữ từ bản 3, mục 3.3):** cơn gió quét khi mở trang; tiêu đề hiện từng từ; biểu tượng 3D nảy ra; khối trọng tâm mở từ trái sang; khối khác lướt lên theo hướng gió; dòng bảng hiện lần lượt; số lăn; cột biểu đồ mọc bằng lò xo; viên nang menu kéo giãn và trượt giữa các trang; ánh sáng theo chuột; nút hút nhẹ, nhún, gợn sóng; icon vẽ lại nét; vòng tròn đổi sáng tối. Tôn trọng "giảm chuyển động".
+- **Logo:** `assets/logo.js` là logo BIDV vector hoá từ ảnh chủ dự án gửi, tạm dùng tới khi có SVG chính thức. Favicon theo C: bông mai trên ô xanh ngọc.
 
 ## 4. Bố cục từng màn (21 trang trong bản xem thử)
 
@@ -326,5 +327,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
-- Q8. Chọn phương án logo (A, B, C; D làm biểu tượng ứng dụng) và duyệt phong cách bản mẫu 4 (mục 3.7) để áp cho đủ 21 màn.
-- Q9. Chuyển động trên màn nghiệp vụ: chỉ phản hồi thao tác như bản mẫu 4, hay giữ nhịp vào trang của bản 3.
+- Q8. Duyệt bản mẫu 5 (mục 3.7) để áp cho đủ 21 màn; xác nhận favicon dưới 40 px chỉ giữ bông mai (QĐ-UX-14).
