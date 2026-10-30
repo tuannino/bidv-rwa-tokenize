@@ -25,6 +25,9 @@
 | QĐ-UX-9 | Trang giới thiệu dự án là **một trang riêng** như bản xem thử, sẽ cải thiện ở đợt sau (FE-UX-X5) |
 | QĐ-UX-10 | Hệ thống phải "mượt": chuyển động mềm theo kiểu lò xo (spring), có vi tương tác khi rê chuột và bấm, icon đẹp hơn (mục 3.3, 3.4) |
 | QĐ-UX-11 | **Font chữ thương hiệu Roboto** cho toàn bộ dự án (theo bộ nhận diện BIDV, ngày 29/10/2026): Light 300, Regular 400, Medium 500, Bold 700 và các bản nghiêng. Thay cho Be Vietnam Pro của bản 2, bản 3 |
+| QĐ-UX-12 | Địa chỉ ví, mã băm, mã yêu cầu và vùng tương tự dùng **Roboto Condensed** (dự phòng Arial Bold), thay cho Roboto Mono (30/10/2026) |
+| QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 4 (mục 3.7), chờ duyệt phong cách |
+| QĐ-UX-14 | Logo BIDV giữ nguyên, ghép thêm "RWA Tokenize Platform" theo một trong bốn phương án ở bản mẫu 4 (chờ chủ dự án chọn) |
 
 ---
 
@@ -90,7 +93,7 @@ Kết luận của 21 trang: **không trang nào cần sửa backend.**
 | Mã | Lỗi | Bằng chứng | Cách sửa (frontend) |
 |---|---|---|---|
 | UX-01 | Toàn bộ app hiển thị bằng Times New Roman: `--font-sans: var(--font-sans)` tự trỏ vào chính nó | `app/src/app/globals.css:10-11`, `layout.tsx` chỉ nạp Geist Mono | Nạp **Roboto** (weight 300, 400, 500, 700, có italic; subsets latin, vietnamese) qua `next/font/google`, gán biến `--font-sans`; thay Geist Mono bằng **Roboto Mono** cho `--font-mono`. Đã thử cách sửa tương tự trên bản local, đạt |
-| UX-02 | Khi font được sửa, khoảng 160 chỗ `font-mono` ở 36 tệp sẽ hiện thật thành chữ đơn cách | quét `lint` | Số tiền, số lượng, ngày giờ dùng Roboto với `tabular-nums` (chữ số đều cột); Roboto Mono chỉ cho địa chỉ ví, mã băm giao dịch, UUID, mã kỹ thuật dạng `order:place`. Mã lệnh dạng `ORD-2026-0023` dùng Roboto |
+| UX-02 | Khi font được sửa, khoảng 160 chỗ `font-mono` ở 36 tệp sẽ hiện thật thành chữ đơn cách | quét `lint` | Số tiền, số lượng, ngày giờ dùng Roboto với `tabular-nums` (chữ số đều cột); Roboto Condensed (QĐ-UX-12) chỉ cho địa chỉ ví, mã băm giao dịch, UUID, mã kỹ thuật dạng `order:place`. Mã lệnh dạng `ORD-2026-0023` dùng Roboto |
 | UX-03 | Mặc định Dark | `providers.tsx:29-31, 45` | `defaultTheme="light"`, sửa nhánh trước khi mount của RainbowKit |
 | UX-04 | Điện thoại: sidebar 240 px không gập, tiêu đề vỡ 4 dòng ở 390 px | `app-layout.tsx`, `sidebar.tsx` (`w-60`) | Sidebar thành ngăn kéo dưới 900 px, nút menu; thanh trên xuống dòng |
 
@@ -131,7 +134,7 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 
 - Font **Roboto** theo bộ nhận diện BIDV, chỉ dùng bốn độ đậm có trong bộ nhận diện: Light 300 (chữ phụ cỡ lớn nếu cần), Regular 400 (chữ thường), Medium 500 (nhãn, nút, tiêu đề thẻ, mục menu), Bold 700 (tiêu đề màn, tiêu đề mục, số KPI). **Không dùng 600, 800, 900** (bản 2 dùng 600, 800 với Be Vietnam Pro, đã quy về 500 và 700). Nghiêng chỉ dùng khi cần nhấn trích dẫn.
 - Cỡ chữ: tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/500; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ. Tiêu đề lớn giãn chữ âm tối đa -0,02 em (Roboto hẹp hơn Be Vietnam Pro, giãn âm hơn sẽ dính chữ có dấu).
-- **Roboto Mono** (cùng họ Roboto) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật. Bản xem thử tự nhận diện các chuỗi này (lớp `.mono.code`); trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02.
+- **Roboto Condensed** weight 500 (QĐ-UX-12, dự phòng Arial Bold) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật; hẹp nên hiện đủ 42 ký tự địa chỉ ví trên một dòng. Trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02. (Bản mẫu C cũ còn dùng Roboto Mono; bản mẫu 4 đã đổi.)
 - Bo góc: thẻ 28 px (điện thoại 22 px), khối trong 18 px, ô nhập 14 px, nút và dropdown bo tròn hoàn toàn.
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
@@ -229,6 +232,17 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
+### 3.7. Bản mẫu 4 "Sổ cái xanh ngọc" (chờ chủ dự án duyệt)
+
+Thư mục `docs/prototypes/20261030_ui_ux_mau_4/` (mở `index.html`): bốn phương án logo và ba màn đại diện (Tổng quan điện gió, Phê duyệt lệnh, Tổng quan nhà đầu tư), dựng theo skill design-taste-frontend, kiểu achromatic-ledger (seed 2076738530). Nếu được duyệt, bản này thay mục 3.0 đến 3.5 cho màn nghiệp vụ:
+
+- **Màu:** nền #F2F5F4, thẻ trắng viền #E0E6E4, chữ #0E1B1A, chữ phụ #4F5D5A (đạt 4,5:1). Xanh ngọc #016B69 chỉ trên dữ liệu chính của màn và nút chính; trạng thái tốt dùng chung họ xanh ngọc; vàng #FEC629 chỉ ở logo. Không gradient, không bóng trên thẻ đứng yên, không icon trong ô màu. Tối: nền #0A0E0E, xanh ngọc nâng sáng #3FB6AE.
+- **Khung:** thanh bên 256 px trên nền trang, không thanh trên. Đầu thanh bên: logo (phương án C) và dropdown Vai trò; cuối: dropdown Chain, Kết nối ví, đổi sáng tối. Mục đang mở là viên nang xám trung tính.
+- **Số liệu:** con số trả lời câu hỏi của màn to nhất (32 đến 40 px), số khác 24 px, chữ số đều cột, số căn phải. Ô số liệu gộp thành một khối chia vạch.
+- **Bảng:** tiêu đề cột 12 px xám, không sọc, dòng 48 px; trên điện thoại thành dòng hai tầng.
+- **Chuyển động:** chỉ phản hồi thao tác (lò xo cho viên nang menu, nút chuyển, nút nhún, dropdown, vòng tròn đổi sáng tối); không hiệu ứng vào trang trên màn nghiệp vụ. Trang giới thiệu giữ hiệu ứng của bản 3.
+- **Logo:** `assets/logo.js` là logo BIDV vector hoá từ ảnh chủ dự án gửi, tạm dùng tới khi có SVG chính thức.
+
 ## 4. Bố cục từng màn (21 trang trong bản xem thử)
 
 | Vai | Trang | Màn thật | Điểm chính của bố cục mới |
@@ -312,3 +326,5 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
+- Q8. Chọn phương án logo (A, B, C; D làm biểu tượng ứng dụng) và duyệt phong cách bản mẫu 4 (mục 3.7) để áp cho đủ 21 màn.
+- Q9. Chuyển động trên màn nghiệp vụ: chỉ phản hồi thao tác như bản mẫu 4, hay giữ nhịp vào trang của bản 3.

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan nhà đầu tư</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
+<link rel="stylesheet" href="assets/brand.css">
+<style>
+  .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); }
+  .row2.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .row2 > .panel { display: flex; flex-direction: column; }
+  .row2 > .panel > .foot { padding-top: 14px; }
+  .hold { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
+  .hold .fig.lead { font-size: 40px; line-height: 46px; }
+  .wallet-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; margin-top: 18px; border-top: 1px solid var(--rule); }
+  .wallet-line .code { font-size: 15px; }
+  .copy { width: 28px; height: 28px; border-radius: var(--radius-control); border: 0; background: none; display: grid; place-items: center; color: var(--faint); cursor: pointer; transition: background-color .15s, scale .4s var(--sp-gentle); }
+  .copy:hover { background: var(--raised); color: var(--text); }
+  .copy:active { scale: .9; }
+  .copy svg { width: 14px; height: 14px; }
+  .copy.done { color: var(--accent); }
+  .tk { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 16px; gap: 12px; align-items: center; padding: 12px 8px; margin: 0 -8px; border-radius: var(--radius-control); border-bottom: 1px solid var(--rule); transition: background-color .15s; }
+  .tk:last-child { border-bottom: 0; }
+  .tk:hover { background: var(--raised); }
+  .tk .mk { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--raised); color: var(--muted); }
+  .tk:first-child .mk { background: var(--bidv-teal-pale); color: var(--bidv-teal-ink); }
+  .tk .mk svg { width: 18px; height: 18px; }
+  .tk .sym { display: flex; align-items: center; gap: 8px; }
+  .tk .sym b { font-weight: 500; }
+  .tk .n { text-align: right; }
+  .tk .chev { color: var(--faint); width: 16px; height: 16px; }
+  .empty-block { display: grid; justify-items: start; gap: 6px; padding: 16px; border: 1px dashed var(--control); border-radius: var(--radius-card); color: var(--muted); }
+  .empty-block b { color: var(--text); font-weight: 500; }
+  .video { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .video .play { display: inline-flex; align-items: center; gap: 10px; }
+  @media (max-width: 1100px) { .row2, .row2.even { grid-template-columns: minmax(0, 1fr); } }
+  @media (min-width: 641px) { .tx td { height: 62px; } }
+  @media (max-width: 640px) {
+    .hold { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .tx thead { display: none; }
+    .tx tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+    .tx td { height: auto; padding: 0; border: 0; }
+    .tx td.c-op { grid-column: 1; grid-row: 1; } .tx td.c-amt { grid-column: 2; grid-row: 1; }
+    .tx td.c-at { grid-column: 1; grid-row: 2; } .tx td.c-st { grid-column: 2; grid-row: 2; text-align: right; }
+    .tx td.c-hash { grid-column: 1 / -1; text-align: left; }
+    .titlerow .act { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body data-nav="portfolio.html" data-roles="investor">
+<main class="canvas">
+  <div class="titlerow">
+    <div>
+      <h1>Tổng quan nhà đầu tư</h1>
+      <p class="sub">Vị thế WPT của ví đang kết nối, trạng thái phát hành, và danh sách dự án điện gió đã token hoá.</p>
+    </div>
+    <div class="act"><span class="seg-label">Trạng thái xem thử</span><div class="seg" role="group" aria-label="Trạng thái xem thử" id="states"><button type="button" aria-pressed="true" data-state="data">Có ví</button><button type="button" aria-pressed="false" data-state="nowallet">Chưa kết nối ví</button><button type="button" aria-pressed="false" data-state="empty">Chưa có giao dịch</button></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="row2 s12 even">
+      <section class="panel" aria-labelledby="as-h">
+        <header><h2 id="as-h">Tài sản đã đầu tư</h2><span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span></header>
+        <div data-states="data empty">
+          <div class="hold">
+            <div><div class="lbl">WPT đang giữ</div><div class="fig lead num" id="held"></div></div>
+            <div><div class="lbl">Giá trị theo giá phát hành</div><div class="fig num" id="value"></div><div class="subl" id="value-sub"></div></div>
+          </div>
+          <div class="wallet-line"><span class="pill pos">Đã KYC</span><span class="code" id="addr" title=""></span><button class="copy" type="button" id="copy" aria-label="Sao chép địa chỉ ví"></button><span class="faint" id="copy-st" role="status"></span></div>
+          <div class="note warn" id="vndb"></div>
+        </div>
+        <div data-states="nowallet" hidden>
+          <div class="empty-block"><b>Chưa kết nối ví</b><span>Kết nối ví ở thanh bên trái, hoặc mở Ví của tôi để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.</span></div>
+        </div>
+        <p class="foot subl">Chưa có thị trường thứ cấp nên giá trị trên không phải giá giao dịch.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="is-h">
+        <header><h2 id="is-h">Trạng thái phát hành</h2></header>
+        <dl class="kv" id="issue"></dl>
+        <div class="foot"><div class="note" id="no-market"></div></div>
+      </section>
+    </div>
+
+    <div class="row2 s12">
+      <section class="panel" aria-labelledby="tx-h">
+        <header><h2 id="tx-h">Giao dịch gần đây</h2><span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span></header>
+        <div class="table-wrap" data-states="data"><table class="tx"><thead><tr><th>Thời điểm</th><th>Nghiệp vụ</th><th class="num">Số lượng</th><th>Trạng thái</th><th class="num">Tra cứu</th></tr></thead><tbody id="tx"></tbody></table></div>
+        <div class="empty-block" data-states="nowallet" hidden><span>Kết nối ví để xem giao dịch của bạn.</span></div>
+        <div class="empty-block" data-states="empty" hidden><b>Chưa có giao dịch nào</b><span>Giao dịch sẽ hiện ở đây sau khi ngân hàng phát hành WPT về ví này.</span></div>
+      </section>
+
+      <section class="panel" aria-labelledby="tk-h">
+        <header><h2 id="tk-h">Token dự án điện gió</h2><span class="meta" id="tk-count"></span></header>
+        <div id="tokens"></div>
+      </section>
+    </div>
+
+    <section class="panel s12" aria-labelledby="vd-h">
+      <div class="video">
+        <div><h2 id="vd-h">Dự án Điện gió An Viên</h2><p class="subl">99,2 MW, 62 tua-bin, vận hành từ 18/03/2025. Đề xuất bổ sung FE-UX-X3, chờ chủ dự án duyệt.</p></div>
+        <a class="btn play" href="https://www.youtube.com/watch?v=M52hkUDVe5w" target="_blank" rel="noopener"></a>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script>
+(() => {
+  const { icon, nf } = window.V4;
+  // Dữ liệu mẫu, ánh xạ 1-1 với màn hiện tại. Giá trị quy đổi tính từ số WPT và giá phát hành, không gõ tay.
+  const D = {
+    held: 150, price: 100000, addr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    issue: { symbol: 'WPT', supply: 10000000, project: 'Điện gió An Viên', ops: 'Đang phát điện' },
+    tx: [
+      { at: '10:05:12 18/3/2026', op: 'purchase', amt: 150, st: 'CONFIRMED', hash: '0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47' },
+      { at: '15:30:08 17/3/2026', op: 'payment-mint', amt: 16500000, st: 'CONFIRMED', hash: '0x3a9f02c7e4b18d5f60a2c9e7b3d41f8a2c6e0b95' },
+      { at: '09:20:44 16/3/2026', op: 'whitelist', amt: null, st: 'CONFIRMED', hash: '0xc81b5e3d27a94f0e6b1d8c2a5f7e9b3d0c4a6e18' },
+    ],
+    tokens: [
+      { sym: 'WPT', chain: true, name: 'Điện gió An Viên', where: 'Gần bờ, Đang phát điện', holders: 128 },
+      { sym: 'WPT-PQY', chain: false, name: 'Điện gió Phú Quý', where: 'Trên bờ, Ven biển, Đang phát điện', holders: null },
+      { sym: 'WPT-NTH', chain: false, name: 'Điện gió Ninh Thuận', where: 'Trên bờ, Ven biển, Bảo trì', holders: null },
+    ],
+  };
+  const value = D.held * D.price;
+  console.assert(value === 15000000, 'Giá trị quy đổi phải bằng 150 x 100.000');
+  const short = (a) => `${a.slice(0, 10)}…${a.slice(-4)}`;
+  const on = '<span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span>', sample = (t) => `<span class="src sample" title="${t}">Dữ liệu mẫu</span>`;
+
+  document.getElementById('held').innerHTML = `${nf(D.held)}<span class="unit">WPT</span>`;
+  document.getElementById('value').innerHTML = `${nf(value)}<span class="unit">₫</span>`;
+  document.getElementById('value-sub').textContent = `Quy đổi theo giá phát hành ${nf(D.price)} ₫/WPT`;
+  const addr = document.getElementById('addr'); addr.textContent = D.addr; addr.title = D.addr;
+  document.getElementById('vndb').innerHTML = `${icon('info')}<span>Số dư VNDB chưa hiển thị được: tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01).</span>`;
+  const cp = document.getElementById('copy'), cs = document.getElementById('copy-st'); cp.innerHTML = icon('copy');
+  cp.addEventListener('click', () => { navigator.clipboard?.writeText(D.addr).then(() => { cp.innerHTML = icon('check'); cp.classList.add('done'); cs.textContent = 'Đã sao chép'; }, () => { cs.textContent = 'Chưa sao chép được'; }); setTimeout(() => { cp.innerHTML = icon('copy'); cp.classList.remove('done'); cs.textContent = ''; }, 2000); });
+
+  document.getElementById('issue').innerHTML = [
+    ['Ký hiệu token', on, `<span class="code">${D.issue.symbol}</span>`],
+    ['Tổng cung đã phát hành', on, nf(D.issue.supply)],
+    ['Giá phát hành', '', `${nf(D.price)} ₫`],
+    ['Dự án', sample('Số liệu minh hoạ, chưa nối nguồn thật'), D.issue.project],
+    ['Trạng thái vận hành', sample('Số liệu minh hoạ, chưa nối nguồn thật'), `<span class="pill pos">${D.issue.ops}</span>`],
+  ].map(([k, s, v]) => `<div><dt>${k}${s}</dt><dd>${v}</dd></div>`).join('');
+  document.getElementById('no-market').innerHTML = `${icon('info')}<span>Chưa có thị trường thứ cấp nên không có giá giao dịch, biến động giá hay khối lượng. Giá phát hành là điều khoản của đợt phát hành, không phải giá thị trường.</span>`;
+
+  document.getElementById('tx').innerHTML = D.tx.map((t) => `<tr><td class="c-at nowrap num">${t.at.split(' ')[0]}<span class="two">${t.at.split(' ')[1]}</span></td><td class="c-op"><span class="code">${t.op}</span></td><td class="c-amt num">${t.amt == null ? '<span class="faint">–</span>' : nf(t.amt)}</td><td class="c-st"><span class="pill pos">${t.st}</span></td><td class="c-hash num"><span class="code faint" title="${t.hash}, chain mock không có trình khám phá">${t.hash.slice(0, 10)}…${t.hash.slice(-4)}</span></td></tr>`).join('');
+
+  document.getElementById('tk-count').textContent = `${D.tokens.length} dự án`;
+  document.getElementById('tokens').innerHTML = D.tokens.map((t) => `<a class="tk" href="#"><span class="mk">${icon('wind')}</span><span><span class="sym"><b class="code">${t.sym}</b>${t.chain ? on : sample('Dự án chưa triển khai token trên chuỗi')}</span><span class="subl" style="display:block;color:var(--text);font-size:13px;margin-top:2px">${t.name}</span><span class="subl" style="display:block;margin-top:0">${t.where}</span></span><span class="n"><span class="num" style="font-weight:500">${t.holders == null ? '<span class="faint">–</span>' : nf(t.holders)}</span>${t.holders == null ? '' : ` ${sample('Số nhà đầu tư nắm giữ, số liệu minh hoạ')}`}<span class="subl" style="display:block">nhà đầu tư nắm giữ</span></span>${icon('chevr', 'chev')}</a>`).join('');
+
+  document.querySelector('.play').innerHTML = `${icon('external')}Xem video giới thiệu`;
+  document.getElementById('states').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
+  });
+})();
+</script>
+</body>
+</html>

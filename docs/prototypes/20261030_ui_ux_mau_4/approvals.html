@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phê duyệt lệnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
+<link rel="stylesheet" href="assets/brand.css">
+<style>
+  /* Hàng đợi duyệt: người lập và người duyệt là hai người khác nhau, nên mỗi dòng ghi rõ ai lập và lúc nào. */
+  .q-head { display: flex; align-items: baseline; gap: 12px; }
+  .q-head .pill { transform: translateY(-1px); }
+  .oldest { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 16px; border-radius: var(--radius-card); background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+  .oldest svg { width: 16px; height: 16px; }
+  .oldest .t { flex: 1; min-width: 0; }
+  .oldest b { font-weight: 500; }
+  td.reason { max-width: 260px; }
+  td.res { max-width: 220px; }
+  .maker { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .maker i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; }
+  .wait { color: var(--pill-warning-ink); font-weight: 500; }
+  @media (max-width: 640px) {
+    table.q thead { display: none; }
+    table.q tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+    table.q td { height: auto; padding: 0; border: 0; }
+    table.q td.c-id { grid-column: 1; } table.q td.c-amt { grid-column: 2; grid-row: 1; }
+    table.q td.c-st { grid-column: 2; grid-row: 2; text-align: right; }
+    table.q td.c-at, table.q td.c-maker, table.q td.reason, table.q td.c-src, table.q td.c-tok, table.q td.res { grid-column: 1; font-size: 13px; color: var(--muted); }
+    table.q td .two { display: inline; margin-left: 6px; }
+    table.q td.c-st { grid-row: 2 / span 2; }
+    table.q td.c-at { text-align: left; }
+    table.q td.c-st .two { display: block; margin: 4px 0 0; }
+    .q-head { flex-wrap: wrap; }
+    .panel > header .meta { display: none; }
+    td.reason, td.res { max-width: none; }
+    .oldest { align-items: flex-start; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body data-nav="approvals.html" data-roles="controller">
+<main class="canvas">
+  <div class="crumb"><span>Kiểm soát</span></div>
+  <div class="titlerow">
+    <div>
+      <h1>Phê duyệt lệnh</h1>
+      <p class="sub">Xem yêu cầu Giao dịch viên đã lập rồi chấp nhận hoặc từ chối. Chấp nhận thì hệ thống kiểm lại điều kiện và thực hiện ngay trên chuỗi. Chain đang xem: <span class="code" data-chain-label>mock</span>.</p>
+    </div>
+    <div class="act"><span class="stamp">Cập nhật 09:14 23/10/2026</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="kpis s12" id="kpis" aria-label="Thống kê duyệt trong ngày"></div>
+    <div class="s12" id="oldest-wrap"></div>
+    <section class="panel s12" data-queue="MINT" aria-labelledby="q-mint-h">
+      <header><div class="q-head"><h2 id="q-mint-h">Hàng chờ tạo token</h2><span class="pill warn" data-pending-pill></span></div><span class="meta">Bấm mã yêu cầu để xem chi tiết và quyết định</span></header>
+      <div class="toolbar">
+        <label class="field-inline"><input class="input" data-search type="search" placeholder="Mã yêu cầu, người lập, lý do, chứng từ" aria-label="Tìm kiếm"></label>
+        <select class="select" data-status-filter aria-label="Trạng thái">
+          <option value="ALL">Tất cả trạng thái</option><option value="PENDING" selected>Chờ duyệt</option><option value="EXECUTING">Đang xử lý</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Từ chối</option><option value="FAILED">Thất bại</option>
+        </select>
+        <span class="count" data-count></span>
+      </div>
+      <div class="table-wrap"><table class="q"><thead></thead><tbody></tbody></table></div>
+      <p class="empty-row" data-empty hidden>Không có yêu cầu nào khớp.</p>
+    </section>
+    <section class="panel s12" data-queue="BURN" aria-labelledby="q-burn-h">
+      <header><div class="q-head"><h2 id="q-burn-h">Hàng chờ huỷ token</h2><span class="pill warn" data-pending-pill></span></div><span class="meta">Bấm mã yêu cầu để xem chi tiết và quyết định</span></header>
+      <div class="toolbar">
+        <label class="field-inline"><input class="input" data-search type="search" placeholder="Mã yêu cầu, người lập, lý do, chứng từ" aria-label="Tìm kiếm"></label>
+        <select class="select" data-status-filter aria-label="Trạng thái">
+          <option value="ALL">Tất cả trạng thái</option><option value="PENDING" selected>Chờ duyệt</option><option value="EXECUTING">Đang xử lý</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Từ chối</option><option value="FAILED">Thất bại</option>
+        </select>
+        <span class="count" data-count></span>
+      </div>
+      <div class="table-wrap"><table class="q"><thead></thead><tbody></tbody></table></div>
+      <p class="empty-row" data-empty hidden>Không có yêu cầu nào khớp.</p>
+    </section>
+  </div>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script>
+(() => {
+  const { icon, nf } = window.V4;
+  const LABEL = { PENDING: 'Chờ duyệt', EXECUTING: 'Đang xử lý', COMPLETED: 'Hoàn tất', REJECTED: 'Từ chối', FAILED: 'Thất bại' };
+  const TONE = { PENDING: 'warn', EXECUTING: 'info', COMPLETED: 'pos', REJECTED: 'neg', FAILED: 'neg' };
+  // Mỗi người lập một sắc nhạt cố định, cách nhau trên 60 độ (nhận diện người, không phải dữ liệu)
+  const PEOPLE = { GDV001: ['#e3efed', '#013f3e'], GDV002: ['#f3e8d4', '#5a3b00'] };
+  const NOW = '23/10/2026 09:14';
+  // Yêu cầu Mint và Burn của bộ dữ liệu mẫu chung, mới nhất trước. Số trong ô thống kê tính từ chính các dòng này.
+  const ROWS = [
+    { id: '91bd0e44-6a2f-4e1b-8c3d-2f7a9b5e0c18', type: 'MINT', at: '23/10/2026 08:05', amount: 120000, maker: 'GDV002', reason: 'Bổ sung nguồn cung kênh bán lẻ', doc: 'TTr 54/2026/BIDV-NHBL', status: 'EXECUTING', result: 'Đã gửi 0x3b7e91c4d2a8…, chờ kết cục', decidedToday: true },
+    { id: '5e0c7b92-1d4a-4f6e-9b2c-8a3e5f7d1c06', type: 'MINT', at: '23/10/2026 07:31', amount: 400000, maker: 'GDV001', reason: 'Phát hành bổ sung theo QĐ 125/2026', doc: 'QĐ 125/2026/QĐ-BIDV', status: 'COMPLETED', result: 'KSV001 duyệt, tx 0x8c41e2d0a7…', decidedToday: true },
+    { id: '7f3a21c0-5d1e-4c8b-9a27-3e6f1b0d4c19', type: 'MINT', at: '23/10/2026 06:12', amount: 250000, maker: 'GDV001', reason: 'Phát hành đợt 2 theo QĐ 128/2026', doc: 'QĐ 128/2026/QĐ-BIDV', status: 'PENDING' },
+    { id: 'c02f9a17-8b3e-4d5a-a1f6-4e9c2b7d0a35', type: 'BURN', at: '23/10/2026 08:49', amount: 50000, source: 'Phần chưa phân phối', maker: 'GDV001', reason: 'Huỷ phần chưa phân phối của đợt 1', doc: 'QĐ 131/2026/QĐ-BIDV', status: 'PENDING' },
+    { id: 'a4471f3d-3c9b-4a2e-b8d1-6f0e4a2c9b57', type: 'BURN', at: '23/10/2026 07:40', amount: 30000, source: 'Phần chưa phân phối', maker: 'GDV002', reason: 'Huỷ phần dư sau đối soát đợt 1', doc: 'BB 17/2026/ĐS', status: 'REJECTED', result: 'KSV001: Chứng từ chưa ký', decidedToday: true },
+  ];
+  const pending = ROWS.filter((r) => r.status === 'PENDING');
+  const approved = ROWS.filter((r) => r.decidedToday && (r.status === 'COMPLETED' || r.status === 'EXECUTING'));
+  const rejected = ROWS.filter((r) => r.decidedToday && r.status === 'REJECTED');
+  const mins = (s) => { const [d, t] = s.split(' '); const [dd, mm, yy] = d.split('/').map(Number); const [h, m] = t.split(':').map(Number); return Date.UTC(yy, mm - 1, dd, h, m) / 60000; };
+  const waited = (s) => { const m = mins(NOW) - mins(s), h = Math.floor(m / 60); return h ? `${h} giờ ${m % 60} phút` : `${m} phút`; };
+
+  document.getElementById('kpis').innerHTML = [
+    ['Đang chờ duyệt', pending.length, `${pending.filter((r) => r.type === 'MINT').length} tạo, ${pending.filter((r) => r.type === 'BURN').length} huỷ`],
+    ['Đã duyệt hôm nay', approved.length, `${approved.filter((r) => r.status === 'COMPLETED').length} hoàn tất, ${approved.filter((r) => r.status === 'EXECUTING').length} đang xử lý`],
+    ['Đã từ chối hôm nay', rejected.length, `${rejected.filter((r) => r.type === 'MINT').length} tạo, ${rejected.filter((r) => r.type === 'BURN').length} huỷ`],
+  ].map(([l, v, s]) => `<div class="kpi"><div class="lbl">${l}</div><div class="fig num">${nf(v)}</div><div class="subl">${s}</div></div>`).join('');
+
+  // Phát hiện của màn: yêu cầu chờ lâu nhất, kèm nút đi thẳng vào duyệt
+  const old = [...pending].sort((a, b) => mins(a.at) - mins(b.at))[0];
+  if (old) document.getElementById('oldest-wrap').innerHTML = `<div class="oldest">${icon('clock')}<span class="t">Chờ lâu nhất: <b>${old.type === 'MINT' ? 'tạo' : 'huỷ'} ${nf(old.amount)} WPT</b> do ${old.maker} lập lúc ${old.at.split(' ')[1]}, đã chờ <b>${waited(old.at)}</b>.</span><a class="btn primary sm" href="#" data-go="approval-detail.html#${old.id.slice(0, 8)}">Xem và duyệt</a></div>`;
+
+  document.querySelectorAll('[data-queue]').forEach((card) => {
+    const type = card.dataset.queue;
+    const search = card.querySelector('[data-search]'), status = card.querySelector('[data-status-filter]');
+    card.querySelector('.field-inline').insertAdjacentHTML('afterbegin', icon('search'));
+    card.querySelector('[data-pending-pill]').textContent = `${ROWS.filter((r) => r.type === type && r.status === 'PENDING').length} chờ duyệt`;
+    const draw = () => {
+      const needle = search.value.trim().toLowerCase();
+      const rows = ROWS.filter((r) => r.type === type && (status.value === 'ALL' || r.status === status.value)
+        && (needle === '' || [r.id, r.maker, r.reason, 'WPT', r.doc].join(' ').toLowerCase().includes(needle)));
+      const all = ROWS.filter((r) => r.type === type).length;
+      card.querySelector('[data-count]').textContent = `${rows.length} trên ${all} yêu cầu`;
+      const showSource = type === 'BURN';
+      const table = card.querySelector('table');
+      card.querySelector('.table-wrap').hidden = rows.length === 0;
+      card.querySelector('[data-empty]').hidden = rows.length > 0;
+      table.tHead.innerHTML = `<tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="num">Số lượng</th>${showSource ? '<th>Nguồn</th>' : ''}<th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Kết quả</th></tr>`;
+      table.tBodies[0].innerHTML = rows.map((r) => {
+        const [bg, ink] = PEOPLE[r.maker] || ['var(--raised)', 'var(--muted)'];
+        return `<tr class="go" data-id="${r.id.slice(0, 8)}">
+        <td class="c-id"><a class="idlink code" href="#" data-go="approval-detail.html#${r.id.slice(0, 8)}" title="${r.id}">${r.id.slice(0, 8)}</a></td>
+        <td class="c-at nowrap num">${r.at.split(' ')[1]}<span class="two">${r.at.split(' ')[0]}</span></td>
+        <td class="c-tok nowrap">WPT<span class="two">chain <span data-chain-label>mock</span></span></td>
+        <td class="c-amt num">${nf(r.amount)}</td>
+        ${showSource ? `<td class="c-src nowrap">${r.source || '<span class="faint">–</span>'}</td>` : ''}
+        <td class="c-maker"><span class="maker"><i style="background:${bg};color:${ink}">${r.maker.slice(-2)}</i>${r.maker}</span></td>
+        <td class="reason"><span class="trunc" title="${r.reason}">${r.reason}</span><span class="two">${r.doc}</span></td>
+        <td class="c-st"><span class="pill ${TONE[r.status]}">${LABEL[r.status]}</span>${r.status === 'PENDING' ? `<span class="two wait">chờ ${waited(r.at)}</span>` : ''}</td>
+        <td class="res"><span class="trunc muted" title="${r.result || ''}">${r.result || '<span class="faint">–</span>'}</span></td></tr>`;
+      }).join('');
+    };
+    search.addEventListener('input', draw); status.addEventListener('change', draw);
+    draw();
+  });
+  // Bản mẫu chỉ dựng ba màn: mã yêu cầu chưa mở được màn chi tiết.
+  document.addEventListener('click', (e) => { const a = e.target.closest('[data-go]'); if (a) { e.preventDefault(); a.blur(); } });
+  console.assert(pending.length === 2, 'Chờ duyệt phải bằng số dòng PENDING');
+})();
+</script>
+</body>
+</html>

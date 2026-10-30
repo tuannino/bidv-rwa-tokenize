@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phương án logo RWA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
+<link rel="stylesheet" href="assets/brand.css">
+<style>
+  body { background: var(--ground); }
+  .page { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; }
+  h1 { font-size: 24px; line-height: 30px; font-weight: 700; }
+  .top p { color: var(--muted); max-width: 70ch; margin-top: 4px; }
+  .opt { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: 16px; overflow: hidden; }
+  .opt > header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 18px 20px 0; }
+  .opt h2 { font-size: 16px; font-weight: 500; }
+  .opt .why { color: var(--muted); padding: 4px 20px 16px; max-width: 80ch; }
+  .tiles { display: grid; grid-template-columns: 1.3fr 1.3fr 1fr; border-top: 1px solid var(--border); }
+  .tile { min-height: 200px; min-width: 0; display: grid; place-items: center; padding: 28px; }
+  .tile > svg { max-width: 100%; height: auto; }
+  @media (min-width: 901px) { .tiles { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1fr) !important; } .ref .tiles { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; } }
+  .mini-side { max-width: 100%; }
+  .mini-side > svg { display: block; max-width: 100%; height: auto; }
+  .tile + .tile { border-left: 1px solid var(--border); }
+  .tile.teal { background: #016b69; }
+  .tile.white { background: #fff; }
+  .tile.ctx { background: var(--ground); align-content: center; gap: 14px; justify-items: start; }
+  .tile small { font-size: 12px; color: var(--faint); }
+  .mini-side { width: 230px; padding: 14px 12px; background: var(--ground); border: 1px solid var(--border); border-radius: 8px; }
+  .favs { display: flex; align-items: end; gap: 14px; }
+  .ref { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .ref .opt { margin: 0; }
+  .ref .tile { min-height: 160px; }
+  .rules { padding: 0 20px 18px; display: grid; gap: 6px; color: var(--muted); }
+  .rules b { color: var(--text); font-weight: 500; }
+  .pick { font-size: 12px; color: var(--faint); }
+  .back { color: var(--accent); font-weight: 500; }
+  @media (max-width: 900px) { .tiles, .ref { grid-template-columns: minmax(0, 1fr); } .tile + .tile { border-left: 0; border-top: 1px solid var(--border); } .top { flex-direction: column; align-items: flex-start; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <div>
+      <h1>Logo BIDV RWA Tokenize Platform: bốn phương án</h1>
+      <p>Logo BIDV giữ nguyên hình chữ, màu và bông mai (đã vector hoá lại từ ảnh Sếp gửi để nét căng ở mọi cỡ). Phần "RWA Tokenize Platform" đặt cạnh logo, không chạm vào logo, dùng Roboto theo bộ nhận diện.</p>
+    </div>
+    <a class="back" href="index.html">Về bảng duyệt</a>
+  </div>
+
+  <div class="ref">
+    <section class="opt">
+      <header><h2>Logo gốc, vector hoá lại</h2><span class="pick">Nền thương hiệu #016B69, vàng #FEC629</span></header>
+      <div class="tiles" style="grid-template-columns:1fr 1fr"><div class="tile teal" data-logo="ref-teal"></div><div class="tile white" data-logo="ref-white"></div></div>
+    </section>
+    <section class="opt">
+      <header><h2>Vùng an toàn và cỡ nhỏ nhất</h2></header>
+      <div class="rules">
+        <span><b>Vùng trống quanh logo</b> bằng chiều cao chữ "I" của BIDV.</span>
+        <span><b>Cỡ nhỏ nhất</b>: logo ngang cao 16 px trên màn hình; dưới cỡ đó dùng biểu tượng ứng dụng (phương án D).</span>
+        <span><b>Không</b> đổi màu bông mai, không xoay, không đặt chữ RWA đè lên logo.</span>
+        <span><b>Nền tối</b>: chữ BIDV trắng, bông mai giữ vàng.</span>
+      </div>
+    </section>
+  </div>
+
+  <div id="opts"></div>
+</div>
+<script src="assets/logo.js"></script>
+<script>
+(() => {
+  const TEAL = '#016b69', GOLD = '#fec629', INK = '#0e1b1a';
+  const L = window.BIDV.LOGO;
+  const ratio = L.box[2] / L.box[3];
+  // Logo đặt vào SVG lớn ở toạ độ (x, y), cao h
+  const place = (x, y, h, word) => `<svg x="${x}" y="${y}" width="${h * ratio}" height="${h}" viewBox="${L.box.join(' ')}"><path fill="${word}" d="${L.word}"/><path fill="${GOLD}" fill-rule="evenodd" d="${L.flower}"/></svg>`;
+  const markOnly = (x, y, h) => `<svg x="${x}" y="${y}" width="${h * L.mark[2] / L.mark[3]}" height="${h}" viewBox="${L.mark.join(' ')}"><path fill="${GOLD}" fill-rule="evenodd" d="${L.flower}"/></svg>`;
+  const T = (x, y, s, w, fill, txt, extra = '') => `<text x="${x}" y="${y}" font-family="Roboto, Arial, sans-serif" font-size="${s}" font-weight="${w}" fill="${fill}" ${extra}>${txt}</text>`;
+
+  const OPT = [
+    { id: 'A', name: 'A. Ngang, tên sản phẩm cạnh logo', why: 'Logo BIDV, một vạch mảnh, rồi "RWA" in đậm trên "Tokenize Platform". Rõ vai: BIDV là chủ, RWA Tokenize Platform là sản phẩm. Hợp thanh trên trang giới thiệu, tài liệu, slide.',
+      draw: (bg) => { const w = bg === 'teal' ? '#fff' : TEAL, t = bg === 'teal' ? '#fff' : INK, m = bg === 'teal' ? 'rgba(255,255,255,.8)' : '#4f5d5a', r = bg === 'teal' ? 'rgba(255,255,255,.45)' : '#c8d2cf';
+        return `<svg viewBox="0 0 520 84" width="440">${place(0, 10, 64, w)}<rect x="226" y="12" width="1.5" height="60" fill="${r}"/>${T(246, 42, 30, 700, t, 'RWA', 'letter-spacing="1"')}${T(246, 66, 17, 400, m, 'Tokenize Platform')}</svg>`; } },
+    { id: 'B', name: 'B. Thẻ RWA màu vàng', why: 'Chữ "RWA" nằm trong thẻ vàng cùng màu bông mai, đặt sau logo như hậu tố sản phẩm; "Tokenize Platform" ở dòng dưới. Nổi bật, dễ nhớ, hợp màn đăng nhập và ảnh đại diện mạng xã hội nội bộ.',
+      draw: (bg) => { const w = bg === 'teal' ? '#fff' : TEAL, m = bg === 'teal' ? 'rgba(255,255,255,.85)' : '#4f5d5a';
+        return `<svg viewBox="0 0 470 110" width="420">${place(0, 4, 64, w)}<rect x="226" y="18" width="104" height="40" rx="6" fill="${GOLD}"/>${T(278, 47, 26, 700, '#013f3e', 'RWA', 'text-anchor="middle" letter-spacing="1.5"')}${T(4, 100, 18, 400, m, 'Tokenize Platform', 'letter-spacing=".3"')}</svg>`; } },
+    { id: 'C', name: 'C. Xếp tầng cho thanh bên ứng dụng', why: 'Logo ở trên, dòng "RWA Tokenize Platform" ở dưới, chữ nhỏ nhưng vẫn đọc được trong thanh bên rộng 256 px. Đây là cách bản mẫu 4 đang dùng.',
+      draw: (bg) => { const w = bg === 'teal' ? '#fff' : TEAL, t = bg === 'teal' ? '#fff' : INK, m = bg === 'teal' ? 'rgba(255,255,255,.85)' : '#4f5d5a';
+        return `<svg viewBox="0 0 300 120" width="300">${place(0, 4, 64, w)}<text x="2" y="104" font-family="Roboto, Arial, sans-serif" font-size="21"><tspan font-weight="700" fill="${t}" letter-spacing="1">RWA</tspan><tspan font-weight="400" fill="${m}" dx="7">Tokenize Platform</tspan></text></svg>`; } },
+    { id: 'D', name: 'D. Biểu tượng ứng dụng (favicon, thanh thu gọn, ứng dụng di động)', why: 'Ô vuông xanh ngọc, bông mai vàng giữ nguyên, chữ "RWA" trắng dưới bông mai. Dùng ở cỡ 16 đến 64 px, nơi logo ngang không đọc được.',
+      draw: (bg, size = 120) => `<svg viewBox="0 0 120 120" width="${size}" height="${size}"><rect width="120" height="120" rx="26" fill="${TEAL}"/>${markOnly(31, 14, 58)}${T(60, 102, 24, 700, '#fff', 'RWA', 'text-anchor="middle" letter-spacing="2"')}</svg>` },
+  ];
+  const ctx = (o) => {
+    if (o.id === 'D') return `<div class="favs">${[64, 40, 32, 24, 16].map((s) => o.draw('teal', s)).join('')}</div><small>64, 40, 32, 24, 16 px</small>`;
+    const side = o.id === 'A' ? `<svg viewBox="0 0 520 84" width="206">${o.draw('white').replace(/^<svg[^>]*>|<\/svg>$/g, '')}</svg>` : o.id === 'B' ? `<svg viewBox="0 0 470 110" width="190">${o.draw('white').replace(/^<svg[^>]*>|<\/svg>$/g, '')}</svg>` : `<svg viewBox="0 0 300 120" width="190">${o.draw('white').replace(/^<svg[^>]*>|<\/svg>$/g, '')}</svg>`;
+    return `<div class="mini-side">${side}</div><small>Trong thanh bên ứng dụng, rộng 256 px</small>`;
+  };
+  document.getElementById('opts').innerHTML = OPT.map((o) => `<section class="opt"><header><h2>${o.name}</h2><span class="pick">Phương án ${o.id}</span></header><p class="why">${o.why}</p><div class="tiles"><div class="tile teal">${o.draw('teal')}</div><div class="tile white">${o.draw('white')}</div><div class="tile ctx">${ctx(o)}</div></div></section>`).join('');
+  document.querySelector('[data-logo="ref-teal"]').innerHTML = window.BIDV.logo({ word: '#fff', height: 72 });
+  document.querySelector('[data-logo="ref-white"]').innerHTML = window.BIDV.logo({ word: TEAL, height: 72 });
+})();
+</script>
+</body>
+</html>
