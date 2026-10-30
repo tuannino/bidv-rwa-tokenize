@@ -1,4 +1,4 @@
-import type { ChainKey } from '@bidv/shared';
+import { isChainKey, type ChainKey } from '@bidv/shared';
 import type { Role } from '@/lib/rbac';
 import type { NewAudit } from './store.port';
 import { assertStatus, StoreUsageError, type StoreKind } from './store.errors';
@@ -91,6 +91,83 @@ export function assertTokenRequestTransition(
   }
 }
 
+/**
+ * IN-04: cách thực hiện lần duyệt, chốt lúc chiếm quyền (QĐ-6). `SERVER` là khoá ký trên máy chủ
+ * (mặc định, mọi yêu cầu trước IN-04), `FIREBLOCKS` là Vault Account của ngân hàng trên Fireblocks.
+ */
+export const TOKEN_REQUEST_CUSTODIES = ['SERVER', 'FIREBLOCKS'] as const;
+export type TokenRequestCustody = (typeof TOKEN_REQUEST_CUSTODIES)[number];
+
+export const assertTokenRequestCustody = (value: string): TokenRequestCustody =>
+  assertStatus('TokenRequest.custody', TOKEN_REQUEST_CUSTODIES, value);
+
+/**
+ * IN-04 E1: bối cảnh ký KHÔNG bí mật, chụp lúc chiếm quyền. Đối soát về sau dùng đúng giá trị này,
+ * không dùng công tắc hay cấu hình hiện tại (QĐ-6, QĐ-14). `contract`, `callDataHash` ghi ở bước chuẩn
+ * bị lời gọi (`setCustodyCall`), trước khi gửi Fireblocks.
+ */
+export interface TokenRequestCustodyContext {
+  configRef: string;
+  vaultId: string;
+  /** Địa chỉ ký trên chuỗi (địa chỉ của vault). */
+  address: string;
+  assetId: string;
+  chain: ChainKey;
+  contract: string | null;
+  callDataHash: string | null;
+}
+
+const isText = (value: unknown): value is string => typeof value === 'string' && value !== '';
+const isTextOrNull = (value: unknown): value is string | null => value === null || isText(value);
+
+/** Đọc JSON bối cảnh từ cột `custodyContext`. Sai dạng là lỗi lập trình (dữ liệu chỉ do mã này ghi). */
+export function parseCustodyContext(raw: string | null): TokenRequestCustodyContext | null {
+  if (raw === null) return null;
+  let value: Record<string, unknown>;
+  try {
+    value = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new StoreUsageError('TokenRequest.custodyContext không phải JSON.');
+  }
+  if (
+    !value ||
+    !isText(value.configRef) ||
+    !isText(value.vaultId) ||
+    !isText(value.address) ||
+    !isText(value.assetId) ||
+    !isText(value.chain) ||
+    !isChainKey(value.chain) ||
+    !isTextOrNull(value.contract) ||
+    !isTextOrNull(value.callDataHash)
+  ) {
+    throw new StoreUsageError('TokenRequest.custodyContext sai dạng bối cảnh ký Fireblocks.');
+  }
+  return {
+    configRef: value.configRef,
+    vaultId: value.vaultId,
+    address: value.address,
+    assetId: value.assetId,
+    chain: value.chain,
+    contract: value.contract,
+    callDataHash: value.callDataHash,
+  };
+}
+
+/** Ghi bối cảnh thành JSON theo đúng thứ tự trường; kiểm dạng trước khi ghi. */
+export function serializeCustodyContext(context: TokenRequestCustodyContext): string {
+  const text = JSON.stringify({
+    configRef: context.configRef,
+    vaultId: context.vaultId,
+    address: context.address,
+    assetId: context.assetId,
+    chain: context.chain,
+    contract: context.contract,
+    callDataHash: context.callDataHash,
+  });
+  parseCustodyContext(text);
+  return text;
+}
+
 /** Đích của lần QUYẾT ĐỊNH (duyệt hoặc từ chối) — ghi mốc `decidedAt`. */
 export const DECISION_STATUSES: readonly TokenRequestStatus[] = ['EXECUTING', 'REJECTED'];
 /** Đích của KẾT CỤC on-chain — ghi mốc `completedAt`. */
@@ -124,6 +201,12 @@ export interface TokenRequestRecord {
   rejectReason: string | null;
   failureReason: string | null;
   txHash: string | null;
+  /** IN-04: cách thực hiện chốt lúc duyệt; yêu cầu chưa duyệt và yêu cầu cũ là `SERVER`. */
+  custody: TokenRequestCustody;
+  /** IN-04: mã giao dịch Fireblocks, có khi lời gọi tạo trả về và ghi được. */
+  custodyTxId: string | null;
+  /** IN-04: bối cảnh ký Fireblocks; `null` với `SERVER`. */
+  custodyContext: TokenRequestCustodyContext | null;
   createdAt: string;
   decidedAt: string | null;
   completedAt: string | null;
@@ -155,6 +238,9 @@ export interface TokenRequestTransition {
   rejectReason?: string;
   failureReason?: string;
   txHash?: string;
+  /** IN-04: ghi cùng câu chiếm quyền `PENDING` sang `EXECUTING` (QĐ-6). */
+  custody?: TokenRequestCustody;
+  custodyContext?: TokenRequestCustodyContext;
 }
 
 /**
@@ -200,6 +286,21 @@ export interface ITokenRequestStore {
    * ngay khi gửi, TRƯỚC khi đợi biên nhận.
    */
   attachRequestTxHash(input: { id: string; txHash: string }): Promise<TokenRequestRecord | null>;
+
+  /** IN-04: ghi mã giao dịch Fireblocks; chỉ khi yêu cầu còn `EXECUTING`, không thì `null`. */
+  attachCustodyTxId(input: { id: string; custodyTxId: string }): Promise<TokenRequestRecord | null>;
+
+  /**
+   * IN-04: ghi lời gọi đã chuẩn bị (`contract`, `callDataHash`) vào bối cảnh ký, giữ các trường cũ;
+   * chỉ khi yêu cầu còn `EXECUTING` và đã có bối cảnh, không thì `null`.
+   */
+  setCustodyCall(input: { id: string; contract: string; callDataHash: string }): Promise<TokenRequestRecord | null>;
+
+  /**
+   * IN-04 QĐ-16: gắn mã giao dịch CÓ ĐIỀU KIỆN: yêu cầu `EXECUTING` VÀ chưa có mã. Một lượt thắng,
+   * lượt khác nhận `null` và không được ghi `Txn`.
+   */
+  claimTxHash(input: { id: string; txHash: string }): Promise<TokenRequestRecord | null>;
 
   /**
    * HF-05: chốt yêu cầu `EXECUTING` sang `COMPLETED` hoặc `FAILED`, ghi mốc phát hành (Mint) và

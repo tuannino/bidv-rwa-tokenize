@@ -221,6 +221,12 @@ export const ACTIONS = [
    * tư ký và gửi giao dịch; máy chủ lập lệnh và kiểm kết quả trên chuỗi.
    */
   'payment:withdraw',
+
+  /**
+   * IN-04: bật, tắt công tắc "Lưu ký Fireblocks" (cấu hình hệ thống dùng chung). TELLER và CONTROLLER,
+   * mỗi lần đổi ghi sổ kiểm toán. Công tắc không cho ai tự phát hành: lần duyệt vẫn qua lập và duyệt.
+   */
+  'custody:toggle',
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -329,6 +335,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     'ops:draft:read',
     // Lập yêu cầu Mint / Burn (BE-12). KHÔNG có `order:approve`: người lập không phải người duyệt.
     'order:draft',
+    // IN-04: công tắc Lưu ký Fireblocks.
+    'custody:toggle',
     ...READ_ONLY,
   ],
   /**
@@ -355,6 +363,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     // BE-05 (Sếp chốt 24/10): Kiểm soát viên mở và thực hiện đợt thu hồi.
     'settlement:initiate',
     'settlement:recall',
+    // IN-04: công tắc Lưu ký Fireblocks.
+    'custody:toggle',
     ...READ_ONLY,
   ],
 };

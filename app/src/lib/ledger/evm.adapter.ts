@@ -7,12 +7,15 @@ import {
   createPublicClient,
   createWalletClient,
   decodeEventLog,
+  encodeFunctionData,
   getAbiItem,
   http,
+  keccak256,
   parseEventLogs,
   toFunctionSelector,
   TransactionNotFoundError,
   TransactionReceiptNotFoundError,
+  toBytes,
   type Abi,
   type Account,
   type Hex,
@@ -234,6 +237,10 @@ const scopeAnchorCache = new Map<string, Promise<string>>();
 export interface EvmLedgerOptions {
   eventStore?: IChainEventStore;
 }
+
+/** IN-04 D1: `keccak256("MINTER_ROLE")`, `keccak256("AGENT_ROLE")` như hằng trong `ProjectToken.sol`. */
+const PROJECT_TOKEN_MINTER_ROLE = keccak256(toBytes('MINTER_ROLE'));
+const PROJECT_TOKEN_AGENT_ROLE = keccak256(toBytes('AGENT_ROLE'));
 
 export function createEvmLedger(
   chain: ChainKey,
@@ -888,6 +895,52 @@ export function createEvmLedger(
     async mintInitialSupply(to, amount) {
       assertPositiveAmount(chain, 'mintInitialSupply', amount);
       return write('mintInitialSupply', 'mintInitialSupply', [normalizeEvmAddress(to), amount]);
+    },
+
+    // =========================================================================
+    //  IN-04: LƯU KÝ FIREBLOCKS. Chỉ đọc và mô phỏng; Fireblocks ký và gửi.
+    // =========================================================================
+    async projectTokenRolesOf(account) {
+      const address = normalizeEvmAddress(account);
+      const [minter, agent] = await Promise.all([
+        read<boolean>('projectTokenRolesOf', 'hasRole', [PROJECT_TOKEN_MINTER_ROLE, address]),
+        read<boolean>('projectTokenRolesOf', 'hasRole', [PROJECT_TOKEN_AGENT_ROLE, address]),
+      ]);
+      return { minter, agent };
+    },
+
+    async prepareContractCall(operation, [wallet, amount], from) {
+      assertPositiveAmount(chain, operation, amount);
+      const args = [normalizeEvmAddress(wallet), amount] as const;
+      const to = addressOf('ProjectToken');
+      try {
+        // Mô phỏng với `account` là ĐỊA CHỈ: không có khoá nào tham gia, nút chỉ chạy `eth_call`.
+        await reader().simulateContract({
+          account: normalizeEvmAddress(from) as Hex,
+          address: to,
+          abi: projectTokenAbi as Abi,
+          functionName: operation as never,
+          args: args as never,
+        });
+      } catch (error) {
+        return fail(operation, error);
+      }
+      const data = encodeFunctionData({
+        abi: projectTokenAbi as Abi,
+        functionName: operation as never,
+        args: args as never,
+      });
+      return { to, data };
+    },
+
+    async transactionCallOf(txHash) {
+      try {
+        const tx = await reader().getTransaction({ hash: txHash as Hex });
+        return { from: normalizeEvmAddress(tx.from), to: tx.to ? normalizeEvmAddress(tx.to) : null, input: tx.input };
+      } catch (error) {
+        if (error instanceof BaseError && error.walk((e) => e instanceof TransactionNotFoundError)) return null;
+        return fail('transactionCallOf', error);
+      }
     },
 
     async isInitialSupplyMinted() {

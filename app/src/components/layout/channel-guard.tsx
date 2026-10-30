@@ -1,6 +1,8 @@
+import Link from 'next/link';
 import { ShieldX } from 'lucide-react';
 import { can, type Action, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
+import { roleHomeHref } from './role-home';
 
 /**
  * Guard RBAC cho một KÊNH (route-group).
@@ -37,6 +39,14 @@ export async function ChannelGuard({
         <p className="text-xs text-muted-foreground">
           Đổi vai trò ở góc trên phải (chỉ khả dụng trong PoC).
         </p>
+        {/* IN-04 F1: màn này không có thanh trên cùng nên không đổi vai được; cho đường về trang của vai. */}
+        <Link
+          prefetch={false}
+          href={roleHomeHref(role)}
+          className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+        >
+          Về trang của vai hiện tại
+        </Link>
       </div>
     </div>
   );

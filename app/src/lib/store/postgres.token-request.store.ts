@@ -6,6 +6,7 @@ import { pgQuery, pgTransaction, type PgQuery, type PgTransaction } from './post
 import { assertAmount, mapPgConstraintError } from './store.errors';
 import {
   assertTokenRequestBurnSource,
+  assertTokenRequestCustody,
   assertTokenRequestStatus,
   assertTokenRequestTransition,
   assertTokenRequestType,
@@ -13,6 +14,8 @@ import {
   type ITokenRequestStore,
   type NewTokenRequest,
   OUTCOME_STATUSES,
+  parseCustodyContext,
+  serializeCustodyContext,
   type TokenRequestBurnSource,
   type TokenRequestFinalization,
   type TokenRequestRecord,
@@ -48,6 +51,9 @@ interface TokenRequestRow {
   rejectReason: string | null;
   failureReason: string | null;
   txHash: string | null;
+  custody: string;
+  custodyTxId: string | null;
+  custodyContext: string | null;
   createdAt: Date;
   decidedAt: Date | null;
   completedAt: Date | null;
@@ -76,6 +82,9 @@ const toRequest = (row: TokenRequestRow): TokenRequestRecord => ({
   rejectReason: row.rejectReason,
   failureReason: row.failureReason,
   txHash: row.txHash,
+  custody: assertTokenRequestCustody(row.custody),
+  custodyTxId: row.custodyTxId,
+  custodyContext: parseCustodyContext(row.custodyContext),
   createdAt: row.createdAt.toISOString(),
   decidedAt: iso(row.decidedAt),
   completedAt: iso(row.completedAt),
@@ -147,6 +156,15 @@ export function createPostgresTokenRequestStore(
         params.push(value);
         sets.push(`"${column}" = $${params.length}`);
       }
+      // IN-04 QĐ-6: cách thực hiện và bối cảnh ký ghi TRONG câu chiếm quyền, không câu riêng.
+      if (transition.custody !== undefined) {
+        params.push(assertTokenRequestCustody(transition.custody));
+        sets.push(`"custody" = $${params.length}`);
+      }
+      if (transition.custodyContext !== undefined) {
+        params.push(serializeCustodyContext(transition.custodyContext));
+        sets.push(`"custodyContext" = $${params.length}`);
+      }
       if (DECISION_STATUSES.includes(to)) sets.push('"decidedAt" = CURRENT_TIMESTAMP');
       if (OUTCOME_STATUSES.includes(to)) sets.push('"completedAt" = CURRENT_TIMESTAMP');
       params.push(from);
@@ -170,6 +188,56 @@ export function createPostgresTokenRequestStore(
           `UPDATE "TokenRequest"
               SET "txHash" = $2, "updatedAt" = CURRENT_TIMESTAMP
             WHERE "id" = $1 AND "status" = $3
+            RETURNING *`,
+          [id, txHash, 'EXECUTING' satisfies TokenRequestStatus],
+        ),
+      );
+      return rows[0] ? toRequest(rows[0]) : null;
+    },
+
+    async attachCustodyTxId({ id, custodyTxId }) {
+      const rows = await query<TokenRequestRow>(
+        `UPDATE "TokenRequest"
+            SET "custodyTxId" = $2, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = $1 AND "status" = $3
+          RETURNING *`,
+        [id, custodyTxId, 'EXECUTING' satisfies TokenRequestStatus],
+      );
+      return rows[0] ? toRequest(rows[0]) : null;
+    },
+
+    async setCustodyCall({ id, contract, callDataHash }) {
+      // Đọc bối cảnh hiện có rồi ghi lại CÓ ĐIỀU KIỆN: bối cảnh chỉ ghi ở câu chiếm quyền và ở đây,
+      // nên so đúng chuỗi cũ trong câu UPDATE là đủ chặn ghi đè lẫn nhau.
+      const current = await query<TokenRequestRow>(
+        `SELECT * FROM "TokenRequest" WHERE "id" = $1 AND "status" = $2`,
+        [id, 'EXECUTING' satisfies TokenRequestStatus],
+      );
+      const row = current[0];
+      const context = row ? parseCustodyContext(row.custodyContext) : null;
+      if (!row || !context) return null;
+      const rows = await query<TokenRequestRow>(
+        `UPDATE "TokenRequest"
+            SET "custodyContext" = $2, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = $1 AND "status" = $3 AND "custodyContext" = $4
+          RETURNING *`,
+        [
+          id,
+          serializeCustodyContext({ ...context, contract, callDataHash }),
+          'EXECUTING' satisfies TokenRequestStatus,
+          row.custodyContext,
+        ],
+      );
+      return rows[0] ? toRequest(rows[0]) : null;
+    },
+
+    async claimTxHash({ id, txHash }) {
+      // QĐ-16: điều kiện "chưa có mã" nằm TRONG câu UPDATE: hai lượt cùng thấy mã thì một lượt thắng.
+      const rows = await mapPgConstraintError(() =>
+        query<TokenRequestRow>(
+          `UPDATE "TokenRequest"
+              SET "txHash" = $2, "updatedAt" = CURRENT_TIMESTAMP
+            WHERE "id" = $1 AND "status" = $3 AND "txHash" IS NULL
             RETURNING *`,
           [id, txHash, 'EXECUTING' satisfies TokenRequestStatus],
         ),

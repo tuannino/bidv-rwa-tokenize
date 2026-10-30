@@ -557,6 +557,12 @@ model TokenRequest {
   /// Lý do giao dịch thất bại on-chain (trạng thái FAILED).
   failureReason String?
   txHash        String?
+  /// IN-04: cách thực hiện chốt lúc duyệt. Giá trị hợp lệ: TOKEN_REQUEST_CUSTODIES.
+  custody       String    @default("SERVER")
+  /// IN-04: mã giao dịch Fireblocks. Có thì đối soát tra bằng mã này, không thì theo externalTxId = id.
+  custodyTxId   String?
+  /// IN-04: JSON bối cảnh ký không bí mật chụp lúc duyệt (configRef, vaultId, address, assetId, chain, contract, callDataHash).
+  custodyContext String?
   createdAt     DateTime  @default(now()) @db.Timestamptz(3)
   /// Mốc duyệt hoặc từ chối.
   decidedAt     DateTime? @db.Timestamptz(3)

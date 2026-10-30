@@ -406,6 +406,10 @@ const ADDED_COLUMNS: readonly string[] = [
   `ALTER TABLE IF EXISTS "SettlementCase" ADD COLUMN IF NOT EXISTS "reason" TEXT`,
   // FIX-01 G6c: mã giao dịch đặt ví nhận của lệnh rút. Lệnh có trước FIX-01 để trống.
   `ALTER TABLE IF EXISTS "WithdrawRequest" ADD COLUMN IF NOT EXISTS "payoutTxHash" TEXT`,
+  // IN-04 E1: cách thực hiện lần duyệt Mint, Burn và bối cảnh ký Fireblocks. Yêu cầu cũ là khoá máy chủ.
+  `ALTER TABLE IF EXISTS "TokenRequest" ADD COLUMN IF NOT EXISTS "custody" TEXT NOT NULL DEFAULT 'SERVER'`,
+  `ALTER TABLE IF EXISTS "TokenRequest" ADD COLUMN IF NOT EXISTS "custodyTxId" TEXT`,
+  `ALTER TABLE IF EXISTS "TokenRequest" ADD COLUMN IF NOT EXISTS "custodyContext" TEXT`,
 ];
 
 /**

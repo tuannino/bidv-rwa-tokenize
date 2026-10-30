@@ -54,6 +54,7 @@ export {
   type VaultWithdrawalReceipt,
   type TxResult,
   type TxStatus,
+  type CustodyCallOperation,
 } from './ledger.port';
 export { InvalidAddressError, normalizeEvmAddress } from './address';
 export { resetMockLedger } from './mock.adapter';

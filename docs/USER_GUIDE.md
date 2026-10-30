@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/fix-02-sua-nho` @ `90995a1` (FIX-02, từ `dev` @ `a1ff3aa`), ngày 29/10/2026 |
+| Chốt tại | nhánh `feat/in-04-fireblocks-mint-burn` @ `d2cf384` (IN-04, từ `dev` @ `8f75d38`), ngày 29/10/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -49,7 +49,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Không ai Mint/Burn thẳng | Quyền `token:mint`, `token:burn` không thuộc vai nào; lập duyệt là đường duy nhất | FE-22 | Đã chạy |
 | Người bán chỉ đọc, trừ rút tiền | Người bán không có quyền vận hành; quyền ghi duy nhất là `vault:withdraw` | FE-21, BE-13 | Đã chạy |
 | Kiểm soát viên không đặt giá | Giá phát hành do Giao dịch viên đặt. Ngoại lệ: Kiểm soát viên cấu hình khoá vault và duyệt chia lợi nhuận | Chốt 07/10, 20/10 | Đã chạy |
-| Hai vai vận hành không kết nối ví | Giao dịch của ngân hàng ký bằng ví máy chủ; chỉ Nhà đầu tư và Người bán có `wallet:connect` | FE-02 | Đã chạy |
+| Hai vai vận hành không kết nối ví | Giao dịch của ngân hàng ký bằng ví máy chủ; chỉ Nhà đầu tư và Người bán có `wallet:connect` | FE-02 | Đã chạy (IN-04: Mint, Burn của lập duyệt ký được qua Fireblocks, xem mục 1.4) |
 | Sổ kiểm toán | Mọi thao tác ghi, và cả nhiều thao tác đọc, ghi một dòng `AuditLog` | Kiến trúc | Đã chạy (xem lệch L-01) |
 | Lịch sử cấu hình | Mọi tham số Kiểm soát viên cấu hình phải có lịch sử từng lần đổi. `SystemConfig` tự ghi `SystemConfigHistory`; cấu hình vault dựng lịch sử từ sự kiện trên chuỗi | Chốt 20/10, BE-13 bản 2.1 | Đã chạy |
 | Hiệu năng là điều kiện nghiệm thu | Mỗi màn gọi tối đa một server action khi mở; liên kết tắt tải trước; đọc chuỗi gom lô; quét sự kiện có mốc block | Chốt 21/10, HF-01 | Đã chạy (còn `/vault`, PERF-01) |
@@ -93,6 +93,12 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Cảnh báo khi duyệt | Mở chi tiết yêu cầu đang chờ, máy chủ so số lượng với số liệu token đọc trong cùng lần: Mint vượt phần còn được phép phát hành, Burn toàn bộ nguồn cung mà tổng cung đã đổi, Burn vượt phần chưa phân phối, hoặc không đọc được số liệu token thì hiện khối cảnh báo vàng và khoá nút "Chấp nhận"; "Từ chối" vẫn dùng được. Lúc bấm duyệt máy chủ vẫn kiểm lại toàn bộ | FIX-02 QĐ-4, chốt 29/10 | Đã chạy |
 | Giá phát hành | Mặc định 100.000 VNDB mỗi WPT, mỗi chain một giá (`wpt.issue_price_vnd.<chain>`), Giao dịch viên đặt ở màn `/config`; giá trên hợp đồng `OrderSettlement.price` là giá chốt lệnh | BE-04, FE-27, FE-07 | Đã chạy |
 | Phát hành thẳng dữ liệu thử | Chỉ trên `mock`, sau hai lớp chặn (cờ `ENABLE_DEMO_TOKEN_MINT` mặc định tắt, rồi quyền) | FE-22 | Đã chạy |
+| Ký Mint, Burn qua Fireblocks (Vault Account) | Công tắc "Lưu ký Fireblocks" bật thì lần duyệt Mint, Burn trên chain có trong bảng `FIREBLOCKS_CHAIN_ASSETS` (mặc định chỉ Sepolia `evm`) gửi giao dịch qua một Vault Account của ngân hàng (mặc định vault 11), thay khoá trên máy chủ. Vault phải giữ `MINTER_ROLE` (Mint) và `AGENT_ROLE` (Burn) trên `ProjectToken`; thiếu vai thì lần duyệt bị chặn, yêu cầu giữ Chờ duyệt. Không dùng Embedded Wallets | IN-04 QĐ-1, QĐ-9, chốt 29/10 | Đã chạy (thử với Fireblocks giả; Sepolia chờ chủ dự án cấp vai, nạp ETH, đặt khoá) |
+| Công tắc Lưu ký Fireblocks | Cấu hình hệ thống dùng chung (`SystemConfig` khoá `custody.fireblocks.enabled`, mặc định tắt), có lịch sử; Giao dịch viên và Kiểm soát viên bật tắt được (quyền `custody:toggle`), mỗi lần đổi ghi sổ kiểm toán. Chỉ BẬT được khi đã cấu hình Fireblocks (khoá API, khoá riêng, vault); TẮT luôn được. Công tắc bật mà cấu hình mất, hoặc bảng chain sai: lần duyệt bị chặn, KHÔNG tự quay về khoá máy chủ | IN-04 QĐ-5, QĐ-13 | Đã chạy |
+| Cách thực hiện chốt lúc duyệt | Lần duyệt chốt cách thực hiện (khoá máy chủ hay Fireblocks) và bối cảnh ký (vault, địa chỉ, mã tài sản, hợp đồng đích, dấu của lời gọi) ngay khi chiếm quyền. Đối soát về sau theo bối cảnh đã ghi, không theo công tắc hiện tại; cấu hình Fireblocks đổi thì đối soát dừng, chờ phục hồi cấu hình cũ | IN-04 QĐ-6, QĐ-14 | Đã chạy |
+| Không gửi trùng qua Fireblocks | Mỗi yêu cầu nhiều nhất MỘT giao dịch Fireblocks (`externalTxId` là mã yêu cầu); đối soát chỉ tra, không tạo giao dịch. Kết cục cuối do biên nhận trên chuỗi quyết định, và chỉ chốt khi giao dịch đúng người gửi (vault), đúng hợp đồng, đúng dữ liệu gọi đã chuẩn bị. Chưa rõ thì giữ Đang thực hiện | IN-04 QĐ-7, QĐ-8, QĐ-15 | Đã chạy |
+| Lớp duyệt của Fireblocks (TAP) | Không dùng: Sandbox dùng chung không cho cấu hình. Lớp duyệt duy nhất là lập và duyệt của ứng dụng | IN-04 QĐ-2 | Không làm |
+| Phạm vi Fireblocks | CHỈ ba lời gọi của lập duyệt (`mintInitialSupply`, `mint`, `burn`). Trang ẩn `/mint`, phát hành thử, đốt theo lô khi thu hồi, vault, chia lợi nhuận, VNDB vẫn ký bằng khoá máy chủ. Phía Nhà đầu tư, Embedded Wallets, webhook, Gas Station là nợ kỹ thuật | IN-04 QĐ-3, mục 4 | Ngoài phạm vi |
 
 ### 1.5. Tiền VNDB và nạp PoC
 
@@ -203,6 +209,8 @@ Vòng nghiệp vụ chạy đủ trên Sepolia: Mint đầu vào vault, liên k�
 
 Nhóm "Nghiệp vụ ẩn" (FIX-01 QĐ-5) chỉ có ở menu Giao dịch viên, đứng ngay sau nhóm "Vận hành", thu gọn mặc định, bấm tiêu đề để mở; đang ở một màn của nhóm thì nhóm tự mở. Thứ tự: "Nạp VNDB" (khi cờ bật) rồi "Định danh ví".
 
+Đáy menu của Giao dịch viên và Kiểm soát viên, ngay trên khối trạng thái mạng, có dòng "Lưu ký Fireblocks" kèm công tắc (IN-04, mục 3.0).
+
 Chữ trong ngoặc là phím tắt hiển thị cạnh menu. Hiện chỉ là nhãn, bấm phím chưa chuyển màn (`components/layout/sidebar.tsx:204`).
 
 ### 2.2. Trạng thái từng màn
@@ -225,7 +233,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | | Chỗ trống: toàn bộ số mẫu | 0 | Không | |
 | `/draft` | Lập lệnh | Giao dịch viên | Mint, Burn (lập) | M H S | Dùng được | 2 | Không (chỉ lập) | |
 | `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được; có thẻ Lịch sử phê duyệt (UIUX-01) | 1 + 1 mỗi hàng chờ | Không | |
-| `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05); cảnh báo số liệu khoá nút Chấp nhận (FIX-02) | 1 | Có (mint, burn) | |
+| `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05); cảnh báo số liệu khoá nút Chấp nhận (FIX-02); dòng "Thực hiện qua", đối soát qua Fireblocks (IN-04) | 1 | Có (mint, burn) | |
 | `/transactions` | Giao dịch | Giao dịch viên, Kiểm soát viên | Lệnh mua bán, can thiệp lệnh kẹt | M H S | Một phần: thiếu nút cho lệnh EXECUTING mất mã | 1 | Có (can thiệp) | |
 | `/transactions/[id]` | Chi tiết lệnh | Giao dịch viên, Kiểm soát viên | Lệnh mua bán | M H S | Dùng được (chỉ xem) | 1 | Không | |
 | `/vault` | Vault thanh toán SPV | Giao dịch viên (xem), Kiểm soát viên | Cấu hình khoá, đối soát rút | M H S | Dùng được; cấu hình theo một chế độ (UIUX-01), không còn ô ví nhận (FIX-01); mở màn 3 action nối tiếp | 3 | Có (cấu hình) | PERF-01, SC-11 |
@@ -270,6 +278,20 @@ Quy ước chung cho Phần 3:
 - **Người thao tác:** lấy từ `DEMO_ACTOR`, trống thì theo vai: GDV001 (Giao dịch viên), KSV001 (Kiểm soát viên), NB001 (Người bán), NDT001 (Nhà đầu tư) (`lib/rbac/session.ts:50`).
 - **Vault mock mới dựng** ở trạng thái `UNSET` (khoá toàn bộ, chưa có ví nhận). Người bán chỉ rút được sau khi Kiểm soát viên cấu hình khoá ở `/vault`; ví nhận do Người bán chọn ở lệnh rút (FIX-01).
 - Mỗi màn có khối **Lệch**: chỗ mã hoặc giao diện khác ý nghiệp vụ. Mã `L-xx` tra ở Phụ lục C. Nội dung Phần 3 dựng từ đọc mã nguồn tại `24f3b7c`, đối chiếu với kết quả chạy Sepolia của OP-05.
+
+### 3.0. Khung chung: công tắc Lưu ký Fireblocks và màn chặn vai (IN-04)
+
+Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks: runbook `docs/RUNBOOK_FIREBLOCKS.md`.
+
+**Công tắc "Lưu ký Fireblocks"** (`components/layout/custody-toggle.tsx`), ở đáy menu, ngay trên khối trạng thái mạng, chỉ với Giao dịch viên và Kiểm soát viên (quyền `custody:toggle`).
+
+- **Nguồn:** `AppLayout` đọc `getCustodyStateForLayout()` (`lib/bank/custody.service.ts`): một lần đọc `SystemConfig` khoá `custody.fireblocks.enabled` theo khoá chính, cùng cấu hình Fireblocks và bảng chain từ biến môi trường. Không phải server action, không thêm action khi mở màn. Đọc lỗi thì hiện như đang tắt, dòng phụ "Chưa đọc được trạng thái".
+- **Hình:** chữ cùng kiểu mục menu; công tắc dạng viên thuốc, bật thì nền xanh lá, núm trắng bên phải; tắt thì nền xám, núm trắng bên trái; có hiệu ứng trượt.
+- **Khi nào khoá:** chưa cấu hình Fireblocks và đang tắt: công tắc mờ, con trỏ cấm, gợi ý "Chưa cấu hình Fireblocks". Đang bật mà thiếu cấu hình: vẫn bấm được để TẮT, dòng phụ "Thiếu cấu hình; lần duyệt sẽ bị chặn".
+- **Dòng phụ khác:** chain đang chọn không có trong bảng: "Không áp dụng cho chain này"; bảng chain sai mà công tắc bật: "Bảng chain sai; lần duyệt sẽ bị chặn".
+- **Bấm:** `setFireblocksCustodyAction` > `setFireblocksCustody`: `authorize('custody:toggle')`; bật khi chưa cấu hình thì lỗi "Chưa cấu hình Fireblocks (khoá API, vault); không bật được."; ghi `SystemConfig` kèm lịch sử và AuditLog `custody:toggle` SUCCESS "Lưu ký Fireblocks: tắt sang bật". Thành công thì tải lại trang; lỗi thì hiện câu dưới công tắc.
+
+**Màn chặn vai** (`components/layout/channel-guard.tsx`): mở một màn không thuộc vai đang có hiệu lực thì hiện "Không có quyền vào kênh ...". Màn này không có thanh trên cùng nên không đổi vai được; IN-04 thêm nút "Về trang của vai hiện tại" trỏ trang mặc định của vai (`roleHomeHref`, `components/layout/role-home.ts`): Nhà đầu tư `/portfolio`, Người bán `/seller`, Giao dịch viên và Kiểm soát viên `/`.
 
 ### 3.1. Nhà đầu tư
 
@@ -958,43 +980,48 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 | Lý do từ chối | Bắt buộc khi từ chối, 1 đến 500 ký tự | | `TokenRequest.rejectReason` |
 | Chấp nhận (nút) | Duyệt | `approveTokenRequest` (`S:418`), chi tiết bên dưới bảng | |
 | Từ chối (nút) | Từ chối | `rejectTokenRequest` (`S:831`): `authorize('order:approve')`; chặn tự từ chối; PENDING sang REJECTED; AuditLog SUCCESS. Thiếu lý do thì ghi AuditLog FAILURE | Không tác động chuỗi |
-| Đối soát (nút, HF-05) | Chốt yêu cầu đang thực hiện theo biên nhận thật của giao dịch đã gửi | Chỉ hiện khi yêu cầu EXECUTING, có mã giao dịch, và vai có quyền duyệt: cờ `canReconcile` tính ở máy chủ trong cùng lần đọc chi tiết (`S:1213`), không thêm action khi mở. Bấm thì gọi `reconcileTokenRequest` (`S:743`), chi tiết bên dưới bảng | Không gửi giao dịch mới |
-| Thông báo sau thao tác | Xanh: "Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi." (chỉ khi COMPLETED). Vàng (HF-05): "Đã gửi lên chuỗi nhưng chưa có xác nhận sau N giây. Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát sau ít phút." (N = thời gian chờ biên nhận của chain: 30 giây hardhat, mock; 90 giây Sepolia). Đỏ: lỗi, hoặc đối soát thấy giao dịch thất bại | `outcomeFeedback` (`components/pages/approval-detail.tsx:60`) theo `status` của yêu cầu trả về | |
+| Đối soát (nút, HF-05, IN-04) | Chốt yêu cầu đang thực hiện theo biên nhận thật của giao dịch đã gửi; với yêu cầu thực hiện qua Fireblocks chưa có mã giao dịch thì tra Fireblocks trước | Hiện khi yêu cầu EXECUTING, có quyền duyệt, và (có mã giao dịch HOẶC thực hiện qua Fireblocks): cờ `canReconcile` tính ở máy chủ trong cùng lần đọc chi tiết, không thêm action khi mở. Bấm thì gọi `reconcileTokenRequest`, chi tiết bên dưới bảng | Không gửi giao dịch mới, không tạo giao dịch Fireblocks mới |
+| Thông báo sau thao tác | Xanh: "Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi." (chỉ khi COMPLETED). Vàng (HF-05): "Đã gửi lên chuỗi nhưng chưa có xác nhận sau N giây. Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát sau ít phút." (N = thời gian chờ biên nhận của chain: 30 giây hardhat, mock; 90 giây Sepolia). Đỏ: lỗi, hoặc đối soát thấy giao dịch thất bại Vàng (IN-04): câu máy chủ trả kèm khi yêu cầu giữ Đang thực hiện, ví dụ "Đã gửi Fireblocks, chưa rõ kết quả; bấm Đối soát sau.", "Yêu cầu đang được đối soát ở lượt khác.", "Fireblocks chưa có giao dịch của yêu cầu này (mã 1439); giữ Đang thực hiện, cần xử lý tay.", "Chưa đọc được Fireblocks; thử lại.", "Cấu hình Fireblocks đã đổi so với lúc duyệt (vault ...); phục hồi cấu hình cũ để đối soát.", "Giao dịch ... không khớp lời gọi đã chuẩn bị; cần đối soát tay." | `outcomeFeedback` (`components/pages/approval-detail.tsx:60`) theo `status` của yêu cầu trả về | |
 | Khối "Thông tin token" | Như ở /draft, số đọc tại thời điểm xem | `readTokenInfo` | |
 | Khối "Nội dung yêu cầu": Loại, Token, Số lượng, Nguồn, Ví tác động, Lý do, Chứng từ, Ngày hiệu lực, Ghi chú, Người lập, Thời điểm lập, Mã giao dịch | | các cột `TokenRequest` | |
+| Thực hiện qua (dòng cuối khối "Nội dung yêu cầu", IN-04) | Chờ duyệt: cách sẽ dùng nếu duyệt bây giờ; đã duyệt: cách đã ghi lúc chiếm quyền. Giá trị "Khoá ký máy chủ", "Fireblocks, vault <id> (<địa chỉ rút gọn>)" kèm "; mã Fireblocks <mã>" khi có; từ chối: "Không thực hiện (đã từ chối)"; đọc công tắc lỗi: "Chưa đọc được" | `custodyLabel` dựng ở máy chủ trong `getTokenRequestDetail` (`custodyFor` với `getCustodyStateForLayout()`, hoặc `TokenRequest.custody`, `custodyContext`, `custodyTxId`), không thêm action | Biết lần duyệt ký bằng gì |
 | Nhật ký | Mốc thời gian, nhãn ("Lập yêu cầu, chờ duyệt"; "Từ chối"; "Chấp nhận, hoàn tất trên chuỗi"; "Chấp nhận, thất bại khi thực hiện"; "Chấp nhận, đang xử lý trên chuỗi"), người, chi tiết | `timelineOf` (`S:1136`), dựng từ các mốc lưu trên chính yêu cầu | Không đọc AuditLog |
 
 **Các bước khi bấm "Chấp nhận"** (`approveTokenRequest`, `S:418`):
 1. `authorize('order:approve')`, ghi AuditLog ALLOWED.
 2. Chặn tự duyệt. Nếu người duyệt là người lập: AuditLog DENIED, lỗi `SELF_APPROVAL`.
 3. Kiểm lại toàn bộ điều kiện và kiểm ví tác động không đổi. Nếu trượt: AuditLog FAILURE, yêu cầu giữ nguyên PENDING.
-4. Chiếm quyền thực hiện: PENDING sang EXECUTING bằng câu `UPDATE` có điều kiện.
-5. Thực hiện trên chuỗi:
+4. (IN-04) Chọn cách thực hiện theo công tắc và chain TẠI LÚC DUYỆT (`custodyFor`): công tắc tắt, hoặc chain ngoài bảng: khoá máy chủ. Công tắc bật cho chain này: Fireblocks. Bị chặn (REQUEST_CHECK, AuditLog FAILURE, yêu cầu giữ PENDING, không bao giờ quay về khoá máy chủ) khi: đọc công tắc lỗi ("Không đọc được trạng thái Lưu ký Fireblocks; thử lại."), bảng chain sai, công tắc bật mà thiếu cấu hình, vault thiếu `MINTER_ROLE` (Mint) hoặc `AGENT_ROLE` (Burn) trên `ProjectToken`.
+5. Chiếm quyền thực hiện: PENDING sang EXECUTING bằng câu `UPDATE` có điều kiện, ghi cùng câu cách thực hiện (`custody`) và, với Fireblocks, bối cảnh ký (`custodyContext`: mã tham chiếu cấu hình, vault, địa chỉ, mã tài sản, chain).
+6. Thực hiện trên chuỗi:
    - Mint: `executeIssuance` (`I:209`), gọi `mintInitialSupply` (lần đầu) hoặc `mint` (các lần sau) vào ví SPV/vault.
    - Burn: `executeBurn` (`S:578`), `ledger.burn(spv)`.
-6. Ghi sổ giao dịch: `Txn` lưu PENDING trước khi chờ biên nhận, gắn `txHash` vào `TokenRequest`, sau đó cập nhật trạng thái `Txn` theo biên nhận.
-7. Chốt theo biên nhận (HF-05):
-   - **CONFIRMED:** đọc tổng cung (Mint) rồi gọi thao tác lưu trữ `finalizeTokenRequest` (`finalizeConfirmed`, `S:624`): trong MỘT transaction, EXECUTING sang COMPLETED, ghi `Project.issuedAt` nếu chưa có (Mint), ghi AuditLog `token:mint` hoặc `token:burn` SUCCESS và `order:approve` SUCCESS. Đọc tổng cung lỗi hoặc transaction lỗi: không ghi gì, yêu cầu giữ EXECUTING, màn báo "đã xác nhận trên chuỗi, chưa chốt được, bấm Đối soát lại". Biên nhận CONFIRMED không bao giờ dẫn tới FAILED.
+   - Qua Fireblocks (IN-04, `lib/custody/fireblocks-execution.ts`): mô phỏng lời gọi với người gửi là vault (revert thì Thất bại, chưa gửi gì); ghi hợp đồng đích và dấu `keccak256` của dữ liệu gọi vào bối cảnh; tạo MỘT giao dịch `CONTRACT_CALL` với `externalTxId` là mã yêu cầu; hỏi trạng thái mỗi 3 giây, tối đa `FIREBLOCKS_HASH_WAIT_MS` (30 giây). Có mã giao dịch thì gắn vào yêu cầu bằng câu có điều kiện (chưa có mã); lượt thua không ghi gì, trả câu "Yêu cầu đang được đối soát ở lượt khác.". Fireblocks từ chối chắc chắn (mã từ chối đồng bộ rồi tra lại không thấy, hoặc `CANCELLED`, `BLOCKED`, `REJECTED`, `FAILED` vì thiếu phí mà không có mã giao dịch) thì Thất bại. Mọi trường hợp chưa rõ khác (lỗi mạng, hết giờ, trùng mã, tra lỗi) giữ EXECUTING, AuditLog `order:approve` SUCCESS "đã gửi Fireblocks, chưa rõ kết quả, cần đối soát".
+7. Ghi sổ giao dịch: `Txn` lưu PENDING trước khi chờ biên nhận, gắn `txHash` vào `TokenRequest`, sau đó cập nhật trạng thái `Txn` theo biên nhận.
+8. Chốt theo biên nhận (HF-05):
+   - **CONFIRMED:** (IN-04) với Fireblocks, trước hết so giao dịch trên chuỗi với lời gọi đã chuẩn bị: người gửi là vault, đích là hợp đồng, `keccak256(input)` bằng dấu đã ghi; lệch thì giữ EXECUTING, AuditLog FAILURE nêu trường lệch, câu "cần đối soát tay". Khớp thì đọc tổng cung (Mint) rồi gọi thao tác lưu trữ `finalizeTokenRequest` (`finalizeConfirmed`, `S:624`): trong MỘT transaction, EXECUTING sang COMPLETED, ghi `Project.issuedAt` nếu chưa có (Mint), ghi AuditLog `token:mint` hoặc `token:burn` SUCCESS và `order:approve` SUCCESS. Đọc tổng cung lỗi hoặc transaction lỗi: không ghi gì, yêu cầu giữ EXECUTING, màn báo "đã xác nhận trên chuỗi, chưa chốt được, bấm Đối soát lại". Biên nhận CONFIRMED không bao giờ dẫn tới FAILED.
    - **FAILED:** EXECUTING sang FAILED, AuditLog `token:mint` hoặc `token:burn` FAILURE.
    - **PENDING** (hết thời gian chờ biên nhận: 30 giây hardhat, 90 giây Sepolia): yêu cầu giữ EXECUTING kèm mã giao dịch; không ghi `issuedAt`, không ghi sổ SUCCESS cho thao tác token; AuditLog `order:approve` SUCCESS với chi tiết "đã gửi, chưa có biên nhận, cần đối soát". Màn báo vàng.
-   - Chờ biên nhận ném lỗi sau khi đã gửi: giữ EXECUTING (như trước HF-05), AuditLog `order:approve` FAILURE "cần đối soát".
+   - Chờ biên nhận ném lỗi sau khi đã gửi: giữ EXECUTING (như trước HF-05), AuditLog `order:approve` FAILURE "cần đối soát". Với Fireblocks, mọi lỗi phát sinh sau lúc đã gọi tạo giao dịch đều giữ EXECUTING (IN-04 QĐ-8b).
+   - Dòng `Txn` của giao dịch qua Fireblocks ghi `actorAddress` là địa chỉ vault.
 
 **Các bước khi bấm "Đối soát"** (`reconcileTokenRequest`, `S:743`, HF-05):
-1. `authorize('order:approve')`. Yêu cầu phải EXECUTING, có `txHash`, đúng chain đang chọn; không thì báo lỗi, không ghi gì.
+1. `authorize('order:approve')`. Yêu cầu phải EXECUTING, đúng chain đang chọn, và có `txHash` (hoặc thực hiện qua Fireblocks); không thì báo lỗi, không ghi gì.
+   - (IN-04) Qua Fireblocks mà chưa có mã giao dịch: cấu hình hiện tại thiếu, hoặc khác bối cảnh đã ghi (mã tham chiếu cấu hình hay vault): KHÔNG tra, giữ nguyên, câu "Cấu hình Fireblocks đã đổi so với lúc duyệt (vault ...); phục hồi cấu hình cũ để đối soát.". Không thì tra Fireblocks MỘT lần (theo mã Fireblocks nếu có, không thì theo mã yêu cầu): tra lỗi thì giữ, câu "Chưa đọc được Fireblocks; thử lại."; Fireblocks chưa có giao dịch (mã 1439) thì giữ, không có nhánh tự Thất bại theo thời gian; trạng thái âm không mã thì Thất bại; có mã thì gắn mã có điều kiện, ghi MỘT dòng `Txn` của vault rồi đi tiếp các bước dưới. Đối soát không bao giờ tạo giao dịch Fireblocks; công tắc đã tắt sau lúc duyệt vẫn đối soát qua Fireblocks.
 2. Đọc biên nhận MỘT lần, chờ tối đa 1 giây (cùng mức `RECHECK_RECEIPT_TIMEOUT_MS` của luồng chia). Đọc lỗi thì coi như còn chờ.
-3. Cập nhật `Txn` theo `(chain, txHash)` (`syncTxnFromReceipt`, `S:708`): có dòng thì sang CONFIRMED hoặc FAILED (PENDING giữ nguyên); không có dòng thì tạo một dòng, không tạo trùng.
-4. CONFIRMED: chốt như bước 7 của "Chấp nhận". Lượt khác đã chốt trước thì báo "đã được chốt ở lượt khác", không ghi thêm.
+3. Cập nhật `Txn` theo `(chain, txHash)` (`syncTxnFromReceipt`, `S:708`): có dòng thì sang CONFIRMED hoặc FAILED (PENDING giữ nguyên); không có dòng thì (trừ yêu cầu qua Fireblocks, IN-04: chỉ cập nhật, không thêm) tạo một dòng, không tạo trùng.
+4. CONFIRMED: chốt như bước 8 của "Chấp nhận" (kể cả bước so lời gọi của Fireblocks). Lượt khác đã chốt trước thì báo "đã được chốt ở lượt khác", không ghi thêm.
 5. FAILED: trong MỘT transaction, EXECUTING sang FAILED kèm lý do và AuditLog `order:approve` FAILURE.
 6. PENDING: không đổi gì, màn báo vàng "Chưa có biên nhận cho giao dịch...".
 7. Không bao giờ gửi giao dịch mới.
 
-Yêu cầu EXECUTING **không có** mã giao dịch (tiến trình chết trước khi gắn mã): không có nút Đối soát, như trước HF-05; để task xử lý yêu cầu kẹt.
+Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ (tiến trình chết trước khi gắn mã): không có nút Đối soát, như trước HF-05; để task xử lý yêu cầu kẹt. Yêu cầu qua Fireblocks chưa rõ kết quả (1439 kéo dài, giao dịch không khớp, `FAILED` không mã lý do khác) cũng giữ EXECUTING chờ task đó (L-15).
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-15.** **Không có hộp xác nhận trước khi Chấp nhận.** Bấm một lần là thực hiện ngay trên chuỗi.
-- **L-15.** **Yêu cầu EXECUTING kẹt không có thao tác xử lý.** Nhật ký ghi "cần đối soát" nhưng không có nút nào.
+- **L-15.** **Yêu cầu EXECUTING kẹt không có thao tác xử lý.** Nhật ký ghi "cần đối soát" nhưng không có nút nào. Từ IN-04 gồm cả yêu cầu qua Fireblocks chưa rõ kết quả hoặc giao dịch không khớp lời gọi đã chuẩn bị: đối soát chỉ báo, không đóng được.
 
 
 #### 3.4.5. `/transactions` Giao dịch
@@ -1747,6 +1774,7 @@ Khoá khai ở `CONFIG_KEYS` (`lib/config/issue-terms.ts:95`). Bảng chưa có 
 | `distribution.dust_wallet` | Ví nhận phần dư làm tròn | không | Tiến trình chia |
 | `distribution.last_settled_balance` | Số dư ví lợi nhuận đã xử lý xong, mốc để nhận ra tiền mới | không | Tiến trình chia tự ghi |
 | `vault.default_percent_bps` | Tỷ lệ PERCENT điền sẵn khi vault UNSET, phần vạn | 2.000 (20%) | `/vault` |
+| `custody.fireblocks.enabled` | Công tắc Lưu ký Fireblocks cho Mint, Burn của lập duyệt (IN-04); có lịch sử `SystemConfigHistory` | tắt (chưa có dòng) | Công tắc ở đáy menu Giao dịch viên, Kiểm soát viên (mục 3.0). Cấu hình Fireblocks (khoá API, khoá riêng, vault, bảng `FIREBLOCKS_CHAIN_ASSETS`, `FIREBLOCKS_HASH_WAIT_MS`) ở biến môi trường, không ở bảng này |
 | `demo.payment_mint_max_vnd` | Số VNDB tối đa một lần nạp PoC | 1.000.000.000 | `/demo-payment`. Bật tắt bằng biến môi trường `ENABLE_DEMO_PAYMENT_MINT`, không bằng khoá này |
 
 Ba khoá `seller.withdraw_limit_mode`, `seller.withdraw_limit_value`, `seller.withdraw_fee_vnd` của FE-21 đã bị gỡ ở BE-13 (QĐ-H). Dòng cũ trong database để yên, không mã nào đọc.
@@ -1771,7 +1799,7 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | L-09 | `/seller` | Nhãn "Hạn mức còn rút được" là chữ của mô hình FE-21 đã gỡ; giá trị thật là `withdrawable()` của vault | Thấp | FE-28 (đề xuất) |
 | L-11 | `/draft` | Ngày hiệu lực chỉ được lưu; duyệt là thực hiện ngay, không so ngày | Vừa | Chờ Sếp chốt: bỏ trường hay ràng buộc |
 | L-14 | `/transactions` | Lệnh EXECUTING mất mã giao dịch chỉ hiện "Cần đối soát tay" dù máy chủ có `recoverExecutingWithoutTx`; lệnh PLACED không can thiệp được | Vừa | Task mới (cùng nhóm BE-17) |
-| L-15 | `/approvals/[id]` | Không có hộp xác nhận trước "Chấp nhận" (gửi chuỗi ngay); yêu cầu EXECUTING kẹt không có nút xử lý | Vừa | Task mới: xử lý yêu cầu phát hành kẹt không có mã giao dịch |
+| L-15 | `/approvals/[id]` | Không có hộp xác nhận trước "Chấp nhận" (gửi chuỗi ngay); yêu cầu EXECUTING kẹt không có nút xử lý (từ IN-04 gồm cả yêu cầu qua Fireblocks chưa rõ, không khớp) | Vừa | Task mới: xử lý yêu cầu phát hành kẹt (đóng tay có lý do) |
 | L-16 | `/vault` | Mở màn gọi 3 action nối tiếp, ghi 3 dòng sổ | Vừa | PERF-01 |
 | L-17 | `/vault` | `closePeriod` áp tỷ lệ chờ mà không phát `PercentRateSet`, nên "Lịch sử cấu hình" thiếu dòng cho lần áp này | Thấp | Ghi nhận; sửa hợp đồng khi có đợt nâng cấp |
 | L-18 | `/vault`, `/seller/withdraw` | Giao dịch viên bấm được "Đối soát lệnh rút"; sổ ghi `vault:reconcile` dưới vai TELLER và `vault:read` dưới vai SELLER dù hai vai không có quyền đó | Vừa | Task phân quyền (đề xuất gộp vào PERF-01 khi sửa L-01) |
@@ -1864,3 +1892,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 27/10/2026 | `9d87e22` | Dev (Claude) | FIX-01: định danh ví do ngân hàng làm ở màn mới `/wallet-binding` (mục 3.4.9, nhóm menu thu gọn "Nghiệp vụ ẩn" cùng "Nạp VNDB"); bảng `WalletBinding` thay `ProfileWallet`; dữ liệu tài khoản và lệnh của khách hàng chỉ phục vụ ví đã gắn, ví khác báo "Ví chưa được định danh"; `/account` bỏ khối tự nhập ví, ô "Ví thanh toán" có nhãn định danh; Người bán chọn ví nhận ở `/seller/withdraw` (thêm bước đặt ví nhận, trạng thái PAYOUT_*); `/vault` bỏ ô ví nhận. Sửa L-10, L-66, L-67, L-68; cập nhật L-64, L-79. Sửa Phần 1 mục 1.3, 1.7; Phần 2; Phần 3 quy ước chung, mục 3.1.2, 3.2.3, 3.3.1, 3.3.2, 3.4.7, 3.4.8, 3.4.9 (mới), 3.5.1; Phụ lục C |
 | 28/10/2026 | `017ec56` | Dev (Claude) | FE-23: màn `/withdraw` Rút VNDB dùng được (mục 3.1.6 viết lại): Nhà đầu tư chuyển VNDB từ ví đã định danh sang ví nhận đã whitelist, ví trình duyệt ký và trả gas, máy chủ kiểm bằng chứng trên chuỗi theo nhãn lệnh; quyền `payment:withdraw`; bảng `PaymentWithdrawRequest`. Bỏ L-48, L-49 (trang chờ đã thay). Sửa Phần 1 mục 1.9; Phần 2; Phần 3 mục 3.1.6; Phụ lục A (A.3b mới), C |
 | 29/10/2026 | `90995a1` | Dev (Claude) | FIX-02: Nhà đầu tư mặc định chỉ mua (cờ `ENABLE_INVESTOR_SELL`, máy chủ chặn lệnh bán mới, `/trade` không hiện nút Bán); bỏ điều kiện "Không có yêu cầu Mint khác đang chờ", lập được nhiều yêu cầu Mint cùng token; khối cảnh báo vàng ở `/approvals/[id]` khoá nút Chấp nhận khi số liệu token không đủ; Burn "Toàn bộ nguồn cung" tự điền tổng cung, ô chỉ đọc, máy chủ kiểm "Số lượng bằng tổng cung". Bỏ L-12 (điều kiện gây kẹt đã gỡ); L-15 đổi đề xuất. Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1.2, 3.4.2, 3.4.4; Phụ lục C |
+| 29/10/2026 | `d2cf384` | Dev (Claude) | IN-04: ký Mint, Burn của lập duyệt qua Fireblocks (Vault Account) khi công tắc "Lưu ký Fireblocks" bật cho chain trong bảng `FIREBLOCKS_CHAIN_ASSETS`; công tắc ở đáy menu Giao dịch viên, Kiểm soát viên (quyền `custody:toggle`, `SystemConfig` khoá `custody.fireblocks.enabled`); dòng "Thực hiện qua" và đối soát qua Fireblocks ở `/approvals/[id]`; màn chặn vai có nút "Về trang của vai hiện tại". Không dùng TAP; chỉ Mint, Burn. Cập nhật L-15. Sửa Phần 1 mục 1.1, 1.4; Phần 2; Phần 3 mục 3.0 (mới, trỏ runbook `docs/RUNBOOK_FIREBLOCKS.md`), 3.4.4; Phụ lục B, C |
