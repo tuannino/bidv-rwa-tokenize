@@ -28,7 +28,7 @@
 | QĐ-UX-12 | Địa chỉ ví, mã băm, mã yêu cầu và vùng tương tự dùng **Roboto Condensed** (dự phòng Arial Bold), thay cho Roboto Mono (30/10/2026) |
 | QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 6 (mục 3.7) |
 | QĐ-UX-14 | Logo: **phương án A** (logo, vạch mảnh, "RWA" trên "Tokenize Platform") cho trang giới thiệu, tài liệu, slide; **phương án C** (logo trên, "RWA Tokenize Platform" dưới) cho ứng dụng: thanh bên, favicon, thanh thu gọn, ứng dụng di động (30/10/2026). Dưới 40 px chỉ giữ bông mai trên ô xanh ngọc, từ 40 px thêm chữ RWA (chủ dự án đồng ý 31/10/2026) |
-| QĐ-UX-15 | Phong cách là **bản mẫu 6**: nền tin cậy của bản 4, **toàn bộ hiệu ứng của bản 3**, mỗi màn một khối trọng tâm. Khối trọng tâm vẫn là **thẻ trắng**, không tô nền xanh ngọc (bản 5 tô nền, chủ dự án đánh giá giống banner, khó đọc); nổi lên nhờ cỡ số, ánh sáng, chuyển động (31/10/2026). Kiểu điểm nhấn A, B hoặc C chờ chọn |
+| QĐ-UX-15 | Phong cách là **bản mẫu 6, bổ sung nền động ở bản mẫu 7**: nền tin cậy của bản 4, **toàn bộ hiệu ứng của bản 3**, mỗi màn một khối trọng tâm. Khối trọng tâm vẫn là **thẻ trắng**, không tô nền xanh ngọc (bản 5 tô nền, chủ dự án đánh giá giống banner, khó đọc); nổi lên nhờ cỡ số, ánh sáng, chuyển động (31/10/2026). Kiểu điểm nhấn A, B hoặc C chờ chọn |
 
 ---
 
@@ -233,9 +233,15 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
-### 3.7. Bản mẫu 6 (QĐ-UX-15, chờ chọn kiểu điểm nhấn để làm đủ 21 màn)
+### 3.7. Bản mẫu 7 (QĐ-UX-15, chờ chọn kiểu nền và kiểu điểm nhấn để làm đủ 21 màn)
 
-Thư mục `docs/prototypes/20261031_ui_ux_mau_6/` (mở `index.html`): logo A và C, ba kiểu điểm nhấn, ba màn đại diện (Tổng quan điện gió, Phê duyệt lệnh, Tổng quan nhà đầu tư). Thanh "Kiểu điểm nhấn" ở đáy mỗi màn chỉ có trong bản mẫu để so sánh, không đưa vào app. Thay mục 3.0 đến 3.5 cho màn nghiệp vụ:
+Thư mục `docs/prototypes/20261031_ui_ux_mau_7/` (mở `index.html`). Bản 7 giữ toàn bộ bản 6 bên dưới và thêm:
+
+- **Nền động** (`assets/bg.js`, canvas và CSS, không thêm thư viện): đậm ở phần đầu màn, nhạt dần xuống vùng dữ liệu (mask), tạm dừng khi tab ẩn, vẽ khung tĩnh khi bật "giảm chuyển động". Năm kiểu để chọn: (1) cực quang và mạng lưới chuỗi khối (em đề xuất: nút vàng là token, gói tin vàng chạy trên cạnh, chuột kéo nút lại gần); (2) chỉ mạng lưới; (3) chỉ cực quang (mảng màu xanh ngọc, bạc hà, vàng trôi chậm, lớp hạt mịn); (4) dòng gió (hạt trôi theo trường gió); (5) lưới điểm có đèn chiếu theo chuột và vệt quét.
+- **Thẻ kính mờ:** nền thẻ trắng 80% với `backdrop-filter: blur(16px)`, thanh bên 62%; khối trọng tâm 96% để số liệu luôn rõ.
+- Thanh chọn "Nền" và "Kiểu điểm nhấn" ở góc dưới bên phải chỉ có trong bản mẫu, không đưa vào app. Khi đưa vào app: nền động chỉ chạy một kiểu đã chọn, cân nhắc tắt trên máy yếu hoặc khi pin thấp.
+
+Các mục dưới đây là của bản 6, vẫn áp dụng:
 
 - **Nền:** nền #F2F5F4, mọi thẻ đều trắng viền #E0E6E4, chữ #0E1B1A, chữ phụ #4F5D5A (đạt 4,5:1); số căn phải, chữ số đều cột; mỗi màn trả lời một câu hỏi.
 - **Khối trọng tâm** (`.hero`, mỗi màn đúng một): thẻ trắng bo 14 px, số chính 56 px đậm màu xanh ngọc sẫm #01504E, biểu tượng nhỏ cạnh tiêu đề, chấm vàng nhấp nháy cạnh phát hiện của màn. Ba kiểu điểm nhấn để chọn:
@@ -330,4 +336,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
-- Q8. Chọn kiểu điểm nhấn A, B hoặc C của bản mẫu 6 (mục 3.7) và duyệt để áp cho đủ 21 màn.
+- Q8. Chọn kiểu nền (1 đến 5) và kiểu điểm nhấn (A, B, C) của bản mẫu 7 (mục 3.7), duyệt để áp cho đủ 21 màn.

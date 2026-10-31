@@ -207,3 +207,54 @@ tbody tr.go:hover td:first-child { box-shadow: inset 3px 0 0 0 var(--accent); }
   .pre, .pre .w, .pre .kid, .pre .p3d { opacity: 1 !important; }
   .gust, .bgfx svg { display: none; }
 }
+
+/* =====================================================================
+   Bản mẫu 7: nền động (assets/bg.js). Đậm ở phần đầu màn, nhạt dần xuống vùng dữ liệu để bảng, số vẫn dễ đọc.
+   ===================================================================== */
+.bgx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; -webkit-mask-image: linear-gradient(180deg, #000 0, #000 38%, rgba(0, 0, 0, .45) 72%, rgba(0, 0, 0, .3) 100%); mask-image: linear-gradient(180deg, #000 0, #000 38%, rgba(0, 0, 0, .45) 72%, rgba(0, 0, 0, .3) 100%); }
+.bgx > * { position: absolute; inset: 0; opacity: 0; transition: opacity .8s var(--ease-out); }
+.bgx canvas { width: 100%; height: 100%; }
+.bgx[data-mode="net"] canvas, .bgx[data-mode="wind"] canvas, .bgx[data-mode="mix"] canvas, .bgx[data-mode="mix"] .aura { opacity: 1; }
+.bgx[data-mode="mix"] .grain { opacity: .3; }
+.bgx[data-mode="mix"] .aura i { opacity: .75; }
+
+/* Cực quang: bốn mảng màu lớn trôi chậm, phủ lớp hạt mịn cho có chất liệu */
+.bgx[data-mode="aura"] .aura, .bgx[data-mode="aura"] .grain { opacity: 1; }
+.aura i { position: absolute; border-radius: 50%; filter: blur(70px); mix-blend-mode: multiply; animation: bgFloat 22s ease-in-out infinite alternate; }
+.aura i:nth-child(1) { width: 62vw; height: 62vw; left: -12vw; top: -34vw; background: radial-gradient(circle, rgba(10, 133, 128, .42), transparent 65%); }
+.aura i:nth-child(2) { width: 46vw; height: 46vw; right: -8vw; top: -18vw; background: radial-gradient(circle, rgba(254, 198, 41, .38), transparent 65%); animation-duration: 28s; animation-delay: -6s; }
+.aura i:nth-child(3) { width: 40vw; height: 40vw; left: 30vw; top: 4vw; background: radial-gradient(circle, rgba(126, 214, 196, .40), transparent 65%); animation-duration: 25s; animation-delay: -12s; }
+.aura i:nth-child(4) { width: 36vw; height: 36vw; left: 62vw; top: 24vw; background: radial-gradient(circle, rgba(1, 80, 78, .22), transparent 65%); animation-duration: 31s; }
+[data-theme="dark"] .aura i { mix-blend-mode: screen; opacity: .55; }
+@keyframes bgFloat { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(6vw, 4vw) scale(1.12); } 100% { transform: translate(-4vw, 7vw) scale(.94); } }
+.grain { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); mix-blend-mode: soft-light; }
+.bgx[data-mode="aura"] .grain { opacity: .35; }
+
+/* Lưới điểm và đèn chiếu theo chuột, vệt quét ngang chậm */
+.bgx[data-mode="grid"] .dotgrid, .bgx[data-mode="grid"] .dotlit, .bgx[data-mode="grid"] .scan { opacity: 1; }
+.dotgrid { background-image: radial-gradient(rgba(1, 107, 105, .26) 1.1px, transparent 1.4px); background-size: 22px 22px; -webkit-mask-image: radial-gradient(120% 90% at 60% 0%, #000 30%, transparent 85%); mask-image: radial-gradient(120% 90% at 60% 0%, #000 30%, transparent 85%); }
+.dotlit { background-image: radial-gradient(rgba(1, 107, 105, .9) 1.3px, transparent 1.6px), radial-gradient(260px circle at var(--px, -500px) var(--py, -500px), rgba(254, 198, 41, .16), transparent 70%); background-size: 22px 22px, 100% 100%; -webkit-mask-image: radial-gradient(220px circle at var(--px, -500px) var(--py, -500px), #000, transparent 75%); mask-image: radial-gradient(220px circle at var(--px, -500px) var(--py, -500px), #000, transparent 75%); }
+.scan { background: linear-gradient(90deg, transparent, rgba(10, 133, 128, .10) 45%, rgba(254, 198, 41, .12) 50%, rgba(10, 133, 128, .10) 55%, transparent); width: 40%; inset: 0 auto 0 -40%; animation: bgScan 11s linear infinite; }
+@keyframes bgScan { to { left: 120%; } }
+[data-theme="dark"] .dotgrid { background-image: radial-gradient(rgba(111, 216, 208, .22) 1.1px, transparent 1.4px); }
+
+/* Thanh chọn: hai nhóm, Nền và Kiểu điểm nhấn */
+.picker .sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
+.picker { flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); left: auto; right: 16px; translate: none; bottom: 14px; padding: 6px 6px 6px 14px; font-size: 12px; }
+.picker .seg button { height: 26px; padding: 0 10px; font-size: 12px; }
+@media (min-width: 1101px) { .picker { max-width: none; flex-wrap: nowrap; } }
+@media (max-width: 900px) { .picker > span { display: none; } .picker .seg button { padding: 0 8px; font-size: 12px; } }
+@media (prefers-reduced-motion: reduce) { .aura i, .scan { animation: none !important; } }
+
+/* Thẻ kính mờ: nền động lộ ra mềm qua mọi thẻ, chữ vẫn trên nền gần trắng nên dễ đọc */
+.panel { background: rgba(255, 255, 255, .80); -webkit-backdrop-filter: blur(16px) saturate(1.35); backdrop-filter: blur(16px) saturate(1.35); border-color: rgba(1, 64, 63, .09); box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 10px 30px -22px rgba(1, 64, 63, .35); }
+[data-theme="dark"] .panel { background: rgba(17, 23, 23, .78); border-color: rgba(255, 255, 255, .07); box-shadow: none; }
+[data-hero="edge"] .hero { background: linear-gradient(rgba(255, 255, 255, .96), rgba(255, 255, 255, .96)) padding-box, conic-gradient(from var(--ang), var(--border) 0deg, var(--border) 200deg, #0a8580 270deg, #fec629 310deg, var(--border) 350deg) border-box; }
+[data-theme="dark"][data-hero="edge"] .hero { background: linear-gradient(rgba(17, 23, 23, .9), rgba(17, 23, 23, .9)) padding-box, conic-gradient(from var(--ang), var(--border) 0deg, var(--border) 200deg, #3fb6ae 270deg, #fec629 310deg, var(--border) 350deg) border-box; }
+.sidebar { background: rgba(242, 245, 244, .62); -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
+[data-theme="dark"] .sidebar { background: rgba(10, 14, 14, .62); }
+.switch-btn { background: rgba(255, 255, 255, .7); }
+[data-theme="dark"] .switch-btn { background: rgba(17, 23, 23, .7); }
+/* Phần đầu màn rộng hơn để nền động có chỗ thể hiện */
+.canvas > .titlerow { padding: 18px 0 30px; margin-bottom: 8px; }
+.canvas > .crumb { margin-top: 10px; }
