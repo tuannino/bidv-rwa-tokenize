@@ -26,7 +26,7 @@
 | QĐ-UX-10 | Hệ thống phải "mượt": chuyển động mềm theo kiểu lò xo (spring), có vi tương tác khi rê chuột và bấm, icon đẹp hơn (mục 3.3, 3.4) |
 | QĐ-UX-11 | **Font chữ thương hiệu Roboto** cho toàn bộ dự án (theo bộ nhận diện BIDV, ngày 29/10/2026): Light 300, Regular 400, Medium 500, Bold 700 và các bản nghiêng. Thay cho Be Vietnam Pro của bản 2, bản 3 |
 | QĐ-UX-12 | Địa chỉ ví, mã băm, mã yêu cầu và vùng tương tự dùng **Roboto Condensed** (dự phòng Arial Bold), thay cho Roboto Mono (30/10/2026) |
-| QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 5 (mục 3.7) |
+| QĐ-UX-13 | **Màu thương hiệu là xanh ngọc đậm** của logo BIDV (#016B69), vàng bông mai #FEC629; thay tông lục của bản 1 đến bản 3 (30/10/2026). Bảng màu chi tiết theo bản mẫu 6 (mục 3.7) |
 | QĐ-UX-14 | Logo: **phương án A** (logo, vạch mảnh, "RWA" trên "Tokenize Platform") cho trang giới thiệu, tài liệu, slide; **phương án C** (logo trên, "RWA Tokenize Platform" dưới) cho ứng dụng: thanh bên, favicon, thanh thu gọn, ứng dụng di động (30/10/2026). Dưới 40 px chỉ giữ bông mai trên ô xanh ngọc, từ 40 px thêm chữ RWA (chủ dự án đồng ý 31/10/2026) |
 | QĐ-UX-15 | Phong cách là **bản mẫu 6**: nền tin cậy của bản 4, **toàn bộ hiệu ứng của bản 3**, mỗi màn một khối trọng tâm. Khối trọng tâm vẫn là **thẻ trắng**, không tô nền xanh ngọc (bản 5 tô nền, chủ dự án đánh giá giống banner, khó đọc); nổi lên nhờ cỡ số, ánh sáng, chuyển động (31/10/2026). Kiểu điểm nhấn A, B hoặc C chờ chọn |
 
@@ -135,7 +135,7 @@ Mục menu đang chọn: nền mực, icon vàng (Light); nền vàng, chữ đe
 
 - Font **Roboto** theo bộ nhận diện BIDV, chỉ dùng bốn độ đậm có trong bộ nhận diện: Light 300 (chữ phụ cỡ lớn nếu cần), Regular 400 (chữ thường), Medium 500 (nhãn, nút, tiêu đề thẻ, mục menu), Bold 700 (tiêu đề màn, tiêu đề mục, số KPI). **Không dùng 600, 800, 900** (bản 2 dùng 600, 800 với Be Vietnam Pro, đã quy về 500 và 700). Nghiêng chỉ dùng khi cần nhấn trích dẫn.
 - Cỡ chữ: tiêu đề màn 28 px/700; tiêu đề thẻ 16 px/500; số KPI 28 px/700, ô nổi bật 48 px; chữ thường 14 px; nhãn phụ 12 px. Không chữ dưới 11 px. Không chữ hoa giãn chữ. Tiêu đề lớn giãn chữ âm tối đa -0,02 em (Roboto hẹp hơn Be Vietnam Pro, giãn âm hơn sẽ dính chữ có dấu).
-- **Roboto Condensed** weight 500 (QĐ-UX-12, dự phòng Arial Bold) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật; hẹp nên hiện đủ 42 ký tự địa chỉ ví trên một dòng. Trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02. (Bản mẫu C cũ còn dùng Roboto Mono; bản mẫu 5 đã đổi.)
+- **Roboto Condensed** weight 500 (QĐ-UX-12, dự phòng Arial Bold) chỉ cho chuỗi cần dò từng ký tự: địa chỉ ví, mã băm, UUID, mã kỹ thuật; hẹp nên hiện đủ 42 ký tự địa chỉ ví trên một dòng. Trong app, Kiro thay các `font-mono` đang có theo quy tắc ở UX-02. (Bản mẫu C cũ còn dùng Roboto Mono; bản mẫu 6 đã đổi.)
 - Bo góc: thẻ 28 px (điện thoại 22 px), khối trong 18 px, ô nhập 14 px, nút và dropdown bo tròn hoàn toàn.
 - Lưới bento 12 cột, khe 16 px, lề trang 32 px (điện thoại 16 px). Mỗi màn có một ô nổi bật xanh (con số chính) và tối đa một ô vàng nhạt.
 - Bề mặt phẳng, không viền thẻ; bóng chỉ khi rê chuột và cho lớp nổi (menu, hộp thoại).
