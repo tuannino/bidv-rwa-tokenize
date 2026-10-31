@@ -144,18 +144,20 @@
       </div>
       <nav class="nav" id="nav"><span class="pill-act" aria-hidden="true"></span><span class="pill-hov" aria-hidden="true"></span>${navHtml}</nav>
       <div class="side-foot">
+        <div class="foot-row">
         <div class="switch up net" data-switch="chain">
-          <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span class="tx"><small>Chain</small><b id="chain-v" title="${ch()[1]}">${ch()[2]}</b></span>${icon('chev', 'chev')}</button>
-          <ul class="menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span>${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul>
+            <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span class="tx"><small>Chain</small><b id="chain-v" title="${ch()[1]}">${ch()[2]}</b></span>${icon('chev', 'chev')}</button>
+            <ul class="menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span>${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul>
+          </div>
+          <button class="collapse" type="button" id="rail" aria-label="Thu gọn thanh điều hướng" title="Thu gọn" aria-pressed="false">${icon('collapse')}</button>
         </div>
-        <button class="collapse" type="button" id="rail" aria-label="Thu gọn thanh điều hướng" aria-pressed="false">${icon('collapse')}<span>Thu gọn</span></button>
       </div>
     </aside>
     <div class="work">
       <header class="topbar" id="topbar">
         <button class="btn ghost icon menu-open" type="button" id="menu-open" aria-label="Mở menu" aria-controls="sb">${icon('menu')}</button>
         <span class="tb-logo" aria-hidden="true">${window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: 16 })}<small><b>RWA</b> Tokenize Platform</small></span>
-        <div class="tb-title" aria-hidden="true">${body.dataset.icon3d ? `<span class="tb-ic"><img src="assets/3d/${body.dataset.icon3d}.webp" alt="" width="22" height="22"></span>` : ''}<span class="tb-tx"><small>${(canvas.querySelector('.crumb')?.textContent || ROLES[role].label).trim()}</small><b>${(canvas.querySelector('h1')?.textContent || document.title).trim()}</b></span></div>
+        <div class="tb-title" aria-hidden="true"><b>${(canvas.querySelector('h1')?.textContent || document.title).trim()}</b></div>
         <div class="tb-right">
           <button class="btn gold wallet-btn" type="button">${icon('wallet')}<span>Kết nối ví</span></button>
           <button class="btn icon theme-btn" type="button" id="theme" aria-label="Đổi giao diện sáng tối"><span class="i-moon">${icon('moon')}</span><span class="i-sun">${icon('sun')}</span></button>
@@ -222,7 +224,7 @@
   // và hiện lại gọn trong thanh đầu, thanh đầu có nền trầm mờ. Tiến độ p (0 đến 1) đi theo cuộn, làm mượt bằng nội suy.
   const tr = canvas.querySelector('.titlerow');
   let pT = 0, pC = 0, praf = 0;
-  const range = () => (tr ? tr.offsetTop + tr.offsetHeight - 40 : 120);
+  const range = () => (tr ? tr.offsetTop + tr.offsetHeight - 30 : 100);
   const tickP = () => { pC += (pT - pC) * (reduce ? 1 : .2); if (Math.abs(pT - pC) < .002) pC = pT; root.style.setProperty('--hp', pC.toFixed(3)); document.getElementById('topbar').classList.toggle('on', pC > .5); praf = pC !== pT ? requestAnimationFrame(tickP) : 0; };
   const onScroll = () => { pT = Math.max(0, Math.min(1, scrollY / Math.max(60, range()))); if (!praf) praf = requestAnimationFrame(tickP); };
   addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll); onScroll();

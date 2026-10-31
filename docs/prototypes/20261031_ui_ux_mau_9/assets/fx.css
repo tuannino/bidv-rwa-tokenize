@@ -329,3 +329,34 @@ body.rail { --sidebar-width: 76px; }
 /* Viền sáng: bỏ quầng sáng lan vào trong thẻ (thẻ là ngữ cảnh xếp lớp riêng), thay bằng bóng màu tĩnh bên ngoài */
 [data-hero="edge"] .hero::before { content: none; }
 [data-hero="edge"] .hero { box-shadow: 0 30px 60px -38px rgba(10, 133, 128, .55), 0 22px 44px -36px rgba(254, 198, 41, .45); }
+
+/* =====================================================================
+   Bản mẫu 9: thanh đầu thấp hơn (44 px), chỉ tên màn, nền xanh trầm đậm; nút thu gọn chỉ biểu tượng, nằm bên phải hộp Chain
+   ===================================================================== */
+.topbar { height: 44px; gap: 10px;
+  background: rgba(3, 46, 45, calc(var(--hp, 0) * .9));
+  box-shadow: 0 10px 28px -18px rgba(1, 40, 39, calc(var(--hp, 0) * .9)); }
+[data-theme="dark"] .topbar { background: rgba(2, 30, 29, calc(var(--hp, 0) * .92)); }
+.topbar::after { opacity: calc(var(--hp, 0) * .9); }
+.tb-title { gap: 10px; }
+.tb-title b { color: #fff; font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-title::before { content: ""; width: 3px; height: 16px; border-radius: 3px; background: linear-gradient(180deg, #3fb6ae, #fec629); flex: none; }
+.tb-right .btn { height: 30px; padding: 0 12px; font-size: 13px; }
+.tb-right .btn svg { width: 15px; height: 15px; }
+.theme-btn { width: 30px; padding: 0 !important; }
+.topbar.on .theme-btn { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .2); color: #fff; }
+.topbar.on .wallet-btn { box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .6); }
+.canvas > .titlerow { padding-top: 14px; }
+
+.foot-row { display: flex; align-items: center; gap: 6px; }
+.foot-row .switch { flex: 1; min-width: 0; }
+.collapse { flex: none; width: 36px; height: 36px; padding: 0; margin: 0; justify-content: center; border: 1px solid var(--border); background: rgba(255, 255, 255, .6); }
+[data-theme="dark"] .collapse { background: rgba(17, 23, 23, .6); }
+.rail .foot-row { flex-direction: column; gap: 8px; }
+.rail .foot-row .switch { width: 100%; }
+
+@media (max-width: 1100px) {
+  .topbar { height: 46px; background: rgba(3, 46, 45, calc(.04 + var(--hp, 0) * .86)); }
+  .tb-logo { left: 56px; }
+  .topbar.on .menu-open { color: #fff; }
+}
