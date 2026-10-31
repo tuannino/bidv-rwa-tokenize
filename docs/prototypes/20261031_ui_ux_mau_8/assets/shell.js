@@ -56,6 +56,7 @@
     loader: '<path d="M21 12a9 9 0 1 1-6.22-8.56"/>',
     key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    collapse: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M16 15l-3-3 3-3"/>',
     eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
   };
   // ===== Hằng số theo app thật (nav-config.ts), giữ nguyên menu từng vai =====
@@ -124,9 +125,11 @@
     ico.href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${L.flower}"/></svg>`);
     document.head.appendChild(ico); }
   const logo = (h = 26) => window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: h });
+  // Logo C ở cỡ biểu tượng (chủ dự án đồng ý 31/10/2026): bông mai trên ô xanh ngọc, dùng khi thanh bên thu gọn.
+  const markTile = (sz) => { const m = window.BIDV.LOGO.mark, pad = m[3] * .16; return `<svg viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}" width="${sz}" height="${sz}" aria-hidden="true"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${window.BIDV.LOGO.flower}"/></svg>`; };
   const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(([href, label, ic, pend]) => {
     const on = body.dataset.nav === href, built = BUILT.includes(href), c = pend ? PENDING[pend] : null;
-    return `<a href="${built ? withRole(href) : '#'}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Bản mẫu 4 chưa dựng màn này"'}>${icon(ic)}<span>${label}</span>${c ? `<span class="cnt" aria-label="${c} yêu cầu đang chờ">${c}</span>` : ''}</a>`;
+    return `<a href="${built ? withRole(href) : '#'}" data-tip="${label}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Bản mẫu 4 chưa dựng màn này"'}>${icon(ic)}<span>${label}</span>${c ? `<span class="cnt" aria-label="${c} yêu cầu đang chờ">${c}</span>` : ''}</a>`;
   }).join('')}`).join('');
   const ch = () => CHAINS.find(([v]) => v === chain) || CHAINS[0];
   const app = document.createElement('div');
@@ -134,7 +137,7 @@
   app.innerHTML = `
     <aside class="sidebar" id="sb" aria-label="Điều hướng">
       <button class="btn ghost icon close" type="button" id="sb-close" aria-label="Đóng menu">${icon('x')}</button>
-      <a class="brand" href="index.html" aria-label="BIDV RWA Tokenize Platform, về bảng duyệt bản mẫu">${logo(26)}<span class="prod"><b>RWA</b>Tokenize Platform</span></a>
+      <a class="brand" href="index.html" aria-label="BIDV RWA Tokenize Platform, về bảng duyệt bản mẫu"><span class="full">${logo(26)}<span class="prod"><b>RWA</b>Tokenize Platform</span></span><span class="mini">${markTile(40)}</span></a>
       <div class="switch" data-switch="role">
         <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="av">${ROLES[role].ini}</span><span class="tx"><small>Vai trò, ${ROLES[role].code}</small><b>${ROLES[role].label}</b></span>${icon('chev', 'chev')}</button>
         <ul class="menu" role="listbox" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<li role="option" tabindex="-1" data-v="${k}" aria-selected="${k === role}"><span><span>${r.label}</span><small>${r.code}</small></span>${icon('check', 'ok')}</li>`).join('')}</ul>
@@ -145,14 +148,19 @@
           <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span class="tx"><small>Chain</small><b id="chain-v" title="${ch()[1]}">${ch()[2]}</b></span>${icon('chev', 'chev')}</button>
           <ul class="menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span>${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul>
         </div>
-        <div class="foot-row">
-          <button class="btn" type="button">${icon('wallet')}Kết nối ví</button>
-          <button class="btn icon" type="button" id="theme" aria-label="Đổi giao diện sáng tối">${icon('moon')}</button>
-        </div>
+        <button class="collapse" type="button" id="rail" aria-label="Thu gọn thanh điều hướng" aria-pressed="false">${icon('collapse')}<span>Thu gọn</span></button>
       </div>
     </aside>
     <div class="work">
-      <div class="mbar"><button class="btn ghost icon" type="button" id="menu-open" aria-label="Mở menu" aria-controls="sb">${icon('menu')}</button><span class="mlogo">${window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: 16 })}<small><b>RWA</b> Tokenize Platform</small></span><span class="t">${document.title}</span></div>
+      <header class="topbar" id="topbar">
+        <button class="btn ghost icon menu-open" type="button" id="menu-open" aria-label="Mở menu" aria-controls="sb">${icon('menu')}</button>
+        <span class="tb-logo" aria-hidden="true">${window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: 16 })}<small><b>RWA</b> Tokenize Platform</small></span>
+        <div class="tb-title" aria-hidden="true">${body.dataset.icon3d ? `<span class="tb-ic"><img src="assets/3d/${body.dataset.icon3d}.webp" alt="" width="22" height="22"></span>` : ''}<span class="tb-tx"><small>${(canvas.querySelector('.crumb')?.textContent || ROLES[role].label).trim()}</small><b>${(canvas.querySelector('h1')?.textContent || document.title).trim()}</b></span></div>
+        <div class="tb-right">
+          <button class="btn gold wallet-btn" type="button">${icon('wallet')}<span>Kết nối ví</span></button>
+          <button class="btn icon theme-btn" type="button" id="theme" aria-label="Đổi giao diện sáng tối"><span class="i-moon">${icon('moon')}</span><span class="i-sun">${icon('sun')}</span></button>
+        </div>
+      </header>
     </div>`;
   canvas.replaceWith(app);
   app.querySelector('.work').appendChild(canvas);
@@ -198,6 +206,26 @@
 
   document.getElementById('theme').addEventListener('click', (e) => swapTheme(e.currentTarget));
   document.getElementById('menu-open').addEventListener('click', () => body.classList.add('menu-open'));
+
+  // Thu gọn thanh bên thành dải biểu tượng (như ảnh mẫu chủ dự án gửi); nhớ lựa chọn cho lần sau.
+  const railBtn = document.getElementById('rail');
+  const setRail = (on, jump) => {
+    body.classList.toggle('rail', on); railBtn.setAttribute('aria-pressed', String(on));
+    railBtn.setAttribute('aria-label', on ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'); railBtn.title = on ? 'Mở rộng' : 'Thu gọn';
+    try { localStorage.setItem('bidv-rail', on ? '1' : '0'); } catch {}
+    placeA(cur, true); setTimeout(() => placeA(cur, true), 480);
+  };
+  try { if (localStorage.getItem('bidv-rail') === '1') setRail(true, true); } catch {}
+  railBtn.addEventListener('click', () => setRail(!body.classList.contains('rail')));
+
+  // Thanh đầu trang: ở đầu trang chỉ có nút ví và sáng tối; cuộn qua tiêu đề thì tiêu đề lớn thu nhỏ, mờ dần
+  // và hiện lại gọn trong thanh đầu, thanh đầu có nền trầm mờ. Tiến độ p (0 đến 1) đi theo cuộn, làm mượt bằng nội suy.
+  const tr = canvas.querySelector('.titlerow');
+  let pT = 0, pC = 0, praf = 0;
+  const range = () => (tr ? tr.offsetTop + tr.offsetHeight - 40 : 120);
+  const tickP = () => { pC += (pT - pC) * (reduce ? 1 : .2); if (Math.abs(pT - pC) < .002) pC = pT; root.style.setProperty('--hp', pC.toFixed(3)); document.getElementById('topbar').classList.toggle('on', pC > .5); praf = pC !== pT ? requestAnimationFrame(tickP) : 0; };
+  const onScroll = () => { pT = Math.max(0, Math.min(1, scrollY / Math.max(60, range()))); if (!praf) praf = requestAnimationFrame(tickP); };
+  addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll); onScroll();
   document.getElementById('sb-close').addEventListener('click', () => body.classList.remove('menu-open'));
 
   // Nút chuyển có viên nang trắng trượt theo lò xo.

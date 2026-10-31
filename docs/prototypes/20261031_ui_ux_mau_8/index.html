@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>20261031_ban_mau_7_xanh_ngoc</title>
+<title>20261031_ban_mau_8_xanh_ngoc</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Condensed:wght@500&display=swap">
 <link rel="stylesheet" href="assets/brand.css">
@@ -43,7 +43,7 @@
   .bgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .bgs figure { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
   .bgs figure.rec { grid-column: span 2; grid-row: span 2; box-shadow: 0 0 0 2px var(--bidv-teal); display: grid; grid-template-rows: minmax(0, 1fr) auto; }
-  .bgs figure.rec img { height: 100%; object-fit: cover; object-position: top left; }
+  .bgs figure.rec img { height: 100%; object-fit: contain; object-position: top center; background: #e7eeec; }
   .bgs img { width: 100%; height: auto; display: block; }
   .bgs figcaption { padding: 12px 14px 14px; color: var(--muted); font-size: 13px; line-height: 19px; }
   .bgs figcaption b { display: block; color: var(--text); font-weight: 500; font-size: 14px; margin-bottom: 4px; }
@@ -64,47 +64,36 @@
   <div class="head">
     <div>
       <div class="brandline" id="brandline"></div>
-      <h1>Bản mẫu 7: nền động, thẻ kính mờ, trọng tâm phát sáng</h1>
-      <p>Thêm một lớp nền động phía sau toàn bộ màn hình: đậm ở phần đầu màn, nhạt dần xuống vùng bảng và số liệu để vẫn dễ đọc. Các thẻ chuyển sang kính mờ (nền trắng 80%, làm mờ phía sau) nên nền động lộ ra mềm qua mọi thẻ. Có 5 kiểu nền và 3 kiểu điểm nhấn để Sếp phối và chọn; đổi trực tiếp bằng thanh ở góc dưới bên phải mỗi màn.</p>
+      <h1>Bản mẫu 8: nền mạng lưới, thanh đầu co giãn, thanh bên thu gọn</h1>
+      <p>Theo góp ý ngày 31/10/2026: chỉ dùng nền mạng lưới; khối trọng tâm giữ kiểu viền sáng; "Kết nối ví" và nút sáng tối về lại góc trên bên phải; Vai trò giữ ở đầu thanh bên, Chain ở góc dưới bên trái; thanh đầu trang giữ lại khi cuộn; thêm nút thu gọn thanh bên ở đáy.</p>
     </div>
     <aside class="ask" aria-label="Cần Sếp chốt">
       <h2>Cần Sếp chốt</h2>
       <ol>
-        <li><b>Chọn kiểu nền</b> trong 5 kiểu (mục 1).</li>
-        <li><b>Chọn kiểu điểm nhấn</b> A, B hoặc C (mục 2).</li>
+        <li><b>Xem thử thanh đầu</b>: mở một màn rồi cuộn xuống.</li>
+        <li><b>Xem thử thu gọn</b>: bấm "Thu gọn" ở đáy thanh bên.</li>
         <li><b>Duyệt</b> để em làm đủ 21 màn.</li>
       </ol>
     </aside>
   </div>
 
-  <h2 class="sec">1. Năm kiểu nền động</h2>
-  <p class="sec">Ảnh chỉ là một khung hình; mở màn để thấy chuyển động thật (rê chuột để thấy nền phản ứng).</p>
+  <h2 class="sec">1. Thanh đầu trang và thanh bên</h2>
+  <p class="sec">Ở đầu trang chỉ thấy tiêu đề lớn và hai nút ví, sáng tối ở góc phải. Cuộn qua tiêu đề thì tiêu đề lớn thu nhỏ, mờ và nhoè dần; cùng lúc thanh đầu hiện nền trầm mờ (từ trong suốt lên 72%), viền dưới chuyển xanh ngọc sang vàng, và tên trang gọn (biểu tượng, nhóm, tên màn) trượt vào bên trái. Người dùng luôn biết mình đang ở trang nào.</p>
   <div class="bgs">
-    <figure class="rec"><img src="img/bg-mix.webp" alt="Nền cực quang và mạng lưới" width="720" height="280"><figcaption><b>1. Cực quang + mạng lưới (em đề xuất)</b>Mảng màu xanh ngọc, bạc hà, vàng trôi chậm phía sau; mạng lưới chuỗi khối phía trước: nút vàng là token, gói tin vàng chạy trên cạnh, chuột kéo các nút lại gần. Nói đúng câu chuyện "tài sản thật lên chuỗi".</figcaption></figure>
-    <figure><img src="img/bg-net.webp" alt="Nền mạng lưới" width="720" height="280"><figcaption><b>2. Mạng lưới</b>Chỉ có mạng lưới chuỗi khối trên nền sáng; gọn, đậm chất công nghệ.</figcaption></figure>
-    <figure><img src="img/bg-aura.webp" alt="Nền cực quang" width="720" height="280"><figcaption><b>3. Cực quang</b>Chỉ có các mảng màu trôi chậm và lớp hạt mịn; mềm, sang, ít "kỹ thuật".</figcaption></figure>
-    <figure><img src="img/bg-wind.webp" alt="Nền dòng gió" width="720" height="280"><figcaption><b>4. Dòng gió</b>Hàng nghìn hạt trôi theo trường gió, để lại vệt mảnh; gắn với điện gió.</figcaption></figure>
-    <figure><img src="img/bg-grid.webp" alt="Nền lưới điểm" width="720" height="280"><figcaption><b>5. Lưới điểm</b>Lưới chấm mờ, đèn chiếu đi theo chuột, một vệt sáng quét ngang chậm.</figcaption></figure>
-    <figure><img src="img/bg-mixd.webp" alt="Nền cực quang và mạng lưới ở giao diện tối" width="720" height="280"><figcaption><b>Giao diện tối</b>Kiểu 1 ở chế độ tối: mạng lưới sáng hơn, cực quang chuyển sang hoà màu sáng.</figcaption></figure>
+    <figure class="rec"><img src="img/scrolled.webp" alt="Thanh đầu trang khi đã cuộn xuống" width="960" height="600"><figcaption><b>Khi cuộn xuống</b>Tên màn nằm gọn bên trái thanh đầu, "Kết nối ví" và nút sáng tối bên phải; nội dung trôi mờ phía dưới thanh.</figcaption></figure>
+    <figure><img src="img/rail.webp" alt="Thanh bên thu gọn" width="960" height="600"><figcaption><b>Thanh bên thu gọn</b>Dải biểu tượng 76 px, logo C ở cỡ biểu tượng, số việc chờ thành chấm nhỏ trên icon, rê chuột hiện tên mục. Lựa chọn được nhớ cho lần sau.</figcaption></figure>
+    <figure><img src="img/mobile.webp" alt="Ba trạng thái thanh đầu trên điện thoại" width="605" height="422"><figcaption><b>Điện thoại</b>Thanh đầu có nút mở menu, logo C khi ở đầu trang, tên màn khi cuộn; nút ví chỉ còn biểu tượng.</figcaption></figure>
   </div>
 
-  <h2 class="sec">2. Ba kiểu điểm nhấn cho khối trọng tâm</h2>
-  <p class="sec">Cùng nội dung, cùng thẻ trắng; chỉ khác cách làm khối trọng tâm nổi lên. Mở một màn rồi bấm thanh "Kiểu điểm nhấn" ở góc dưới bên phải để xem chuyển động thật.</p>
-  <div class="heroes">
-    <figure><img src="img/hero-edge.webp" alt="Kiểu A, viền sáng chạy" width="760" height="173"><figcaption><b>A. Viền sáng (em đề xuất)</b>Một vệt sáng xanh ngọc nối vàng chạy chậm quanh viền thẻ, quầng sáng mềm hắt ra ngoài. Mắt bị hút vào nhờ chuyển động nhẹ, nội dung bên trong vẫn sạch.</figcaption></figure>
-    <figure><img src="img/hero-lift.webp" alt="Kiểu B, nổi khối" width="760" height="173"><figcaption><b>B. Nổi khối</b>Thẻ nhấc cao hơn mặt phẳng bằng bóng nhiều lớp, mép trên có vạch chuyển xanh ngọc sang vàng, thẻ nghiêng nhẹ theo chuột và con số nổi lên trước.</figcaption></figure>
-    <figure><img src="img/hero-rail.webp" alt="Kiểu C, đèn nền" width="760" height="173"><figcaption><b>C. Đèn nền</b>Vạch xanh ngọc chuyển vàng ở mép trái, lưới chấm mờ ở góc, một quầng sáng nhạt sau con số chính đi theo chuột.</figcaption></figure>
-  </div>
-
-  <h2 class="sec">3. Ba màn đại diện</h2>
-  <p class="sec">Bấm để mở bản chạy được. Thử: rê chuột trên menu trái và trên khối trọng tâm, bấm nút, đổi sáng tối ở cuối thanh bên, cuộn để thấy các khối lướt vào.</p>
+  <h2 class="sec">2. Ba màn đại diện</h2>
+  <p class="sec">Bấm để mở bản chạy được. Thử: cuộn trang, rê chuột trên menu trái và trên khối trọng tâm, bấm nút, đổi sáng tối ở góc trên bên phải, thu gọn thanh bên.</p>
   <div class="shots">
     <a class="shot" href="dashboard.html?role=teller"><img src="img/dash.webp" alt="Màn Tổng quan điện gió của Giao dịch viên" width="960" height="600"><div class="cap"><b>Tổng quan điện gió, Giao dịch viên</b><span>Lợi tức 86,4 tỷ to nhất màn. Bốn chặng nối bằng vạch đứt chạy và chấm sáng; dưới đáy thẻ là "dòng chảy" xanh ngọc sang vàng có hạt sáng trôi theo hướng tiền.</span></div></a>
     <a class="shot" href="approvals.html?role=controller"><img src="img/appr.webp" alt="Màn Phê duyệt lệnh của Kiểm soát viên" width="960" height="600"><div class="cap"><b>Phê duyệt lệnh, Kiểm soát viên</b><span>Số đang chờ to nhất; yêu cầu chờ lâu nhất nằm trong ô vàng nhạt kèm nút vàng "Xem và duyệt".</span></div></a>
     <a class="shot" href="portfolio.html?role=investor"><img src="img/port.webp" alt="Màn Tổng quan nhà đầu tư" width="960" height="600"><div class="cap"><b>Tổng quan nhà đầu tư</b><span>WPT đang giữ to nhất; giá trị quy đổi, địa chỉ ví Roboto Condensed và thẻ "Đã KYC" ngay dưới.</span></div></a>
   </div>
 
-  <h2 class="sec">4. Logo đã chốt</h2>
+  <h2 class="sec">3. Logo đã chốt</h2>
   <p class="sec">A cho trang giới thiệu, tài liệu, slide; C cho ứng dụng. Logo BIDV vector hoá tạm từ ảnh Sếp gửi, thay bằng SVG chính thức khi có.</p>
   <div class="logo-row">
     <a class="shot" href="logos.html"><img src="img/logos.webp" alt="Logo BIDV RWA Tokenize Platform, phương án A và C" width="760" height="653"><div class="cap"><b>Xem logo ở cỡ thật<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></b><span>Nền xanh ngọc, nền trắng, trong thanh bên và ở cỡ biểu tượng 16 đến 64 px.</span></div></a>
@@ -112,15 +101,15 @@
       <header><h2>Dùng ở đâu</h2></header>
       <ul>
         <li><b>A</b>: trang giới thiệu, tài liệu, slide.</li>
-        <li><b>C</b>: thanh bên ứng dụng (bản mẫu 7 đang dùng), thanh trên điện thoại.</li>
+        <li><b>C</b>: thanh bên ứng dụng (bản mẫu 8 đang dùng), thanh trên điện thoại.</li>
         <li><b>C ở cỡ biểu tượng</b>: favicon, thanh thu gọn, biểu tượng ứng dụng di động. Dưới 40 px chỉ còn bông mai trên ô xanh ngọc; từ 40 px có thêm chữ RWA (Sếp đã đồng ý).</li>
         <li><b>B</b>: không dùng.</li>
       </ul>
     </section>
   </div>
 
-  <h2 class="sec">5. Hiệu ứng giữ từ bản 3</h2>
-  <section class="panel"><p class="muted">Cơn gió quét khi mở trang; tiêu đề hiện từng từ; biểu tượng 3D nảy ra; khối trọng tâm mở từ trái sang; các khối khác lướt lên theo hướng gió, dòng bảng hiện lần lượt; số lăn như đồng hồ; cột biểu đồ mọc bằng lò xo; viên nang menu kéo giãn và trượt sang mục mới khi đổi trang; ánh sáng theo chuột trên thẻ; thẻ nhấc lên khi rê; nút chính hút nhẹ theo con trỏ, nhún và gợn sóng khi bấm; icon vẽ lại nét; đổi sáng tối bằng vòng tròn lan. Mọi chuyển động chạy bằng đường cong lò xo, tắt hết khi người dùng bật "giảm chuyển động".</p></section>
+  <h2 class="sec">4. Hiệu ứng</h2>
+  <section class="panel"><p class="muted">Cơn gió quét khi mở trang; tiêu đề hiện từng từ; biểu tượng 3D nảy ra; khối trọng tâm mở từ trái sang; các khối khác lướt lên theo hướng gió, dòng bảng hiện lần lượt; số lăn như đồng hồ; cột biểu đồ mọc bằng lò xo; viên nang menu kéo giãn và trượt sang mục mới khi đổi trang; ánh sáng theo chuột trên thẻ; thẻ nhấc lên khi rê; nút chính hút nhẹ theo con trỏ, nhún và gợn sóng khi bấm; icon vẽ lại nét; đổi sáng tối bằng vòng tròn lan; nền mạng lưới chuỗi khối (nút vàng là token, gói tin vàng chạy trên cạnh, chuột kéo nút lại gần); thanh đầu co giãn theo cuộn; thanh bên thu gọn có lò xo. Mọi chuyển động chạy bằng đường cong lò xo, tắt hết khi người dùng bật "giảm chuyển động".</p></section>
 
   <p class="foot">Bản mẫu tĩnh để duyệt giao diện, dữ liệu mẫu, không có chức năng thật. Icon 3D Fluent Emoji (MIT), logo BIDV vector hoá tạm từ ảnh chủ dự án gửi.</p>
 </div>

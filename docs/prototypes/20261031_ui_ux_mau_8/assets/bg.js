@@ -8,9 +8,9 @@
 (() => {
   const root = document.documentElement, body = document.body;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const MODES = [['mix', 'Cực quang + mạng lưới'], ['net', 'Mạng lưới'], ['aura', 'Cực quang'], ['wind', 'Dòng gió'], ['grid', 'Lưới điểm']];
-  let mode = 'mix'; try { mode = localStorage.getItem('bidv-v7-bg') || 'mix'; } catch {}
-  if (!MODES.some(([k]) => k === mode)) mode = 'mix';
+  // Chủ dự án chốt chỉ dùng nền mạng lưới (31/10/2026); các kiểu khác giữ lại trong mã để tham khảo.
+  const MODES = [['net', 'Mạng lưới']];
+  let mode = 'net';
   const isNet = () => mode === 'net' || mode === 'mix';
 
   const host = document.createElement('div'); host.className = 'bgx'; host.setAttribute('aria-hidden', 'true');
@@ -113,5 +113,4 @@
     pk.querySelector('[aria-label="Kiểu nền"]').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; mode = b.dataset.bg; try { localStorage.setItem('bidv-v7-bg', mode); } catch {} start(); });
     window.V4.segs?.();
   };
-  if (document.readyState === 'complete') addPicker(); else addEventListener('load', addPicker);
 })();

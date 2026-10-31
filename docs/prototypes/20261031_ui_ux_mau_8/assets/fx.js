@@ -36,16 +36,9 @@
 
   // ===== Kiểu điểm nhấn của khối trọng tâm (bản mẫu: có bộ chọn để chủ dự án so sánh) =====
   const HERO = [['edge', 'A. Viền sáng'], ['lift', 'B. Nổi khối'], ['rail', 'C. Đèn nền']];
-  let hk = 'edge'; try { hk = localStorage.getItem('bidv-v6-hero') || 'edge'; } catch {}
-  if (!HERO.some(([k]) => k === hk)) hk = 'edge';
+  // Chủ dự án giữ kiểu A (viền sáng), bỏ bộ chọn (31/10/2026)
+  const hk = 'edge';
   root0.dataset.hero = hk;
-  if (document.querySelector('.hero')) {
-    const pk = document.createElement('div'); pk.className = 'picker';
-    pk.innerHTML = `<span>Kiểu điểm nhấn</span><div class="seg" role="group" aria-label="Kiểu điểm nhấn">${HERO.map(([k, l]) => `<button type="button" aria-pressed="${k === hk}" data-k="${k}">${l}</button>`).join('')}</div>`;
-    body.appendChild(pk);
-    pk.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; root0.dataset.hero = b.dataset.k; try { localStorage.setItem('bidv-v6-hero', b.dataset.k); } catch {} });
-    window.V4.segs?.();
-  }
   document.querySelectorAll('.hero').forEach((h) => h.insertAdjacentHTML('afterbegin', '<span class="backlight" aria-hidden="true"></span><span class="dots" aria-hidden="true"></span>'));
 
   // Đường gió mảnh chạy trong mọi khối trọng tâm: nét chính của ý tưởng Gió hoá dòng tiền
