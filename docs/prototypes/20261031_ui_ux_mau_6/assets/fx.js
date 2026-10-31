@@ -1,8 +1,8 @@
-// BIDV RWA Tokenize Platform, bản mẫu 5: lớp chuyển động và điểm nhấn (lấy từ bản 3) đặt lên khung bản 4.
+// BIDV RWA Tokenize Platform, bản mẫu 6: lớp chuyển động và điểm nhấn (lấy từ bản 3) đặt lên khung bản 4.
 // Nạp sau shell.js và sau script dựng dữ liệu của trang.
 (() => {
   const { spring, reduce } = window.V4;
-  const body = document.body;
+  const body = document.body, root0 = document.documentElement;
   const scene = ({ tone = 'onDark', turbines = 7, sun = true, sea = true, wind = true } = {}) => {
     const ink = tone === 'onDark' ? '#ffffff' : 'var(--g600)';
     const T = [];
@@ -33,6 +33,20 @@
 
   // ===== Minh hoạ cánh đồng gió (vẽ SVG, tạm thay ảnh thật) =====
   document.querySelectorAll('[data-scene]').forEach((n) => { n.innerHTML = scene({ tone: 'onDark', turbines: +(n.dataset.turbines || 7), sun: n.dataset.sun !== 'no', sea: n.dataset.sea !== 'no' }); });
+
+  // ===== Kiểu điểm nhấn của khối trọng tâm (bản mẫu: có bộ chọn để chủ dự án so sánh) =====
+  const HERO = [['edge', 'A. Viền sáng'], ['lift', 'B. Nổi khối'], ['rail', 'C. Đèn nền']];
+  let hk = 'edge'; try { hk = localStorage.getItem('bidv-v6-hero') || 'edge'; } catch {}
+  if (!HERO.some(([k]) => k === hk)) hk = 'edge';
+  root0.dataset.hero = hk;
+  if (document.querySelector('.hero')) {
+    const pk = document.createElement('div'); pk.className = 'picker';
+    pk.innerHTML = `<span>Kiểu điểm nhấn</span><div class="seg" role="group" aria-label="Kiểu điểm nhấn">${HERO.map(([k, l]) => `<button type="button" aria-pressed="${k === hk}" data-k="${k}">${l}</button>`).join('')}</div>`;
+    body.appendChild(pk);
+    pk.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; root0.dataset.hero = b.dataset.k; try { localStorage.setItem('bidv-v6-hero', b.dataset.k); } catch {} });
+    window.V4.segs?.();
+  }
+  document.querySelectorAll('.hero').forEach((h) => h.insertAdjacentHTML('afterbegin', '<span class="backlight" aria-hidden="true"></span><span class="dots" aria-hidden="true"></span>'));
 
   // Đường gió mảnh chạy trong mọi khối trọng tâm: nét chính của ý tưởng Gió hoá dòng tiền
   document.querySelectorAll('.hero').forEach((h) => h.insertAdjacentHTML('afterbegin', `<svg class="windlines" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden="true">${[40, 95, 150, 205, 260].map((y, i) => `<path style="animation-delay:${-i * 2.3}s" d="M-40 ${y} C 220 ${y - 34}, 420 ${y + 30}, 640 ${y - 4} S 1000 ${y - 30}, 1240 ${y + 6}"/>`).join('')}</svg>`));
@@ -95,6 +109,11 @@
       let fresh = true;
       p.addEventListener('pointermove', (e) => { const r = p.getBoundingClientRect(); mx.to((e.clientX - r.left) / r.width * 100, fresh); my.to((e.clientY - r.top) / r.height * 100, fresh); fresh = false; });
       p.addEventListener('pointerleave', () => { fresh = true; });
+      if (p.matches('.hero')) {
+        const rx = spring((v) => p.style.setProperty('--rx', `${v}deg`), { k: 140, c: 14 }), ry = spring((v) => p.style.setProperty('--ry', `${v}deg`), { k: 140, c: 14 }), bx = spring((v) => p.style.setProperty('--bx', `${v}%`), { k: 60, c: 14 });
+        p.addEventListener('pointermove', (e) => { const r = p.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; rx.to((.5 - y) * 4); ry.to((x - .5) * 3); bx.to(x * 100 - 18); });
+        p.addEventListener('pointerleave', () => { rx.to(0); ry.to(0); });
+      }
     });
     document.querySelectorAll('.btn.primary, .hero .btn').forEach((b) => {
       const sx = spring((v) => b.style.setProperty('--tx', `${v}px`), { k: 200, c: 12 }), sy = spring((v) => b.style.setProperty('--ty', `${v}px`), { k: 200, c: 12 });

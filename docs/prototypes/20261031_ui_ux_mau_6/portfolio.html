@@ -14,8 +14,6 @@
   .row2 > .panel { display: flex; flex-direction: column; }
   .row2 > .panel > .foot { padding-top: 14px; }
   .hold { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
-  .hero .empty-block { border-color: rgba(255,255,255,.3); color: rgba(255,255,255,.85); }
-  .hero .empty-block b { color: #fff; }
   .wallet-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 0; margin-top: 18px; border-top: 1px solid var(--rule); }
   .wallet-line .code { font-size: 15px; }
   .copy { width: 28px; height: 28px; border-radius: var(--radius-control); border: 0; background: none; display: grid; place-items: center; color: var(--faint); cursor: pointer; transition: background-color .15s, scale .4s var(--sp-gentle); }
@@ -64,7 +62,7 @@
   <div class="grid">
     <div class="row2 s12 even">
       <section class="panel hero" aria-labelledby="as-h">
-        <header><h2 id="as-h">Tài sản đã đầu tư</h2><span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span></header>
+        <header><h2 id="as-h"><span class="hico" id="as-ic"></span>Tài sản đã đầu tư</h2><span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span></header>
         <div data-states="data empty">
           <div class="hold">
             <div><div class="lbl">WPT đang giữ</div><div class="lead-fig num" id="held"></div></div>
@@ -133,6 +131,7 @@
   const short = (a) => `${a.slice(0, 10)}…${a.slice(-4)}`;
   const on = '<span class="src" title="Đọc trực tiếp từ chuỗi qua ILedgerPort">On-chain</span>', sample = (t) => `<span class="src sample" title="${t}">Dữ liệu mẫu</span>`;
 
+  document.getElementById('as-ic').innerHTML = icon('coins');
   document.getElementById('held').innerHTML = `<span data-count>${nf(D.held)}</span><span class="unit">WPT</span>`;
   document.getElementById('value').innerHTML = `<span data-count>${nf(value)}</span><span class="unit">₫</span>`;
   document.getElementById('value-sub').textContent = `Quy đổi theo giá phát hành ${nf(D.price)} ₫/WPT`;

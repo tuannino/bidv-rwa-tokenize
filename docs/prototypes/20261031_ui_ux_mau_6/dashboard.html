@@ -16,15 +16,13 @@
   .flow .node .lbl svg { width: 14px; height: 14px; color: var(--faint); }
   .flow .node .fig { margin-top: 6px; }
   .flow .link-c { margin-top: 26px; }
-  .hero .flow .link-c span { color: rgba(255,255,255,.82); }
-  .hero .flow .link-c line { stroke: rgba(255,255,255,.5); }
-  .hero .flow .link-c path { fill: rgba(255,255,255,.75); }
-  .hero .flow .node .lbl { color: rgba(255,255,255,.82); }
   .flow .link-c { position: relative; height: 40px; margin-top: 12px; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px; }
   .flow .link-c span { font-size: 12px; line-height: 15px; color: var(--muted); text-align: center; margin-bottom: 6px; }
   .flow .link-c svg { width: 100%; height: 10px; overflow: visible; }
-  .flow .link-c line { stroke: var(--accent); stroke-width: 2; }
-  .flow .link-c path { fill: var(--accent); }
+  .flow .link-c line { stroke: #0a8580; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 4 5; animation: fxDash 1.2s linear infinite; }
+  @keyframes fxDash { to { stroke-dashoffset: -9; } }
+  .flow { padding-bottom: 30px; }
+  .flow .link-c path { fill: #d9a300; }
   .finding { display: flex; align-items: baseline; gap: 8px; color: var(--muted); }
   .finding b { color: var(--text); font-weight: 500; }
   .delta-bad { color: var(--negative); font-weight: 500; }
@@ -72,7 +70,7 @@
 
   <div class="grid">
     <section class="panel hero s12" aria-labelledby="flow-h">
-      <header><h2 id="flow-h">Từ gió đến ví nhà đầu tư</h2><p class="finding" id="finding"></p></header>
+      <header><h2 id="flow-h"><span class="hico" id="flow-ic"></span>Từ gió đến ví nhà đầu tư</h2><p class="finding" id="finding"></p></header>
       <div class="flow" id="flow"></div>
       <p class="flow-sentence subl" id="flow-sentence" style="display:none"></p>
     </section>
@@ -130,7 +128,8 @@
   // Phát hiện của màn: kỳ mới nhất so với kỳ trước, tính từ đúng hai số trên biểu đồ
   const n = DATA.profit.length, last = DATA.profit[n - 1], prev = DATA.profit[n - 2];
   const d = Math.round((last - prev) * 10) / 10, dg = DATA.gen[n - 1] - DATA.gen[n - 2];
-  document.getElementById('finding').innerHTML = `Kỳ ${DATA.periods[n - 1]}: <b>${nf(last, 1)} tỷ VND</b> <span class="${d < 0 ? 'delta-bad' : ''}">${d < 0 ? '−' : '+'}${nf(Math.abs(d), 1)} tỷ so với kỳ ${DATA.periods[n - 2]}</span>`;
+  document.getElementById('flow-ic').innerHTML = icon('wind');
+  document.getElementById('finding').innerHTML = `<span class="live"><i></i></span>Kỳ ${DATA.periods[n - 1]}: <b>${nf(last, 1)} tỷ VND</b> <span class="${d < 0 ? 'delta-bad' : ''}">${d < 0 ? '−' : '+'}${nf(Math.abs(d), 1)} tỷ so với kỳ ${DATA.periods[n - 2]}</span>`;
 
   const nodes = [
     { ic: 'zap', l: 'Sản lượng luỹ kế', v: nf(T.mwh), u: 'MWh', s: `Nguồn EnergyOracle, ${T.producing}/${P.length} dự án đang phát` },
@@ -139,8 +138,10 @@
     { ic: 'users', l: 'Nhà đầu tư whitelisted', v: nf(DATA.investors), u: '', s: 'Đã qua KYC, đủ điều kiện nắm giữ' },
   ];
   const links = ['bán điện, chia theo kỳ', 'chia theo số WPT nắm giữ', 'nắm giữ bởi'];
-  const arrow = '<svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="5" x2="94" y2="5"/><path d="M93 1 L100 5 L93 9 Z"/></svg>';
-  document.getElementById('flow').innerHTML = nodes.map((x, i) => `<div class="node${x.lead ? ' lead' : ''}"><div class="lbl">${icon(x.ic)}${x.l}</div><div class="fig num${x.lead ? ' lead-fig' : ''}"><span data-count>${x.v}</span>${x.u ? `<span class="unit">${x.u}</span>` : ''}</div><div class="subl">${x.s}</div></div>${i < links.length ? `<div class="link-c" aria-hidden="true"><span>${links[i]}</span>${arrow}<i class="pulse"></i></div>` : ''}`).join('');
+  const arrow = '<svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><line x1="2" y1="5" x2="93" y2="5"/><path d="M93 1 L100 5 L93 9 Z"/></svg>';
+  // Dải dòng chảy phía sau bốn chặng: dải xanh ngọc phình dần sang vàng (năng lượng thành tiền), hạt sáng chạy theo
+  const stream = `<div class="stream" aria-hidden="true"><svg viewBox="0 0 1200 36" preserveAspectRatio="none"><defs><linearGradient id="sg" gradientUnits="userSpaceOnUse" x1="0" x2="1200" y1="0" y2="0"><stop offset="0" stop-color="#0a8580"/><stop offset="1" stop-color="#e8b100"/></linearGradient></defs><path class="band" d="M0 18 C 200 8, 400 28, 600 18 S 1000 8, 1200 18" fill="none" stroke="url(#sg)" stroke-width="8" stroke-opacity=".12" stroke-linecap="round"/><path id="sp" d="M0 18 C 200 8, 400 28, 600 18 S 1000 8, 1200 18" fill="none" stroke="url(#sg)" stroke-width="1.5" stroke-opacity=".55"/>${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `<circle r="${i % 2 ? 2 : 3}" fill="${i % 2 ? '#0a8580' : '#e8b100'}"><animateMotion dur="${8 + i % 3}s" begin="${-i * 1.1}s" repeatCount="indefinite"><mpath href="#sp"/></animateMotion></circle>`).join('')}</svg></div>`;
+  document.getElementById('flow').innerHTML = stream + nodes.map((x, i) => `<div class="node${x.lead ? ' lead' : ''}"><div class="lbl">${icon(x.ic)}${x.l}</div><div class="fig num${x.lead ? ' lead-fig' : ''}"><span data-count>${x.v}</span>${x.u ? `<span class="unit">${x.u}</span>` : ''}</div><div class="subl">${x.s}</div></div>${i < links.length ? `<div class="link-c" aria-hidden="true"><span>${links[i]}</span>${arrow}<i class="pulse"></i><i class="pulse p2"></i></div>` : ''}`).join('');
   document.getElementById('flow-sentence').textContent = `Điện bán ra được chia theo kỳ cho người nắm WPT: ${nf(T.mwh)} MWh đã thành ${nf(profitTotal, 1)} tỷ VND lợi tức, chia cho ${nf(T.wpt)} WPT của ${DATA.investors} nhà đầu tư.`;
 
   document.getElementById('gen-sum').textContent = `${nf(sum(DATA.gen))} MWh`;

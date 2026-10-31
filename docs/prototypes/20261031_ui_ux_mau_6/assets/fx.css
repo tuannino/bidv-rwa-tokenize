@@ -1,6 +1,6 @@
-/* Bản mẫu 5: lớp điểm nhấn và chuyển động đặt lên khung "Sổ cái xanh ngọc" của bản 4.
-   Mỗi màn có đúng một khối trọng tâm xanh ngọc (.hero) mang con số trả lời câu hỏi của màn;
-   các khối còn lại giữ nền trắng yên tĩnh. Chuyển động lấy từ bản 3: lò xo, gió lướt, số lăn, nét tự vẽ. */
+/* Bản mẫu 6: lớp điểm nhấn và chuyển động đặt lên khung "Sổ cái xanh ngọc" của bản 4.
+   Mỗi màn có đúng một khối trọng tâm (.hero) mang con số trả lời câu hỏi của màn; khối này vẫn là thẻ trắng,
+   nổi lên nhờ cỡ số, ánh sáng và chuyển động (bản 5 tô nền xanh ngọc, chủ dự án thấy giống banner nên bỏ). Chuyển động lấy từ bản 3: lò xo, gió lướt, số lăn, nét tự vẽ. */
 
 :root {
   --sp-soft: linear(0, .0355, .1205, .2303, .3479, .4627, .5681, .6609, .74, .8054, .8581, .8997, .9317, .9558, .9734, .9859, .9945, 1.0001, 1.0035, 1.0054, 1.0062, 1.0063, 1.0059, 1.0053, 1.0046, 1.0038, 1.0031, 1.0025, 1);
@@ -50,46 +50,59 @@
 .titlerow h1 { position: relative; }
 .w { display: inline-block; }
 
-/* ---------- Khối trọng tâm xanh ngọc ---------- */
-.hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; border: 0; background: radial-gradient(120% 160% at 100% 0%, var(--hero-1) 0%, var(--hero-2) 42%, var(--hero-3) 100%); box-shadow: 0 24px 48px -32px rgba(1, 64, 63, .75); }
-.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: repeating-linear-gradient(115deg, transparent 0 26px, rgba(255, 255, 255, .035) 26px 27px); }
-.hero::after { content: ""; position: absolute; left: var(--card-pad); top: 0; width: 56px; height: 3px; border-radius: 0 0 3px 3px; background: var(--bidv-gold); }
-.hero .scene-wrap { position: absolute; left: 0; right: 0; bottom: 0; height: 74%; z-index: -1; opacity: .16; pointer-events: none; }
-.hero .scene { width: 100%; height: 100%; }
-.hero h2, .hero .fig { color: #fff; }
-.hero .lbl, .hero .subl, .hero .meta, .hero .unit { color: rgba(255, 255, 255, .78); }
-.hero .lbl svg { color: var(--gold-soft) !important; }
-.hero .src { color: rgba(255, 255, 255, .8); }
-.hero .src::before { background: var(--gold-soft); }
-.hero .src.sample::before { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .8); }
-.hero .pill.pos { background: rgba(255, 255, 255, .16); color: #fff; }
-.hero .pill.gold { background: var(--bidv-gold); color: #3a2a00; }
-.hero .note { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .88); }
-.hero .note svg { color: var(--gold-soft); }
-.hero .btn { border-color: transparent; background: #fff; color: var(--bidv-teal-ink); }
-.hero .btn:hover { background: #f0f7f6; }
-.hero .btn.gold { background: var(--bidv-gold); color: #3a2a00; }
-.hero .btn.gold:hover { background: var(--gold-soft); }
-.hero .finding { color: rgba(255, 255, 255, .82); }
-.hero .finding b { color: #fff; }
-.hero .delta-bad { color: #ffc2b8; }
-.hero .code { color: #fff; }
-.hero .copy { color: rgba(255, 255, 255, .7); }
-.hero .copy:hover { background: rgba(255, 255, 255, .12); color: #fff; }
-.hero .wallet-line { border-top-color: rgba(255, 255, 255, .16); }
-.hero { padding: 24px; }
-.hero .lead-fig { font-size: 52px; line-height: 58px; font-weight: 700; letter-spacing: -.02em; }
-.hero .lead-fig .unit { font-size: 16px; color: var(--gold-soft); font-weight: 500; }
-
-.hero .windlines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
-.hero .windlines path { fill: none; stroke: #fff; stroke-opacity: .1; stroke-width: 1.2; stroke-dasharray: 160 520; animation: fxWind 12s linear infinite; }
-.hero .windlines path:nth-child(even) { stroke: var(--bidv-gold); stroke-opacity: .16; animation-duration: 16s; }
+/* ---------- Khối trọng tâm: vẫn là thẻ trắng như mọi thẻ khác, nổi bật nhờ con số lớn, ánh sáng và chuyển động ----------
+   Ba kiểu điểm nhấn để chủ dự án chọn (body[data-hero]): edge = viền sáng chạy, lift = nổi khối, rail = đèn nền và vạch nhấn. */
+.hero { position: relative; isolation: isolate; padding: 24px; border-radius: 14px; }
+.hero h2 { display: flex; align-items: center; gap: 10px; }
+.hero .hico { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--bidv-teal); background: var(--bidv-teal-pale); }
+.hero .hico svg { width: 16px; height: 16px; }
+.hero .lead-fig { font-size: 56px; line-height: 62px; font-weight: 700; letter-spacing: -.025em; color: #01504e; }
+.hero .lead-fig .unit { color: var(--muted); font-size: 16px; font-weight: 500; letter-spacing: 0; }
+[data-theme="dark"] .hero .lead-fig { color: #6fd8d0; }
+.pill.gold { background: #fff1c2; color: #6b4a00; }
+[data-theme="dark"] .pill.gold { background: #3a2f0c; color: #f5cf5b; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.live i { width: 7px; height: 7px; border-radius: 50%; background: var(--bidv-gold); box-shadow: 0 0 0 0 rgba(254, 198, 41, .7); animation: fxLive 2s ease-out infinite; }
+@keyframes fxLive { 70% { box-shadow: 0 0 0 7px rgba(254, 198, 41, 0); } 100% { box-shadow: 0 0 0 0 rgba(254, 198, 41, 0); } }
+.hero .windlines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; border-radius: inherit; }
+.hero .windlines path { fill: none; stroke: var(--accent); stroke-opacity: .08; stroke-width: 1.2; stroke-dasharray: 160 520; animation: fxWind 14s linear infinite; }
+.hero .windlines path:nth-child(even) { stroke: #d9a300; stroke-opacity: .12; animation-duration: 18s; }
 @keyframes fxWind { from { stroke-dashoffset: 680; } to { stroke-dashoffset: 0; } }
 
-/* Đường dẫn giá trị trong khối trọng tâm: vạch trắng có chấm vàng chạy theo hướng dòng tiền */
-.hero .link-c line { stroke: rgba(255, 255, 255, .5); }
-.hero .link-c path { fill: rgba(255, 255, 255, .7); }
-.hero .link-c span { color: rgba(255, 255, 255, .78); }
+/* A. Viền sáng chạy: một vệt xanh ngọc và vàng chạy quanh viền, quầng sáng mềm phía dưới */
+@property --ang { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+[data-hero="edge"] .hero { isolation: auto; border: 1.5px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, conic-gradient(from var(--ang), var(--border) 0deg, var(--border) 200deg, #0a8580 270deg, #fec629 310deg, var(--border) 350deg) border-box; animation: fxAng 7s linear infinite; box-shadow: 0 28px 56px -40px rgba(1, 107, 105, .55); }
+[data-hero="edge"] .hero::before { content: ""; position: absolute; inset: 18% 6% -6%; z-index: -2; border-radius: 40px; background: conic-gradient(from var(--ang), rgba(10, 133, 128, .0), rgba(10, 133, 128, .28), rgba(254, 198, 41, .22), rgba(10, 133, 128, 0)); filter: blur(34px); animation: fxAng 7s linear infinite; }
+@keyframes fxAng { to { --ang: 360deg; } }
+
+/* B. Nổi khối: thẻ nhấc cao hơn mặt phẳng, bóng nhiều lớp màu xanh ngọc, nghiêng theo chuột, con số nổi lên trước */
+[data-hero="lift"] .hero { border-color: transparent; box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset, 0 0 0 1px rgba(1, 107, 105, .10), 0 2px 4px rgba(1, 64, 63, .05), 0 12px 24px -8px rgba(1, 64, 63, .12), 0 40px 70px -30px rgba(1, 107, 105, .45); transform: perspective(1200px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transform-style: preserve-3d; }
+[data-hero="lift"] .hero::before { content: ""; position: absolute; left: 24px; right: 24px; top: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #0a8580 25%, #fec629 60%, transparent); }
+[data-hero="lift"] .hero .lead-fig { transform: translateZ(30px); text-shadow: 0 14px 24px rgba(1, 107, 105, .18); }
+[data-hero="lift"] .hero > * { transform-style: preserve-3d; }
+
+/* C. Đèn nền và vạch nhấn: vạch xanh ngọc chuyển vàng ở mép trái, lưới chấm mờ dần, đèn nền sau con số chính */
+[data-hero="rail"] .hero { overflow: hidden; border-color: var(--border); }
+[data-hero="rail"] .hero::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, #0a8580, #016b69 55%, #fec629); }
+[data-hero="rail"] .hero .backlight { position: absolute; z-index: -1; width: 360px; height: 220px; left: var(--bx, 30%); top: 30%; border-radius: 50%; background: radial-gradient(closest-side, rgba(10, 133, 128, .16), transparent); filter: blur(8px); animation: fxBreath 6s ease-in-out infinite alternate; pointer-events: none; }
+[data-hero="rail"] .hero .dots { position: absolute; z-index: -1; right: 0; top: 0; width: 46%; height: 100%; background-image: radial-gradient(rgba(1, 107, 105, .22) 1px, transparent 1.2px); background-size: 14px 14px; -webkit-mask-image: linear-gradient(225deg, #000, transparent 70%); mask-image: linear-gradient(225deg, #000, transparent 70%); pointer-events: none; }
+@keyframes fxBreath { to { transform: scale(1.15) translateX(20px); opacity: .7; } }
+.hero .backlight, .hero .dots { display: none; }
+[data-hero="rail"] .hero .backlight, [data-hero="rail"] .hero .dots { display: block; }
+
+/* Bộ chọn kiểu điểm nhấn (chỉ có trong bản mẫu để duyệt) */
+.picker { position: fixed; left: 50%; bottom: 18px; z-index: 60; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 16px; border-radius: 999px; background: #0e1b1a; color: #fff; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); font-size: 13px; }
+.picker .seg { background: rgba(255, 255, 255, .12); }
+.picker .seg button { color: rgba(255, 255, 255, .75); }
+.picker .seg button[aria-pressed="true"] { color: #0e1b1a; }
+.picker .seg .ind { background: #fff; }
+@media (max-width: 640px) { .picker { bottom: 10px; padding-left: 12px; } .picker > span { display: none; } }
+
+/* Đường dẫn giá trị: vạch chuyển xanh ngọc sang vàng, hai chấm chạy theo hướng dòng tiền */
+.flow { position: relative; }
+.stream { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; z-index: 0; pointer-events: none; }
+.stream svg { width: 100%; height: 100%; overflow: visible; }
+.link-c .pulse.p2 { animation-delay: 1.6s !important; background: var(--bidv-teal); box-shadow: 0 0 0 4px rgba(1, 107, 105, .18); }
 .link-c .pulse { position: absolute; left: 14px; bottom: 1px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--bidv-gold); box-shadow: 0 0 0 4px rgba(254, 198, 41, .25); animation: fxTravel 3.2s var(--ease-out) infinite; }
 .link-c:nth-of-type(4) .pulse { animation-delay: 1.05s; }
 .link-c:nth-of-type(6) .pulse { animation-delay: 2.1s; }
@@ -100,17 +113,19 @@
 .panel:not(.hero) > header h2::before { content: ""; display: inline-block; width: 3px; height: 14px; margin-right: 10px; border-radius: 3px; background: var(--accent); vertical-align: -1px; }
 .panel:not(.hero):hover { translate: 0 -3px; box-shadow: 0 18px 36px -28px rgba(1, 64, 63, .45); border-color: var(--control); }
 .panel::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .5s; background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(1, 107, 105, .07), transparent 60%); }
-.panel.hero::after { inset: 0 auto auto var(--card-pad); width: 56px; height: 3px; border-radius: 0 0 3px 3px; background: var(--bidv-gold); opacity: 1; }
 .panel { position: relative; }
 .panel:hover::after { opacity: 1; }
-.hero.spot::before { background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, .12), transparent 60%), repeating-linear-gradient(115deg, transparent 0 26px, rgba(255, 255, 255, .035) 26px 27px); }
+
+/* Nút vàng: hành động chính của khối trọng tâm */
+.btn.gold { border-color: transparent; background: var(--bidv-gold); color: #3a2a00; box-shadow: 0 10px 22px -14px rgba(185, 140, 0, .9); }
+.btn.gold:hover { background: #ffd24d; }
 
 /* ---------- Nút: nhún khi bấm, nút chính hút nhẹ theo con trỏ, gợn sóng ---------- */
 .btn { overflow: hidden; transition: background-color .15s, border-color .15s, scale .6s var(--sp-bounce), translate .9s var(--sp-bounce), box-shadow .3s; }
 .btn:active { scale: .95; transition-duration: .15s, .15s, .1s, .9s, .3s; }
 .btn.primary { box-shadow: 0 10px 22px -14px rgba(1, 107, 105, .9); }
-.btn.primary::after, .hero .btn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease-out); }
-.btn.primary:hover::after, .hero .btn:hover::after { transform: translateX(120%); }
+.btn.primary::after, .btn.gold::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .35) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease-out); }
+.btn.primary:hover::after, .btn.gold:hover::after { transform: translateX(120%); }
 .mag { translate: var(--tx, 0px) var(--ty, 0px); }
 .ripple { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: currentColor; opacity: .25; pointer-events: none; animation: fxRip .9s var(--ease-out) forwards; }
 @keyframes fxRip { from { transform: scale(0); opacity: .28; } to { transform: scale(34); opacity: 0; } }

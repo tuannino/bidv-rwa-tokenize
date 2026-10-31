@@ -14,13 +14,14 @@
   .q-head .pill { transform: translateY(-1px); }
   /* Khối trọng tâm: số đang chờ to nhất, yêu cầu chờ lâu nhất kèm nút duyệt, hai số trong ngày bên phải */
   .qhero { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.5fr) minmax(0, .8fr); gap: 32px; align-items: center; }
-  .qhero .old { padding: 16px 18px; border-radius: var(--radius-card); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
-  .qhero .old .k { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gold-soft); font-weight: 500; }
+  .qhero .old { padding: 16px 18px; border-radius: 10px; background: linear-gradient(135deg, #fffaea, #fff5d6); box-shadow: inset 0 0 0 1px #f6e2a0; }
+  [data-theme="dark"] .qhero .old { background: #2a2410; box-shadow: inset 0 0 0 1px #4a3d14; }
+  .qhero .old .k { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--pill-warning-ink); font-weight: 500; }
   .qhero .old .k svg { width: 14px; height: 14px; }
-  .qhero .old p { margin: 6px 0 12px; font-size: 15px; line-height: 22px; color: rgba(255, 255, 255, .9); }
-  .qhero .old b { color: #fff; font-weight: 700; }
+  .qhero .old p { margin: 6px 0 12px; font-size: 15px; line-height: 22px; color: var(--text); }
+  .qhero .old b { font-weight: 700; }
   .qhero .minis { display: grid; gap: 14px; }
-  .qhero .minis > div { padding-left: 14px; border-left: 2px solid rgba(255, 255, 255, .22); }
+  .qhero .minis > div { padding-left: 14px; border-left: 2px solid var(--border); }
   .qhero .minis .fig { font-size: 26px; line-height: 30px; }
   @media (max-width: 1100px) { .qhero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .qhero .old { grid-column: 1 / -1; grid-row: 2; } }
   td.reason { max-width: 260px; }

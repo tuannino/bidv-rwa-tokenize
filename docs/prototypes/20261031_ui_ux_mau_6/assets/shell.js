@@ -214,5 +214,5 @@
   });
   segs();
 
-  window.V4 = { icon, nf, role, withRole, ROLES, spring, reduce };
+  window.V4 = { icon, nf, role, withRole, ROLES, spring, reduce, segs };
 })();
