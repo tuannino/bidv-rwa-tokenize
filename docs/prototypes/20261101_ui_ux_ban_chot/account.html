@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thông tin tài khoản</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  /* Lưới ô thông tin 3 cột trong thẻ rộng; ô vàng nhấn hạn mức. */
+  .kv-grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kv-grid .wide { grid-column: span 2; }
+  .kv-grid .full { grid-column: 1 / -1; }
+  .kv-grid .goldtile { background: var(--gold-tile); }
+  .kv-grid .goldtile dd { font-size: 22px; color: var(--gold-ink); }
+  .who { display: flex; flex-direction: column; gap: 18px; height: 100%; position: relative; }
+  .who h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.02em; }
+  @media (max-width: 1180px) { .kv-grid.c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .kv-grid.c3 { grid-template-columns: minmax(0, 1fr); } .kv-grid .wide { grid-column: auto; } }
+</style>
+</head>
+<body data-page="account" data-nav="account.html" data-roles="teller,controller,investor,seller" data-crumbs="Thông tin tài khoản">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>Thông tin tài khoản</h1><span class="badge" data-part>Chỉ đọc</span></div>
+      <p class="sub" data-part>Thông tin hồ sơ của tài khoản đang đăng nhập. Mọi thay đổi cần được ngân hàng xác minh.</p>
+      <!-- Nhánh !result.ok ở page.tsx: chỉ tiêu đề và câu lỗi đỏ. -->
+      <p class="neg" role="alert" id="page-err" hidden></p>
+    </div>
+    <!-- Vai khách hàng: ô "Ví thanh toán" đổi theo chain và ví đang kết nối (getAccountWalletAction). Mọi vai: lỗi đọc hồ sơ. -->
+    <div class="actions" style="align-items:center">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="ok" data-kind="EMPLOYEE">Có hồ sơ</button>
+        <button type="button" role="tab" aria-selected="true" data-state="bound" data-kind="CUSTOMER">Ví đã định danh</button>
+        <button type="button" role="tab" aria-selected="false" data-state="unbound" data-kind="CUSTOMER">Ví chưa được định danh</button>
+        <button type="button" role="tab" aria-selected="false" data-state="noconn" data-kind="CUSTOMER">Chưa kết nối ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="reading" data-kind="CUSTOMER">Đang đọc</button>
+        <button type="button" role="tab" aria-selected="false" data-state="walleterr" data-kind="CUSTOMER">Lỗi đọc ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="pageerr">Lỗi đọc hồ sơ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Vai nhân viên (Giao dịch viên, Kiểm soát viên): mục "Thông tin cán bộ" ===== -->
+  <section data-part class="card hero span-4 stretch" data-kind="EMPLOYEE" aria-label="Họ tên và vai trò">
+    <div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no" data-sea="no"></div>
+    <div class="who">
+      <span class="avatar lg gold" data-f="initials"></span>
+      <div><span class="muted small">Họ và tên</span><h2 data-f="fullName"></h2></div>
+      <div><span class="muted small">Vai trò</span><div class="strong" data-f="roleLabel"></div></div>
+    </div>
+  </section>
+  <section data-part class="card span-8 stretch" data-kind="EMPLOYEE" aria-labelledby="emp-h">
+    <div class="card-h"><div class="t"><i data-icon="usercog"></i><h2 id="emp-h">Thông tin cán bộ</h2></div></div>
+    <dl class="kv-grid c3">
+      <div><dt>Mã cán bộ</dt><dd class="mono" data-f="actorId"></dd></div>
+      <div><dt>Trạng thái</dt><dd><span class="badge ok">Đang hoạt động</span></dd></div>
+      <div><dt>Số điện thoại</dt><dd data-f="phone"></dd></div>
+      <div class="wide"><dt>Thư điện tử</dt><dd data-f="email"></dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd data-f="lastActiveAt"></dd></div>
+    </dl>
+  </section>
+
+  <!-- ===== Vai khách hàng (Nhà đầu tư, Người bán) ===== -->
+  <section data-part class="card hero span-4 stretch" data-kind="CUSTOMER" aria-label="Tên, mã người dùng và vai trò">
+    <div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no" data-sea="no"></div>
+    <div class="who">
+      <span class="avatar lg gold" data-f="initials"></span>
+      <div><span class="muted small" data-f="nameLabel"></span><h2 data-f="fullName"></h2></div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap">
+        <div><span class="muted small">Mã người dùng</span><div class="strong mono" data-f="actorId"></div></div>
+        <div><span class="muted small">Vai trò</span><div class="strong" data-f="roleLabel"></div></div>
+      </div>
+    </div>
+  </section>
+  <section data-part class="card span-8 stretch" data-kind="CUSTOMER" aria-labelledby="per-h">
+    <div class="card-h"><div class="t"><i data-icon="user"></i><h2 id="per-h" data-f="personTitle"></h2></div></div>
+    <dl class="kv-grid c3">
+      <div data-org><dt>Người liên hệ</dt><dd data-f="contactPerson"></dd></div>
+      <div><dt>Số điện thoại</dt><dd data-f="phone"></dd></div>
+      <div><dt>Thư điện tử</dt><dd data-f="email"></dd></div>
+      <div><dt>Trạng thái định danh</dt><dd><span class="badge ok">Đã xác minh</span></dd></div>
+      <div class="full" id="wallet-tile"><dt>Ví thanh toán</dt><dd id="pay-wallet"></dd></div>
+    </dl>
+  </section>
+
+  <section data-part class="card span-4 stretch" data-kind="CUSTOMER" aria-labelledby="acc-h">
+    <div class="card-h"><div class="t"><i data-icon="usercog"></i><h2 id="acc-h">Thông tin tài khoản</h2></div></div>
+    <dl class="kv">
+      <div><dt>Trạng thái</dt><dd><span class="badge ok">Đang hoạt động</span></dd></div>
+      <div><dt>Ngày tạo</dt><dd data-f="createdAt"></dd></div>
+      <div><dt>Hoạt động gần nhất</dt><dd data-f="lastActiveAt"></dd></div>
+    </dl>
+  </section>
+  <section data-part class="card span-8 stretch" data-kind="CUSTOMER" aria-labelledby="risk-h">
+    <div class="card-h"><div class="t"><i data-icon="shield"></i><h2 id="risk-h">Hồ sơ định danh và rủi ro</h2></div></div>
+    <dl class="kv-grid c3">
+      <div><dt>Loại khách hàng</dt><dd data-f="customerType"></dd></div>
+      <div><dt>Trạng thái định danh</dt><dd>Đã xác minh</dd></div>
+      <div><dt>Xếp hạng rủi ro</dt><dd><span class="badge">Thấp</span></dd></div>
+      <div><dt>Phòng chống rửa tiền</dt><dd>Đạt</dd></div>
+      <div class="wide goldtile"><dt>Hạn mức giao dịch mỗi ngày</dt><dd class="mono" data-f="limit"></dd></div>
+    </dl>
+  </section>
+
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+// Hồ sơ mẫu của bốn tài khoản (getOwnAccountProfile), chọn theo vai đang xem.
+(() => {
+  const P = {
+    teller: { kind: 'EMPLOYEE', key: 'TELLER', actorId: 'GDV001', roleLabel: 'Giao dịch viên', fullName: 'Lê Minh Cường', initials: 'LC', phone: '024 2220 0588', email: 'cuong.lm@bidv.com.vn', lastActiveAt: '06/10/2026 08:45:00' },
+    controller: { kind: 'EMPLOYEE', key: 'CONTROLLER', actorId: 'KSV001', roleLabel: 'Kiểm soát viên', fullName: 'Phạm Thu Dung', initials: 'PD', phone: '024 2220 0588', email: 'dung.pt@bidv.com.vn', lastActiveAt: '06/10/2026 08:40:00' },
+    investor: { kind: 'CUSTOMER', key: 'INVESTOR', org: false, actorId: 'NDT001', roleLabel: 'Nhà đầu tư', fullName: 'Nguyễn Văn An', initials: 'NA', phone: '0912 345 678', email: 'an.nguyen@example.com', createdAt: '15/01/2026 09:00:00', lastActiveAt: '06/10/2026 08:30:00', limit: '500.000.000 VNDB', wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' },
+    seller: { kind: 'CUSTOMER', key: 'SELLER', org: true, actorId: 'NB001', roleLabel: 'Người bán', fullName: 'Công ty Cổ phần Điện gió An Viên', initials: 'AV', contactPerson: 'Trần Thị Bình', phone: '0291 395 8888', email: 'contact@diengiobaclieu.vn', createdAt: '10/12/2025 09:00:00', lastActiveAt: '06/10/2026 08:15:00', limit: '5.000.000.000 VNDB', wallet: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' },
+  };
+  const p = P[UI.role];
+  p.nameLabel = p.org ? 'Tên pháp nhân' : 'Họ và tên';
+  p.personTitle = p.org ? 'Thông tin pháp nhân' : 'Thông tin cá nhân';
+  p.customerType = p.org ? 'Tổ chức' : 'Cá nhân';
+  document.querySelectorAll('[data-kind]').forEach((n) => { if (n.dataset.kind !== p.kind) n.remove(); });
+  document.querySelectorAll('[data-org]').forEach((n) => { if (!p.org) n.remove(); });
+  if (p.org) document.getElementById('wallet-tile')?.classList.replace('full', 'wide');
+  document.querySelectorAll('[data-f]').forEach((n) => { n.textContent = p[n.dataset.f] ?? ''; });
+  // Cho thư điện tử xuống dòng sau dấu @ thay vì giữa chữ.
+  document.querySelectorAll('[data-f="email"]').forEach((n) => { n.innerHTML = n.textContent.replace('@', '@<wbr>'); });
+  // Ô "Ví thanh toán" (PaymentWalletValue): mock là ví mẫu của hồ sơ kèm "Đã định danh"; chain khác là ví đang kết nối.
+  // Nhánh "Chưa kết nối ví." không kèm liên kết (ok nhưng wallet null) không dựng: nhánh chain khác mock mà chưa kết nối đã trả trước đó.
+  const pay = document.getElementById('pay-wallet');
+  const OTHER = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f';
+  const val = (w, bound) => `<span style="display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span class="mono break" style="font-size:14px" data-payment-wallet>${w}</span><span class="badge ${bound ? 'ok' : 'bad'}" data-wallet-bound="${bound}">${bound ? 'Đã định danh' : 'Ví chưa được định danh'}</span></span>`;
+  const VIEW = {
+    bound: () => val(p.wallet, true),
+    unbound: () => val(OTHER, false),
+    noconn: () => `<span class="muted" style="font-weight:400">Chưa kết nối ví. <a href="${UI.withRole('wallet.html')}" style="color:var(--accent-ink)">Kết nối ví</a></span>`,
+    reading: () => '<span class="muted" style="font-weight:400">Đang đọc…</span>',
+    walleterr: () => '<span class="neg" style="font-weight:400">Dữ liệu không hợp lệ.</span>',
+  };
+  const pageErr = document.getElementById('page-err');
+  pageErr.textContent = `Không tìm thấy hồ sơ ${p.actorId} cho vai ${p.key}.`;
+  const draw = (st) => {
+    const err = st === 'pageerr';
+    document.querySelectorAll('[data-part]').forEach((n) => { n.hidden = err; });
+    pageErr.hidden = !err;
+    if (pay && VIEW[st]) pay.innerHTML = VIEW[st]();
+  };
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    draw(b.dataset.state);
+  }));
+  draw(p.kind === 'CUSTOMER' ? 'bound' : 'ok');
+})();
+</script>
+</body>
+</html>
