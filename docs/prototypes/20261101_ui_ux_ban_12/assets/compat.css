@@ -1,0 +1,94 @@
+/* Bản 12: đưa 18 màn dựng theo cấu trúc bản 3 (c.css) về cùng khung và cùng kiểu thẻ của bản 11.
+   Nạp sau c.css, brand.css, fx.css. Chỉ đổi trình bày, không đổi nội dung hay thứ tự trường. */
+
+/* Vùng nội dung: lưới 12 cột như bản 3, lề và khoảng cách như bản 11 */
+main.canvas.content { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-content: start; padding: 0 var(--pad) 48px; max-width: none; margin: 0; }
+.canvas.content > .crumb, .canvas.content > .titlerow { grid-column: 1 / -1; }
+.canvas.content > .crumb { display: flex; gap: 6px; margin: 14px 0 -10px; }
+.canvas.content > .crumb .sep { opacity: .5; }
+.titlerow.pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0; padding: 14px 0 10px; flex-wrap: wrap; }
+.titlerow.pagehead h1 { font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
+.titlerow.pagehead .sub { margin-top: 4px; font-size: 14px; line-height: 20px; color: var(--muted); max-width: 78ch; }
+.titlerow.pagehead .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.titlerow.pagehead > .actions { transform-origin: right center; }
+
+/* Thanh đầu: bỏ các thuộc tính của thanh đầu bản 3 còn sót trong c.css */
+.topbar { min-height: 0; border: 0; }
+
+/* Thẻ .card và .kpi của bản 3 mang kiểu thẻ bản 11 (kính mờ, ửng màu theo ý nghĩa, viền mảnh) */
+.canvas.content > .panel, .canvas.content > .panel.kpi.au, .canvas.content > .panel.kpi.leaf, .canvas.content > .panel.kpi.gold {
+  background: radial-gradient(120% 90% at 0% 0%, rgba(var(--tint), .10), transparent 58%), radial-gradient(90% 80% at 100% 100%, rgba(var(--tint2), .08), transparent 60%), rgba(255, 255, 255, .80);
+  color: var(--text); border-radius: var(--radius-card); }
+[data-theme="dark"] .canvas.content > .panel { background: radial-gradient(120% 90% at 0% 0%, rgba(var(--tint), .14), transparent 58%), radial-gradient(90% 80% at 100% 100%, rgba(var(--tint2), .08), transparent 60%), rgba(17, 23, 23, .8); }
+.canvas.content > .panel.kpi::before, .canvas.content > .panel.kpi::after { background-image: none; }
+/* Ô nổi bật xanh đậm và thẻ hero của bản 3 thành khối trọng tâm sáng có viền chạy */
+.panel.hero, .panel.hero .lbl, .panel.hero .val, .panel.hero .sub, .panel.hero h2, .panel.hero h3, .panel.hero .muted, .panel.hero .small, .panel.hero dt, .panel.hero dd, .panel.hero b { color: var(--text); }
+.panel.hero .lbl, .panel.hero .sub, .panel.hero .muted, .panel.hero dt, .panel.hero .small { color: var(--muted); }
+.panel.hero .val small { color: var(--muted); }
+.panel.kpi.hero .val { color: #01504e; }
+[data-theme="dark"] .panel.kpi.hero .val { color: #6fd8d0; }
+.panel.hero .ic { background: var(--chip); color: var(--chip-ink); }
+.panel.hero .scene-wrap, .panel .deco { display: none; }
+.panel.hero .avatar { background: var(--chip); color: var(--chip-ink); }
+.panel.hero .tag, .panel.hero .badge { background: var(--chip); color: var(--chip-ink); }
+.panel.hero .inner, .panel.hero [style*="rgba(255,255,255,.1)"] { background: rgba(1, 107, 105, .06) !important; }
+/* Ô vàng đậm và vàng nhạt: chữ đậm vừa, cột đồng xu giữ làm điểm nhấn */
+.panel.t-gold .val, .panel.t-gold .val small { color: var(--text); }
+.panel.t-gold .ic { background: #fff1c2; color: #8a6406; }
+[data-theme="dark"] .panel.t-gold .ic { background: #3a2f0c; color: #f5cf5b; }
+.panel.t-mint .ic { background: var(--chip); color: var(--chip-ink); }
+.panel .coins-wrap { opacity: .9; }
+.kpi .ic { border-radius: 999px; }
+.panel.kpi .top .lbl { font-size: 13px; color: var(--muted); }
+.panel.kpi .val { font-variant-numeric: tabular-nums; }
+
+/* Tiêu đề thẻ: biểu tượng vòng tròn như bản 3, chữ 16 px */
+.card-h { margin-bottom: 14px; }
+.card-h h2 { font-size: 16px; line-height: 22px; font-weight: 500; }
+.card-h .t { gap: 10px; }
+.card-h .t > .ph-ic svg { width: 17px; height: 17px; color: currentColor; }
+.panel.t-gold .card-h .ph-ic { background: #fff1c2; color: #8a6406; }
+
+/* Thành phần trong thẻ: bo tròn mềm, đồng màu xanh ngọc */
+.inner, .kv-grid > div, .empty, .alert { border-radius: var(--radius-inner); }
+.field .switch.sel, .filters .switch.sel { width: 100%; min-width: 0; }
+.field .switch.sel .switch-btn { height: 44px; min-height: 44px; border-radius: 14px; }
+.input, .textarea { border-radius: 14px; }
+.btn { border-radius: 999px; }
+.mono.code { font-family: var(--font-code); font-weight: 500; font-size: 1em; letter-spacing: 0; }
+.tbl th { font-weight: 400; }
+.idlink { color: var(--accent); }
+
+/* Menu trái: bỏ phần trang trí của menu bản 3 còn sót */
+.nav a .kbd { display: none; }
+.nav a { min-height: 0; border-radius: 14px; }
+.nav .cnt { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+
+@media (max-width: 1100px) {
+  main.canvas.content { padding: 0 20px 40px; }
+  .canvas.content > [class*="span-"] { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  main.canvas.content { padding: 0 16px 40px; }
+  .titlerow.pagehead { flex-direction: column; align-items: stretch; }
+}
+.switch-btn[disabled] { opacity: .6; cursor: not-allowed; }
+/* Lớp trang trí của khối trọng tâm luôn nằm tuyệt đối, không đẩy nội dung (c.css bản 3 đặt mọi con của thẻ hero là relative) */
+.hero > .windlines, .hero > .backlight, .hero > .dots { position: absolute !important; inset: 0; z-index: 0 !important; }
+/* Minh hoạ cánh đồng gió của bản 3 vẽ lại bằng nét xanh ngọc mảnh để lấp khoảng trống của khối trọng tâm */
+.panel.hero .scene-wrap { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 60%; opacity: .32; pointer-events: none; z-index: 0; }
+.panel.hero > :not(.scene-wrap):not(.windlines):not(.backlight):not(.dots) { position: relative; z-index: 1; }
+/* Thanh đầu trên điện thoại: bỏ các quy tắc xếp hàng của thanh đầu bản 3 trong c.css */
+@media (max-width: 1100px) {
+  .topbar { flex-wrap: nowrap !important; padding: 0 8px 0 12px !important; }
+  .tb-right { display: flex !important; width: auto !important; margin-left: auto !important; flex-wrap: nowrap !important; }
+  .tb-right .btn { flex: 0 0 auto !important; }
+}
+/* Thẻ tóm tắt (thẻ hero của bản 3) đặt chữ theo nền sáng */
+.panel.hero .card-h h2, .panel.hero dl dd, .panel.hero .kv dd { color: var(--text); }
+.panel.hero .kv dt { color: var(--muted); }
+.panel.hero .gold-v, .panel.hero .strong { color: var(--text); }
+.panel.hero [style*="color:var(--au300)"] { color: #8a6406 !important; } [data-theme="dark"] .panel.hero [style*="color:var(--au300)"] { color: #f5cf5b !important; }
+[data-theme="dark"] .canvas.content > .panel.kpi.au, [data-theme="dark"] .canvas.content > .panel.kpi.leaf, [data-theme="dark"] .canvas.content > .panel.kpi.gold, [data-theme="dark"] .canvas.content > .panel.card.tint { background: radial-gradient(120% 90% at 0% 0%, rgba(var(--tint), .14), transparent 58%), radial-gradient(90% 80% at 100% 100%, rgba(var(--tint2), .08), transparent 60%), rgba(17, 23, 23, .8); }
+[data-theme="dark"] .panel .val, [data-theme="dark"] .panel .val small { color: var(--text); }
+.nav a[aria-current="page"], .nav a[aria-current="page"] .nl { color: #fff !important; }

@@ -5,7 +5,7 @@
 | Ngày | 23/10/2026 |
 | Mốc mã nguồn | nhánh `dev` @ `f164939` (khảo sát), bản mẫu cập nhật sau `f11f1ae` |
 | Loại tài liệu | Kết quả thử nghiệm và requirement. Session thử nghiệm KHÔNG sửa mã sản phẩm, KHÔNG merge |
-| Bản xem thử | `docs/prototypes/20261023_ui_ux_mau_c/` (HTML tĩnh, mở `index.html`, 21 trang của 4 vai, Sáng và Tối). Ghi chú ánh xạ từng trang ở `notes/` cùng thư mục |
+| Bản xem thử | `docs/prototypes/20261101_ui_ux_ban_12/` (bản đầy đủ, HTML tĩnh, 21 trang của 4 vai, Sáng và Tối; ghi chú ánh xạ ở `notes/`). Bản cũ `docs/prototypes/20261023_ui_ux_mau_c/` và bản đối chiếu `docs/prototypes/20261101_ui_ux_ban_3_2/` giữ để so sánh |
 | Thay thế | Bản 1 của tài liệu này và bản mẫu `docs/prototypes/20261023_ui_ux/` (đã gỡ). Bản 1 đổi nội dung màn hình, trái nguyên tắc giữ feature bên dưới |
 
 ---
@@ -33,6 +33,7 @@
 | QĐ-UX-17 | Bản mẫu 9 (31/10/2026): thanh đầu khi cuộn **cao 44 px**, **chỉ tên màn** (không nhóm, không vai), **nền xanh trầm đậm** tới 90%; nút thu gọn thanh bên **chỉ biểu tượng**, nằm **bên phải hộp Chain** khi thanh bên mở rộng |
 | QĐ-UX-18 | Bản mẫu 10 (01/11/2026), học từ bản 3: **bo tròn mềm** (thẻ 24 px, khối trọng tâm 28 px, nút và ô nhập bo tròn hẳn); **thẻ nhấc lên, bóng sâu, nghiêng nhẹ theo chuột**; **thanh bên nổi bo tròn**; **thanh đầu bo tròn có vạch gradient chạy ở chân**; **icon trong vòng tròn có hiệu ứng** ở menu, đầu thẻ, bảng, danh sách; **mọi dropdown xổ mềm** (kể cả bộ lọc trạng thái); **thu gọn, mở rộng thanh bên mượt**; nút thu gọn chỉ biểu tượng, không khung |
 | QĐ-UX-19 | Bản mẫu 11 (01/11/2026): thanh đầu **thẳng mép với các thẻ**; biểu tượng thanh bên **căn đúng một trục giữa** ở cả hai trạng thái; **nền gradient** xanh ngọc, bạc hà, vàng rất nhạt dưới mạng lưới, nút vàng có quầng neon; **thẻ ửng màu nhạt theo ý nghĩa** (vàng là tiền, xanh ngọc là token và năng lượng, bạc hà cho danh sách), chữ vẫn trên nền gần trắng |
+| QĐ-UX-20 | **Bản 12** (01/11/2026) là bản đầy đủ: trang giới thiệu và 21 màn của 4 vai theo phong cách bản 11, sửa thêm: viên nang rê chuột ở menu không đè lên mục đang mở; **bỏ lớp cực quang** (nhiễu), giữ gradient nền và mạng lưới; thẻ bỏ vệt sáng trắng ở mép, nhấn chuột lún nhẹ rồi bật lại mềm. **Bản 3.2** để đối chiếu: bản 3 đổi tông xanh ngọc và logo BIDV chuẩn |
 
 ---
 
@@ -237,9 +238,9 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
-### 3.7. Bản mẫu 11 (QĐ-UX-15 đến QĐ-UX-19, chờ duyệt để làm đủ 21 màn)
+### 3.7. Bản 12 (QĐ-UX-15 đến QĐ-UX-20), bản đầy đủ chờ duyệt
 
-Thư mục `docs/prototypes/20261101_ui_ux_mau_11/` (mở `index.html`). Bản 11 gồm bản 6 (bên dưới), các điểm của bản 8 sau đây, thanh đầu và nút thu gọn theo QĐ-UX-17, các điểm học từ bản 3 theo QĐ-UX-18 và màu sắc, căn chỉnh theo QĐ-UX-19:
+Thư mục `docs/prototypes/20261101_ui_ux_ban_12/`: mở `index.html` (trang giới thiệu) hoặc `review.html` (bảng duyệt); đủ 21 màn, ghi chú ánh xạ 1-1 từng màn ở `notes/`. Bản đối chiếu `docs/prototypes/20261101_ui_ux_ban_3_2/`. Bản 12 gồm bản 6 (bên dưới), các điểm của bản 8 sau đây, thanh đầu và nút thu gọn theo QĐ-UX-17, các điểm học từ bản 3 theo QĐ-UX-18 và màu sắc, căn chỉnh theo QĐ-UX-19:
 
 - **Dropdown:** khung xổ bằng lò xo (thu từ 94% và nhoè 6 px về rõ), có mũi nhọn chỉ vào nút, các dòng hiện lần lượt cách 35 ms, dòng đang chọn nền xanh ngọc nhạt có dấu tích nảy. Ô chọn gốc của trình duyệt được thay bằng dropdown cùng kiểu; giá trị và sự kiện `change` vẫn đi qua thẻ `select` gốc. Trong app (React), dùng thành phần dropdown của `components/ui` với cùng hiệu ứng, không đổi state hay lời gọi dữ liệu.
 - **Thanh bên thu gọn mượt:** độ rộng trượt 0,55 s; chữ, logo đầy đủ, nhóm menu mờ dần; logo C, số việc chờ, vạch phân nhóm hiện dần; lề trong 14 px ở cả hai trạng thái nên logo, vai trò, menu, chấm chain, nút thu gọn nằm trên cùng một trục và không giật khi chuyển.
@@ -346,4 +347,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
-- Q8. Duyệt bản mẫu 11 (mục 3.7) để áp cho đủ 21 màn.
+- Q8. Duyệt bản 12 (mục 3.7, đủ 21 màn) làm chuẩn bàn giao, hoặc chọn bản 3.2 nếu thích hơn.
