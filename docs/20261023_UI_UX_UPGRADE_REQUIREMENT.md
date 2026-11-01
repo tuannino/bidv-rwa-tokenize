@@ -5,7 +5,7 @@
 | Ngày | 23/10/2026 |
 | Mốc mã nguồn | nhánh `dev` @ `f164939` (khảo sát), bản mẫu cập nhật sau `f11f1ae` |
 | Loại tài liệu | Kết quả thử nghiệm và requirement. Session thử nghiệm KHÔNG sửa mã sản phẩm, KHÔNG merge |
-| Bản xem thử | `docs/prototypes/20261101_ui_ux_ban_12/` (bản đầy đủ, HTML tĩnh, 21 trang của 4 vai, Sáng và Tối; ghi chú ánh xạ ở `notes/`). Bản cũ `docs/prototypes/20261023_ui_ux_mau_c/` và bản đối chiếu `docs/prototypes/20261101_ui_ux_ban_3_2/` giữ để so sánh |
+| Bản xem thử | `docs/prototypes/20261101_ui_ux_ban_chot/` (bản chốt, HTML tĩnh, 21 trang của 4 vai, Sáng và Tối; ghi chú ánh xạ ở `notes/`). Bản 12 `docs/prototypes/20261101_ui_ux_ban_12/`, bản cũ `docs/prototypes/20261023_ui_ux_mau_c/` và bản đối chiếu `docs/prototypes/20261101_ui_ux_ban_3_2/` giữ để so sánh |
 | Thay thế | Bản 1 của tài liệu này và bản mẫu `docs/prototypes/20261023_ui_ux/` (đã gỡ). Bản 1 đổi nội dung màn hình, trái nguyên tắc giữ feature bên dưới |
 
 ---
@@ -34,6 +34,7 @@
 | QĐ-UX-18 | Bản mẫu 10 (01/11/2026), học từ bản 3: **bo tròn mềm** (thẻ 24 px, khối trọng tâm 28 px, nút và ô nhập bo tròn hẳn); **thẻ nhấc lên, bóng sâu, nghiêng nhẹ theo chuột**; **thanh bên nổi bo tròn**; **thanh đầu bo tròn có vạch gradient chạy ở chân**; **icon trong vòng tròn có hiệu ứng** ở menu, đầu thẻ, bảng, danh sách; **mọi dropdown xổ mềm** (kể cả bộ lọc trạng thái); **thu gọn, mở rộng thanh bên mượt**; nút thu gọn chỉ biểu tượng, không khung |
 | QĐ-UX-19 | Bản mẫu 11 (01/11/2026): thanh đầu **thẳng mép với các thẻ**; biểu tượng thanh bên **căn đúng một trục giữa** ở cả hai trạng thái; **nền gradient** xanh ngọc, bạc hà, vàng rất nhạt dưới mạng lưới, nút vàng có quầng neon; **thẻ ửng màu nhạt theo ý nghĩa** (vàng là tiền, xanh ngọc là token và năng lượng, bạc hà cho danh sách), chữ vẫn trên nền gần trắng |
 | QĐ-UX-20 | **Bản 12** (01/11/2026) là bản đầy đủ: trang giới thiệu và 21 màn của 4 vai theo phong cách bản 11, sửa thêm: viên nang rê chuột ở menu không đè lên mục đang mở; **bỏ lớp cực quang** (nhiễu), giữ gradient nền và mạng lưới; thẻ bỏ vệt sáng trắng ở mép, nhấn chuột lún nhẹ rồi bật lại mềm. **Bản 3.2** để đối chiếu: bản 3 đổi tông xanh ngọc và logo BIDV chuẩn |
+| QĐ-UX-21 | **Bản chốt** (01/11/2026): nền là **bản 3.2** (bản 3 tông xanh ngọc, logo BIDV chuẩn): giữ nguyên toàn bộ nội dung, thẻ, màu, nền, minh hoạ, biểu tượng và hiệu ứng của bản 3.2; **thay thanh bên và thanh đầu bằng của bản 12** (thanh bên nổi bo tròn có nút thu gọn, dropdown Vai trò và Chain xổ mềm; thanh đầu bo tròn chứa Kết nối ví và nút sáng tối, co giãn theo cuộn, vạch gradient ở chân). Đây là chuẩn bàn giao |
 
 ---
 
@@ -238,6 +239,14 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
+### 3.6b. Bản chốt (QĐ-UX-21), chuẩn bàn giao
+
+Thư mục `docs/prototypes/20261101_ui_ux_ban_chot/`: mở `index.html` (trang giới thiệu, logo A) và vào 21 màn từ đó; ghi chú ánh xạ 1-1 từng màn ở `notes/`. Cấu tạo:
+
+- **Nội dung, màu, nền, hiệu ứng:** đúng bản 3.2 (`assets/c.css`, `assets/ui.js`): các mục 3.0 đến 3.5 áp dụng với tông lục đổi sang xanh ngọc (mọi màu lục xoay về sắc của #016B69, giữ độ sáng và độ bão hoà).
+- **Thanh bên và thanh đầu:** đúng bản 12 (`assets/shell.js`, `assets/shell.css` tách từ bản 12, mô tả ở mục 3.7 phần khung): thanh bên nổi bo tròn 270 px, logo C, dropdown Vai trò ở đầu, Chain và nút thu gọn (chỉ biểu tượng) ở đáy, thu gọn còn 88 px với mọi biểu tượng trên một trục giữa; thanh đầu bo tròn thẳng mép với nội dung, Kết nối ví và nút sáng tối ở góc phải, khi cuộn qua tiêu đề thì tiêu đề lớn mờ dần và thanh đầu cao 44 px hiện tên màn trên nền xanh trầm, vạch gradient chạy ở chân.
+- **Trong app:** khung thay ở `components/layout/*` (sidebar, thanh trên); nội dung các màn theo bản 3.2. Không đổi logic `ChannelSwitcher`, `ChainSelector`, `NAV_BY_ROLE`, cách đọc số việc chờ (mục 1.1).
+
 ### 3.7. Bản 12 (QĐ-UX-15 đến QĐ-UX-20), bản đầy đủ chờ duyệt
 
 Thư mục `docs/prototypes/20261101_ui_ux_ban_12/`: mở `index.html` (trang giới thiệu) hoặc `review.html` (bảng duyệt); đủ 21 màn, ghi chú ánh xạ 1-1 từng màn ở `notes/`. Bản đối chiếu `docs/prototypes/20261101_ui_ux_ban_3_2/`. Bản 12 gồm bản 6 (bên dưới), các điểm của bản 8 sau đây, thanh đầu và nút thu gọn theo QĐ-UX-17, các điểm học từ bản 3 theo QĐ-UX-18 và màu sắc, căn chỉnh theo QĐ-UX-19:
@@ -347,4 +356,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
-- Q8. Duyệt bản 12 (mục 3.7, đủ 21 màn) làm chuẩn bàn giao, hoặc chọn bản 3.2 nếu thích hơn.
+- Q8. Đã chốt: bản chốt (mục 3.6b) là chuẩn bàn giao.
