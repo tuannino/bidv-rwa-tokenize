@@ -1,5 +1,5 @@
-// BIDV RWA, bản xem thử mẫu C. Dựng khung (sidebar theo vai, thanh trên có dropdown Chain và Vai trò),
-// biểu tượng, hiệu ứng và biểu đồ. Không có chức năng thật: mọi nút chỉ để xem.
+// BIDV RWA, bản chốt. Phần nội dung: biểu tượng, nền, hiệu ứng, minh hoạ và biểu đồ.
+// Thanh bên và thanh đầu do assets/shell.js dựng (nạp trước tệp này). Không có chức năng thật: mọi nút chỉ để xem.
 //
 // Cách dùng trong một trang:
 //   <body data-page="draft" data-nav="draft.html" data-roles="teller" data-crumbs="Vận hành|Lập lệnh">
@@ -72,6 +72,13 @@
     loader: '<path d="M21 12a9 9 0 1 1-6.22-8.56"/>',
     key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    badgecheck: '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
+    snow: '<path d="M2 12h20M12 2v20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4"/>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    play: '<path d="M6 3l14 9-14 9V3z"/>',
+    tag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".5"/>',
+    vault: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M12 8v1M12 15v1M8 12h1M15 12h1"/>',
     eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
   };
   // pathLength="1" cho mọi nét để hiệu ứng "vẽ lại nét" khi rê chuột dùng chung một độ dài.
@@ -147,21 +154,6 @@
     teller: { label: 'Giao dịch viên', code: 'GDV001', key: 'TELLER', home: 'dashboard.html', mood: 'control' },
     controller: { label: 'Kiểm soát viên', code: 'KSV001', key: 'CONTROLLER', home: 'dashboard.html', mood: 'control' },
   };
-  const PENDING = { draft: 2, approval: 2 };
-  const NAV = {
-    investor: [{ g: null, items: [['portfolio.html', 'Tổng quan', 'dash', 'E'], ['trade.html', 'Giao dịch token', 'cart', 'G'], ['orders.html', 'Quản lý lệnh', 'list', 'Q'], ['withdraw.html', 'Rút VNDB', 'bank', 'R'], ['wallet.html', 'Kết nối ví', 'wallet', 'V'], ['account.html', 'Thông tin tài khoản', 'usercog', 'T']] }],
-    seller: [{ g: null, items: [['seller.html', 'Tổng quan', 'dash', 'E'], ['seller-transactions.html', 'Danh sách giao dịch', 'receipt', 'D'], ['seller-withdraw.html', 'Tạo lệnh rút', 'bank', 'R'], ['wallet.html', 'Kết nối ví', 'wallet', 'V'], ['account.html', 'Thông tin tài khoản', 'usercog', 'T']] }],
-    teller: [
-      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash', 'E'], ['draft.html', 'Lập lệnh', 'clip', 'L', 'draft'], ['transactions.html', 'Giao dịch', 'swap', 'G'], ['distribution.html', 'Chia lợi nhuận (chỉ xem)', 'trend', 'C'], ['vault.html', 'Vault thanh toán SPV', 'bank', 'K'], ['demo-payment.html', 'Nạp VNDB (trình diễn)', 'coins', 'N']] },
-      { g: 'Tài khoản', items: [['account.html', 'Thông tin tài khoản', 'usercog', 'T']] },
-    ],
-    controller: [
-      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash', 'E'], ['transactions.html', 'Giao dịch', 'swap', 'G'], ['distribution.html', 'Chia lợi nhuận', 'trend', 'C'], ['vault.html', 'Vault thanh toán SPV', 'bank', 'K']] },
-      { g: 'Kiểm soát', items: [['approvals.html', 'Phê duyệt lệnh', 'shield', 'P', 'approval']] },
-      { g: 'Tài khoản', items: [['account.html', 'Thông tin tài khoản', 'usercog', 'T']] },
-    ],
-  };
-  const CHAINS = [['mock', 'Mock (không cần chain)', 'Mock'], ['hardhat-local', 'Hardhat Local', 'Hardhat Local'], ['evm', 'EVM Testnet (Sepolia)', 'Sepolia'], ['stellar', 'Stellar (Soroban), chưa dùng được', 'Stellar', true]];
 
   const body = document.body;
   const allowed = (body.dataset.roles || 'teller').split(',');
@@ -172,9 +164,9 @@
   try { chain = localStorage.getItem('bidv-chain') || 'mock'; } catch {}
   const withRole = (href, r = role) => `${href}?role=${r}`;
 
-  // Logo BIDV chuẩn (vector hoá từ ảnh chủ dự án gửi): logo C ở thanh bên, bông mai trên ô xanh ngọc khi thu gọn và làm favicon
+  // Favicon cho trang không có khung (trang giới thiệu); trang có khung lấy favicon từ shell.js.
   const markTile = (sz) => { const m = window.BIDV.LOGO.mark, pad = m[3] * .16; return `<svg viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}" width="${sz}" height="${sz}" aria-hidden="true"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${window.BIDV.LOGO.flower}"/></svg>`; };
-  { const ico = document.createElement('link'); ico.rel = 'icon'; ico.type = 'image/svg+xml'; ico.href = 'data:image/svg+xml,' + encodeURIComponent(markTile(64).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')); document.head.appendChild(ico); }
+  if (!window.V4) { const ico = document.createElement('link'); ico.rel = 'icon'; ico.type = 'image/svg+xml'; ico.href = 'data:image/svg+xml,' + encodeURIComponent(markTile(64).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')); document.head.appendChild(ico); }
 
   // Nền chung: quầng sáng lục vàng trôi chậm và đường gió mảnh.
   const bg = document.createElement('div');
@@ -183,110 +175,7 @@
   bg.innerHTML = '<i></i><i></i><i></i><svg viewBox="0 0 1440 900" preserveAspectRatio="none"><path d="M-60 180 C 260 120, 520 240, 820 170 S 1300 110, 1500 190"/><path d="M-60 420 C 300 360, 600 480, 900 410 S 1320 350, 1500 430"/><path d="M-60 700 C 280 640, 560 760, 880 690 S 1300 630, 1500 710"/></svg>';
   body.prepend(bg);
 
-  // Bản chốt: thanh bên và thanh đầu do shell.js (bản 12) dựng; tệp này giữ toàn bộ phần nội dung, nền và hiệu ứng của bản 3.2.
-  const SHELL = !!window.V4;
   const content = document.querySelector('main.content');
-  if (content && !SHELL) {
-    try { if (localStorage.getItem('bidv-rail') === '1') body.classList.add('rail'); } catch {}
-    const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp"><span>${grp.g}</span></div>` : ''}${grp.items.map(([href, label, ic, k, pend]) => {
-      const on = (body.dataset.nav || '') === href;
-      const c = pend ? PENDING[pend] : null;
-      return `<a href="${withRole(href)}" title="${label}"${on ? ' aria-current="page"' : ''}><span class="ni">${icon(ic)}</span><span class="lbl">${label}</span>${c != null ? `<span class="cnt${c > 0 ? ' on' : ''}" aria-label="${c} việc đang chờ">${c}</span>` : ''}<span class="kbd">${k}</span></a>`;
-    }).join('')}`).join('');
-    const crumbs = (body.dataset.crumbs || '').split('|').filter(Boolean);
-    const ch = CHAINS.find(([v]) => v === chain) || CHAINS[0];
-    const shell = document.createElement('div');
-    shell.className = 'shell';
-    shell.innerHTML = `
-      <aside class="sb" id="sb" aria-label="Điều hướng">
-        <div class="sb-top">
-          <a class="logo" href="index.html" aria-label="BIDV RWA Tokenize Platform"><span class="lg-full">${window.BIDV.logo({ word: 'var(--bidv-word)', height: 26 })}<small><b>RWA</b> Tokenize Platform</small></span><span class="lg-mini">${markTile(38)}</span></a>
-          <button class="rail-btn" type="button" id="rail" aria-label="Thu gọn hoặc mở rộng menu" title="Thu gọn menu">${icon('chevr')}</button>
-        </div>
-        <nav class="nav" id="nav"><span class="glide act" aria-hidden="true"></span><span class="glide hov" aria-hidden="true"></span>${navHtml}</nav>
-        <div class="sb-farm" aria-hidden="true">${scene({ tone: 'onLight', turbines: 5, sun: false, sea: false })}</div>
-        <div class="net" title="Trạng thái mạng"><span class="pulse" aria-hidden="true"><i></i><i></i></span><div class="nt"><b id="net-chain"></b><small id="net-sub"></small></div></div>
-      </aside>
-      <div class="main">
-        <header class="topbar" id="topbar">
-          <button class="iconbtn menu-btn" type="button" id="menu" aria-controls="sb" aria-expanded="false" aria-label="Mở menu">${icon('menu')}</button>
-          <nav class="crumb" aria-label="Đường dẫn"><span class="home">${turbine('#ffffff')}</span>${crumbs.map((c, i) => (i === crumbs.length - 1 ? `<b title="${c}">${c}</b>` : `<span class="c">${c}</span>${icon('chevr', 'sep')}`)).join('')}</nav>
-          <div class="tb-right">
-            <div class="dd" data-dd="chain"><button class="dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Chain" title="Chọn chain"><span class="di">${icon('link')}</span><span class="dt"><small>Chain</small><b id="chain-v">${ch[2]}</b></span>${icon('chev', 'chev')}</button><ul class="dd-menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span class="oi">${icon('link')}</span><span class="ot">${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul></div>
-            <div class="dd" data-dd="role"><button class="dd-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Vai trò" title="Chọn vai trò"><span class="di">${icon('user')}</span><span class="dt"><small>Vai trò, ${ROLES[role].code}</small><b>${ROLES[role].label}</b></span>${icon('chev', 'chev')}</button><ul class="dd-menu" role="listbox" aria-label="Vai trò">${Object.entries(ROLES).map(([k, r]) => `<li role="option" tabindex="-1" data-v="${k}" aria-selected="${k === role}"><span class="oi">${icon('user')}</span><span class="ot">${r.label}<small>${r.code}</small></span>${icon('check', 'ok')}</li>`).join('')}</ul></div>
-            <button class="iconbtn theme" type="button" id="theme" aria-label="Đổi giao diện sáng tối">${icon('sun', 'i-sun')}${icon('moon', 'i-moon')}</button>
-            <button class="btn gold wallet-btn" type="button">${icon('wallet')}<span>Kết nối ví</span></button>
-          </div>
-        </header>
-        <div class="gust" aria-hidden="true"><svg viewBox="0 0 1200 400" preserveAspectRatio="none"><path d="M-100 120 C 200 60, 500 180, 800 110 S 1150 60, 1300 130"/><path d="M-100 220 C 260 170, 560 280, 860 210 S 1180 160, 1300 230"/><path d="M-100 320 C 220 270, 520 370, 820 310 S 1160 270, 1300 330"/></svg></div>
-      </div>`;
-    content.replaceWith(shell);
-    shell.querySelector('.main').appendChild(content);
-
-    const syncNet = () => { const c = CHAINS.find(([v]) => v === chain); document.getElementById('net-chain').textContent = c[1]; document.getElementById('net-sub').textContent = `${chain}, vai trò ${ROLES[role].key}`; document.getElementById('chain-v').textContent = c[2]; };
-    syncNet();
-    // Dropdown xổ xuống dưới header (không dùng menu gốc của hệ điều hành vì trên macOS nó mở đè lên ô chọn).
-    const onPick = {
-      chain: (v) => { chain = v; try { localStorage.setItem('bidv-chain', chain); } catch {} syncNet(); document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); },
-      role: (v) => { if (v !== role) location.href = withRole(ROLES[v].home, v); },
-    };
-    const closeAll = (except) => document.querySelectorAll('.dd.open').forEach((d) => { if (d !== except) { d.classList.remove('open'); d.querySelector('.dd-btn').setAttribute('aria-expanded', 'false'); } });
-    document.querySelectorAll('.dd[data-dd]').forEach((dd) => {
-      const btn = dd.querySelector('.dd-btn'), menu = dd.querySelector('.dd-menu'), opts = [...menu.querySelectorAll('[role=option]')];
-      const open = (o) => { closeAll(dd); dd.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); if (o) (opts.find((x) => x.getAttribute('aria-selected') === 'true') || opts[0]).focus(); };
-      const pick = (li) => { if (!li || li.getAttribute('aria-disabled') === 'true') return; opts.forEach((x) => x.setAttribute('aria-selected', String(x === li))); open(false); btn.focus(); onPick[dd.dataset.dd](li.dataset.v); };
-      btn.addEventListener('click', () => open(!dd.classList.contains('open')));
-      btn.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } });
-      menu.addEventListener('click', (e) => pick(e.target.closest('[role=option]')));
-      menu.addEventListener('keydown', (e) => {
-        const i = opts.indexOf(document.activeElement);
-        if (e.key === 'ArrowDown') { e.preventDefault(); opts[(i + 1) % opts.length].focus(); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); opts[(i - 1 + opts.length) % opts.length].focus(); }
-        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(document.activeElement); }
-        else if (e.key === 'Escape' || e.key === 'Tab') { open(false); btn.focus(); }
-      });
-    });
-    document.addEventListener('click', (e) => { if (!e.target.closest('.dd')) closeAll(); });
-    document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; });
-
-    document.getElementById('theme').addEventListener('click', (e) => swapTheme(e.currentTarget, () => charts.forEach((f) => f(false))));
-    const sb = document.getElementById('sb'), menu = document.getElementById('menu');
-    menu.addEventListener('click', () => { const o = sb.classList.toggle('open'); menu.setAttribute('aria-expanded', String(o)); });
-    document.addEventListener('click', (e) => { if (sb.classList.contains('open') && !sb.contains(e.target) && !menu.contains(e.target)) { sb.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); } });
-
-    // Menu: viên nang đậm đánh dấu mục đang mở, viên nang mờ đuổi theo chuột. Cả hai chạy bằng lò xo vật lý
-    // và hơi kéo giãn theo vận tốc như giọt nước, nên lướt nhanh qua nhiều mục vẫn liền một dải.
-    const nav = document.getElementById('nav'), act = nav.querySelector('.glide.act'), hov = nav.querySelector('.glide.hov');
-    const pill = (g, k, c) => {
-      let y = 0, h = 0;
-      const paint = () => { const st = Math.min(16, Math.abs(sy.v) / 70); g.style.transform = `translateY(${y - st / 2}px)`; g.style.height = `${h + st}px`; };
-      const sy = spring((v) => { y = v; paint(); }, { k, c }), sh = spring((v) => { h = v; paint(); }, { k, c: c + 4 });
-      return (a, jump) => { if (!a) { g.style.opacity = 0; return; } g.style.opacity = 1; sy.to(a.offsetTop, jump); sh.to(a.offsetHeight, jump); };
-    };
-    const placeAct = pill(act, 210, 22), placeHov = pill(hov, 320, 28);
-    const cur = nav.querySelector('a[aria-current]');
-    const settle = (jump) => placeAct(cur, jump === true);
-    settle(true);
-    let hovOn = false;
-    nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { placeHov(a, !hovOn); hovOn = true; hov.classList.toggle('on-act', a === cur); }));
-    nav.addEventListener('mouseleave', () => { hov.style.opacity = 0; hovOn = false; });
-    document.getElementById('rail').addEventListener('click', () => { body.classList.toggle('rail'); try { localStorage.setItem('bidv-rail', body.classList.contains('rail') ? '1' : '0'); } catch {} setTimeout(settle, 380); });
-    addEventListener('resize', () => settle(true));
-    document.fonts?.ready.then(() => settle(true));
-
-    // Thanh trên: nổi lên khi cuộn.
-    const tb = document.getElementById('topbar');
-    // Ẩn khi cuộn xuống, hiện lại khi cuộn lên.
-    let lastY = scrollY;
-    const onScroll = () => {
-      const y = scrollY;
-      tb.classList.toggle('scrolled', y > 8);
-      if (y > 140 && y > lastY + 6) { tb.classList.add('hide'); closeAll(); }
-      else if (y < lastY - 6 || y < 140) tb.classList.remove('hide');
-      lastY = y;
-    };
-    addEventListener('scroll', onScroll, { passive: true }); onScroll();
-  }
 
   // Liên kết nội bộ giữ vai đang xem.
   document.querySelectorAll('a[data-go]').forEach((a) => { a.href = withRole(a.dataset.go); });
@@ -319,7 +208,7 @@
   let monoRaf = 0;
   new MutationObserver(() => { if (!monoRaf) monoRaf = requestAnimationFrame(() => { monoRaf = 0; tagMono(); }); }).observe(body, { subtree: true, childList: true, characterData: true });
   // Biểu tượng 3D cạnh tiêu đề trang (Fluent Emoji 3D, MIT, tạm để thử; thay bằng bộ chính thức sau).
-  const P3D = { dashboard: 'leaf', draft: 'memo', transactions: 'ledger', 'transaction-detail': 'receipt', distribution: 'moneybag', vault: 'classic', 'demo-payment': 'banknote', account: 'id', approvals: 'scales', 'approval-detail': 'check', portfolio: 'bars', 'token-detail': 'coin', trade: 'chart', orders: 'clipboard', 'order-detail': 'receipt', withdraw: 'outbox', wallet: 'card', seller: 'office', 'seller-transactions': 'ledger', 'seller-withdraw': 'flymoney' };
+  const P3D = { config: 'coin', recall: 'outbox', 'wallet-binding': 'id', dashboard: 'leaf', draft: 'memo', transactions: 'ledger', 'transaction-detail': 'receipt', distribution: 'moneybag', vault: 'classic', 'demo-payment': 'banknote', account: 'id', approvals: 'scales', 'approval-detail': 'check', portfolio: 'bars', 'token-detail': 'coin', trade: 'chart', orders: 'clipboard', 'order-detail': 'receipt', withdraw: 'outbox', wallet: 'card', seller: 'office', 'seller-transactions': 'ledger', 'seller-withdraw': 'flymoney' };
   const ph = document.querySelector('.pagehead > div:first-child'), p3 = P3D[body.dataset.page];
   if (ph && p3) { ph.classList.add('has3d'); ph.insertAdjacentHTML('afterbegin', `<span class="p3d" aria-hidden="true"><img src="assets/3d/${p3}.webp" alt="" width="56" height="56"></span>`); }
   document.querySelectorAll('img[data-3d]').forEach((m) => { m.src = `assets/3d/${m.dataset['3d']}.webp`; m.alt = ''; m.width = m.height = 64; });

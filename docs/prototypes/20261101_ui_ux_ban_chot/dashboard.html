@@ -14,9 +14,9 @@
   <div class="pagehead">
     <div>
       <h1>Tổng quan điện gió</h1>
-      <p class="sub">Token hoá quyền hưởng lợi tức dự án điện gió, PoC, cập nhật 09:14 23/10/2026</p>
+      <p class="sub">Token hoá quyền hưởng lợi tức dự án điện gió, PoC, Cập nhật 09:14 23/10/2026</p>
     </div>
-    <div class="actions"><a class="btn primary" href="#"><i data-icon="plus"></i>Phát hành WPT</a></div>
+    <div class="actions"><a class="btn primary" href="#" data-href="/mint" title="Dẫn tới /mint (màn Phát hành WPT, chưa có bản xem thử)"><i data-icon="plus"></i>Phát hành WPT</a></div>
   </div>
 
   <section class="kpi hl big span-4" aria-label="WPT đã phát hành" style="grid-row: span 2">
@@ -76,7 +76,6 @@ UI.chart(document.getElementById('ch'), {
   labels: ['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'],
   left: { max: 36000, step: 9000, fmt: (v) => `${UI.nf(v)} MWh` },
   right: { max: 20, fmt: (v) => `${UI.nf(v)} tỷ` },
-  tipTitle: (i) => `Kỳ ${['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'][i]}`,
   series: [
     { name: 'Sản lượng', type: 'area', axis: 'left', color: 'var(--c-gen)', values: [24180, 27640, 31900, 29450, 34720, 33180], fmt: (v) => `${UI.nf(v)} MWh` },
     { name: 'Lợi tức đã chia', type: 'line', axis: 'right', color: 'var(--c-profit)', dots: true, values: [11.2, 13.1, 15.4, 14.0, 16.8, 15.9], fmt: (v) => `${UI.nf(v, 1)} tỷ VND` },

@@ -9,100 +9,181 @@
 <link rel="stylesheet" href="assets/c.css">
 <link rel="stylesheet" href="assets/shell.css">
 <style>
+[hidden] { display: none !important; }
 .entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; margin-top: 10px; }
 .entries li { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 12px; }
 .steps li .mono { display: block; margin-top: 2px; color: var(--ink-2); }
+.steps li.fail::before { content: "\2715"; background: var(--bad-bg); color: var(--bad-ink); }
 .audit li { grid-template-columns: minmax(0, 1fr) !important; }
 .audit .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .audit p { margin-top: 4px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .info-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .info-grid .w2 { grid-column: span 2; }
+.info-grid dd { overflow-wrap: anywhere; }
+.state-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#pick { flex-wrap: wrap; border-radius: 20px; }
+#pick button { white-space: nowrap; padding: 8px 14px; }
 @media (max-width: 1180px) { .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .info-grid .w2 { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .info-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .entries { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
-<body data-page="order-detail" data-nav="orders.html" data-roles="investor" data-crumbs="Nhà đầu tư|Quản lý lệnh|ORD-2026-0001">
+<body data-page="order-detail" data-nav="orders.html" data-roles="investor" data-crumbs="Nhà đầu tư|Quản lý lệnh|b7e3c1a4">
 <main class="content">
   <div class="pagehead">
     <div>
       <a class="link-more link-back" data-go="orders.html" style="margin-bottom:8px"><i data-icon="left"></i>Quản lý lệnh</a>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <h1>Lệnh mua ORD-2026-0001</h1>
-        <span class="badge ok">Hoàn tất</span>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap" data-states="data noaudit">
+        <h1 id="h1">Lệnh mua b7e3c1a4</h1>
+        <span class="badge ok" id="h-st">Hoàn tất</span>
       </div>
     </div>
   </div>
 
-  <section class="kpi au span-4" aria-label="Giá trị">
-    <div class="top"><span class="lbl">Giá trị</span><span class="ic"><i data-icon="coins"></i></span></div>
-    <div class="val"><span data-count="15000000">15.000.000</span><small>VNDB</small></div>
+  <div class="state-bar">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có dữ liệu</button>
+      <button type="button" role="tab" aria-selected="false" data-state="noaudit">Nhật ký rỗng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Không tìm thấy</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notbound">Ví chưa định danh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+    </div>
+  </div>
+  <div class="state-bar" data-states="data noaudit">
+    <span class="small muted">Lệnh mẫu</span>
+    <div class="seg" id="pick" role="group" aria-label="Lệnh mẫu"></div>
+  </div>
+
+  <section class="card" data-states="loading" hidden>
+    <div class="empty"><span class="ei"><i data-icon="loader"></i></span><span>Đang tải lệnh…</span></div>
   </section>
-  <section class="kpi leaf span-4" aria-label="Số lượng">
-    <div class="top"><span class="lbl">Số lượng</span><span class="ic"><i data-icon="wind"></i></span></div>
-    <div class="val"><span data-count="150">150</span><small>WPT</small></div>
-  </section>
-  <section class="kpi gold span-4" aria-label="Giá">
-    <div class="top"><span class="lbl">Giá</span><span class="ic"><i data-icon="receipt"></i></span></div>
-    <div class="val"><span data-count="100000">100.000</span><small>VNDB</small></div>
+  <div class="alert bad" role="alert" data-states="error" hidden><i data-icon="alert"></i><span id="err-t"></span></div>
+  <div class="alert warn" role="alert" data-wallet-not-bound data-states="notbound" hidden>
+    <i data-icon="shieldx"></i>
+    <span><b>Ví chưa được định danh</b><br>Ví <span class="mono">0x7099…79C8</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác.</span>
+  </div>
+  <section class="card" data-states="nowallet" hidden>
+    <div class="empty" style="padding:64px 16px"><span class="ei"><i data-icon="wallet"></i></span><b>Chưa kết nối ví</b></div>
   </section>
 
-  <section class="card" aria-labelledby="inf-h">
+  <section class="kpi au span-4" aria-label="Giá trị" data-states="data noaudit">
+    <div class="top"><span class="lbl">Giá trị</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span id="k-vnd">15.000.000</span><small>VNDB</small></div>
+  </section>
+  <section class="kpi leaf span-4" aria-label="Số lượng" data-states="data noaudit">
+    <div class="top"><span class="lbl">Số lượng</span><span class="ic"><i data-icon="wind"></i></span></div>
+    <div class="val"><span id="k-wpt">150</span></div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Giá" data-states="data noaudit">
+    <div class="top"><span class="lbl">Giá</span><span class="ic"><i data-icon="receipt"></i></span></div>
+    <div class="val"><span id="k-price">100.000</span><small>VNDB</small></div>
+  </section>
+
+  <section class="card" aria-labelledby="inf-h" data-states="data noaudit">
     <div class="card-h"><div class="t"><i data-icon="file"></i><h2 id="inf-h">Thông tin lệnh</h2></div></div>
     <dl class="kv-grid info-grid">
-      <div><dt>Mã lệnh</dt><dd class="mono">ORD-2026-0001</dd></div>
-      <div><dt>Chiều</dt><dd>Mua</dd></div>
-      <div><dt>Thời điểm tạo</dt><dd>18/03/2026 10:05:10</dd></div>
-      <div><dt>Cập nhật</dt><dd>18/03/2026 10:05:12</dd></div>
-      <div class="w2"><dt>Ví</dt><dd class="mono break" style="font-size:13px">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</dd></div>
-      <div class="w2"><dt>Mã giao dịch</dt><dd class="mono break" style="font-size:13px">0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91</dd></div>
-      <div class="w2" style="grid-column:1 / -1"><dt>Lý do</dt><dd>không có</dd></div>
+      <div class="w2"><dt>Mã lệnh</dt><dd class="mono" style="font-size:13px" id="i-id"></dd></div>
+      <div><dt>Chiều</dt><dd id="i-side"></dd></div>
+      <div><dt>Thời điểm tạo</dt><dd id="i-created"></dd></div>
+      <div class="w2"><dt>Ví</dt><dd class="mono" style="font-size:13px">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</dd></div>
+      <div><dt>Cập nhật</dt><dd id="i-updated"></dd></div>
+      <div><dt>Lý do</dt><dd id="i-reason"></dd></div>
+      <div style="grid-column:1 / -1"><dt>Mã giao dịch</dt><dd class="mono" style="font-size:13px" id="i-tx"></dd></div>
     </dl>
   </section>
 
-  <section class="card span-8 stretch" aria-labelledby="st-h">
+  <section class="card span-8 stretch" aria-labelledby="st-h" data-states="data noaudit">
     <div class="card-h"><div class="t"><i data-icon="refresh"></i><h2 id="st-h">Tiến trình quyết toán</h2></div></div>
-    <ol class="steps">
-      <li class="done"><b>Tạo lệnh</b>Bước 1, Xong<span class="mono">18/03/2026 10:05:10</span></li>
-      <li class="done"><b>Kiểm tra</b>Bước 2, Xong<span class="mono">18/03/2026 10:05:10</span></li>
-      <li class="done"><b>Đối chiếu số dư</b>Bước 3, Xong<span class="mono">18/03/2026 10:05:11</span></li>
-      <li class="done"><b>Quyết toán</b>Bước 4, Xong<span class="mono">18/03/2026 10:05:11</span></li>
-      <li class="done"><b>Hoàn tất</b>Bước 5, Xong<span class="mono">18/03/2026 10:05:12</span></li>
-    </ol>
+    <ol class="steps" id="steps"></ol>
     <div class="inner" style="margin-top:18px">
       <p class="strong">Quyết toán là một bước duy nhất: bốn bút toán nằm trong cùng một giao dịch, cùng thành công hoặc cùng huỷ.</p>
-      <p class="small muted" style="margin-top:4px">Kết cục: cả bốn bút toán đã ghi.</p>
-      <ul class="entries">
-        <li><span>Nhà đầu tư, VNDB</span><span class="neg">-15.000.000</span></li>
-        <li><span>Người bán, VNDB</span><span class="pos">+15.000.000</span></li>
-        <li><span>Người bán, WPT</span><span class="neg">-150</span></li>
-        <li><span>Nhà đầu tư, WPT</span><span class="pos">+150</span></li>
-      </ul>
+      <p class="small muted" style="margin-top:4px" id="outcome"></p>
+      <ul class="entries" id="entries"></ul>
     </div>
   </section>
 
-  <section class="card span-4 stretch" aria-labelledby="au-h">
+  <section class="card span-4 stretch" aria-labelledby="au-h" data-states="data noaudit">
     <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="au-h">Nhật ký kiểm toán của lệnh</h2></div></div>
-    <ol class="timeline audit">
-      <li>
-        <div>
-          <div class="meta"><time class="mono">18/03/2026 10:05:10</time><span class="badge">order:place</span></div>
-          <span>INVESTOR, SUCCESS</span>
-          <p>đặt lệnh ORD-2026-0001: 150 WPT, phải trả 15000000 VNDB</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <div class="meta"><time class="mono">18/03/2026 10:05:12</time><span class="badge">order:auto-execute</span></div>
-          <span>INVESTOR, SUCCESS</span>
-          <p>tự động, lệnh ORD-2026-0001: khớp 150 WPT / 15000000 VNDB; tx 0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91 CONFIRMED</p>
-        </div>
-      </li>
-    </ol>
+    <ol class="timeline audit" id="audit"></ol>
+    <p class="small muted" id="audit-none" hidden>Chưa có dòng nhật ký nào gắn với lệnh này.</p>
   </section>
 </main>
 <script src="assets/logo.js"></script>
 <script src="assets/shell.js"></script>
 <script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const W = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const SIDE = { BUY: 'Mua', SELL: 'Bán' };
+  const ST = { PLACED: ['Đã đặt', 'info'], CHECKING: ['Đang kiểm tra', 'info'], EXECUTING: ['Đang quyết toán', 'info'], COMPLETED: ['Hoàn tất', 'ok'], REJECTED: ['Bị từ chối', 'bad'], FAILED: ['Thất bại', 'bad'], EXPIRED: ['Hết hạn', 'warn'] };
+  const STEP = ['Tạo lệnh', 'Kiểm tra', 'Đối chiếu số dư', 'Quyết toán', 'Hoàn tất'];
+  const STEP_ST = { done: 'Xong', current: 'Đang xử lý', pending: 'Chưa tới', failed: 'Dừng ở bước này' };
+  const PROGRESS = { PLACED: [1, 'pending'], CHECKING: [1, 'current'], EXECUTING: [3, 'current'], COMPLETED: [5, 'pending'], REJECTED: [1, 'failed'], EXPIRED: [1, 'failed'], FAILED: [3, 'failed'] };
+  const NONE = 'không bút toán nào được ghi, số dư hai bên giữ nguyên.';
+  const OUTCOME = { COMPLETED: 'cả bốn bút toán đã ghi.', REJECTED: NONE, EXPIRED: NONE, FAILED: NONE };
+  // Cùng 5 lệnh với orders.html. stamps: mốc của 5 bước (null khi chưa có).
+  const ORDERS = [
+    { id: 'b7e3c1a4-5f20-4d8e-9a61-3c0f2e7d9b15', side: 'BUY', wpt: 150, vnd: 15000000, status: 'COMPLETED', created: '18/03/2026 10:05:10', updated: '18/03/2026 10:05:12',
+      stamps: ['18/03/2026 10:05:10', '18/03/2026 10:05:10', '18/03/2026 10:05:11', '18/03/2026 10:05:11', '18/03/2026 10:05:12'],
+      tx: '0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91', reason: null,
+      audit: [['18/03/2026 10:05:10', 'order:place', 'đặt lệnh {id}: 150 WPT, phải trả 15000000 VNDB'], ['18/03/2026 10:05:12', 'order:auto-execute', 'tự động, lệnh {id}: khớp 150 WPT / 15000000 VNDB; tx 0x7d1e4a90c3b25f8e61d0a4b7c9e2f3518a6d0c47e2b9f1a4c8d3e6b0a5f72c91 CONFIRMED']] },
+    { id: '2a9d6f13-8c47-4e05-b1d2-7f4a0c9e3b68', side: 'BUY', wpt: 40, vnd: 4000000, status: 'REJECTED', created: '02/06/2026 09:05:31', updated: '02/06/2026 09:05:32',
+      stamps: ['02/06/2026 09:05:31'], tx: null, reason: `Số dư VNDB không đủ: cần 4000000, ví ${W} chỉ có 1893000.`,
+      audit: [['02/06/2026 09:05:31', 'order:place', 'đặt lệnh {id}: 40 WPT, phải trả 4000000 VNDB'], ['02/06/2026 09:05:32', 'order:auto-execute', `tự động, lệnh {id}: bị từ chối trước khi gửi tx, Số dư VNDB không đủ: cần 4000000, ví ${W} chỉ có 1893000.`]] },
+    { id: 'e04c8b5a-1d3f-4a72-8e96-5b2c7f0a1d49', side: 'SELL', wpt: 20, vnd: 2000000, status: 'EXPIRED', created: '14/08/2026 10:40:55', updated: '14/08/2026 11:10:55',
+      stamps: ['14/08/2026 10:40:55'], tx: null, reason: null,
+      audit: [['14/08/2026 10:40:55', 'order:place', 'đặt lệnh bán {id}: 20 WPT, nhận 2000000 VNDB']] },
+    { id: '9f1b2e70-6a8c-4d35-a0e7-d84c3b6f5a21', side: 'BUY', wpt: 10, vnd: 1000000, status: 'FAILED', created: '21/10/2026 14:22:09', updated: '21/10/2026 14:22:11',
+      stamps: ['21/10/2026 14:22:09', '21/10/2026 14:22:09', '21/10/2026 14:22:10'], tx: null, reason: 'Lỗi không xác định khi gọi chain.',
+      audit: [['21/10/2026 14:22:09', 'order:place', 'đặt lệnh {id}: 10 WPT, phải trả 1000000 VNDB'], ['21/10/2026 14:22:11', 'order:auto-execute', 'tự động, lệnh {id}: gửi giao dịch thất bại, Lỗi không xác định khi gọi chain.']] },
+    { id: '61d4a8f2-0b39-4c7e-9d15-a2e8f6c4b307', side: 'BUY', wpt: 5, vnd: 500000, status: 'EXECUTING', created: '01/11/2026 09:20:05', updated: '01/11/2026 09:20:06',
+      stamps: ['01/11/2026 09:20:05', '01/11/2026 09:20:05', '01/11/2026 09:20:06', '01/11/2026 09:20:06'], tx: null, reason: null,
+      audit: [['01/11/2026 09:20:05', 'order:place', 'đặt lệnh {id}: 5 WPT, phải trả 500000 VNDB']] },
+  ];
+  const nf = (v) => UI.nf(v);
+  const qs = new URLSearchParams(location.search);
+  let cur = ORDERS.find((o) => o.id === qs.get('id')) || ORDERS[0];
+  let state = 'data';
+
+  function render() {
+    const o = cur;
+    $('h1').textContent = `Lệnh ${SIDE[o.side].toLowerCase()} ${o.id.slice(0, 8)}`;
+    $('h-st').textContent = ST[o.status][0]; $('h-st').className = `badge ${ST[o.status][1]}`;
+    $('k-vnd').textContent = nf(o.vnd); $('k-wpt').textContent = nf(o.wpt); $('k-price').textContent = nf(Math.floor(o.vnd / o.wpt));
+    $('i-id').textContent = o.id; $('i-side').textContent = SIDE[o.side];
+    $('i-created').textContent = o.created; $('i-updated').textContent = o.updated;
+    $('i-tx').textContent = o.tx ?? 'chưa có'; $('i-reason').textContent = o.reason ?? 'không có';
+    const [done, next] = PROGRESS[o.status];
+    $('steps').innerHTML = STEP.map((label, i) => {
+      const s = i < done ? 'done' : i === done ? next : 'pending';
+      const at = s === 'failed' ? o.updated : s === 'pending' ? '–' : (o.stamps[i] || '–');
+      return `<li class="${s === 'done' ? 'done' : s === 'current' ? 'now' : s === 'failed' ? 'fail' : ''}" data-state="${s}"><b>${label}</b>Bước ${i + 1}, ${STEP_ST[s]}<span class="mono">${at}</span></li>`;
+    }).join('');
+    $('outcome').textContent = `Kết cục: ${OUTCOME[o.status] || 'chưa có kết cục.'}`;
+    const v = nf(o.vnd), w = nf(o.wpt);
+    const pays = o.side === 'BUY' ? ['VNDB', v] : ['WPT', w], gets = o.side === 'BUY' ? ['WPT', w] : ['VNDB', v];
+    $('entries').innerHTML = [['Nhà đầu tư', pays, '-'], ['Người bán', pays, '+'], ['Người bán', gets, '-'], ['Nhà đầu tư', gets, '+']]
+      .map(([who, [a, n], s]) => `<li><span>${who}, ${a}</span><span class="${s === '-' ? 'neg' : 'pos'}">${s}${n}</span></li>`).join('');
+    const audit = state === 'noaudit' ? [] : o.audit;
+    $('audit').innerHTML = audit.map(([at, act, d]) => `<li><div><div class="meta"><time class="mono">${at}</time><span class="badge">${act}</span></div><span>INVESTOR, ${o.status === 'COMPLETED' || act === 'order:place' ? 'SUCCESS' : 'FAILURE'}</span><p>${d.replaceAll('{id}', o.id)}</p></div></li>`).join('');
+    $('audit').hidden = audit.length === 0; $('audit-none').hidden = audit.length > 0;
+    $('err-t').textContent = `Không tìm thấy lệnh ${o.id} trong phạm vi được xem.`;
+    $('pick').innerHTML = ORDERS.map((x) => `<button type="button" aria-pressed="${x === o}" data-id="${x.id}">${ST[x.status][0]}</button>`).join('');
+  }
+  $('pick').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; cur = ORDERS.find((x) => x.id === b.dataset.id); render(); });
+  const show = (st) => {
+    state = st;
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.state === st)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+    render();
+  };
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => show(b.dataset.state)));
+  const st = qs.get('st');
+  show(st && document.querySelector(`[data-states-tabs] button[data-state="${st}"]`) ? st : 'data');
+})();
+</script>
 </body>
 </html>

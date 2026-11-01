@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giá và phát hành</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  .pc-price { margin-bottom: 8px; }
+  .pc-price .val { font-size: clamp(26px, 2.4vw, 34px); white-space: nowrap; }
+  .wal { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .pc-block { font-size: 12px; color: var(--muted); }
+  .pc-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  dialog.dlg { width: min(520px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -30px rgba(0,0,0,.55); }
+  dialog.dlg::backdrop { background: rgba(5, 21, 20, .55); backdrop-filter: blur(2px); }
+  dialog.dlg h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  dialog.dlg .d { margin-top: 8px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  dialog.dlg .foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 20px; }
+  @media (max-width: 1100px) { .pc-col { grid-column: 1 / -1 !important; } }
+  @media (max-width: 640px) { .pc-kv > div { flex-wrap: wrap; } .pc-kv dd { text-align: left; } .wal { justify-content: flex-start; } }
+</style>
+</head>
+<body data-page="config" data-nav="config.html" data-roles="teller,controller" data-crumbs="Vận hành|Giá và phát hành">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Giá và phát hành</h1>
+      <p class="sub">Giá phát hành WPT áp dụng cho lệnh mua bán mới, và tình trạng phát hành của dự án trên chain đang chọn.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span class="small muted">Trạng thái xem thử của màn</span>
+    <div class="tabs" id="state" role="tablist" aria-label="Trạng thái xem thử" style="margin:0">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có dữ liệu</button>
+      <button type="button" role="tab" aria-selected="false" data-state="inflight" data-teller>Còn lệnh đang xử lý</button>
+      <button type="button" role="tab" aria-selected="false" data-state="mismatch">Giá trên hợp đồng lệch (hardhat-local, evm)</button>
+      <button type="button" role="tab" aria-selected="false" data-state="default">Chưa đổi giá lần nào</button>
+      <button type="button" role="tab" aria-selected="false" data-state="overcap">Tổng cung vượt trần</button>
+      <button type="button" role="tab" aria-selected="false" data-state="noproject">Chain chưa có dự án</button>
+      <button type="button" role="tab" aria-selected="false" data-state="pending" data-teller>Đổi giá chưa có xác nhận</button>
+      <button type="button" role="tab" aria-selected="false" data-state="rejected" data-teller>Đổi giá bị chuỗi từ chối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="parterror">Lỗi từng khối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi tải</button>
+    </div>
+  </div>
+
+  <div class="empty" id="loading" role="status" hidden><span class="ei"><i data-icon="loader"></i></span><span>Đang tải…</span></div>
+  <div class="alert bad" id="load-error" role="alert" hidden><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
+
+  <!-- Cột trái: Giá phát hành, Đổi giá (chỉ khi canEdit) -->
+  <div class="stack span-6 pc-col" data-body>
+    <section class="card" aria-label="Giá phát hành">
+      <div class="card-h"><div class="t"><i data-icon="coins"></i><h2>Giá phát hành</h2></div></div>
+      <div class="alert bad" id="p-err" role="alert" hidden><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
+      <div id="p-body">
+      <div class="kpi au pc-price">
+        <div class="top"><span class="lbl" id="p-eff-l">Giá áp dụng cho lệnh mới</span><span class="ic"><i data-icon="tag"></i></span></div>
+        <div class="val"><span data-testid="effective-price" id="p-eff">100.000 VNDB</span></div>
+      </div>
+      <dl class="kv pc-kv">
+        <div><dt>Giá đã cấu hình</dt><dd class="mono" data-testid="configured-price" id="p-cfg">100.000 VNDB</dd></div>
+        <div><dt>Đặt gần nhất</dt><dd id="p-by"></dd></div>
+        <div><dt>Ngưỡng cảnh báo đổi giá</dt><dd class="mono" id="p-thr">2 lần</dd></div>
+      </dl>
+      <div class="alert warn" id="p-warn" role="status" hidden style="margin-top:14px"><i data-icon="alert"></i><span>Giá trên hợp đồng khác giá đã cấu hình. Giao dịch viên đặt lại đúng giá mong muốn để hai nơi khớp.</span></div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Đổi giá" id="change" data-edit>
+      <div class="card-h"><div class="t"><i data-icon="pen"></i><h2>Đổi giá</h2></div></div>
+      <div class="form">
+        <div class="field">
+          <label for="new-price">Giá mới (VNDB cho 1 WPT)</label>
+          <input class="input mono" id="new-price" inputmode="numeric" style="text-align:right" placeholder="100000">
+        </div>
+        <div class="field">
+          <label for="price-reason">Lý do</label>
+          <textarea class="textarea" id="price-reason" rows="2" maxlength="200" style="min-height:72px" placeholder="Bắt buộc: căn cứ đổi giá, ví dụ số quyết định."></textarea>
+        </div>
+        <p class="pc-block" id="block" data-testid="change-price-block"></p>
+        <div class="pc-foot"><button class="btn primary" type="button" id="btn-change"><i data-icon="pen"></i>Đổi giá</button></div>
+      </div>
+      <div class="alert" id="feedback" role="status" hidden style="margin-top:14px"><i data-icon="check"></i><span id="feedback-t"></span></div>
+    </section>
+  </div>
+
+  <!-- Cột phải: Tình trạng phát hành -->
+  <section class="card span-6 pc-col stretch" aria-label="Tình trạng phát hành" data-body>
+    <div class="card-h"><div class="t"><i data-icon="gauge"></i><h2>Tình trạng phát hành</h2></div></div>
+    <div class="alert bad" id="i-err" role="alert" hidden><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
+    <p class="small muted" id="i-empty" hidden>Chain này chưa có dự án nào.</p>
+    <div id="i-body">
+      <div class="kpi hl pc-price">
+        <div class="top"><span class="lbl">Tổng cung trên chuỗi</span><span class="ic"><i data-icon="wind"></i></span></div>
+        <div class="val"><span id="i-sup"></span><small data-sym>WPT</small></div>
+      </div>
+      <dl class="kv pc-kv">
+        <div><dt>Trần phát hành (bảng dự án)</dt><dd class="mono"><span id="i-cap"></span> <span data-sym>WPT</span></dd></div>
+        <div><dt>Còn được phát hành</dt><dd class="mono"><span id="i-rem"></span> <span data-sym>WPT</span></dd></div>
+        <div><dt>Mốc phát hành lần đầu</dt><dd id="i-at"></dd></div>
+        <div><dt>Ví thanh toán SPV</dt><dd id="i-spv"></dd></div>
+      </dl>
+      <div class="alert warn" id="i-over" role="status" hidden style="margin-top:14px"><i data-icon="alert"></i><span>Tổng cung trên chuỗi vượt trần trong bảng dự án. Cần đối soát trước khi phát hành thêm.</span></div>
+    </div>
+  </section>
+
+  <!-- Lịch sử đổi giá -->
+  <section class="card span-12" aria-label="Lịch sử đổi giá" data-body>
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2>Lịch sử đổi giá</h2></div></div>
+    <p class="small muted" id="h-empty" hidden>Chưa có lần đổi giá nào. Giá đang dùng là giá mặc định của dự án.</p>
+    <div class="tbl-wrap" id="h-wrap">
+      <table class="tbl" aria-label="Bảng lịch sử đổi giá">
+        <thead><tr><th>Thời điểm</th><th>Vai</th><th class="n">Giá cũ</th><th class="n">Giá mới</th><th>Lý do</th><th>Mã giao dịch</th></tr></thead>
+        <tbody id="h-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog class="dlg" id="dlg-confirm" aria-labelledby="dc-h">
+  <h2 id="dc-h">Xác nhận đổi giá</h2>
+  <p class="d" id="dc-d"></p>
+  <p class="small muted" id="dc-r" style="margin-top:10px;overflow-wrap:anywhere"></p>
+  <div class="foot">
+    <button class="btn outline" type="button" data-close>Huỷ</button>
+    <button class="btn primary" type="button" id="dc-ok"><i data-icon="check"></i>Xác nhận đổi giá</button>
+  </div>
+</dialog>
+
+<dialog class="dlg" id="dlg-large" aria-labelledby="dl-h">
+  <h2 id="dl-h">Giá mới lệch lớn so với giá hiện tại</h2>
+  <p class="d" id="dl-d"></p>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px"><input type="checkbox" id="dl-check">Tôi đã kiểm số chữ số</label>
+  <div class="foot">
+    <button class="btn outline" type="button" data-close>Huỷ</button>
+    <button class="btn primary" type="button" id="dl-ok" disabled><i data-icon="alert"></i>Vẫn đổi giá</button>
+  </div>
+</dialog>
+
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const vnd = (v) => BigInt(v).toLocaleString('vi-VN');
+  const short = (v) => `${v.slice(0, 10)}…${v.slice(-6)}`;
+  const ROLE_LABEL = { TELLER: 'Giao dịch viên', CONTROLLER: 'Kiểm soát viên', INVESTOR: 'Nhà đầu tư', SELLER: 'Người bán' };
+  // canEdit do máy chủ tính: treasury:manage và cờ cấu hình của vai, tức chỉ Giao dịch viên.
+  const canEdit = UI.role === 'teller';
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  // Chain có OrderSettlement (hardhat-local, evm) đọc giá trên hợp đồng; chỉ evm có trình duyệt khối.
+  const hasSettlement = (c) => c === 'hardhat-local' || c === 'evm';
+  const SPV = '0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2';
+  const TX1 = '0x8c41d2e7a9b03f56c1e8d4a7b2f90c3e5d6a1b7f4c8e2d9a0b3f6c1e7d5a2b4c9';
+  const TX3 = '0x5a0c7e2b9d41f8a3c6e0b2d4f7a9c1e3b5d7f0a2c4e6b8d1f3a5c7e9b0d2f4a6c8';
+  const TX2 = '0x3e7b9a1c5d2f8e4b6a0c9d3f7e1b5a8c2d6f0e4b9a3c7d1f5e8b2a6c0d4f9e3b7';
+  const HISTORY = [
+    { at: '14:02:47 28/2/2026', by: 'TELLER', old: '120000', neu: '100000', reason: 'Điều chỉnh theo Quyết định 09/QĐ-SPV thay Quyết định 08/QĐ-SPV', tx: TX2 },
+    { at: '10:15:22 28/2/2026', by: 'TELLER', old: null, neu: '120000', reason: 'Đặt giá phát hành theo Quyết định 08/QĐ-SPV', tx: TX1 },
+  ];
+  const ISSUANCE = { cap: '20000000', supply: '10000000', issuedAt: '09:30:00 1/3/2026', spv: SPV, symbol: 'WPT' };
+  const base = () => ({
+    price: '100000', configured: '100000', warning: false, onChain: hasSettlement(chainNow()),
+    updatedBy: 'TELLER', updatedAt: '14:02:47 28/2/2026', threshold: 2,
+    issuance: { ...ISSUANCE }, history: HISTORY.map((r) => ({ ...r })), inFlight: { PLACED: 0, CHECKING: 0, EXECUTING: 0 }, loading: false, loadError: false, priceError: false, issuanceError: false, fb: null,
+  });
+  const STATES = {
+    data: (s) => s,
+    inflight: (s) => ({ ...s, inFlight: { PLACED: 1, CHECKING: 0, EXECUTING: 1 } }),
+    mismatch: (s) => ({ ...s, onChain: true, price: '120000', warning: true }),
+    default: (s) => ({ ...s, updatedBy: null, updatedAt: null, history: [] }),
+    overcap: (s) => ({ ...s, issuance: { ...s.issuance, supply: '20500000' } }),
+    noproject: (s) => ({ ...s, issuance: null }),
+    // Phản hồi khi đổi giá không thành (config.service.ts: LEDGER chưa có xác nhận là cảnh báo, chuỗi từ chối là lỗi); giá không đổi.
+    pending: (s) => ({ ...s, fb: ['warning', 'Giao dịch đổi giá đã gửi nhưng chưa có xác nhận. Nếu chuỗi xác nhận sau, màn sẽ hiện cảnh báo lệch giá; khi đó đặt lại cùng giá để ghi nhận.'] }),
+    rejected: (s) => ({ ...s, fb: ['error', `Chuỗi từ chối giao dịch đổi giá (tx ${TX3}). Giá chưa đổi.`] }),
+    // PartError: mỗi khối có kết quả riêng; lỗi một khối không chặn khối khác.
+    parterror: (s) => ({ ...s, priceError: true, issuanceError: true }),
+    loading: (s) => ({ ...s, loading: true }),
+    error: (s) => ({ ...s, loadError: true }),
+  };
+  let S = base();
+
+  const render = () => {
+    const chain = chainNow();
+    $('#loading').hidden = !S.loading; $('#load-error').hidden = !S.loadError;
+    document.querySelectorAll('[data-body]').forEach((n) => { n.hidden = S.loading || S.loadError; });
+    $('#p-err').hidden = !S.priceError; $('#p-body').hidden = S.priceError;
+    $('#i-err').hidden = !S.issuanceError;
+    // Giá phát hành
+    $('#p-eff-l').textContent = S.onChain ? 'Giá áp dụng cho lệnh mới (trên hợp đồng)' : 'Giá áp dụng cho lệnh mới';
+    $('#p-eff').textContent = `${vnd(S.price)} VNDB`;
+    $('#p-cfg').textContent = `${vnd(S.configured)} VNDB`;
+    $('#p-by').textContent = S.updatedBy ? `${ROLE_LABEL[S.updatedBy] ?? S.updatedBy}, ${S.updatedAt}` : 'Chưa ai đặt, đang dùng giá mặc định của dự án';
+    $('#p-thr').textContent = `${S.threshold.toLocaleString('vi-VN')} lần`;
+    $('#p-warn').hidden = !S.warning;
+    // Khối giá lỗi thì currentPrice = null: ô giá không có gợi ý, hộp xác nhận nói "giá hiện tại".
+    if (canEdit) price.placeholder = S.priceError ? '' : S.price;
+    // Tình trạng phát hành
+    const iss = S.issuance;
+    $('#i-empty').hidden = !!iss || S.issuanceError; $('#i-body').hidden = !iss || S.issuanceError;
+    if (iss) {
+      const cap = BigInt(iss.cap), sup = BigInt(iss.supply), rem = cap > sup ? cap - sup : 0n;
+      $('#i-cap').textContent = vnd(iss.cap); $('#i-sup').textContent = vnd(iss.supply); $('#i-rem').textContent = vnd(rem);
+      document.querySelectorAll('#i-body [data-sym]').forEach((n) => { n.textContent = iss.symbol; });
+      $('#i-at').textContent = iss.issuedAt ?? 'chưa có';
+      $('#i-spv').innerHTML = iss.spv
+        ? `<span class="wal"><span class="mono small" title="${iss.spv}">${short(iss.spv)}</span><button class="btn outline sm" type="button" id="copy-spv" aria-label="Sao chép ${iss.spv}">${UI.icon('copy')}<span>Sao chép</span></button></span>`
+        : 'chưa có (chưa phát hành lần đầu)';
+      $('#i-over').hidden = !(sup > cap);
+    }
+    // Lịch sử đổi giá: 20 dòng mới nhất
+    $('#h-empty').hidden = S.history.length > 0; $('#h-wrap').hidden = S.history.length === 0;
+    $('#h-rows').innerHTML = S.history.slice(0, 20).map((r) => {
+      const tx = !r.tx ? 'không có' : chain === 'evm'
+        ? `<a class="idlink" href="https://sepolia.etherscan.io/tx/${r.tx}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">${short(r.tx)}${UI.icon('external')}</a>`
+        : short(r.tx);
+      return `<tr><td class="small nowrap">${r.at}</td><td class="nowrap">${ROLE_LABEL[r.by] ?? r.by}</td><td class="n mono nowrap">${r.old ? vnd(r.old) : 'không có'}</td><td class="n mono">${vnd(r.neu)}</td><td class="small" style="max-width:256px;min-width:180px">${r.reason ?? 'không ghi'}</td><td class="mono small nowrap" title="${r.tx ?? ''}">${tx}</td></tr>`;
+    }).join('');
+    syncForm();
+  };
+
+  // Khối Đổi giá: lý do chặn nút theo đúng thứ tự của màn thật.
+  const price = $('#new-price'), reason = $('#price-reason');
+  const blockReason = () => {
+    const f = S.inFlight, total = f.PLACED + f.CHECKING + f.EXECUTING, r = reason.value.trim();
+    if (total > 0) return `Còn ${total} lệnh đang xử lý (Đã đặt ${f.PLACED}, Đang kiểm tra ${f.CHECKING}, Đang quyết toán ${f.EXECUTING}). Xử lý ở màn Giao dịch trước khi đổi giá.`;
+    if (!/^\d+$/.test(price.value) || BigInt(price.value) <= 0n) return 'Nhập giá mới là số nguyên dương, đơn vị VNDB.';
+    if (r.length < 5 || r.length > 200) return 'Lý do bắt buộc, từ 5 tới 200 ký tự.';
+    return null;
+  };
+  const syncForm = () => {
+    if (!canEdit) return;
+    const b = blockReason();
+    $('#block').hidden = !b; $('#block').textContent = b ?? '';
+    $('#btn-change').disabled = b !== null;
+  };
+
+  const feedback = (tone, msg) => {
+    const f = $('#feedback');
+    f.className = `alert ${tone === 'success' ? 'ok' : tone === 'warning' ? 'warn' : 'bad'}`;
+    f.dataset.tone = tone; f.firstElementChild.outerHTML = UI.icon(tone === 'success' ? 'check' : tone === 'warning' ? 'alert' : 'x');
+    $('#feedback-t').textContent = msg; f.hidden = false;
+  };
+  // Máy chủ kiểm ngưỡng theo cả hai chiều so với giá đang có hiệu lực.
+  const exceeds = (prev, next, thr) => { const k = BigInt(Math.round(thr * 1000)); return next * 1000n > prev * k || next * k < prev * 1000n; };
+  const nowStr = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} 23/10/2026`; };
+  const fakeTx = () => '0x' + Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  const submit = (confirmLarge) => {
+    const prev = BigInt(S.configured), next = BigInt(price.value);
+    if (!confirmLarge && exceeds(prev, next, S.threshold)) {
+      $('#dlg-confirm').close();
+      $('#dl-check').checked = false; $('#dl-ok').disabled = true;
+      $('#dl-d').textContent = `Giá mới ${next} VND lệch quá ${S.threshold} lần so với giá đang có hiệu lực ${prev} VND. Kiểm lại số chữ số; nếu đúng ý thì gửi lại kèm xác nhận đổi giá lớn.`;
+      $('#dlg-large').showModal();
+      return;
+    }
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const tx = fakeTx(), at = nowStr();
+    S.history.unshift({ at, by: 'TELLER', old: S.configured, neu: next.toString(), reason: reason.value.trim(), tx });
+    feedback('success', `Đã đổi giá phát hành từ ${vnd(S.configured)} sang ${vnd(next)} VNDB; chuỗi đã xác nhận (tx ${short(tx)}).`);
+    S.price = S.configured = next.toString(); S.warning = false; S.updatedBy = 'TELLER'; S.updatedAt = at;
+    price.value = ''; reason.value = '';
+    render();
+  };
+
+  if (!canEdit) {
+    document.querySelectorAll('#state [data-teller]').forEach((n) => n.remove());
+    // Kiểm soát viên: màn thật không dựng khối "Đổi giá" (canEdit = false), chỉ xem giá, phát hành và lịch sử.
+    $('#change').remove();
+  } else {
+    price.addEventListener('input', () => { price.value = price.value.trim(); syncForm(); });
+    reason.addEventListener('input', syncForm);
+    $('#btn-change').addEventListener('click', () => {
+      $('#feedback').hidden = true;
+      $('#dc-d').textContent = `Đổi giá phát hành từ ${S.priceError ? 'giá hiện tại' : vnd(S.price)} sang ${/^\d+$/.test(price.value) ? vnd(price.value) : price.value} VNDB. Áp dụng ngay cho mọi lệnh mới.`;
+      $('#dc-r').textContent = `Lý do: ${reason.value.trim()}`;
+      $('#dlg-confirm').showModal();
+    });
+    $('#dc-ok').addEventListener('click', () => submit(false));
+    $('#dl-check').addEventListener('change', (e) => { $('#dl-ok').disabled = !e.target.checked; });
+    $('#dl-ok').addEventListener('click', () => submit(true));
+  }
+  document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#copy-spv'); if (!b) return;
+    // Như CopyButton của dev: thành công "Đã sao chép", trình duyệt chặn thì "Chưa sao chép được"; 2 giây sau trở lại.
+    const done = (ok) => { b.querySelector('span').textContent = ok ? 'Đã sao chép' : 'Chưa sao chép được'; if (ok) b.firstElementChild.outerHTML = UI.icon('check'); setTimeout(() => render(), 2000); };
+    try { navigator.clipboard.writeText(S.issuance.spv).then(() => done(true), () => done(false)); } catch { done(false); }
+  });
+  // Đổi chain ở thanh bên: màn thật tải lại theo chain mới.
+  document.querySelector('[data-switch="chain"] .menu')?.addEventListener('click', () => setTimeout(() => { S.onChain = S.warning || hasSettlement(chainNow()); render(); }, 0));
+
+  $('#state').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-state]'); if (!b) return;
+    S = STATES[b.dataset.state](base());
+    // Vùng phản hồi chỉ có ở vai được sửa (GDV); KSV không có phần tử này.
+    if ($('#feedback')) $('#feedback').hidden = true;
+    if (S.fb && canEdit) feedback(...S.fb);
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

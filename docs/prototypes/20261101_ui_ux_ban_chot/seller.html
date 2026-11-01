@@ -24,6 +24,9 @@
   .sup .val { font-family: var(--font); font-size: 15px; font-variant-numeric: tabular-nums; }
   @media (max-width: 520px) { .tiles2 { grid-template-columns: minmax(0, 1fr); } .sup .avatar { display: none; } .today .val { font-size: 24px; } }
   [data-theme="dark"] .avatar:not(.green):not(.gold) { color: var(--g300); }
+  [data-panel="trading"] .kv > div { gap: 12px; }
+  [data-panel="trading"] .kv dd { min-width: 0; text-align: right; }
+  [data-panel="trading"] .badge { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; }
 </style>
 </head>
 <body data-page="seller" data-nav="seller.html" data-roles="seller" data-crumbs="Người bán|Tổng quan">
@@ -107,7 +110,7 @@
       <div><dt>VNDB đã khoá</dt><dd>8.250.000.000<small>VNDB</small></dd></div>
       <div class="hi"><dt>VNDB còn rút được</dt><dd>33.000.000.000<small>VNDB</small></dd></div>
     </dl>
-    <p class="note"><i data-icon="key"></i><span class="break">Ví thanh toán: <span class="mono">0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861</span></span></p>
+    <p class="note"><i data-icon="key"></i><span class="break">Địa chỉ vault: <span class="mono">0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2</span></span></p>
   </section>
 
   <section class="card span-6 stretch" aria-labelledby="bal-h">
@@ -129,24 +132,52 @@
       <button type="button" role="tab" aria-selected="false" data-show="nowallet">Chưa có ví thanh toán</button>
       <button type="button" role="tab" aria-selected="false" data-show="noproj">Chưa có dự án</button>
       <button type="button" role="tab" aria-selected="false" data-show="policy">Luật khoá khác</button>
+      <button type="button" role="tab" aria-selected="false" data-show="trading">Trạng thái giao dịch</button>
       <button type="button" role="tab" aria-selected="false" data-show="load">Đang tải, lỗi</button>
     </div>
     <div data-panel-group="st" data-panel="warn">
-      <div class="alert bad" role="alert"><i data-icon="alert"></i><span class="break"><b>Ví SPV trên chuỗi không phải vault: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC. Vault hiện tại: 0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861.</b><br>Hiện trong cả hai thẻ Tài sản trong ví thanh toán và Số dư ví khi ProjectToken còn ghi một ví SPV khác vault.</span></div>
+      <div class="alert bad" role="alert"><i data-icon="alert"></i><span class="break"><b>Ví SPV trên chuỗi không phải vault: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC. Vault hiện tại: 0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2.</b><br>Hiện trong cả hai thẻ Tài sản trong ví thanh toán và Số dư ví khi ProjectToken còn ghi một ví SPV khác vault.</span></div>
     </div>
     <div data-panel-group="st" data-panel="nowallet" hidden>
-      <p class="note" style="margin-top:0"><i data-icon="info"></i><span>Chưa phát hành lần nào nên chưa có ví thanh toán.</span></p>
-      <p class="small muted" style="margin-top:6px">Thay dòng Ví thanh toán trong thẻ Tài sản trong ví thanh toán; các ô số dư hiện "–".</p>
+      <p class="small muted" style="margin-bottom:10px">Chain chưa có vault và chưa phát hành lần nào (không có ví SPV). Hai thẻ ví hiện như sau; ô VNDB ví chia lợi nhuận vẫn có số vì quỹ chia luôn đọc được.</p>
+      <dl class="kv-grid tiles2">
+        <div><dt>Token chưa phân phối</dt><dd>0<small>WPT</small></dd><p class="hint">Không rút qua kênh này, lệnh rút chỉ áp cho VNDB.</p></div>
+        <div><dt>VNDB</dt><dd>–<small>VNDB</small></dd></div>
+        <div><dt>VNDB đã khoá</dt><dd>–<small>VNDB</small></dd></div>
+        <div><dt>VNDB còn rút được</dt><dd>–<small>VNDB</small></dd></div>
+      </dl>
+      <p class="note"><i data-icon="info"></i><span>Chưa phát hành lần nào nên chưa có ví thanh toán.</span></p>
+      <dl class="kv-grid tiles2" style="margin-top:14px">
+        <div><dt>VNDB ví thanh toán</dt><dd>–<small>VNDB</small></dd></div>
+        <div><dt>VNDB ví chia lợi nhuận</dt><dd>4.800.000.000<small>VNDB</small></dd></div>
+        <div><dt>Phần khoá</dt><dd>–<small>VNDB</small></dd></div>
+        <div><dt>Hạn mức còn rút được</dt><dd>–<small>VNDB</small></dd></div>
+      </dl>
+      <p class="note"><i data-icon="info"></i><span>Chain này chưa có vault thanh toán: chưa rút được.</span></p>
     </div>
     <div data-panel-group="st" data-panel="noproj" hidden>
       <div class="empty"><span class="ei"><i data-icon="box"></i></span><span>Chưa có dự án trên chuỗi này.</span></div>
-      <p class="small muted" style="margin-top:6px">Hiện trong thẻ Thông tin nguồn cung và thẻ Thông tin token.</p>
+      <p class="small muted" style="margin-top:6px">Hiện trong thẻ Thông tin nguồn cung và thẻ Thông tin token. Bảng Tồn kho token chỉ còn hàng tiêu đề, ô Token chưa phân phối hiện "–":</p>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table class="tbl"><thead><tr><th>Mã token</th><th class="n">Trần phát hành</th><th class="n">Số còn được phát hành</th><th class="n">Tổng cung hiện tại</th><th class="n">Chưa phân phối</th><th class="n">Đang lưu hành</th></tr></thead><tbody></tbody></table>
+      </div>
+      <dl class="kv-grid tiles2" style="margin-top:12px"><div><dt>Token chưa phân phối</dt><dd>–<small>WPT</small></dd><p class="hint">Không rút qua kênh này, lệnh rút chỉ áp cho VNDB.</p></div></dl>
     </div>
     <div data-panel-group="st" data-panel="policy" hidden>
       <dl class="kv">
         <div><dt>Chưa cấu hình (UNSET)</dt><dd>Nguồn on-chain: chưa cấu hình, vault khoá toàn bộ.</dd></div>
         <div><dt>Khoá cố định (FIXED)</dt><dd>Nguồn on-chain: khoá cố định 5.000.000.000 VNDB.</dd></div>
         <div><dt>Chain không có vault</dt><dd>Chain này chưa có vault thanh toán: chưa rút được.</dd></div>
+      </dl>
+    </div>
+    <div data-panel-group="st" data-panel="trading" hidden>
+      <p class="small muted" style="margin-bottom:10px">Dòng "Trạng thái giao dịch" trong thẻ Thông tin token đổi theo pha thu hồi của dự án (FE-10).</p>
+      <dl class="kv">
+        <div><dt>Giao dịch đang mở</dt><dd><span class="badge ok run">Đang mở bán</span></dd></div>
+        <div><dt>Dự án đến hạn, chờ thu hồi</dt><dd><span class="badge warn">Tạm dừng (đến hạn dự án)</span></dd></div>
+        <div><dt>Đang thu hồi, token đã đóng băng</dt><dd><span class="badge warn">Tạm dừng (đã đóng băng)</span></dd></div>
+        <div><dt>Dự án đã đóng</dt><dd><span class="badge">Đã đóng</span></dd></div>
+        <div><dt>Chuỗi đang ở chế độ tất toán</dt><dd><span class="badge warn">Tạm dừng (đang đóng băng)</span></dd></div>
       </dl>
     </div>
     <div data-panel-group="st" data-panel="load" hidden>

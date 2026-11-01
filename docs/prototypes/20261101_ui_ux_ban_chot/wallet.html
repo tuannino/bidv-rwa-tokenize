@@ -24,6 +24,9 @@
 .wl b { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-ink); }
 .wl b svg { width: 14px; height: 14px; }
 .wl span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.busy { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 500; }
+.busy svg { width: 18px; height: 18px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .addr { font-family: var(--mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
 .card.hero .btn.outline { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.28); color: #fff; }
 @media (max-width: 900px) { .wl { grid-template-columns: minmax(0, 1fr); } .addr { font-size: 24px; } }
@@ -42,6 +45,8 @@
     <span class="small muted">Trạng thái xem thử</span>
     <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
       <button type="button" role="tab" aria-selected="true" data-state="ready">Đã kết nối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="ethloading">Đang đọc số dư</button>
+      <button type="button" role="tab" aria-selected="false" data-state="etherror">Lỗi số dư</button>
       <button type="button" role="tab" aria-selected="false" data-state="mock">Chế độ mô phỏng</button>
       <button type="button" role="tab" aria-selected="false" data-state="disconnected">Chưa kết nối</button>
       <button type="button" role="tab" aria-selected="false" data-state="noprovider">Chưa có ví</button>
@@ -53,7 +58,7 @@
   </div>
 
   <!-- ready: WalletStatusCard -->
-  <section class="card hero span-7 stretch" aria-labelledby="rd-h" data-states="ready">
+  <section class="card hero span-7 stretch" aria-labelledby="rd-h" data-states="ready ethloading etherror">
     <div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no" data-sea="no"></div>
     <div class="card-h">
       <div class="t"><i data-icon="wallet"></i><h2 id="rd-h">Ví đã kết nối</h2></div>
@@ -70,9 +75,14 @@
       <button type="button" class="btn outline sm"><i data-icon="unlock"></i>Ngắt kết nối</button>
     </div>
   </section>
-  <section class="kpi gold span-5 stretch" aria-label="Số dư ETH" data-states="ready" style="display:flex;flex-direction:column">
+  <section class="kpi gold span-5 stretch" aria-label="Số dư ETH" data-states="ready ethloading etherror" style="display:flex;flex-direction:column">
     <div class="top"><span class="lbl">Số dư ETH</span><span class="ic"><i data-icon="flame"></i></span></div>
-    <div class="val" style="margin-top:auto;font-size:40px">0,0421<small>ETH</small></div>
+    <div class="val" data-states="ready" style="margin-top:auto;font-size:40px">0,0421<small>ETH</small></div>
+    <div class="val busy" data-states="ethloading" hidden style="margin-top:auto"><i data-icon="loader"></i>đang đọc…</div>
+    <div data-states="etherror" hidden style="margin-top:auto">
+      <div class="val" style="font-size:20px;font-weight:500">chưa có</div>
+      <p class="small" role="alert" style="color:var(--bad);margin-top:6px">Chưa đọc được số dư, có thể node của mạng này chưa chạy.</p>
+    </div>
     <div class="sub">Đây là đồng của EVM Testnet (Sepolia) dùng để trả phí giao dịch, không phải VNDB và không phải tiền thật.</div>
   </section>
 
@@ -146,7 +156,7 @@
     <div class="sk" style="height:32px;width:224px;margin-top:18px"></div>
     <div class="sk" style="height:16px;width:288px;max-width:100%;margin-top:12px"></div>
     <div class="sk" style="height:16px;width:256px;max-width:100%;margin-top:12px"></div>
-    <p class="small muted" style="margin-top:14px">Đang kiểm tra trạng thái ví…</p>
+    <span class="sr-only">Đang kiểm tra trạng thái ví…</span>
   </section>
 
   <!-- WalletScopeNote -->
@@ -160,9 +170,10 @@
 <script src="assets/ui.js"></script>
 <script>
 (() => {
-  const W = UI.role === 'seller' ? '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' : '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const W = UI.role === 'seller' ? '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' : '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const a = document.querySelector('[data-addr-short]');
   a.textContent = `${W.slice(0, 6)}…${W.slice(-4)}`; a.title = W;
+  document.getElementById('copy').setAttribute('aria-label', `Sao chép địa chỉ ví ${W}`);
   document.querySelector('[data-explorer]').href = `https://sepolia.etherscan.io/address/${W}`;
   document.querySelector('[data-explorer]').target = '_blank';
   const cb = document.getElementById('copy');
@@ -171,9 +182,13 @@
     navigator.clipboard?.writeText(W).then(() => { s.textContent = 'Đã sao chép'; cb.classList.add('copied'); }, () => { s.textContent = 'Chưa sao chép được'; });
     setTimeout(() => { s.textContent = 'Sao chép'; cb.classList.remove('copied'); }, 2000);
   });
-  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
-    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
-  }));
+  const show = (st) => {
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.state === st)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+  };
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => show(b.dataset.state)));
+  const st = new URLSearchParams(location.search).get('st');
+  if (st && document.querySelector(`[data-states-tabs] button[data-state="${st}"]`)) show(st);
 })();
 </script>
 </body>

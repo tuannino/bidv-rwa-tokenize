@@ -46,11 +46,11 @@
 
   <section class="card" aria-label="Danh sách giao dịch">
     <form class="tx-filters" role="search">
-      <div class="field q"><label for="f-q">Mã lệnh hoặc nhà đầu tư</label><div class="input-ic"><i data-icon="search"></i><input class="input" id="f-q" aria-label="Mã lệnh hoặc nhà đầu tư" placeholder="Mã lệnh hoặc ví nhà đầu tư"></div></div>
-      <div class="field"><label for="f-type">Loại</label><select class="select" id="f-type" aria-label="Loại"><option value="">Mọi loại</option><option value="BUY">Mua</option><option value="SELL">Bán</option><option value="WITHDRAW">Rút</option></select></div>
-      <div class="field"><label for="f-status">Trạng thái</label><select class="select" id="f-status" aria-label="Trạng thái"></select></div>
-      <div class="field"><label for="f-from">Từ ngày</label><input class="input" id="f-from" type="date" aria-label="Từ ngày"></div>
-      <div class="field"><label for="f-to">Đến ngày</label><input class="input" id="f-to" type="date" aria-label="Đến ngày"></div>
+      <div class="field q"><div class="input-ic"><i data-icon="search"></i><input class="input" id="f-q" aria-label="Mã lệnh hoặc nhà đầu tư" placeholder="Mã lệnh hoặc ví nhà đầu tư"></div></div>
+      <div class="field"><select class="select" id="f-type" aria-label="Loại"><option value="">Mọi loại</option><option value="BUY">Mua</option><option value="SELL">Bán</option><option value="WITHDRAW">Rút</option></select></div>
+      <div class="field"><select class="select" id="f-status" aria-label="Trạng thái"></select></div>
+      <div class="field"><input class="input" id="f-from" type="date" aria-label="Từ ngày"></div>
+      <div class="field"><input class="input" id="f-to" type="date" aria-label="Đến ngày"></div>
     </form>
 
     <div class="tbl-wrap" id="tbl-box">
@@ -63,7 +63,7 @@
 
     <nav class="pager" aria-label="Phân trang">
       <span class="muted" id="pg-info">27 giao dịch, trang 1/2</span>
-      <div class="btns"><button class="btn outline sm" type="button" disabled>Trang trước</button><button class="btn outline sm" type="button" id="pg-next">Trang sau</button></div>
+      <div class="btns"><button class="btn outline sm" type="button" id="pg-prev" disabled>Trang trước</button><button class="btn outline sm" type="button" id="pg-next">Trang sau</button></div>
     </nav>
   </section>
 
@@ -83,8 +83,9 @@
 (() => {
   const STATUS = { PLACED: 'Đã đặt', CHECKING: 'Đang kiểm tra', EXECUTING: 'Đang khớp', COMPLETED: 'Hoàn tất', REJECTED: 'Bị từ chối', FAILED: 'Thất bại', EXPIRED: 'Hết hạn' };
   const STEP = { PLACED: '1. Đặt lệnh', CHECKING: '2. Kiểm tra điều kiện', EXECUTING: '3. Khớp lệnh trên chuỗi', COMPLETED: '4. Đã giao token', REJECTED: '2. Dừng ở kiểm tra', FAILED: '3. Dừng ở khớp lệnh', EXPIRED: '1. Hết hạn chờ' };
-  const WSTATUS = { SENDING: 'Đang gửi', SENT: 'Đã gửi, chờ biên nhận', COMPLETED: 'Hoàn tất', FAILED: 'Thất bại', NEEDS_REVIEW: 'Cần Kiểm soát viên xem' };
-  const TONE = { PLACED: 'info', CHECKING: 'info run', EXECUTING: 'info run', COMPLETED: 'ok', REJECTED: 'bad', FAILED: 'bad', EXPIRED: '', SENDING: 'info run', SENT: 'info', NEEDS_REVIEW: 'warn' };
+  // WITHDRAW_STATUS_LABELS (BE-13 QĐ-E, FIX-01 G4): bốn trạng thái đặt ví nhận đứng đầu, đúng thứ tự WITHDRAW_STATUSES.
+  const WSTATUS = { PAYOUT_SENDING: 'Đang đặt ví nhận', PAYOUT_SENT: 'Đang đặt ví nhận', PAYOUT_SET: 'Đã đặt ví nhận, chờ gửi rút', PAYOUT_REVIEW: 'Cần xem xét (đặt ví nhận)', SENDING: 'Đang gửi', SENT: 'Đã gửi, chờ biên nhận', COMPLETED: 'Hoàn tất', FAILED: 'Thất bại', NEEDS_REVIEW: 'Cần Kiểm soát viên xem' };
+  const TONE = { PLACED: 'info', CHECKING: 'info run', EXECUTING: 'info run', COMPLETED: 'ok', REJECTED: 'bad', FAILED: 'bad', EXPIRED: '', PAYOUT_SENDING: 'info run', PAYOUT_SENT: 'info run', PAYOUT_SET: 'info', PAYOUT_REVIEW: 'warn', SENDING: 'info run', SENT: 'info', NEEDS_REVIEW: 'warn' };
   const TYPE = { BUY: 'Mua', SELL: 'Bán', WITHDRAW: 'Rút' };
   const ORD = Object.keys(STATUS), WD = Object.keys(WSTATUS);
   const statusOptions = (t) => {
@@ -93,28 +94,35 @@
     if (t === 'BUY' || t === 'SELL') return o;
     return [...o, ...WD.filter((s) => !ORD.includes(s)).map((s) => [s, `${WSTATUS[s]} (rút)`])];
   };
-  // [type, id, ví, WPT, VNDB, trạng thái, tạo lúc, cập nhật, mục đích]
+  // [type, id (UUID), ví, WPT, trạng thái, tạo lúc, cập nhật, VNDB (lệnh rút), mục đích, txHash (lệnh rút)]. 27 dòng, mới nhất trước.
   const R = [
-    ['BUY', 'ORD-2026-0187', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 80, 'PLACED', '2026-10-23 09:41:12', '2026-10-23 09:41:12'],
-    ['BUY', 'ORD-2026-0186', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 50, 'CHECKING', '2026-10-23 09:20:47', '2026-10-23 09:20:51'],
-    ['BUY', 'ORD-2026-0185', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 100, 'EXECUTING', '2026-10-23 09:05:33', '2026-10-23 09:05:40'],
-    ['BUY', 'ORD-2026-0184', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 200, 'COMPLETED', '2026-10-23 08:47:02', '2026-10-23 08:47:15'],
-    ['BUY', 'ORD-2026-0183', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 40, 'REJECTED', '2026-10-23 08:30:10', '2026-10-23 08:30:12'],
-    ['BUY', 'ORD-2026-0182', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 250, 'COMPLETED', '2026-10-23 08:12:44', '2026-10-23 08:12:58'],
-    ['BUY', 'ORD-2026-0181', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 300, 'COMPLETED', '2026-10-23 07:55:09', '2026-10-23 07:55:21'],
-    ['BUY', 'ORD-2026-0180', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 500, 'COMPLETED', '2026-10-23 07:31:26', '2026-10-23 07:31:40'],
-    ['WITHDRAW', 'b3e91d07-4c2a-4f1e-9a63-2d8e7f105c44', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'COMPLETED', '2026-10-22 16:40:03', '2026-10-22 16:40:21', 2000000000, 'Trả gốc vay dự án kỳ 10/2026'],
-    ['BUY', 'ORD-2026-0179', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 150, 'COMPLETED', '2026-10-22 15:12:50', '2026-10-22 15:13:04'],
-    ['BUY', 'ORD-2026-0178', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 60, 'EXPIRED', '2026-10-22 11:02:18', '2026-10-22 11:32:18'],
-    ['BUY', 'ORD-2026-0177', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 120, 'FAILED', '2026-10-21 14:26:39', '2026-10-21 14:27:02'],
-    ['BUY', 'ORD-2026-0176', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 1000, 'COMPLETED', '2026-10-21 10:08:55', '2026-10-21 10:09:12'],
-    ['BUY', 'ORD-2026-0175', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 400, 'COMPLETED', '2026-10-20 13:47:30', '2026-10-20 13:47:46'],
-    ['WITHDRAW', '6a0f4c58-91d3-4b07-8e2c-5f1a9b3d0e72', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'NEEDS_REVIEW', '2026-10-15 10:12:41', '2026-10-15 10:19:05', 500000000, 'Chi phí vận hành tháng 10/2026'],
-    ['BUY', 'ORD-2026-0174', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 75, 'COMPLETED', '2026-10-14 09:33:17', '2026-10-14 09:33:30'],
-    ['WITHDRAW', 'd4f7a903-2e6b-4c18-b5d0-7a3e91c6f208', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'FAILED', '2026-10-08 14:55:26', '2026-10-08 14:55:31', 300000000, 'Phí bảo hiểm tài sản quý IV/2026'],
-    ['BUY', 'ORD-2026-0173', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 220, 'COMPLETED', '2026-10-06 16:20:04', '2026-10-06 16:20:19'],
-    ['WITHDRAW', '2c8d1e6b-7f40-4a95-a1d3-6e0b28c4f917', '0x90F79bf6EB2c4f870365E785982E1f101E93b906', 0, 'COMPLETED', '2026-10-01 09:30:12', '2026-10-01 09:30:37', 1200000000, 'Chi phí bảo trì tua-bin quý IV/2026'],
-    ['BUY', 'ORD-2026-0172', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 180, 'COMPLETED', '2026-09-29 11:41:48', '2026-09-29 11:42:03'],
+    ['BUY', '33bb93bb-c763-44e3-83af-a66540c132de', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 80, 'PLACED', '2026-10-23 09:41:12', '2026-10-23 09:41:12'],
+    ['BUY', '92bf6b29-3d9f-475a-9a4f-dea4889e317b', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 50, 'CHECKING', '2026-10-23 09:20:47', '2026-10-23 09:20:51'],
+    ['BUY', '13b14c05-683f-4949-85dc-5b455df38f55', '0xFABB0ac9d68B0B445fB7357272Ff202C5651694a', 100, 'EXECUTING', '2026-10-23 09:05:33', '2026-10-23 09:05:40'],
+    ['BUY', '344ad6ca-cac1-4fbf-a600-8a00dfd890b3', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 200, 'COMPLETED', '2026-10-23 08:47:02', '2026-10-23 08:47:15'],
+    ['BUY', 'fd2a8eeb-4bcb-41d4-98ac-bb584fde6815', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 40, 'REJECTED', '2026-10-23 08:30:10', '2026-10-23 08:30:12'],
+    ['BUY', 'f370d2ef-93b4-4a7e-826f-814296e0a9ab', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 250, 'COMPLETED', '2026-10-23 08:12:44', '2026-10-23 08:12:58'],
+    ['BUY', '913b82ee-0b11-46c4-9ae8-13c2dfd8a633', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 300, 'COMPLETED', '2026-10-23 07:55:09', '2026-10-23 07:55:21'],
+    ['BUY', '74cb34d1-24e5-4842-8512-b268673b8c8e', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 500, 'COMPLETED', '2026-10-23 07:31:26', '2026-10-23 07:31:40'],
+    ['WITHDRAW', 'b3e91d07-4c2a-4f1e-9a63-2d8e7f105c44', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 0, 'COMPLETED', '2026-10-22 16:40:03', '2026-10-22 16:40:21', 2000000000, 'Trả gốc vay dự án kỳ 10/2026', '0x5d17c2a94e8b0f3a61c7d2e9b4f08a5c13e7d6b2f9a04c8e1d3b5a7f6c2e40b'],
+    ['BUY', 'd01f3e8d-98a5-4714-a353-4e28dd779e7a', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 150, 'COMPLETED', '2026-10-22 15:12:50', '2026-10-22 15:13:04'],
+    ['BUY', 'bcd75248-4aa6-49c2-a5d9-61366056e3f7', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 60, 'EXPIRED', '2026-10-22 11:02:18', '2026-10-22 11:32:18'],
+    ['BUY', '39a3cd35-48eb-4809-8dde-9198f4c98f5c', '0xFABB0ac9d68B0B445fB7357272Ff202C5651694a', 120, 'FAILED', '2026-10-21 14:26:39', '2026-10-21 14:27:02'],
+    ['BUY', 'd794d7d8-42b0-4f80-a86d-5cd893175ce1', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 1000, 'COMPLETED', '2026-10-21 10:08:55', '2026-10-21 10:09:12'],
+    ['BUY', '542efa58-b5cc-4189-9fb3-59d4c757d13a', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 400, 'COMPLETED', '2026-10-20 13:47:30', '2026-10-20 13:47:46'],
+    ['WITHDRAW', '6a0f4c58-91d3-4b07-8e2c-5f1a9b3d0e72', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 0, 'NEEDS_REVIEW', '2026-10-15 10:12:41', '2026-10-15 10:19:05', 500000000, 'Chi phí vận hành tháng 10/2026', '0x9e2b04d7c1a85f36e0b2d9c47a1f5e83b6d02c9e7f14a3b58d6c0e2f1a9b7d35'],
+    ['BUY', 'b71dbb0c-07d5-4d03-9178-d74a0a3fb2fa', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 75, 'COMPLETED', '2026-10-14 09:33:17', '2026-10-14 09:33:30'],
+    ['WITHDRAW', 'd4f7a903-2e6b-4c18-b5d0-7a3e91c6f208', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 0, 'FAILED', '2026-10-08 14:55:26', '2026-10-08 14:55:31', 300000000, 'Phí bảo hiểm tài sản quý IV/2026', null],
+    ['BUY', '40505945-45c7-4c68-b0d2-69f2d9303773', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 220, 'COMPLETED', '2026-10-06 16:20:04', '2026-10-06 16:20:19'],
+    ['WITHDRAW', '2c8d1e6b-7f40-4a95-a1d3-6e0b28c4f917', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 0, 'COMPLETED', '2026-10-01 09:30:12', '2026-10-01 09:30:37', 1200000000, 'Chi phí bảo trì tua-bin quý IV/2026', '0x41c8e7a20b5d93f6c1e4a7b08d2f5c39e6a1b4d70c3f8e2a5b9d16c4e07f8a21'],
+    ['BUY', 'eb12362d-d2df-4a09-a32a-39fcddc1e735', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 180, 'COMPLETED', '2026-09-29 11:41:48', '2026-09-29 11:42:03'],
+    ['BUY', 'b8d14cfc-2729-4423-aea5-0f9cc29ca1d6', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 120, 'COMPLETED', '2026-09-26 14:18:22', '2026-09-26 14:18:35'],
+    ['BUY', 'f1d93c58-b285-4d71-a02f-4f0484bb63ad', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', 300, 'COMPLETED', '2026-09-22 10:05:41', '2026-09-22 10:05:54'],
+    ['BUY', 'f27e638e-b77a-4e95-9bd0-06ec80cd24b6', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', 90, 'COMPLETED', '2026-09-18 16:47:09', '2026-09-18 16:47:22'],
+    ['BUY', '3d4a1087-abb2-4b42-b509-c35194781c3d', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 450, 'COMPLETED', '2026-09-15 09:12:30', '2026-09-15 09:12:43'],
+    ['BUY', '455a2a82-be99-4473-878f-cf80525643d6', '0xFABB0ac9d68B0B445fB7357272Ff202C5651694a', 200, 'COMPLETED', '2026-09-10 11:36:54', '2026-09-10 11:37:07'],
+    ['BUY', '5a4984f8-b4bc-492f-8396-0e6d4d2b20b3', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', 60, 'COMPLETED', '2026-09-05 15:21:07', '2026-09-05 15:21:20'],
+    ['BUY', 'b3563827-c5de-40bb-87b1-274c057db6aa', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', 500, 'COMPLETED', '2026-09-01 08:44:15', '2026-09-01 08:44:28'],
   ];
   const nf = (v) => Number(v).toLocaleString('vi-VN');
   const short = (w) => `${w.slice(0, 6)}…${w.slice(-4)}`;
@@ -122,7 +130,7 @@
   const rowHtml = ([type, id, wallet, wpt, st, c, u, vnd, purpose]) => {
     const w = type === 'WITHDRAW';
     return `<tr data-type="${type}">
-      <td data-l="Mã lệnh" class="mono small nowrap" title="${id}">${w ? id.slice(0, 8) : id}</td>
+      <td data-l="Mã lệnh" class="mono small nowrap" title="${id}">${id.slice(0, 8)}</td>
       <td data-l="Nhà đầu tư / ví nhận" class="mono small nowrap" title="${wallet}">${short(wallet)}</td>
       <td data-l="Loại"><span class="typ${w ? ' w' : ''}">${UI.icon(w ? 'bank' : 'cart')}${TYPE[type]}</span></td>
       <td data-l="Số token" class="n">${w ? '' : nf(wpt)}</td>
@@ -137,18 +145,31 @@
     $('f-status').innerHTML = `<option value="">Mọi trạng thái</option>${opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}`;
     $('f-status').value = opts.some(([v]) => v === cur) ? cur : '';
   };
+  // listSellerTransactions: lệnh mua bán khớp theo mã lệnh hoặc ví nhà đầu tư; lệnh rút khớp theo mã, ví nhận hoặc mã giao dịch.
+  // PAGE_SIZE = 20, đổi bộ lọc thì về trang 1.
+  const PAGE_SIZE = 20;
+  let page = 1;
   const render = () => {
     const q = $('f-q').value.trim().toLowerCase(), ty = $('f-type').value, st = $('f-status').value, from = $('f-from').value, to = $('f-to').value;
-    const any = q || ty || st || from || to;
-    const rows = R.filter((r) => (!q || r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q)) && (!ty || r[0] === ty)
+    const match = (r) => r[0] === 'WITHDRAW'
+      ? r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q) || (r[9] || '').toLowerCase().includes(q)
+      : r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q);
+    const all = R.filter((r) => (!q || match(r)) && (!ty || r[0] === ty)
       && (!st || r[4] === st) && (!from || r[5].slice(0, 10) >= from) && (!to || r[5].slice(0, 10) <= to));
+    const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+    if (page > pages) page = pages;
+    const rows = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     $('rows').innerHTML = rows.map(rowHtml).join('');
     $('tbl-box').style.display = rows.length ? '' : 'none'; $('empty').style.display = rows.length ? 'none' : '';
-    $('pg-info').textContent = any ? `${rows.length} giao dịch, trang 1/1` : '27 giao dịch, trang 1/2';
-    $('pg-next').disabled = !!any;
+    $('pg-info').textContent = `${all.length} giao dịch, trang ${page}/${pages}`;
+    $('pg-prev').disabled = page <= 1; $('pg-next').disabled = page >= pages;
   };
-  $('f-type').addEventListener('change', () => { fillStatus(); render(); });
-  ['f-q', 'f-status', 'f-from', 'f-to'].forEach((id) => $(id).addEventListener('input', render));
+  const refilter = () => { page = 1; render(); };
+  $('f-type').addEventListener('change', () => { fillStatus(); refilter(); });
+  ['f-q', 'f-status', 'f-from', 'f-to'].forEach((id) => $(id).addEventListener('input', refilter));
+  $('f-status').addEventListener('change', refilter);
+  $('pg-prev').addEventListener('click', () => { page -= 1; render(); });
+  $('pg-next').addEventListener('click', () => { page += 1; render(); });
   fillStatus(); render();
 })();
 </script>

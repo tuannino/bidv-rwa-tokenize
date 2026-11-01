@@ -57,6 +57,13 @@
     key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
     collapse: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M16 15l-3-3 3-3"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    badgecheck: '<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
+    snow: '<path d="M2 12h20M12 2v20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4"/>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    play: '<path d="M6 3l14 9-14 9V3z"/>',
+    tag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".5"/>',
+    vault: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M12 8v1M12 15v1M8 12h1M15 12h1"/>',
     eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
   };
   // ===== Hằng số theo app thật (nav-config.ts), giữ nguyên menu từng vai =====
@@ -67,15 +74,22 @@
     controller: { label: 'Kiểm soát viên', code: 'KSV001', key: 'CONTROLLER', home: 'dashboard.html', ini: 'KS' },
   };
   const PENDING = { draft: 2, approval: 2 };
+  // Ô phím tắt cạnh mỗi mục menu (dev nav-config.ts, trường shortcut; dev chỉ hiển thị, không gắn phím).
+  const KBD = { 'portfolio.html': 'E', 'trade.html': 'G', 'orders.html': 'Q', 'withdraw.html': 'R', 'wallet.html': 'V', 'account.html': 'T', 'seller.html': 'E', 'seller-transactions.html': 'D', 'seller-withdraw.html': 'R', 'dashboard.html': 'E', 'draft.html': 'L', 'transactions.html': 'G', 'distribution.html': 'C', 'vault.html': 'K', 'config.html': 'H', 'recall.html': 'U', 'approvals.html': 'P', 'demo-payment.html': 'N', 'wallet-binding.html': 'I' };
+  // Phạm vi chain của Fireblocks (dev: khoá của FIREBLOCKS_CHAIN_ASSETS). Bản xem thử giả định chỉ có evm.
+  const CUSTODY_CHAINS = ['evm'];
   const NAV = {
     investor: [{ g: null, items: [['portfolio.html', 'Tổng quan', 'dash'], ['trade.html', 'Giao dịch token', 'cart'], ['orders.html', 'Quản lý lệnh', 'list'], ['withdraw.html', 'Rút VNDB', 'bank'], ['wallet.html', 'Kết nối ví', 'wallet'], ['account.html', 'Thông tin tài khoản', 'usercog']] }],
     seller: [{ g: null, items: [['seller.html', 'Tổng quan', 'dash'], ['seller-transactions.html', 'Danh sách giao dịch', 'receipt'], ['seller-withdraw.html', 'Tạo lệnh rút', 'bank'], ['wallet.html', 'Kết nối ví', 'wallet'], ['account.html', 'Thông tin tài khoản', 'usercog']] }],
     teller: [
-      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash'], ['draft.html', 'Lập lệnh', 'clip', 'draft'], ['transactions.html', 'Giao dịch', 'swap'], ['distribution.html', 'Chia lợi nhuận (chỉ xem)', 'trend'], ['vault.html', 'Vault thanh toán SPV', 'bank'], ['demo-payment.html', 'Nạp VNDB (trình diễn)', 'coins']] },
+      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash'], ['draft.html', 'Lập lệnh', 'clip', 'draft'], ['transactions.html', 'Giao dịch', 'swap'], ['distribution.html', 'Chia lợi nhuận (chỉ xem)', 'trend'], ['vault.html', 'Vault thanh toán SPV', 'bank'], ['config.html', 'Giá và phát hành', 'coins'], ['recall.html', 'Thu hồi token (chỉ xem)', 'undo']] },
+      // Nhóm "Nghiệp vụ ẩn" (dev: withHiddenOps): Nạp VNDB khi bật ENABLE_DEMO_PAYMENT_MINT và có quyền demo:mint-payment;
+      // Định danh ví khi có quyền investor:whitelist. Cả hai quyền chỉ Giao dịch viên có.
+      { g: 'Nghiệp vụ ẩn', fold: true, items: [['demo-payment.html', 'Nạp VNDB', 'coins'], ['wallet-binding.html', 'Định danh ví', 'badgecheck']] },
       { g: 'Tài khoản', items: [['account.html', 'Thông tin tài khoản', 'usercog']] },
     ],
     controller: [
-      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash'], ['transactions.html', 'Giao dịch', 'swap'], ['distribution.html', 'Chia lợi nhuận', 'trend'], ['vault.html', 'Vault thanh toán SPV', 'bank']] },
+      { g: 'Vận hành', items: [['dashboard.html', 'Bảng điều khiển', 'dash'], ['transactions.html', 'Giao dịch', 'swap'], ['distribution.html', 'Chia lợi nhuận', 'trend'], ['vault.html', 'Vault thanh toán SPV', 'bank'], ['config.html', 'Giá và phát hành', 'coins'], ['recall.html', 'Thu hồi token', 'undo']] },
       { g: 'Kiểm soát', items: [['approvals.html', 'Phê duyệt lệnh', 'shield', 'approval']] },
       { g: 'Tài khoản', items: [['account.html', 'Thông tin tài khoản', 'usercog']] },
     ],
@@ -95,6 +109,7 @@
   const role = allowed.includes(q.get('role')) ? q.get('role') : allowed[0];
   const withRole = (href, r = role) => `${href}?role=${r}`;
   let chain = 'mock';
+  let custodyPaint = null;
   try { chain = localStorage.getItem('bidv-chain') || 'mock'; } catch {}
 
   // Lò xo vật lý: chỉ dùng cho phản hồi thao tác (viên nang menu, nút chuyển), không có hiệu ứng vào trang.
@@ -131,10 +146,20 @@
   const logo = (h = 26) => window.BIDV.logo({ word: 'var(--bidv-word, #016b69)', height: h });
   // Logo C ở cỡ biểu tượng (chủ dự án đồng ý 31/10/2026): bông mai trên ô xanh ngọc, dùng khi thanh bên thu gọn.
   const markTile = (sz) => { const m = window.BIDV.LOGO.mark, pad = m[3] * .16; return `<svg viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}" width="${sz}" height="${sz}" aria-hidden="true"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${window.BIDV.LOGO.flower}"/></svg>`; };
-  const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(([href, label, ic, pend]) => {
-    const on = body.dataset.nav === href, built = BUILT.includes(href), c = pend ? PENDING[pend] : null;
-    return `<a href="${built ? withRole(href) : '#'}" data-tip="${label}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Chưa dựng màn này"'}><span class="ni">${icon(ic)}</span><span class="nl">${label}</span>${c ? `<span class="cnt" aria-label="${c} yêu cầu đang chờ">${c}</span>` : ''}</a>`;
-  }).join('')}`).join('');
+  const link = ([href, label, ic, pend]) => {
+    const on = body.dataset.nav === href, built = BUILT.includes(href), c = pend ? PENDING[pend] : undefined;
+    // Số việc chờ hiện cả khi bằng 0 (dev sidebar.tsx): số 0 nền xám, khác 0 mới tô màu.
+    const cnt = c !== undefined ? `<span class="cnt${c ? '' : ' zero'}" aria-label="${c} việc đang chờ">${c}</span>` : '';
+    return `<a href="${built ? withRole(href) : '#'}" data-tip="${label}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Chưa dựng màn này"'}><span class="ni">${icon(ic)}</span><span class="nl">${label}</span>${cnt}${KBD[href] ? `<span class="kbd" aria-hidden="true">${KBD[href]}</span>` : ''}</a>`;
+  };
+  // Nhóm gập được (như dev): tự mở khi chứa màn đang xem, bấm tên nhóm để mở, gập; mở, gập bằng chuyển động mềm.
+  const navHtml = NAV[role].map((grp, gi) => {
+    if (!grp.fold) return `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(link).join('')}`;
+    const open = grp.items.some(([h]) => h === body.dataset.nav);
+    return `<button class="grp fold" type="button" aria-expanded="${open}" aria-controls="fold-${gi}"><span>${grp.g}</span>${icon('chevr', 'fchev')}</button><div class="fold-items${open ? ' open' : ''}" id="fold-${gi}"><div>${grp.items.map(link).join('')}</div></div>`;
+  }).join('');
+  // Công tắc Lưu ký Fireblocks (dev IN-04): chỉ hai vai vận hành (quyền custody:toggle). Bản xem thử chỉ đổi trạng thái tại chỗ.
+  const CUSTODY = role === 'teller' || role === 'controller';
   const ch = () => CHAINS.find(([v]) => v === chain) || CHAINS[0];
   const app = document.createElement('div');
   app.className = 'app';
@@ -148,9 +173,11 @@
       </div>
       <nav class="nav" id="nav"><span class="pill-act" aria-hidden="true"></span><span class="pill-hov" aria-hidden="true"></span>${navHtml}</nav>
       <div class="side-foot">
+        ${CUSTODY ? `<div class="custody" title="Lưu ký Fireblocks"><span class="ci">${icon('vault')}</span><span class="cl">Lưu ký Fireblocks</span><button class="sw" type="button" role="switch" aria-checked="false" aria-label="Lưu ký Fireblocks" id="custody"><i></i></button></div><div class="custody-note" id="custody-note" hidden></div>` : ''}
         <div class="foot-row">
         <div class="switch up net" data-switch="chain">
-            <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span class="tx"><small>Chain</small><b id="chain-v" title="${ch()[1]}">${ch()[2]}</b></span>${icon('chev', 'chev')}</button>
+            <button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span class="tx"><small>Chain</small><b id="chain-v" title="${ch()[1]}">${ch()[1]}</b><small class="ns" id="chain-ns">${chain}, vai trò ${ROLES[role].key}</small></span>${icon('chev', 'chev')}</button>
+            <select id="chain" hidden aria-hidden="true" tabindex="-1">${CHAINS.map(([v, l]) => `<option value="${v}"${v === chain ? ' selected' : ''}>${l}</option>`).join('')}</select>
             <ul class="menu" role="listbox" aria-label="Chain">${CHAINS.map(([v, l, , dis]) => `<li role="option" tabindex="-1" data-v="${v}" aria-selected="${v === chain}"${dis ? ' aria-disabled="true"' : ''}><span>${l}</span>${icon('check', 'ok')}</li>`).join('')}</ul>
           </div>
           <button class="collapse" type="button" id="rail" aria-label="Thu gọn thanh điều hướng" title="Thu gọn" aria-pressed="false">${icon('collapse')}</button>
@@ -187,7 +214,9 @@
       opts.forEach((x) => x.setAttribute('aria-selected', String(x === li))); open(false); btn.focus();
       if (sw._sel) { sw._sel.value = li.dataset.v; sw._sel.dispatchEvent(new Event('change', { bubbles: true })); return; }
       if (sw.dataset.switch === 'role') { if (li.dataset.v !== role) location.href = withRole(ROLES[li.dataset.v].home, li.dataset.v); }
-      else { chain = li.dataset.v; try { localStorage.setItem('bidv-chain', chain); } catch {} document.getElementById('chain-v').textContent = ch()[2]; document.getElementById('chain-v').title = ch()[1]; document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); }
+      else { chain = li.dataset.v; try { localStorage.setItem('bidv-chain', chain); } catch {} document.getElementById('chain-v').textContent = ch()[1]; document.getElementById('chain-v').title = ch()[1]; document.getElementById('chain-ns').textContent = `${chain}, vai trò ${ROLES[role].key}`; document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; });
+        // Trang nghe đổi Chain qua ô #chain (như ô chọn chain của dev); phát change để trang đọc lại.
+        const hs = document.getElementById('chain'); hs.value = chain; hs.dispatchEvent(new Event('change', { bubbles: true })); custodyPaint?.(); }
     };
     btn.addEventListener('click', () => open(!sw.classList.contains('open')));
     btn.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } });
@@ -231,6 +260,31 @@
   nav.querySelectorAll('a').forEach((a) => a.addEventListener('mouseenter', () => { if (a === cur) { ph.style.opacity = 0; hovOn = false; return; } placeH(a, !hovOn); hovOn = true; }));
   nav.addEventListener('mouseleave', () => { ph.style.opacity = 0; hovOn = false; });
 
+  nav.querySelectorAll('.grp.fold').forEach((b) => b.addEventListener('click', () => {
+    const box = document.getElementById(b.getAttribute('aria-controls')), o = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', String(o)); box.classList.toggle('open', o);
+    const t0 = performance.now(); const follow = () => { placeA(cur, true); if (performance.now() - t0 < 520) requestAnimationFrame(follow); }; requestAnimationFrame(follow);
+  }));
+  // Công tắc Lưu ký Fireblocks theo custody-toggle.tsx. Xem các trạng thái bằng ?custody=on|locked|unreadable|noconfig|badscope.
+  const cs = document.getElementById('custody');
+  const cq = q.get('custody') || '';
+  const cst = { enabled: ['on', 'noconfig', 'badscope'].includes(cq), configured: !['locked', 'noconfig'].includes(cq), unreadable: cq === 'unreadable', scopeOk: cq !== 'badscope', error: null };
+  custodyPaint = () => {
+    if (!cs) return;
+    const notes = [];
+    if (cst.unreadable) notes.push('Chưa đọc được trạng thái');
+    if (cst.enabled && !cst.configured) notes.push('Thiếu cấu hình; lần duyệt sẽ bị chặn');
+    if (cst.enabled && !cst.scopeOk) notes.push('Bảng chain sai; lần duyệt sẽ bị chặn');
+    if (cst.scopeOk && !CUSTODY_CHAINS.includes(chain)) notes.push('Không áp dụng cho chain này');
+    const locked = !cst.configured && !cst.enabled;
+    cs.setAttribute('aria-checked', String(cst.enabled)); cs.disabled = locked;
+    if (locked) cs.title = 'Chưa cấu hình Fireblocks'; else cs.removeAttribute('title');
+    const n = document.getElementById('custody-note');
+    n.innerHTML = notes.map((t) => `<p>${t}</p>`).join('') + (cst.error ? `<p role="alert" class="err">${cst.error}</p>` : '');
+    n.hidden = !notes.length && !cst.error;
+    if (n.hidden) cs.removeAttribute('aria-describedby'); else cs.setAttribute('aria-describedby', 'custody-note');
+  };
+  if (cs) { custodyPaint(); cs.addEventListener('click', () => { if (cs.disabled) return; cst.enabled = !cst.enabled; custodyPaint(); }); }
   document.getElementById('theme').addEventListener('click', (e) => swapTheme(e.currentTarget));
   document.getElementById('menu-open').addEventListener('click', () => body.classList.add('menu-open'));
 

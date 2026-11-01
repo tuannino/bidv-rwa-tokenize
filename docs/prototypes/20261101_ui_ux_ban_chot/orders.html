@@ -18,7 +18,8 @@
 .sortbtn .si.rot { transform: rotate(90deg); }
 .sortbtn .si.up { transform: rotate(180deg); }
 #flt { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 1180px) { #flt { grid-template-columns: repeat(2, minmax(0, 1fr)); } #flt .field:first-child { grid-column: 1 / -1; } }
+@media (max-width: 1180px) { #flt { grid-template-columns: repeat(2, minmax(0, 1fr)); } #flt > :first-child { grid-column: 1 / -1; } }
+.state-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 </style>
 </head>
 <body data-page="orders" data-nav="orders.html" data-roles="investor" data-crumbs="Nhà đầu tư|Quản lý lệnh">
@@ -28,42 +29,56 @@
       <h1>Quản lý lệnh</h1>
       <p class="sub">Lệnh mua và bán của ví đang kết nối.</p>
     </div>
-    <div class="actions" style="align-items:center">
-      <span class="small muted">Trạng thái xem thử</span>
-      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
-        <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
-        <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
-      </div>
+  </div>
+
+  <div class="state-bar">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notbound">Ví chưa định danh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
     </div>
   </div>
 
-  <div class="alert" role="note" data-states="data" id="mock-note">
+  <div class="alert" role="note" data-states="data loading error notbound" id="mock-note">
     <i data-icon="info"></i>
     <span>Chế độ mô phỏng đang lọc theo ví trong hồ sơ Nhà đầu tư: <span class="mono break">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>. Không cần kết nối ví trình duyệt.</span>
   </div>
 
-  <section class="card" aria-labelledby="flt-h" data-states="data">
+  <section class="card" aria-labelledby="flt-h" data-states="data loading error notbound">
     <div class="card-h"><div class="t"><i data-icon="filter"></i><h2 id="flt-h">Bộ lọc</h2></div></div>
     <form role="search" class="filters" style="margin:0" id="flt">
-      <div class="field"><label for="f-id">Mã lệnh</label><div class="input-ic"><i data-icon="search"></i><input id="f-id" class="input" placeholder="Mã lệnh (UUID)"></div></div>
-      <div class="field narrow"><label for="f-side">Chiều</label><select id="f-side" class="select"><option value="">Mọi chiều</option><option value="BUY">Mua</option><option value="SELL">Bán</option></select></div>
-      <div class="field narrow"><label for="f-st">Trạng thái</label><select id="f-st" class="select"><option value="">Mọi trạng thái</option><option value="PLACED">Đã đặt</option><option value="CHECKING">Đang kiểm tra</option><option value="EXECUTING">Đang quyết toán</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Bị từ chối</option><option value="FAILED">Thất bại</option><option value="EXPIRED">Hết hạn</option></select></div>
-      <div class="field date"><label for="f-from">Từ ngày</label><input id="f-from" type="date" class="input"></div>
-      <div class="field date"><label for="f-to">Đến ngày</label><input id="f-to" type="date" class="input"></div>
+      <div class="input-ic"><i data-icon="search"></i><input id="f-id" class="input" aria-label="Mã lệnh" placeholder="Mã lệnh (UUID)" spellcheck="false"></div>
+      <select id="f-side" class="select" aria-label="Chiều"><option value="">Mọi chiều</option><option value="BUY">Mua</option><option value="SELL">Bán</option></select>
+      <select id="f-st" class="select" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="PLACED">Đã đặt</option><option value="CHECKING">Đang kiểm tra</option><option value="EXECUTING">Đang quyết toán</option><option value="COMPLETED">Hoàn tất</option><option value="REJECTED">Bị từ chối</option><option value="FAILED">Thất bại</option><option value="EXPIRED">Hết hạn</option></select>
+      <input id="f-from" type="date" class="input" aria-label="Từ ngày">
+      <input id="f-to" type="date" class="input" aria-label="Đến ngày">
     </form>
   </section>
 
-  <section class="card" aria-labelledby="tbl-h" data-states="data">
-    <div class="card-h"><div class="t"><i data-icon="list"></i><h2 id="tbl-h">Danh sách lệnh</h2></div></div>
-    <div class="tbl-wrap" id="wrap">
-      <table class="tbl">
-        <thead><tr id="hd"></tr></thead>
-        <tbody id="bd"></tbody>
-      </table>
+  <section class="card" aria-label="Danh sách lệnh" data-states="data loading error notbound">
+    <div data-states="loading" hidden>
+      <div class="empty"><span class="ei"><i data-icon="loader"></i></span><span>Đang tải lệnh…</span></div>
     </div>
-    <div class="empty" id="none" hidden>
-      <span class="ei"><i data-icon="filter"></i></span>
-      <p class="small">Không có lệnh nào khớp bộ lọc.</p>
+    <div class="alert bad" role="alert" data-states="error" hidden><i data-icon="alert"></i><span>Lỗi không xác định khi gọi chain.</span></div>
+    <div class="alert warn" role="alert" data-wallet-not-bound data-states="notbound" hidden>
+      <i data-icon="shieldx"></i>
+      <span><b>Ví chưa được định danh</b><br>Ví <span class="mono">0x7099…79C8</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác.</span>
+    </div>
+    <div data-states="data">
+      <div class="tbl-wrap" id="wrap">
+        <table class="tbl">
+          <thead><tr id="hd"></tr></thead>
+          <tbody id="bd"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="none" hidden>
+        <span class="ei"><i data-icon="filter"></i></span>
+        <p class="small">Không có lệnh nào khớp bộ lọc.</p>
+      </div>
+      <div class="alert bad" role="alert" id="f-err" hidden><i data-icon="alert"></i><span>Dữ liệu không hợp lệ.</span></div>
     </div>
   </section>
 
@@ -82,16 +97,19 @@
 (() => {
   const SIDE = { BUY: 'Mua', SELL: 'Bán' };
   const ST = { PLACED: ['Đã đặt', 'info'], CHECKING: ['Đang kiểm tra', 'info'], EXECUTING: ['Đang quyết toán', 'info'], COMPLETED: ['Hoàn tất', 'ok'], REJECTED: ['Bị từ chối', 'bad'], FAILED: ['Thất bại', 'bad'], EXPIRED: ['Hết hạn', 'warn'] };
-  // ISO để sắp xếp và lọc ngày; hiển thị theo formatDateTime (dd/mm/yyyy hh:mm:ss).
+  // Mã lệnh là UUID (màn thật hiện 8 ký tự đầu, title là mã đầy đủ). ISO để sắp xếp và lọc ngày.
   const ROWS = [
-    { id: 'ORD-2026-0001', createdAt: '2026-03-18T10:05:10', side: 'BUY', wpt: 150, vnd: 15000000, status: 'COMPLETED', updatedAt: '2026-03-18T10:05:12' },
-    { id: 'ORD-2026-0002', createdAt: '2026-06-02T09:05:31', side: 'BUY', wpt: 40, vnd: 4000000, status: 'REJECTED', updatedAt: '2026-06-02T09:05:32' },
-    { id: 'ORD-2026-0003', createdAt: '2026-08-14T10:40:55', side: 'SELL', wpt: 20, vnd: 2000000, status: 'EXPIRED', updatedAt: '2026-08-14T11:10:55' },
-    { id: 'ORD-2026-0004', createdAt: '2026-10-21T14:22:09', side: 'BUY', wpt: 10, vnd: 1000000, status: 'FAILED', updatedAt: '2026-10-21T14:22:11' },
+    { id: 'b7e3c1a4-5f20-4d8e-9a61-3c0f2e7d9b15', createdAt: '2026-03-18T10:05:10', side: 'BUY', wpt: 150, vnd: 15000000, status: 'COMPLETED', updatedAt: '2026-03-18T10:05:12' },
+    { id: '2a9d6f13-8c47-4e05-b1d2-7f4a0c9e3b68', createdAt: '2026-06-02T09:05:31', side: 'BUY', wpt: 40, vnd: 4000000, status: 'REJECTED', updatedAt: '2026-06-02T09:05:32' },
+    { id: 'e04c8b5a-1d3f-4a72-8e96-5b2c7f0a1d49', createdAt: '2026-08-14T10:40:55', side: 'SELL', wpt: 20, vnd: 2000000, status: 'EXPIRED', updatedAt: '2026-08-14T11:10:55' },
+    { id: '9f1b2e70-6a8c-4d35-a0e7-d84c3b6f5a21', createdAt: '2026-10-21T14:22:09', side: 'BUY', wpt: 10, vnd: 1000000, status: 'FAILED', updatedAt: '2026-10-21T14:22:11' },
+    { id: '61d4a8f2-0b39-4c7e-9d15-a2e8f6c4b307', createdAt: '2026-11-01T09:20:05', side: 'BUY', wpt: 5, vnd: 500000, status: 'EXECUTING', updatedAt: '2026-11-01T09:20:06' },
   ];
   const COLS = [['id', 'Mã lệnh'], ['createdAt', 'Thời điểm tạo'], ['side', 'Chiều'], ['wpt', 'Số lượng', 1], ['price', 'Giá', 1], ['vnd', 'Giá trị', 1], ['status', 'Trạng thái'], ['updatedAt', 'Cập nhật']];
   const dt = (iso) => { const [d, t] = iso.split('T'); const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y} ${t}`; };
   const price = (r) => Math.floor(r.vnd / r.wpt);
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const detail = (id) => `${UI.withRole('order-detail.html')}&id=${id}`;
   let sort = { col: 'createdAt', dir: 'desc' };
   const $ = (id) => document.getElementById(id);
 
@@ -105,20 +123,23 @@
   function val(r, k) { return k === 'price' ? price(r) : k === 'status' ? ST[r.status][0] : r[k]; }
   function body() {
     const id = $('f-id').value.trim(), sd = $('f-side').value, st = $('f-st').value, fr = $('f-from').value, to = $('f-to').value;
-    let rows = ROWS.filter((r) => (!id || r.id.toLowerCase().includes(id.toLowerCase())) && (!sd || r.side === sd) && (!st || r.status === st) && (!fr || r.createdAt.slice(0, 10) >= fr) && (!to || r.createdAt.slice(0, 10) <= to));
+    // Máy chủ kiểm mã lệnh là UUID; sai dạng thì trả "Dữ liệu không hợp lệ.", đúng dạng thì lọc khớp đúng mã.
+    const bad = id !== '' && !UUID.test(id);
+    let rows = bad ? [] : ROWS.filter((r) => (!id || r.id === id.toLowerCase()) && (!sd || r.side === sd) && (!st || r.status === st) && (!fr || r.createdAt.slice(0, 10) >= fr) && (!to || r.createdAt.slice(0, 10) <= to));
     const s = sort.dir === 'asc' ? 1 : -1;
     rows = rows.sort((a, b) => { const x = val(a, sort.col), y = val(b, sort.col); return s * (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'vi')) || a.id.localeCompare(b.id); });
-    $('bd').innerHTML = rows.map((r) => `<tr class="clickable" data-href="order-detail.html">
-      <td class="mono small nowrap"><a class="idlink" href="${UI.withRole('order-detail.html')}">${r.id}</a></td>
+    $('bd').innerHTML = rows.map((r) => `<tr>
+      <td class="mono small nowrap" title="${r.id}">${r.id.slice(0, 8)}</td>
       <td class="small nowrap">${dt(r.createdAt)}</td>
-      <td><span class="badge${r.side === 'BUY' ? ' ok' : ' warn'}">${SIDE[r.side]}</span></td>
+      <td>${SIDE[r.side]}</td>
       <td class="n mono">${UI.nf(r.wpt)}</td>
       <td class="n mono">${UI.nf(price(r))}</td>
       <td class="n mono">${UI.nf(r.vnd)}</td>
       <td><span class="badge ${ST[r.status][1]}">${ST[r.status][0]}</span></td>
-      <td class="small nowrap muted">${dt(r.updatedAt)}</td>
-      <td><a class="link-more" href="${UI.withRole('order-detail.html')}">Chi tiết${UI.icon('chevr')}</a></td></tr>`).join('');
-    $('wrap').hidden = rows.length === 0; $('none').hidden = rows.length > 0;
+      <td class="small nowrap">${dt(r.updatedAt)}</td>
+      <td><a class="link-more" href="${detail(r.id)}">Chi tiết${UI.icon('chevr')}</a></td></tr>`).join('');
+    $('f-err').hidden = !bad;
+    $('wrap').hidden = bad || rows.length === 0; $('none').hidden = bad || rows.length > 0;
   }
   $('hd').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -126,14 +147,18 @@
     sort = { col: k, dir: sort.col === k && sort.dir === 'asc' ? 'desc' : 'asc' };
     head(); body();
   });
-  $('bd').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (tr && !e.target.closest('a')) location.href = UI.withRole(tr.dataset.href); });
   $('flt').addEventListener('input', body);
+  $('flt').addEventListener('submit', (e) => e.preventDefault());
   const syncChain = () => { let c = 'mock'; try { c = localStorage.getItem('bidv-chain') || 'mock'; } catch {} $('mock-note').style.display = c === 'mock' ? '' : 'none'; };
   document.getElementById('chain')?.addEventListener('change', syncChain);
-  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
-    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(b.dataset.state); });
-  }));
+  const show = (st) => {
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.state === st)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+  };
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => show(b.dataset.state)));
   syncChain(); head(); body();
+  const st = new URLSearchParams(location.search).get('st');
+  if (st && document.querySelector(`[data-states-tabs] button[data-state="${st}"]`)) show(st);
 })();
 </script>
 </body>

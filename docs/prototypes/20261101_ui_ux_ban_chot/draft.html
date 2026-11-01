@@ -10,9 +10,10 @@
 <link rel="stylesheet" href="assets/shell.css">
 <style>
   [hidden] { display: none !important; }
-  /* Bảng 8 đến 9 cột trong một thẻ: ô gọn hơn để vừa khung 1440. */
+  /* Bảng 9 đến 10 cột trong một thẻ: ô gọn hơn để vừa khung 1440. */
   .tbl th, .tbl td { padding-left: 8px; padding-right: 8px; }
-  .tbl td.trunc { max-width: 190px; }
+  .tbl td.trunc { max-width: 180px; }
+  .input[readonly].mono { background: var(--surface-2); }
 </style>
 </head>
 <body data-page="draft" data-nav="draft.html" data-roles="teller" data-crumbs="Vận hành|Lập lệnh">
@@ -22,22 +23,34 @@
       <h1>Lập lệnh</h1>
       <p class="sub">Lập yêu cầu tạo hoặc huỷ token. Yêu cầu chỉ có hiệu lực sau khi Kiểm soát viên chấp nhận; trước đó token không thay đổi. Chain đang xem: <span class="mono" data-chain-label>mock</span></p>
     </div>
+    <div class="actions" style="align-items:center;flex-wrap:wrap">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" id="view" style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-view="data">Có dữ liệu</button>
+        <button type="button" role="tab" aria-selected="false" data-view="loading">Đang tải</button>
+        <button type="button" role="tab" aria-selected="false" data-view="empty">Chưa lập yêu cầu</button>
+        <button type="button" role="tab" aria-selected="false" data-view="error">Lỗi máy chủ</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Hai thẻ số liệu: getDraftStatsAction(chain) -->
+  <!-- Hai thẻ số liệu: getDraftStatsAction(chain), đếm yêu cầu PENDING của chính người lập -->
   <section class="kpi hl span-6" aria-label="Yêu cầu tạo token đang chờ">
     <div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no" data-sea="no"></div>
     <div class="top"><span class="lbl">Yêu cầu tạo token đang chờ</span><span class="ic"><i data-icon="pluscircle"></i></span></div>
-    <div class="val mono"><span data-count="1">1</span></div>
+    <div class="val mono"><span data-count="1" id="stat-MINT">1</span></div>
   </section>
   <section class="kpi span-6" aria-label="Yêu cầu huỷ token đang chờ">
     <div class="top"><span class="lbl">Yêu cầu huỷ token đang chờ</span><span class="ic"><i data-icon="flame"></i></span></div>
-    <div class="val mono"><span data-count="1">1</span></div>
+    <div class="val mono"><span data-count="1" id="stat-BURN">1</span></div>
   </section>
+
+  <!-- freshStats.error -->
+  <div class="alert bad span-12" role="alert" id="stats-err" hidden><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
 
   <!-- ===== Thẻ tạo token (RequestForm type=MINT) ===== -->
   <section class="card span-6" aria-label="Thẻ tạo token" data-form="MINT">
-    <div class="card-h"><div class="t"><i data-icon="pluscircle"></i><h2>Tạo token</h2></div><span class="badge">Mint</span></div>
+    <div class="card-h"><div class="t"><i data-icon="pluscircle"></i><h2>Tạo token</h2></div></div>
     <form class="form">
       <div class="field">
         <label for="mint-symbol">Mã hoặc ký hiệu token</label>
@@ -47,6 +60,7 @@
       <section class="inner" aria-label="Khối thông tin token">
         <div class="card-h" style="margin-bottom:6px"><h3>Thông tin token</h3><span class="muted"><i data-icon="wind"></i></span></div>
         <p class="small muted" data-part="info-empty" hidden>Nhập mã hoặc ký hiệu token, hệ thống tự đổ thông tin.</p>
+        <p class="small muted" data-part="info-loading" hidden><i data-icon="loader"></i> Đang đọc thông tin token…</p>
         <p class="small neg" style="overflow-wrap:anywhere" data-part="info-err" hidden></p>
         <dl class="kv small" data-part="info">
           <div><dt>Dự án</dt><dd>Dự án điện gió An Viên</dd></div>
@@ -57,7 +71,7 @@
           <div><dt>Số chưa phân phối</dt><dd class="mono">6.587.500</dd></div>
           <div><dt>Số đang lưu hành</dt><dd class="mono">3.412.500</dd></div>
           <div><dt>Mã người bán</dt><dd>NB001</dd></div>
-          <div><dt>Ví thanh toán</dt><dd class="mono break">0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861</dd></div>
+          <div><dt>Ví thanh toán</dt><dd class="mono break">0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2</dd></div>
           <div><dt>Phát hành lần đầu</dt><dd>02/03/2026 09:00:00</dd></div>
         </dl>
       </section>
@@ -65,12 +79,15 @@
 
       <div class="field">
         <label for="mint-wallet">Ví đích (ví thanh toán SPV)</label>
-        <input class="input mono" id="mint-wallet" value="0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861" readonly spellcheck="false" placeholder="0x…">
+        <input class="input mono" id="mint-wallet" value="0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2" readonly spellcheck="false" placeholder="0x…">
         <span class="hint" data-part="wallet-hint">Đã có ví thanh toán trên chuỗi, yêu cầu tạo token chỉ vào đúng ví này.</span>
       </div>
 
       <div class="row">
-        <div class="field"><label for="mint-amount">Số lượng</label><input class="input mono" id="mint-amount" value="300000" inputmode="numeric"></div>
+        <div class="field">
+          <label for="mint-amount">Số lượng</label>
+          <input class="input mono" id="mint-amount" value="300.000" inputmode="numeric" data-amount>
+        </div>
         <div class="field"><label for="mint-effective">Ngày hiệu lực</label><input class="input" id="mint-effective" type="date" value="2026-11-02"></div>
       </div>
       <div class="field"><label for="mint-reason">Lý do</label><input class="input" id="mint-reason" value="Phát hành đợt 3 theo kế hoạch quý IV"></div>
@@ -80,24 +97,29 @@
       <section class="inner" aria-label="Khối kiểm tra trước khi lập">
         <h3 style="margin-bottom:10px">Kiểm tra trước khi lập</h3>
         <p class="small muted" data-part="idle" hidden>Hệ thống kiểm tra điều kiện ngay khi đủ dữ liệu.</p>
+        <p class="small muted" data-part="checking" hidden><i data-icon="loader"></i> Đang kiểm tra điều kiện…</p>
+        <p class="small neg" data-part="invalid" hidden></p>
         <ul class="checks" data-part="checks">
           <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Dự án tồn tại</b><span>Đạt: Dự án "Dự án điện gió An Viên" trên chuỗi "mock".</span></div></li>
-          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Không vượt trần còn lại</b><span>Đạt: Số lượng 300.000; trần còn lại 10.000.000 (trần 20.000.000 − tổng cung 10.000.000).</span></div></li>
-          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Ví đích hợp lệ</b><span style="overflow-wrap:anywhere">Đạt: Ví 0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861 đã whitelist, không bị đóng băng.</span></div></li>
-          <li class="fail"><span class="ci"><i data-icon="x"></i></span><div><b>Không có yêu cầu Mint khác đang chờ cho token này</b><span class="neg" style="overflow-wrap:anywhere">Không đạt: Yêu cầu 7f3a21c0-4b6e-4d2a-9c1f-2e8b5a7d3f60 đang ở trạng thái PENDING.</span></div></li>
+          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Dự án chưa tới hạn thu hồi</b><span>Đạt: Dự án chưa tới hạn thu hồi.</span></div></li>
+          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Không vượt trần còn lại</b><span data-part="cap-detail">Đạt: Số lượng 300.000; trần còn lại 10.000.000 (trần 20.000.000 trừ tổng cung 10.000.000).</span></div></li>
+          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Ví đích hợp lệ</b><span style="overflow-wrap:anywhere">Đạt: Ví 0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2 đã whitelist, không bị đóng băng.</span></div></li>
         </ul>
       </section>
 
       <div class="field">
-        <div><button class="btn primary" type="button" data-part="send" disabled><i data-icon="send"></i>Gửi yêu cầu tạo token</button></div>
-        <span class="hint" style="overflow-wrap:anywhere" data-part="block">Chưa gửi được: Điều kiện chưa đạt: Không có yêu cầu Mint khác đang chờ cho token này (Yêu cầu 7f3a21c0-4b6e-4d2a-9c1f-2e8b5a7d3f60 đang ở trạng thái PENDING.)</span>
+        <div><button class="btn primary" type="button" data-part="send"><i data-icon="send"></i>Gửi yêu cầu tạo token</button></div>
+        <span class="hint" style="overflow-wrap:anywhere" data-part="block" hidden></span>
       </div>
+
+      <div class="alert ok" role="status" data-part="ok" hidden><i data-icon="check"></i><span data-part="ok-t"></span></div>
+      <div class="alert bad" role="status" data-part="fail" hidden><i data-icon="x"></i><span>Lỗi không xác định.</span></div>
     </form>
   </section>
 
   <!-- ===== Thẻ huỷ token (RequestForm type=BURN) ===== -->
   <section class="card span-6" aria-label="Thẻ huỷ token" data-form="BURN">
-    <div class="card-h"><div class="t"><i data-icon="flame"></i><h2>Huỷ token</h2></div><span class="badge">Burn</span></div>
+    <div class="card-h"><div class="t"><i data-icon="flame"></i><h2>Huỷ token</h2></div></div>
     <form class="form">
       <div class="field">
         <label for="burn-symbol">Mã hoặc ký hiệu token</label>
@@ -107,6 +129,7 @@
       <section class="inner" aria-label="Khối thông tin token">
         <div class="card-h" style="margin-bottom:6px"><h3>Thông tin token</h3><span class="muted"><i data-icon="wind"></i></span></div>
         <p class="small muted" data-part="info-empty" hidden>Nhập mã hoặc ký hiệu token, hệ thống tự đổ thông tin.</p>
+        <p class="small muted" data-part="info-loading" hidden><i data-icon="loader"></i> Đang đọc thông tin token…</p>
         <p class="small neg" style="overflow-wrap:anywhere" data-part="info-err" hidden></p>
         <dl class="kv small" data-part="info">
           <div><dt>Dự án</dt><dd>Dự án điện gió An Viên</dd></div>
@@ -117,7 +140,7 @@
           <div><dt>Số chưa phân phối</dt><dd class="mono">6.587.500</dd></div>
           <div><dt>Số đang lưu hành</dt><dd class="mono">3.412.500</dd></div>
           <div><dt>Mã người bán</dt><dd>NB001</dd></div>
-          <div><dt>Ví thanh toán</dt><dd class="mono break">0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861</dd></div>
+          <div><dt>Ví thanh toán</dt><dd class="mono break">0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2</dd></div>
           <div><dt>Phát hành lần đầu</dt><dd>02/03/2026 09:00:00</dd></div>
         </dl>
       </section>
@@ -134,13 +157,17 @@
       <div class="alert bad" role="alert" id="burn-warn" hidden>
         <i data-icon="alert"></i>
         <div>
-          <p>Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung (10.000.000 token). Chỉ thực hiện được khi không còn token nào đang lưu hành. Đánh dấu ô xác nhận để tiếp tục.</p>
+          <p id="burn-warn-t">Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung (10.000.000 token). Chỉ thực hiện được khi không còn token nào đang lưu hành. Đánh dấu ô xác nhận để tiếp tục.</p>
           <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight: 500"><input type="checkbox" id="burn-confirm">Tôi xác nhận huỷ toàn bộ nguồn cung</label>
         </div>
       </div>
 
       <div class="row">
-        <div class="field"><label for="burn-amount">Số lượng</label><input class="input mono" id="burn-amount" value="20000" inputmode="numeric"></div>
+        <div class="field">
+          <label for="burn-amount">Số lượng</label>
+          <input class="input mono" id="burn-amount" value="20.000" inputmode="numeric" data-amount>
+          <span class="hint" id="burn-amount-hint" hidden>Tự điền bằng tổng cung hiện tại, không sửa được.</span>
+        </div>
         <div class="field"><label for="burn-effective">Ngày hiệu lực</label><input class="input" id="burn-effective" type="date" value="2026-10-30"></div>
       </div>
       <div class="field"><label for="burn-reason">Lý do</label><input class="input" id="burn-reason" value="Huỷ phần dư đợt 2 sau đối soát"></div>
@@ -150,50 +177,54 @@
       <section class="inner" aria-label="Khối kiểm tra trước khi lập">
         <h3 style="margin-bottom:10px">Kiểm tra trước khi lập</h3>
         <p class="small muted" data-part="idle" hidden>Hệ thống kiểm tra điều kiện ngay khi đủ dữ liệu.</p>
+        <p class="small muted" data-part="checking" hidden><i data-icon="loader"></i> Đang kiểm tra điều kiện…</p>
+        <p class="small neg" data-part="invalid" hidden></p>
         <ul class="checks" data-part="checks">
           <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Dự án tồn tại</b><span>Đạt: Dự án "Dự án điện gió An Viên" trên chuỗi "mock".</span></div></li>
-          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Có ví thanh toán SPV trên chuỗi</b><span style="overflow-wrap:anywhere">Đạt: Đốt tại ví SPV 0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861.</span></div></li>
-          <li class="ok" data-src="UNDISTRIBUTED"><span class="ci"><i data-icon="check"></i></span><div><b>Không vượt phần chưa phân phối</b><span>Đạt: Số lượng 20.000; phần chưa phân phối trong ví SPV 6.587.500.</span></div></li>
+          <li class="ok"><span class="ci"><i data-icon="check"></i></span><div><b>Có ví thanh toán SPV trên chuỗi</b><span style="overflow-wrap:anywhere">Đạt: Đốt tại ví SPV 0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2.</span></div></li>
+          <li class="ok" data-src="UNDISTRIBUTED"><span class="ci"><i data-icon="check"></i></span><div><b>Không vượt phần chưa phân phối</b><span data-part="und-detail">Đạt: Số lượng 20.000; phần chưa phân phối trong ví SPV 6.587.500.</span></div></li>
           <li class="fail" data-src="TOTAL_SUPPLY" hidden><span class="ci"><i data-icon="x"></i></span><div><b>Không vượt phần chưa phân phối</b><span class="neg">Không đạt: Số lượng 10.000.000; phần chưa phân phối trong ví SPV 6.587.500.</span></div></li>
+          <li class="ok" data-src="TOTAL_SUPPLY" hidden><span class="ci"><i data-icon="check"></i></span><div><b>Số lượng bằng tổng cung</b><span>Đạt: Số lượng 10.000.000; tổng cung hiện tại 10.000.000.</span></div></li>
           <li class="fail" data-src="TOTAL_SUPPLY" hidden><span class="ci"><i data-icon="x"></i></span><div><b>Không còn token đang lưu hành</b><span class="neg">Không đạt: Còn 3.412.500 token đang lưu hành ngoài ví SPV, không đốt theo toàn bộ nguồn cung.</span></div></li>
         </ul>
       </section>
 
       <div class="field">
         <div><button class="btn primary" type="button" data-part="send"><i data-icon="send"></i>Gửi yêu cầu huỷ token</button></div>
-        <span class="hint" style="overflow-wrap:anywhere" data-part="block" hidden>Chưa gửi được: Điều kiện chưa đạt: Không vượt phần chưa phân phối (Số lượng 10.000.000; phần chưa phân phối trong ví SPV 6.587.500.); Không còn token đang lưu hành (Còn 3.412.500 token đang lưu hành ngoài ví SPV, không đốt theo toàn bộ nguồn cung.)</span>
+        <span class="hint" style="overflow-wrap:anywhere" data-part="block" hidden></span>
       </div>
 
-      <div class="alert ok" role="status" data-part="ok" hidden>
-        <i data-icon="check"></i>
-        <span>Đã gửi yêu cầu huỷ 20.000 WPT (mã 3b8e6d14). Yêu cầu đang chờ Kiểm soát viên duyệt.</span>
-      </div>
+      <div class="alert ok" role="status" data-part="ok" hidden><i data-icon="check"></i><span data-part="ok-t"></span></div>
+      <div class="alert bad" role="status" data-part="fail" hidden><i data-icon="x"></i><span>Lỗi không xác định.</span></div>
     </form>
   </section>
 
-  <!-- ===== Yêu cầu đã lập: listTokenRequestsAction({ mine: true }) ===== -->
+  <!-- ===== Yêu cầu đã lập: listTokenRequestsAction({ mine: true }), RequestTable biến thể hàng chờ ===== -->
   <section class="card" aria-labelledby="mine-h">
-    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="mine-h">Yêu cầu đã lập</h2></div><span class="badge">Của GDV001</span></div>
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="mine-h">Yêu cầu đã lập</h2></div></div>
     <p class="desc">Yêu cầu do chính bạn lập, mới nhất trước. Trạng thái cập nhật sau mỗi lần gửi hoặc tải lại trang.</p>
+    <div class="alert bad" role="alert" id="mine-err" hidden style="margin-bottom:12px"><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
 
     <h3 style="margin:8px 0 10px">Yêu cầu tạo token</h3>
-    <div class="tbl-wrap">
+    <div class="empty" data-empty="MINT" hidden><span class="ei"></span><span data-empty-t></span></div>
+    <div class="tbl-wrap" data-wrap="MINT">
       <table class="tbl" aria-label="Yêu cầu tạo token đã lập">
-        <thead><tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="n">Số lượng</th><th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Kết quả</th></tr></thead>
-        <tbody>
-          <tr><td class="mono" title="7f3a21c0-4b6e-4d2a-9c1f-2e8b5a7d3f60">7f3a21c0</td><td class="nowrap small">23/10/2026<span class="sub">06:12:41</span></td><td class="nowrap">WPT <span class="muted">(mock)</span></td><td class="n mono">250.000</td><td>GDV001</td><td class="trunc" title="Phát hành đợt 2 theo QĐ 128/2026">Phát hành đợt 2 theo QĐ 128/2026</td><td><span class="badge warn">Chờ duyệt</span></td><td class="muted">–</td></tr>
-          <tr><td class="mono" title="5e0c7b92-1a4f-4c8e-b3d7-9f62a0e815cb">5e0c7b92</td><td class="nowrap small">22/10/2026<span class="sub">16:40:12</span></td><td class="nowrap">WPT <span class="muted">(mock)</span></td><td class="n mono">400.000</td><td>GDV001</td><td class="trunc" title="Phát hành bổ sung cho kênh tổ chức">Phát hành bổ sung cho kênh tổ chức</td><td><span class="badge ok">Hoàn tất</span></td><td class="trunc muted">KSV001 duyệt, tx 0x8c41e2d0a7…</td></tr>
+        <thead><tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="n">Số lượng</th><th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Chain</th><th>Kết quả</th></tr></thead>
+        <tbody id="mine-MINT">
+          <tr><td class="mono" title="5e0c7b92-1d4a-4f6e-9b2c-8a3e5f7d1c06">5e0c7b92</td><td class="nowrap small">23/10/2026<span class="sub">07:31:00</span></td><td class="nowrap">WPT</td><td class="n mono">400.000</td><td>GDV001</td><td class="trunc" title="Phát hành bổ sung theo QĐ 125/2026">Phát hành bổ sung theo QĐ 125/2026</td><td><span class="badge ok">Hoàn tất</span></td><td class="small" style="min-width:96px">Mock (không cần chain)</td><td class="trunc muted" title="KSV001 duyệt, tx 0x8c41e2d0a7…">KSV001 duyệt, tx 0x8c41e2d0a7…</td></tr>
+          <tr><td class="mono" title="7f3a21c0-5d1e-4c8b-9a27-3e6f1b0d4c19">7f3a21c0</td><td class="nowrap small">23/10/2026<span class="sub">06:12:00</span></td><td class="nowrap">WPT</td><td class="n mono">250.000</td><td>GDV001</td><td class="trunc" title="Phát hành đợt 2 theo QĐ 128/2026">Phát hành đợt 2 theo QĐ 128/2026</td><td><span class="badge warn">Chờ duyệt</span></td><td class="small" style="min-width:96px">Mock (không cần chain)</td><td class="muted">–</td></tr>
         </tbody>
       </table>
     </div>
 
     <h3 style="margin:22px 0 10px">Yêu cầu huỷ token</h3>
-    <div class="tbl-wrap">
+    <div class="empty" data-empty="BURN" hidden><span class="ei"></span><span data-empty-t></span></div>
+    <div class="tbl-wrap" data-wrap="BURN">
       <table class="tbl" aria-label="Yêu cầu huỷ token đã lập">
-        <thead><tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="n">Số lượng</th><th>Nguồn</th><th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Kết quả</th></tr></thead>
-        <tbody>
-          <tr><td class="mono" title="c02f9a17-8d3b-4e51-a6c2-71f0e9b4d218">c02f9a17</td><td class="nowrap small">23/10/2026<span class="sub">08:49:05</span></td><td class="nowrap">WPT <span class="muted">(mock)</span></td><td class="n mono">50.000</td><td class="nowrap">Phần chưa phân phối</td><td>GDV001</td><td class="trunc" title="Huỷ phần chưa phân phối của đợt 1">Huỷ phần chưa phân phối của đợt 1</td><td><span class="badge warn">Chờ duyệt</span></td><td class="muted">–</td></tr>
-          <tr><td class="mono" title="a4471f3d-6c29-4b0a-8e5f-d3b17c4a92e6">a4471f3d</td><td class="nowrap small">22/10/2026<span class="sub">17:05:30</span></td><td class="nowrap">WPT <span class="muted">(mock)</span></td><td class="n mono">30.000</td><td class="nowrap">Phần chưa phân phối</td><td>GDV001</td><td class="trunc" title="Huỷ phần dư sau đợt chào bán 1">Huỷ phần dư sau đợt chào bán 1</td><td><span class="badge bad">Từ chối</span></td><td class="trunc muted">KSV001: Chứng từ chưa ký</td></tr>
+        <thead><tr><th>Mã yêu cầu</th><th>Thời điểm lập</th><th>Token</th><th class="n">Số lượng</th><th>Nguồn</th><th>Người lập</th><th>Lý do</th><th>Trạng thái</th><th>Chain</th><th>Kết quả</th></tr></thead>
+        <tbody id="mine-BURN">
+          <tr><td class="mono" title="c02f9a17-8b3e-4d5a-a1f6-4e9c2b7d0a35">c02f9a17</td><td class="nowrap small">23/10/2026<span class="sub">08:49:00</span></td><td class="nowrap">WPT</td><td class="n mono">50.000</td><td class="nowrap">Phần chưa phân phối</td><td>GDV001</td><td class="trunc" title="Huỷ phần chưa phân phối của đợt 1">Huỷ phần chưa phân phối của đợt 1</td><td><span class="badge warn">Chờ duyệt</span></td><td class="small" style="min-width:96px">Mock (không cần chain)</td><td class="muted">–</td></tr>
+          <tr><td class="mono" title="a4471f3d-3c9b-4a2e-b8d1-6f0e4a2c9b57">a4471f3d</td><td class="nowrap small">23/10/2026<span class="sub">07:40:00</span></td><td class="nowrap">WPT</td><td class="n mono">30.000</td><td class="nowrap">Phần chưa phân phối</td><td>GDV001</td><td class="trunc" title="Huỷ phần dư sau đối soát đợt 1">Huỷ phần dư sau đối soát đợt 1</td><td><span class="badge bad">Từ chối</span></td><td class="small" style="min-width:96px">Mock (không cần chain)</td><td class="trunc muted" title="Kiểm soát viên KSV001 từ chối do: Chứng từ chưa ký">Kiểm soát viên KSV001 từ chối do: Chứng từ chưa ký</td></tr>
         </tbody>
       </table>
     </div>
@@ -204,56 +235,169 @@
 <script src="assets/ui.js"></script>
 <script>
 // Xem thử các trạng thái của màn thật (không có chức năng thật):
+// ô Số lượng hiện dấu chấm hàng nghìn ngay khi gõ (AmountInput, UIUX-01 A1);
 // ô ký hiệu rỗng: khối thông tin token và khối kiểm tra ở trạng thái chờ, nút gửi khoá với lý do;
 // ký hiệu khác WPT: khối thông tin token báo lỗi máy chủ kèm nút "Thử đọc lại thông tin token";
-// Nguồn huỷ "Toàn bộ nguồn cung": tự điền tổng cung, khoá ô số lượng, hiện cảnh báo và ô xác nhận.
+// xoá ô Lý do: máy chủ trả dữ liệu không hợp lệ, khối kiểm tra hiện câu lỗi (preview invalid);
+// mỗi lần đổi nội dung: "Đang kiểm tra điều kiện…" một nhịp rồi mới ra kết quả;
+// Nguồn huỷ "Toàn bộ nguồn cung": ô Số lượng lấy tổng cung hiện tại, không sửa được (FIX-02 C1);
+// gửi: nút "Đang gửi…" một nhịp, rồi thêm một dòng "Chờ duyệt", tăng ô đếm, xoá ô, Nguồn huỷ về "Phần chưa phân phối".
+// Thanh "Trạng thái xem thử": Đang tải, Chưa lập yêu cầu, Lỗi máy chủ (lỗi số liệu, lỗi bảng, lỗi khi gửi).
 (() => {
   const IDLE = 'Nhập ký hiệu token và nội dung yêu cầu để hệ thống kiểm tra điều kiện.';
-  const MINT_BLOCK = 'Điều kiện chưa đạt: Không có yêu cầu Mint khác đang chờ cho token này (Yêu cầu 7f3a21c0-4b6e-4d2a-9c1f-2e8b5a7d3f60 đang ở trạng thái PENDING.)';
-  const BURN_BLOCK = 'Điều kiện chưa đạt: Không vượt phần chưa phân phối (Số lượng 10.000.000; phần chưa phân phối trong ví SPV 6.587.500.); Không còn token đang lưu hành (Còn 3.412.500 token đang lưu hành ngoài ví SPV, không đốt theo toàn bộ nguồn cung.)';
-  const SPV = '0x0da94B2c7E1f53A8d6C0b9E4f2A71d3c5B8e6861';
+  const BURN_FAILS = 'Điều kiện chưa đạt: Không vượt phần chưa phân phối (Số lượng 10.000.000; phần chưa phân phối trong ví SPV 6.587.500.); Không còn token đang lưu hành (Còn 3.412.500 token đang lưu hành ngoài ví SPV, không đốt theo toàn bộ nguồn cung.)';
+  const CONFIRM = 'Huỷ theo toàn bộ nguồn cung phải xác nhận lại trước khi gửi.';
+  const INVALID = 'Dữ liệu không hợp lệ. Lý do: Phải nêu lý do.';
+  const SPV = '0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2';
+  const TOTAL = '10000000', REMAINING = 10000000n, UNDIST = 6587500n;
+  const nf = (raw) => (raw === '' ? '' : BigInt(raw).toLocaleString('vi-VN'));
+  const digitsOnly = (t) => { const d = t.replace(/\D/g, ''); if (d === '') return ''; const x = d.replace(/^0+/, ''); return x === '' ? '0' : x; };
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const hex = () => Array.from({ length: 8 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  const $ = (id) => document.getElementById(id);
+  let seq = 0, view = 'data';
+  const pending = { MINT: 1, BURN: 1 };
+  const setStat = (type, v) => { const st = $(`stat-${type}`); st.removeAttribute('data-count'); st.textContent = v; };
+  const forms = [];
+
   document.querySelectorAll('[data-form]').forEach((card) => {
     const type = card.dataset.form;
     const part = (n) => card.querySelector(`[data-part="${n}"]`);
     const sym = card.querySelector('[id$="-symbol"]');
-    const amount = card.querySelector('[id$="-amount"]');
+    const amount = card.querySelector('[data-amount]');
+    const reasonIn = card.querySelector('[id$="-reason"]');
     const src = card.querySelector('#burn-source');
     const confirm = card.querySelector('#burn-confirm');
+    let raw = digitsOnly(amount.value), checking = false, sending = false, timer = null;
     const render = () => {
       const s = sym.value.trim().toUpperCase();
-      const state = s === '' ? 'idle' : s === 'WPT' ? 'data' : 'error';
+      const state = view === 'loading' ? 'loading' : s === '' ? 'idle' : s === 'WPT' ? 'data' : 'error';
       part('info').hidden = state !== 'data';
       part('info-empty').hidden = state !== 'idle';
+      part('info-loading').hidden = state !== 'loading';
       part('info-err').hidden = state !== 'error';
       part('retry').hidden = state !== 'error';
       if (state === 'error') part('info-err').textContent = `Máy chủ trả lỗi. Chưa có dự án "${sym.value.trim()}" trên chuỗi "mock". HTTP 400. Vui lòng thử lại. Mã tra cứu: 4c9d2e71-0b8a-4f3e-9a56-1d7e3b2c8f04`;
-      const checked = state === 'data' && amount.value.trim() !== '';
+      const total = type === 'BURN' && src.value === 'TOTAL_SUPPLY';
+      // burnAmountShown: Burn toàn bộ nguồn cung là số suy ra từ tổng cung, chưa có thông tin token thì rỗng.
+      const shown = total ? (state === 'data' ? TOTAL : '') : raw;
+      if (document.activeElement !== amount || total) amount.value = nf(shown);
+      const hasPayload = state === 'data' && shown !== '';
+      const invalid = hasPayload && reasonIn.value.trim() === '';
+      const checked = hasPayload && !checking && !invalid;
       part('checks').hidden = !checked;
-      part('idle').hidden = checked;
+      part('idle').hidden = hasPayload;
+      part('checking').hidden = !(hasPayload && checking);
+      part('invalid').hidden = !(hasPayload && !checking && invalid);
+      part('invalid').textContent = INVALID;
       let reason = null;
       if (type === 'MINT') {
         const w = card.querySelector('#mint-wallet');
         w.readOnly = state === 'data';
         if (state === 'data') w.value = SPV; else if (w.value === SPV) w.value = '';
         part('wallet-hint').textContent = state === 'data' ? 'Đã có ví thanh toán trên chuỗi, yêu cầu tạo token chỉ vào đúng ví này.' : 'Chưa phát hành lần nào: nhập ví thanh toán SPV sẽ nhận token.';
-        reason = checked ? MINT_BLOCK : IDLE;
+        if (hasPayload) {
+          const over = BigInt(shown) > REMAINING;
+          const li = part('cap-detail').closest('li');
+          li.className = over ? 'fail' : 'ok';
+          li.querySelector('.ci').innerHTML = UI.icon(over ? 'x' : 'check');
+          part('cap-detail').className = over ? 'neg' : '';
+          const detail = `Số lượng ${nf(shown)}; trần còn lại 10.000.000 (trần 20.000.000 trừ tổng cung 10.000.000).`;
+          part('cap-detail').textContent = `${over ? 'Không đạt' : 'Đạt'}: ${detail}`;
+          reason = over ? `Điều kiện chưa đạt: Không vượt trần còn lại (${detail})` : null;
+        } else reason = IDLE;
       } else {
-        const total = src.value === 'TOTAL_SUPPLY';
         card.querySelector('#burn-warn').hidden = !total;
+        card.querySelector('#burn-warn-t').textContent = state === 'data'
+          ? 'Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung (10.000.000 token). Chỉ thực hiện được khi không còn token nào đang lưu hành. Đánh dấu ô xác nhận để tiếp tục.'
+          : 'Bạn đang yêu cầu huỷ TOÀN BỘ nguồn cung. Chỉ thực hiện được khi không còn token nào đang lưu hành. Đánh dấu ô xác nhận để tiếp tục.';
         amount.readOnly = total;
+        const hint = card.querySelector('#burn-amount-hint');
+        hint.hidden = !total;
+        hint.textContent = state === 'data' ? 'Tự điền bằng tổng cung hiện tại, không sửa được.' : 'Nhập mã token để hệ thống điền tổng cung.';
         card.querySelectorAll('[data-src]').forEach((li) => { li.hidden = li.dataset.src !== src.value; });
-        reason = !checked ? IDLE : total ? BURN_BLOCK : null;
+        if (hasPayload && !total) {
+          const over = BigInt(shown) > UNDIST;
+          const li = part('und-detail').closest('li');
+          li.className = over ? 'fail' : 'ok';
+          li.querySelector('.ci').innerHTML = UI.icon(over ? 'x' : 'check');
+          part('und-detail').className = over ? 'neg' : '';
+          const detail = `Số lượng ${nf(shown)}; phần chưa phân phối trong ví SPV 6.587.500.`;
+          part('und-detail').textContent = `${over ? 'Không đạt' : 'Đạt'}: ${detail}`;
+          reason = over ? `Điều kiện chưa đạt: Không vượt phần chưa phân phối (${detail})` : null;
+        } else reason = !hasPayload ? IDLE : BURN_FAILS;
+        if (reason === null && total && !confirm.checked) reason = CONFIRM;
       }
+      // submitBlockReason: idle, loading, invalid, checked; đang gửi thì "Đang gửi…".
+      if (hasPayload && checking) reason = 'Đang kiểm tra điều kiện…';
+      else if (invalid) reason = INVALID;
+      if (sending) reason = 'Đang gửi…';
       part('send').disabled = reason !== null;
       part('block').hidden = reason === null;
       if (reason) part('block').textContent = `Chưa gửi được: ${reason}`;
-      if (part('ok')) part('ok').hidden = true;
+      return shown;
     };
-    sym.addEventListener('input', render);
-    amount.addEventListener('input', render);
-    if (src) src.addEventListener('change', () => { confirm.checked = false; amount.value = src.value === 'TOTAL_SUPPLY' ? '10000000' : '20000'; render(); });
-    part('send').addEventListener('click', () => { if (!part('send').disabled && part('ok')) part('ok').hidden = false; });
+    // previewTokenRequestAction chạy sau mỗi lần đổi nội dung: một nhịp "Đang kiểm tra điều kiện…".
+    const recheck = () => { checking = true; render(); clearTimeout(timer); timer = setTimeout(() => { checking = false; render(); }, 450); };
+    const changed = () => { part('ok').hidden = true; part('fail').hidden = true; recheck(); };
+    sym.addEventListener('input', changed);
+    reasonIn.addEventListener('input', changed);
+    amount.addEventListener('input', () => { raw = digitsOnly(amount.value); amount.value = nf(raw); changed(); });
+    amount.addEventListener('blur', render);
+    if (src) {
+      src.addEventListener('change', () => { confirm.checked = false; if (src.value === 'UNDISTRIBUTED') raw = ''; changed(); });
+      confirm.addEventListener('change', render);
+    }
+    part('send').addEventListener('click', () => {
+      if (part('send').disabled) return;
+      const shown = render();
+      sending = true; render();
+      setTimeout(() => {
+        sending = false;
+        if (view === 'error') { part('fail').hidden = false; render(); return; }
+        const id = `${hex()}-${hex().slice(0, 4)}-4${hex().slice(0, 3)}-a${hex().slice(0, 3)}-${hex()}${hex().slice(0, 4)}`;
+        const verb = type === 'MINT' ? 'tạo' : 'huỷ';
+        part('ok-t').textContent = `Đã gửi yêu cầu ${verb} ${nf(shown)} WPT (mã ${id.slice(0, 8)}). Yêu cầu đang chờ Kiểm soát viên duyệt.`;
+        const reasonText = reasonIn.value.trim();
+        const now = new Date(Date.now() + (++seq) * 1000), p2 = (n) => String(n).padStart(2, '0');
+        const source = type === 'BURN' ? `<td class="nowrap">${src.options[src.selectedIndex].text}</td>` : '';
+        document.getElementById(`mine-${type}`).insertAdjacentHTML('afterbegin', `<tr><td class="mono" title="${id}">${id.slice(0, 8)}</td><td class="nowrap small">23/10/2026<span class="sub">${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}</span></td><td class="nowrap">WPT</td><td class="n mono">${nf(shown)}</td>${source}<td>GDV001</td><td class="trunc" title="${esc(reasonText)}">${esc(reasonText)}</td><td><span class="badge warn">Chờ duyệt</span></td><td class="small" style="min-width:96px">Mock (không cần chain)</td><td class="muted">–</td></tr>`);
+        pending[type] += 1; setStat(type, String(pending[type]));
+        document.querySelector(`[data-wrap="${type}"]`).hidden = false; document.querySelector(`[data-empty="${type}"]`).hidden = true;
+        // Màn thật xoá ô và đưa Nguồn huỷ về "Phần chưa phân phối" sau khi gửi thành công.
+        raw = '';
+        ['-reason', '-document', '-effective', '-note'].forEach((k) => { card.querySelector(`[id$="${k}"]`).value = ''; });
+        if (src) { src.value = 'UNDISTRIBUTED'; src.dispatchEvent(new Event('change')); }
+        if (confirm) confirm.checked = false;
+        part('ok').hidden = false;
+        render();
+        part('ok').hidden = false;
+      }, 500);
+    });
+    forms.push({ render, part });
+    render();
   });
+
+  // Thanh "Trạng thái xem thử".
+  const savedRows = { MINT: $('mine-MINT').innerHTML, BURN: $('mine-BURN').innerHTML };
+  const EMPTY = { MINT: 'Chưa lập yêu cầu tạo token nào.', BURN: 'Chưa lập yêu cầu huỷ token nào.' };
+  const applyView = (v) => {
+    view = v;
+    ['MINT', 'BURN'].forEach((t) => {
+      const noRows = v !== 'data';
+      $(`mine-${t}`).innerHTML = noRows ? '' : savedRows[t];
+      document.querySelector(`[data-wrap="${t}"]`).hidden = noRows;
+      const e = document.querySelector(`[data-empty="${t}"]`); e.hidden = !noRows;
+      e.querySelector('[data-empty-t]').textContent = v === 'loading' ? 'Đang tải…' : EMPTY[t];
+      e.querySelector('.ei').innerHTML = UI.icon(v === 'loading' ? 'loader' : 'history');
+      pending[t] = v === 'data' ? 1 : 0;
+      setStat(t, v === 'loading' || v === 'error' ? '–' : String(pending[t]));
+    });
+    $('stats-err').hidden = v !== 'error';
+    $('mine-err').hidden = v !== 'error';
+    forms.forEach((f) => { f.part('ok').hidden = true; f.part('fail').hidden = true; f.render(); });
+  };
+  document.querySelectorAll('#view button').forEach((b) => b.addEventListener('click', () => applyView(b.dataset.view)));
 })();
 </script>
 </body>

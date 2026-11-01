@@ -1,5 +1,7 @@
 # Yêu cầu nâng cấp UI/UX (bản 3: ý tưởng "Gió hoá dòng tiền", chuyển động mềm): bàn giao cho Supervisor
 
+> **Đã thay thế (01/11/2026):** tài liệu bàn giao chính thức là `docs/20261101_UI_UX_BAN_GIAO_SUPERVISOR.md` (bản chốt đồng bộ dev `67ece1e`). Tệp này giữ làm nhật ký các vòng thử.
+
 | | |
 |---|---|
 | Ngày | 23/10/2026 |
