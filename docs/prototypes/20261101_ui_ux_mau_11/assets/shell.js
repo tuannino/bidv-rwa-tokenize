@@ -129,7 +129,7 @@
   const markTile = (sz) => { const m = window.BIDV.LOGO.mark, pad = m[3] * .16; return `<svg viewBox="${m[0] - pad} ${m[1] - pad} ${m[2] + pad * 2} ${m[3] + pad * 2}" width="${sz}" height="${sz}" aria-hidden="true"><rect x="${m[0] - pad}" y="${m[1] - pad}" width="${m[2] + pad * 2}" height="${m[3] + pad * 2}" rx="${m[3] * .26}" fill="#016b69"/><path fill="#fec629" fill-rule="evenodd" d="${window.BIDV.LOGO.flower}"/></svg>`; };
   const navHtml = NAV[role].map((grp) => `${grp.g ? `<div class="grp">${grp.g}</div>` : ''}${grp.items.map(([href, label, ic, pend]) => {
     const on = body.dataset.nav === href, built = BUILT.includes(href), c = pend ? PENDING[pend] : null;
-    return `<a href="${built ? withRole(href) : '#'}" data-tip="${label}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Bản mẫu 4 chưa dựng màn này"'}>${icon(ic)}<span>${label}</span>${c ? `<span class="cnt" aria-label="${c} yêu cầu đang chờ">${c}</span>` : ''}</a>`;
+    return `<a href="${built ? withRole(href) : '#'}" data-tip="${label}"${on ? ' aria-current="page"' : ''}${built ? '' : ' aria-disabled="true" title="Bản mẫu 4 chưa dựng màn này"'}><span class="ni">${icon(ic)}</span><span class="nl">${label}</span>${c ? `<span class="cnt" aria-label="${c} yêu cầu đang chờ">${c}</span>` : ''}</a>`;
   }).join('')}`).join('');
   const ch = () => CHAINS.find(([v]) => v === chain) || CHAINS[0];
   const app = document.createElement('div');
@@ -172,12 +172,23 @@
 
   // Dropdown Vai trò và Chain: vẫn là dropdown như app thật, danh sách xổ trong khung, có phím mũi tên.
   const closeAll = (except) => document.querySelectorAll('.switch.open').forEach((s) => { if (s !== except) { s.classList.remove('open'); s.querySelector('.switch-btn').setAttribute('aria-expanded', 'false'); } });
+  // Ô chọn gốc của trình duyệt (bộ lọc trạng thái...) đổi thành dropdown cùng kiểu để xổ mềm như mọi dropdown khác;
+  // giá trị và sự kiện change vẫn đi qua thẻ select gốc nên mã của trang không phải sửa.
+  document.querySelectorAll('select.select').forEach((sel) => {
+    const sw = document.createElement('div'); sw.className = 'switch sel'; sw.dataset.switch = 'select';
+    const label = sel.getAttribute('aria-label') || '';
+    sw.innerHTML = `<button class="switch-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="${label}"><span class="tx"><b></b></span>${icon('chev', 'chev')}</button><ul class="menu" role="listbox" aria-label="${label}">${[...sel.options].map((o) => `<li role="option" tabindex="-1" data-v="${o.value}" aria-selected="${o.selected}"><span>${o.textContent}</span>${icon('check', 'ok')}</li>`).join('')}</ul>`;
+    const sync = () => { sw.querySelector('.tx b').textContent = sel.options[sel.selectedIndex].textContent; };
+    sel.after(sw); sel.hidden = true; sw._sel = sel; sync(); sel.addEventListener('change', sync);
+  });
+  document.querySelectorAll('.switch .menu').forEach((m) => [...m.children].forEach((li, i) => li.style.setProperty('--i', i)));
   document.querySelectorAll('.switch').forEach((sw) => {
     const btn = sw.querySelector('.switch-btn'), opts = [...sw.querySelectorAll('[role=option]')];
     const open = (o) => { closeAll(sw); sw.classList.toggle('open', o); btn.setAttribute('aria-expanded', String(o)); if (o) (opts.find((x) => x.getAttribute('aria-selected') === 'true') || opts[0]).focus(); };
     const pick = (li) => {
       if (!li || li.getAttribute('aria-disabled') === 'true') return;
       opts.forEach((x) => x.setAttribute('aria-selected', String(x === li))); open(false); btn.focus();
+      if (sw._sel) { sw._sel.value = li.dataset.v; sw._sel.dispatchEvent(new Event('change', { bubbles: true })); return; }
       if (sw.dataset.switch === 'role') { if (li.dataset.v !== role) location.href = withRole(ROLES[li.dataset.v].home === 'seller.html' ? 'index.html' : ROLES[li.dataset.v].home, li.dataset.v); }
       else { chain = li.dataset.v; try { localStorage.setItem('bidv-chain', chain); } catch {} document.getElementById('chain-v').textContent = ch()[2]; document.getElementById('chain-v').title = ch()[1]; document.querySelectorAll('[data-chain-label]').forEach((n) => { n.textContent = chain; }); }
     };
@@ -212,6 +223,7 @@
   // Thu gọn thanh bên thành dải biểu tượng (như ảnh mẫu chủ dự án gửi); nhớ lựa chọn cho lần sau.
   const railBtn = document.getElementById('rail');
   const setRail = (on, jump) => {
+    body.classList.add('railing'); clearTimeout(setRail._t); setRail._t = setTimeout(() => body.classList.remove('railing'), jump ? 0 : 560);
     body.classList.toggle('rail', on); railBtn.setAttribute('aria-pressed', String(on));
     railBtn.setAttribute('aria-label', on ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'); railBtn.title = on ? 'Mở rộng' : 'Thu gọn';
     try { localStorage.setItem('bidv-rail', on ? '1' : '0'); } catch {}

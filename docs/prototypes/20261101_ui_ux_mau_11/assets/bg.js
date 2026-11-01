@@ -9,8 +9,8 @@
   const root = document.documentElement, body = document.body;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Chủ dự án chốt chỉ dùng nền mạng lưới (31/10/2026); các kiểu khác giữ lại trong mã để tham khảo.
-  const MODES = [['net', 'Mạng lưới']];
-  let mode = 'net';
+  const MODES = [['mix', 'Mạng lưới trên gradient']];
+  let mode = 'mix'; // mạng lưới trên lớp gradient nhạt (01/11/2026)
   const isNet = () => mode === 'net' || mode === 'mix';
 
   const host = document.createElement('div'); host.className = 'bgx'; host.setAttribute('aria-hidden', 'true');
@@ -57,9 +57,9 @@
       if (p.gold) {
         const pulse = (Math.sin(t / 700 + p.ph) + 1) / 2;
         ctx.fillStyle = `rgba(254,198,41,${.18 * pulse})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 6 + pulse * 6, 0, 6.28); ctx.fill();
-        ctx.fillStyle = '#e8b100';
+        ctx.shadowColor = 'rgba(254,198,41,.9)'; ctx.shadowBlur = 12; ctx.fillStyle = '#e8b100';
       } else ctx.fillStyle = `rgba(${teal},${d ? .8 : .55})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0;
     }
     packets = packets.filter((k) => (k.k += .012 * dt) < 1);
     for (const k of packets) {

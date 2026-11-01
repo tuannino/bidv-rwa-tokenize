@@ -31,6 +31,8 @@
 | QĐ-UX-15 | Phong cách là **bản mẫu 6, bổ sung nền động ở bản mẫu 7**: nền tin cậy của bản 4, **toàn bộ hiệu ứng của bản 3**, mỗi màn một khối trọng tâm. Khối trọng tâm vẫn là **thẻ trắng**, không tô nền xanh ngọc (bản 5 tô nền, chủ dự án đánh giá giống banner, khó đọc); nổi lên nhờ cỡ số, ánh sáng, chuyển động (31/10/2026). Kiểu điểm nhấn A, B hoặc C chờ chọn |
 | QĐ-UX-16 | Bản mẫu 8 (31/10/2026): nền chỉ dùng **mạng lưới**; khối trọng tâm kiểu **A viền sáng**; "Kết nối ví" và nút sáng tối ở **góc trên bên phải**; Vai trò ở đầu thanh bên, Chain ở góc dưới bên trái; **thanh đầu trang giữ lại khi cuộn** (tiêu đề lớn thu nhỏ, mờ dần thành thanh đầu nền trầm mờ); **nút thu gọn thanh bên** ở đáy |
 | QĐ-UX-17 | Bản mẫu 9 (31/10/2026): thanh đầu khi cuộn **cao 44 px**, **chỉ tên màn** (không nhóm, không vai), **nền xanh trầm đậm** tới 90%; nút thu gọn thanh bên **chỉ biểu tượng**, nằm **bên phải hộp Chain** khi thanh bên mở rộng |
+| QĐ-UX-18 | Bản mẫu 10 (01/11/2026), học từ bản 3: **bo tròn mềm** (thẻ 24 px, khối trọng tâm 28 px, nút và ô nhập bo tròn hẳn); **thẻ nhấc lên, bóng sâu, nghiêng nhẹ theo chuột**; **thanh bên nổi bo tròn**; **thanh đầu bo tròn có vạch gradient chạy ở chân**; **icon trong vòng tròn có hiệu ứng** ở menu, đầu thẻ, bảng, danh sách; **mọi dropdown xổ mềm** (kể cả bộ lọc trạng thái); **thu gọn, mở rộng thanh bên mượt**; nút thu gọn chỉ biểu tượng, không khung |
+| QĐ-UX-19 | Bản mẫu 11 (01/11/2026): thanh đầu **thẳng mép với các thẻ**; biểu tượng thanh bên **căn đúng một trục giữa** ở cả hai trạng thái; **nền gradient** xanh ngọc, bạc hà, vàng rất nhạt dưới mạng lưới, nút vàng có quầng neon; **thẻ ửng màu nhạt theo ý nghĩa** (vàng là tiền, xanh ngọc là token và năng lượng, bạc hà cho danh sách), chữ vẫn trên nền gần trắng |
 
 ---
 
@@ -235,9 +237,14 @@ Môi trường thử nghiệm không truy cập được các kho ảnh và logo
 
 ---
 
-### 3.7. Bản mẫu 9 (QĐ-UX-15 đến QĐ-UX-17, chờ duyệt để làm đủ 21 màn)
+### 3.7. Bản mẫu 11 (QĐ-UX-15 đến QĐ-UX-19, chờ duyệt để làm đủ 21 màn)
 
-Thư mục `docs/prototypes/20261031_ui_ux_mau_9/` (mở `index.html`). Bản 9 gồm bản 6 (bên dưới), các điểm của bản 8 sau đây, với thanh đầu và nút thu gọn chỉnh theo QĐ-UX-17:
+Thư mục `docs/prototypes/20261101_ui_ux_mau_11/` (mở `index.html`). Bản 11 gồm bản 6 (bên dưới), các điểm của bản 8 sau đây, thanh đầu và nút thu gọn theo QĐ-UX-17, các điểm học từ bản 3 theo QĐ-UX-18 và màu sắc, căn chỉnh theo QĐ-UX-19:
+
+- **Dropdown:** khung xổ bằng lò xo (thu từ 94% và nhoè 6 px về rõ), có mũi nhọn chỉ vào nút, các dòng hiện lần lượt cách 35 ms, dòng đang chọn nền xanh ngọc nhạt có dấu tích nảy. Ô chọn gốc của trình duyệt được thay bằng dropdown cùng kiểu; giá trị và sự kiện `change` vẫn đi qua thẻ `select` gốc. Trong app (React), dùng thành phần dropdown của `components/ui` với cùng hiệu ứng, không đổi state hay lời gọi dữ liệu.
+- **Thanh bên thu gọn mượt:** độ rộng trượt 0,55 s; chữ, logo đầy đủ, nhóm menu mờ dần; logo C, số việc chờ, vạch phân nhóm hiện dần; lề trong 14 px ở cả hai trạng thái nên logo, vai trò, menu, chấm chain, nút thu gọn nằm trên cùng một trục và không giật khi chuyển.
+- **Màu thẻ:** mỗi thẻ có hai vầng màu rất nhạt ở góc (alpha 8 đến 12%) trên nền trắng 80% và viền mảnh cùng sắc; vàng cho thẻ về tiền (lợi tức, tài sản, hàng chờ phát hành, huỷ), bạc hà cho danh sách giao dịch và token, xanh ngọc cho phần còn lại.
+
 
 - **Nền mạng lưới chuỗi khối** (`assets/bg.js`, canvas, không thêm thư viện): nút xanh ngọc nối nhau, nút vàng là token có quầng nhấp nháy, gói tin vàng chạy trên cạnh, chuột kéo nút lại gần và nối tia vàng tới con trỏ. Nền đậm ở phần đầu màn, nhạt dần xuống vùng dữ liệu; tạm dừng khi tab ẩn; khung tĩnh khi bật "giảm chuyển động". Bốn kiểu nền khác của bản 7 giữ trong mã để tham khảo, không dùng.
 - **Thẻ kính mờ:** nền thẻ trắng 80% với `backdrop-filter: blur(16px)`, thanh bên 62%; khối trọng tâm 96%.
@@ -339,4 +346,4 @@ Mỗi task một PR, checkpoint ghi "Phạm vi: chỉ frontend" kèm danh sách 
 - Q5. FE-UX-X3 (dải video giới thiệu ở Tổng quan Nhà đầu tư) và FE-UX-X4 (thu gọn sidebar): duyệt hay bỏ.
 - Q6. Cung cấp logo SVG chính thức, ảnh thật dự án và video chính thức theo mục 3.6.
 - Q7. Duyệt hay không FE-DEP-1 (`motion`), FE-DEP-2 (`lenis`, chỉ trang giới thiệu), FE-DEP-3 (icon 3D) ở mục 1.3. Không duyệt thì vẫn làm được toàn bộ chuyển động mềm bằng CSS và hook tự viết.
-- Q8. Duyệt bản mẫu 9 (mục 3.7) để áp cho đủ 21 màn; chủ dự án đang xem lại hiệu ứng bản 3 để chọn điểm cần học hỏi trước khi duyệt.
+- Q8. Duyệt bản mẫu 11 (mục 3.7) để áp cho đủ 21 màn.

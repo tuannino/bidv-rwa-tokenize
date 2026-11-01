@@ -41,6 +41,15 @@
   root0.dataset.hero = hk;
   document.querySelectorAll('.hero').forEach((h) => h.insertAdjacentHTML('afterbegin', '<span class="backlight" aria-hidden="true"></span><span class="dots" aria-hidden="true"></span>'));
 
+  // Biểu tượng vòng tròn đầu mỗi thẻ (như bản 3), chọn theo nội dung thẻ
+  const PIC = [[/Sản lượng/, 'zap'], [/Lợi tức/, 'trend'], [/Dự án và phân bổ|Token dự án/, 'wind'], [/tạo token/, 'pluscircle'], [/huỷ token/, 'flame'], [/Trạng thái phát hành/, 'gauge'], [/Giao dịch gần đây/, 'history'], [/Dự án Điện gió/, 'eye']];
+  document.querySelectorAll('.panel:not(.hero) > header h2, .panel:not(.hero) .video h2').forEach((h) => {
+    const k = (PIC.find(([re]) => re.test(h.textContent)) || [0, 'info'])[1];
+    h.insertAdjacentHTML('afterbegin', `<span class="ph-ic" aria-hidden="true">${window.V4.icon(k)}</span>`);
+    // Sắc nhạt của thẻ theo ý nghĩa: vàng cho tiền, bạc hà cho danh sách, xanh ngọc cho token và năng lượng
+    const pnl = h.closest('.panel'); if (/Lợi tức|Tài sản|tạo token|huỷ token/.test(h.textContent)) pnl.classList.add('t-gold'); else if (/Giao dịch|Token dự án|Dự án Điện gió/.test(h.textContent)) pnl.classList.add('t-mint');
+  });
+
   // Đường gió mảnh chạy trong mọi khối trọng tâm: nét chính của ý tưởng Gió hoá dòng tiền
   document.querySelectorAll('.hero').forEach((h) => h.insertAdjacentHTML('afterbegin', `<svg class="windlines" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden="true">${[40, 95, 150, 205, 260].map((y, i) => `<path style="animation-delay:${-i * 2.3}s" d="M-40 ${y} C 220 ${y - 34}, 420 ${y + 30}, 640 ${y - 4} S 1000 ${y - 30}, 1240 ${y + 6}"/>`).join('')}</svg>`));
 
@@ -78,6 +87,7 @@
     n.style.setProperty('--d', `${d}s`); n.classList.add('in', `in-${kindOf(n)}`); n.classList.remove('pre');
     [...n.querySelectorAll(KIDS)].slice(0, 16).forEach((k, i) => { k.classList.add('kid'); k.style.setProperty('--d', `${d + .3 + i * .05}s`); });
     setTimeout(() => fill(n), (d + .25) * 1000);
+    n.addEventListener('animationend', (e) => { if (e.target === n) n.classList.add('done'); });
   };
   const items = [document.querySelector('.titlerow'), ...document.querySelectorAll('.grid > :not(.row2), .grid > .row2 > *')].filter(Boolean);
   document.querySelectorAll('.chart').forEach((c) => c.classList.add('wait'));
@@ -102,7 +112,13 @@
       let fresh = true;
       p.addEventListener('pointermove', (e) => { const r = p.getBoundingClientRect(); mx.to((e.clientX - r.left) / r.width * 100, fresh); my.to((e.clientY - r.top) / r.height * 100, fresh); fresh = false; });
       p.addEventListener('pointerleave', () => { fresh = true; });
-      if (p.matches('.hero')) {
+      {
+        const amp = Math.max(1.2, Math.min(4, 520 / Math.max(260, p.offsetWidth) * 2.4));
+        const tx = spring((v) => p.style.setProperty('--rx', `${v}deg`), { k: 140, c: 14 }), ty = spring((v) => p.style.setProperty('--ry', `${v}deg`), { k: 140, c: 14 });
+        p.addEventListener('pointermove', (e) => { const r = p.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; tx.to((.5 - y) * amp); ty.to((x - .5) * amp * 1.2); });
+        p.addEventListener('pointerleave', () => { tx.to(0); ty.to(0); });
+      }
+      if (false) {
         const rx = spring((v) => p.style.setProperty('--rx', `${v}deg`), { k: 140, c: 14 }), ry = spring((v) => p.style.setProperty('--ry', `${v}deg`), { k: 140, c: 14 }), bx = spring((v) => p.style.setProperty('--bx', `${v}%`), { k: 60, c: 14 });
         p.addEventListener('pointermove', (e) => { const r = p.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; rx.to((.5 - y) * 4); ry.to((x - .5) * 3); bx.to(x * 100 - 18); });
         p.addEventListener('pointerleave', () => { rx.to(0); ry.to(0); });
