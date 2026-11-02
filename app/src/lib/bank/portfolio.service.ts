@@ -10,6 +10,7 @@ import { assertSessionWallet } from './wallet-owner';
 import { wptToVnd } from './issuance';
 import { err, ok, type Result } from './result';
 import { chainSchema, walletSchema } from './schemas';
+import { readOrNull } from './read-or-null';
 import type { TxnView } from './mint.service';
 import { daysBetween, todayVn } from './recall-phase';
 import { burnedAmountFromTxn, readRecallPhase } from './recall.service';
@@ -101,7 +102,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       // Giá áp dụng cho lệnh (FE-07, L-02): trên chain có OrderSettlement là giá trên hợp đồng.
       readEffectiveIssuePrice(chain),
       readRecallPhase(chain),
-      orNull('paymentBalanceOf', () => ledger.paymentBalanceOf(wallet)),
+      readOrNull('portfolio', 'paymentBalanceOf', () => ledger.paymentBalanceOf(wallet)),
     ]);
 
     const balanceString = balance.toString();
@@ -215,7 +216,7 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
     await authorize('portfolio:read', null, parsed.data);
     const chain = parsed.data;
     const [info, issuePriceVnd] = await Promise.all([getLedger(chain).tokenInfo(), readEffectiveIssuePrice(chain)]);
-    const project = await orNull('findProject', () => getProjectStore().findProject({ tokenSymbol: info.symbol, chain }));
+    const project = await readOrNull('portfolio', 'findProject', () => getProjectStore().findProject({ tokenSymbol: info.symbol, chain }));
 
     return ok({
       name: info.name,
@@ -228,15 +229,5 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
     });
   } catch (error) {
     return toResult(error);
-  }
-}
-
-/** FIX-04 QĐ-3: lần đọc THÊM lỗi thì trả `null`; log chỉ ghi tên lỗi (nội dung có thể chứa địa chỉ RPC kèm khoá). */
-async function orNull<T>(label: string, read: () => Promise<T>): Promise<T | null> {
-  try {
-    return await read();
-  } catch (error) {
-    console.error(`[portfolio] Không đọc được ${label}:`, error instanceof Error ? error.name : 'Error');
-    return null;
   }
 }
