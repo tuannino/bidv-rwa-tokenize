@@ -22,7 +22,7 @@ const ALICE = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const PRICE = BigInt(WPT_ISSUE_PRICE_VND);
 const REASON = 'điều chỉnh giá theo quyết định';
 /** Gạch dài, chấm giữa, ký tự mũi tên, mũi tên ASCII (dấu trừ rồi dấu lớn hơn). */
-const BAD = /[—·→]|-[>]/;
+const BAD = /[\u2014\u00b7\u2192]|-[>]/;
 
 function actAs(role: string) {
   process.env.DEMO_ROLE = role;
@@ -83,9 +83,9 @@ describe('FIX-03 chuỗi hiển thị trong lib', () => {
   });
 
   it('ca 2: ô trống là gạch ngắn, số có dấu chấm hàng nghìn', () => {
-    expect(formatAmount(null)).toBe('–');
-    expect(formatAmount('')).toBe('–');
-    expect(formatDateTime(null)).toBe('–');
+    expect(formatAmount(null)).toBe('\u2013');
+    expect(formatAmount('')).toBe('\u2013');
+    expect(formatDateTime(null)).toBe('\u2013');
     expect(formatAmount(1500000000n)).toBe('1.500.000.000');
   });
 
@@ -143,7 +143,7 @@ describe('FIX-03 chuỗi hiển thị trong lib', () => {
 
   it('ca 6: số mẫu lợi tức đã chia và nhãn vùng', () => {
     expect(MOCK_WIND_STATS.profitDistributedVndBn).toBe(5.8);
-    for (const label of Object.values(REGION_LABELS)) expect(label).not.toMatch(/·/);
+    for (const label of Object.values(REGION_LABELS)) expect(label).not.toMatch(/\u00b7/);
   });
 
   it('ca 7: dòng sổ can thiệp tay giữ nguyên mã lệnh, màn chi tiết lệnh vẫn tìm thấy', async () => {
