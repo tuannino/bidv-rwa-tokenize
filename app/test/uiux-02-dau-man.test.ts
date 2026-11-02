@@ -244,7 +244,7 @@ describe('UIUX-02 dòng mô tả và gợi ý', () => {
     ];
     for (const hint of all) {
       expect(hint.trim()).not.toBe('');
-      expect(hint).not.toMatch(/[—·→]/);
+      expect(hint).not.toMatch(/[\u2014\u00b7\u2192]/);
     }
   });
 
