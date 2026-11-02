@@ -5,7 +5,7 @@ import { getLedger } from '@/lib/ledger';
 import { getDistributionStore, getProjectStore, getWalletBindingStore } from '@/lib/store';
 import { findCustomerProfile } from './account-profile.service';
 import { readOrNull } from './read-or-null';
-import { assertCan } from '@/lib/rbac';
+import { assertCan, can } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
 import { toResult } from './authorize';
 import { err, ok, type Result } from './result';
@@ -58,7 +58,11 @@ export async function getOpsOverview(chain: unknown): Promise<Result<OpsOverview
         ? {
             count: new Set(
               bindings
-                .filter((row) => findCustomerProfile(row.actorId)?.role === 'INVESTOR')
+                // Hồ sơ Nhà đầu tư: quyền `portfolio:read` chỉ vai Nhà đầu tư có; kiểm qua RBAC, không so vai cứng (luật 3).
+                .filter((row) => {
+                  const profile = findCustomerProfile(row.actorId);
+                  return profile !== null && can(profile.role, 'portfolio:read');
+                })
                 .map((row) => row.actorId),
             ).size,
             truncated: bindings.length >= OVERVIEW_BINDING_LIMIT,
