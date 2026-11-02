@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { listAuditLog } from '@/lib/bank/audit.service';
+import { HoverHint } from '@/components/layout/hover-hint';
 
 /**
  * Sổ kiểm toán — chỉ đọc. Server Component: đọc thẳng qua service, không có action nào.
@@ -22,10 +23,9 @@ export default async function AuditPage() {
     <AppLayout breadcrumbs={[{ label: 'Kiểm toán' }, { label: 'Sổ kiểm toán' }]}>
       <div className="space-y-6">
         <header className="space-y-1">
-          <h1 className="text-xl font-semibold">Sổ kiểm toán</h1>
-          <p className="text-sm text-muted-foreground">
-            Mọi lần kiểm quyền và mọi thao tác đặc quyền. Kênh này không có hàm ghi.
-          </p>
+          <HoverHint hint="Xem lịch sử mọi thao tác và lần kiểm quyền trong hệ thống." side="bottom">
+            <h1 className="text-xl font-semibold">Sổ kiểm toán</h1>
+          </HoverHint>
         </header>
 
         <Card>

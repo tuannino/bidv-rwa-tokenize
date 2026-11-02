@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RefreshCw, Search, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HoverHint } from "@/components/layout/hover-hint";
 
 /**
  * Nhà đầu tư & KYC.
@@ -40,10 +41,9 @@ export function KycPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Nhà đầu tư &amp; KYC</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Duyệt KYC, whitelist ví để được nắm giữ WPT, đóng băng/mở băng khi cần.
-          </p>
+          <HoverHint hint="Xem nhà đầu tư, trạng thái định danh và whitelist ví." side="bottom">
+            <h1 className="text-2xl font-semibold text-foreground">Nhà đầu tư &amp; KYC</h1>
+          </HoverHint>
         </div>
         <button
           type="button"

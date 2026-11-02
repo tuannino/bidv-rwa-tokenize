@@ -2,6 +2,7 @@ import { AssetSummary } from '@/components/investor/asset-summary';
 import { IssuanceStatusBox } from '@/components/investor/issuance-status-box';
 import { TokenListBox } from '@/components/investor/token-list-box';
 import { TransactionHistoryBox } from '@/components/investor/transaction-history-box';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Trang TỔNG QUAN NHÀ ĐẦU TƯ — ghép bốn hộp.
@@ -17,11 +18,9 @@ export function InvestorPortfolioPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Tổng quan nhà đầu tư</h1>
-        <p className="text-sm text-muted-foreground">
-          Vị thế WPT của ví đang kết nối, trạng thái phát hành, và danh sách dự án điện gió đã
-          token hoá.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <AssetSummary />

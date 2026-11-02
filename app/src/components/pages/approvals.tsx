@@ -17,6 +17,7 @@ import {
   type TokenRequestStatus,
   type TokenRequestType,
 } from '@/lib/store/token-request.store.port';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn **Phê duyệt lệnh** — vai Kiểm soát viên (FE-22 việc 8, 9).
@@ -57,15 +58,12 @@ export function ApprovalsPage() {
   const freshStats = stats?.chain === chain ? stats : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-chain={chain}>
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Phê duyệt lệnh</h1>
-        <p className="text-sm text-muted-foreground">
-          Xem yêu cầu Giao dịch viên đã lập rồi chấp nhận hoặc từ chối. Chấp nhận thì hệ thống kiểm lại
-          điều kiện và thực hiện ngay trên chuỗi. Chain đang xem:{' '}
-          <span className="font-mono">{chain}</span>.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Đang chờ duyệt" value={freshStats?.data?.pending ?? null} />

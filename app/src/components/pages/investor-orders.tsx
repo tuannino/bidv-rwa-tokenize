@@ -106,7 +106,6 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Quản lý lệnh</h1>
-        <p className="text-sm text-muted-foreground">Lệnh mua và bán của ví đang kết nối.</p>
       </header>
 
       {chain === 'mock' && (

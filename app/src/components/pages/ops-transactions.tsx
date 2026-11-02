@@ -133,13 +133,9 @@ export function OpsTransactionsPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-chain={chain}>
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Giao dịch toàn hệ thống</h1>
-        <p className="text-sm text-muted-foreground">
-          Mọi lệnh mua và bán tự quyết toán, kèm bước nghiệp vụ hiện tại để theo dõi và can thiệp khi lệnh bị kẹt.
-          {' '}Chain đang xem: <span className="font-mono">{chain}</span>.
-        </p>
       </header>
 
       {data && !data.mayExecute && (

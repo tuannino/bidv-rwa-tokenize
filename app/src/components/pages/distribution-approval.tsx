@@ -27,6 +27,7 @@ import type { DistributionRunLogView } from '@/lib/bank/distribution-trigger.ser
 import type { Result } from '@/lib/bank/result';
 import { approvedAmountLabel } from '@/components/pages/distribution-amount-label';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn CHIA LỢI NHUẬN (FE-08 QĐ-F).
@@ -401,11 +402,9 @@ export function DistributionApprovalPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Chia lợi nhuận</h1>
-        <p className="text-sm text-muted-foreground">
-          Kiểm soát viên duyệt tổng số VNDB của kỳ trên chain <span className="font-mono">{chain}</span>; hệ thống chốt kỳ vault rồi
-          mới chia cho người nắm giữ WPT.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {message && (
         <p role={message.tone === 'error' ? 'alert' : 'status'} aria-label="Kết quả thao tác chia" className={message.tone === 'error' ? 'text-sm text-destructive' : 'text-sm'}>

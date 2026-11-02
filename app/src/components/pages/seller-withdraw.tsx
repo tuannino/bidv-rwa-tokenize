@@ -23,6 +23,7 @@ import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
 import { describePolicy, nf, useSellerOverview } from './seller-overview';
 import { WITHDRAW_STATUS_LABELS } from './seller-transactions';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn TẠO LỆNH RÚT NGƯỜI BÁN (FE-21 việc 10–15, BE-13 QĐ-I, FIX-01 G1 tới G6).
@@ -199,10 +200,9 @@ export function SellerWithdrawPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Tạo lệnh rút</h1>
-        <p className="text-sm text-muted-foreground">
-          Rút VNDB từ vault thanh toán về ví nhận bạn chọn. Xác nhận bằng mã một lần sáu chữ số, không qua phê duyệt.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {loading ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">

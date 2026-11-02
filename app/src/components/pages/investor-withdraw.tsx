@@ -254,10 +254,6 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
   const header = (
     <header className="space-y-1">
       <h1 className="text-xl font-semibold text-foreground">Rút VNDB</h1>
-      <p className="text-sm text-muted-foreground">
-        Chuyển VNDB từ ví đã định danh của bạn sang một ví nhận đã whitelist. Ví của bạn ký giao dịch; xác nhận bằng mã
-        một lần sáu chữ số.
-      </p>
     </header>
   );
 

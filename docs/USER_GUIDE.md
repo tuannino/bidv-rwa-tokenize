@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/in-04-fireblocks-mint-burn` @ `d2cf384` (IN-04, từ `dev` @ `8f75d38`), ngày 29/10/2026 |
+| Chốt tại | nhánh `feat/uiux-02-dau-man` @ `a69369f` (UIUX-02, từ `dev` @ `67ece1e`), ngày 02/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -52,6 +52,7 @@ Ký hiệu trạng thái: **Đã chạy** (có trên `dev`, đã kiểm trên ch
 | Hai vai vận hành không kết nối ví | Giao dịch của ngân hàng ký bằng ví máy chủ; chỉ Nhà đầu tư và Người bán có `wallet:connect` | FE-02 | Đã chạy (IN-04: Mint, Burn của lập duyệt ký được qua Fireblocks, xem mục 1.4) |
 | Sổ kiểm toán | Mọi thao tác ghi, và cả nhiều thao tác đọc, ghi một dòng `AuditLog` | Kiến trúc | Đã chạy (xem lệch L-01) |
 | Lịch sử cấu hình | Mọi tham số Kiểm soát viên cấu hình phải có lịch sử từng lần đổi. `SystemConfig` tự ghi `SystemConfigHistory`; cấu hình vault dựng lịch sử từ sự kiện trên chuỗi | Chốt 20/10, BE-13 bản 2.1 | Đã chạy |
+| Nhiều loại token, nhiều dự án (định hướng) | Hệ thống hướng tới nhiều loại token (WPT, TCC), mỗi loại nhiều dự án, mỗi dự án một token riêng. PoC chỉ vận hành WPT. Ô chọn token ở đầu màn CHỈ để hiển thị: không đổi dữ liệu, không gửi mã token đi đâu; dòng TCC khoá "(chưa hỗ trợ)". Lộ trình MT-01 tới MT-07 ở `docs/20261102_NO_KY_THUAT_DA_TOKEN.md` | UIUX-02, chốt 02/11 | Một phần (chỉ giao diện; nối thật thuộc MT-05) |
 | Hiệu năng là điều kiện nghiệm thu | Mỗi màn gọi tối đa một server action khi mở; liên kết tắt tải trước; đọc chuỗi gom lô; quét sự kiện có mốc block | Chốt 21/10, HF-01 | Đã chạy (còn `/vault`, PERF-01) |
 
 ### 1.2. Chuỗi (chain) và môi trường
@@ -211,7 +212,7 @@ Nhóm "Nghiệp vụ ẩn" (FIX-01 QĐ-5) chỉ có ở menu Giao dịch viên, 
 
 Đáy menu của Giao dịch viên và Kiểm soát viên, ngay trên khối trạng thái mạng, có dòng "Lưu ký Fireblocks" kèm công tắc (IN-04, mục 3.0).
 
-Chữ trong ngoặc là phím tắt hiển thị cạnh menu. Hiện chỉ là nhãn, bấm phím chưa chuyển màn (`components/layout/sidebar.tsx:204`).
+Chữ trong ngoặc là phím tắt hiển thị cạnh menu. Hiện chỉ là nhãn, bấm phím chưa chuyển màn (`components/layout/sidebar.tsx:278`).
 
 ### 2.2. Trạng thái từng màn
 
@@ -279,7 +280,7 @@ Quy ước chung cho Phần 3:
 - **Vault mock mới dựng** ở trạng thái `UNSET` (khoá toàn bộ, chưa có ví nhận). Người bán chỉ rút được sau khi Kiểm soát viên cấu hình khoá ở `/vault`; ví nhận do Người bán chọn ở lệnh rút (FIX-01).
 - Mỗi màn có khối **Lệch**: chỗ mã hoặc giao diện khác ý nghiệp vụ. Mã `L-xx` tra ở Phụ lục C. Nội dung Phần 3 dựng từ đọc mã nguồn tại `24f3b7c`, đối chiếu với kết quả chạy Sepolia của OP-05.
 
-### 3.0. Khung chung: công tắc Lưu ký Fireblocks và màn chặn vai (IN-04)
+### 3.0. Khung chung: công tắc Lưu ký Fireblocks, màn chặn vai (IN-04), ô chọn token, gợi ý trên menu (UIUX-02)
 
 Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks: runbook `docs/RUNBOOK_FIREBLOCKS.md`.
 
@@ -292,6 +293,16 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 - **Bấm:** `setFireblocksCustodyAction` > `setFireblocksCustody`: `authorize('custody:toggle')`; bật khi chưa cấu hình thì lỗi "Chưa cấu hình Fireblocks (khoá API, vault); không bật được."; ghi `SystemConfig` kèm lịch sử và AuditLog `custody:toggle` SUCCESS "Lưu ký Fireblocks: tắt sang bật". Thành công thì tải lại trang; lỗi thì hiện câu dưới công tắc.
 
 **Màn chặn vai** (`components/layout/channel-guard.tsx`): mở một màn không thuộc vai đang có hiệu lực thì hiện "Không có quyền vào kênh ...". Màn này không có thanh trên cùng nên không đổi vai được; IN-04 thêm nút "Về trang của vai hiện tại" trỏ trang mặc định của vai (`roleHomeHref`, `components/layout/role-home.ts`): Nhà đầu tư `/portfolio`, Người bán `/seller`, Giao dịch viên và Kiểm soát viên `/`.
+
+**Ô chọn token** (`components/token/token-scope-select.tsx`, UIUX-02), một hàng riêng ngay dưới tiêu đề của 10 màn: `/draft`, `/approvals`, `/config`, `/vault`, `/distribution`, `/recall`, `/portfolio`, `/seller`, `/seller/withdraw`; riêng `/trade` nằm ở chỗ ô Token cũ trong thẻ "Đặt lệnh".
+
+- **Danh sách:** token thật của màn (mặc định WPT), rồi luôn có dòng TCC (Tokenized Carbon Credit) kèm thẻ chữ mờ "(chưa hỗ trợ)", không chọn được bằng chuột hay bàn phím. Danh sách token rỗng (`/trade` trên chain chưa có dự án): ô trống, gợi ý "Chưa có token".
+- **Gõ lọc:** bấm vào ô thì xổ đủ danh sách và chọn sẵn chữ; gõ mã token thì lọc, không phân biệt hoa thường: mã bắt đầu bằng chữ gõ lên đầu, rồi mã chứa chữ gõ, rồi tên dự án hoặc tên loại token chứa chữ gõ. Không dòng nào khớp: "Không có token khớp". Mũi tên lên, xuống đi qua các dòng chọn được; Enter chọn; Esc hoặc rời ô thì trả về token đang chọn.
+- **Chỉ hiển thị:** chọn token không đổi dữ liệu, không gọi action, không lưu lựa chọn. Ô không bao giờ khoá vì chỉ có một token; chỉ khoá ở `/trade` khi giao dịch tạm dừng. Không đặt ở `/withdraw` (VNDB dùng chung mọi dự án), các màn danh sách và chi tiết, các màn tổng hợp, quản trị.
+
+**Dòng mô tả và gợi ý trên menu** (UIUX-02): các màn không còn dòng mô tả dưới tiêu đề. Câu mô tả chức năng màn chuyển thành gợi ý hiện khi dừng chuột khoảng 3 giây trên mục menu tương ứng (`components/layout/hover-hint.tsx`, dựng trên `components/ui/tooltip.tsx`; câu lấy từ trường `hint` của mục menu trong `components/layout/nav-config.ts`). Năm màn không có trong menu (`/audit`, `/mint`, `/assets`, `/kyc`, `/reconciliation`) đặt gợi ý trên tiêu đề màn. Rời chuột là ẩn. Trình đọc màn hình đọc câu gợi ý ngay như mô tả của liên kết hoặc tiêu đề, không phải chờ. Màn hình cảm ứng không có gợi ý.
+
+**Tiêu đề Tổng quan** (UIUX-02): màn `/` của Giao dịch viên, Kiểm soát viên có tiêu đề và breadcrumb "Tổng quan" (trước là "Tổng quan điện gió"); mục menu vẫn là "Bảng điều khiển".
 
 ### 3.1. Nhà đầu tư
 
@@ -599,7 +610,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Chain đang xem | Chain đang chọn | `useSelectedChain()` phía trình duyệt | Biết số liệu thuộc chain nào |
+| Token (ô chọn, UIUX-02) | Token đang xem | Mặc định WPT; dòng TCC khoá "(chưa hỗ trợ)" | Chỉ hiển thị, chưa đổi dữ liệu (mục 3.0) |
 | Danh sách giao dịch (nút) | Lối tắt | Link `/seller/transactions` | Điều hướng |
 | Tạo lệnh rút (nút) | Lối tắt | Link `/seller/withdraw` | Điều hướng |
 | **Khối Token khớp lệnh trong ngày** | | | |
@@ -851,11 +862,11 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Chain:** không phụ thuộc chain. Toàn bộ số là hằng trong `lib/mock-data.ts`.
 - **Trạng thái:** **Chỗ trống**. Giao diện chạy được nhưng 100% số liệu mẫu tĩnh. Không có marker hay mã task.
 - **Nghiệp vụ:** Tổng quan danh mục điện gió.
-- **Action khi mở:** không có. Component client đọc trực tiếp `MOCK_PROJECTS`, `MOCK_WIND_STATS`, `MOCK_GENERATION_SERIES` (`components/pages/dashboard.tsx:17`).
+- **Action khi mở:** không có. Component client đọc trực tiếp `MOCK_PROJECTS`, `MOCK_WIND_STATS`, `MOCK_GENERATION_SERIES` (`components/pages/dashboard.tsx:16`).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Tổng quan điện gió (tiêu đề), "Cập nhật hh:mm dd/mm/yyyy" | Tiêu đề, giờ trình duyệt | đồng hồ máy khách | Hiển thị |
+| Tổng quan (tiêu đề) | Tiêu đề màn (UIUX-02; trước là "Tổng quan điện gió" kèm mốc "Cập nhật", đã bỏ) | Hằng trong `dashboard.tsx` | Hiển thị |
 | Phát hành WPT (nút) | Liên kết | `href="/mint"` | Dẫn sang màn dữ liệu thử, không phải màn Lập lệnh |
 | WPT đã phát hành | Tổng cung | `MOCK_WIND_STATS.wptIssued` = 335.000 | Hiển thị (số mẫu) |
 | Nhà đầu tư whitelisted | Số ví đã KYC | mock = 128 | Hiển thị |
@@ -868,8 +879,8 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-69.** Breadcrumb ghi "Tổng quan điện gió" (`app/(ops)/page.tsx:6`), không khớp nhãn menu "Bảng điều khiển".
-- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:62-68`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
+- **L-69.** Tiêu đề và breadcrumb ghi "Tổng quan" (`dashboard.tsx:42`, `app/(ops)/page.tsx:6`), mục menu ghi "Bảng điều khiển". UIUX-02 QĐ-10 chủ ý giữ hai tên; thiết kế lại màn thuộc đợt chuẩn hoá dữ liệu sau FIX-04.
+- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:44-50`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
 - **L-70.** Số mẫu (335.000 WPT, 3 dự án) không khớp dữ liệu thật: trần 20.000.000 WPT trong `token-parameters.json`, chỉ 1 dự án "Dự án điện gió An Viên" (`lib/store/seed-data.ts:115`).
 
 
@@ -1171,7 +1182,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 
 #### 3.5.1. `/vault` Vault thanh toán SPV
 
-**Vai:** Giao dịch viên (TELLER) và Kiểm soát viên (CONTROLLER). Menu cho cả hai vai là "Vault thanh toán SPV" (phím tắt K), trong `components/layout/nav-config.ts:165` và `:185`. Cổng vào trang là `assertCan('vault:read')` ở `app/(ops)/vault/page.tsx:7`.
+**Vai:** Giao dịch viên (TELLER) và Kiểm soát viên (CONTROLLER). Menu cho cả hai vai là "Vault thanh toán SPV" (phím tắt K), trong `components/layout/nav-config.ts:249-255` và `:316-322`. Cổng vào trang là `assertCan('vault:read')` ở `app/(ops)/vault/page.tsx:7`.
 
 Quyền nằm trong `lib/rbac/permissions.ts`:
 - `vault:read` thuộc READ_ONLY nên cả hai vai đều có (`:255`).
@@ -1312,7 +1323,7 @@ Nguồn: overview > `ledger.vaultPeriodCloses(10)`, sự kiện `PeriodClosed`. 
 Menu Kiểm soát viên: "Chia lợi nhuận". Menu Giao dịch viên: "Chia lợi nhuận (chỉ xem)".
 
 **Vai:**
-- Menu theo vai: TELLER thấy "Chia lợi nhuận (chỉ xem)" (`nav-config.ts:158-163`), CONTROLLER thấy "Chia lợi nhuận" (`:184`), cùng phím tắt C.
+- Menu theo vai: TELLER thấy "Chia lợi nhuận (chỉ xem)" (`nav-config.ts:242-248`), CONTROLLER thấy "Chia lợi nhuận" (`:309-315`), cùng phím tắt C.
 - Cổng trang là `assertCan('reconcile:read')` (`app/(ops)/distribution/page.tsx:8`). Không có quyền tên `distribution:read`; các hàm đọc đều kiểm `reconcile:read`, thuộc READ_ONLY nên cả hai vai có.
 - Ghi (duyệt, duyệt lại, tiếp tục) cần `distribution:approve`, chỉ CONTROLLER có (`permissions.ts:90`, `:347`).
 - TELLER còn `distribution:snapshot` và `distribution:execute`, nhưng không server action nào dùng chúng (`actions/distribution.ts:23-26`).
@@ -1856,7 +1867,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-63 | `/wallet` | Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:248`). |
 | L-64 | `/wallet` | Kết nối ví ở `/wallet` không ghi vào hồ sơ; ví do Giao dịch viên gắn ở `/wallet-binding`. |
 | L-65 | `/wallet` | Câu "Số WPT đang giữ xem ở trang Tổng quan" sai với Người bán: Tổng quan của Người bán hiện số của vault (`wallet-status-card.tsx:113`). |
-| L-69 | `/` | Breadcrumb ghi "Tổng quan điện gió" (`app/(ops)/page.tsx:6`), không khớp nhãn menu "Bảng điều khiển". |
+| L-69 | `/` | Tiêu đề, breadcrumb "Tổng quan" khác mục menu "Bảng điều khiển" (UIUX-02 QĐ-10 chủ ý giữ; thiết kế lại sau FIX-04). |
 | L-70 | `/` | Số mẫu (335.000 WPT, 3 dự án) không khớp dữ liệu thật: trần 20.000.000 WPT, 1 dự án An Viên. |
 | L-71 | `/draft` | Vault không hiện trên màn: khi chưa có ví SPV, người lập phải nhập tay ví đích, địa chỉ vault mà R6 bắt buộc chỉ lộ ra trong câu lỗi (`draft.tsx:395-413`). |
 | L-72 | `/draft` | Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm: hệ thống chỉ tra theo `tokenSymbol`. |
@@ -1893,3 +1904,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 28/10/2026 | `017ec56` | Dev (Claude) | FE-23: màn `/withdraw` Rút VNDB dùng được (mục 3.1.6 viết lại): Nhà đầu tư chuyển VNDB từ ví đã định danh sang ví nhận đã whitelist, ví trình duyệt ký và trả gas, máy chủ kiểm bằng chứng trên chuỗi theo nhãn lệnh; quyền `payment:withdraw`; bảng `PaymentWithdrawRequest`. Bỏ L-48, L-49 (trang chờ đã thay). Sửa Phần 1 mục 1.9; Phần 2; Phần 3 mục 3.1.6; Phụ lục A (A.3b mới), C |
 | 29/10/2026 | `90995a1` | Dev (Claude) | FIX-02: Nhà đầu tư mặc định chỉ mua (cờ `ENABLE_INVESTOR_SELL`, máy chủ chặn lệnh bán mới, `/trade` không hiện nút Bán); bỏ điều kiện "Không có yêu cầu Mint khác đang chờ", lập được nhiều yêu cầu Mint cùng token; khối cảnh báo vàng ở `/approvals/[id]` khoá nút Chấp nhận khi số liệu token không đủ; Burn "Toàn bộ nguồn cung" tự điền tổng cung, ô chỉ đọc, máy chủ kiểm "Số lượng bằng tổng cung". Bỏ L-12 (điều kiện gây kẹt đã gỡ); L-15 đổi đề xuất. Sửa Phần 1 mục 1.4, 1.6; Phần 2; Phần 3 mục 3.1.2, 3.4.2, 3.4.4; Phụ lục C |
 | 29/10/2026 | `d2cf384` | Dev (Claude) | IN-04: ký Mint, Burn của lập duyệt qua Fireblocks (Vault Account) khi công tắc "Lưu ký Fireblocks" bật cho chain trong bảng `FIREBLOCKS_CHAIN_ASSETS`; công tắc ở đáy menu Giao dịch viên, Kiểm soát viên (quyền `custody:toggle`, `SystemConfig` khoá `custody.fireblocks.enabled`); dòng "Thực hiện qua" và đối soát qua Fireblocks ở `/approvals/[id]`; màn chặn vai có nút "Về trang của vai hiện tại". Không dùng TAP; chỉ Mint, Burn. Cập nhật L-15. Sửa Phần 1 mục 1.1, 1.4; Phần 2; Phần 3 mục 3.0 (mới, trỏ runbook `docs/RUNBOOK_FIREBLOCKS.md`), 3.4.4; Phụ lục B, C |
+| 02/11/2026 | `a69369f` | Dev (Claude) | UIUX-02: ô chọn token có gõ lọc ở đầu 10 màn nghiệp vụ (chỉ hiển thị; dòng TCC "(chưa hỗ trợ)" khoá), `/trade` dùng chung ô này thay ô Token cũ; bỏ dòng mô tả dưới tiêu đề ở mọi màn, câu mô tả chuyển thành gợi ý khi dừng chuột trên menu (5 màn ngoài menu: trên tiêu đề); tiêu đề màn `/` đổi thành "Tổng quan", menu giữ "Bảng điều khiển". Cập nhật L-69. Sửa Phần 1 mục 1.1; Phần 3 mục 3.0, 3.2.1, 3.4.1, 3.5.1, 3.5.2; Phụ lục C |

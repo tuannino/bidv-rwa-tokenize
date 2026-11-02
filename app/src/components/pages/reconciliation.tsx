@@ -5,6 +5,7 @@ import { Clock, Gauge, Link2, RefreshCw, Scale, ReceiptText } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { HoverHint } from "@/components/layout/hover-hint";
 
 /**
  * Đối soát **doanh thu điện**: sản lượng SCADA ↔ hoá đơn EVN ↔ số liệu on-chain.
@@ -41,11 +42,9 @@ export function ReconciliationPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Đối soát doanh thu điện</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            So khớp sản lượng SCADA ↔ hoá đơn EVN ↔ số liệu on-chain theo từng kỳ, trước khi chia
-            lợi tức cho nhà đầu tư.
-          </p>
+          <HoverHint hint="So khớp sản lượng điện, hoá đơn và số liệu trên chuỗi theo từng kỳ." side="bottom">
+            <h1 className="text-2xl font-semibold text-foreground">Đối soát doanh thu điện</h1>
+          </HoverHint>
         </div>
         <Button variant="outline" className="shrink-0 gap-2">
           <RefreshCw className="h-4 w-4" />

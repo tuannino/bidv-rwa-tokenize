@@ -30,6 +30,7 @@ import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { usePublicConfig } from "@/lib/config/config-context";
 import { getPendingWorkAction } from "@/app/actions/token-request";
 import { CustodyToggle, type CustodyToggleState } from "./custody-toggle";
+import { HoverHint } from "./hover-hint";
 import {
   TELLER_NAV,
   type NavGroup,
@@ -297,21 +298,24 @@ function NavLink({
     );
   }
 
+  // UIUX-02 QĐ-9: dừng chuột 3 giây trên mục thì hiện câu mô tả chức năng màn.
   return (
-    <Link
-      href={item.href}
-      // HF-01: mỗi lượt prefetch là một lần kết xuất server có truy vấn DB; menu có 4 đến 6 mục
-      // nên mỗi lần mở trang tốn thêm chừng đó lượt Worker. Bấm mới tải.
-      prefetch={false}
-      className={cn(
-        "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
-        active
-          ? "bg-primary/10 text-primary font-medium"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-      )}
-    >
-      {body}
-    </Link>
+    <HoverHint hint={item.hint}>
+      <Link
+        href={item.href}
+        // HF-01: mỗi lượt prefetch là một lần kết xuất server có truy vấn DB; menu có 4 đến 6 mục
+        // nên mỗi lần mở trang tốn thêm chừng đó lượt Worker. Bấm mới tải.
+        prefetch={false}
+        className={cn(
+          "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
+          active
+            ? "bg-primary/10 text-primary font-medium"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        )}
+      >
+        {body}
+      </Link>
+    </HoverHint>
   );
 }
 

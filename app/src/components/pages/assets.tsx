@@ -21,6 +21,7 @@ import {
 } from "@/lib/mock-data";
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { cn } from "@/lib/utils";
+import { HoverHint } from "@/components/layout/hover-hint";
 
 /**
  * Danh mục **dự án điện gió** đã token hoá.
@@ -64,11 +65,9 @@ export function AssetsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Dự án điện gió đã token hoá</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mỗi dự án phát hành WPT (quyền hưởng lợi tức). Sản lượng lấy từ EnergyOracle, lợi tức
-            chia qua ProfitDistributor.
-          </p>
+          <HoverHint hint="Xem danh sách dự án điện gió đã token hoá." side="bottom">
+            <h1 className="text-2xl font-semibold text-foreground">Dự án điện gió đã token hoá</h1>
+          </HoverHint>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" size="icon" title="Làm mới">

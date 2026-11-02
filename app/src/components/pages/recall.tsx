@@ -23,6 +23,7 @@ import { addDays, isCalendarDate } from '@/lib/bank/recall-phase';
 import type { Result } from '@/lib/bank/result';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatVnDate } from '@/lib/format';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 const REASON_MIN = 5;
 const REASON_MAX = 200;
@@ -145,8 +146,9 @@ export function RecallPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Thu hồi token</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Lập lịch, đóng băng và thu hồi WPT khi dự án hết hạn. Thanh toán thực hiện ngoài hệ thống trong phạm vi PoC.</p>
       </div>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       <RecallSteps current={currentStep(overview)} />
 

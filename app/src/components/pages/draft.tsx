@@ -31,6 +31,7 @@ import type { DraftStatsView, TokenInfoView } from '@/lib/bank/token-request.ser
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount } from '@/lib/format';
 import type { TokenRequestRecord, TokenRequestType } from '@/lib/store/token-request.store.port';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn **Lập lệnh** — vai Giao dịch viên (FE-22 việc 1–7).
@@ -139,14 +140,12 @@ export function DraftPage() {
   }, [router]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-chain={chain}>
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Lập lệnh</h1>
-        <p className="text-sm text-muted-foreground">
-          Lập yêu cầu tạo hoặc huỷ token. Yêu cầu chỉ có hiệu lực sau khi Kiểm soát viên chấp nhận;
-          trước đó token không thay đổi. Chain đang xem: <span className="font-mono">{chain}</span>
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard label="Yêu cầu tạo token đang chờ" value={freshStats?.data?.pendingMint ?? null} />

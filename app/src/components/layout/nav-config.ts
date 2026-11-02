@@ -77,6 +77,8 @@ export interface NavItem {
   disabled?: boolean;
   /** Có mang số việc đang chờ thì ghi khoá ở đây; `sidebar.tsx` tra số theo khoá. */
   pendingWork?: PendingWorkKey;
+  /** UIUX-02 QĐ-8: mô tả ngắn chức năng màn, hiện khi dừng chuột trên mục menu (`HoverHint`). */
+  hint: string;
 }
 
 export interface NavGroup {
@@ -108,16 +110,52 @@ export const INVESTOR_NAV: NavSection = {
     {
       label: null,
       items: [
-        { href: '/portfolio', label: 'Tổng quan', icon: 'LayoutDashboard', shortcut: 'E' },
-        { href: '/trade', label: 'Giao dịch token', icon: 'ShoppingCart', shortcut: 'G' },
-        { href: '/orders', label: 'Quản lý lệnh', icon: 'ScrollText', shortcut: 'Q' },
-        { href: '/withdraw', label: 'Rút VNDB', icon: 'Banknote', shortcut: 'R' },
+        {
+          href: '/portfolio',
+          label: 'Tổng quan',
+          icon: 'LayoutDashboard',
+          shortcut: 'E',
+          hint: 'Xem số WPT đang giữ, tình trạng phát hành và các dự án đã token hoá.',
+        },
+        {
+          href: '/trade',
+          label: 'Giao dịch token',
+          icon: 'ShoppingCart',
+          shortcut: 'G',
+          hint: 'Đặt lệnh giao dịch WPT bằng VNDB theo giá phát hành.',
+        },
+        {
+          href: '/orders',
+          label: 'Quản lý lệnh',
+          icon: 'ScrollText',
+          shortcut: 'Q',
+          hint: 'Theo dõi các lệnh đã đặt và trạng thái quyết toán.',
+        },
+        {
+          href: '/withdraw',
+          label: 'Rút VNDB',
+          icon: 'Banknote',
+          shortcut: 'R',
+          hint: 'Chuyển VNDB từ ví của bạn sang ví nhận đã đăng ký, xác nhận bằng mã một lần.',
+        },
         /**
          * Kết nối ví KHÔNG có trong bản tài liệu yêu cầu hiện tại nhưng đã làm ở FE-02 và
          * Owner đã xác nhận giữ. Tài liệu sẽ được bổ sung sau.
          */
-        { href: '/wallet', label: 'Kết nối ví', icon: 'Wallet', shortcut: 'V' },
-        { href: '/account', label: 'Thông tin tài khoản', icon: 'UserCog', shortcut: 'T' },
+        {
+          href: '/wallet',
+          label: 'Kết nối ví',
+          icon: 'Wallet',
+          shortcut: 'V',
+          hint: 'Kết nối ví tự quản để xem tài sản và ký giao dịch.',
+        },
+        {
+          href: '/account',
+          label: 'Thông tin tài khoản',
+          icon: 'UserCog',
+          shortcut: 'T',
+          hint: 'Xem hồ sơ và ví gắn với tài khoản đang đăng nhập.',
+        },
       ],
     },
   ],
@@ -129,16 +167,41 @@ export const SELLER_NAV: NavSection = {
     {
       label: null,
       items: [
-        { href: '/seller', label: 'Tổng quan', icon: 'LayoutDashboard', shortcut: 'E' },
+        {
+          href: '/seller',
+          label: 'Tổng quan',
+          icon: 'LayoutDashboard',
+          shortcut: 'E',
+          hint: 'Xem tình hình bán token, nguồn cung và số dư ví của người bán.',
+        },
         {
           href: '/seller/transactions',
           label: 'Danh sách giao dịch',
           icon: 'Receipt',
           shortcut: 'D',
+          hint: 'Xem lệnh mua bán đã khớp với ví người bán và các lệnh rút VNDB.',
         },
-        { href: '/seller/withdraw', label: 'Tạo lệnh rút', icon: 'Banknote', shortcut: 'R' },
-        { href: '/wallet', label: 'Kết nối ví', icon: 'Wallet', shortcut: 'V' },
-        { href: '/account', label: 'Thông tin tài khoản', icon: 'UserCog', shortcut: 'T' },
+        {
+          href: '/seller/withdraw',
+          label: 'Tạo lệnh rút',
+          icon: 'Banknote',
+          shortcut: 'R',
+          hint: 'Rút VNDB từ vault thanh toán về ví nhận, xác nhận bằng mã một lần.',
+        },
+        {
+          href: '/wallet',
+          label: 'Kết nối ví',
+          icon: 'Wallet',
+          shortcut: 'V',
+          hint: 'Kết nối ví tự quản để xem tài sản và ký giao dịch.',
+        },
+        {
+          href: '/account',
+          label: 'Thông tin tài khoản',
+          icon: 'UserCog',
+          shortcut: 'T',
+          hint: 'Xem hồ sơ và ví gắn với tài khoản đang đăng nhập.',
+        },
       ],
     },
   ],
@@ -150,15 +213,28 @@ export const TELLER_NAV: NavSection = {
     {
       label: 'Vận hành',
       items: [
-        { href: '/', label: 'Bảng điều khiển', icon: 'LayoutDashboard', shortcut: 'E' },
+        {
+          href: '/',
+          label: 'Bảng điều khiển',
+          icon: 'LayoutDashboard',
+          shortcut: 'E',
+          hint: 'Xem nhanh số liệu tổng hợp về dự án, token, nhà đầu tư và lợi tức.',
+        },
         {
           href: '/draft',
           label: 'Lập lệnh',
           icon: 'ClipboardList',
           shortcut: 'L',
+          hint: 'Lập yêu cầu phát hành hoặc huỷ token để Kiểm soát viên duyệt.',
           pendingWork: 'draft',
         },
-        { href: '/transactions', label: 'Giao dịch', icon: 'ArrowLeftRight', shortcut: 'G' },
+        {
+          href: '/transactions',
+          label: 'Giao dịch',
+          icon: 'ArrowLeftRight',
+          shortcut: 'G',
+          hint: 'Theo dõi mọi lệnh mua bán và xử lý lệnh bị kẹt.',
+        },
         /**
          * FE-08 QĐ-A: Giao dịch viên chỉ xem màn chia; người duyệt và bấm chia là Kiểm soát viên
          * (`distribution:approve`). Nhãn nói rõ để người dùng không đi tìm nút không có.
@@ -168,16 +244,43 @@ export const TELLER_NAV: NavSection = {
           label: 'Chia lợi nhuận (chỉ xem)',
           icon: 'TrendingUp',
           shortcut: 'C',
+          hint: 'Xem các kỳ chia lợi nhuận và trạng thái chi trả.',
         },
-        { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
+        {
+          href: '/vault',
+          label: 'Vault thanh toán SPV',
+          icon: 'Banknote',
+          shortcut: 'K',
+          hint: 'Xem lượng WPT, VNDB đang giữ và phần tiền bị khoá trong vault của SPV.',
+        },
         /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
-        { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
-        { href: '/recall', label: 'Thu hồi token (chỉ xem)', icon: 'Undo2', shortcut: 'U' },
+        {
+          href: '/config',
+          label: 'Giá và phát hành',
+          icon: 'Coins',
+          shortcut: 'H',
+          hint: 'Đặt giá phát hành WPT và theo dõi tình trạng phát hành.',
+        },
+        {
+          href: '/recall',
+          label: 'Thu hồi token (chỉ xem)',
+          icon: 'Undo2',
+          shortcut: 'U',
+          hint: 'Xem lịch và trạng thái thu hồi WPT khi dự án hết hạn.',
+        },
       ],
     },
     {
       label: 'Tài khoản',
-      items: [{ href: '/account', label: 'Thông tin tài khoản', icon: 'UserCog', shortcut: 'T' }],
+      items: [
+        {
+          href: '/account',
+          label: 'Thông tin tài khoản',
+          icon: 'UserCog',
+          shortcut: 'T',
+          hint: 'Xem hồ sơ cán bộ của tài khoản đang đăng nhập.',
+        },
+      ],
     },
   ],
 };
@@ -188,14 +291,50 @@ export const CONTROLLER_NAV: NavSection = {
     {
       label: 'Vận hành',
       items: [
-        { href: '/', label: 'Bảng điều khiển', icon: 'LayoutDashboard', shortcut: 'E' },
-        { href: '/transactions', label: 'Giao dịch', icon: 'ArrowLeftRight', shortcut: 'G' },
+        {
+          href: '/',
+          label: 'Bảng điều khiển',
+          icon: 'LayoutDashboard',
+          shortcut: 'E',
+          hint: 'Xem nhanh số liệu tổng hợp về dự án, token, nhà đầu tư và lợi tức.',
+        },
+        {
+          href: '/transactions',
+          label: 'Giao dịch',
+          icon: 'ArrowLeftRight',
+          shortcut: 'G',
+          hint: 'Theo dõi mọi lệnh mua bán và bước quyết toán hiện tại.',
+        },
         /** FE-08: Kiểm soát viên duyệt tổng số của kỳ rồi chia (`distribution:approve`). */
-        { href: '/distribution', label: 'Chia lợi nhuận', icon: 'TrendingUp', shortcut: 'C' },
-        { href: '/vault', label: 'Vault thanh toán SPV', icon: 'Banknote', shortcut: 'K' },
+        {
+          href: '/distribution',
+          label: 'Chia lợi nhuận',
+          icon: 'TrendingUp',
+          shortcut: 'C',
+          hint: 'Duyệt số tiền của kỳ và chia lợi nhuận cho người nắm giữ WPT.',
+        },
+        {
+          href: '/vault',
+          label: 'Vault thanh toán SPV',
+          icon: 'Banknote',
+          shortcut: 'K',
+          hint: 'Xem số dư vault của SPV, đối soát lệnh rút và cấu hình mức khoá.',
+        },
         /** FE-07: Giao dịch viên đặt giá; Kiểm soát viên xem cùng màn, không có khối "Đổi giá". */
-        { href: '/config', label: 'Giá và phát hành', icon: 'Coins', shortcut: 'H' },
-        { href: '/recall', label: 'Thu hồi token', icon: 'Undo2', shortcut: 'U' },
+        {
+          href: '/config',
+          label: 'Giá và phát hành',
+          icon: 'Coins',
+          shortcut: 'H',
+          hint: 'Xem giá phát hành WPT và tình trạng phát hành.',
+        },
+        {
+          href: '/recall',
+          label: 'Thu hồi token',
+          icon: 'Undo2',
+          shortcut: 'U',
+          hint: 'Lập lịch, đóng băng và thu hồi WPT khi dự án hết hạn.',
+        },
       ],
     },
     {
@@ -206,13 +345,22 @@ export const CONTROLLER_NAV: NavSection = {
           label: 'Phê duyệt lệnh',
           icon: 'ShieldCheck',
           shortcut: 'P',
+          hint: 'Duyệt hoặc từ chối yêu cầu phát hành, huỷ token do Giao dịch viên lập.',
           pendingWork: 'approval',
         },
       ],
     },
     {
       label: 'Tài khoản',
-      items: [{ href: '/account', label: 'Thông tin tài khoản', icon: 'UserCog', shortcut: 'T' }],
+      items: [
+        {
+          href: '/account',
+          label: 'Thông tin tài khoản',
+          icon: 'UserCog',
+          shortcut: 'T',
+          hint: 'Xem hồ sơ cán bộ của tài khoản đang đăng nhập.',
+        },
+      ],
     },
   ],
 };
@@ -227,6 +375,7 @@ export const DEMO_PAYMENT_NAV_ITEM: NavItem = {
   label: 'Nạp VNDB',
   icon: 'Coins',
   shortcut: 'N',
+  hint: 'Nạp VNDB thử vào ví để trình diễn, chỉ dùng trong PoC.',
 };
 
 /** Mục Định danh ví (FIX-01 C2): chỉ vai có `investor:whitelist`, tức Giao dịch viên. */
@@ -235,6 +384,7 @@ export const WALLET_BINDING_NAV_ITEM: NavItem = {
   label: 'Định danh ví',
   icon: 'BadgeCheck',
   shortcut: 'I',
+  hint: 'Định danh ví trên chuỗi và gắn ví vào hồ sơ khách hàng.',
 };
 
 export const HIDDEN_OPS_GROUP_LABEL = 'Nghiệp vụ ẩn';

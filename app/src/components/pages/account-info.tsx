@@ -64,9 +64,6 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
           <h1 className="text-xl font-semibold text-foreground">Thông tin tài khoản</h1>
           <Badge variant="outline">Chỉ đọc</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Thông tin hồ sơ của tài khoản đang đăng nhập. Mọi thay đổi cần được ngân hàng xác minh.
-        </p>
       </header>
 
       {customer ? (

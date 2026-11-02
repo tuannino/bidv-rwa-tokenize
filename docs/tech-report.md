@@ -327,6 +327,7 @@ lại toàn bộ bộ kiểm rồi mới tranh quyền gửi. Kết quả chưa 
 |---|---|---|---|
 | **WPT** | Wind Project Token | `tokens/ProjectToken.sol` | Token đại diện phần vốn dự án điện gió, cấp cho nhà đầu tư đã định danh |
 | **VNDB** | Vietnam Dong Bank token | `tokens/VNDToken.sol` | Token tiền tệ dùng chi trả lợi tức và hoàn vốn |
+| **TCC** | Tokenized Carbon Credit | chưa có hợp đồng | Token tín chỉ carbon; CHƯA hỗ trợ, chỉ xuất hiện như lựa chọn bị khoá ở ô chọn token |
 
 ⚠️ **Ký hiệu cũ đã bỏ:** `SPT` (nay là **WPT**), `tVND` (nay là **VNDB**). Không dùng lại ký hiệu cũ ở bất kỳ đâu: mã nguồn, giao diện, tài liệu, tên biến, chuỗi hiển thị, test.
 
@@ -728,6 +729,7 @@ chối mọi yêu cầu. Vì sao không dựng bộ hẹn giờ trong ứng dụ
 | **P1** | **Không mở đóng băng sau giao dịch đốt đầu tiên; dự án CLOSED không có đường mở lại** | Thiết kế quy trình khôi phục có phê duyệt nhiều cấp trước production; không tự đảo trạng thái ở PoC |
 | **P2** | **WPT còn ở vault SPV không thuộc BE-05** | Tiếp tục dùng yêu cầu Burn maker-checker của BE-12 cho phần chưa phân phối |
 | **P1** | **Một Kiểm soát viên vừa mở đợt vừa đóng băng/thu hồi** | Sai khác maker-checker được Sếp chấp nhận riêng cho PoC; production phải tách người lập/người duyệt và custody nhiều cấp |
+| **P2** | Hệ thống ngầm định một token dự án trên mỗi chain (sổ địa chỉ, ledger, 4 bảng dữ liệu, cấu hình `wpt.*`, chọn dự án ngầm) | Chi tiết và lộ trình MT-01 tới MT-07 ở `docs/20261102_NO_KY_THUAT_DA_TOKEN.md` |
 
 ### D. Cách làm việc
 

@@ -15,9 +15,9 @@ async function expectChainSwitch(page: Page, path: string, heading: string) {
   const selector = page.locator('#chain-selector');
   await expect(page.getByRole('heading', { name: heading })).toBeVisible();
   await selector.selectOption('mock');
-  await expect(page.getByText('Chain đang xem: mock', { exact: false })).toBeVisible();
+  await expect(page.locator('[data-chain="mock"]')).toBeVisible();
   await selector.selectOption('hardhat-local');
-  await expect(page.getByText('Chain đang xem: hardhat-local', { exact: false })).toBeVisible();
+  await expect(page.locator('[data-chain="hardhat-local"]')).toBeVisible();
 }
 
 test('FE-27 — Lập lệnh, Duyệt, Giao dịch và Tổng quan người bán đổi theo chain', async ({
