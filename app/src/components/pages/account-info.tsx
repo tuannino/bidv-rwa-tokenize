@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UnverifiedNote } from '@/components/ui/unverified-note';
 import { formatAmount, formatDateTime } from '@/lib/format';
 import type {
   AccountProfileView,
@@ -28,11 +29,11 @@ const AML_LABELS: Record<AmlStatus, string> = {
   FLAGGED: 'Cần xử lý',
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, note, children }: { title: string; note?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Card>
       <CardHeader className="border-b border-border">
-        <CardTitle role="heading" aria-level={2}>{title}</CardTitle>
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2">{title}{note}</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">{children}</dl>
@@ -69,7 +70,10 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
       {customer ? (
         <>
           <div className="grid gap-6 lg:grid-cols-2">
-            <Section title={customer.customerType === 'ORGANIZATION' ? 'Thông tin pháp nhân' : 'Thông tin cá nhân'}>
+            <Section
+              title={customer.customerType === 'ORGANIZATION' ? 'Thông tin pháp nhân' : 'Thông tin cá nhân'}
+              note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng; riêng Ví thanh toán lấy từ ví kết nối và trạng thái định danh trong hệ thống" />}
+            >
               <Field label={customer.customerType === 'ORGANIZATION' ? 'Tên pháp nhân' : 'Họ và tên'} wide>
                 {customer.fullName}
               </Field>
@@ -87,7 +91,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
               </Field>
             </Section>
 
-            <Section title="Thông tin tài khoản">
+            <Section title="Thông tin tài khoản" note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng" />}>
               <Field label="Mã người dùng"><span className="font-mono">{customer.actorId}</span></Field>
               <Field label="Vai trò">{ROLE_LABELS[customer.role]}</Field>
               <Field label="Trạng thái"><AccountStatusBadge active={customer.status === 'ACTIVE'} /></Field>
@@ -96,7 +100,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
             </Section>
           </div>
 
-          <Section title="Hồ sơ định danh và rủi ro">
+          <Section title="Hồ sơ định danh và rủi ro" note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng" />}>
             <Field label="Loại khách hàng">
               {customer.customerType === 'INDIVIDUAL' ? 'Cá nhân' : 'Tổ chức'}
             </Field>
@@ -113,7 +117,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
           </Section>
         </>
       ) : (
-        <Section title="Thông tin cán bộ">
+        <Section title="Thông tin cán bộ" note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng" />}>
           <Field label="Mã cán bộ"><span className="font-mono">{profile.actorId}</span></Field>
           <Field label="Họ và tên">{profile.fullName}</Field>
           <Field label="Vai trò">{ROLE_LABELS[profile.role]}</Field>

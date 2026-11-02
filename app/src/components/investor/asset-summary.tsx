@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Coins, Loader2, Wallet } from 'lucide-react';
+import { Loader2, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
@@ -153,15 +153,15 @@ export function AssetSummary() {
               </span>
             </div>
 
-            {/*
-              R5.4: KHÔNG hiển thị số dư VNDB. `ILedgerPort` chưa có phương thức đọc số dư
-              token thanh toán, hiện số 0 sẽ là bịa. Nêu tường minh là đang thiếu.
-            */}
-            <p className="flex items-start gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
-              <Coins className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Số dư VNDB chưa hiển thị được: tầng ledger chưa có phương thức đọc số dư token
-              thanh toán (chờ BE-01).
-            </p>
+            {/* FIX-04 F1: số dư VNDB đọc cùng lời gọi; đọc lỗi thì chỉ dòng này báo, hộp vẫn hiện. */}
+            <div className="flex items-baseline justify-between gap-3 border-t border-border pt-3">
+              <span className="text-sm text-muted-foreground">Số dư VNDB</span>
+              {data.paymentBalance === null ? (
+                <span className="text-sm text-muted-foreground">Chưa đọc được số dư VNDB</span>
+              ) : (
+                <span className="font-mono text-lg font-semibold text-foreground">{nf(data.paymentBalance)} VNDB</span>
+              )}
+            </div>
           </div>
         ) : null}
       </CardContent>

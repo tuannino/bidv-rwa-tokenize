@@ -305,7 +305,7 @@ test.describe('Nhãn dữ liệu mẫu', () => {
     await page.goto('/portfolio');
 
     // R6.2/R10.2 — có nhãn, và nói rõ chưa có thị trường thứ cấp.
-    await expect(page.getByText('dữ liệu mẫu').first()).toBeVisible();
+    await expect(page.getByText('unverified', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/Chưa có thị trường thứ cấp/i).first()).toBeVisible();
   });
 

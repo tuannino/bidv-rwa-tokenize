@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Gauge, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UnverifiedNote } from '@/components/ui/unverified-note';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
-import { getTokenSummaryAction } from '@/app/actions/portfolio';
-import type { TokenSummary } from '@/lib/bank/portfolio.service';
 import { MOCK_PROJECTS, PROJECT_STATUS_LABELS } from '@/lib/mock-data';
-import { MockBadge, OnChainBadge } from './mock-badge';
+import { OnChainBadge } from './mock-badge';
+import { useTokenSummary } from './use-token-summary';
 
 /**
  * Hộp 2 — TRẠNG THÁI PHÁT HÀNH VÀ VẬN HÀNH.
@@ -28,40 +27,13 @@ const nf = (value: string) => {
   }
 };
 
-/** Dự án đã lên chuỗi — nguồn duy nhất là MOCK_PROJECTS, không dựng nguồn thứ hai. */
+/** Dự án đã lên chuỗi, chỉ để lấy trạng thái vận hành mẫu (chưa có nguồn thật, FIX-04). */
 const ON_CHAIN_PROJECT = MOCK_PROJECTS.find((project) => project.onChain);
 
 export function IssuanceStatusBox() {
   const { chain } = useSelectedChain();
-
-  /** Khoá = chain. "Đang tải" suy ra từ khoá cũ, không dùng setState đồng bộ trong effect. */
-  const [loaded, setLoaded] = useState<{
-    key: string;
-    data: TokenSummary | null;
-    error: string | null;
-  } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void getTokenSummaryAction(chain).then((result) => {
-      if (cancelled) return;
-      setLoaded(
-        result.ok
-          ? { key: chain, data: result.data, error: null }
-          : { key: chain, data: null, error: result.error },
-      );
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chain]);
-
-  const fresh = loaded?.key === chain ? loaded : null;
-  const data = fresh?.data ?? null;
-  const error = fresh?.error ?? null;
-  const loading = fresh === null;
+  // FIX-04 F2: dùng chung một lời gọi `getTokenSummaryAction` với hộp Danh sách token.
+  const { data, error, loading } = useTokenSummary(chain);
 
   return (
     <Card>
@@ -94,15 +66,13 @@ export function IssuanceStatusBox() {
               </span>
             </Row>
 
+            <Row label="Dự án">
+              <span className="text-right">{data.projectName ?? 'Chưa đọc được'}</span>
+            </Row>
             {ON_CHAIN_PROJECT && (
-              <>
-                <Row label="Dự án" badge={<MockBadge />}>
-                  <span className="text-right">{ON_CHAIN_PROJECT.name}</span>
-                </Row>
-                <Row label="Trạng thái vận hành" badge={<MockBadge />}>
-                  <span>{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</span>
-                </Row>
-              </>
+              <Row label="Trạng thái vận hành" badge={<UnverifiedNote />}>
+                <span>{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</span>
+              </Row>
             )}
 
             {/*
