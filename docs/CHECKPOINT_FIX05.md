@@ -161,3 +161,25 @@ $ git diff dev... -- . ':!docs/fix-05-tong-quan' | python3 -c ...     # lệnh q
 2. **Thẻ "Lợi tức đã chia"** khi chưa đọc xong hoặc đọc lỗi để trống dòng phụ (không có số kỳ để hiện).
 3. **Thẻ "Tổng cung token"**: thanh WPT dùng nhãn `supply.symbol`; chưa đọc được thì nhãn tạm "WPT" và số "–".
 4. Số dòng spec theo `dev` @ `34bf33a`; `dashboard.tsx`, ba màn vận hành không đổi giữa `34bf33a` và `4d2f9e3`.
+
+## 9. Sửa sau rà soát của Supervisor (nhánh @ `408c957`)
+
+1. **Bài e2e "Giao dịch viên: 5 thẻ số liệu..." lúc qua lúc trượt** (Supervisor chạy lặp: 7 lần trượt 6, một đợt 3 lần
+   trượt 1; đếm ra 0 thay vì 1). Nguyên nhân: hàm đếm dừng ở `networkidle`, có lúc tới trước lời gọi đọc số liệu (lời
+   gọi chạy trong effect sau khi hydrate). Sửa `countActions(page, path, expected)`: sau `networkidle`, nếu `expected > 0`
+   thì `expect.poll` chờ tới khi đếm đủ (tối đa 10 giây), rồi đợi thêm 1,5 giây để bắt lời gọi thừa; ba màn còn lại
+   (`expected` 0) cũng đợi 1,5 giây trước khi kiểm. Mã màn hình không đổi.
+   ```text
+   $ (cd app && npx playwright test e2e/fix-05-tong-quan.spec.ts --repeat-each=15)
+     30 passed (3.0m)
+   $ (cd app && npx playwright test e2e/fix-05-tong-quan.spec.ts e2e/uiux-02-dau-man.spec.ts e2e/fix-04-noi-du-lieu-that.spec.ts)
+     13 passed (39.5s)
+   ```
+2. **Đột biến sống sót "bỏ điều kiện chỉ đếm dự án đã phát hành"** (dữ liệu ca 1 chỉ có một dự án). Ca 1 thêm một dự án
+   `DRAFT` (`createProject`, `WPT-DRAFT`) sau khi đánh dấu dự án mẫu đã phát hành; bảng dự án của chain có 2 dòng,
+   `issuedProjects` vẫn 1. Đột biến bỏ `status: 'ISSUED'` ở `listProjects` nay làm ca 1 đỏ (đếm ra 2).
+   ```text
+   $ (cd app && TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa npx vitest --run test/fix-05-tong-quan.test.ts)
+         Tests  7 passed (7)
+   ```
+

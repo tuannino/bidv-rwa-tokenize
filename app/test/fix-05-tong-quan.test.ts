@@ -89,6 +89,9 @@ const COMPLETED = Array.from({ length: 7 }, (_, i) => ({
 describe('FIX-05 getOpsOverview (bộ nhớ)', () => {
   it('ca 1: dự án đã phát hành, tổng cung, hồ sơ nhà đầu tư, lợi tức đã chia, 6 kỳ gần nhất', async () => {
     await markSampleProjectIssued();
+    // Một dự án chưa phát hành (DRAFT) không được tính vào "Dự án đang triển khai".
+    await getProjectStore().createProject({ tokenSymbol: 'WPT-DRAFT', name: 'Dự án chưa phát hành', totalSupply: '1000', chain: CHAIN });
+    expect(await getProjectStore().listProjects({ chain: CHAIN })).toHaveLength(2);
     await bind(W(1), 'NDT001');
     await bind(W(2), 'NDT001');
     await bind(W(3), 'NB001');
