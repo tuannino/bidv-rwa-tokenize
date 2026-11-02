@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/fix-04-noi-du-lieu-that` @ `9a05b09` (FIX-04, từ `dev` @ `2199915`), ngày 02/11/2026 |
+| Chốt tại | nhánh `fix/fix-05-tong-quan` @ `07b5255` (FIX-05, từ `dev` @ `4d2f9e3`), ngày 02/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -231,7 +231,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/seller/withdraw` | Tạo lệnh rút | Người bán | Rút tiền SPV | M H S | Dùng được (cần Kiểm soát viên cấu hình khoá trước); Người bán chọn ví nhận (FIX-01) | 2 | Có (đặt ví nhận, rút) | AU-01 (mã một lần thật) |
 | `/wallet` | Kết nối ví | Nhà đầu tư, Người bán | Ví | H S (mock không cần ví) | Dùng được | 0 | Không | |
 | `/account` | Thông tin tài khoản | Cả bốn vai | Hồ sơ, ví thanh toán | M H S | Một phần: hồ sơ là dữ liệu mẫu, mỗi khối kèm "unverified" (FIX-04); ô "Ví thanh toán" chỉ xem, kèm nhãn định danh (FIX-01) | 0 (nhân viên), 1 (khách hàng) | Không | AU-01 |
-| `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | | Chỗ trống: toàn bộ số mẫu | 0 | Không | |
+| `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | M H S | Một phần: dự án đã phát hành, tổng cung, nhà đầu tư đã định danh, lợi tức đã chia là số thật theo chain (FIX-05); sản lượng và token TCC là mẫu kèm "unverified" | 1 | Không | |
 | `/draft` | Lập lệnh | Giao dịch viên | Mint, Burn (lập) | M H S | Dùng được | 2 | Không (chỉ lập) | |
 | `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được; có thẻ Lịch sử phê duyệt (UIUX-01) | 1 + 1 mỗi hàng chờ | Không | |
 | `/approvals/[id]` | Chi tiết yêu cầu | Kiểm soát viên | Mint, Burn (duyệt, đối soát) | M H S | Dùng được; giao dịch chưa có biên nhận giữ Đang thực hiện, có nút Đối soát (HF-05); cảnh báo số liệu khoá nút Chấp nhận (FIX-02); dòng "Thực hiện qua", đối soát qua Fireblocks (IN-04) | 1 | Có (mint, burn) | |
@@ -244,10 +244,10 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/demo-payment` | Nạp VNDB | Giao dịch viên | Nạp PoC | M H S | Dùng được (chỉ bản thử) | 1 | Có (mint VNDB) | |
 | `/wallet-binding` | Định danh ví | Giao dịch viên | Định danh và gắn ví cho hồ sơ | M H S | Dùng được (FIX-01) | 1 | Có (whitelist) | Ký chứng minh sở hữu ví (AU-01) |
 | `/mint` | Phát hành WPT (dữ liệu thử) | Giao dịch viên, Kiểm soát viên | KYC, danh sách được phép; phát hành thử | M H S (phát hành thử chỉ M) | Một phần: KYC dùng được, phát hành thử tắt mặc định | 1 hoặc 2 | Có (đăng ký ví) | |
-| `/kyc` | Nhà đầu tư và KYC | Giao dịch viên, Kiểm soát viên | KYC | | Chỗ trống | 0 | | |
-| `/assets` | Dự án điện gió | Giao dịch viên, Kiểm soát viên | Danh mục dự án | | Chỗ trống (số mẫu) | 0 | | |
+| `/kyc` | Nhà đầu tư và KYC | Giao dịch viên, Kiểm soát viên | KYC | | Chỗ trống, ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề (FIX-05) | 0 | | |
+| `/assets` | Dự án điện gió | Giao dịch viên, Kiểm soát viên | Danh mục dự án | | Chỗ trống (số mẫu), ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề (FIX-05) | 0 | | |
 | `/audit` | Sổ kiểm toán | Giao dịch viên, Kiểm soát viên | Kiểm toán | M H S | Dùng được: 100 dòng gần nhất, không lọc | 0 (đọc trong Server Component) | | |
-| `/reconciliation` | Đối soát doanh thu điện | Giao dịch viên, Kiểm soát viên | Đối soát | | Chỗ trống | 0 | | |
+| `/reconciliation` | Đối soát doanh thu điện | Giao dịch viên, Kiểm soát viên | Đối soát | | Chỗ trống, ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề (FIX-05) | 0 | | |
 
 ### 2.3. Tóm tắt theo nghiệp vụ
 
@@ -276,6 +276,7 @@ Quy ước chung cho Phần 3:
 - **"Ví chưa được định danh" (FIX-01 E1):** ví đang kết nối chưa gắn cho hồ sơ của phiên trên chain đang chọn thì các khối tài sản, lịch sử giao dịch, lệnh của tôi, chi tiết lệnh, khối đặt lệnh của `/trade` hiện thông báo dùng chung `WalletNotBoundNotice` (tiêu đề "Ví chưa được định danh", dòng phụ "Ví <rút gọn> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác."), không hiện số liệu, khoá nút gửi lệnh. Thông tin token và giá vẫn hiện. Không thêm action: thông báo dựa trên mã `WALLET_NOT_BOUND` của action có sẵn, hoặc `walletBound: false` của `getTradeContextAction`. Kết quả mỗi khối giữ kèm khoá `chain|ví` của lần gọi, kết quả về muộn của ví hoặc chain cũ bị bỏ (E6).
 - **Ô trống** (FIX-03): số lượng và mốc thời gian chưa có giá trị hiển thị gạch ngắn `–` (`formatAmount`, `formatDateTime` ở `lib/format.ts`). Ô viết cứng trong component có thể vẫn hiện gạch dài, chờ đợt làm mới giao diện (FIX-03 QĐ-7).
 - **Ghi chú "unverified"** (FIX-04): chữ chìm cỡ nhỏ đặt cạnh số liệu hoặc khối chưa có nguồn dữ liệu thật trong hệ thống (số mẫu trong mã, ví dụ `lib/mock-data.ts`, hồ sơ mẫu). Dừng chuột trên chữ để xem lý do. Thay nhãn "dữ liệu mẫu" cũ (`components/ui/unverified-note.tsx`).
+- **"(đang hiển thị dữ liệu mẫu)"** (FIX-05): chữ nhỏ, mờ ngay sau tiêu đề của màn mà TOÀN BỘ số liệu là mẫu (`/assets`, `/kyc`, `/reconciliation`; `components/ui/sample-data-note.tsx`). Khác "unverified" (gắn với từng số liệu hay khối riêng lẻ trong màn có cả số thật).
 - Số dư "trên chuỗi" của `mock` là sổ cái mô phỏng (bảng `MockLedgerState`), của `hardhat-local` và Sepolia là hàm đọc hợp đồng.
 - Viết tắt ở mục 3.4: `S` = `lib/bank/token-request.service.ts`, `I` = `lib/bank/issuance.service.ts`.
 - **Người thao tác:** lấy từ `DEMO_ACTOR`, trống thì theo vai: GDV001 (Giao dịch viên), KSV001 (Kiểm soát viên), NB001 (Người bán), NDT001 (Nhà đầu tư) (`lib/rbac/session.ts:50`).
@@ -859,30 +860,29 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 #### 3.4.1. `/` Bảng điều khiển
 
 **Thông tin chung**
-- **Vai:** Giao dịch viên, Kiểm soát viên. Menu: "Bảng điều khiển", phím E.
-- **Chain:** không phụ thuộc chain. Toàn bộ số là hằng trong `lib/mock-data.ts`.
-- **Trạng thái:** **Chỗ trống**. Giao diện chạy được nhưng 100% số liệu mẫu tĩnh. Không có marker hay mã task.
+- **Vai:** Giao dịch viên, Kiểm soát viên. Menu: "Bảng điều khiển", phím E. Tiêu đề màn: "Tổng quan".
+- **Chain:** số thật theo chain đang chọn (FIX-05); đổi chain thì đọc lại.
+- **Trạng thái:** Một phần. Bốn số liệu đọc thật, sản lượng và token TCC là số mẫu kèm "unverified" (chưa có nguồn thật).
 - **Nghiệp vụ:** Tổng quan danh mục điện gió.
-- **Action khi mở:** không có. Component client đọc trực tiếp `MOCK_PROJECTS`, `MOCK_WIND_STATS`, `MOCK_GENERATION_SERIES` (`components/pages/dashboard.tsx:16`).
+- **Action khi mở:** 1 action `getOpsOverviewAction(chain)` > `getOpsOverview` (`lib/bank/overview.service.ts`): kiểm `assertCan('ops:read')`, KHÔNG ghi sổ kiểm toán; đọc song song bốn nguồn, nguồn nào lỗi thì ô đó "Chưa đọc được", các ô khác vẫn hiện. Gọi lại khi đổi chain. Nhà đầu tư, Người bán gọi thẳng action thì bị từ chối.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Tổng quan (tiêu đề) | Tiêu đề màn (UIUX-02; trước là "Tổng quan điện gió" kèm mốc "Cập nhật", đã bỏ) | Hằng trong `dashboard.tsx` | Hiển thị |
+| Tổng quan (tiêu đề) | Tiêu đề màn (UIUX-02; trước là "Tổng quan điện gió") | Hằng trong `dashboard.tsx` | Hiển thị |
 | Phát hành WPT (nút) | Liên kết | `href="/mint"` | Dẫn sang màn dữ liệu thử, không phải màn Lập lệnh |
-| WPT đã phát hành | Tổng cung | `MOCK_WIND_STATS.wptIssued` = 335.000 | Hiển thị (số mẫu) |
-| Nhà đầu tư whitelisted | Số ví đã KYC | mock = 128 | Hiển thị |
-| Sản lượng luỹ kế | MWh | mock | Hiển thị |
-| Lợi tức đã chia | tỷ VND, số kỳ | mock | Hiển thị |
-| Sản lượng & lợi tức theo kỳ (biểu đồ, nhãn "6 kỳ gần nhất") | Sản lượng (MWh) và lợi tức (tỷ VND) | `MOCK_GENERATION_SERIES` | Hiển thị |
-| Phân bổ WPT theo dự án (nhãn "Tổng cung") | Tỷ lệ % WPT từng dự án | `MOCK_PROJECTS[].wptIssued` | Hiển thị |
-| Thẻ dự án: Công suất đặt, Sản lượng luỹ kế, Hệ số công suất | Thông số tổ máy | mock | Hiển thị |
+| Dự án đang triển khai | Số dự án đã phát hành token trên chain đang chọn | Bảng `Project`, `status = ISSUED` (`DRAFT` không tính), đọc tối đa 50 dòng | Hiển thị |
+| Tổng cung token | Tổng cung token đang chạy, kèm ký hiệu; hai thanh theo loại token: WPT (thanh đầy) và TCC ("–", "unverified", chưa hỗ trợ) | Chuỗi: `ledger.tokenInfo().totalSupply` | Hiển thị |
+| Nhà đầu tư đã định danh | Số hồ sơ Nhà đầu tư KHÁC NHAU có ít nhất một ví đã gắn trên chain; hồ sơ Người bán và mã không có hồ sơ không tính | Bảng `WalletBinding` (tối đa 200 ví, chạm giới hạn thì thêm dấu `+`), lọc theo vai trong danh sách hồ sơ mẫu (chờ AU-01) | Hiển thị |
+| Sản lượng luỹ kế (unverified) | MWh | `MOCK_WIND_STATS.cumulativeGenerationMwh` (số mẫu) | Hiển thị |
+| Lợi tức đã chia | Tổng VNDB các kỳ chia đã hoàn tất, kèm "N kỳ đã hoàn tất" | Bảng `DistributionPeriod`, `status = COMPLETED`, SUM(`totalAmount`); kỳ đang mở, hết hạn, đã đóng không tính; tối đa 100 kỳ (thêm `+` sau số kỳ khi chạm giới hạn) | Hiển thị |
+| Sản lượng và lợi tức theo kỳ: "Lợi tức theo kỳ" | 6 kỳ chia đã hoàn tất gần nhất, kỳ cũ bên trái; chưa có kỳ nào thì "Chưa có kỳ chia nào hoàn tất." | Như dòng trên | Hiển thị |
+| Sản lượng và lợi tức theo kỳ: "Sản lượng theo tháng" (unverified) | Sản lượng mẫu theo tháng | `MOCK_GENERATION_SERIES` | Hai biểu đồ riêng vì khác trục thời gian (tháng và mã kỳ chia) |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-69.** Tiêu đề và breadcrumb ghi "Tổng quan" (`dashboard.tsx:42`, `app/(ops)/page.tsx:6`), mục menu ghi "Bảng điều khiển". UIUX-02 QĐ-10 chủ ý giữ hai tên; thiết kế lại màn thuộc đợt chuẩn hoá dữ liệu sau FIX-04.
-- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:44-50`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
-- **L-70.** Số mẫu (335.000 WPT, 3 dự án) không khớp dữ liệu thật: trần 20.000.000 WPT trong `token-parameters.json`, chỉ 1 dự án "Dự án điện gió An Viên" (`lib/store/seed-data.ts:115`).
+- **L-69.** Tiêu đề và breadcrumb ghi "Tổng quan" (`dashboard.tsx:88`, `app/(ops)/page.tsx:6`), mục menu ghi "Bảng điều khiển". UIUX-02 QĐ-10 chủ ý giữ hai tên; thiết kế lại màn thuộc đợt chuẩn hoá dữ liệu sau FIX-04.
+- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:91-97`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
 
 
 #### 3.4.2. `/draft` Lập lệnh
@@ -1576,7 +1576,7 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 **Thông tin chung**
 - **Vai:** Giao dịch viên và Kiểm soát viên. Không có trong menu.
-- **Trạng thái:** **Chỗ trống**, ghi "Phase 4", không có mã task (`components/pages/kyc.tsx:7-11`).
+- **Trạng thái:** **Chỗ trống**, ghi "Phase 4", không có mã task (`components/pages/kyc.tsx:7-11`). Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** KYC/whitelist.
 - **Action:** không có.
 
@@ -1593,7 +1593,7 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 **Thông tin chung**
 - **Vai:** Giao dịch viên và Kiểm soát viên. Không có trong menu.
-- **Trạng thái:** **Chỗ trống**, dữ liệu mẫu `MOCK_PROJECTS`.
+- **Trạng thái:** **Chỗ trống**, dữ liệu mẫu `MOCK_PROJECTS`. Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** Danh mục dự án.
 - **Action:** không có.
 
@@ -1634,7 +1634,7 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 **Thông tin chung**
 - **Vai:** Giao dịch viên và Kiểm soát viên. Không có trong menu.
-- **Trạng thái:** **Chỗ trống**, ghi "Phase 3", không có mã task.
+- **Trạng thái:** **Chỗ trống**, ghi "Phase 3", không có mã task. Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** Đối soát.
 - **Action:** không có.
 
@@ -1867,7 +1867,6 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-64 | `/wallet` | Kết nối ví ở `/wallet` không ghi vào hồ sơ; ví do Giao dịch viên gắn ở `/wallet-binding`. |
 | L-65 | `/wallet` | Câu "Số WPT đang giữ xem ở trang Tổng quan" sai với Người bán: Tổng quan của Người bán hiện số của vault (`wallet-status-card.tsx:113`). |
 | L-69 | `/` | Tiêu đề, breadcrumb "Tổng quan" khác mục menu "Bảng điều khiển" (UIUX-02 QĐ-10 chủ ý giữ; thiết kế lại sau FIX-04). |
-| L-70 | `/` | Số mẫu (335.000 WPT, 3 dự án) không khớp dữ liệu thật: trần 20.000.000 WPT, 1 dự án An Viên. |
 | L-71 | `/draft` | Vault không hiện trên màn: khi chưa có ví SPV, người lập phải nhập tay ví đích, địa chỉ vault mà R6 bắt buộc chỉ lộ ra trong câu lỗi (`draft.tsx:395-413`). |
 | L-72 | `/draft` | Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm: hệ thống chỉ tra theo `tokenSymbol`. |
 | L-73 | `/draft` | "Mã người bán" là hằng NB001, không đọc từ dữ liệu dự án (`S:729-732`). |
@@ -1906,3 +1905,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 02/11/2026 | `a69369f` | Dev (Claude) | UIUX-02: ô chọn token có gõ lọc ở đầu 10 màn nghiệp vụ (chỉ hiển thị; dòng TCC "(chưa hỗ trợ)" khoá), `/trade` dùng chung ô này thay ô Token cũ; bỏ dòng mô tả dưới tiêu đề ở mọi màn, câu mô tả chuyển thành gợi ý khi dừng chuột trên menu (5 màn ngoài menu: trên tiêu đề); tiêu đề màn `/` đổi thành "Tổng quan", menu giữ "Bảng điều khiển". Cập nhật L-69. Sửa Phần 1 mục 1.1; Phần 3 mục 3.0, 3.2.1, 3.4.1, 3.5.1, 3.5.2; Phụ lục C |
 | 02/11/2026 | `8a69922` | Dev (Claude) | FIX-03: chuỗi hiển thị do `lib/` dựng (câu lỗi, câu từ chối, dòng sổ kiểm toán mới) không còn gạch dài, chấm giữa, mũi tên; câu giá và chia lợi nhuận có số dấu chấm hàng nghìn, đơn vị VNDB; ô trống hiện gạch ngắn; số mẫu "Lợi tức đã chia" ở `/` là 5,8 tỷ. Không đổi hành vi. Sửa Phần 3 quy ước chung |
 | 02/11/2026 | `9a05b09` | Dev (Claude) | FIX-04: `/portfolio` hiện số dư VNDB (đọc `paymentBalanceOf` cùng lô) và tên dự án thật từ bảng dự án; hai hộp dùng chung một lời gọi `getTokenSummaryAction`; `/seller` hiện lệnh bán trong ngày; số liệu chưa có nguồn thật ở `/portfolio`, `/tokens/[symbol]`, `/account` kèm ghi chú "unverified" thay nhãn "dữ liệu mẫu". Bỏ L-07, L-29. Sửa Phần 2; Phần 3 quy ước chung, mục 3.1.1, 3.1.5, 3.2.1, 3.3.2; Phụ lục C |
+| 02/11/2026 | `07b5255` | Dev (Claude) | FIX-05: màn Tổng quan (`/`) dùng số thật theo chain qua một action chỉ đọc `getOpsOverviewAction` (dự án đã phát hành, tổng cung, nhà đầu tư đã định danh, lợi tức đã chia, biểu đồ lợi tức theo kỳ); sản lượng và TCC là mẫu kèm "unverified"; bỏ ô nhà đầu tư whitelisted, phân bổ WPT theo dự án, thẻ dự án mẫu. `/assets`, `/kyc`, `/reconciliation` ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề. Bỏ L-70. Sửa Phần 2; Phần 3 quy ước chung, mục 3.4.1, 3.6.1, 3.6.2, 3.6.4; Phụ lục C |
