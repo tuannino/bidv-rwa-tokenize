@@ -154,8 +154,8 @@ export function SellerOverviewPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="Số lượng mua" value={nf(data.today.buyWpt)} unit="WPT" hint={`${data.today.buyCount} lệnh`} />
               <Stat label="Tổng giá trị mua" value={nf(data.today.buyVnd)} unit="VNDB" />
-              <Stat label="Số lượng bán" value="—" hint="Hệ thống chưa có lệnh bán lại." />
-              <Stat label="Tổng giá trị bán" value="—" hint="Hệ thống chưa có lệnh bán lại." />
+              <Stat label="Số lượng bán" value={nf(data.today.sell.wpt)} unit="WPT" hint={`${data.today.sell.count} lệnh`} />
+              <Stat label="Tổng giá trị bán" value={nf(data.today.sell.vnd)} unit="VNDB" />
             </div>
           </Box>
 

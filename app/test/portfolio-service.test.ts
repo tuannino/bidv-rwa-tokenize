@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetServerEnvCache } from '@/lib/config/env';
-import { resetMockLedger } from '@/lib/ledger/mock.adapter';
+import { resetMockLedger, seedMockLedger } from '@/lib/ledger/mock.adapter';
 import { getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { getPortfolio, getWalletTransactions } from '@/lib/bank/portfolio.service';
 import { WPT_ISSUE_PRICE_VND } from '@/lib/bank/issuance';
@@ -115,13 +115,15 @@ describe('getPortfolio — số liệu', () => {
     expect(result.data.valueVnd).toBe(String(3 * WPT_ISSUE_PRICE_VND));
   });
 
-  it('KHÔNG có trường số dư VNDB (chờ BE-01), thay vì trả 0 bịa', async () => {
+  it('FIX-04 B1: số dư VNDB bằng đúng số dư VNDB của ví trên ledger mock', async () => {
+    seedMockLedger({ paymentBalances: { [ALICE]: 1_234_567n } });
     const result = await getPortfolio({ chain: CHAIN, wallet: ALICE });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data).not.toHaveProperty('paymentBalance');
-    expect(result.data).not.toHaveProperty('vndbBalance');
+    const { getLedger } = await import('@/lib/ledger');
+    expect(result.data.paymentBalance).toBe((await getLedger(CHAIN).paymentBalanceOf(ALICE)).toString());
+    expect(result.data.paymentBalance).toBe('1234567');
   });
 });
 

@@ -15,7 +15,8 @@ import {
   REGION_LABELS,
   type WindProject,
 } from '@/lib/mock-data';
-import { MockBadge, OnChainBadge } from '@/components/investor/mock-badge';
+import { OnChainBadge } from '@/components/investor/mock-badge';
+import { UnverifiedNote } from '@/components/ui/unverified-note';
 import type { TokenTerms } from '@/lib/store/config-values';
 
 /**
@@ -90,6 +91,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
         <p className="text-sm text-muted-foreground">
           {REGION_LABELS[project.region]} · {project.location} ·{' '}
           {PROJECT_STATUS_LABELS[project.status]}
+          <UnverifiedNote className="ml-1.5" />
         </p>
       </header>
 
@@ -101,7 +103,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
               <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Thông tin dự án
             </CardTitle>
-            <MockBadge />
+            <UnverifiedNote />
           </CardHeader>
           <CardContent>
             <dl className="space-y-2.5 text-sm">
@@ -126,7 +128,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
               <Zap className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Tình hình vận hành
             </CardTitle>
-            <MockBadge />
+            <UnverifiedNote />
           </CardHeader>
           <CardContent>
             <dl className="space-y-2.5 text-sm">
@@ -165,7 +167,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
               <Gauge className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Thông tin token
             </CardTitle>
-            {project.onChain ? <OnChainBadge /> : <MockBadge />}
+            {project.onChain ? <OnChainBadge /> : <UnverifiedNote />}
           </CardHeader>
           <CardContent>
             <dl className="space-y-2.5 text-sm">
@@ -194,7 +196,10 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
                 </>
               ) : (
                 <Row label="WPT dự kiến phát hành">
-                  <span className="font-mono">{nfNum(project.wptIssued)}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono">{nfNum(project.wptIssued)}</span>
+                    <UnverifiedNote />
+                  </span>
                 </Row>
               )}
             </dl>

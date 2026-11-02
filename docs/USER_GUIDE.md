@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/fix-03-chuoi-may-chu` @ `8a69922` (FIX-03, từ `dev` @ `34bf33a`), ngày 02/11/2026 |
+| Chốt tại | nhánh `fix/fix-04-noi-du-lieu-that` @ `9a05b09` (FIX-04, từ `dev` @ `2199915`), ngày 02/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -220,17 +220,17 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 
 | Route | Tên | Vai | Nghiệp vụ | Chain | Trạng thái | Action khi mở | Ghi chuỗi | Còn chờ |
 |---|---|---|---|---|---|---|---|---|
-| `/portfolio` | Tổng quan nhà đầu tư | Nhà đầu tư | Danh mục | M H S | Một phần: thiếu số dư VNDB, dự án và số nhà đầu tư là dữ liệu mẫu; trên mock vẫn đòi ví trình duyệt | 3 (1 khi chưa có ví) | Không | FE-04 |
+| `/portfolio` | Tổng quan nhà đầu tư | Nhà đầu tư | Danh mục | M H S | Một phần: có số dư VNDB và tên dự án thật (FIX-04); trạng thái vận hành, vùng, số nhà đầu tư là số mẫu kèm "unverified"; trên mock vẫn đòi ví trình duyệt | 3 (1 khi chưa có ví) | Không | FE-04 |
 | `/trade` | Giao dịch token | Nhà đầu tư | Mua bán token | M H S | Dùng được; mặc định chỉ mua (cờ `ENABLE_INVESTOR_SELL`, FIX-02); ô chọn token chưa có tác dụng | 1 | Có (mua; bán khi bật cờ) | SC-04 (cờ tất toán EVM) |
 | `/orders` | Quản lý lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; tối đa 200 lệnh, không phân trang | 1 | Không | |
 | `/orders/[id]` | Chi tiết lệnh | Nhà đầu tư | Mua bán token | M H S | Dùng được; nhật ký chỉ quét 500 dòng gần nhất | 1 | Không | |
-| `/tokens/[symbol]` | Chi tiết token dự án | Nhà đầu tư | Danh mục | M H S | Một phần: chỉ WPT có số thật, hai dự án khác là mẫu | 0 hoặc 1 | Không | |
+| `/tokens/[symbol]` | Chi tiết token dự án | Nhà đầu tư | Danh mục | M H S | Một phần: chỉ WPT có số thật, hai dự án khác là mẫu; số mẫu kèm "unverified" (FIX-04) | 0 hoặc 1 | Không | |
 | `/withdraw` | Rút VNDB | Nhà đầu tư | Rút VNDB ra ví nhận đã whitelist | M H S | Dùng được (FE-23); ví của Nhà đầu tư ký, trả gas | 1 | Có (ví Nhà đầu tư gửi; mock: máy chủ chuyển thay) | Hạn mức ngày, rút về tài khoản ngân hàng, ví Fireblocks (nợ) |
-| `/seller` | Tổng quan Người bán | Người bán | Tổng quan, vault | M H S | Một phần: hai ô "bán" gắn cứng dấu gạch | 1 | Không | |
+| `/seller` | Tổng quan Người bán | Người bán | Tổng quan, vault | M H S | Dùng được: lệnh mua và bán trong ngày là số thật (FIX-04) | 1 | Không | |
 | `/seller/transactions` | Danh sách giao dịch | Người bán | Sổ giao dịch | M H S | Dùng được; lọc trong bộ nhớ trên 500 dòng gần nhất | 1 | Không | |
 | `/seller/withdraw` | Tạo lệnh rút | Người bán | Rút tiền SPV | M H S | Dùng được (cần Kiểm soát viên cấu hình khoá trước); Người bán chọn ví nhận (FIX-01) | 2 | Có (đặt ví nhận, rút) | AU-01 (mã một lần thật) |
 | `/wallet` | Kết nối ví | Nhà đầu tư, Người bán | Ví | H S (mock không cần ví) | Dùng được | 0 | Không | |
-| `/account` | Thông tin tài khoản | Cả bốn vai | Hồ sơ, ví thanh toán | M H S | Một phần: hồ sơ là dữ liệu mẫu; ô "Ví thanh toán" chỉ xem, kèm nhãn định danh (FIX-01) | 0 (nhân viên), 1 (khách hàng) | Không | AU-01 |
+| `/account` | Thông tin tài khoản | Cả bốn vai | Hồ sơ, ví thanh toán | M H S | Một phần: hồ sơ là dữ liệu mẫu, mỗi khối kèm "unverified" (FIX-04); ô "Ví thanh toán" chỉ xem, kèm nhãn định danh (FIX-01) | 0 (nhân viên), 1 (khách hàng) | Không | AU-01 |
 | `/` | Bảng điều khiển | Giao dịch viên, Kiểm soát viên | Tổng quan dự án | | Chỗ trống: toàn bộ số mẫu | 0 | Không | |
 | `/draft` | Lập lệnh | Giao dịch viên | Mint, Burn (lập) | M H S | Dùng được | 2 | Không (chỉ lập) | |
 | `/approvals` | Phê duyệt lệnh | Kiểm soát viên | Mint, Burn (duyệt) | M H S | Dùng được; có thẻ Lịch sử phê duyệt (UIUX-01) | 1 + 1 mỗi hàng chờ | Không | |
@@ -275,6 +275,7 @@ Quy ước chung cho Phần 3:
 - **Ví hồ sơ trên mock:** màn đặt lệnh trên `mock` dùng ví mẫu của hồ sơ (NDT001), không cần ví trình duyệt (`ownMockWallet`). Trên chain khác dùng ví đang kết nối, ví đó phải được Giao dịch viên gắn cho hồ sơ ở `/wallet-binding` (FIX-01).
 - **"Ví chưa được định danh" (FIX-01 E1):** ví đang kết nối chưa gắn cho hồ sơ của phiên trên chain đang chọn thì các khối tài sản, lịch sử giao dịch, lệnh của tôi, chi tiết lệnh, khối đặt lệnh của `/trade` hiện thông báo dùng chung `WalletNotBoundNotice` (tiêu đề "Ví chưa được định danh", dòng phụ "Ví <rút gọn> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác."), không hiện số liệu, khoá nút gửi lệnh. Thông tin token và giá vẫn hiện. Không thêm action: thông báo dựa trên mã `WALLET_NOT_BOUND` của action có sẵn, hoặc `walletBound: false` của `getTradeContextAction`. Kết quả mỗi khối giữ kèm khoá `chain|ví` của lần gọi, kết quả về muộn của ví hoặc chain cũ bị bỏ (E6).
 - **Ô trống** (FIX-03): số lượng và mốc thời gian chưa có giá trị hiển thị gạch ngắn `–` (`formatAmount`, `formatDateTime` ở `lib/format.ts`). Ô viết cứng trong component có thể vẫn hiện gạch dài, chờ đợt làm mới giao diện (FIX-03 QĐ-7).
+- **Ghi chú "unverified"** (FIX-04): chữ chìm cỡ nhỏ đặt cạnh số liệu hoặc khối chưa có nguồn dữ liệu thật trong hệ thống (số mẫu trong mã, ví dụ `lib/mock-data.ts`, hồ sơ mẫu). Dừng chuột trên chữ để xem lý do. Thay nhãn "dữ liệu mẫu" cũ (`components/ui/unverified-note.tsx`).
 - Số dư "trên chuỗi" của `mock` là sổ cái mô phỏng (bảng `MockLedgerState`), của `hardhat-local` và Sepolia là hàm đọc hợp đồng.
 - Viết tắt ở mục 3.4: `S` = `lib/bank/token-request.service.ts`, `I` = `lib/bank/issuance.service.ts`.
 - **Người thao tác:** lấy từ `DEMO_ACTOR`, trống thì theo vai: GDV001 (Giao dịch viên), KSV001 (Kiểm soát viên), NB001 (Người bán), NDT001 (Nhà đầu tư) (`lib/rbac/session.ts:50`).
@@ -314,7 +315,8 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
   - Trên mọi chain đều cần ví trình duyệt (wagmi `useAccount`), kể cả mock: màn này không dùng ví hồ sơ (`components/investor/asset-summary.tsx:34`, `components/investor/transaction-history-box.tsx:109`).
   - Không có thao tác nào cần ký.
   - Hộp "Trạng thái phát hành" đọc được khi chưa kết nối ví.
-- **Trạng thái:** Dùng được một phần. Số dư VNDB không hiển thị. Thông tin dự án, danh sách dự án và số nhà đầu tư nắm giữ là dữ liệu mẫu (`MOCK_PROJECTS`, `MOCK_WIND_STATS` trong `lib/mock-data.ts`). Không có marker @pending/@blocked.
+- **Trạng thái:** Dùng được một phần. Số dư VNDB và tên dự án đã lên chuỗi đọc thật (FIX-04). Trạng thái vận hành, vùng, hai dự án chưa lên chuỗi và số nhà đầu tư nắm giữ là số mẫu (`MOCK_PROJECTS`, `MOCK_WIND_STATS` trong `lib/mock-data.ts`), kèm ghi chú "unverified". Không có marker @pending/@blocked.
+- **Một lời gọi cho hai hộp (FIX-04 F2):** hộp "Trạng thái phát hành" và "Token dự án điện gió" dùng chung `useTokenSummary` (`components/investor/use-token-summary.ts`): cùng chain thì chỉ một lời gọi `getTokenSummaryAction`. Lời gọi lỗi thì cả hai hộp hết tải, hộp trạng thái báo "Chưa đọc được thông tin token, thử tải lại trang."
 - **Nghiệp vụ:** Danh mục (vị thế đầu tư).
 - **Action khi mở:**
   - 3 action khi đã kết nối ví: `getPortfolioAction`, `getWalletTransactionsAction`, `getTokenSummaryAction`.
@@ -334,13 +336,13 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 | đã KYC / chưa KYC | Ví có trong danh sách được phép không | On-chain `ledger.isWhitelisted` (trên evm là `IdentityRegistry.isVerified`) | Chỉ hiển thị |
 | đang đóng băng | Ví bị đóng băng | On-chain `ledger.isFrozen` | Chỉ hiện khi đúng |
 | Địa chỉ ví rút gọn | Ví đang xem | Địa chỉ wagmi | Chỉ hiển thị |
-| Số dư VNDB chưa hiển thị được... | Câu báo thiếu số dư VNDB | Văn bản cố định | Chỉ hiển thị (xem phần Lệch) |
+| Số dư VNDB | Số VNDB ví đang giữ, dấu chấm hàng nghìn | On-chain `ledger.paymentBalanceOf(wallet)`, đọc cùng lô với số dư WPT (`getPortfolio.paymentBalance`, FIX-04 B1). Đọc lỗi thì "Chưa đọc được số dư VNDB", phần còn lại của hộp vẫn hiện | Chỉ hiển thị |
 | **Hộp "Trạng thái phát hành"** | Thông số token trên chain đang chọn | `getTokenSummaryAction` > `getTokenSummary` | Không cần ví |
 | Ký hiệu token (on-chain) | Ký hiệu token | On-chain `ledger.tokenInfo().symbol` | Chỉ hiển thị |
 | Tổng cung đã phát hành (on-chain) | Tổng cung | On-chain `tokenInfo().totalSupply` | Chỉ hiển thị |
 | Giá phát hành | Giá phát hành áp dụng cho lệnh | `readEffectiveIssuePrice` (`lib/bank/portfolio.service.ts:188`), cùng nguồn với dòng trên (FE-07) | Chỉ hiển thị |
-| Dự án (dữ liệu mẫu) | Tên dự án | `MOCK_PROJECTS` (dự án có `onChain: true`) | Chỉ hiển thị |
-| Trạng thái vận hành (dữ liệu mẫu) | Vận hành / bảo trì | `MOCK_PROJECTS.status` | Chỉ hiển thị |
+| Dự án | Tên dự án | Bảng dự án: `getTokenSummary.projectName` > `ProjectStore.findProject({ tokenSymbol, chain })` (FIX-04 B2). Không có dòng hoặc đọc lỗi thì "Chưa đọc được" | Chỉ hiển thị |
+| Trạng thái vận hành (unverified) | Vận hành / bảo trì | `MOCK_PROJECTS.status` (số mẫu) | Chỉ hiển thị |
 | **Hộp "Giao dịch gần đây"** (on-chain) | 20 giao dịch gần nhất của ví | `getWalletTransactionsAction` > `getWalletTransactions` > `store.listTxns` (bảng `Txn`, lọc theo `toWallet` hoặc `fromWallet`, `limit` 20) | Chỉ hiển thị |
 | Thời điểm | Lúc ghi giao dịch | `Txn.createdAt` | Chỉ hiển thị |
 | Nghiệp vụ | Loại giao dịch | `Txn.operation` (mã thô như `purchase`, `sale`) | Chỉ hiển thị |
@@ -349,15 +351,14 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 | Tra cứu | Mã giao dịch, có liên kết Etherscan trên Sepolia | `Txn.txHash` + `explorerTxUrl` | Mở trình khám phá khối; mock và hardhat chỉ hiện chữ |
 | Chưa có giao dịch nào | Trạng thái rỗng | Văn bản cố định | Chỉ hiển thị |
 | **Hộp "Token dự án điện gió"** | Danh sách dự án | `MOCK_PROJECTS` (3 dự án, mã trong source) | Bấm một dòng để mở /tokens/[symbol] |
-| Ký hiệu + nhãn on-chain / dữ liệu mẫu | Token đã lên chuỗi hay chưa | `MOCK_PROJECTS.onChain` | Chỉ hiển thị |
-| Tên, vùng, trạng thái | Thông tin dự án | `MOCK_PROJECTS`, `REGION_LABELS`, `PROJECT_STATUS_LABELS` | Chỉ hiển thị |
-| nhà đầu tư nắm giữ | Số nhà đầu tư | `MOCK_WIND_STATS.whitelistedInvestors` (128, mã trong source). Dự án chưa lên chuỗi hiện dấu gạch ngang | Chỉ hiển thị, có nhãn dữ liệu mẫu |
+| Ký hiệu + nhãn on-chain / "unverified" | Token đã lên chuỗi hay chưa | `MOCK_PROJECTS.onChain` | Chỉ hiển thị |
+| Tên, vùng, trạng thái | Thông tin dự án | Dòng đã lên chuỗi: tên từ bảng dự án (`projectName`, cùng lời gọi với hộp trạng thái); đang tải, lỗi hoặc không có thì tên mẫu kèm "unverified". Dòng khác: `MOCK_PROJECTS`. Vùng, trạng thái: `REGION_LABELS`, `PROJECT_STATUS_LABELS` (số mẫu, kèm "unverified") | Chỉ hiển thị |
+| nhà đầu tư nắm giữ | Số nhà đầu tư | `MOCK_WIND_STATS.whitelistedInvestors` (128, mã trong source). Dự án chưa lên chuỗi hiện dấu gạch ngang | Chỉ hiển thị, kèm "unverified" (đếm thật cần chỉ mục sự kiện, tách khỏi FIX-04) |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-03.** Trên chain mock, màn này đòi ví trình duyệt, trong khi /trade, /orders và /tokens/[symbol] dùng ví hồ sơ và ghi "Không cần kết nối ví trình duyệt". `app/(investor)/portfolio/page.tsx:14` không truyền `mockWallet` xuống; `components/investor/asset-summary.tsx:86` và `components/investor/transaction-history-box.tsx:155` chặn khi chưa có ví wagmi. Hệ quả: cùng một người dùng mock thấy vị thế trên /tokens/WPT nhưng thấy "Chưa kết nối ví" ở /portfolio.
-- **L-29.** Câu "tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01)" ở `components/investor/asset-summary.tsx:147-148` đã cũ. `ledger.paymentBalanceOf` đã có và màn /trade đang dùng nó để hiện "Số dư VNDB" (`lib/bank/trade.service.ts:136`). Chú thích ở `lib/bank/portfolio.service.ts:91-95` xác nhận phần này chuyển sang FE-04.
 - **L-30.** Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-summary.tsx:132-134`).
 - **L-31.** Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-history-box.tsx:197` và `:209`).
 - **L-32.** Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`:175`) bỏ sót trường hợp ví có giao dịch mua hoặc bán.
@@ -535,10 +536,10 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
 | Tên dự án, ký hiệu, nhãn on-chain / "chưa triển khai trên chuỗi" | Tiêu đề | `MOCK_PROJECTS` | Chỉ hiển thị |
-| Vùng, địa điểm, trạng thái | | `MOCK_PROJECTS` | Chỉ hiển thị |
-| **Thông tin dự án** (dữ liệu mẫu) | Mã dự án, Công suất đặt, Số tổ máy, Giá bán điện (PPA), Vận hành từ, Đơn vị vận hành | `MOCK_PROJECTS` | Chỉ hiển thị |
-| **Tình hình vận hành** (dữ liệu mẫu) | Sản lượng luỹ kế, Hệ số công suất, Sản lượng theo kỳ | `MOCK_PROJECTS`, `MOCK_GENERATION_SERIES`; ghi rõ sẽ do EnergyOracle cấp | Chỉ hiển thị |
-| **Thông tin token** (nhãn on-chain nếu đã lên chuỗi) | | | |
+| Vùng, địa điểm, trạng thái (unverified) | | `MOCK_PROJECTS` (số mẫu) | Chỉ hiển thị |
+| **Thông tin dự án** (unverified) | Mã dự án, Công suất đặt, Số tổ máy, Giá bán điện (PPA), Vận hành từ, Đơn vị vận hành | `MOCK_PROJECTS` | Chỉ hiển thị |
+| **Tình hình vận hành** (unverified) | Sản lượng luỹ kế, Hệ số công suất, Sản lượng theo kỳ | `MOCK_PROJECTS`, `MOCK_GENERATION_SERIES`; ghi rõ sẽ do EnergyOracle cấp | Chỉ hiển thị |
+| **Thông tin token** (nhãn on-chain nếu đã lên chuỗi, "unverified" nếu chưa) | | | |
 | Ký hiệu | | `MOCK_PROJECTS.tokenSymbol` | Chỉ hiển thị |
 | Tuổi thọ còn lại / Lợi tức mục tiêu / Phí giao dịch | Điều khoản | SystemConfig `wpt.remaining_lifetime_years`, `wpt.annual_yield_percent`, `wpt.trading_fee_percent` | Chỉ hiển thị, giống nhau cho mọi dự án |
 | Tên token / Tổng cung (dự án đã lên chuỗi) | | On-chain `tokenInfo().name` / `.totalSupply` | Chỉ hiển thị |
@@ -617,8 +618,8 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | **Khối Token khớp lệnh trong ngày** | | | |
 | Số lượng mua (WPT), gợi ý "N lệnh" | WPT của lệnh mua đã khớp trong ngày giờ VN | `orderDailyStats` > `OrderStore.summarizeCompleted`: bảng `PurchaseOrder`, `status=COMPLETED`, theo `completedAt`, `side=BUY`, SUM(`wptAmount`), COUNT (`lib/store/postgres.order.store.ts:248`) | Theo dõi bán trong ngày |
 | Tổng giá trị mua (VNDB) | VNDB của các lệnh trên | Như trên, SUM(`vndAmount`) | Như trên |
-| Số lượng bán | Gắn cứng dấu gạch ngang dài, gợi ý "Hệ thống chưa có lệnh bán lại." | Hằng số trong JSX (`seller-overview.tsx:157`) | Xem phần Lệch |
-| Tổng giá trị bán | Như trên | Hằng số (`seller-overview.tsx:158`) | Xem phần Lệch |
+| Số lượng bán (WPT), gợi ý "N lệnh" | WPT của lệnh bán đã khớp trong ngày giờ VN (FIX-04) | `getSellerOverview.today.sell` (`count`, `wpt`): như dòng mua, `side=SELL` | Theo dõi mua lại trong ngày |
+| Tổng giá trị bán (VNDB) | VNDB của các lệnh bán trên | `today.sell.vnd` | Như trên |
 | **Khối Thông tin nguồn cung** (chỉ token đầu tiên `tokens[0]`) | | | |
 | Trần phát hành | Số token tối đa | DB: `Project.totalSupply` (`issuance.service.ts:119`) | Giới hạn phát hành |
 | Số còn được phát hành | Trần trừ tổng cung, không âm | Tính: `Project.totalSupply` trừ `tokenInfo().totalSupply` trên chuỗi | Biết còn mint được bao nhiêu |
@@ -653,7 +654,6 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-07.** `seller-overview.tsx:157-158`: hai ô bán gắn cứng dấu gạch ngang dài, kèm câu "Hệ thống chưa có lệnh bán lại." Trong khi đó service đã trả `today.sell` (count/wpt/vnd) từ BE-14 (`seller.service.ts:171-175`), và màn Danh sách giao dịch có loại "Bán".
 - **L-08.** Chú thích chế độ PERCENT (`seller-overview.tsx:36-39`) in cả "thu ròng" lẫn "phần khoá kỳ gần nhất" nhưng không nói số nào đang áp dụng. Theo hợp đồng (`packages/contracts-evm/contracts/SpvPaymentVault.sol:106-113`):
    - Chưa chốt kỳ nào (`lastPeriodRef == 0`): khoá = `netProceeds` nhân tỷ lệ. Lúc này `percentLocked` hiện ra là 0, dễ hiểu nhầm.
    - Đã chốt kỳ: khoá = `percentLocked`, tức tỷ lệ nhân `distributedPrev` (lợi nhuận đã chia kỳ trước, `SpvPaymentVault.sol:159`), không còn tính trên thu ròng.
@@ -833,20 +833,20 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
 | Thông tin tài khoản + badge "Chỉ đọc" | | Tĩnh | Khối hồ sơ không có nút hay ô nhập nào |
-| **Khách hàng: Thông tin cá nhân / Thông tin pháp nhân** | | | |
+| **Khách hàng: Thông tin cá nhân / Thông tin pháp nhân** (unverified; riêng Ví thanh toán lấy từ ví kết nối và trạng thái định danh) | | | |
 | Họ và tên / Tên pháp nhân | | Hồ sơ mẫu `fullName` (NDT001, NB001) | |
 | Người liên hệ | Chỉ với tổ chức | `contactPerson` | |
 | Số điện thoại / Thư điện tử | | `phone` / `email` | |
 | Trạng thái định danh | Đã xác minh / Đang xác minh / Không đạt | `identityStatus` | Hiện hai lần trên màn |
 | Ví thanh toán | Địa chỉ ví kèm nhãn "Đã định danh" hoặc "Ví chưa được định danh"; chưa kết nối ví thì "Chưa kết nối ví." và liên kết "Kết nối ví" | `getAccountWallet`: mock trả ví mẫu và `bound=true`; chain khác `resolveWalletOwner` (bảng `WalletBinding`, ví mẫu chỉ trên hardhat-local) so với hồ sơ của phiên | Cả cá nhân và tổ chức cùng một nhãn |
-| **Khách hàng: Thông tin tài khoản** | | | |
+| **Khách hàng: Thông tin tài khoản** (unverified) | | | |
 | Mã người dùng / Vai trò / Trạng thái | | `actorId`, `role`, `status` (Đang hoạt động / Đã khoá) | |
 | Ngày tạo / Hoạt động gần nhất | | `createdAt` / `lastActiveAt`, chuỗi cố định | |
-| **Khách hàng: Hồ sơ định danh và rủi ro** | | | |
+| **Khách hàng: Hồ sơ định danh và rủi ro** (unverified) | | | |
 | Loại khách hàng | Cá nhân / Tổ chức | `customerType` | |
 | Xếp hạng rủi ro / Phòng chống rửa tiền | | `riskRating` / `amlStatus` | Màn Giao dịch token đọc hai trường này khi kiểm tra trước lệnh |
 | Hạn mức giao dịch mỗi ngày | VNDB | `dailyTransactionLimitVnd` | Xem phần Lệch |
-| **Nhân viên: Thông tin cán bộ** | Mã cán bộ, Họ và tên, Vai trò, Trạng thái, SĐT, Email, Hoạt động gần nhất | Hồ sơ mẫu GDV001, KSV001 | |
+| **Nhân viên: Thông tin cán bộ** (unverified) | Mã cán bộ, Họ và tên, Vai trò, Trạng thái, SĐT, Email, Hoạt động gần nhất | Hồ sơ mẫu GDV001, KSV001 | |
 
 
 **Lệch** (tra mã ở Phụ lục C)
@@ -1806,7 +1806,6 @@ Mức: **Cao** (có thể làm sai số tiền, sai trạng thái, hoặc kẹt 
 | L-04 | `/trade` | Ô chọn Token không có tác dụng; máy chủ luôn lấy dự án đầu tiên | Vừa | Khi có dự án thứ hai trên cùng chain |
 | L-05 | `/trade` | Huy hiệu "Trạng thái giao dịch" bỏ qua `Project.status`; dự án CLOSED vẫn hiện "Đang mở" trong khi điều kiện 4 trượt | Vừa | SC-04 |
 | L-06 | `/trade`, `/account` | Đặt lệnh không kiểm `AccountStatus` (ACTIVE, LOCKED) và hạn mức ngày; `dailyTransactionLimitVnd` chỉ hiển thị | Vừa | AU-01 |
-| L-07 | `/seller` | Hai ô "bán" gắn cứng dấu gạch, dù service đã trả số lệnh bán trong ngày (BE-14) | Thấp | FE-28 (đề xuất) |
 | L-08 | `/seller`, `/seller/withdraw` | Chú thích chế độ PERCENT in cả "thu ròng" lẫn "phần khoá kỳ gần nhất" mà không nói số nào đang áp; trước kỳ đầu khoá theo thu ròng, sau đó theo lợi nhuận đã chia kỳ trước | Vừa | FE-28 (đề xuất) |
 | L-09 | `/seller` | Nhãn "Hạn mức còn rút được" là chữ của mô hình FE-21 đã gỡ; giá trị thật là `withdrawable()` của vault | Thấp | FE-28 (đề xuất) |
 | L-11 | `/draft` | Ngày hiệu lực chỉ được lưu; duyệt là thực hiện ngay, không so ngày | Vừa | Chờ Sếp chốt: bỏ trường hay ràng buộc |
@@ -1833,7 +1832,6 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 
 | Mã | Màn | Nội dung |
 |---|---|---|
-| L-29 | `/portfolio` | Câu "tầng ledger chưa có phương thức đọc số dư token thanh toán (chờ BE-01)" ở `components/investor/asset-summary.tsx:147-148` đã cũ. |
 | L-30 | `/portfolio` | Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-summary.tsx:132-134`). |
 | L-31 | `/portfolio` | Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-history-box.tsx:197` và `:209`). |
 | L-32 | `/portfolio` | Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`:175`) bỏ sót trường hợp ví có giao dịch mua hoặc bán. |
@@ -1907,3 +1905,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 29/10/2026 | `d2cf384` | Dev (Claude) | IN-04: ký Mint, Burn của lập duyệt qua Fireblocks (Vault Account) khi công tắc "Lưu ký Fireblocks" bật cho chain trong bảng `FIREBLOCKS_CHAIN_ASSETS`; công tắc ở đáy menu Giao dịch viên, Kiểm soát viên (quyền `custody:toggle`, `SystemConfig` khoá `custody.fireblocks.enabled`); dòng "Thực hiện qua" và đối soát qua Fireblocks ở `/approvals/[id]`; màn chặn vai có nút "Về trang của vai hiện tại". Không dùng TAP; chỉ Mint, Burn. Cập nhật L-15. Sửa Phần 1 mục 1.1, 1.4; Phần 2; Phần 3 mục 3.0 (mới, trỏ runbook `docs/RUNBOOK_FIREBLOCKS.md`), 3.4.4; Phụ lục B, C |
 | 02/11/2026 | `a69369f` | Dev (Claude) | UIUX-02: ô chọn token có gõ lọc ở đầu 10 màn nghiệp vụ (chỉ hiển thị; dòng TCC "(chưa hỗ trợ)" khoá), `/trade` dùng chung ô này thay ô Token cũ; bỏ dòng mô tả dưới tiêu đề ở mọi màn, câu mô tả chuyển thành gợi ý khi dừng chuột trên menu (5 màn ngoài menu: trên tiêu đề); tiêu đề màn `/` đổi thành "Tổng quan", menu giữ "Bảng điều khiển". Cập nhật L-69. Sửa Phần 1 mục 1.1; Phần 3 mục 3.0, 3.2.1, 3.4.1, 3.5.1, 3.5.2; Phụ lục C |
 | 02/11/2026 | `8a69922` | Dev (Claude) | FIX-03: chuỗi hiển thị do `lib/` dựng (câu lỗi, câu từ chối, dòng sổ kiểm toán mới) không còn gạch dài, chấm giữa, mũi tên; câu giá và chia lợi nhuận có số dấu chấm hàng nghìn, đơn vị VNDB; ô trống hiện gạch ngắn; số mẫu "Lợi tức đã chia" ở `/` là 5,8 tỷ. Không đổi hành vi. Sửa Phần 3 quy ước chung |
+| 02/11/2026 | `9a05b09` | Dev (Claude) | FIX-04: `/portfolio` hiện số dư VNDB (đọc `paymentBalanceOf` cùng lô) và tên dự án thật từ bảng dự án; hai hộp dùng chung một lời gọi `getTokenSummaryAction`; `/seller` hiện lệnh bán trong ngày; số liệu chưa có nguồn thật ở `/portfolio`, `/tokens/[symbol]`, `/account` kèm ghi chú "unverified" thay nhãn "dữ liệu mẫu". Bỏ L-07, L-29. Sửa Phần 2; Phần 3 quy ước chung, mục 3.1.1, 3.1.5, 3.2.1, 3.3.2; Phụ lục C |

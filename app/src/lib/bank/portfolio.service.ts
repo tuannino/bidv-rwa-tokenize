@@ -3,7 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { ChainKey } from '@bidv/shared';
 import { getLedger } from '@/lib/ledger';
-import { getSettlementStore, getStore } from '@/lib/store';
+import { getProjectStore, getSettlementStore, getStore } from '@/lib/store';
 import { readEffectiveIssuePrice } from './issue-price';
 import { authorize, toResult } from './authorize';
 import { assertSessionWallet } from './wallet-owner';
@@ -68,12 +68,8 @@ export interface PortfolioView {
     phase: 'NOTICE' | 'FROZEN' | 'CLOSED';
     amount: string;
   };
-  /**
-   * KHÔNG có trường số dư VNDB. `ILedgerPort.paymentBalanceOf` ĐÃ có (thêm ở BE-01, đang
-   * được `purchase.service` dùng), nhưng hàm này chưa đọc tới — phần hiển thị số dư VNDB
-   * cho nhà đầu tư thuộc FE-04, cùng chỗ với số dư ví (xem `lib/hooks/use-native-balance.ts`).
-   * Thêm trường trả 0 thì vẫn là bịa số, nên vẫn bỏ hẳn cho tới lúc có chỗ dùng thật.
-   */
+  /** FIX-04 B1: số dư VNDB của ví; `null` khi lần đọc này lỗi (không kéo cả lời gọi đổ). */
+  paymentBalance: string | null;
 }
 
 /**
@@ -97,7 +93,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
     const ledger = getLedger(chain);
     // Giá đọc CÙNG lô với số dư: một lời gọi, một con số, nên số hiển thị và số quy đổi không
     // thể lệch nhau trong cùng một phản hồi.
-    const [balance, whitelisted, frozen, info, issuePriceVnd, recallPhase] = await Promise.all([
+    const [balance, whitelisted, frozen, info, issuePriceVnd, recallPhase, paymentBalance] = await Promise.all([
       ledger.balanceOf(wallet),
       ledger.isWhitelisted(wallet),
       ledger.isFrozen(wallet),
@@ -105,6 +101,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
       // Giá áp dụng cho lệnh (FE-07, L-02): trên chain có OrderSettlement là giá trên hợp đồng.
       readEffectiveIssuePrice(chain),
       readRecallPhase(chain),
+      orNull('paymentBalanceOf', () => ledger.paymentBalanceOf(wallet)),
     ]);
 
     const balanceString = balance.toString();
@@ -139,6 +136,7 @@ export async function getPortfolio(input: unknown): Promise<Result<PortfolioView
         totalSupply: info.totalSupply.toString(),
       },
       recall,
+      paymentBalance: paymentBalance === null ? null : paymentBalance.toString(),
     });
   } catch (error) {
     return toResult(error);
@@ -197,6 +195,8 @@ export interface TokenSummary {
   chain: ChainKey;
   /** Giá phát hành đang có hiệu lực. Chuỗi, cùng lý do như `PortfolioView.issuePriceVnd`. */
   issuePriceVnd: string;
+  /** FIX-04 B2: tên dự án trong bảng dự án; `null` khi không có dòng hoặc đọc lỗi. */
+  projectName: string | null;
 }
 
 /**
@@ -213,10 +213,9 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
 
   try {
     await authorize('portfolio:read', null, parsed.data);
-    const [info, issuePriceVnd] = await Promise.all([
-      getLedger(parsed.data).tokenInfo(),
-      readEffectiveIssuePrice(parsed.data),
-    ]);
+    const chain = parsed.data;
+    const [info, issuePriceVnd] = await Promise.all([getLedger(chain).tokenInfo(), readEffectiveIssuePrice(chain)]);
+    const project = await orNull('findProject', () => getProjectStore().findProject({ tokenSymbol: info.symbol, chain }));
 
     return ok({
       name: info.name,
@@ -225,8 +224,19 @@ export async function getTokenSummary(chain: unknown): Promise<Result<TokenSumma
       totalSupply: info.totalSupply.toString(),
       chain: parsed.data,
       issuePriceVnd: issuePriceVnd.toString(),
+      projectName: project?.name ?? null,
     });
   } catch (error) {
     return toResult(error);
+  }
+}
+
+/** FIX-04 QĐ-3: lần đọc THÊM lỗi thì trả `null`; log chỉ ghi tên lỗi (nội dung có thể chứa địa chỉ RPC kèm khoá). */
+async function orNull<T>(label: string, read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch (error) {
+    console.error(`[portfolio] Không đọc được ${label}:`, error instanceof Error ? error.name : 'Error');
+    return null;
   }
 }
