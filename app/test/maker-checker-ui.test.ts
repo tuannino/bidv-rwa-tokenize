@@ -117,14 +117,14 @@ describe('việc 19 — số có phân cách hàng nghìn, mốc thời gian đ�
     expect(formatAmount('1000000')).toBe('1.000.000');
     expect(formatAmount('9007199254740993')).toBe('9.007.199.254.740.993');
     expect(formatAmount(1234)).toBe('1.234');
-    expect(formatAmount(null)).toBe('—');
+    expect(formatAmount(null)).toBe('–');
     expect(formatAmount('khong-phai-so')).toBe('khong-phai-so');
   });
 
   it('mốc thời gian hiện dd/mm/yyyy hh:mm:ss theo giờ Việt Nam, không phụ thuộc máy chủ', () => {
     // 17:05:09 UTC là 00:05:09 ngày hôm sau ở Hà Nội — đúng chỗ dễ sai ngày nhất.
     expect(formatDateTime('2026-10-01T17:05:09.000Z')).toBe('02/10/2026 00:05:09');
-    expect(formatDateTime(null)).toBe('—');
+    expect(formatDateTime(null)).toBe('–');
   });
 });
 

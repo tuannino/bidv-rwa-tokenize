@@ -12,7 +12,7 @@
  * sai còn tệ hơn hiện thô.
  */
 export function formatAmount(value: string | bigint | number | null | undefined): string {
-  if (value === null || value === undefined || value === '') return '—';
+  if (value === null || value === undefined || value === '') return '–';
   try {
     return BigInt(value).toLocaleString('vi-VN');
   } catch {
@@ -36,7 +36,7 @@ const DISPLAY_TIME_ZONE = 'Asia/Ho_Chi_Minh';
  * (giờ Việt Nam) sẽ ra hai chuỗi khác nhau cho cùng một mốc.
  */
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const parts = Object.fromEntries(

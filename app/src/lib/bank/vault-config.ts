@@ -5,6 +5,7 @@
  * kiểm thử thuần.
  */
 import type { VaultConfigParam, VaultLockMode } from '@/lib/ledger';
+import { formatAmount } from '@/lib/format';
 
 /** Phần trăm tối đa hai chữ số thập phân, lớn hơn 0 và không quá 100. Không dùng số thực. */
 const PERCENT_PATTERN = /^(\d{1,3})(?:\.(\d{1,2}))?$/;
@@ -134,10 +135,10 @@ export function configEffectiveAt(input: {
 export function describeVaultConfigStep(step: VaultConfigStep): string {
   switch (step.kind) {
     case 'setFixedLock':
-      return `số khoá cố định ${step.previous} -> ${step.amount} VNDB`;
+      return `số khoá cố định ${formatAmount(step.previous)} thành ${formatAmount(step.amount)} VNDB`;
     case 'setPercentRate':
-      return `tỷ lệ khoá ${bpsToPercent(step.previous)}% -> ${bpsToPercent(step.bps)}%`;
+      return `tỷ lệ khoá ${bpsToPercent(step.previous)}% thành ${bpsToPercent(step.bps)}%`;
     case 'setLockMode':
-      return `chế độ khoá ${step.previous} -> ${step.mode}`;
+      return `chế độ khoá ${step.previous} thành ${step.mode}`;
   }
 }

@@ -120,7 +120,7 @@ const REVERT_MESSAGES: Record<string, string> = {
     'Mã snapshot chưa tồn tại trên chuỗi. Mã phải lấy từ kết quả takeSnapshot().',
 
   // --- ProfitDistributor ---
-  'khong co WPT dang luu hanh': 'Tổng cung WPT tại thời điểm chốt bằng 0 — không có quyền để chia.',
+  'khong co WPT dang luu hanh': 'Tổng cung WPT tại thời điểm chốt bằng 0, không có quyền để chia.',
   'ky khong ton tai': 'Kỳ chia lợi nhuận không tồn tại.',
   'chua het han nhan': 'Chưa hết thời hạn nhận lợi nhuận của kỳ này.',
   'khong con du': 'Kỳ chia này không còn phần dư để quét.',
@@ -132,7 +132,7 @@ const REVERT_MESSAGES: Record<string, string> = {
   ClaimWindowEnded: 'Kỳ chia đã hết thời hạn nhận.',
   DistributionOverdrawn: 'Lô chia vượt phần còn lại của kỳ.',
   SafeERC20FailedOperation:
-    'Chuyển VNDB thất bại — thường là hợp đồng thiếu số dư hoặc thiếu ủy quyền.',
+    'Chuyển VNDB thất bại, thường là hợp đồng thiếu số dư hoặc thiếu ủy quyền.',
 
   // --- Redemption ---
   'dang tam dung': 'Chức năng hoàn vốn đang tạm dừng.',
@@ -144,7 +144,7 @@ const REVERT_MESSAGES: Record<string, string> = {
     'Ví ký giao dịch không có quyền on-chain cho thao tác này (thiếu role).',
   ERC20InsufficientBalance: 'Số dư token không đủ cho thao tác này.',
   ERC20InsufficientAllowance:
-    'Mức ủy quyền VNDB/WPT của ví nhà đầu tư không đủ — chủ ví phải approve cho OrderSettlement trước.',
+    'Mức ủy quyền VNDB/WPT của ví nhà đầu tư không đủ; chủ ví phải approve cho OrderSettlement trước.',
   ERC20InvalidReceiver: 'Địa chỉ nhận không hợp lệ.',
 
   // --- ProjectToken: phát hành theo ví SPV (SC-02) ---

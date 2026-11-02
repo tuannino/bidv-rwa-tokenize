@@ -349,7 +349,7 @@ export async function createTokenRequest(
         action: 'order:draft',
         target: label,
         outcome: 'FAILURE',
-        detail: `${makerId} lập yêu cầu ${label} bị chặn — ${describeFailed(checks)}`,
+        detail: `${makerId} lập yêu cầu ${label} bị chặn: ${describeFailed(checks)}`,
         chain: data.chain,
       });
       return err(
@@ -415,7 +415,7 @@ async function loadForDecision(
       action: 'order:approve',
       target: requestId,
       outcome: 'DENIED',
-      detail: `${checkerId} tự ${verb} yêu cầu do chính mình lập — bị chặn.`,
+      detail: `${checkerId} tự ${verb} yêu cầu do chính mình lập, bị chặn.`,
       chain: request.chain,
     });
     return err(
@@ -471,7 +471,7 @@ export async function approveTokenRequest(
         action: 'order:approve',
         target: requestId,
         outcome: 'FAILURE',
-        detail: `${checkerId} duyệt yêu cầu ${requestId} bị chặn vì điều kiện đã đổi — ${describeFailed(checks)}`,
+        detail: `${checkerId} duyệt yêu cầu ${requestId} bị chặn vì điều kiện đã đổi: ${describeFailed(checks)}`,
         chain,
       });
       return err(
@@ -1563,7 +1563,7 @@ function timelineOf(request: TokenRequestRecord): TimelineEntry[] {
         ...decided,
         label: 'Chấp nhận, đang xử lý trên chuỗi',
         detail: request.txHash
-          ? `Đã gửi giao dịch ${request.txHash}, chưa biết kết cục — cần đối soát.`
+          ? `Đã gửi giao dịch ${request.txHash}, chưa biết kết cục, cần đối soát.`
           : null,
       });
       break;

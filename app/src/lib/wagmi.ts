@@ -44,7 +44,7 @@ const evmTestnet = defineChain({
 });
 
 const chains = [hardhatLocal, evmTestnet] as const;
-const appName = 'BIDV RWA — Điện gió';
+const appName = 'BIDV RWA Điện gió';
 
 /**
  * WalletConnect projectId là TÙY CHỌN ở PoC.

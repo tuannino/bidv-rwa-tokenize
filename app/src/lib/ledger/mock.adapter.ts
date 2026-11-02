@@ -320,7 +320,7 @@ export function createMockLedger(
         operation,
         `Mã snapshot ${snapshotId} không tồn tại. ` +
           (s.lastSnapshotId === 0
-            ? 'Chưa chốt quyền lần nào — gọi takeSnapshot() trước.'
+            ? 'Chưa chốt quyền lần nào, gọi takeSnapshot() trước.'
             : `Mã hợp lệ hiện có: 1..${s.lastSnapshotId}.`),
       );
     }
@@ -660,7 +660,7 @@ export function createMockLedger(
         requireNotSettling(s, 'executePurchase');
         const price = hydratePrice(s, configured);
         if (!s.initialSupplyMinted || !s.spvWallet) {
-          reject('executePurchase', 'Chưa phát hành nguồn cung ban đầu — không có WPT nào để bán. Gọi mintInitialSupply trước.');
+          reject('executePurchase', 'Chưa phát hành nguồn cung ban đầu, không có WPT nào để bán. Gọi mintInitialSupply trước.');
         }
         const spv = s.spvWallet;
         requireNotFrozen(s, 'executePurchase', buyer, 'Nhà đầu tư');
@@ -717,7 +717,7 @@ export function createMockLedger(
         requireNotSettling(s, 'executeSale');
         const price = hydratePrice(s, configured);
         if (!s.initialSupplyMinted || !s.spvWallet) {
-          reject('executeSale', 'Chưa phát hành nguồn cung ban đầu — chưa có ví thanh toán người bán để nhận lại WPT.');
+          reject('executeSale', 'Chưa phát hành nguồn cung ban đầu, chưa có ví thanh toán người bán để nhận lại WPT.');
         }
         const spv = s.spvWallet;
         requireNotFrozen(s, 'executeSale', seller, 'Nhà đầu tư');
@@ -851,7 +851,7 @@ export function createMockLedger(
         if (Date.now() >= record.claimDeadline) {
           reject('distributeBatch', `Kỳ chia ${distributionId} đã hết thời hạn nhận.`);
         }
-        if (wallets.length === 0) reject('distributeBatch', 'Danh sách ví trống — tầng nghiệp vụ phải truyền vào ít nhất một ví.');
+        if (wallets.length === 0) reject('distributeBatch', 'Danh sách ví trống; tầng nghiệp vụ phải truyền vào ít nhất một ví.');
         const snapshot = requireSnapshot(s, 'distributeBatch', record.snapshotId);
         const payouts = new Map<string, bigint>();
         for (const wallet of wallets) {

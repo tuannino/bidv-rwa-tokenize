@@ -67,13 +67,13 @@ function reasonUnavailable(key: ChainKey): string | undefined {
   const env = serverEnv();
   const info = CHAINS[key];
 
-  if (!info.implemented) return 'Chưa hiện thực (adapter stub) — để Phase 7.';
+  if (!info.implemented) return 'Chưa hiện thực (adapter stub), để Phase 7.';
 
   if (key === 'hardhat-local' && !env.rpcHardhat && !info.defaultRpcUrl) {
-    return 'Thiếu RPC — đặt NEXT_PUBLIC_RPC_HARDHAT.';
+    return 'Thiếu RPC, đặt NEXT_PUBLIC_RPC_HARDHAT.';
   }
   if (key === 'evm' && !env.rpcEvm) {
-    return 'Thiếu RPC testnet — đặt NEXT_PUBLIC_RPC_EVM (Phase 6).';
+    return 'Thiếu RPC testnet, đặt NEXT_PUBLIC_RPC_EVM (Phase 6).';
   }
   return undefined;
 }

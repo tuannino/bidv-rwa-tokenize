@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { ChainKey } from '@bidv/shared';
+import { formatAmount } from '@/lib/format';
 import { getLedger } from '@/lib/ledger';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
@@ -256,8 +257,8 @@ function amountChangedView(period: DistributionPeriodRecord): DistributionApprov
     run: null,
     runNo: 0,
     message:
-      `Kỳ "${period.periodKey}" lấy ${period.totalAmount} VNDB trên chuỗi, khác số đã duyệt ` +
-      `${period.expectedAmount} VNDB (tiền vào quỹ trong lúc mở kỳ). Không chốt vault, không chia; ` +
+      `Kỳ "${period.periodKey}" lấy ${formatAmount(period.totalAmount)} VNDB trên chuỗi, khác số đã duyệt ` +
+      `${formatAmount(period.expectedAmount)} VNDB (tiền vào quỹ trong lúc mở kỳ). Không chốt vault, không chia; ` +
       `duyệt lại số thực tế để tiếp tục.`,
   };
 }
@@ -308,8 +309,8 @@ export async function approveDistribution(input: unknown): Promise<Result<Distri
         ctx,
         null,
         'PERIOD_STATE',
-        `Số trong quỹ đã đổi, xem lại rồi duyệt: màn duyệt ${expected} VNDB nhưng phần chưa phân ` +
-          `bổ của quỹ hiện là ${unallocated} VNDB.`,
+        `Số trong quỹ đã đổi, xem lại rồi duyệt: màn duyệt ${formatAmount(expected)} VNDB nhưng phần chưa phân ` +
+          `bổ của quỹ hiện là ${formatAmount(unallocated)} VNDB.`,
       );
     }
     const threshold = await readDistributionMinNewBalance();
@@ -318,7 +319,7 @@ export async function approveDistribution(input: unknown): Promise<Result<Distri
         ctx,
         null,
         'INSUFFICIENT_PROFIT_POOL',
-        `Phần chưa phân bổ ${expected} VNDB dưới ngưỡng ${threshold} VNDB (distribution.min_new_balance).`,
+        `Phần chưa phân bổ ${formatAmount(expected)} VNDB dưới ngưỡng ${formatAmount(threshold)} VNDB (distribution.min_new_balance).`,
       );
     }
     if ((await ledger.tokenInfo()).totalSupply === 0n) {
@@ -374,7 +375,7 @@ export async function approveDistribution(input: unknown): Promise<Result<Distri
       ctx,
       periodKey,
       'SUCCESS',
-      `duyệt chia ${expected} VNDB, giữ chỗ kỳ ${reserved.id} (${periodKey}), gửi mở kỳ trên chuỗi`,
+      `duyệt chia ${formatAmount(expected)} VNDB, giữ chỗ kỳ ${reserved.id} (${periodKey}), gửi mở kỳ trên chuỗi`,
     );
 
     // --- 4c. Mở trên chuỗi; kết luận duyệt ghi khi đọc được số thực tế -------
@@ -442,8 +443,8 @@ export async function reapproveDistribution(input: unknown): Promise<Result<Dist
         ctx,
         key,
         'PERIOD_STATE',
-        `Số duyệt lại phải bằng đúng số trên chuỗi của kỳ "${key}": chuỗi ${onChain} VNDB, sổ ` +
-          `${found.totalAmount} VNDB, số duyệt lại ${amount} VNDB.`,
+        `Số duyệt lại phải bằng đúng số trên chuỗi của kỳ "${key}": chuỗi ${formatAmount(onChain)} VNDB, sổ ` +
+          `${formatAmount(found.totalAmount)} VNDB, số duyệt lại ${formatAmount(amount)} VNDB.`,
       );
     }
 
@@ -463,8 +464,8 @@ export async function reapproveDistribution(input: unknown): Promise<Result<Dist
       ctx,
       key,
       'SUCCESS',
-      `duyệt lại kỳ ${found.id} APPROVED với số trên chuỗi ${amount} VNDB` +
-        (found.expectedAmount ? ` (số duyệt trước ${found.expectedAmount} VNDB)` : ' (kỳ chưa từng được duyệt)'),
+      `duyệt lại kỳ ${found.id} APPROVED với số trên chuỗi ${formatAmount(amount)} VNDB` +
+        (found.expectedAmount ? ` (số duyệt trước ${formatAmount(found.expectedAmount)} VNDB)` : ' (kỳ chưa từng được duyệt)'),
     );
     return await approvalViewFromRound(ctx, approved);
   } catch (error) {
@@ -509,7 +510,7 @@ export async function continueDistribution(input: unknown): Promise<Result<Distr
         ctx,
         period.periodKey,
         'PERIOD_STATE',
-        `Kỳ "${period.periodKey}" chưa được duyệt đúng số trên chuỗi; duyệt lại số ${period.totalAmount} VNDB trước.`,
+        `Kỳ "${period.periodKey}" chưa được duyệt đúng số trên chuỗi; duyệt lại số ${formatAmount(period.totalAmount)} VNDB trước.`,
       );
     }
     return await approvalViewFromRound(ctx, period);
@@ -559,14 +560,14 @@ function describeActive(
     return {
       pendingOnChain,
       nextAction: 'REAPPROVE',
-      note: `Số trên chuỗi ${period.totalAmount} VNDB khác số đã duyệt ${period.expectedAmount} VNDB. Không chia cho tới khi duyệt lại số thực tế.`,
+      note: `Số trên chuỗi ${formatAmount(period.totalAmount)} VNDB khác số đã duyệt ${formatAmount(period.expectedAmount)} VNDB. Không chia cho tới khi duyệt lại số thực tế.`,
     };
   }
   if (period.approvalStatus !== 'APPROVED') {
     return {
       pendingOnChain,
       nextAction: 'REAPPROVE',
-      note: `Kỳ chưa có lần duyệt nào cho số trên chuỗi ${period.totalAmount} VNDB. Duyệt lại số thực tế để chia.`,
+      note: `Kỳ chưa có lần duyệt nào cho số trên chuỗi ${formatAmount(period.totalAmount)} VNDB. Duyệt lại số thực tế để chia.`,
     };
   }
   if (period.vaultCloseStatus === 'CONFLICT') {
@@ -670,7 +671,7 @@ export async function getDistributionOverview(input: unknown): Promise<Result<Di
     if (activeRecord) approveBlockers.push(`Đang có kỳ hoạt động "${activeRecord.periodKey}".`);
     if (unallocated === 0n) approveBlockers.push('Quỹ không có phần chưa phân bổ.');
     else if (unallocated < threshold) {
-      approveBlockers.push(`Phần chưa phân bổ ${unallocated} VNDB dưới ngưỡng ${threshold} VNDB.`);
+      approveBlockers.push(`Phần chưa phân bổ ${formatAmount(unallocated)} VNDB dưới ngưỡng ${formatAmount(threshold)} VNDB.`);
     }
     if (totalSupply === 0n) approveBlockers.push('Tổng cung WPT bằng 0.');
     if (recipients.truncated) {

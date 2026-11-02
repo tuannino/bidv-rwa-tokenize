@@ -121,7 +121,7 @@ export class OrderStateError extends Error {
     super(
       `Lệnh đang ở trạng thái ${from}, không chuyển được sang ${to}. ` +
         (allowed.length === 0
-          ? `${from} là trạng thái kết thúc — muốn mua tiếp thì đặt lệnh mới.`
+          ? `${from} là trạng thái kết thúc; muốn mua tiếp thì đặt lệnh mới.`
           : `Từ ${from} chỉ đi được tới: ${allowed.join(', ')}.`),
     );
     this.name = 'OrderStateError';

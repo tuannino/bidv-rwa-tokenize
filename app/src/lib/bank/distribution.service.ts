@@ -1202,7 +1202,7 @@ export async function runDistributionRound(
         `Kỳ "${period.periodKey}" đang mở trên chuỗi, chưa có số liệu để chia. ` +
         `Chạy recoverOpeningPeriod (hoặc chờ vòng sau của tiến trình tự động) trước.`,
       COMPLETED:
-        `Kỳ "${period.periodKey}" đã hoàn tất lúc ${period.completedAt} — không còn hồ sơ nào ` +
+        `Kỳ "${period.periodKey}" đã hoàn tất lúc ${period.completedAt}; không còn hồ sơ nào ` +
         `phải chi. Không chia lần thứ hai.`,
       CLOSED:
         `Kỳ "${period.periodKey}" đã đóng trên chuỗi; phần chưa trả đã về quỹ chưa phân bổ.`,
