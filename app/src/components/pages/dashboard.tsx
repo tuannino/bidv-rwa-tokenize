@@ -1,45 +1,92 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Banknote, Coins, Gauge, Plus, Users, Wind, Zap } from "lucide-react";
+import { Banknote, Coins, Plus, Users, Wind, Zap } from "lucide-react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  Legend,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { MOCK_GENERATION_SERIES, MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
+import { getOpsOverviewAction } from "@/app/actions/overview";
+import type { OpsOverview } from "@/lib/bank/overview.service";
+import { useSelectedChain } from "@/lib/chains/use-selected-chain";
+import { formatAmount } from "@/lib/format";
+import { MOCK_GENERATION_SERIES, MOCK_WIND_STATS } from "@/lib/mock-data";
+import { UnverifiedNote } from "@/components/ui/unverified-note";
 import { cn } from "@/lib/utils";
 
 /**
- * Tổng quan danh mục **điện gió**.
+ * Màn TỔNG QUAN của Giao dịch viên, Kiểm soát viên (FIX-05).
  *
- * Màu của biểu đồ đi qua theme token (`var(--chart-*)`, `var(--border)`, `var(--card)`...)
- * nên đọc được ở cả light và dark. Trước đây grid và nền tooltip bị ghi cứng bằng hex
- * tối theo dark theme, làm biểu đồ gần như vô hình trên nền sáng.
- * (Recharts nhận `var()` trong presentation attribute — cùng cách shadcn/ui làm.)
+ * Số liệu có nguồn thì đọc thật theo chain đang chọn qua MỘT lời gọi `getOpsOverviewAction` (chỉ
+ * đọc, không ghi sổ kiểm toán): dự án đã phát hành, tổng cung, hồ sơ nhà đầu tư đã gắn ví, lợi tức
+ * các kỳ chia đã hoàn tất. Chưa có nguồn thật (sản lượng, token TCC) thì giữ số mẫu kèm "unverified".
+ * Sản lượng (theo tháng) và lợi tức (theo mã kỳ chia) khác trục thời gian nên vẽ thành hai biểu đồ.
+ *
+ * Màu biểu đồ đi qua theme token (`var(--chart-*)`, `var(--border)`...) để đọc được ở cả hai giao diện.
  */
 
 const nf = (value: number, digits = 0) =>
   value.toLocaleString("vi-VN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-/** Trục/nhãn dùng màu chữ phụ của theme, không phải hex cố định. */
+/** Trục, nhãn dùng màu chữ phụ của theme, không phải hex cố định. */
 const AXIS_TICK = { fill: "var(--muted-foreground)", fontSize: 11 } as const;
 
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--popover)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-md)",
+    color: "var(--popover-foreground)",
+  },
+  labelStyle: { color: "var(--popover-foreground)" },
+  itemStyle: { color: "var(--muted-foreground)" },
+} as const;
+
+type Loaded = { key: string; data: OpsOverview | null; error: string | null };
+
 export function DashboardPage() {
-  const totalTurbines = MOCK_PROJECTS.reduce((sum, project) => sum + project.turbines, 0);
-  const operating = MOCK_PROJECTS.filter((project) => project.status === "OPERATING").length;
+  const { chain } = useSelectedChain();
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getOpsOverviewAction(chain)
+      .then((result): Loaded =>
+        result.ok ? { key: chain, data: result.data, error: null } : { key: chain, data: null, error: result.error },
+      )
+      .catch((): Loaded => ({ key: chain, data: null, error: "Chưa đọc được số liệu tổng quan, thử tải lại trang." }))
+      .then((next) => {
+        if (!cancelled) setLoaded(next);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chain]);
+
+  // "Đang đọc" suy ra từ khoá chain, không đặt state đồng bộ trong effect.
+  const fresh = loaded?.key === chain ? loaded : null;
+  const data = fresh?.data ?? null;
+  const show = <T,>(value: T | null | undefined, render: (value: T) => string) =>
+    fresh === null ? "Đang đọc" : value === null || value === undefined ? "Chưa đọc được" : render(value);
+
+  const supply = data?.supply ?? null;
+  const profit = data?.profit ?? null;
+  const investors = data?.investors ?? null;
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Tổng quan</h1>
+          {fresh?.error && <p className="mt-1 text-sm text-destructive">{fresh.error}</p>}
         </div>
         <Link prefetch={false}
           href="/mint"
@@ -50,150 +97,116 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* KPI chính */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
-          label="WPT đã phát hành"
-          value={nf(MOCK_WIND_STATS.wptIssued)}
-          sub={`${MOCK_WIND_STATS.projects} dự án · ${totalTurbines} tổ máy`}
+          label="Dự án đang triển khai"
+          value={show(data?.issuedProjects, (count) => nf(count))}
+          sub="Đã phát hành token trên chain đang chọn"
+          icon={<Wind className="h-4 w-4" />}
+        />
+        <KpiCard
+          label="Tổng cung token"
+          value={show(supply, (value) => `${formatAmount(value.totalSupply)} ${value.symbol}`)}
+          sub={
+            <div className="mt-2 space-y-2">
+              <SupplyBar label={supply?.symbol ?? "WPT"} value={supply ? formatAmount(supply.totalSupply) : null} />
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  TCC
+                  <UnverifiedNote title="Chưa hỗ trợ token TCC" />
+                </span>
+                <span className="font-mono">{"–"}</span>
+              </div>
+            </div>
+          }
           icon={<Coins className="h-4 w-4" />}
           highlight
         />
         <KpiCard
-          label="Nhà đầu tư whitelisted"
-          value={nf(MOCK_WIND_STATS.whitelistedInvestors)}
-          sub="Đã qua KYC, đủ điều kiện nắm giữ"
+          label="Nhà đầu tư đã định danh"
+          value={show(investors, (value) => `${nf(value.count)}${value.truncated ? "+" : ""}`)}
+          sub="Hồ sơ đã gắn ví"
           icon={<Users className="h-4 w-4" />}
         />
         <KpiCard
           label="Sản lượng luỹ kế"
           value={`${nf(MOCK_WIND_STATS.cumulativeGenerationMwh)} MWh`}
-          sub={`Nguồn: EnergyOracle · ${operating}/${MOCK_WIND_STATS.projects} dự án đang phát`}
+          sub={<UnverifiedNote title="Chưa có nguồn sản lượng thật" />}
           icon={<Zap className="h-4 w-4" />}
         />
         <KpiCard
           label="Lợi tức đã chia"
-          value={`${nf(MOCK_WIND_STATS.profitDistributedVndBn, 1)} tỷ`}
-          sub={`VND · ${MOCK_WIND_STATS.distributionPeriods} kỳ qua ProfitDistributor`}
+          value={show(profit, (value) => `${formatAmount(value.totalAmount)} VNDB`)}
+          sub={profit ? `${nf(profit.periods)}${profit.truncated ? "+" : ""} kỳ đã hoàn tất` : ""}
           icon={<Banknote className="h-4 w-4" />}
         />
       </div>
 
-      {/* Biểu đồ + phân bổ */}
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-lg border border-border bg-card p-5 xl:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">Sản lượng &amp; lợi tức theo kỳ</h2>
-            <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">6 kỳ gần nhất</span>
+      <div className="rounded-lg border border-border bg-card p-5">
+        <h2 className="mb-4 text-sm font-medium text-foreground">Sản lượng và lợi tức theo kỳ</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Lợi tức theo kỳ</h3>
+            {fresh === null ? (
+              <p className="py-8 text-sm text-muted-foreground">Đang đọc</p>
+            ) : profit === null ? (
+              <p className="py-8 text-sm text-muted-foreground">Chưa đọc được</p>
+            ) : profit.series.length === 0 ? (
+              <p className="py-8 text-sm text-muted-foreground">Chưa có kỳ chia nào hoàn tất.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={profit.series.map((point) => ({ periodKey: point.periodKey, amount: Number(point.amount) }))}
+                  margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="periodKey" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                  <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={72} />
+                  <Tooltip
+                    {...TOOLTIP_STYLE}
+                    formatter={(value) => [`${nf(typeof value === "number" ? value : Number(value ?? 0))} VNDB`, "Lợi tức"]}
+                  />
+                  <Bar dataKey="amount" name="Lợi tức" fill="var(--chart-2)" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={MOCK_GENERATION_SERIES} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="generationGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="period" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-              <YAxis
-                yAxisId="mwh"
-                tick={AXIS_TICK}
-                axisLine={false}
-                tickLine={false}
-                width={62}
-                unit=" MWh"
-              />
-              <YAxis
-                yAxisId="vnd"
-                orientation="right"
-                tick={AXIS_TICK}
-                axisLine={false}
-                tickLine={false}
-                width={48}
-                unit=" tỷ"
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-md)",
-                  color: "var(--popover-foreground)",
-                }}
-                labelStyle={{ color: "var(--popover-foreground)" }}
-                itemStyle={{ color: "var(--muted-foreground)" }}
-                formatter={(value, name) => {
-                  // Hai series khác đơn vị (MWh vs tỷ VND) nên phải format riêng.
-                  const amount = typeof value === "number" ? value : Number(value ?? 0);
-                  return name === "Lợi tức đã chia"
-                    ? [`${nf(amount, 1)} tỷ VND`, name]
-                    : [`${nf(amount)} MWh`, name];
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, color: "var(--muted-foreground)" }} />
-              <Area
-                yAxisId="mwh"
-                type="monotone"
-                dataKey="generationMwh"
-                name="Sản lượng"
-                stroke="var(--chart-1)"
-                fill="url(#generationGradient)"
-                strokeWidth={2}
-              />
-              <Line
-                yAxisId="vnd"
-                type="monotone"
-                dataKey="profitVndBn"
-                name="Lợi tức đã chia"
-                stroke="var(--chart-2)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "var(--chart-2)", strokeWidth: 0 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Phân bổ WPT theo dự án */}
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">Phân bổ WPT theo dự án</h2>
-            <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">Tổng cung</span>
-          </div>
-          <div className="space-y-4">
-            {MOCK_PROJECTS.map((project, index) => (
-              <ProjectBar
-                key={project.id}
-                label={project.name}
-                location={project.location}
-                value={project.wptIssued}
-                total={MOCK_WIND_STATS.wptIssued}
-                colorVar={PROJECT_CHART_VARS[index % PROJECT_CHART_VARS.length]}
-              />
-            ))}
+          <div>
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+              Sản lượng theo tháng
+              <UnverifiedNote className="normal-case tracking-normal" />
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={MOCK_GENERATION_SERIES} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="generationGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="period" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={62} unit=" MWh" />
+                <Tooltip
+                  {...TOOLTIP_STYLE}
+                  formatter={(value) => [`${nf(typeof value === "number" ? value : Number(value ?? 0))} MWh`, "Sản lượng"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="generationMwh"
+                  name="Sản lượng"
+                  stroke="var(--chart-1)"
+                  fill="url(#generationGradient)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      </div>
-
-      {/* Thẻ từng dự án */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {MOCK_PROJECTS.map((project, index) => (
-          <ProjectCard
-            key={project.id}
-            name={project.name}
-            location={project.location}
-            capacityMw={project.capacityMw}
-            generationMwh={project.generationMwh}
-            capacityFactorPct={project.capacityFactorPct}
-            colorVar={PROJECT_CHART_VARS[index % PROJECT_CHART_VARS.length]}
-          />
-        ))}
       </div>
     </div>
   );
 }
-
-/** green · teal · sky — bảng màu điện gió, không có tím (xem frontend.md). */
-const PROJECT_CHART_VARS = ["var(--chart-1)", "var(--chart-5)", "var(--chart-3)"] as const;
 
 function KpiCard({
   label,
@@ -204,7 +217,7 @@ function KpiCard({
 }: {
   label: string;
   value: string;
-  sub: string;
+  sub: React.ReactNode;
   icon: React.ReactNode;
   highlight?: boolean;
 }) {
@@ -232,95 +245,17 @@ function KpiCard({
   );
 }
 
-function ProjectBar({
-  label,
-  location,
-  value,
-  total,
-  colorVar,
-}: {
-  label: string;
-  location: string;
-  value: number;
-  total: number;
-  colorVar: string;
-}) {
-  const pct = total > 0 ? (value / total) * 100 : 0;
-
+/** Thanh tổng cung theo loại token: hiện chỉ một token đang chạy nên thanh luôn đầy. */
+function SupplyBar({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <div className="flex min-w-0 items-center gap-2">
-          <Wind className="h-3.5 w-3.5 shrink-0" style={{ color: colorVar }} aria-hidden="true" />
-          <span className="truncate text-foreground/90">{label}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-          <span className="font-mono">{nf(value)} WPT</span>
-          <span className="font-mono text-foreground/70">{nf(pct, 1)}%</span>
-        </div>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <span>{label}</span>
+        <span className="font-mono">{value ?? "–"}</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct}%`, backgroundColor: colorVar }}
-        />
+        <div className="h-full w-full rounded-full" style={{ backgroundColor: "var(--chart-1)" }} />
       </div>
-      <div className="text-xs text-muted-foreground">{location}</div>
-    </div>
-  );
-}
-
-function ProjectCard({
-  name,
-  location,
-  capacityMw,
-  generationMwh,
-  capacityFactorPct,
-  colorVar,
-}: {
-  name: string;
-  location: string;
-  capacityMw: number;
-  generationMwh: number;
-  capacityFactorPct: number;
-  colorVar: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded"
-          style={{ backgroundColor: `color-mix(in oklab, ${colorVar} 16%, transparent)` }}
-        >
-          <Wind className="h-4 w-4" style={{ color: colorVar }} aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-foreground">{name}</div>
-          <div className="text-xs text-muted-foreground">{location}</div>
-        </div>
-      </div>
-      <dl className="space-y-1.5 text-xs">
-        <Row term="Công suất đặt" desc={`${nf(capacityMw, 1)} MW`} />
-        <Row term="Sản lượng luỹ kế" desc={`${nf(generationMwh)} MWh`} />
-        <Row
-          term="Hệ số công suất"
-          desc={
-            <span className="inline-flex items-center gap-1">
-              <Gauge className="h-3 w-3" aria-hidden="true" />
-              {nf(capacityFactorPct, 1)}%
-            </span>
-          }
-        />
-      </dl>
-    </div>
-  );
-}
-
-function Row({ term, desc }: { term: string; desc: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <dt className="text-muted-foreground">{term}</dt>
-      <dd className="font-mono text-foreground">{desc}</dd>
     </div>
   );
 }

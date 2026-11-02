@@ -22,6 +22,7 @@ import {
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { cn } from "@/lib/utils";
 import { HoverHint } from "@/components/layout/hover-hint";
+import { SampleDataNote } from "@/components/ui/sample-data-note";
 
 /**
  * Danh mục **dự án điện gió** đã token hoá.
@@ -64,10 +65,11 @@ export function AssetsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex flex-wrap items-baseline gap-2">
           <HoverHint hint="Xem danh sách dự án điện gió đã token hoá." side="bottom">
             <h1 className="text-2xl font-semibold text-foreground">Dự án điện gió đã token hoá</h1>
           </HoverHint>
+          <SampleDataNote />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="ghost" size="icon" title="Làm mới">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { MOCK_PROJECTS, MOCK_WIND_STATS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { HoverHint } from "@/components/layout/hover-hint";
+import { SampleDataNote } from "@/components/ui/sample-data-note";
 
 /**
  * Đối soát **doanh thu điện**: sản lượng SCADA ↔ hoá đơn EVN ↔ số liệu on-chain.
@@ -41,10 +42,11 @@ export function ReconciliationPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex flex-wrap items-baseline gap-2">
           <HoverHint hint="So khớp sản lượng điện, hoá đơn và số liệu trên chuỗi theo từng kỳ." side="bottom">
             <h1 className="text-2xl font-semibold text-foreground">Đối soát doanh thu điện</h1>
           </HoverHint>
+          <SampleDataNote />
         </div>
         <Button variant="outline" className="shrink-0 gap-2">
           <RefreshCw className="h-4 w-4" />
