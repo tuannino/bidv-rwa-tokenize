@@ -24,6 +24,7 @@ import type {
 import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatDateTime } from '@/lib/format';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
 const percent = (bps: string) => `${Number(bps) / 100}%`;
@@ -514,10 +515,9 @@ export function VaultStatusPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Vault thanh toán SPV</h1>
-        <p className="text-sm text-muted-foreground">
-          Trạng thái giữ WPT, VNDB và phần tiền bị khoá trên chain <span className="font-mono">{chain}</span>.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {fresh === null ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">

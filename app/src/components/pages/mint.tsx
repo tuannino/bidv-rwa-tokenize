@@ -20,6 +20,7 @@ import {
 } from '@/app/actions/bank';
 import type { TxnView } from '@/lib/bank/mint.service';
 import { operationLabel } from '@/lib/txn-labels';
+import { HoverHint } from '@/components/layout/hover-hint';
 
 /**
  * Trang KYC + PHÁT HÀNH DỮ LIỆU THỬ — kênh cán bộ ngân hàng.
@@ -168,12 +169,9 @@ export function MintPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Phát hành token dự án điện gió (dữ liệu thử)</h1>
-        <p className="text-sm text-muted-foreground">
-          KYC (mock auto-approve) → whitelist on-chain → phát hành WPT trực tiếp. Chain đang dùng:{' '}
-          <span className="font-mono text-foreground">{chain}</span>
-          {config.mocks.kyc && ' · KYC ở chế độ mock'}
-        </p>
+        <HoverHint hint="Phát hành WPT trực tiếp để tạo dữ liệu thử, chỉ dùng trong PoC." side="bottom">
+          <h1 className="text-xl font-semibold">Phát hành token dự án điện gió (dữ liệu thử)</h1>
+        </HoverHint>
         <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
           Phát hành chính thức đi qua màn{' '}
           <Link prefetch={false} href="/draft" className="font-medium text-primary hover:underline">

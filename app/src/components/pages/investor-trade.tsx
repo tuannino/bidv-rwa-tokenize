@@ -42,6 +42,7 @@ import {
 } from '@/components/trading/gates';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 import { tradeBlockText, tradingStatusLabel } from '@/components/recall/gates';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn GIAO DỊCH TOKEN của Nhà đầu tư (FE-25 việc 1 đến 8).
@@ -267,11 +268,6 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Giao dịch token</h1>
-        <p className="text-sm text-muted-foreground">
-          {ctx?.sellEnabled
-            ? 'Mua token từ người bán hoặc bán lại cho người bán, theo giá phát hành do ngân hàng cấu hình.'
-            : 'Mua token từ người bán theo giá phát hành do ngân hàng cấu hình.'}
-        </p>
       </header>
 
       {chain === 'mock' && (
@@ -303,16 +299,13 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
                   <Link prefetch={false} href="/portfolio" className="underline underline-offset-4">Xem thông báo ở Tổng quan</Link>
                 </div>
               )}
-              <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Token</span>
-                <select aria-label="Token" className={FIELD} defaultValue={ctx.token?.tokenSymbol ?? ''} disabled={ctx.tokens.length <= 1 || tradeBlocked}>
-                  {ctx.tokens.map((t) => (
-                    <option key={t.tokenSymbol} value={t.tokenSymbol}>
-                      {t.tokenSymbol}: {t.projectName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <TokenScopeSelect
+                id="token-scope"
+                ariaLabel="Token"
+                tokens={ctx.tokens}
+                value={ctx.token?.tokenSymbol}
+                disabled={tradeBlocked}
+              />
 
               {/* FIX-02 A4: chỉ một chiều (Nhà đầu tư chỉ mua) thì không dựng cụm nút; `side` giữ BUY. */}
               {tradeSides(ctx.sellEnabled).length > 1 && (

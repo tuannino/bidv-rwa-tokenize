@@ -34,10 +34,6 @@ export function WalletConnectPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Ví của tôi</h1>
-        <p className="text-sm text-muted-foreground">
-          Kết nối ví tự quản để xem vị thế WPT và xác nhận giao dịch. Ngân hàng không giữ khóa của
-          ví này.
-        </p>
       </header>
 
       {/*

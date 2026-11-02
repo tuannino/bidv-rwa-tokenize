@@ -86,10 +86,6 @@ export function WalletBindingPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Định danh ví</h1>
-        <p className="text-sm text-muted-foreground">
-          Ngân hàng định danh ví trên chuỗi và gắn ví cho hồ sơ khách hàng. Chỉ ví đã gắn mới xem được dữ liệu
-          tài khoản và đặt lệnh. Chain đang xem: <span className="font-mono">{chain}</span>.
-        </p>
       </header>
 
       <Card>

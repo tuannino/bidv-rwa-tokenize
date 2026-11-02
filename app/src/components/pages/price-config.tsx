@@ -23,6 +23,7 @@ import type {
 } from '@/lib/bank/config.service';
 import type { Result } from '@/lib/bank/result';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn "Giá và phát hành" (FE-07).
@@ -432,10 +433,9 @@ export function PriceConfigPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Giá và phát hành</h1>
-        <p className="text-sm text-muted-foreground">
-          Giá phát hành WPT áp dụng cho lệnh mua bán mới, và tình trạng phát hành của dự án trên chain đang chọn.
-        </p>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {!result && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">

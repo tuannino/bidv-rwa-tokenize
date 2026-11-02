@@ -11,6 +11,7 @@ import type { SellerOverviewView, SellerWithdrawPolicy } from '@/lib/bank/seller
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { ProjectStatus } from '@/lib/store/project.store.port';
 import { tradingStatusLabel } from '@/components/recall/gates';
+import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
  * Màn TỔNG QUAN NGƯỜI BÁN (FE-21 việc 1–7) — CHỈ ĐỌC.
@@ -123,14 +124,10 @@ export function SellerOverviewPage() {
   const wallet = data?.wallet;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-chain={chain}>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold text-foreground">Tổng quan</h1>
-          <p className="text-sm text-muted-foreground">
-            Tình hình bán token, nguồn cung và số dư ví của Người bán. Màn chỉ đọc. Chain đang xem:{' '}
-            <span className="font-mono">{chain}</span>.
-          </p>
         </div>
         <nav className="flex gap-2" aria-label="Lối tắt">
           <Link prefetch={false} href="/seller/transactions" className={buttonVariants({ variant: 'outline' })}>
@@ -141,6 +138,8 @@ export function SellerOverviewPage() {
           </Link>
         </nav>
       </header>
+
+      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {loading ? (
         <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">

@@ -124,9 +124,6 @@ export function SellerTransactionsPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-foreground">Danh sách giao dịch</h1>
-        <p className="text-sm text-muted-foreground">
-          Lệnh mua bán token của nhà đầu tư khớp với ví Người bán và lệnh rút VNDB của Người bán. Màn chỉ đọc.
-        </p>
       </header>
 
       <Card>
