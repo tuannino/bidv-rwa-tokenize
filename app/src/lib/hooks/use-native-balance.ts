@@ -36,6 +36,6 @@ export function useNativeBalance(address: `0x${string}` | undefined): NativeBala
      * Nói rõ là "chưa đọc được" chứ không hiện số 0: trên hardhat-local, node chưa chạy là
      * trường hợp thường gặp, và số 0 lúc đó là một khẳng định sai.
      */
-    error: error ? 'Chưa đọc được số dư — có thể node của mạng này chưa chạy.' : null,
+    error: error ? 'Chưa đọc được số dư, có thể node của mạng này chưa chạy.' : null,
   };
 }

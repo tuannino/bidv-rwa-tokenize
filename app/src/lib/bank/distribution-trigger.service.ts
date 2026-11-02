@@ -755,7 +755,7 @@ function alreadyRunning(
     ...base,
     outcome: 'ALREADY_RUNNING',
     message:
-      `Một vòng khác đã giữ chỗ chạy "${runKey}". Vòng này dừng ngay và KHÔNG chia gì — hai ` +
+      `Một vòng khác đã giữ chỗ chạy "${runKey}". Vòng này dừng ngay và KHÔNG chia gì; hai ` +
       `vòng cùng chia một kỳ sẽ gửi cùng một lô hai lần.`,
   };
 }

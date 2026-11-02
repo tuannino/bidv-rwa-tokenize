@@ -6,6 +6,7 @@ import { getBankSigner } from '@/lib/signer';
 import { assertCan, can, type Role } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
 import { serverEnv } from '@/lib/config/env';
+import { formatAmount } from '@/lib/format';
 import { getOrderStore, getStore, UniqueConstraintError } from '@/lib/store';
 import type { IOrderStore, ITxnStore, OrderRecord } from '@/lib/store';
 import type { OrderPermit } from '@/lib/store/order.store.port';
@@ -275,7 +276,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
         action: 'order:place',
         target: investorWallet,
         outcome: 'FAILURE',
-        detail: `từ chối đặt lệnh ${sidePrefix}${wptAmount} WPT trước khi tạo bản ghi — ${reason}`,
+        detail: `từ chối đặt lệnh ${sidePrefix}${wptAmount} WPT trước khi tạo bản ghi: ${reason}`,
         chain,
       });
       return err(code, reason);
@@ -372,7 +373,7 @@ export async function placeOrder(input: unknown): Promise<Result<OrderView>> {
       outcome: 'SUCCESS',
       detail:
         side === 'BUY'
-          ? `đặt lệnh ${order.id}: ${wptAmount} WPT, phải trả ${vndAmount} VNDB`
+          ? `đặt lệnh ${order.id}: ${formatAmount(wptAmount)} WPT, phải trả ${formatAmount(vndAmount)} VNDB`
           : `đặt lệnh bán ${order.id}: ${wptAmount} WPT, nhận ${vndAmount} VNDB`,
       chain,
     });
@@ -868,7 +869,7 @@ async function runOrderChecks(
       failed(
         'supply',
         'INSUFFICIENT_SUPPLY',
-        'Chưa phát hành nguồn cung ban đầu — không có WPT nào để bán.',
+        'Chưa phát hành nguồn cung ban đầu, không có WPT nào để bán.',
         'Bộ phận phát hành phải phát hành nguồn cung ban đầu vào ví thanh toán SPV trước ' +
           'khi mở bán. Đây là việc của ngân hàng, nhà đầu tư không tự xử lý được.',
       ),
@@ -958,7 +959,7 @@ async function runSaleBalanceChecks(
       failed(
         'sellerLiquidity',
         'INSUFFICIENT_SELLER_LIQUIDITY',
-        'Chưa phát hành nguồn cung ban đầu — chưa có ví thanh toán người bán để nhận lại WPT.',
+        'Chưa phát hành nguồn cung ban đầu, chưa có ví thanh toán người bán để nhận lại WPT.',
         'Đây là việc của ngân hàng: phát hành nguồn cung vào ví thanh toán SPV trước khi mở mua lại.',
       ),
     ];
@@ -1094,7 +1095,7 @@ async function auditExecution(
     action: path === 'AUTOMATIC' ? 'order:auto-execute' : 'order:intervene',
     target: order.investorWallet,
     outcome,
-    detail: `${path === 'AUTOMATIC' ? 'tự động' : 'can thiệp tay'} — lệnh ${order.id}: ${detail}`,
+    detail: `${path === 'AUTOMATIC' ? 'tự động' : 'can thiệp tay'}, lệnh ${order.id}: ${detail}`,
     chain: order.chain,
   });
 }
@@ -1231,7 +1232,7 @@ async function settleStoredOrder(
         to: 'REJECTED',
         reason: check.reason,
         code: check.code,
-        detail: `bị từ chối trước khi gửi tx — ${check.reason}`,
+        detail: `bị từ chối trước khi gửi tx: ${check.reason}`,
       },
     );
   }
@@ -1331,7 +1332,7 @@ async function reconcileExecutingOrder(
         reason,
         txHash,
         code: 'LEDGER',
-        detail: `đối soát tx ${txHash} ${receipt.status} — ${reason}`,
+        detail: `đối soát tx ${txHash} ${receipt.status}: ${reason}`,
         ...(receipt.status === 'FAILED' ? {} : { receiptUnknown: true as const }),
       },
     );
@@ -1407,7 +1408,7 @@ async function finalizeOrderFailure(
         executorRole,
         path,
         lookup.txHash,
-        `đối soát từ chuỗi sau lỗi cục bộ — ${failure.reason}`,
+        `đối soát từ chuỗi sau lỗi cục bộ: ${failure.reason}`,
       );
     }
     if (lookup.status === 'SETTLED_TX_UNKNOWN') {
@@ -1627,7 +1628,7 @@ async function sendAndSettle(
         to: 'FAILED',
         reason,
         code: 'LEDGER',
-        detail: `gửi giao dịch thất bại — ${reason}`,
+        detail: `gửi giao dịch thất bại: ${reason}`,
         originalError: error,
       },
     );
@@ -1696,7 +1697,7 @@ async function sendAndSettle(
         reason,
         txHash: receipt.txHash,
         code: 'LEDGER',
-        detail: `tx ${receipt.txHash} ${receipt.status} — ${reason}`,
+        detail: `tx ${receipt.txHash} ${receipt.status}: ${reason}`,
         ...(receipt.status === 'FAILED' ? {} : { receiptUnknown: true as const }),
       },
     );

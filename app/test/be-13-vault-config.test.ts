@@ -229,8 +229,8 @@ describe('BE-13 ca 3: thứ tự giao dịch theo bảng chuyển tiếp QĐ-C',
     );
     expect(audits.map((row) => row.detail)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('tỷ lệ khoá 0% -> 20%'),
-        expect.stringContaining('chế độ khoá UNSET -> PERCENT'),
+        expect.stringContaining('tỷ lệ khoá 0% thành 20%'),
+        expect.stringContaining('chế độ khoá UNSET thành PERCENT'),
       ]),
     );
   });

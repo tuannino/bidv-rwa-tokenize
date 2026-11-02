@@ -59,7 +59,7 @@ export class DemoTokenMintDisabledError extends ForbiddenError {
     super(role, 'demo:mint-token');
     this.name = 'DemoTokenMintDisabledError';
     this.message =
-      'Phát hành token trực tiếp đang tắt (ENABLE_DEMO_TOKEN_MINT=false) — chức năng chỉ dành cho ' +
+      'Phát hành token trực tiếp đang tắt (ENABLE_DEMO_TOKEN_MINT=false), chức năng chỉ dành cho ' +
       'dữ liệu thử. Tạo và huỷ token chính thức đi qua màn Lập lệnh và Kiểm soát viên duyệt.';
   }
 }

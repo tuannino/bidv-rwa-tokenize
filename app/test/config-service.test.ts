@@ -8,6 +8,7 @@ import {
 } from '@/lib/config/issue-terms';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
 import { resetServerEnvCache } from '@/lib/config/env';
+import { formatAmount } from '@/lib/format';
 import { resetMockLedger } from '@/lib/ledger/mock.adapter';
 import { getConfigStore, getStore, resetMemoryStore, resetStoreCache } from '@/lib/store';
 import { settlementOrder } from './helpers/settlement-order';
@@ -458,8 +459,8 @@ describe('đột biến 2 — hai lớp quyền, tắt lớp nào cũng bị ch�
     const success = audit.find(
       (entry) => entry.action === 'treasury:manage' && entry.outcome === 'SUCCESS',
     );
-    expect(success?.detail).toContain(NEAR_PRICE);
-    expect(success?.detail).toContain(String(WPT_ISSUE_PRICE_VND));
+    expect(success?.detail).toContain(formatAmount(NEAR_PRICE));
+    expect(success?.detail).toContain(formatAmount(WPT_ISSUE_PRICE_VND));
   });
 });
 

@@ -3,6 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { ChainKey, TxResult } from '@bidv/shared';
 import { issuePriceConfigKey } from '@/lib/config/issue-price-key';
+import { formatAmount } from '@/lib/format';
 import { getLedger, receiptTimeoutFor, type ILedgerPort } from '@/lib/ledger';
 import { assertCan, can } from '@/lib/rbac';
 import { assertCanConfigure, isConfigRole } from '@/lib/rbac/config-role';
@@ -58,7 +59,7 @@ import { chainSchema } from './schemas';
 const priceSchema = z
   .string()
   .trim()
-  .regex(/^\d+$/, 'Giá phải là số nguyên không dấu, đơn vị VND.')
+  .regex(/^\d+$/, 'Giá phải là số nguyên không dấu, đơn vị VNDB.')
   .transform((value) => BigInt(value))
   .refine((value) => value > 0n, 'Giá phải lớn hơn 0.');
 
@@ -227,8 +228,8 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
     // mới bị chặn, vì lúc đó giá trên chuỗi đã đổi.
     if (!confirmLargeChange && exceedsThreshold(previous, priceVnd, threshold)) {
       const message =
-        `Giá mới ${priceVnd} VND lệch quá ${threshold} lần so với giá đang có hiệu lực ` +
-        `${previous} VND. Kiểm lại số chữ số; nếu đúng ý thì gửi lại kèm xác nhận đổi giá lớn.`;
+        `Giá mới ${formatAmount(priceVnd)} VNDB lệch quá ${threshold} lần so với giá đang có hiệu lực ` +
+        `${formatAmount(previous)} VNDB. Kiểm lại số chữ số; nếu đúng ý thì gửi lại kèm xác nhận đổi giá lớn.`;
       // `fieldErrors.confirmLargeChange` là dấu hiệu có cấu trúc để màn mở hộp xác nhận thứ hai
       // (FE-07), không phải dò chữ trong câu báo.
       return err('VALIDATION', message, { confirmLargeChange: [message] });
@@ -247,8 +248,8 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
         target: configKey,
         outcome: 'FAILURE',
         detail: pending
-          ? `Đổi giá ${previous} -> ${priceVnd} VND: đã gửi, chưa có xác nhận; tx ${tx.txHash}`
-          : `Đổi giá ${previous} -> ${priceVnd} VND bị chuỗi từ chối; tx ${tx.txHash}` +
+          ? `Đổi giá ${formatAmount(previous)} thành ${formatAmount(priceVnd)} VNDB: đã gửi, chưa có xác nhận; tx ${tx.txHash}`
+          : `Đổi giá ${formatAmount(previous)} thành ${formatAmount(priceVnd)} VNDB bị chuỗi từ chối; tx ${tx.txHash}` +
             (receipt.reason ? `; ${receipt.reason}` : ''),
         chain,
       });
@@ -284,20 +285,20 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
        * người vận hành thấy cả hai, rồi vẫn trả lỗi. Đây là tình huống cần người can thiệp, nên
        * thông báo phải nói ra số cần đặt lại.
        */
-      let rollbackNote = `Đã hoàn nguyên giá trên ledger về ${previous} VND.`;
+      let rollbackNote = `Đã hoàn nguyên giá trên ledger về ${formatAmount(previous)} VNDB.`;
       try {
         // Hoàn nguyên cũng chờ biên nhận: "đã gửi" chưa phải "đã hoàn nguyên".
         const rollback = await settle(ledger, chain, await ledger.setPurchasePrice(previous));
         if (rollback.status !== 'CONFIRMED') {
           rollbackNote =
-            `⚠️ Giao dịch hoàn nguyên giá về ${previous} VND (tx ${rollback.txHash}) ` +
+            `⚠️ Giao dịch hoàn nguyên giá về ${formatAmount(previous)} VNDB (tx ${rollback.txHash}) ` +
             `${rollback.status === 'PENDING' ? 'chưa có xác nhận' : 'bị chuỗi từ chối'}: ledger có thể ` +
-            `đang là ${priceVnd} VND còn cơ sở dữ liệu vẫn là ${previous} VND. Kiểm lại và đặt lại thủ công.`;
+            `đang là ${formatAmount(priceVnd)} VNDB còn cơ sở dữ liệu vẫn là ${formatAmount(previous)} VNDB. Kiểm lại và đặt lại thủ công.`;
         }
       } catch (rollbackError) {
         rollbackNote =
-          `⚠️ KHÔNG hoàn nguyên được giá trên ledger: ledger đang là ${priceVnd} VND còn cơ sở ` +
-          `dữ liệu vẫn là ${previous} VND. Phải đặt lại thủ công. ` +
+          `⚠️ KHÔNG hoàn nguyên được giá trên ledger: ledger đang là ${formatAmount(priceVnd)} VNDB còn cơ sở ` +
+          `dữ liệu vẫn là ${formatAmount(previous)} VNDB. Phải đặt lại thủ công. ` +
           `Lý do hoàn nguyên thất bại: ${rollbackError instanceof Error ? rollbackError.message : 'không rõ'}`;
       }
 
@@ -322,7 +323,7 @@ export async function setIssuePrice(input: unknown): Promise<Result<SetIssuePric
       action: 'treasury:manage',
       target: configKey,
       outcome: 'SUCCESS',
-      detail: `Giá phát hành ${previous} -> ${priceVnd} VND; tx ${tx.txHash}; lý do: ${reason}`,
+      detail: `Giá phát hành ${formatAmount(previous)} thành ${formatAmount(priceVnd)} VNDB; tx ${tx.txHash}; lý do: ${reason}`,
       chain,
     });
 

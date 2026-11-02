@@ -31,7 +31,7 @@ export function normalizeEvmAddress(value: string): Hex {
   if (!isAddress(trimmed, { strict: true })) {
     throw new InvalidAddressError(
       value,
-      'Checksum EIP-55 không khớp — thường là gõ/copy sai một ký tự.',
+      'Checksum EIP-55 không khớp, thường là gõ/copy sai một ký tự.',
     );
   }
   return getAddress(trimmed);

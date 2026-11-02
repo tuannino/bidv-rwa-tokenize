@@ -22,8 +22,8 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 export type ProjectRegion = 'ONSHORE_HIGHLAND' | 'ONSHORE_COASTAL' | 'NEARSHORE';
 
 export const REGION_LABELS: Record<ProjectRegion, string> = {
-  ONSHORE_HIGHLAND: 'Trên bờ · Cao nguyên',
-  ONSHORE_COASTAL: 'Trên bờ · Ven biển',
+  ONSHORE_HIGHLAND: 'Trên bờ, Cao nguyên',
+  ONSHORE_COASTAL: 'Trên bờ, Ven biển',
   NEARSHORE: 'Gần bờ',
 };
 
@@ -162,7 +162,7 @@ export const MOCK_WIND_STATS = {
   /** Sản lượng luỹ kế toàn danh mục (MWh). */
   cumulativeGenerationMwh: 412_680,
   /** Lợi tức đã chia (tỷ VND). */
-  profitDistributedVndBn: 86.4,
+  profitDistributedVndBn: 5.8,
   /** Số kỳ đã chia lợi tức. */
   distributionPeriods: 6,
   /** Kỳ đối soát doanh thu điện chưa khớp. */

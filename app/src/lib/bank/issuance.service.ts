@@ -523,7 +523,7 @@ async function completeDirectIssuance(input: {
         outcome: 'FAILURE',
         detail:
           `Đã phát hành ${amount} ${tokenSymbol} on-chain (tx ${submission.txHash}) nhưng ` +
-          `KHÔNG ghi được mốc phát hành vào bảng dự án — dòng đã bị đổi bởi lời gọi khác.`,
+          `KHÔNG ghi được mốc phát hành vào bảng dự án; dòng đã bị đổi bởi lời gọi khác.`,
         chain,
       });
       return err(
