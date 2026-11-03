@@ -14,8 +14,8 @@ import "@rainbow-me/rainbowkit/styles.css";
 // Accent của modal ví: dùng màu thương hiệu từ lib/brand.ts.
 // RainbowKit nhận chuỗi màu cụ thể, không nhận `var(--primary)`: đây là ngoại lệ
 // đã ghi rõ trong lib/brand.ts, không phải chỗ được hardcode màu tuỳ ý.
-const DARK_WALLET_THEME  = darkTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
-const LIGHT_WALLET_THEME = lightTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
+const DARK_WALLET_THEME  = darkTheme({ accentColor: BRAND.walletAccentDark, accentColorForeground: BRAND.walletAccentForegroundDark, borderRadius: "medium" });
+const LIGHT_WALLET_THEME = lightTheme({ accentColor: BRAND.walletAccent, accentColorForeground: BRAND.walletAccentForeground, borderRadius: "medium" });
 
 /**
  * RainbowWithTheme: tách khỏi Providers để dùng useTheme().
