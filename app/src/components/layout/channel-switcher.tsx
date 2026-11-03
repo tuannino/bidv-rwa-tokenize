@@ -27,40 +27,61 @@ const LABELS: Record<Channel, string> = {
   controller: 'Kiểm soát viên',
 };
 
-export function ChannelSwitcher() {
+export function ChannelSwitcher({
+  collapsed = false,
+  onExpand,
+}: {
+  /** FE-UX-01b: thanh bên thu gọn thì chỉ còn nút biểu tượng; `select` vẫn trong DOM (`sr-only`). */
+  collapsed?: boolean;
+  onExpand?: () => void;
+}) {
   const config = usePublicConfig();
   const [pending, startTransition] = useTransition();
+  const current = `${LABELS[config.channel]}, ${SAMPLE_ACCOUNTS[config.channel]}`;
 
   return (
-    <div className="flex items-center gap-2">
-      <label
-        htmlFor="channel-switcher"
-        className="flex items-center gap-1.5 text-xs text-muted-foreground"
-        title="Chọn vai trò đang giả lập — chỉ dùng để demo, không phải xác thực thật"
-      >
-        <UserCog className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="sr-only sm:not-sr-only">Vai trò</span>
-      </label>
+    <div>
+      {collapsed && (
+        <button
+          type="button"
+          title={current}
+          aria-label={`Vai trò: ${current}. Mở rộng thanh bên để đổi`}
+          onClick={onExpand}
+          className="mx-auto flex size-10 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground hover:bg-muted"
+        >
+          <UserCog className="size-4" aria-hidden="true" />
+        </button>
+      )}
+      <div className={collapsed ? "sr-only" : "space-y-1"}>
+        <label
+          htmlFor="channel-switcher"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          title="Chọn vai trò đang giả lập — chỉ dùng để demo, không phải xác thực thật"
+        >
+          <UserCog className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Vai trò</span>
+        </label>
 
-      <select
-        id="channel-switcher"
-        value={config.channel}
-        disabled={pending}
-        onChange={(event) => {
-          const next = event.target.value as Channel;
-          // Điều hướng do `setChannel` làm bằng `redirect()` ở server — xem ghi chú trong
-          // `app/actions/session.ts`. Không `router.push` ở đây: component này bị unmount
-          // khi guard của khu vực cũ từ chối, và push trong transition đã unmount sẽ mất.
-          startTransition(() => setChannel(next));
-        }}
-        className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-      >
-        {CHANNELS.map((channel) => (
-          <option key={channel} value={channel}>
-            {LABELS[channel]} · {SAMPLE_ACCOUNTS[channel]}
-          </option>
-        ))}
-      </select>
+        <select
+          id="channel-switcher"
+          value={config.channel}
+          disabled={pending}
+          onChange={(event) => {
+            const next = event.target.value as Channel;
+            // Điều hướng do `setChannel` làm bằng `redirect()` ở server — xem ghi chú trong
+            // `app/actions/session.ts`. Không `router.push` ở đây: component này bị unmount
+            // khi guard của khu vực cũ từ chối, và push trong transition đã unmount sẽ mất.
+            startTransition(() => setChannel(next));
+          }}
+          className="h-9 w-full rounded-full border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        >
+          {CHANNELS.map((channel) => (
+            <option key={channel} value={channel}>
+              {LABELS[channel]} · {SAMPLE_ACCOUNTS[channel]}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

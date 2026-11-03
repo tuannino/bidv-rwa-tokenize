@@ -4,8 +4,9 @@ import { can } from "@/lib/rbac";
 import { canMintDemoPayment } from "@/lib/rbac/demo-payment";
 import { currentRole } from "@/lib/rbac/session";
 import { pendingWorkCounts } from "@/lib/nav/pending-work";
+import { BidvLogo } from "@/components/bidv-logo";
 import { Sidebar } from "./sidebar";
-import { Header } from "./header";
+import { Header, ShellMain } from "./header";
 import { NAV_BY_ROLE, withHiddenOps } from "./nav-config";
 import type { CustodyToggleState } from "./custody-toggle";
 
@@ -47,6 +48,8 @@ export async function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
     can(role, "custody:toggle") ? custodyToggleState() : null,
   ]);
 
+  // FE-UX-01b: thanh bên là thẻ nổi (ngăn kéo dưới 1100 px); cột bên phải là MỘT vùng cuộn chứa
+  // thanh đầu dính đỉnh rồi `main`. Logo dựng ở đây (server) rồi truyền xuống thanh bên.
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar
@@ -56,10 +59,14 @@ export async function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
         })}
         pendingWork={pendingWork}
         custody={custody}
+        logo={<BidvLogo variant="full" />}
+        logoMark={<BidvLogo variant="icon" />}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* `tabIndex={-1}`: khi ngăn kéo mở, mọi phần tử con có `inert` thì Chrome cho Tab vào chính vùng
+          cuộn này; bỏ nó khỏi thứ tự Tab để tiêu điểm không ra khỏi ngăn kéo. */}
+      <div tabIndex={-1} className="flex min-w-0 flex-1 flex-col overflow-y-auto outline-none">
         <Header breadcrumbs={breadcrumbs} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <ShellMain>{children}</ShellMain>
       </div>
     </div>
   );
