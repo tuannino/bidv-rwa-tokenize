@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rút VNDB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  .calc { display: flex; flex-direction: column; }
+  .calc .kpi.au { margin-top: auto; display: flex; flex-direction: column; min-height: 200px; }
+  .calc .kpi.au .val { margin-top: auto; font-size: 38px; white-space: nowrap; }
+  @media (max-width: 900px) { .calc .kpi.au { min-height: 0; } .calc .kpi.au .val { font-size: 28px; margin-top: 14px; } }
+  .calc .kv > div { align-items: center; }
+  .gas { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--muted); margin: 14px 0 18px; }
+  .gas svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+  .form-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fb { font-size: 13px; }
+  .busy { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .busy svg { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .from-row { display: flex; gap: 8px; align-items: center; }
+  .from-row .input-ic { flex: 1; min-width: 0; }
+  .from-row .badge { flex: none; gap: 4px; }
+  .from-row .badge svg { width: 12px; height: 12px; }
+  .from-row .badge::before { display: none; }
+  .tx-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+  .tx-link svg { width: 12px; height: 12px; }
+  .row-act { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-act.nw { flex-wrap: nowrap; }
+  .row-act p { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+  .why { max-width: 240px; font-size: 12px; color: var(--muted); }
+  .state-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  /* Hộp xác nhận mã một lần: c.css chưa có lớp hộp thoại, chép từ seller-withdraw.html. */
+  dialog.otp { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -30px rgba(0,0,0,.55); }
+  dialog.otp::backdrop { background: rgba(5, 21, 20, .55); backdrop-filter: blur(2px); }
+  dialog.otp h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  dialog.otp .d { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  dialog.otp .tgt { margin-top: 12px; font-size: 13px; overflow-wrap: anywhere; }
+  dialog.otp .code { margin-top: 14px; text-align: center; font-family: var(--mono); font-size: 22px; letter-spacing: .5em; padding-left: 24px; }
+  dialog.otp .foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  dialog.otp .x { position: absolute; top: 14px; right: 14px; }
+  @media (max-width: 700px) {
+    #req-box { margin: 0; padding: 0; overflow: visible; }
+    #req-box table, #req-box tbody { display: block; }
+    #req-box thead { display: none; }
+    #req-box .badge { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; }
+    #req-box tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 14px 16px; border-radius: var(--r-inner); background: var(--surface-2); }
+    #req-box tr + tr { margin-top: 10px; }
+    #req-box .tbl td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; white-space: normal; background: none !important; }
+    #req-box .tbl td::before { content: attr(data-l); display: block; font-family: var(--font); font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    #req-box td:empty { display: none; }
+    #req-box td:nth-child(7), #req-box td:nth-child(8) { grid-column: 1 / -1; }
+    #req-box .why { max-width: none; }
+  }
+</style>
+</head>
+<body data-page="withdraw" data-nav="withdraw.html" data-roles="investor" data-crumbs="Nhà đầu tư|Rút VNDB">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Rút VNDB</h1>
+      <p class="sub">Chuyển VNDB từ ví đã định danh của bạn sang một ví nhận đã whitelist. Ví của bạn ký giao dịch; xác nhận bằng mã một lần sáu chữ số.</p>
+    </div>
+  </div>
+
+  <div class="state-bar">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có dữ liệu</button>
+      <button type="button" role="tab" aria-selected="false" data-state="pending">Lệnh đang dở</button>
+      <button type="button" role="tab" aria-selected="false" data-state="empty">Chưa có lệnh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notbound">Ví chưa định danh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi</button>
+    </div>
+  </div>
+
+  <!-- Ví chưa được ngân hàng định danh cho hồ sơ (FIX-01, WalletNotBoundNotice): thay hai thẻ biểu mẫu -->
+  <div class="alert warn" role="alert" data-wallet-not-bound data-states="notbound" hidden>
+    <i data-icon="shieldx"></i>
+    <span><b>Ví chưa được định danh</b><br>Ví <span class="mono">0x7099…79C8</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác.</span>
+  </div>
+
+  <!-- Đang đọc số dư -->
+  <section class="card" aria-label="Đang đọc số dư" data-states="loading" hidden>
+    <p class="busy" style="padding:16px 0"><i data-icon="loader"></i>Đang đọc số dư…</p>
+  </section>
+
+  <!-- Lỗi khi đọc màn -->
+  <section class="card" aria-label="Lỗi đọc số dư" data-states="error" hidden>
+    <p class="neg" style="padding:16px 0;font-size:13px">Câu lỗi do máy chủ trả về khi đọc số dư và danh sách lệnh rút.</p>
+  </section>
+
+  <!-- Chưa kết nối ví (chain khác mock) -->
+  <section class="card" data-states="nowallet" hidden>
+    <div class="empty" style="padding:56px 16px">
+      <span class="ei"><i data-icon="wallet"></i></span>
+      <b>Chưa kết nối ví</b>
+      <p class="small" style="max-width:340px">Kết nối ví đã định danh để rút VNDB. <a class="idlink" data-go="wallet.html">Kết nối ví</a></p>
+    </div>
+  </section>
+
+  <!-- Thông tin lệnh rút -->
+  <section class="card span-7 stretch" aria-labelledby="f-h" data-states="data pending empty">
+    <div class="card-h"><div class="t"><i data-icon="send"></i><h2 id="f-h">Thông tin lệnh rút</h2></div></div>
+    <form class="form" id="wform" aria-label="Biểu mẫu rút VNDB">
+      <div class="field">
+        <label for="pw-amount">Số tiền rút (VNDB)</label>
+        <div class="input-suffix"><input class="input mono" id="pw-amount" inputmode="numeric" value="" autocomplete="off"><span>VNDB</span></div>
+        <p class="err" id="pw-exceed" role="alert" hidden></p>
+      </div>
+      <div class="field"><label for="pw-network">Mạng</label><div class="input-ic"><i data-icon="link"></i><input class="input" id="pw-network" readonly value="Mock (không cần chain)"></div></div>
+      <div class="field">
+        <label for="pw-from">Ví gửi</label>
+        <div class="from-row">
+          <div class="input-ic"><i data-icon="lock"></i><input class="input mono" id="pw-from" readonly value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" title="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"></div>
+          <span class="badge ok" data-wallet-bound="true"><i data-icon="badgecheck"></i>Đã định danh</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="pw-to">Ví nhận</label>
+        <input class="input mono" id="pw-to" placeholder="0x…" spellcheck="false" autocomplete="off" value="">
+        <p class="err" id="pw-to-err" role="alert" hidden></p>
+        <span class="hint">Ví nhận phải đã whitelist trên chuỗi và khác ví gửi.</span>
+      </div>
+      <div class="field"><label for="pw-purpose">Mục đích</label><input class="input" id="pw-purpose" value=""></div>
+      <div class="field"><label for="pw-note">Ghi chú</label><textarea class="textarea" id="pw-note" rows="2" style="min-height:72px"></textarea></div>
+      <div class="form-foot">
+        <button class="btn primary lg" type="submit" id="pw-submit" disabled><i data-icon="send"></i>Tạo lệnh rút</button>
+        <p class="busy" id="pw-busy" role="status" hidden><i data-icon="loader"></i><span></span></p>
+        <p class="fb break" id="pw-fb" aria-label="Kết quả rút VNDB" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- Hệ thống tính -->
+  <section class="card span-5 stretch calc" aria-labelledby="c-h" data-states="data pending empty">
+    <div class="card-h"><div class="t"><i data-icon="gauge"></i><h2 id="c-h">Hệ thống tính</h2></div></div>
+    <dl class="kv">
+      <div><dt><i data-icon="wallet" class="muted"></i>Số dư VNDB</dt><dd class="mono" id="c-bal" data-testid="payment-balance">1.893.000</dd></div>
+      <div><dt><i data-icon="minus" class="muted"></i>Số rút</dt><dd class="mono" id="c-amt">-</dd></div>
+    </dl>
+    <p class="gas" id="c-gas" hidden><i data-icon="flame"></i><span>Phí gas do ví của bạn trả bằng ETH của mạng.</span></p>
+    <div class="kpi au" aria-live="polite" style="margin-top:auto">
+      <div class="top"><span class="lbl">Số dư sau rút</span><span class="ic"><i data-icon="coins"></i></span></div>
+      <div class="val"><span id="c-after">-</span><small>VNDB</small></div>
+    </div>
+  </section>
+
+  <!-- Lệnh rút của tôi -->
+  <section class="card" aria-labelledby="r-h" data-states="data pending empty notbound loading error">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="r-h">Lệnh rút của tôi</h2></div></div>
+    <div class="tbl-wrap" id="req-box">
+      <table class="tbl" aria-label="Lệnh rút của tôi">
+        <thead><tr><th>Mã</th><th>Thời điểm</th><th class="n">Số tiền</th><th>Ví nhận</th><th>Trạng thái</th><th>Mã giao dịch</th><th>Lý do</th><th>Thao tác</th></tr></thead>
+        <tbody id="req-rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="req-none" hidden>
+      <span class="ei"><i data-icon="history"></i></span>
+      <span>Chưa có lệnh rút VNDB nào của ví này trên chain này.</span>
+    </div>
+  </section>
+</main>
+
+<dialog class="otp" id="otp" aria-labelledby="otp-h">
+  <button class="iconbtn x" type="button" id="otp-close" aria-label="Đóng"><i data-icon="x"></i></button>
+  <h2 id="otp-h">Xác nhận mã một lần</h2>
+  <p class="d">Nhập mã sáu chữ số để rút <b id="otp-amt"></b> VNDB tới ví nhận. Bản thử: chưa gửi mã thật, hệ thống chỉ kiểm đúng sáu chữ số.</p>
+  <p class="tgt" data-testid="otp-payment-target">Ví nhận: <span class="mono" id="otp-to"></span> (đã whitelist)</p>
+  <p class="small muted" id="otp-sign" style="margin-top:6px" hidden>Sau khi xác nhận, ví của bạn sẽ hỏi ký giao dịch.</p>
+  <input class="input code" id="otp-in" aria-label="Mã một lần" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+  <p class="err" id="otp-err" role="alert" style="margin-top:8px" hidden>Mã một lần phải đúng sáu chữ số.</p>
+  <p class="err" id="otp-srv" role="alert" style="margin-top:8px" hidden></p>
+  <div class="foot"><button class="btn primary" type="button" id="otp-ok" disabled><span class="busy" id="otp-spin" hidden style="color:inherit"><i data-icon="loader"></i></span>Xác nhận</button></div>
+</dialog>
+
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const FROM = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  // Ví đã whitelist trên chuỗi trong bản thử: ví mẫu NB001 (packages/shared/src/sample-wallets.json).
+  const WHITELIST = ['0x15d34aaf54267db7d7c367839aaf71a00a2c6a65'];
+  // Địa chỉ hệ thống mẫu (vault thanh toán của chain), không nhận tiền rút.
+  const SYSTEM = ['0x5fbdb2315678afecb367f032d93f642f64180aa3'];
+  const LABELS = { CREATED: 'Chờ gửi', SENDING: 'Chờ ký trong ví', SUBMITTED: 'Đã gửi, chờ xác nhận', COMPLETED: 'Hoàn tất', FAILED: 'Thất bại', CANCELLED: 'Đã huỷ', EXPIRED: 'Hết hạn' };
+  const TONE = { CREATED: 'info', SENDING: 'info', SUBMITTED: 'info', COMPLETED: 'ok', FAILED: 'bad', CANCELLED: '', EXPIRED: 'warn' };
+  const NB = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+  const DATA = {
+    data: [
+      { id: 'a41e7c0b-93d2-4f1a-b6e8-0c57d2a9f314', at: '14:20:05 31/10/2026', amount: '200000', to: NB, status: 'COMPLETED', tx: '0x8c2e51f0a7d94b36e1c08f5a2d7b9e4c3f610a8d5b2e97c4f1a03d6e8b5c9d47', reason: null },
+      { id: '7d03b9e4-15c8-4a7e-9f20-b4d61e3a8c05', at: '09:41:18 30/10/2026', amount: '100000', to: NB, status: 'CANCELLED', tx: null, reason: 'Đã huỷ' },
+      { id: '52f8a1c6-0e3b-4d97-8a14-6c2f9b7e0d31', at: '16:05:52 29/10/2026', amount: '1', to: NB, status: 'COMPLETED', tx: '0x3f7a92c4e8b1d05a6c39f2e7b4d81a0c5e962f3b7d14a8c0e5b29f6d3a71c8e0', reason: null },
+    ],
+    pending: [
+      { id: 'e1b7f3a2-6c04-4d58-9b1e-2a8f05c7d963', at: '08:52:10 01/11/2026', amount: '300000', to: NB, status: 'CREATED', tx: null, reason: null },
+      { id: 'c9d24e81-7a3f-4b60-8e15-f03b6a2c9d47', at: '15:12:44 31/10/2026', amount: '150000', to: NB, status: 'CANCELLED', tx: null, reason: 'Trình duyệt báo người dùng từ chối ký' },
+      { id: '4b8a0f6d-2e91-4c37-a5d8-9e1c7b3f0a26', at: '10:03:27 31/10/2026', amount: '50000', to: NB, status: 'EXPIRED', tx: null, reason: 'Quá 30 phút từ lúc gửi tới ví, không thấy giao dịch của lệnh trên chuỗi.' },
+      { id: 'a41e7c0b-93d2-4f1a-b6e8-0c57d2a9f314', at: '14:20:05 30/10/2026', amount: '200000', to: NB, status: 'COMPLETED', tx: '0x8c2e51f0a7d94b36e1c08f5a2d7b9e4c3f610a8d5b2e97c4f1a03d6e8b5c9d47', reason: null },
+    ],
+  };
+  let state = 'data', rows = [], balance = 1893000n, busy = null;
+  const nf = (v) => { if (v === null || v === undefined || v === '') return '-'; try { return BigInt(v).toLocaleString('vi-VN'); } catch { return String(v); } };
+  const short = (v) => `${v.slice(0, 10)}…${v.slice(-6)}`;
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  const onMock = () => chainNow() === 'mock';
+  const digits = (t) => { const d = t.replace(/\D/g, ''); if (d === '') return ''; const r = d.replace(/^0+/, ''); return r === '' ? '0' : r; };
+  const rawAmount = () => digits($('pw-amount').value);
+
+  function txCell(r) {
+    if (!r.tx) return '';
+    if (chainNow() === 'evm') return `<a class="tx-link" href="#" title="${r.tx}">${short(r.tx)}${UI.icon('external')}</a>`;
+    return `<span title="${r.tx}">${short(r.tx)}</span>`;
+  }
+  function actCell(r) {
+    const dis = busy ? ' disabled' : '';
+    if (r.status === 'CREATED') return `<div class="row-act nw"><button type="button" class="btn primary sm" data-act="send" data-id="${r.id}"${dis}>Gửi từ ví</button><button type="button" class="btn outline sm" data-act="cancel" data-id="${r.id}"${dis}>Huỷ</button></div>`;
+    if (r.status === 'SENDING') return `<div class="row-act"><p>Đang chờ ví ký hoặc kết quả trên chuỗi</p><button type="button" class="btn outline sm" data-act="cancel" data-id="${r.id}"${dis}>Huỷ</button></div>`;
+    return '';
+  }
+  function renderRows() {
+    $('req-rows').innerHTML = rows.map((r) => `<tr data-status="${r.status}">
+      <td data-l="Mã" class="mono small" title="${r.id}">${r.id.slice(0, 8)}</td>
+      <td data-l="Thời điểm" class="small nowrap">${r.at}</td>
+      <td data-l="Số tiền" class="n mono nowrap">${nf(r.amount)}</td>
+      <td data-l="Ví nhận" class="mono small nowrap" title="${r.to}">${short(r.to)}</td>
+      <td data-l="Trạng thái"><span class="badge ${TONE[r.status]}">${LABELS[r.status]}</span></td>
+      <td data-l="Mã giao dịch" class="mono small nowrap">${txCell(r)}</td>
+      <td data-l="Lý do">${r.reason ? `<span class="why">${esc(r.reason)}</span>` : ''}</td>
+      <td data-l="Thao tác">${actCell(r)}</td></tr>`).join('');
+    $('req-box').hidden = rows.length === 0; $('req-none').hidden = rows.length > 0;
+  }
+  function sync() {
+    const raw = rawAmount();
+    $('pw-amount').value = raw === '' ? '' : nf(raw);
+    const amount = /^\d+$/.test(raw) ? BigInt(raw) : null;
+    const exceeds = amount !== null && amount > balance;
+    const after = amount !== null && !exceeds ? balance - amount : null;
+    $('pw-exceed').hidden = !exceeds; $('pw-exceed').textContent = `Vượt số dư: chỉ rút được tối đa ${nf(balance)} VNDB.`;
+    $('c-bal').textContent = nf(balance);
+    $('c-amt').textContent = amount !== null ? nf(amount) : '-';
+    $('c-after').textContent = nf(after);
+    $('pw-submit').disabled = !(amount !== null && amount > 0n && !exceeds && $('pw-to').value.trim() !== '' && $('pw-purpose').value.trim() !== '' && busy === null);
+  }
+  function setBusy(t) { busy = t; $('pw-busy').hidden = !t; $('pw-busy').querySelector('span').textContent = t || ''; renderRows(); sync(); }
+  function feedback(tone, msg) { const f = $('pw-fb'); f.hidden = !msg; f.textContent = msg || ''; f.setAttribute('role', tone === 'error' ? 'alert' : 'status'); f.className = `fb break${tone === 'error' ? ' neg' : ''}`; }
+  function settled(r) {
+    if (r.status === 'COMPLETED') return ['ok', `Đã rút ${nf(r.amount)} VNDB tới ví ${r.to}.`];
+    if (r.status === 'SUBMITTED') return ['ok', 'Đã gửi, chờ xác nhận trên chuỗi; mở lại màn sau ít phút.'];
+    if (r.status === 'CANCELLED') return ['error', `Lệnh rút đã huỷ${r.reason ? `: ${r.reason}` : '.'}`];
+    return ['error', `Lệnh rút đang ở trạng thái: ${LABELS[r.status]}.`];
+  }
+  const uuid = () => [8, 4, 4, 4, 12].map((n) => hex(n).slice(2)).join('-');
+  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+  const hex = (n) => '0x' + Array.from({ length: n }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+
+  // Gửi từ ví: mock thì máy chủ chuyển thay, về Hoàn tất ngay; chain khác thì ví ký rồi báo mã.
+  async function sendFromWallet(r) {
+    if (onMock()) { r.status = 'COMPLETED'; r.tx = hex(64); balance -= BigInt(r.amount); return settled(r); }
+    r.status = 'SENDING'; setBusy('Đang chờ ký trong ví…'); await wait(900);
+    setBusy('Đang báo mã giao dịch…'); await wait(600);
+    r.status = 'SUBMITTED'; r.tx = hex(64); return settled(r);
+  }
+
+  // Ô số tiền: hiện dấu chấm hàng nghìn ngay khi gõ (AmountInput, UIUX-01).
+  ['pw-amount', 'pw-to', 'pw-purpose'].forEach((id) => $(id).addEventListener('input', () => { if (id === 'pw-to') $('pw-to-err').hidden = true; sync(); }));
+
+  function syncChain() {
+    const sel = $('chain');
+    if (sel) $('pw-network').value = sel.options[sel.selectedIndex].text;
+    $('c-gas').hidden = onMock(); $('otp-sign').hidden = onMock();
+    renderRows();
+  }
+  $('chain')?.addEventListener('change', syncChain);
+
+  // Kiểm ví nhận trước khi mở hộp mã một lần (A7).
+  function targetError(to) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(to)) return 'Ví nhận không phải địa chỉ hợp lệ (0x + 40 ký tự hex).';
+    const t = to.toLowerCase();
+    if (/^0x0{40}$/.test(t)) return 'Ví nhận không được là địa chỉ 0.';
+    if (t === FROM.toLowerCase()) return 'Ví nhận phải khác ví gửi.';
+    if (SYSTEM.includes(t)) return 'Ví nhận là địa chỉ hệ thống (hợp đồng, vault, quỹ chia lợi nhuận hoặc ví SPV), không nhận tiền rút.';
+    if (!WHITELIST.includes(t)) return 'Ví nhận chưa whitelist trên chuỗi.';
+    return null;
+  }
+  const dlg = $('otp');
+  $('wform').addEventListener('submit', async (e) => {
+    e.preventDefault(); if ($('pw-submit').disabled) return;
+    feedback(null, null);
+    const to = $('pw-to').value.trim(), bad = targetError(to);
+    if (bad) { $('pw-to-err').textContent = bad; $('pw-to-err').hidden = false; return; }
+    $('otp-amt').textContent = nf(rawAmount()); $('otp-to').textContent = to;
+    $('otp-in').value = ''; $('otp-err').hidden = true; $('otp-srv').hidden = true; $('otp-ok').disabled = true;
+    dlg.showModal(); $('otp-in').focus();
+  });
+  $('otp-close').addEventListener('click', () => dlg.close());
+  $('otp-in').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    const okCode = /^\d{6}$/.test(e.target.value);
+    $('otp-err').hidden = okCode || e.target.value.length === 0; $('otp-ok').disabled = !okCode;
+  });
+  // Một lần bấm "Xác nhận": hộp giữ mở trong lúc máy chủ tạo lệnh (A1). Lỗi của ô mã (fieldErrors.otp)
+  // hiện ngay trong hộp, hộp vẫn mở; lỗi khác đóng hộp, hiện dưới biểu mẫu, biểu mẫu giữ nguyên.
+  $('otp-ok').addEventListener('click', async () => {
+    $('otp-ok').disabled = true; $('otp-spin').hidden = false; $('otp-srv').hidden = true;
+    setBusy('Đang tạo lệnh…'); await wait(500);
+    $('otp-spin').hidden = true; $('otp-in').value = '';
+    if (rows.some((r) => ['CREATED', 'SENDING', 'SUBMITTED'].includes(r.status))) {
+      dlg.close(); setBusy(null); feedback('error', 'Ví đang có lệnh rút chưa xong; chờ hoặc huỷ lệnh đó.'); return;
+    }
+    dlg.close();
+    const now = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const r = { id: uuid(), at: `${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())} 01/11/2026`, amount: rawAmount(), to: $('otp-to').textContent, status: 'CREATED', tx: null, reason: null };
+    rows.unshift(r);
+    $('pw-amount').value = ''; $('pw-to').value = ''; $('pw-purpose').value = ''; $('pw-note').value = '';
+    const [tone, msg] = await sendFromWallet(r);
+    setBusy(null); feedback(tone, msg);
+  });
+  $('req-rows').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-act]'); if (!b || busy) return;
+    const r = rows.find((x) => x.id === b.dataset.id); if (!r) return;
+    feedback(null, null);
+    if (b.dataset.act === 'send') { setBusy('Đang gửi tới ví…'); const [tone, msg] = await sendFromWallet(r); setBusy(null); feedback(tone, msg); return; }
+    setBusy('Đang huỷ…'); await wait(400);
+    r.status = 'CANCELLED'; r.reason = 'Đã huỷ'; setBusy(null);
+    const [tone, msg] = settled(r); feedback(tone, msg);
+  });
+
+  function show(st) {
+    state = st;
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.state === st)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+    rows = (DATA[st] || []).map((r) => ({ ...r }));
+    balance = 1893000n; busy = null; $('pw-busy').hidden = true; feedback(null, null);
+    renderRows(); sync();
+  }
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => show(b.dataset.state)));
+  const st = new URLSearchParams(location.search).get('st');
+  const tab = st && document.querySelector(`[data-states-tabs] button[data-state="${st}"]`);
+  if (tab) tab.click(); else show('data');
+  syncChain(); sync();
+})();
+</script>
+</body>
+</html>

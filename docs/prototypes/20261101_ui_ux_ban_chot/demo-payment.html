@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nạp VNDB mô phỏng</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  /* Biểu tượng đang gửi quay tại chỗ như Loader2 animate-spin của màn thật. */
+  .spin svg { animation: spin 1s linear infinite; }
+</style>
+</head>
+<body data-page="demo-payment" data-nav="demo-payment.html" data-roles="teller" data-crumbs="Vận hành|Nạp VNDB">
+<main class="content">
+  <div class="pagehead">
+    <div data-states="data empty loading loaderr minterr">
+      <h1>Nạp VNDB mô phỏng</h1>
+    </div>
+    <div class="actions" style="align-items:center">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="data">Có lịch sử</button>
+        <button type="button" role="tab" aria-selected="false" data-state="empty">Chưa có lần nạp</button>
+        <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+        <button type="button" role="tab" aria-selected="false" data-state="loaderr">Đọc dữ liệu lỗi</button>
+        <button type="button" role="tab" aria-selected="false" data-state="minterr">Nạp lỗi</button>
+        <button type="button" role="tab" aria-selected="false" data-state="blocked">Cờ tắt hoặc vai khác</button>
+      </div>
+    </div>
+  </div>
+  <div class="alert bad" role="note" data-states="data empty loading loaderr minterr"><i data-icon="alert"></i>
+    <ul style="margin:0;padding-left:18px;list-style:disc;display:grid;gap:4px">
+      <li><b>VNDB (giả lập theo yêu cầu của nghiệp vụ):</b> Là đồng Stablecoin do bên thứ ba phát hành dùng để thanh toán mua bán WPT Token</li>
+      <li><b>Chức năng chỉ dùng cho bản PoC:</b> tạo VNDB không có tiền gửi thật đứng sau. Sẽ tắt khi lên môi trường thật</li>
+    </ul>
+  </div>
+
+  <section class="card span-8" id="form-card" aria-labelledby="f-h" data-states="data empty loading loaderr minterr">
+    <div class="card-h"><div class="t"><i data-icon="coins"></i><h2 id="f-h">Nạp vào ví</h2></div></div>
+    <form class="form" id="f">
+      <div class="field">
+        <label for="demo-payment-wallet">Ví đích</label>
+        <div class="input-ic"><i data-icon="wallet"></i><input class="input mono" id="demo-payment-wallet" list="demo-payment-wallets" value="" placeholder="0x… ví nhà đầu tư đã KYC, hoặc ví người bán" spellcheck="false"></div>
+        <datalist id="demo-payment-wallets"></datalist>
+        <span class="hint">Chỉ nạp được cho ví có trong danh sách nhà đầu tư (đã KYC/whitelist) hoặc ví người bán<span id="spv-btn"> <button type="button" class="btn ghost sm mono" style="height:auto;padding:0 2px" data-wallet="0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2">0xE1237075…1Cc2</button></span>.</span>
+      </div>
+
+      <div class="field">
+        <label for="demo-payment-amount">Số VNDB</label>
+        <input class="input mono" id="demo-payment-amount" value="" inputmode="numeric">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px" class="small muted">
+          <span>Gợi ý nhanh:</span>
+          <span id="quick" style="display:contents">
+            <button class="btn outline sm" type="button" data-amount="500000000">Nhà đầu tư mẫu: 500.000.000</button>
+            <button class="btn outline sm" type="button" data-amount="1000000000">Ví người bán: 1.000.000.000</button>
+          </span>
+        </div>
+      </div>
+
+      <div><button class="btn primary lg" type="button" id="send"><span id="send-ic" style="display:inline-flex"><i data-icon="coins"></i></span>Nạp VNDB</button></div>
+
+      <div class="alert ok" role="status" id="fb-ok" hidden><i data-icon="check"></i><span></span></div>
+      <div class="alert bad" role="status" id="fb-err" hidden><i data-icon="x"></i><span></span></div>
+    </form>
+  </section>
+
+  <!-- Ô trần một lần nạp: chỉ có khi đã đọc được context (màn thật: `context && "Tối đa một lần: …"`). -->
+  <section class="kpi au limit span-4 stretch" id="max-tile" aria-label="Tối đa một lần" data-states="data empty minterr">
+    <div class="top"><span class="lbl">Tối đa một lần</span><span class="ic"><i data-icon="shield"></i></span></div>
+    <div class="mid">
+      <div class="coins-inline" data-coins="6"></div>
+      <div class="val"><span data-count="1000000000">1.000.000.000</span></div>
+      <div class="sub">VNDB</div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-h" data-states="data empty loading loaderr minterr">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="h-h">Lịch sử các lần nạp (<span data-chain-label>mock</span>)</h2></div></div>
+    <div class="tbl-wrap" data-states="data minterr">
+      <table class="tbl">
+        <thead><tr><th>Thời điểm</th><th>Ví đích</th><th class="n">Số VNDB</th><th>Trạng thái</th><th>Vai trò</th></tr></thead>
+        <tbody id="hist"></tbody>
+      </table>
+    </div>
+    <div class="empty" data-states="empty loading loaderr" hidden><span class="ei"><i data-icon="history"></i></span><span>Chưa có lần nạp nào trên chuỗi này.</span></div>
+  </section>
+
+  <!-- Màn chặn ở page.tsx: canMintDemoPayment(role) sai (cờ tắt hoặc vai không phải Giao dịch viên) -->
+  <section class="card" aria-label="Chức năng nạp VNDB mô phỏng không khả dụng" data-states="blocked" hidden>
+    <div class="empty" style="padding:48px 16px;background:var(--bad-bg)">
+      <span class="ei" style="color:var(--bad)"><i data-icon="shieldx"></i></span>
+      <b style="font-size:18px">Chức năng nạp VNDB mô phỏng không khả dụng</b>
+      <span>Chỉ mở khi máy chủ bật cờ ENABLE_DEMO_PAYMENT_MINT và vai hiện tại là Giao dịch viên. Vai hiện tại: <span class="mono" style="color:var(--ink)">TELLER</span>.</span>
+    </div>
+  </section>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+// Dữ liệu mẫu demoPaymentContext trên mock: ví người bán là ví SPV, trên mock là địa chỉ vault logic MOCK_VAULT_ADDRESS.
+// Nút Nạp mô phỏng các nhánh của mintDemoPayment: vượt trần, ví chưa whitelist, thành công; trong lúc gửi nút khoá và biểu tượng quay.
+// Câu thành công của dev nối bằng dấu chấm giữa; bản xem thử đổi thành dấu phẩy (quy tắc ký tự).
+(() => {
+  const SPV = '0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2', MAX = 1000000000;
+  const NDT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const HIST = [
+    ['08:30:12 23/10/2026', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', 200000000, 'CONFIRMED'],
+    ['16:02:45 21/10/2026', SPV, 1000000000, 'CONFIRMED'],
+    ['10:11:03 15/10/2026', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', 50000000, 'FAILED'],
+    ['14:20:00 02/10/2026', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', 30000000, 'CONFIRMED'],
+    ['09:05:40 17/03/2026', NDT, 16500000, 'CONFIRMED'],
+    ['09:30:00 02/03/2026', SPV, 1000000000, 'CONFIRMED'],
+  ];
+  // Ví đã whitelist trên mock: ví mẫu NDT001 và các ví nhà đầu tư đã được nạp thành công.
+  const WL = new Set([NDT, '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65'].map((w) => w.toLowerCase()));
+  const BAL = { [NDT.toLowerCase()]: 1893000 };
+  const short = (w) => `${w.slice(0, 10)}…${w.slice(-4)}`;
+  const $ = (id) => document.getElementById(id);
+  const w = $('demo-payment-wallet'), a = $('demo-payment-amount'), send = $('send'), ok = $('fb-ok'), bad = $('fb-err');
+  let state = 'data', pending = false;
+
+  const drawHist = () => {
+    $('hist').innerHTML = HIST.map(([t, to, amt, st]) => `<tr><td class="nowrap muted small">${t}</td><td class="mono nowrap" title="${to}">${short(to)}</td><td class="n mono">${UI.nf(amt)}</td><td><span class="badge ${st === 'CONFIRMED' ? 'ok' : st === 'FAILED' ? 'bad' : ''}">${st}</span></td><td class="small">TELLER</td></tr>`).join('');
+    const known = [...new Set([SPV, ...HIST.map((h) => h[1])])];
+    $('demo-payment-wallets').innerHTML = state === 'data' || state === 'minterr' || state === 'empty'
+      ? (state === 'empty' ? [SPV] : known).map((x) => `<option value="${x}">${x === SPV ? 'Ví người bán' : 'Đã nạp trước đó'}</option>`).join('') : '';
+  };
+  const sync = () => { send.disabled = pending || !w.value.trim() || !a.value.trim(); };
+  const show = (el, msg) => { ok.hidden = bad.hidden = true; if (!el) return; el.querySelector('span').textContent = msg; el.hidden = false; };
+  const setPending = (on) => { pending = on; $('send-ic').className = on ? 'spin' : ''; $('send-ic').innerHTML = UI.icon(on ? 'loader' : 'coins'); sync(); };
+
+  send.addEventListener('click', () => {
+    if (send.disabled) return;
+    show(null); setPending(true);
+    const to = w.value.trim(), amt = a.value.trim();
+    setTimeout(() => {
+      setPending(false);
+      if (!/^0x[0-9a-fA-F]{40}$/.test(to) || !/^\d+$/.test(amt) || BigInt(amt) <= 0n) return show(bad, 'Dữ liệu không hợp lệ.');
+      if (BigInt(amt) > BigInt(MAX)) return show(bad, `Số tiền vượt trần một lần nạp ${UI.nf(MAX)} VNDB (cấu hình).`);
+      const key = to.toLowerCase();
+      if (!WL.has(key) && key !== SPV.toLowerCase()) return show(bad, `Ví ${to} không có trong danh sách nhà đầu tư (chưa KYC/whitelist) và không phải ví người bán.`);
+      const after = (BAL[key] || 0) + Number(amt); BAL[key] = after;
+      show(ok, `Đã nạp ${UI.nf(amt)} VNDB vào ${short(to)}, số dư mới ${UI.nf(after)} VNDB, tx 0x5b2e8f41c0d7… (CONFIRMED)`);
+    }, 900);
+  });
+  document.querySelectorAll('[data-amount]').forEach((b) => b.addEventListener('click', () => { a.value = b.dataset.amount; sync(); }));
+  document.querySelectorAll('[data-wallet]').forEach((b) => b.addEventListener('click', () => { w.value = b.dataset.wallet; sync(); }));
+  w.addEventListener('input', sync); a.addEventListener('input', sync);
+
+  // Thanh trạng thái xem thử. Đang tải và đọc lỗi: chưa có context nên không có gợi ý nhanh, nút ví người bán, ô trần.
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+    state = b.dataset.state;
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(state); });
+    const ctx = state !== 'loading' && state !== 'loaderr';
+    $('quick').hidden = !ctx; $('spv-btn').hidden = !ctx;
+    $('form-card').classList.toggle('span-8', ctx);
+    drawHist();
+    show(null);
+    if (state === 'loaderr') show(bad, 'Lỗi không xác định.');
+    if (state === 'minterr') { w.value = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'; a.value = '500000000'; show(bad, 'Ví 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f không có trong danh sách nhà đầu tư (chưa KYC/whitelist) và không phải ví người bán.'); }
+    // Như dev (demo-payment.tsx:33-34): hai ô mở ra rỗng, nút Nạp VNDB khoá tới khi nhập đủ.
+    else { w.value = ''; a.value = ''; }
+    sync();
+  }));
+  drawHist(); sync();
+})();
+</script>
+</body>
+</html>

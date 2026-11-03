@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết token WPT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+[hidden] { display: none !important; }
+.kv dt { flex: 0 1 auto; min-width: 0; }
+.periods { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.periods > div { background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: 12px; }
+.periods dt { color: var(--muted); font-variant-numeric: tabular-nums; }
+.periods dd { font-weight: 500; font-variant-numeric: tabular-nums; }
+.state-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.busy { display: flex; align-items: center; gap: 8px; font-size: 14px; color: rgba(255,255,255,.8); }
+.busy svg { width: 16px; height: 16px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.op-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr); gap: 24px; }
+@media (max-width: 900px) { .periods { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .op-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-page="token-detail" data-nav="portfolio.html" data-roles="investor" data-crumbs="Nhà đầu tư|Tổng quan|WPT">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <a class="link-more link-back" data-go="portfolio.html" style="margin-bottom:8px"><i data-icon="left"></i>Tổng quan</a>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1 id="p-name">Điện gió An Viên</h1>
+        <span class="mono muted" style="font-size:15px" id="p-sym">WPT</span>
+        <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort" data-onchain>ON-CHAIN</span>
+        <span class="badge" data-offchain hidden>chưa triển khai trên chuỗi</span>
+      </div>
+      <p class="sub" id="p-sub">Gần bờ, An Viên, Đang phát điện</p>
+    </div>
+  </div>
+
+  <div class="state-bar">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notbound">Ví chưa định danh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="offchain">Dự án chưa lên chuỗi</button>
+    </div>
+  </div>
+
+  <!-- 4. Vị thế của bạn -->
+  <section class="card hero span-4 stretch" aria-labelledby="pos-h">
+    <div class="scene-wrap" data-scene="onDark" data-turbines="5" data-sun="no" data-sea="no"></div>
+    <div class="card-h">
+      <div class="t"><i data-icon="wallet"></i><h2 id="pos-h">Vị thế của bạn</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort" data-onchain>ON-CHAIN</span>
+    </div>
+    <div class="alert warn" role="alert" data-wallet-not-bound data-states="notbound" hidden style="position:relative">
+      <i data-icon="shieldx"></i>
+      <span><b>Ví chưa được định danh</b><br>Ví <span class="mono">0x7099…79C8</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác.</span>
+    </div>
+    <p class="muted" data-states="offchain" hidden style="position:relative;padding:24px 0;font-size:14px">Chưa có token trên chuỗi nên chưa có vị thế. Phần này sẽ có số liệu khi dự án được phát hành.</p>
+    <p class="muted" data-states="nowallet" hidden style="position:relative;padding:24px 0;font-size:14px">Kết nối ví ở góc trên phải để xem số lượng WPT bạn đang giữ.</p>
+    <p class="busy" data-states="loading" hidden style="position:relative;padding:24px 0"><i data-icon="loader"></i>Đang đọc số dư từ chuỗi…</p>
+    <div class="alert bad" role="alert" data-states="error" hidden style="position:relative"><i data-icon="alert"></i><span>Lỗi không xác định khi gọi chain.</span></div>
+    <div data-states="data" style="position:relative">
+    <div class="muted small">Đang giữ</div>
+    <div style="font-size:52px;line-height:1.05;font-weight:700;letter-spacing:-.02em;font-family:var(--font);font-variant-numeric:tabular-nums"><span data-count="150">150</span></div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.18);position:relative">
+      <div class="muted small">Giá trị theo giá phát hành</div>
+      <div style="font-size:22px;font-weight:700;font-family:var(--font);font-variant-numeric:tabular-nums">15.000.000 ₫</div>
+      <p class="muted small" style="margin-top:6px">Không phải giá thị trường, hệ thống chưa có thị trường thứ cấp.</p>
+    </div>
+    </div>
+  </section>
+
+  <!-- 1. Thông tin dự án -->
+  <section class="card span-4 stretch" aria-labelledby="prj-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="wind"></i><h2 id="prj-h">Thông tin dự án</h2></div>
+      <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span>
+    </div>
+    <dl class="kv">
+      <div><dt>Mã dự án</dt><dd class="mono" id="p-code">WIND-AVN-01</dd></div>
+      <div><dt>Công suất đặt</dt><dd id="p-mw">99,2 MW</dd></div>
+      <div><dt>Số tổ máy</dt><dd id="p-tb">62</dd></div>
+      <div><dt>Giá bán điện (PPA)</dt><dd id="p-ppa">1.927 ₫/kWh</dd></div>
+      <div><dt>Vận hành từ</dt><dd id="p-from">18/03/2025</dd></div>
+      <div><dt>Đơn vị vận hành</dt><dd class="mono small">operator.bidv.eth</dd></div>
+    </dl>
+  </section>
+
+  <!-- 3. Thông tin token -->
+  <section class="card span-4 stretch" aria-labelledby="tok-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="gauge"></i><h2 id="tok-h">Thông tin token</h2></div>
+      <span class="tag chain" title="Đọc trực tiếp từ chuỗi qua ILedgerPort" data-onchain>ON-CHAIN</span>
+      <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật" data-offchain hidden>DỮ LIỆU MẪU</span>
+    </div>
+    <dl class="kv">
+      <div><dt>Ký hiệu</dt><dd class="mono strong" id="t-sym">WPT</dd></div>
+      <div><dt>Tuổi thọ còn lại</dt><dd>15 năm</dd></div>
+      <div><dt>Lợi tức mục tiêu</dt><dd><span class="badge" style="background:var(--gold-tile);color:var(--gold-ink)">5,8%/năm</span></dd></div>
+      <div><dt>Phí giao dịch</dt><dd>Không tính</dd></div>
+      <div data-states="data"><dt>Tên token</dt><dd>Wind Power Token (mock)</dd></div>
+      <div data-states="data"><dt>Tổng cung</dt><dd class="mono">10.000.000</dd></div>
+      <div data-states="data"><dt>Giá phát hành</dt><dd class="mono">100.000 ₫</dd></div>
+      <div data-states="loading error notbound nowallet offchain" hidden><dt>WPT dự kiến phát hành</dt><dd class="mono" id="t-issued">185.000</dd></div>
+    </dl>
+    <p class="small muted" data-states="offchain" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">Dự án này chưa triển khai token trên chuỗi, nên tổng cung và số dư chưa có số liệu thật.</p>
+  </section>
+
+  <!-- 2. Tình hình vận hành -->
+  <section class="card span-12" aria-labelledby="op-h">
+    <div class="card-h">
+      <div class="t"><i data-icon="zap"></i><h2 id="op-h">Tình hình vận hành</h2></div>
+      <span class="tag sample" title="Số liệu minh hoạ, chưa nối nguồn thật">DỮ LIỆU MẪU</span>
+    </div>
+    <div class="op-grid">
+      <div style="display:grid;gap:12px;align-content:start">
+        <div class="kpi leaf" style="padding:16px">
+          <div class="top"><span class="lbl">Sản lượng luỹ kế</span><span class="ic"><i data-icon="zap"></i></span></div>
+          <div class="val" style="font-size:26px"><span data-count="214600" id="o-gen">214.600</span><small>MWh</small></div>
+        </div>
+        <div class="inner" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div><div class="small muted">Hệ số công suất</div><div style="font-size:22px;font-weight:700" id="o-cf">38,4%</div></div>
+          <div class="gauge" id="o-gauge" data-value="38.4" data-color="var(--p1)" data-label="hệ số"></div>
+        </div>
+      </div>
+      <div style="min-width:0">
+        <h3 class="small muted" style="font-weight: 500;margin-bottom:4px">Sản lượng theo kỳ</h3>
+        <div class="chart" id="gen" style="height:170px"></div>
+        <dl class="periods">
+          <div><dt>02/2026</dt><dd>24.180 MWh</dd></div>
+          <div><dt>03/2026</dt><dd>27.640 MWh</dd></div>
+          <div><dt>04/2026</dt><dd>31.900 MWh</dd></div>
+          <div><dt>05/2026</dt><dd>29.450 MWh</dd></div>
+          <div><dt>06/2026</dt><dd>34.720 MWh</dd></div>
+          <div><dt>07/2026</dt><dd>33.180 MWh</dd></div>
+        </dl>
+        <p class="small muted" style="margin-top:10px">Sản lượng thật sẽ do EnergyOracle cấp; số ở đây là minh hoạ.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script>
+// Chạy TRƯỚC ui.js để số đếm và vòng đo nhận đúng số của dự án đang xem. Đổi tab là mở lại trang với ?st=.
+(() => {
+  const PROJ = {
+    AVN: { name: 'Điện gió An Viên', sym: 'WPT', sub: 'Gần bờ, An Viên, Đang phát điện', code: 'WIND-AVN-01', mw: '99,2', tb: '62', ppa: '1.927', from: '18/03/2025', issued: '185.000', gen: 214600, cf: 38.4, onChain: true },
+    PQY: { name: 'Điện gió Phú Quý', sym: 'WPT-PQY', sub: 'Trên bờ, Ven biển, Phú Quý (Bình Thuận), Đang phát điện', code: 'WIND-PQY-02', mw: '30,0', tb: '12', ppa: '1.813', from: '02/11/2025', issued: '100.000', gen: 128450, cf: 33.1, onChain: false },
+    NTH: { name: 'Điện gió Ninh Thuận', sym: 'WPT-NTH', sub: 'Trên bờ, Ven biển, Ninh Thuận, Bảo trì', code: 'WIND-NTH-03', mw: '19,0', tb: '8', ppa: '1.813', from: '25/06/2026', issued: '50.000', gen: 69630, cf: 35.7, onChain: false },
+  };
+  const qs = new URLSearchParams(location.search);
+  let st = qs.get('st') || 'data';
+  const key = PROJ[qs.get('p')] ? qs.get('p') : st === 'offchain' ? 'PQY' : 'AVN';
+  const p = PROJ[key];
+  if (!p.onChain) st = 'offchain';
+  if (p.onChain && st === 'offchain') st = 'data';
+  const $ = (id) => document.getElementById(id);
+  const set = (id, v) => { $(id).textContent = v; };
+  set('p-name', p.name); set('p-sym', p.sym); set('p-sub', p.sub); set('p-code', p.code); set('p-mw', `${p.mw} MW`); set('p-tb', p.tb);
+  set('p-ppa', `${p.ppa} ₫/kWh`); set('p-from', p.from); set('t-sym', p.sym); set('t-issued', p.issued);
+  $('o-gen').dataset.count = p.gen; set('o-gen', p.gen.toLocaleString('vi-VN'));
+  set('o-cf', `${p.cf.toLocaleString('vi-VN')}%`); $('o-gauge').dataset.value = p.cf;
+  document.title = `Chi tiết token ${p.sym}`;
+  document.body.dataset.crumbs = `Nhà đầu tư|Tổng quan|${p.sym}`;
+  document.querySelectorAll('[data-onchain]').forEach((n) => { n.hidden = !p.onChain; });
+  document.querySelectorAll('[data-offchain]').forEach((n) => { n.hidden = p.onChain; });
+  document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => {
+    b.setAttribute('aria-selected', String(b.dataset.state === st));
+    b.addEventListener('click', () => {
+      const u = new URLSearchParams(location.search); u.set('st', b.dataset.state); u.delete('p');
+      location.search = u.toString();
+    });
+  });
+})();
+</script>
+<script src="assets/ui.js"></script>
+<script>
+const P = ['02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026'];
+UI.chart(document.getElementById('gen'), {
+  labels: P, legend: false,
+  left: { max: 40000, step: 10000, fmt: (v) => `${UI.nf(v)} MWh` },
+  tipTitle: (i) => `Kỳ ${P[i]}`,
+  series: [{ name: 'Sản lượng', type: 'bars', color: 'var(--c-gen)', values: [24180, 27640, 31900, 29450, 34720, 33180], fmt: (v) => `${UI.nf(v)} MWh` }],
+});
+</script>
+</body>
+</html>

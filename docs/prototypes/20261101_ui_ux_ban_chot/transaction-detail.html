@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết lệnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  .steps li.fail::before { content: "\2715"; background: var(--bad-bg); color: var(--bad-ink); }
+  .steps li.fail b { color: var(--bad); }
+  .timeline li.bad::before { background: var(--bad); }
+</style>
+</head>
+<body data-page="transaction-detail" data-nav="transactions.html" data-roles="teller,controller" data-crumbs="Vận hành|Giao dịch">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <a class="link-more link-back" data-go="transactions.html"><i data-icon="left"></i>Về danh sách giao dịch</a>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px" data-body>
+        <h1 id="title">Lệnh mua 9a1de644</h1>
+        <span class="badge" id="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span class="small muted">Trạng thái xem thử của màn</span>
+    <div class="tabs" id="state" role="tablist" aria-label="Trạng thái xem thử" style="margin:0">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có dữ liệu</button>
+      <button type="button" role="tab" aria-selected="false" data-state="noaudit">Chưa có nhật ký</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi tải</button>
+    </div>
+  </div>
+
+  <div class="empty" id="loading" hidden><span class="ei"><i data-icon="loader"></i></span><span>Đang tải lệnh…</span></div>
+  <div class="alert bad" id="load-error" role="alert" hidden><i data-icon="alert"></i><span id="load-error-t"></span></div>
+
+  <!-- Ba trường số của "Thông tin lệnh" đưa lên thành ô số liệu -->
+  <section class="kpi au span-4" aria-label="Giá trị" data-body>
+    <div class="top"><span class="lbl">Giá trị</span><span class="ic"><i data-icon="receipt"></i></span></div>
+    <div class="val"><span id="k-vnd"></span><small>VNDB</small></div>
+  </section>
+  <section class="kpi leaf span-4" aria-label="Số lượng" data-body>
+    <div class="top"><span class="lbl">Số lượng</span><span class="ic"><i data-icon="coins"></i></span></div>
+    <div class="val"><span id="k-wpt"></span><small>WPT</small></div>
+  </section>
+  <section class="kpi gold span-4" aria-label="Giá" data-body>
+    <div class="top"><span class="lbl">Giá</span><span class="ic"><i data-icon="trend"></i></span></div>
+    <div class="val"><span id="k-price"></span><small>VNDB</small></div>
+  </section>
+
+  <section class="card span-5 stretch" aria-labelledby="info-h" data-body>
+    <div class="card-h"><div class="t"><i data-icon="file"></i><h2 id="info-h">Thông tin lệnh</h2></div></div>
+    <dl class="kv" id="info"></dl>
+  </section>
+
+  <section class="card span-7 stretch" aria-labelledby="st-h" data-body>
+    <div class="card-h"><div class="t"><i data-icon="clock"></i><h2 id="st-h">Tiến trình quyết toán</h2></div></div>
+    <ol class="steps" aria-label="Tiến trình quyết toán" id="steps"></ol>
+    <div class="inner" style="margin-top:18px">
+      <p class="strong">Quyết toán là một bước duy nhất: bốn bút toán nằm trong cùng một giao dịch, cùng thành công hoặc cùng huỷ.</p>
+      <p class="muted small" style="margin-top:4px" id="outcome"></p>
+      <dl class="kv small" style="margin-top:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));column-gap:24px" id="entries"></dl>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="au-h" data-body>
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="au-h">Nhật ký kiểm toán của lệnh</h2></div></div>
+    <ol class="timeline" id="audit"></ol>
+    <div class="empty" id="audit-empty" hidden><span class="ei"><i data-icon="history"></i></span><span>Chưa có dòng nhật ký nào gắn với lệnh này.</span></div>
+  </section>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  // ===== Sổ lệnh mẫu (chung cho transactions.html và transaction-detail.html) =====
+  // Mã lệnh là UUID như dev; giá 100.000 VNDB mỗi WPT; thời điểm là giờ Việt Nam.
+  const WAL = {
+    a: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', b: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', c: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',
+    d: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', e: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', f: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f',
+  };
+  // [mã, ví, chiều, WPT, trạng thái, tạo lúc, cập nhật, có mã giao dịch, lý do]
+  const RAW = [
+    ['bdd640fb-0667-4ad1-9c80-317fa3b1799d', 'c', 'BUY', 70, 'PLACED', '2026-10-23 09:12:08', '2026-10-23 09:12:08', 0, null],
+    ['23b8c1e9-3924-46de-beb1-3b9046685257', 'c', 'BUY', 40, 'CHECKING', '2026-10-23 09:05:12', '2026-10-23 09:05:13', 0, null],
+    ['bd9c66b3-ad3c-4d6d-9a3d-1fa7bc8960a9', 'b', 'SELL', 25, 'EXECUTING', '2026-10-23 08:41:37', '2026-10-23 08:41:40', 1, null],
+    ['972a8469-1641-4f82-8b9d-2434e465e150', 'f', 'BUY', 35, 'EXECUTING', '2026-10-23 08:20:15', '2026-10-23 08:20:19', 1, null],
+    ['17fc695a-07a0-4a6e-8822-e8f36c031199', 'd', 'BUY', 60, 'EXECUTING', '2026-10-22 16:20:04', '2026-10-22 16:20:06', 0, null],
+    ['9a1de644-815e-46d1-bb8f-aa1837f8a88b', 'e', 'BUY', 120, 'COMPLETED', '2026-10-22 10:15:22', '2026-10-22 10:15:31', 1, null],
+    ['b74d0fb1-32e7-4629-8fad-c1a606cb0fb3', 'a', 'BUY', 500, 'REJECTED', '2026-10-21 14:02:45', '2026-10-21 14:02:46', 0, 'Số dư VNDB không đủ: cần 50000000, ví 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 chỉ có 1893000.'],
+    ['6b65a6a4-8b81-48f6-b38a-088ca65ed389', 'f', 'BUY', 80, 'COMPLETED', '2026-10-20 09:48:10', '2026-10-20 09:48:19', 1, null],
+    ['47378190-96da-4dac-b2ff-5d2a386ecbe0', 'c', 'SELL', 30, 'COMPLETED', '2026-10-17 15:33:51', '2026-10-17 15:34:00', 1, null],
+    ['c241330b-01a9-471f-9e8a-774bcf36d58b', 'b', 'BUY', 200, 'FAILED', '2026-10-15 11:07:26', '2026-10-15 11:07:35', 1, 'execution reverted: PriceMismatch'],
+    ['6c307511-b2b9-437a-a8df-6ec4ce4a2bbd', 'd', 'BUY', 50, 'EXPIRED', '2026-10-12 08:30:02', '2026-10-12 08:45:02', 0, null],
+    ['371ecd7b-27cd-4130-8722-9389571aa876', 'e', 'BUY', 100, 'COMPLETED', '2026-10-09 13:21:40', '2026-10-09 13:21:48', 1, null],
+    ['1a2a73ed-562b-4f79-8374-59eef50bea63', 'f', 'SELL', 10, 'COMPLETED', '2026-10-06 10:02:17', '2026-10-06 10:02:25', 1, null],
+    ['5be6128e-18c2-4797-a142-ea7d17be3111', 'a', 'BUY', 150, 'COMPLETED', '2026-10-02 09:40:11', '2026-10-02 09:40:19', 1, null],
+    ['43b7a3a6-9a8d-4a03-980d-7b71d8f56413', 'b', 'BUY', 300, 'COMPLETED', '2026-09-29 14:12:30', '2026-09-29 14:12:38', 1, null],
+    ['759cde66-bacf-43d0-8b1f-9163ce9ff57f', 'd', 'SELL', 20, 'COMPLETED', '2026-09-25 10:55:03', '2026-09-25 10:55:12', 1, null],
+    ['ec1b8ca1-f91e-4d4c-9ff4-9b7889463e85', 'e', 'BUY', 90, 'COMPLETED', '2026-09-22 08:47:51', '2026-09-22 08:47:59', 1, null],
+    ['4b0dbb41-8d52-48f1-942c-3fe860e7a113', 'c', 'BUY', 45, 'REJECTED', '2026-09-18 16:03:22', '2026-09-18 16:03:23', 0, 'Ví thanh toán SPV không đủ WPT: cần 45, chỉ còn 0.'],
+    ['e2acf72f-9e57-4f7a-a0ee-89aed453dd32', 'f', 'BUY', 110, 'COMPLETED', '2026-09-15 11:30:45', '2026-09-15 11:30:53', 1, null],
+    ['3139d32c-93cd-49bf-9c94-1cf0dc98d2c1', 'b', 'SELL', 50, 'COMPLETED', '2026-09-11 15:18:09', '2026-09-11 15:18:17', 1, null],
+    ['a9488d99-0bbb-4599-91ce-5dd2b45ed1f0', 'a', 'BUY', 200, 'COMPLETED', '2026-09-08 09:05:37', '2026-09-08 09:05:45', 1, null],
+    ['fc377a4c-4a15-444d-85e7-ce8a3a578a8e', 'd', 'BUY', 75, 'EXPIRED', '2026-09-04 13:44:20', '2026-09-04 13:59:20', 0, null],
+    ['ddd1dfb2-3b98-4ef8-9af6-1a26146d3f31', 'e', 'BUY', 250, 'COMPLETED', '2026-08-31 10:20:14', '2026-08-31 10:20:22', 1, null],
+    ['7412b293-4729-4739-a14f-f3d719db3ad0', 'c', 'BUY', 60, 'COMPLETED', '2026-08-27 14:36:58', '2026-08-27 14:37:06', 1, null],
+    ['29a3b2e9-5d65-4441-9588-42dea2bc372f', 'f', 'BUY', 130, 'COMPLETED', '2026-08-24 08:58:31', '2026-08-24 08:58:39', 1, null],
+    ['ab9099a4-35a2-40ae-9af3-05535ec42e08', 'b', 'BUY', 400, 'COMPLETED', '2026-08-20 11:11:42', '2026-08-20 11:11:50', 1, null],
+    ['aefcfad8-efc8-4849-b3aa-7efe4458a885', 'a', 'BUY', 100, 'COMPLETED', '2026-08-17 15:49:05', '2026-08-17 15:49:13', 1, null],
+    ['a28defe3-9bf0-4273-9247-6f57a5e5a5ab', 'd', 'BUY', 180, 'COMPLETED', '2026-08-13 09:27:16', '2026-08-13 09:27:24', 1, null],
+  ];
+  const PRICE = 100000;
+  const txOf = (id) => { let x = parseInt(id.slice(0, 8), 16) >>> 0; return '0x' + Array.from({ length: 64 }, () => { x = (x * 1664525 + 1013904223) >>> 0; return '0123456789abcdef'[x >>> 28]; }).join(''); };
+  const addSec = (t, s) => { const d = new Date(t.replace(' ', 'T') + 'Z'); d.setUTCSeconds(d.getUTCSeconds() + s); return d.toISOString().slice(0, 19).replace('T', ' '); };
+  const ORDERS = RAW.map(([id, w, side, wpt, status, createdAt, updatedAt, hasTx, reason]) => ({
+    id, investorWallet: WAL[w], side, wptAmount: String(wpt), vndAmount: String(wpt * PRICE), status, createdAt, updatedAt,
+    txHash: hasTx ? txOf(id) : null, reason,
+    checkingAt: addSec(createdAt, 1), reconciledAt: addSec(createdAt, 2), settlingAt: addSec(createdAt, 3), completedAt: status === 'COMPLETED' ? updatedAt : null,
+  }));
+  // Nhãn và năm bước quyết toán theo dev (gates.ts, settlement-steps.ts, ops-transactions.service.ts).
+  const SIDE_LABELS = { BUY: 'Mua', SELL: 'Bán' };
+  const ORDER_STATUS_LABELS = { PLACED: 'Đã đặt', CHECKING: 'Đang kiểm tra', EXECUTING: 'Đang quyết toán', COMPLETED: 'Hoàn tất', REJECTED: 'Bị từ chối', FAILED: 'Thất bại', EXPIRED: 'Hết hạn' };
+  const STEP_LABELS = ['Tạo lệnh', 'Kiểm tra', 'Đối chiếu số dư', 'Quyết toán', 'Hoàn tất'];
+  const PROGRESS = { PLACED: [1, 'pending'], CHECKING: [1, 'current'], EXECUTING: [3, 'current'], COMPLETED: [5, 'pending'], REJECTED: [1, 'failed'], EXPIRED: [1, 'failed'], FAILED: [3, 'failed'] };
+  const stepsOf = (o) => {
+    const [done, next] = PROGRESS[o.status], stamps = [o.createdAt, o.checkingAt, o.reconciledAt, o.settlingAt, o.completedAt];
+    return STEP_LABELS.map((label, i) => {
+      const state = i < done ? 'done' : i === done ? next : 'pending';
+      return { label, state, at: state === 'failed' ? o.updatedAt : state === 'pending' ? null : stamps[i] };
+    });
+  };
+  const currentStepOf = (o) => { const s = stepsOf(o); return s.find((x) => x.state === 'current' || x.state === 'failed') ?? [...s].reverse().find((x) => x.state === 'done') ?? s[0]; };
+  const interventionOf = (o) => o.status === 'CHECKING' ? 'CONTINUE' : o.status === 'EXECUTING' && o.txHash ? 'RECONCILE' : o.status === 'EXECUTING' ? 'MANUAL_RECONCILIATION' : null;
+  const fmtAmount = (v) => BigInt(v).toLocaleString('vi-VN');
+  // formatDateTime của dev: dd/mm/yyyy hh:mm:ss; thiếu mốc thì dev in gạch dài, bản xem thử in gạch ngắn.
+  const fmtDateTime = (t) => { if (!t) return '–'; const [d, h] = t.split(' '), [y, m, dd] = d.split('-'); return `${dd}/${m}/${y} ${h}`; };
+  const $ = (s) => document.querySelector(s);
+  const qid = new URLSearchParams(location.search).get('id') || '9a1de644-815e-46d1-bb8f-aa1837f8a88b';
+  const order = ORDERS.find((o) => o.id === qid) || null;
+  const STEP_STATE = { done: 'Xong', current: 'Đang xử lý', pending: 'Chưa tới', failed: 'Dừng ở bước này' };
+  const OUTCOME = { COMPLETED: 'cả bốn bút toán đã ghi.', REJECTED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.', EXPIRED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.', FAILED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.' };
+  const entriesOf = (o) => {
+    const pays = o.side === 'BUY' ? 'VNDB' : 'WPT', gets = o.side === 'BUY' ? 'WPT' : 'VNDB', amt = (a) => a === 'WPT' ? o.wptAmount : o.vndAmount;
+    return [['INVESTOR', pays, 'DEBIT'], ['SELLER', pays, 'CREDIT'], ['SELLER', gets, 'DEBIT'], ['INVESTOR', gets, 'CREDIT']].map(([account, asset, direction]) => ({ account, asset, direction, amount: amt(asset) }));
+  };
+  // Nhật ký theo câu của purchase.service.ts; gạch dài của máy chủ đổi thành dấu phẩy, số giữ thô như máy chủ ghi.
+  // Lệnh trước 01/10/2026 nằm ngoài 500 dòng nhật ký mới nhất (AUDIT_SCAN_LIMIT) nên hiện rỗng như dev.
+  const auditOf = (o) => {
+    if (o.createdAt < '2026-10-01') return [];
+    const pre = o.side === 'SELL' ? 'bán ' : '';
+    const list = [{ at: o.createdAt, action: 'order:place', actorRole: 'INVESTOR', outcome: 'SUCCESS',
+      detail: o.side === 'BUY' ? `đặt lệnh ${o.id}: ${o.wptAmount} WPT, phải trả ${o.vndAmount} VNDB` : `đặt lệnh bán ${o.id}: ${o.wptAmount} WPT, nhận ${o.vndAmount} VNDB` }];
+    const auto = (outcome, detail) => list.push({ at: o.updatedAt, action: 'order:auto-execute', actorRole: 'INVESTOR', outcome, detail: `tự động, lệnh ${o.id}: ${detail}` });
+    if (o.status === 'COMPLETED') auto('SUCCESS', `khớp ${pre}${o.wptAmount} WPT / ${o.vndAmount} VNDB; tx ${o.txHash} CONFIRMED`);
+    if (o.status === 'REJECTED') auto('FAILURE', `bị từ chối trước khi gửi tx, ${o.reason}`);
+    // purchase.service.ts:1699 (tx ... trạng thái, lý do) và :1431 (thêm "; chưa có biên nhận, chờ đối soát" khi chưa có biên nhận).
+    if (o.status === 'FAILED') auto('FAILURE', `tx ${o.txHash} FAILED, ${o.reason}`);
+    if (o.status === 'EXECUTING' && o.txHash) auto('FAILURE', `tx ${o.txHash} PENDING, Giao dịch khớp lệnh kết thúc ở trạng thái PENDING.; chưa có biên nhận, chờ đối soát`);
+    return list;
+  };
+
+  const render = (mode) => {
+    const ok = order && (mode === 'data' || mode === 'noaudit');
+    $('#loading').hidden = mode !== 'loading';
+    $('#load-error').hidden = !(mode === 'error' || (!order && mode !== 'loading'));
+    $('#load-error-t').textContent = order ? 'Lỗi không xác định.' : `Không tìm thấy lệnh ${qid} trong phạm vi được xem.`;
+    document.querySelectorAll('[data-body]').forEach((n) => { n.hidden = !ok; });
+    if (!ok) return;
+    const o = order;
+    document.title = `Lệnh ${SIDE_LABELS[o.side].toLowerCase()} ${o.id.slice(0, 8)}`;
+    $('#title').textContent = document.title;
+    const tb = document.querySelector('.tb-title b'); if (tb) tb.textContent = document.title;
+    const st = $('#status'); st.textContent = ORDER_STATUS_LABELS[o.status];
+    st.className = `badge ${o.status === 'COMPLETED' ? 'ok' : o.status === 'FAILED' || o.status === 'REJECTED' ? 'bad' : o.status === 'EXPIRED' ? 'warn' : o.status === 'PLACED' ? '' : 'info'}`;
+    $('#k-vnd').textContent = fmtAmount(o.vndAmount); $('#k-wpt').textContent = fmtAmount(o.wptAmount);
+    $('#k-price').textContent = fmtAmount(BigInt(o.vndAmount) / BigInt(o.wptAmount));
+    $('#info').innerHTML = [
+      ['Mã lệnh', `<span class="mono small break">${o.id}</span>`],
+      ['Chiều', o.side === 'BUY' ? '<span class="pos">Mua</span>' : '<span style="color:var(--gold-ink)">Bán</span>'],
+      ['Ví', `<span class="mono break small">${o.investorWallet}</span>`],
+      ['Thời điểm tạo', fmtDateTime(o.createdAt)],
+      ['Cập nhật', fmtDateTime(o.updatedAt)],
+      ['Mã giao dịch', o.txHash ? `<span class="mono break small">${o.txHash}</span>` : 'chưa có'],
+      ['Lý do', o.reason ? `<span style="overflow-wrap:anywhere">${o.reason}</span>` : 'không có'],
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    $('#steps').innerHTML = stepsOf(o).map((s, i) => `<li class="${s.state === 'done' ? 'done' : s.state === 'current' ? 'now' : s.state === 'failed' ? 'fail' : ''}"><span class="small">Bước ${i + 1}</span><b>${s.label}</b>${STEP_STATE[s.state]}<span class="mono" style="display:block;margin-top:4px">${fmtDateTime(s.at)}</span></li>`).join('');
+    $('#outcome').textContent = `Kết cục: ${OUTCOME[o.status] ?? 'chưa có kết cục.'}`;
+    $('#entries').innerHTML = entriesOf(o).map((e, i) => `<div${i === 1 ? ' style="border-top:0"' : ''}><dt>${e.account === 'INVESTOR' ? 'Nhà đầu tư' : 'Người bán'}, ${e.asset}</dt><dd class="mono ${e.direction === 'DEBIT' ? 'neg' : 'pos'}">${e.direction === 'DEBIT' ? '-' : '+'}${fmtAmount(e.amount)}</dd></div>`).join('');
+    const audit = mode === 'noaudit' ? [] : auditOf(o);
+    $('#audit').hidden = !audit.length; $('#audit-empty').hidden = audit.length > 0;
+    $('#audit').innerHTML = audit.map((a) => `<li${a.outcome === 'FAILURE' ? ' class="bad"' : ''}><time>${fmtDateTime(a.at)}</time><div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="badge mono">${a.action}</span><span class="small muted">${a.actorRole}, ${a.outcome}</span></div><span style="margin-top:6px;overflow-wrap:anywhere">${a.detail}</span></div></li>`).join('');
+  };
+  $('#state').addEventListener('click', (e) => { const b = e.target.closest('button[data-state]'); if (b) render(b.dataset.state); });
+  render('data');
+})();
+</script>
+</body>
+</html>

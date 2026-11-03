@@ -35,9 +35,9 @@ name: CI
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, release/ui-v2]
   pull_request:
-    branches: [dev]
+    branches: [dev, release/ui-v2]
 
 # Đẩy commit mới lên cùng một nhánh thì huỷ lượt chạy cũ: kết quả của commit đã bị thay
 # thế không dùng để quyết định gì, mà vẫn chiếm chỗ chạy.

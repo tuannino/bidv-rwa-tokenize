@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Định danh ví</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  /* Biểu mẫu một hàng như màn thật: ô Hồ sơ cố định 16rem, ô ví giãn hết phần còn lại. */
+  #bind-grid { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 16px; align-items: end; }
+  @media (max-width: 640px) { #bind-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-page="wallet-binding" data-nav="wallet-binding.html" data-roles="teller" data-crumbs="Vận hành|Nghiệp vụ ẩn|Định danh ví">
+<main class="content">
+  <div class="pagehead">
+    <div data-states="data empty loading error">
+      <h1>Định danh ví</h1>
+      <p class="sub">Ngân hàng định danh ví trên chuỗi và gắn ví cho hồ sơ khách hàng. Chỉ ví đã gắn mới xem được dữ liệu tài khoản và đặt lệnh. Chain đang xem: <span class="mono" data-chain-label>mock</span>.</p>
+    </div>
+    <div class="actions" style="align-items:center">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="data">Có ví đã gắn</button>
+        <button type="button" role="tab" aria-selected="false" data-state="empty">Chưa có ví</button>
+        <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+        <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi</button>
+        <button type="button" role="tab" aria-selected="false" data-state="blocked">Vai khác mở đường dẫn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Thẻ "Gắn ví cho hồ sơ": bindProfileWalletAction ===== -->
+  <section class="card" aria-labelledby="bind-h" data-states="data empty loading error">
+    <div class="card-h"><div class="t"><i data-icon="badgecheck"></i><h2 id="bind-h">Gắn ví cho hồ sơ</h2></div></div>
+    <form class="form" id="bind-form" aria-label="Biểu mẫu định danh ví">
+      <div id="bind-grid">
+        <div class="field">
+          <label for="binding-profile">Hồ sơ</label>
+          <select class="select" id="binding-profile"></select>
+        </div>
+        <div class="field">
+          <label for="binding-wallet">Địa chỉ ví</label>
+          <div class="input-ic"><i data-icon="wallet"></i><input class="input mono" id="binding-wallet" placeholder="0x…" spellcheck="false" autocomplete="off"></div>
+        </div>
+      </div>
+      <div><button class="btn primary" type="submit" id="bind-send" disabled><i data-icon="badgecheck"></i>Định danh và gắn ví</button></div>
+      <div class="alert ok break" role="status" aria-label="Kết quả định danh ví" id="fb-ok" hidden><i data-icon="check"></i><span></span></div>
+      <div class="alert bad break" role="alert" aria-label="Kết quả định danh ví" id="fb-err" hidden><i data-icon="alert"></i><span></span></div>
+    </form>
+  </section>
+
+  <!-- ===== Thẻ "Ví đã định danh": listWalletBindingsAction({ chain }) ===== -->
+  <section class="card" aria-labelledby="list-h" data-states="data empty loading error">
+    <div class="card-h"><div class="t"><i data-icon="shield"></i><h2 id="list-h">Ví đã định danh</h2></div></div>
+    <div data-states="data">
+      <div class="tbl-wrap">
+        <table class="tbl" aria-label="Ví đã định danh">
+          <thead><tr><th>Ví</th><th>Hồ sơ</th><th>Vai</th><th>Người gắn</th><th>Lúc gắn</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="empty" data-states="empty" hidden><span class="ei"><i data-icon="badgecheck"></i></span><span>Chưa có ví nào được gắn trên chain này.</span></div>
+    <div class="empty" data-states="loading" hidden><span class="ei"><i data-icon="loader"></i></span><span>Đang tải…</span></div>
+    <div class="alert bad" role="alert" data-states="error" hidden><i data-icon="alert"></i><span>Lỗi không xác định.</span></div>
+    <p class="small muted" style="margin:12px 0 0">Trên mock và hardhat-local, ví mẫu của hồ sơ được coi là đã định danh dù không có trong bảng.</p>
+  </section>
+
+  <!-- ===== Màn chặn ở page.tsx: vai không có investor:whitelist mở thẳng đường dẫn ===== -->
+  <section class="card" aria-label="Chức năng định danh ví không khả dụng" data-states="blocked" hidden>
+    <div class="empty" style="padding:48px 16px;background:var(--bad-bg)">
+      <span class="ei" style="color:var(--bad)"><i data-icon="shieldx"></i></span>
+      <b style="font-size:18px">Chức năng định danh ví không khả dụng</b>
+      <span>Chỉ Giao dịch viên định danh và gắn ví cho hồ sơ khách hàng. Vai hiện tại: <span class="mono" style="color:var(--ink)">CONTROLLER</span>.</span>
+    </div>
+  </section>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+// Hồ sơ khách hàng (listCustomerProfiles) và ví đã gắn (WalletBinding, mới nhất trước).
+// Nút gắn chỉ mô phỏng các nhánh của bindProfileWallet: ví sai dạng, ví của hồ sơ khác, đã gắn từ trước, gắn mới.
+(() => {
+  const ROLE = { INVESTOR: 'Nhà đầu tư', SELLER: 'Người bán' };
+  const PROFILES = [
+    { actorId: 'NDT001', fullName: 'Nguyễn Văn An', role: 'INVESTOR', sample: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' },
+    { actorId: 'NB001', fullName: 'Công ty Cổ phần Điện gió An Viên', role: 'SELLER', sample: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' },
+  ];
+  const ROWS = [
+    { wallet: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', actorId: 'NDT001', boundBy: 'GDV001', boundAt: '23/10/2026 09:12:40' },
+    { wallet: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', actorId: 'NB001', boundBy: 'GDV001', boundAt: '22/10/2026 15:35:08' },
+    { wallet: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', actorId: 'NDT001', boundBy: 'GDV001', boundAt: '20/10/2026 14:05:31' },
+  ];
+  const TX = '0x6a3f9c21e84b07d5f2c19ae8b46d03571e9fc2a8d4b60e7193c5fa82d1e6b74c';
+  const $ = (id) => document.getElementById(id);
+  const prof = (id) => PROFILES.find((p) => p.actorId === id);
+  const sel = $('binding-profile'), inp = $('binding-wallet'), send = $('bind-send');
+  const ok = $('fb-ok'), bad = $('fb-err');
+  let state = 'data';
+
+  const fillProfiles = (on) => {
+    sel.innerHTML = on ? PROFILES.map((p) => `<option value="${p.actorId}">${p.actorId}, ${p.fullName}, ${ROLE[p.role]}</option>`).join('') : '';
+    sel.disabled = !on;
+  };
+  const sync = () => { send.disabled = inp.value.trim() === '' || sel.value === ''; };
+  const draw = () => {
+    $('rows').innerHTML = ROWS.map((r) => { const p = prof(r.actorId); return `<tr data-wallet="${r.wallet}">
+      <td class="mono small nowrap">${r.wallet}</td>
+      <td class="small" style="min-width:180px">${r.actorId}, ${p.fullName}</td>
+      <td class="small nowrap">${ROLE[p.role]}</td>
+      <td class="small mono">${r.boundBy}</td>
+      <td class="small muted nowrap">${r.boundAt}</td></tr>`; }).join('');
+  };
+  const now = () => {
+    const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date());
+    const g = (t) => f.find((x) => x.type === t).value;
+    return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}:${g('second')}`;
+  };
+  const show = (el, msg) => { ok.hidden = bad.hidden = true; el.querySelector('span').textContent = msg; el.hidden = false; };
+
+  $('bind-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (send.disabled) return;
+    const w = inp.value.trim(), p = prof(sel.value), key = w.toLowerCase();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(w)) return show(bad, `Địa chỉ ví không hợp lệ: "${w}". Cần dạng 0x + 40 ký tự hex.`);
+    const row = ROWS.find((r) => r.wallet.toLowerCase() === key);
+    const otherSample = PROFILES.some((x) => x.actorId !== p.actorId && x.sample.toLowerCase() === key);
+    if ((row && row.actorId !== p.actorId) || (!row && otherSample)) return show(bad, 'Ví đã được định danh cho hồ sơ khác.');
+    // Ví đã có trong bảng hoặc ví mẫu của chính hồ sơ: đã whitelist từ trước, không gửi giao dịch.
+    const created = !row, txHash = row || p.sample.toLowerCase() === key ? null : TX;
+    const wallet = row ? row.wallet : w;
+    if (created) { ROWS.unshift({ wallet, actorId: p.actorId, boundBy: 'GDV001', boundAt: now() }); draw(); }
+    show(ok, `${created ? 'Đã định danh và gắn' : 'Ví đã được gắn từ trước cho'} ví ${wallet} cho hồ sơ ${p.actorId} (${p.fullName}). ` +
+      (txHash ? `Mã giao dịch định danh: ${txHash}.` : 'Ví đã whitelist từ trước, không gửi giao dịch.'));
+    inp.value = ''; sync();
+  });
+  inp.addEventListener('input', sync);
+  sel.addEventListener('change', sync);
+
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => {
+    state = b.dataset.state;
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(state); });
+    // Đang tải hoặc lỗi: chưa có danh sách hồ sơ nên ô chọn khoá và rỗng, nút gắn khoá.
+    fillProfiles(state === 'data' || state === 'empty');
+    ok.hidden = bad.hidden = true; sync();
+  }));
+  fillProfiles(true); draw(); sync();
+})();
+</script>
+</body>
+</html>

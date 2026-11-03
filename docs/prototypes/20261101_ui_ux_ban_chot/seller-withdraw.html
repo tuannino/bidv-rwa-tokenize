@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tạo lệnh rút</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  .calc .kv > div.recv { border-top: 1px solid var(--line-2); }
+  .calc .kv > div.recv dt { color: var(--ink); font-weight: 500; }
+  .calc .kv > div.recv dd { font-weight: 700; }
+  .notes { display: grid; gap: 8px; margin: 14px 0 18px; }
+  .notes p { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--muted); }
+  .notes svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+  .calc .kv > div { align-items: center; }
+  .form-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fb { font-size: 13px; }
+  .tx-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+  .tx-link svg { width: 12px; height: 12px; }
+  /* Hộp xác nhận mã một lần: c.css chưa có lớp hộp thoại. */
+  dialog.otp { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -30px rgba(0,0,0,.55); }
+  dialog.otp::backdrop { background: rgba(5, 21, 20, .55); backdrop-filter: blur(2px); }
+  dialog.otp h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  dialog.otp .d { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  dialog.otp input.code { margin-top: 18px; text-align: center; font-family: var(--mono); font-size: 22px; letter-spacing: .5em; padding-left: 24px; }
+  dialog.otp .foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  dialog.otp .x { position: absolute; top: 14px; right: 14px; }
+  @media (max-width: 700px) {
+    #req-box, #ps-box { margin: 0; padding: 0; overflow: visible; }
+    #req-box table, #req-box tbody, #ps-box table, #ps-box tbody { display: block; }
+    #req-box thead, #ps-box thead { display: none; }
+    #req-box .badge, #ps-box .badge { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; }
+    #req-box tr, #ps-box tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 14px 16px; border-radius: var(--r-inner); background: var(--surface-2); }
+    #req-box tr + tr, #ps-box tr + tr { margin-top: 10px; }
+    #req-box .tbl td, #ps-box .tbl td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; white-space: normal; background: none !important; }
+    #req-box .tbl td::before, #ps-box .tbl td::before { content: attr(data-l); display: block; font-family: var(--font); font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    #req-box td:nth-child(1), #ps-box td:nth-child(1) { order: 1; }  #req-box td:nth-child(5), #ps-box td:nth-child(5) { order: 2; }  #req-box td:nth-child(2), #ps-box td:nth-child(2) { order: 3; }  #req-box td:nth-child(7), #ps-box td:nth-child(7) { order: 4; }
+    #req-box td:nth-child(3), #ps-box td:nth-child(3) { order: 5; }  #req-box td:nth-child(6), #ps-box td:nth-child(6) { order: 6; }  #req-box td:nth-child(4), #ps-box td:nth-child(4) { order: 7; grid-column: 1 / -1; }
+    #req-box td:nth-child(8), #ps-box td:nth-child(8) { order: 8; grid-column: 1 / -1; }  #req-box td:nth-child(8):empty, #ps-box td:nth-child(8):empty { display: none; }
+  }
+  [data-theme="dark"] .avatar:not(.green):not(.gold) { color: var(--g300); }
+</style>
+</head>
+<body data-page="seller-withdraw" data-nav="seller-withdraw.html" data-roles="seller" data-crumbs="Người bán|Tạo lệnh rút">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Tạo lệnh rút</h1>
+      <p class="sub">Rút VNDB từ vault thanh toán về ví nhận bạn chọn. Xác nhận bằng mã một lần sáu chữ số, không qua phê duyệt.</p>
+    </div>
+  </div>
+
+  <section class="card span-7 stretch" aria-labelledby="f-h">
+    <div class="card-h"><div class="t"><i data-icon="send"></i><h2 id="f-h">Thông tin lệnh rút</h2></div></div>
+    <form class="form" id="wform">
+      <div class="field">
+        <label for="w-amount">Số tiền rút (VNDB)</label>
+        <input class="input mono" id="w-amount" inputmode="numeric" value="" autocomplete="off">
+        <p class="err" id="w-exceed" role="alert" hidden>Vượt phần được rút: chỉ rút được tối đa 33.000.000.000 VNDB.</p>
+      </div>
+      <div class="field"><label for="w-network">Mạng</label><div class="input-ic"><i data-icon="link"></i><input class="input" id="w-network" readonly value="Mock (không cần chain)"></div></div>
+      <div class="field">
+        <label for="w-address">Ví nhận</label>
+        <div class="input-ic"><i data-icon="wallet"></i><input class="input mono" id="w-address" value="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65" placeholder="0x…" spellcheck="false" autocomplete="off"></div>
+        <div id="w-use-connected-box" hidden style="margin-top:6px"><button class="btn outline sm" type="button" id="w-use-connected" disabled><i data-icon="link"></i>Dùng ví đang kết nối</button></div>
+        <p class="hint" role="note" id="w-change-note" hidden>Đổi ví nhận: hệ thống gửi thêm một giao dịch đặt ví nhận trước khi rút.</p>
+        <p class="err" role="alert" id="w-payout-err" hidden></p>
+      </div>
+      <div class="field"><label for="w-purpose">Mục đích</label><input class="input" id="w-purpose" value=""></div>
+      <div class="field"><label for="w-note">Ghi chú</label><textarea class="textarea" id="w-note" rows="2" style="min-height:72px"></textarea></div>
+      <div class="form-foot">
+        <button class="btn primary lg" type="submit" id="w-submit" disabled><i data-icon="send"></i>Tạo lệnh rút</button>
+        <p class="fb" id="w-fb" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <section class="card span-5 stretch calc" aria-labelledby="c-h">
+    <div class="card-h"><div class="t"><i data-icon="gauge"></i><h2 id="c-h">Hệ thống tính</h2></div></div>
+    <dl class="kv">
+      <div><dt><i data-icon="bank" class="muted"></i>Số dư VNDB của vault</dt><dd>41.250.000.000</dd></div>
+      <div><dt><i data-icon="lock" class="muted"></i>Phần khoá</dt><dd>8.250.000.000</dd></div>
+      <div><dt><i data-icon="unlock" class="muted"></i>Phần được rút</dt><dd>33.000.000.000</dd></div>
+      <div class="recv" aria-live="polite"><dt><i data-icon="wallet" class="muted"></i>Số tiền nhận được</dt><dd id="w-recv">–</dd></div>
+    </dl>
+    <div class="notes">
+      <p><i data-icon="info"></i><span>Nguồn on-chain: khoá 20% theo kỳ, làm tròn xuống; thu ròng 41.250.000.000 VNDB, phần khoá kỳ gần nhất 8.250.000.000 VNDB.</span></p>
+      <p><i data-icon="receipt"></i><span>Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).</span></p>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="r-h">
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="r-h">Yêu cầu rút của tôi</h2></div></div>
+    <div class="tbl-wrap" id="req-box">
+      <table class="tbl" aria-label="Yêu cầu rút của tôi">
+        <thead><tr><th>Mã</th><th class="n">Số tiền</th><th>Ví nhận</th><th>Mục đích</th><th>Trạng thái</th><th>Giao dịch</th><th>Thời điểm</th><th>Thao tác</th></tr></thead>
+        <tbody id="req-rows">
+          <tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="b3e91d07-4c2a-4f1e-9a63-2d8e7f105c44">b3e91d07</td><td data-l="Số tiền" class="n nowrap">2.000.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">0x15d34AAf…2C6A65</td><td data-l="Mục đích">Trả gốc vay dự án kỳ 10/2026</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x5d17c2a94e8b0f3a61c7d2e9b4f08a5c13e7d6b2f9a04c8e1d3b5a7f6c2e40b">0x5d17c2a9…c2e40b</span></td><td data-l="Thời điểm" class="nowrap">16:40:03 22/10/2026</td><td data-l="Thao tác"></td></tr>
+          <tr data-status="NEEDS_REVIEW"><td data-l="Mã" class="mono small" title="6a0f4c58-91d3-4b07-8e2c-5f1a9b3d0e72">6a0f4c58</td><td data-l="Số tiền" class="n nowrap">500.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">0x15d34AAf…2C6A65</td><td data-l="Mục đích">Chi phí vận hành tháng 10/2026</td><td data-l="Trạng thái"><span class="badge warn" title="Biên nhận 0x9e2b04d7c1a85f36e0b2d9c47a1f5e83b6d02c9e7f14a3b58d6c0e2f1a9b7d35 thành công nhưng không có sự kiện Withdrawn tới 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 đúng 500000000 VNDB.">Cần Kiểm soát viên xem</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x9e2b04d7c1a85f36e0b2d9c47a1f5e83b6d02c9e7f14a3b58d6c0e2f1a9b7d35">0x9e2b04d7…9b7d35</span></td><td data-l="Thời điểm" class="nowrap">10:12:41 15/10/2026</td><td data-l="Thao tác"></td></tr>
+          <tr data-status="FAILED"><td data-l="Mã" class="mono small" title="d4f7a903-2e6b-4c18-b5d0-7a3e91c6f208">d4f7a903</td><td data-l="Số tiền" class="n nowrap">300.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">0x15d34AAf…2C6A65</td><td data-l="Mục đích">Phí bảo hiểm tài sản quý IV/2026</td><td data-l="Trạng thái"><span class="badge bad" title="Vault đang tạm dừng rút.">Thất bại</span></td><td data-l="Giao dịch" class="mono small"></td><td data-l="Thời điểm" class="nowrap">14:55:26 08/10/2026</td><td data-l="Thao tác"></td></tr>
+          <tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="2c8d1e6b-7f40-4a95-a1d3-6e0b28c4f917">2c8d1e6b</td><td data-l="Số tiền" class="n nowrap">1.200.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65">0x15d34AAf…2C6A65</td><td data-l="Mục đích">Chi phí bảo trì tua-bin quý IV/2026</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span title="0x41c8e7a20b5d93f6c1e4a7b08d2f5c39e6a1b4d70c3f8e2a5b9d16c4e07f8a21">0x41c8e7a2…7f8a21</span></td><td data-l="Thời điểm" class="nowrap">09:30:12 01/10/2026</td><td data-l="Thao tác"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card tint" aria-labelledby="st-h">
+    <div class="card-h"><div class="t"><i data-icon="eye"></i><h2 id="st-h">Các trạng thái khác của màn</h2></div><span class="tag sample">Xem thử</span></div>
+    <p class="desc">Màn thật hiện các dòng dưới đây khi dữ liệu khác trạng thái đang xem. Đặt ở đây để duyệt cách trình bày, không phải khối mới.</p>
+    <div class="tabs" role="tablist" data-group="st">
+      <button type="button" role="tab" aria-selected="true" data-show="block">Chặn tạo lệnh</button>
+      <button type="button" role="tab" aria-selected="false" data-show="result">Kết quả lệnh rút</button>
+      <button type="button" role="tab" aria-selected="false" data-show="list">Danh sách yêu cầu</button>
+      <button type="button" role="tab" aria-selected="false" data-show="load">Đang tải, lỗi</button>
+    </div>
+    <div data-panel-group="st" data-panel="block">
+      <p class="small muted" style="margin-bottom:10px">Hiện dưới ô Ghi chú, nút Tạo lệnh rút bị khoá. Chỉ có hai câu chặn; vault chưa đặt ví nhận thì ô Ví nhận để trống và Người bán tự nhập ví, không bị chặn.</p>
+      <div class="list">
+        <div><span class="avatar"><i data-icon="bank"></i></span><div class="grow"><b>Chain này chưa có vault thanh toán: chưa rút được.</b><span>Các số trong Hệ thống tính hiện "–", trừ ô Số dư nếu chain đã có ví SPV (seller.service.ts:151-155).</span></div></div>
+        <div><span class="avatar"><i data-icon="clock"></i></span><div class="grow"><b>Vault đang tạm dừng rút.</b></div></div>
+      </div>
+    </div>
+    <div data-panel-group="st" data-panel="result" hidden>
+      <div class="stack" style="gap:10px">
+        <div class="alert ok" role="status"><i data-icon="check"></i><span>Đã rút 1.500.000.000 VNDB về ví 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65.</span></div>
+        <div class="alert ok" role="status"><i data-icon="check"></i><span>Đang chờ biên nhận đặt ví nhận; mở lại màn sau ít phút để gửi rút.</span></div>
+        <div class="alert bad" role="alert"><i data-icon="alert"></i><span>Lệnh rút đang ở trạng thái: Đã gửi, chờ biên nhận.</span></div>
+        <p class="err">Ví nhận chưa whitelist trên chuỗi.</p>
+        <p class="small muted">Câu dưới ô Ví nhận khi máy chủ kiểm ví không đạt (không mở hộp mã một lần): ví sai dạng, địa chỉ 0, trùng địa chỉ vault, ví mẫu công khai trên chain thật, chưa whitelist.</p>
+        <div class="alert bad" role="alert"><i data-icon="alert"></i><span>Thông báo lỗi do máy chủ trả về (ví dụ mã một lần sai). Lỗi mã một lần thì hiện trong hộp xác nhận, hộp vẫn mở.</span></div>
+      </div>
+    </div>
+    <div data-panel-group="st" data-panel="list" hidden>
+      <p class="small muted" style="margin-bottom:10px">Lệnh đổi ví nhận đã đặt ví nhận xong nhưng chưa gửi rút (Đã đặt ví nhận, chờ gửi rút) có nút Gửi lệnh rút và Huỷ ở cột Thao tác:</p>
+      <div class="tbl-wrap" id="ps-box">
+        <table class="tbl" aria-label="Ví dụ lệnh đã đặt ví nhận">
+          <thead><tr><th>Mã</th><th class="n">Số tiền</th><th>Ví nhận</th><th>Mục đích</th><th>Trạng thái</th><th>Giao dịch</th><th>Thời điểm</th><th>Thao tác</th></tr></thead>
+          <tbody><tr data-status="PAYOUT_SET" id="ps-row"><td data-l="Mã" class="mono small" title="9d2e47b1-6c05-4a83-b1f7-0e5a3c9d8f26">9d2e47b1</td><td data-l="Số tiền" class="n nowrap">800.000.000</td><td data-l="Ví nhận" class="mono small nowrap" title="0x71bE63f3384f5fb98995898A86B02Fb2426c5788">0x71bE63f3…6c5788</td><td data-l="Mục đích">Thanh toán nhà thầu bảo trì</td><td data-l="Trạng thái"><span class="badge info" id="ps-badge">Đã đặt ví nhận, chờ gửi rút</span></td><td data-l="Giao dịch" class="mono small"></td><td data-l="Thời điểm" class="nowrap">11:02:37 23/10/2026</td><td data-l="Thao tác"><div style="display:flex;gap:6px" id="ps-act"><button class="btn primary sm" type="button" id="ps-send">Gửi lệnh rút</button><button class="btn outline sm" type="button" id="ps-cancel">Huỷ</button></div></td></tr></tbody>
+        </table>
+      </div>
+      <div class="empty" style="margin-top:12px"><span class="ei"><i data-icon="history"></i></span><span>Chưa có yêu cầu rút nào trên chain này.</span></div>
+      <p class="small muted" style="margin-top:10px">Trên chain có explorer (EVM Testnet), mã giao dịch là liên kết mở explorer: <a class="tx-link mono" href="#">0x5d17c2a9…c2e40b<i data-icon="external"></i></a>. Rê chuột lên nhãn trạng thái để xem lý do nếu có.</p>
+    </div>
+    <div data-panel-group="st" data-panel="load" hidden>
+      <div class="list">
+        <div><span class="avatar"><i data-icon="loader"></i></span><div class="grow"><b>Đang đọc số dư…</b><span>Thay hai thẻ Thông tin lệnh rút và Hệ thống tính trong lúc tải.</span></div></div>
+        <div><span class="avatar" style="color:var(--bad)"><i data-icon="alert"></i></span><div class="grow"><b class="neg">Thông báo lỗi do máy chủ trả về</b><span>Khi đọc số dư lỗi, hoặc trong thẻ Yêu cầu rút của tôi khi đọc danh sách lỗi.</span></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog class="otp" id="otp" aria-labelledby="otp-h">
+  <button class="iconbtn x" type="button" id="otp-close" aria-label="Đóng"><i data-icon="x"></i></button>
+  <h2 id="otp-h">Xác nhận mã một lần</h2>
+  <p class="d">Nhập mã sáu chữ số để rút <b id="otp-amt">1.500.000.000</b> VNDB về ví nhận. Bản thử: chưa gửi mã thật, hệ thống chỉ kiểm đúng sáu chữ số.</p>
+  <p class="small break" style="margin-top:10px" data-testid="otp-payout-wallet">Ví nhận: <span class="mono" id="otp-wallet" style="word-break:break-all">0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65</span> (đã whitelist)</p>
+  <input class="input code" id="otp-in" aria-label="Mã một lần" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+  <p class="err" id="otp-err" role="alert" style="margin-top:8px" hidden>Mã một lần phải đúng sáu chữ số.</p>
+  <div class="foot"><button class="btn primary" type="button" id="otp-ok" disabled>Xác nhận</button></div>
+</dialog>
+
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const LIMIT = 33000000000n, VAULT = '0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2';
+  // Ví đã whitelist trong bộ dữ liệu mẫu (ví nhận hiện tại, ví nhận mới, ví Nhà đầu tư mẫu).
+  const WHITELIST_RAW = ['0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', '0x71bE63f3384f5fb98995898A86B02Fb2426c5788', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'];
+  const WHITELIST = WHITELIST_RAW.map((w) => w.toLowerCase());
+  const HARDHAT_RAW = ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', '0x976EA74026E726554dB657fA54763abd0C3a0aa9', '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', '0xBcd4042DE499D14e55001CcbB24a551F3b954096', '0x71bE63f3384f5fb98995898A86B02Fb2426c5788'];
+  const HARDHAT = HARDHAT_RAW.map((w) => w.toLowerCase());
+  // Ví nhận mặc định trên mock là ví NB001 (packages/shared/src/mock-vault.ts).
+  let vaultPayout = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65';
+  const CANON = Object.fromEntries([...WHITELIST_RAW, ...HARDHAT_RAW].map((w) => [w.toLowerCase(), w]));
+  const nf = (v) => BigInt(v).toLocaleString('vi-VN');
+  const short = (v) => `${v.slice(0, 10)}…${v.slice(-6)}`;
+  const digitsOnly = (t) => { const d = t.replace(/\D/g, ''); if (d === '') return ''; const x = d.replace(/^0+/, ''); return x === '' ? '0' : x; };
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  let raw = '';
+  const quote = () => { if (!/^\d+$/.test(raw) || BigInt(raw) === 0n) return null; return { recv: raw, over: BigInt(raw) > LIMIT }; };
+  const sync = () => {
+    const q = quote();
+    const payout = $('w-address').value.trim();
+    $('w-exceed').hidden = !(q && q.over);
+    $('w-recv').textContent = q ? nf(q.recv) : '–';
+    $('w-change-note').hidden = !(payout !== '' && payout.toLowerCase() !== vaultPayout.toLowerCase());
+    $('w-submit').disabled = !(q && !q.over && $('w-purpose').value.trim() && payout !== '');
+  };
+  // AmountInput (UIUX-01 A1): ô hiện dấu chấm hàng nghìn ngay khi gõ, giá trị gửi đi là chuỗi chữ số thô.
+  $('w-amount').addEventListener('input', (e) => { raw = digitsOnly(e.target.value); e.target.value = raw === '' ? '' : nf(raw); sync(); });
+  $('w-purpose').addEventListener('input', sync);
+  $('w-address').addEventListener('input', () => { $('w-payout-err').hidden = true; sync(); });
+  // Mạng: đọc nhãn chain đang chọn trên thanh trên; nút "Dùng ví đang kết nối" chỉ có ở chain khác mock.
+  const NET = { mock: 'Mock (không cần chain)', 'hardhat-local': 'Hardhat Local', evm: 'EVM Testnet (Sepolia)', stellar: 'Stellar (Soroban)' };
+  const syncNet = () => { const c = chainNow(); $('w-network').value = NET[c] || c; $('w-use-connected-box').hidden = c === 'mock'; };
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-switch="chain"]')) setTimeout(syncNet, 0); });
+  syncNet();
+
+  // checkPayoutWallet: kiểm ví nhận ở máy chủ TRƯỚC khi mở hộp mã một lần; không đạt thì câu dưới ô Ví nhận.
+  const payoutError = (w) => {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(w)) return 'Ví nhận không phải địa chỉ hợp lệ (0x + 40 ký tự hex).';
+    if (/^0x0{40}$/.test(w)) return 'Ví nhận không được là địa chỉ 0.';
+    if (chainNow() !== 'mock' && chainNow() !== 'hardhat-local' && HARDHAT.includes(w.toLowerCase())) return 'Ví nhận là ví mẫu công khai của Hardhat, không dùng được trên chain thật.';
+    if (w.toLowerCase() === VAULT.toLowerCase()) return 'Ví nhận phải khác địa chỉ vault.';
+    if (!WHITELIST.includes(w.toLowerCase())) return 'Ví nhận chưa whitelist trên chuỗi.';
+    return null;
+  };
+  const dlg = $('otp');
+  let dialog = null;
+  const openOtp = (d) => {
+    dialog = d;
+    $('otp-amt').textContent = nf(d.amount); $('otp-wallet').textContent = d.wallet;
+    $('otp-in').value = ''; $('otp-err').hidden = true; $('otp-ok').disabled = true; $('w-fb').hidden = true;
+    dlg.showModal(); $('otp-in').focus();
+  };
+  $('wform').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if ($('w-submit').disabled) return;
+    const w = $('w-address').value.trim();
+    const err = payoutError(w);
+    $('w-payout-err').hidden = !err; $('w-payout-err').textContent = err || '';
+    if (err) return;
+    // Máy chủ trả ví đã chuẩn hoá checksum (normalizeEvmAddress); hộp mã hiện ví này.
+    openOtp({ kind: 'create', amount: raw, wallet: CANON[w.toLowerCase()] || w });
+  });
+  $('otp-close').addEventListener('click', () => dlg.close());
+  $('otp-in').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+    const okCode = /^\d{6}$/.test(e.target.value);
+    $('otp-err').hidden = okCode || e.target.value.length === 0; $('otp-ok').disabled = !okCode;
+  });
+  const now = () => { const d = new Date(), p2 = (n) => String(n).padStart(2, '0'); return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} 23/10/2026`; };
+  $('otp-ok').addEventListener('click', () => {
+    dlg.close();
+    if (dialog.kind === 'continue') {
+      $('ps-badge').className = 'badge ok'; $('ps-badge').textContent = 'Hoàn tất'; $('ps-act').remove();
+      $('w-fb').textContent = `Đã rút ${nf(dialog.amount)} VNDB về ví ${dialog.wallet}.`; $('w-fb').className = 'fb pos break'; $('w-fb').hidden = false;
+      return;
+    }
+    const purpose = $('w-purpose').value.trim();
+    // Ví khác ví đang đặt: lệnh đặt ví nhận trước rồi rút; trên mock biên nhận về ngay nên lệnh hoàn tất.
+    vaultPayout = dialog.wallet;
+    $('req-rows').insertAdjacentHTML('afterbegin', `<tr data-status="COMPLETED"><td data-l="Mã" class="mono small" title="e81c5a3f-0b47-4d29-96fa-3c7d2e18b054">e81c5a3f</td><td data-l="Số tiền" class="n nowrap">${nf(dialog.amount)}</td><td data-l="Ví nhận" class="mono small nowrap" title="${dialog.wallet}">${short(dialog.wallet)}</td><td data-l="Mục đích">${purpose.replace(/</g, '&lt;')}</td><td data-l="Trạng thái"><span class="badge ok">Hoàn tất</span></td><td data-l="Giao dịch" class="mono small nowrap"><span>0x7ac3e915…4d08f2</span></td><td data-l="Thời điểm" class="nowrap">${now()}</td><td data-l="Thao tác"></td></tr>`);
+    $('w-fb').textContent = `Đã rút ${nf(dialog.amount)} VNDB về ví ${dialog.wallet}.`; $('w-fb').className = 'fb pos break'; $('w-fb').hidden = false;
+    raw = ''; $('w-amount').value = ''; $('w-purpose').value = ''; $('w-note').value = ''; $('w-address').value = vaultPayout; sync();
+  });
+  // Lệnh đã đặt ví nhận (PAYOUT_SET): Gửi lệnh rút mở cùng hộp mã một lần; Huỷ chuyển lệnh sang Thất bại.
+  $('ps-send').addEventListener('click', () => openOtp({ kind: 'continue', amount: '800000000', wallet: '0x71bE63f3384f5fb98995898A86B02Fb2426c5788' }));
+  $('ps-cancel').addEventListener('click', () => {
+    $('ps-badge').className = 'badge bad'; $('ps-badge').textContent = 'Thất bại'; $('ps-badge').title = 'Đã huỷ'; $('ps-act').remove();
+    $('w-fb').textContent = 'Đã huỷ lệnh rút 9d2e47b1.'; $('w-fb').className = 'fb pos break'; $('w-fb').hidden = false;
+  });
+  sync();
+})();
+</script>
+</body>
+</html>

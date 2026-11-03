@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi tiết yêu cầu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>[hidden] { display: none !important; }</style>
+</head>
+<body data-page="approval-detail" data-nav="approvals.html" data-roles="controller" data-crumbs="Kiểm soát|Phê duyệt lệnh|7f3a21c0">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Chi tiết yêu cầu</h1>
+      <p class="sub mono small" id="req-id">7f3a21c0-5d1e-4c8b-9a27-3e6f1b0d4c19</p>
+    </div>
+    <div class="actions" style="align-items:center;flex-wrap:wrap">
+      <span class="small muted">Trạng thái xem thử</span>
+      <div class="tabs" id="state" style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+        <button type="button" role="tab" aria-selected="true" data-state="data">Theo dữ liệu</button>
+        <button type="button" role="tab" aria-selected="false" data-state="warn">Cảnh báo khi duyệt</button>
+        <button type="button" role="tab" aria-selected="false" data-state="token-err">Không đọc được token</button>
+        <button type="button" role="tab" aria-selected="false" data-state="pending-chain">Duyệt chưa có xác nhận</button>
+        <button type="button" role="tab" aria-selected="false" data-state="fail">Duyệt bị lỗi</button>
+      </div>
+      <a class="link-more link-back" data-go="approvals.html"><i data-icon="left"></i>Về danh sách</a>
+    </div>
+  </div>
+
+  <!-- Lỗi đọc chi tiết (fresh.error): màn chỉ còn tiêu đề và câu lỗi -->
+  <div class="alert bad span-12" role="alert" id="load-error" hidden><i data-icon="alert"></i><span id="load-error-t"></span></div>
+
+  <!-- Khối hành động -->
+  <section class="card span-12" aria-labelledby="act-h" data-detail>
+    <div class="card-h"><div class="t"><i data-icon="shield"></i><h2 id="act-h">Hành động</h2></div><span class="badge" id="st-badge" data-status></span></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1 1 420px;display:grid;gap:12px;min-width:0">
+        <div class="alert warn" id="block" data-testid="decision-block-reason" hidden><i data-icon="lock"></i><span id="block-t"></span></div>
+        <div class="field">
+          <label for="reject-reason">Lý do từ chối</label>
+          <textarea class="textarea" id="reject-reason" rows="2" placeholder="Bắt buộc khi từ chối, người lập cần biết phải sửa gì."></textarea>
+        </div>
+        <!-- FIX-02 B3: cảnh báo số liệu lúc duyệt, chỉ khoá nút Chấp nhận -->
+        <div class="alert warn" role="alert" id="approve-warning" data-testid="approve-warning" hidden>
+          <i data-icon="alert"></i>
+          <div>
+            <p class="strong" id="aw-msg"></p>
+            <p id="aw-fig"></p>
+            <p class="small">Nút "Chấp nhận" đã khoá; có thể từ chối yêu cầu này.</p>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;padding-bottom:2px">
+        <button class="btn primary lg" type="button" id="btn-approve"><i data-icon="shield"></i>Chấp nhận</button>
+        <button class="btn danger lg" type="button" id="btn-reject"><i data-icon="shieldx"></i>Từ chối</button>
+        <button class="btn outline lg" type="button" id="btn-reconcile" title="Đọc biên nhận của giao dịch đã gửi rồi chốt theo biên nhận; không gửi giao dịch mới." hidden><i data-icon="refresh"></i>Đối soát</button>
+      </div>
+    </div>
+    <p class="small muted" id="reject-hint" data-testid="reject-block-reason" style="margin-top:10px" hidden>Từ chối: Phải nhập lý do từ chối.</p>
+    <div class="alert" id="feedback" role="status" hidden style="margin-top:14px"><i data-icon="check"></i><span id="feedback-t"></span></div>
+  </section>
+
+  <!-- Khối thông tin token -->
+  <section class="card tint span-6 stretch" aria-labelledby="tk-h" data-detail>
+    <div class="card-h"><div class="t"><i data-icon="wind"></i><h2 id="tk-h">Thông tin token</h2></div></div>
+    <p class="small neg" id="token-error" hidden></p>
+    <dl class="kv" id="token-kv">
+      <div><dt>Dự án</dt><dd>Dự án điện gió An Viên</dd></div>
+      <div><dt>Hợp đồng</dt><dd class="mono break">0x5FbDB2315678afecb367f032d93F642f64180aa3</dd></div>
+      <div><dt>Trần phát hành</dt><dd class="mono">20.000.000</dd></div>
+      <div><dt>Số còn được phát hành</dt><dd class="mono" data-tk="remaining">10.000.000</dd></div>
+      <div><dt>Tổng cung hiện tại</dt><dd class="mono" data-tk="totalSupply">10.000.000</dd></div>
+      <div><dt>Số chưa phân phối</dt><dd class="mono" data-tk="undistributed">6.587.500</dd></div>
+      <div><dt>Số đang lưu hành</dt><dd class="mono" data-tk="circulating">3.412.500</dd></div>
+      <div><dt>Mã người bán</dt><dd>NB001</dd></div>
+      <div><dt>Ví thanh toán</dt><dd class="mono break">0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2</dd></div>
+      <div><dt>Phát hành lần đầu</dt><dd>02/03/2026 09:00:00</dd></div>
+    </dl>
+  </section>
+
+  <!-- Khối nội dung yêu cầu: 13 trường (Nguồn chỉ có ở yêu cầu huỷ; Thực hiện qua thêm ở IN-04) -->
+  <section class="card span-6 stretch" aria-labelledby="ct-h" data-detail>
+    <div class="card-h"><div class="t"><i data-icon="file"></i><h2 id="ct-h">Nội dung yêu cầu</h2></div></div>
+    <dl class="kv" id="content-kv"></dl>
+  </section>
+
+  <!-- Nhật ký -->
+  <section class="card span-12" aria-labelledby="tl-h" data-detail>
+    <div class="card-h"><div class="t"><i data-icon="history"></i><h2 id="tl-h">Nhật ký</h2></div></div>
+    <ol class="timeline" id="timeline"></ol>
+  </section>
+</main>
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const LABEL = { PENDING: 'Chờ duyệt', EXECUTING: 'Đang xử lý', COMPLETED: 'Hoàn tất', REJECTED: 'Từ chối', FAILED: 'Thất bại' };
+  const TONE = { PENDING: 'warn', EXECUTING: 'info', COMPLETED: 'ok', REJECTED: 'bad', FAILED: 'bad' };
+  const VAULT = '0xE1237075C0AB261E3FE96E55Bc8fF5eB2aba1Cc2';
+  // Năm yêu cầu của bộ dữ liệu mẫu chung; màn danh sách chọn yêu cầu bằng phần sau dấu #.
+  const REQ = {
+    '7f3a21c0': { id: '7f3a21c0-5d1e-4c8b-9a27-3e6f1b0d4c19', type: 'MINT', amount: '250.000', reason: 'Phát hành đợt 2 theo QĐ 128/2026', doc: 'QĐ 128/2026/QĐ-BIDV', eff: '2026-10-24', note: null, maker: 'GDV001', at: '23/10/2026 06:12:00', status: 'PENDING', tx: null },
+    '91bd0e44': { id: '91bd0e44-6a2f-4e1b-8c3d-2f7a9b5e0c18', type: 'MINT', amount: '120.000', reason: 'Bổ sung nguồn cung kênh bán lẻ', doc: 'TTr 54/2026/BIDV-NHBL', eff: '2026-10-24', note: null, maker: 'GDV002', at: '23/10/2026 08:05:00', status: 'EXECUTING', tx: '0x3b7e91c4d2a85f0e6c1b9d47a2e83f5c0d6b1a9e7f42c8d05b3e6a19f7c24d8e', checker: 'KSV001', decidedAt: '23/10/2026 08:31:00' },
+    '5e0c7b92': { id: '5e0c7b92-1d4a-4f6e-9b2c-8a3e5f7d1c06', type: 'MINT', amount: '400.000', reason: 'Phát hành bổ sung theo QĐ 125/2026', doc: 'QĐ 125/2026/QĐ-BIDV', eff: '2026-10-23', note: null, maker: 'GDV001', at: '23/10/2026 07:31:00', status: 'COMPLETED', tx: '0x8c41e2d0a7f35b9c1e6d4a2f8b0c3e7d9a5f1b6c2e8d4a0f7b3c9e5d1a6f2b8c4', checker: 'KSV001', decidedAt: '23/10/2026 07:58:00' },
+    'c02f9a17': { id: 'c02f9a17-8b3e-4d5a-a1f6-4e9c2b7d0a35', type: 'BURN', source: 'Phần chưa phân phối', amount: '50.000', reason: 'Huỷ phần chưa phân phối của đợt 1', doc: 'QĐ 131/2026/QĐ-BIDV', eff: '2026-10-24', note: null, maker: 'GDV001', at: '23/10/2026 08:49:00', status: 'PENDING', tx: null },
+    'a4471f3d': { id: 'a4471f3d-3c9b-4a2e-b8d1-6f0e4a2c9b57', type: 'BURN', source: 'Phần chưa phân phối', amount: '30.000', reason: 'Huỷ phần dư sau đối soát đợt 1', doc: 'BB 17/2026/ĐS', eff: '2026-10-23', note: null, maker: 'GDV001', at: '23/10/2026 07:40:00', status: 'REJECTED', tx: null, checker: 'KSV001', decidedAt: '23/10/2026 08:20:00', rejectReason: 'Chứng từ chưa ký' },
+  };
+  const key = (location.hash.match(/[0-9a-f]{8}/) || [])[0];
+  const r = { ...(REQ[key] || REQ['7f3a21c0']) };
+  $('#req-id').textContent = r.id;
+  const dash = (v) => v ?? '–';
+  const now = () => { const d = new Date(), p2 = (n) => String(n).padStart(2, '0'); return `23/10/2026 ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+
+  // Yêu cầu mẫu thuộc chain mock: chain đang chọn khác mock thì máy chủ trả lỗi và màn chỉ còn câu lỗi
+  // (getTokenRequestDetail). Trên mock, công tắc Lưu ký Fireblocks không áp dụng nên "Thực hiện qua" là khoá ký máy chủ.
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  const syncChain = () => {
+    const c = chainNow(), bad = c !== 'mock';
+    document.querySelectorAll('[data-detail]').forEach((n) => { n.hidden = bad; });
+    $('#load-error').hidden = !bad;
+    $('#load-error-t').textContent = `Yêu cầu ${r.id} thuộc chain mock, không phải chain đang chọn ${c}.`;
+  };
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-switch="chain"]')) setTimeout(syncChain, 0); });
+
+  // custodyLabelOf: yêu cầu chờ duyệt đọc công tắc của khung (tham số ?custody= dùng chung với shell.js);
+  // trên mock công tắc bật cũng ra khoá ký máy chủ vì mock không có trong bảng chain của Fireblocks.
+  const custodyQ = new URLSearchParams(location.search).get('custody');
+  const custodyLabel = () => {
+    if (r.status === 'REJECTED') return 'Không thực hiện (đã từ chối)';
+    if (r.status === 'PENDING' && custodyQ === 'unreadable') return 'Chưa đọc được';
+    if (r.status === 'PENDING' && custodyQ === 'badscope') return 'Chưa xác định (bảng chain của Lưu ký Fireblocks sai)';
+    return 'Khoá ký máy chủ';
+  };
+  const drawContent = () => {
+    const badge = $('#st-badge'); badge.textContent = LABEL[r.status]; badge.className = `badge ${TONE[r.status]}`; badge.dataset.status = r.status;
+    const rows = [
+      ['Loại', r.type === 'MINT' ? 'Tạo token' : 'Huỷ token'],
+      ['Token', 'WPT (mock)'],
+      ['Số lượng', r.amount, 'mono'],
+      ...(r.source ? [['Nguồn', r.source]] : []),
+      ['Ví tác động', VAULT, 'mono break'],
+      ['Lý do', r.reason],
+      ['Chứng từ', dash(r.doc)],
+      ['Ngày hiệu lực', dash(r.eff)],
+      ['Ghi chú', dash(r.note)],
+      ['Người lập', r.maker],
+      ['Thời điểm lập', r.at],
+      ['Mã giao dịch', dash(r.tx), 'mono break'],
+      ['Thực hiện qua', custodyLabel()],
+    ];
+    $('#content-kv').innerHTML = rows.map(([k, v, c]) => `<div><dt>${k}</dt><dd${c ? ` class="${c}"` : ''}>${v}</dd></div>`).join('');
+    // Nhật ký: timelineOf, mỗi quyết định một dòng, nhãn theo kết cục hiện tại.
+    const tl = [[r.at, 'Lập yêu cầu, chờ duyệt', r.maker, r.reason, 'wait']];
+    if (r.status === 'EXECUTING') tl.push([r.decidedAt, 'Chấp nhận, đang xử lý trên chuỗi', r.checker, r.tx ? `Đã gửi giao dịch ${r.tx}, chưa biết kết cục, cần đối soát.` : null, 'wait']);
+    if (r.status === 'COMPLETED') tl.push([r.decidedAt, 'Chấp nhận, hoàn tất trên chuỗi', r.checker, r.tx, '']);
+    if (r.status === 'FAILED') tl.push([r.decidedAt, 'Chấp nhận, thất bại khi thực hiện', r.checker, r.failure, 'bad']);
+    if (r.status === 'REJECTED') tl.push([r.decidedAt, 'Từ chối', r.checker, r.rejectReason, 'bad']);
+    if (r.status !== 'PENDING') tl[0][4] = '';
+    $('#timeline').innerHTML = tl.map(([t, l, a, d, c]) => `<li class="${c}"><time class="mono">${t}</time><div><b>${l}</b><span class="muted" style="display:inline;font-size:13px">, ${a}</span>${d ? `<span class="break">${d}</span>` : ''}</div></li>`).join('');
+  };
+
+  // Số liệu token. "Cảnh báo khi duyệt" dựng một bộ số tự khớp sau khi yêu cầu khác đã hoàn tất (approveWarningOf):
+  // Mint vượt số còn được phát hành, Burn vượt phần chưa phân phối. "Không đọc được token": tokenError ở khối token
+  // và cảnh báo TOKEN_UNREADABLE (không có dòng số liệu).
+  const TOKEN = {
+    data: { remaining: '10.000.000', totalSupply: '10.000.000', undistributed: '6.587.500', circulating: '3.412.500' },
+    MINT: { remaining: '120.000', totalSupply: '19.880.000', undistributed: '16.467.500', circulating: '3.412.500' },
+    BURN: { remaining: '16.547.500', totalSupply: '3.452.500', undistributed: '40.000', circulating: '3.412.500' },
+  };
+  const WARN = {
+    MINT: { msg: 'Không đủ số lượng token còn được phép phát hành.', fig: (a) => `Số lượng yêu cầu ${a}; còn được phép phát hành ${TOKEN.MINT.remaining}.` },
+    BURN: { msg: 'Không đủ số lượng token chưa phân phối còn lại.', fig: (a) => `Số lượng yêu cầu ${a}; phần chưa phân phối còn ${TOKEN.BURN.undistributed}.` },
+    UNREADABLE: { msg: 'Không đọc được số liệu token để kiểm tra.', fig: () => null },
+  };
+  let state = 'data';
+  const ta = $('#reject-reason');
+  const ICON = { ok: 'check', warn: 'alert', bad: 'x' };
+  const say = (tone, text) => { const f = $('#feedback'); f.className = `alert ${tone}`; f.hidden = false; f.firstElementChild.outerHTML = UI.icon(ICON[tone]); $('#feedback-t').textContent = text; };
+  // decisionBlockReason, approveBlockReason, rejectBlockReason của gates.ts.
+  const sync = () => {
+    const block = r.status !== 'PENDING' ? `Yêu cầu đang ở trạng thái "${LABEL[r.status]}", không còn chờ duyệt.` : null;
+    $('#block').hidden = !block; $('#block-t').textContent = block || '';
+    ta.disabled = !!block;
+    const pendingOnly = r.status === 'PENDING';
+    const warning = !pendingOnly ? null : state === 'warn' ? WARN[r.type] : state === 'token-err' ? WARN.UNREADABLE : null;
+    $('#approve-warning').hidden = !warning;
+    if (warning) { $('#aw-msg').textContent = warning.msg; const f = warning.fig(r.amount); $('#aw-fig').hidden = !f; $('#aw-fig').textContent = f || ''; }
+    const approveBlock = block || (warning ? warning.msg : null);
+    $('#btn-approve').disabled = !!approveBlock; $('#btn-approve').title = approveBlock || '';
+    const rb = block || (ta.value.trim() === '' ? 'Phải nhập lý do từ chối.' : null);
+    $('#btn-reject').disabled = !!rb; $('#btn-reject').title = rb || '';
+    $('#reject-hint').hidden = !(!block && rb);
+    // canReconcile: EXECUTING và có txHash (hoặc custody FIREBLOCKS), vai có order:approve.
+    $('#btn-reconcile').hidden = !(r.status === 'EXECUTING' && r.tx);
+    const set = state === 'warn' && pendingOnly ? TOKEN[r.type] : TOKEN.data;
+    document.querySelectorAll('[data-tk]').forEach((d) => { d.textContent = set[d.dataset.tk]; });
+    $('#token-kv').hidden = state === 'token-err';
+    $('#token-error').hidden = state !== 'token-err';
+    $('#token-error').textContent = 'Chưa có dự án "WPT" trên chuỗi "mock".';
+  };
+  ta.addEventListener('input', sync);
+  const stateTabs = document.querySelectorAll('#state button');
+  if (r.status !== 'PENDING') stateTabs.forEach((b) => { if (b.dataset.state !== 'data') { b.disabled = true; b.title = 'Chỉ yêu cầu Chờ duyệt mới có trạng thái này.'; } });
+  stateTabs.forEach((b) => b.addEventListener('click', () => { if (b.disabled) return; state = b.dataset.state; $('#feedback').hidden = true; sync(); }));
+
+  // Sau Chấp nhận, Từ chối, Đối soát: màn đọc lại chi tiết (reload), nhãn và nút đổi theo trạng thái mới.
+  $('#btn-approve').addEventListener('click', () => {
+    // Duyệt bị lỗi: số liệu đổi giữa lúc mở màn và lúc bấm (máy chủ kiểm lại, REQUEST_CHECK); câu là describeInvalid(error, fieldErrors).
+    if (state === 'fail') {
+      const d = r.type === 'MINT'
+        ? ['Không vượt trần còn lại', 'cap', `Số lượng ${r.amount}; trần còn lại 120.000 (trần 20.000.000 trừ tổng cung 19.880.000).`]
+        : ['Không vượt phần chưa phân phối', 'undistributed', `Số lượng ${r.amount}; phần chưa phân phối trong ví SPV 40.000.`];
+      say('bad', `Điều kiện đã đổi so với lúc lập, chưa duyệt được: ${d[0]}: ${d[2]} ${d[1]}: ${d[2]}`);
+      // Màn đọc lại chi tiết (reload): số liệu token mới kéo theo cảnh báo khi duyệt, khoá nút Chấp nhận.
+      state = 'warn'; sync(); return;
+    }
+    r.checker = 'KSV001'; r.decidedAt = now();
+    r.tx = '0x2f9c41e7b3a05d8c6e1f4b9a27d3c8e05f6a1b4c9d2e7f3a8b5c0d6e1f2a9b47c';
+    if (state === 'pending-chain') {
+      r.status = 'EXECUTING';
+      say('warn', 'Đã gửi lên chuỗi nhưng chưa có xác nhận sau 30 giây. Yêu cầu giữ trạng thái Đang thực hiện; bấm Đối soát sau ít phút.');
+    } else {
+      r.status = 'COMPLETED';
+      say('ok', 'Đã chấp nhận. Yêu cầu đã thực hiện xong trên chuỗi.');
+    }
+    drawContent(); sync();
+  });
+  $('#btn-reject').addEventListener('click', () => {
+    r.status = 'REJECTED'; r.checker = 'KSV001'; r.decidedAt = now(); r.rejectReason = ta.value.trim(); ta.value = '';
+    say('ok', 'Đã từ chối yêu cầu. Người lập sẽ thấy lý do trong bảng yêu cầu đã lập.');
+    drawContent(); sync();
+  });
+  $('#btn-reconcile').addEventListener('click', () => {
+    r.status = 'COMPLETED';
+    say('ok', 'Đã đối soát: giao dịch đã xác nhận trên chuỗi, yêu cầu hoàn tất.');
+    drawContent(); sync();
+  });
+  drawContent(); sync(); syncChain();
+})();
+</script>
+</body>
+</html>

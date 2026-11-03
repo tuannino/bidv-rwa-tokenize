@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thu hồi token</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+  [hidden] { display: none !important; }
+  .rc-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .rc-grid dd { font-size: 15px; }
+  .rc-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rc-notes { display: grid; gap: 10px; margin-top: 14px; }
+  .rc-notes p { font-size: 13px; }
+  .rc-notes ul { margin: 6px 0 0 18px; list-style: disc; display: grid; gap: 4px; }
+  .rc-ctl { display: grid; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line-2); }
+  .rc-btns { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .rc-wal { display: inline-flex; align-items: center; gap: 4px; }
+  .rc-wal .btn { height: 26px; width: 26px; padding: 0; }
+  .rc-wal .btn svg { width: 14px; height: 14px; }
+  .steps li.now b { font-weight: 700; }
+  dialog.dlg { width: min(520px, calc(100vw - 32px)); padding: 24px; border: 0; border-radius: var(--r-card); background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px -30px rgba(0,0,0,.55); }
+  dialog.dlg::backdrop { background: rgba(5, 21, 20, .55); backdrop-filter: blur(2px); }
+  dialog.dlg h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  dialog.dlg .d { margin-top: 8px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  dialog.dlg .form { margin-top: 16px; gap: 12px; }
+  dialog.dlg .derr { margin-top: 12px; font-size: 13px; color: var(--bad); overflow-wrap: anywhere; }
+  dialog.dlg .foot { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 20px; }
+  @media (max-width: 1200px) { .rc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .rc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body data-page="recall" data-nav="recall.html" data-roles="controller,teller" data-crumbs="Vận hành|Thu hồi token">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Thu hồi token</h1>
+      <p class="sub">Lập lịch, đóng băng và thu hồi WPT khi dự án hết hạn. Thanh toán thực hiện ngoài hệ thống trong phạm vi PoC.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span class="small muted">Trạng thái xem thử của màn</span>
+    <div class="tabs" id="state" role="tablist" aria-label="Trạng thái xem thử" style="margin:0">
+      <button type="button" role="tab" aria-selected="false" data-state="none">Chưa mở đợt</button>
+      <button type="button" role="tab" aria-selected="false" data-state="scheduled">Đã lập lịch</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notice">Đến hạn</button>
+      <button type="button" role="tab" aria-selected="false" data-state="freezing" data-ctl>Chờ đóng băng</button>
+      <button type="button" role="tab" aria-selected="true" data-state="frozen">Đã đóng băng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="burning">Đang thu hồi</button>
+      <button type="button" role="tab" aria-selected="false" data-state="closed">Hoàn tất</button>
+      <button type="button" role="tab" aria-selected="false" data-state="cancelled">Đã huỷ</button>
+      <button type="button" role="tab" aria-selected="false" data-state="blocked" data-ctl>Thao tác bị chặn</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi tải</button>
+    </div>
+  </div>
+
+  <div class="empty" id="loading" role="status" hidden><span class="ei"><i data-icon="loader"></i></span><span>Đang tải tình trạng thu hồi...</span></div>
+  <section class="card span-12" id="load-error" hidden>
+    <div class="alert bad" role="alert"><i data-icon="alert"></i><span>Không tải được tình trạng thu hồi.</span></div>
+    <button class="btn outline" type="button" id="retry" style="margin-top:14px"><i data-icon="refresh"></i>Thử lại</button>
+  </section>
+
+  <!-- Tiến độ thu hồi: ẩn khi chưa có đợt hoặc đợt đã huỷ -->
+  <section class="card span-12" id="steps-card" data-body>
+    <ol class="steps" id="steps" aria-label="Tiến độ thu hồi"></ol>
+  </section>
+
+  <!-- Tình trạng đợt thu hồi -->
+  <section class="card span-12" aria-labelledby="st-h" data-body>
+    <div class="card-h"><div class="t"><i data-icon="undo"></i><h2 id="st-h">Tình trạng đợt thu hồi</h2></div><div class="rc-badges" id="badges"></div></div>
+    <dl class="kv-grid rc-grid" id="items"></dl>
+    <div class="rc-notes" id="notes"></div>
+    <div class="rc-ctl" id="ctl"></div>
+    <div class="alert bad" id="action-error" role="alert" hidden style="margin-top:14px"><i data-icon="alert"></i><span></span></div>
+  </section>
+
+  <!-- Hồ sơ thu hồi, hoặc Danh sách ví dự kiến khi chưa đóng băng -->
+  <section class="card span-12" aria-labelledby="cs-h" data-body>
+    <div class="card-h"><div class="t"><i data-icon="users"></i><h2 id="cs-h">Hồ sơ thu hồi</h2></div></div>
+    <p class="small muted" id="cs-sum" hidden style="margin:-6px 0 12px"></p>
+    <p class="small muted" id="cs-empty" hidden>Chưa có ví ngoài vault cần thu hồi.</p>
+    <div class="tbl-wrap" id="cs-wrap" style="max-height:480px;overflow-y:auto">
+      <table class="tbl" aria-label="Danh sách ví thu hồi">
+        <thead><tr><th>Ví</th><th class="n">WPT</th><th class="n">Đã đốt</th><th>Trạng thái</th><th>Giao dịch / lỗi</th></tr></thead>
+        <tbody id="cs-rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Mở đợt hoặc Sửa mốc -->
+<dialog class="dlg" id="dlg-round" aria-labelledby="dr-h">
+  <h2 id="dr-h">Mở đợt thu hồi</h2>
+  <p class="d" id="dr-d"></p>
+  <div class="form">
+    <div class="field"><label for="dr-date">Ngày hết hạn</label><input class="input" type="date" id="dr-date"></div>
+    <div class="field"><label for="dr-days">Số ngày báo trước</label><input class="input mono" type="number" id="dr-days" max="365"></div>
+    <p class="small muted" id="dr-calc"></p>
+    <div class="field"><label for="dr-reason">Lý do</label><textarea class="textarea" id="dr-reason" maxlength="200" rows="2" style="min-height:72px"></textarea><span class="hint" id="dr-count">0/200 ký tự</span></div>
+  </div>
+  <p class="derr" role="alert" tabindex="-1" hidden></p>
+  <div class="foot">
+    <button class="btn outline" type="button" data-close>Đóng</button>
+    <button class="btn primary" type="button" id="dr-ok">Mở đợt</button>
+  </div>
+</dialog>
+
+<!-- Huỷ đợt -->
+<dialog class="dlg" id="dlg-cancel" aria-labelledby="dx-h">
+  <h2 id="dx-h">Huỷ đợt thu hồi</h2>
+  <p class="d">Huỷ đợt sẽ mở lại giao dịch nếu đã tới ngày hết hạn. Đợt đã huỷ vẫn được giữ trong lịch sử.</p>
+  <div class="form">
+    <div class="field"><label for="dx-reason">Lý do huỷ</label><textarea class="textarea" id="dx-reason" maxlength="200" rows="2" style="min-height:72px"></textarea></div>
+  </div>
+  <p class="derr" role="alert" tabindex="-1" hidden></p>
+  <div class="foot">
+    <button class="btn outline" type="button" data-close>Đóng</button>
+    <button class="btn danger" type="button" id="dx-ok">Xác nhận huỷ</button>
+  </div>
+</dialog>
+
+<!-- Đóng băng, Thu hồi lô đầu, Mở đóng băng: gõ ký hiệu để xác nhận -->
+<dialog class="dlg" id="dlg-sym" aria-labelledby="ds-h">
+  <h2 id="ds-h">Đóng băng token</h2>
+  <p class="d" id="ds-d"></p>
+  <div class="form">
+    <div class="field"><label for="ds-sym" id="ds-sym-l">Gõ WPT để xác nhận</label><input class="input mono" id="ds-sym" autocomplete="off"></div>
+    <div class="field" id="ds-reason-f"><label for="ds-reason">Lý do mở đóng băng</label><textarea class="textarea" id="ds-reason" maxlength="200" rows="2" style="min-height:72px"></textarea></div>
+  </div>
+  <p class="derr" role="alert" tabindex="-1" hidden></p>
+  <div class="foot">
+    <button class="btn outline" type="button" data-close>Đóng</button>
+    <button class="btn danger" type="button" id="ds-ok">Đóng băng</button>
+  </div>
+</dialog>
+
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const fa = (v) => BigInt(v).toLocaleString('vi-VN');
+  const vnDate = (v) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : v; };
+  const isDate = (v) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false; const [y, m, d] = v.split('-').map(Number), t = new Date(Date.UTC(y, m - 1, d)); return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d; };
+  const addDays = (v, n) => { const [y, m, d] = v.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+  const daysBetween = (a, b) => Math.ceil((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  const TODAY = '2026-10-23';
+  const NOW = '23/10/2026';
+  const clock = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${NOW} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+  const isCtl = UI.role === 'controller';
+
+  // Ví nắm giữ WPT ngoài vault: cùng bộ ví của màn Chia lợi nhuận (NDT001 và 127 nhà đầu tư khác, tổng 3.412.500 WPT).
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+  const addr = () => '0x' + Array.from({ length: 40 }, () => '0123456789abcdef'[Math.floor(rnd() * 16)]).join('');
+  const others = [], weights = [];
+  for (let i = 0; i < 127; i++) { others.push(addr()); weights.push(0.2 + rnd() * rnd() * 4); }
+  const W = weights.reduce((a, b) => a + b, 0), rest = 3412500 - 150;
+  const bal = weights.map((w) => Math.max(1, Math.floor((w / W) * rest)));
+  bal[0] += rest - bal.reduce((a, b) => a + b, 0);
+  const HOLDERS = [{ wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', balance: '150' }, ...others.map((w, i) => ({ wallet: w, balance: String(bal[i]) }))];
+  const OUTSIDE = HOLDERS.reduce((s, h) => s + BigInt(h.balance), 0n);
+  const hash = (i) => { let x = (i + 1) * 2654435761 >>> 0; return '0x' + Array.from({ length: 64 }, () => { x = (x * 1664525 + 1013904223) >>> 0; return '0123456789abcdef'[x >>> 28]; }).join(''); };
+  const casesFrom = (n, failAt) => HOLDERS.map((h, i) => {
+    const w = h.wallet.toLowerCase();
+    if (i < n && i !== failAt) return { wallet: w, wptAmount: h.balance, burnedAmount: h.balance, status: 'BURNED', txHash: hash(i), reason: null };
+    if (i === failAt) return { wallet: w, wptAmount: h.balance, burnedAmount: null, status: 'FAILED', txHash: null, reason: 'Gửi giao dịch đốt không thành.' };
+    return { wallet: w, wptAmount: h.balance, burnedAmount: null, status: 'NOTIFIED', txHash: null, reason: null };
+  });
+
+  const REASON = 'Dự án hết hạn theo hợp đồng mua bán điện, thu hồi theo Quyết định 31/QĐ-SPV';
+  const PROJECT = { name: 'Dự án điện gió An Viên', tokenSymbol: 'WPT', status: 'ISSUED' };
+  const round = (o) => ({ id: 'rnd-1', status: 'INITIATED', maturityDate: '2026-10-20', noticeDays: 3, recallFrom: '2026-10-23', initiatedAt: '15/10/2026 09:12:30', completedAt: null, reason: REASON, freezeRequestedAt: null, unfreezeRequestedAt: null, ...o });
+  const base = () => ({ project: { ...PROJECT }, round: null, settlementMode: false, inFlight: { PLACED: 0, CHECKING: 0, EXECUTING: 0 }, activeDistribution: false, chainLock: null, cases: [], truncated: false, demoMode: false });
+  const STATES = {
+    none: () => base(),
+    scheduled: () => ({ ...base(), round: round({ maturityDate: '2026-12-31', noticeDays: 30, recallFrom: '2027-01-30', initiatedAt: '20/10/2026 09:15:00' }), inFlight: { PLACED: 1, CHECKING: 0, EXECUTING: 1 } }),
+    notice: () => ({ ...base(), round: round({}) }),
+    // Lần "Kiểm tra lại" đầu tiên máy chủ trả "Giao dịch đóng băng đang chờ xác nhận." (lỗi ngoài hộp thoại), lần sau đã xác nhận.
+    freezing: () => ({ ...base(), round: round({ freezeRequestedAt: '23/10/2026 10:02:11' }), recheckPending: true }),
+    // Lần gửi đầu tiên trong mọi hộp thoại bị khoá chain chặn (withRecallLock), lỗi hiện trong hộp thoại; gửi lại thì qua.
+    blocked: () => ({ ...base(), round: round({}), failNext: 'Đang có thao tác khác trên chain; vui lòng chờ thao tác đó kết thúc.' }),
+    frozen: () => ({ ...base(), round: round({ status: 'IN_PROGRESS' }), settlementMode: true, cases: casesFrom(0, -1) }),
+    burning: () => ({ ...base(), round: round({ status: 'IN_PROGRESS' }), settlementMode: true, cases: casesFrom(20, 14) }),
+    closed: () => ({ ...base(), project: { ...PROJECT, status: 'CLOSED' }, round: round({ status: 'COMPLETED', completedAt: '23/10/2026 16:40:12' }), settlementMode: true, cases: casesFrom(HOLDERS.length, -1) }),
+    cancelled: () => ({ ...base(), round: round({ status: 'CANCELLED', maturityDate: '2026-11-30', noticeDays: 15, recallFrom: '2026-12-15', initiatedAt: '12/10/2026 14:20:05' }) }),
+  };
+
+  // ===== Máy chủ (getRecallOverview) và cổng nút (gates.ts), chép logic để trang chạy được =====
+  let D = null, progress = null, actionError = null;
+  const phaseOf = (r, p) => {
+    if (p?.status === 'CLOSED' || r?.status === 'COMPLETED') return 'CLOSED';
+    if (!r || r.status === 'CANCELLED' || !r.maturityDate || !r.recallFrom) return 'NONE';
+    if (r.status === 'IN_PROGRESS') return 'FROZEN';
+    return TODAY < r.maturityDate ? 'SCHEDULED' : 'NOTICE';
+  };
+  const overview = () => {
+    const chain = chainNow(), r = D.round;
+    const blockers = [];
+    if (r?.status === 'INITIATED') {
+      if (!r.recallFrom || TODAY < r.recallFrom) blockers.push(`Chưa tới ngày bắt đầu thu hồi ${r.recallFrom ? vnDate(r.recallFrom) : '(chưa đặt)'}.`);
+      if (D.inFlight.PLACED + D.inFlight.CHECKING + D.inFlight.EXECUTING > 0) blockers.push('Vẫn còn lệnh đang xử lý; phải xử lý hết trước khi đóng băng.');
+      if (D.activeDistribution) blockers.push('Vẫn còn kỳ chia lợi nhuận đang hoạt động.');
+      if (D.truncated) blockers.push('Danh sách ví bị cắt; không thể đóng băng an toàn.');
+      if (D.chainLock) blockers.push('Đang có thao tác khác trên chain; vui lòng chờ thao tác đó kết thúc.');
+      if (D.settlementMode === null) blockers.push('Không đọc được trạng thái đóng băng token trên chuỗi.');
+    }
+    const startedBurn = D.cases.some((c) => c.status === 'BURNING' || (c.status === 'BURNED' && c.txHash));
+    const showPreview = !r || r.status === 'INITIATED' || r.status === 'CANCELLED';
+    const burned = D.cases.filter((c) => c.status === 'BURNED').reduce((s, c) => s + BigInt(c.wptAmount), 0n);
+    return {
+      chain, project: D.project, settlementMode: D.settlementMode, inFlightOrders: D.inFlight, activeDistribution: D.activeDistribution, chainLock: D.chainLock,
+      round: r ? { ...r, phase: phaseOf(r, D.project), daysToMaturity: daysBetween(TODAY, r.maturityDate), daysToRecall: daysBetween(TODAY, r.recallFrom) } : null,
+      cases: D.cases, preview: showPreview ? { wallets: HOLDERS, truncated: D.truncated } : null,
+      supplyOutsideVault: (OUTSIDE - burned).toString(),
+      canManage: isCtl, canUnfreeze: r?.status === 'IN_PROGRESS' && !startedBurn,
+      canFreeze: r?.status === 'INITIATED' && !r.freezeRequestedAt && blockers.length === 0,
+      demoMode: D.demoMode, today: TODAY, minNoticeDays: chain === 'mock' || chain === 'hardhat-local' || D.demoMode ? 0 : 1, freezeBlockers: blockers,
+    };
+  };
+  const lockMessage = (lock) => {
+    if (!lock || lock.stale) return null;
+    if (lock.kind === 'WITHDRAW') return 'Có lệnh rút vault đang xử lý; Kiểm soát viên xử lý ở màn Vault trước.';
+    if (lock.kind === 'CONFIG') return 'Đang lưu cấu hình vault.';
+    if (lock.kind === 'RECALL') return 'Đang có thao tác thu hồi khác.';
+    return 'Đang có thao tác khác trên chain.';
+  };
+  const controls = (o) => {
+    const hidden = { open: false, openBlockedReason: null, reschedule: false, cancel: false, freeze: 'hidden', unfreeze: 'hidden', recall: { mode: 'hidden', blockedReason: null } };
+    if (!o.canManage) return hidden;
+    const r = o.round;
+    const open = o.project?.status === 'ISSUED' && (!r || r.status === 'CANCELLED');
+    const openBlockedReason = o.project?.status === 'CLOSED' ? 'Dự án đã đóng.' : o.project?.status !== 'ISSUED' ? 'Dự án chưa phát hành nên chưa mở được đợt thu hồi.' : null;
+    const editable = r?.status === 'INITIATED' && !r.freezeRequestedAt;
+    const freeze = r?.status !== 'INITIATED' ? 'hidden' : r.freezeRequestedAt ? 'recheck' : o.canFreeze ? 'send' : 'blocked';
+    const unfreeze = r?.status !== 'IN_PROGRESS' ? 'hidden' : !o.canUnfreeze ? 'locked-after-burn' : r.unfreezeRequestedAt ? 'recheck' : 'send';
+    let recall = { mode: 'hidden', blockedReason: null };
+    if (r?.status === 'IN_PROGRESS') {
+      const blockedReason = r.unfreezeRequestedAt ? 'Đang mở đóng băng; không thể đồng thời gửi lệnh thu hồi.' : o.settlementMode !== true ? 'Token chưa ở trạng thái đóng băng trên chuỗi.' : lockMessage(o.chainLock);
+      recall = blockedReason ? { mode: 'blocked', blockedReason } : o.canUnfreeze ? { mode: 'first', blockedReason: null } : { mode: 'next', blockedReason: null };
+    }
+    return { open, openBlockedReason, reschedule: editable, cancel: editable && o.settlementMode !== true, freeze, unfreeze, recall };
+  };
+  const currentStep = (o) => (!o.round || o.round.status === 'CANCELLED') ? null : ({ SCHEDULED: 1, NOTICE: 2, FROZEN: 3, CLOSED: 4 })[o.round.phase] ?? null;
+
+  // ===== Vẽ =====
+  const PHASE_LABEL = { NONE: 'Chưa mở', SCHEDULED: 'Đã lập lịch', NOTICE: 'Đang báo trước', FROZEN: 'Đang thu hồi', CLOSED: 'Đã hoàn tất' };
+  const CASE_LABEL = { NOTIFIED: 'Chờ đốt', BURNING: 'Đang gửi', BURNED: 'Đã đốt', FAILED: 'Lỗi' };
+  const CASE_TONE = { NOTIFIED: 'warn', BURNING: 'info', BURNED: 'ok', FAILED: 'bad' };
+  const until = (r, n) => !r ? '-' : n === 0 ? 'Hôm nay' : n < 0 ? `Đã qua ${Math.abs(n)} ngày` : `Còn ${n} ngày`;
+  const wal = (v) => `<span class="rc-wal mono small"><span title="${v}">${v.length > 24 ? `${v.slice(0, 12)}...${v.slice(-8)}` : v}</span><button class="btn ghost" type="button" data-copy-w="${v}" aria-label="Sao chép ví ${v}">${UI.icon('copy')}</button></span>`;
+  const shortHash = (v) => v.length > 22 ? `${v.slice(0, 10)}...${v.slice(-8)}` : v;
+  let O = null, C = null;
+
+  const render = () => {
+    O = overview(); C = controls(O);
+    const r = O.round, completed = r?.phase === 'CLOSED';
+    // Tiến độ
+    const step = currentStep(O);
+    $('#steps-card').hidden = step === null;
+    $('#steps').innerHTML = ['Đã mở đợt', 'Đến hạn', 'Đã đóng băng', 'Hoàn tất'].map((l, i) => {
+      const s = i + 1, done = step !== null && s < step, now = s === step;
+      return `<li class="${done ? 'done' : now ? 'now' : ''}"${now ? ' aria-current="step"' : ''}><b>${l}</b></li>`;
+    }).join('');
+    // Nhãn
+    const chainStatus = O.settlementMode === true ? (completed ? 'Đã đóng băng sau thu hồi' : 'Đang đóng băng') : O.settlementMode === false ? 'Đang mở' : 'Không đọc được';
+    $('#badges').innerHTML = [
+      `<span class="badge info">Đợt: ${r ? PHASE_LABEL[r.phase] ?? r.phase : 'Chưa có đợt'}</span>`,
+      O.demoMode ? '<span class="badge">Chế độ PoC</span>' : '',
+      r?.status === 'CANCELLED' ? '<span class="badge bad">Đã huỷ</span>' : '',
+      `<span class="badge ${O.settlementMode === true && !completed ? 'bad' : ''}">Token trên chuỗi: ${chainStatus}</span>`,
+    ].join('');
+    // Mười trường
+    const f = O.inFlightOrders;
+    const items = [
+      ['Dự án', O.project ? `${O.project.name} (${O.project.tokenSymbol})` : 'Chưa có'],
+      ['Ngày hết hạn', r?.maturityDate ? vnDate(r.maturityDate) : '-'],
+      ['Bắt đầu thu hồi', r?.recallFrom ? vnDate(r.recallFrom) : '-'],
+      ['Báo trước', r && r.noticeDays !== null ? `${r.noticeDays} ngày` : '-'],
+      ['Tới ngày hết hạn', until(r, r?.daysToMaturity)],
+      ['Tới ngày thu hồi', until(r, r?.daysToRecall)],
+      ['WPT ngoài vault', fa(O.supplyOutsideVault)],
+      ['Lệnh đang xử lý', String(f.PLACED + f.CHECKING + f.EXECUTING)],
+      ['Kỳ chia đang mở', O.activeDistribution ? 'Có' : 'Không'],
+      ['Mở đợt lúc', r ? r.initiatedAt : '-'],
+    ];
+    $('#items').innerHTML = items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    // Ghi chú, cảnh báo, tiến độ lô
+    const lock = lockMessage(O.chainLock), notes = [];
+    if (r?.status === 'CANCELLED') notes.push(`<p><b>Đợt gần nhất đã huỷ: hết hạn ${r.maturityDate ? vnDate(r.maturityDate) : '-'}, bắt đầu thu hồi ${r.recallFrom ? vnDate(r.recallFrom) : '-'}.</b></p>`);
+    if (O.project?.status === 'CLOSED' && r?.completedAt) notes.push(`<p><b>Dự án đã đóng lúc ${r.completedAt}.</b></p>`);
+    if (r?.reason) notes.push(`<p><span class="muted">Lý do: </span>${r.reason}</p>`);
+    if (lock) notes.push(`<div class="alert warn" role="status">${UI.icon('alert')}<span>${lock}</span></div>`);
+    if (O.preview?.truncated) notes.push(`<div class="alert bad" role="alert">${UI.icon('alert')}<span>Danh sách ví đang bị cắt; không thể đóng băng an toàn.</span></div>`);
+    if (O.freezeBlockers.length) notes.push(`<div class="alert warn">${UI.icon('alert')}<div><b>Chưa thể đóng băng:</b><ul>${O.freezeBlockers.map((x) => `<li>${x}</li>`).join('')}</ul></div></div>`);
+    if (progress) notes.push(`<div class="alert" role="status" aria-live="polite">${UI.icon('info')}<div>Đã đốt ${progress.burned}; đang chờ ${progress.pending}; lỗi ${progress.failed}; còn lại ${progress.remaining}. WPT ngoài vault: ${fa(progress.outsideRemaining)}.${progress.completed ? ' Đợt thu hồi đã hoàn tất.' : ''}${progress.errors.length ? `<ul>${progress.errors.map((e) => `<li>${e.wallet}: ${e.reason}</li>`).join('')}</ul>` : ''}</div></div>`);
+    $('#notes').innerHTML = notes.join(''); $('#notes').hidden = !notes.length;
+    // Nút thao tác: chỉ Kiểm soát viên (settlement:recall)
+    if (!O.canManage) {
+      $('#ctl').innerHTML = '<p class="small muted">Giao dịch viên chỉ được xem tình trạng và danh sách hồ sơ.</p>';
+    } else {
+      const b = [];
+      if (C.open) b.push(`<button class="btn primary" type="button" data-act="open">${UI.icon('calendar')}Mở đợt thu hồi</button>`);
+      if (C.reschedule) b.push(`<button class="btn outline" type="button" data-act="reschedule">${UI.icon('pen')}Sửa mốc</button>`);
+      if (C.cancel) b.push(`<button class="btn outline" type="button" data-act="cancel">${UI.icon('x')}Huỷ đợt</button>`);
+      if (C.freeze === 'send') b.push(`<button class="btn primary" type="button" data-act="freeze">${UI.icon('snow')}Đóng băng trên toàn hệ thống</button>`);
+      if (C.freeze === 'recheck') b.push(`<span class="small muted">Đang chờ xác nhận đóng băng</span><button class="btn primary" type="button" data-act="recheck-freeze">${UI.icon('refresh')}Kiểm tra lại</button>`);
+      if (C.unfreeze === 'send') b.push(`<button class="btn outline" type="button" data-act="unfreeze">${UI.icon('unlock')}Mở đóng băng trên toàn hệ thống</button>`);
+      if (C.unfreeze === 'recheck') b.push(`<span class="small muted">Đang chờ xác nhận mở đóng băng</span><button class="btn outline" type="button" data-act="unfreeze">${UI.icon('refresh')}Kiểm tra lại</button>`);
+      if (C.recall.mode === 'first') b.push(`<button class="btn danger" type="button" data-act="first-recall">${UI.icon('flame')}Thu hồi toàn bộ</button>`);
+      if (C.recall.mode === 'next') b.push(`<button class="btn danger" type="button" data-act="next-recall">${UI.icon('flame')}<span>Thu hồi lô tiếp theo</span></button>`);
+      const p = [];
+      if (C.freeze === 'recheck' || C.unfreeze === 'recheck') p.push('<p class="small muted">Quá 10 phút chưa có xác nhận, hệ thống sẽ gửi lại lệnh. Gửi lại không gây hại.</p>');
+      if (C.openBlockedReason) p.push(`<p class="small muted">${C.openBlockedReason}</p>`);
+      if (C.unfreeze === 'locked-after-burn') p.push('<p class="small muted">Đã bắt đầu thu hồi, không mở đóng băng được nữa.</p>');
+      if (C.recall.blockedReason) p.push(`<p class="small muted">${C.recall.blockedReason}</p>`);
+      $('#ctl').innerHTML = (b.length ? `<div class="rc-btns">${b.join('')}</div>` : '') + p.join('');
+      $('#ctl').hidden = !b.length && !p.length;
+    }
+    const ae = $('#action-error'); ae.hidden = !(actionError && stage === 'idle'); ae.querySelector('span').textContent = actionError ?? '';
+    // Bảng hồ sơ hoặc ví dự kiến
+    const rows = O.cases.length ? O.cases.map((c) => ({ ...c, preview: false }))
+      : (O.preview?.wallets ?? []).map((w) => ({ wallet: w.wallet, wptAmount: w.balance, burnedAmount: null, status: 'PREVIEW', txHash: null, reason: null, preview: true }));
+    $('#cs-h').textContent = O.cases.length ? 'Hồ sơ thu hồi' : 'Danh sách ví dự kiến';
+    $('#cs-empty').hidden = rows.length > 0; $('#cs-wrap').hidden = rows.length === 0;
+    const total = rows.reduce((s, x) => s + BigInt(x.wptAmount), 0n);
+    $('#cs-sum').hidden = !(O.cases.length === 0 && rows.length); $('#cs-sum').textContent = `Dự kiến ${rows.length} ví, tổng ${fa(total)} WPT.`;
+    $('#cs-rows').innerHTML = rows.map((x) => {
+      const url = x.txHash && O.chain === 'evm' ? `https://sepolia.etherscan.io/tx/${x.txHash}` : null;
+      const tx = url ? `<a class="idlink" href="${url}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">Xem giao dịch${UI.icon('external')}</a>`
+        : x.txHash ? `<span class="mono small" title="${x.txHash}">${shortHash(x.txHash)}</span>` : '-';
+      const st = x.preview ? '<span class="badge info">Dự kiến</span>' : `<span class="badge ${CASE_TONE[x.status] ?? ''}">${CASE_LABEL[x.status] ?? x.status}</span>`;
+      return `<tr><td>${wal(x.wallet)}</td><td class="n mono">${fa(x.wptAmount)}</td><td class="n mono">${x.burnedAmount ? fa(x.burnedAmount) : '-'}</td><td>${st}</td><td>${tx}${x.reason ? `<span class="sub" style="color:var(--bad)">${x.reason}</span>` : ''}</td></tr>`;
+    }).join('');
+  };
+
+  // ===== Hộp thoại =====
+  const show = (id) => { actionError = null; render(); $(id).querySelector('.derr').hidden = true; $(id).showModal(); };
+  const closeAll = () => document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  // Như RecallDialog: đang chạy thì hai nút khoá và nút gửi đổi chữ "Đang xử lý..."; lỗi máy chủ hiện trong hộp thoại.
+  let busy = false;
+  const runDialog = (btn, work) => {
+    const dlg = btn.closest('dialog'), err = dlg.querySelector('.derr'), label = btn.textContent;
+    busy = true; err.hidden = true; btn.textContent = 'Đang xử lý...';
+    dlg.querySelectorAll('.foot button').forEach((x) => { x.disabled = true; });
+    setTimeout(() => {
+      busy = false; btn.textContent = label;
+      dlg.querySelectorAll('.foot button').forEach((x) => { x.disabled = false; });
+      if (D.failNext) { actionError = D.failNext; D.failNext = null; err.textContent = actionError; err.hidden = false; err.focus(); return; }
+      actionError = null; work(); closeAll(); stage = 'idle'; render();
+    }, 700);
+  };
+  document.querySelectorAll('dialog.dlg').forEach((d) => d.addEventListener('cancel', (e) => { if (busy) e.preventDefault(); }));
+  let stage = 'idle';
+  // Mở đợt, Sửa mốc
+  const dDate = $('#dr-date'), dDays = $('#dr-days'), dReason = $('#dr-reason');
+  const syncRound = () => {
+    const n = Number(dDays.value), calc = isDate(dDate.value) && Number.isInteger(n) && dDays.value !== '' ? addDays(dDate.value, n) : null;
+    $('#dr-calc').textContent = `Ngày bắt đầu thu hồi: ${calc ? vnDate(calc) : 'chưa hợp lệ'}`;
+    $('#dr-count').textContent = `${dReason.value.length}/200 ký tự`;
+    const reasonOk = dReason.value.trim().length >= 5 && dReason.value.trim().length <= 200;
+    const datesOk = isDate(dDate.value) && dDate.value >= TODAY && Number.isInteger(n) && dDays.value !== '' && n >= O.minNoticeDays && n <= 365;
+    $('#dr-ok').disabled = !(reasonOk && datesOk);
+  };
+  [dDate, dDays, dReason].forEach((i) => i.addEventListener('input', syncRound));
+  const openRound = (kind) => {
+    stage = kind;
+    $('#dr-h').textContent = kind === 'reschedule' ? 'Sửa mốc thu hồi' : 'Mở đợt thu hồi';
+    $('#dr-ok').textContent = kind === 'reschedule' ? 'Lưu mốc mới' : 'Mở đợt';
+    $('#dr-d').textContent = `Ngày hết hạn không được trước hôm nay. Chain này cần báo trước ít nhất ${O.minNoticeDays} ngày.`;
+    dDate.min = TODAY; dDays.min = O.minNoticeDays;
+    dDate.value = kind === 'reschedule' ? O.round.maturityDate : addDays(TODAY, 1);
+    dDays.value = String(kind === 'reschedule' ? O.round.noticeDays ?? 30 : 30);
+    dReason.value = '';
+    syncRound(); show('#dlg-round');
+  };
+  $('#dr-ok').addEventListener('click', (e) => runDialog(e.currentTarget, () => {
+    const v = { maturityDate: dDate.value, noticeDays: Number(dDays.value), recallFrom: addDays(dDate.value, Number(dDays.value)) };
+    if (stage === 'reschedule') Object.assign(D.round, v);
+    else D.round = round({ ...v, reason: dReason.value.trim(), initiatedAt: clock() });
+    progress = null;
+  }));
+  // Huỷ đợt
+  const xReason = $('#dx-reason');
+  const syncCancel = () => { const t = xReason.value.trim().length; $('#dx-ok').disabled = t < 5 || t > 200; };
+  xReason.addEventListener('input', syncCancel);
+  $('#dx-ok').addEventListener('click', (e) => runDialog(e.currentTarget, () => { D.round.status = 'CANCELLED'; }));
+  // Đóng băng, Thu hồi lô đầu, Mở đóng băng
+  const sym = $('#ds-sym'), sReason = $('#ds-reason');
+  const syncSym = () => {
+    const okSym = sym.value.trim() === O.project.tokenSymbol, t = sReason.value.trim().length;
+    $('#ds-ok').disabled = !okSym || (stage === 'unfreeze' && (t < 5 || t > 200));
+  };
+  [sym, sReason].forEach((i) => i.addEventListener('input', syncSym));
+  const openSym = (kind) => {
+    stage = kind;
+    const s = O.project.tokenSymbol, p = O.project.name, chain = O.chain;
+    $('#ds-h').textContent = kind === 'freeze' ? 'Đóng băng token' : kind === 'unfreeze' ? 'Mở đóng băng token' : 'Thu hồi lô đầu';
+    $('#ds-d').textContent = kind === 'freeze'
+      ? `Tạm dừng ${p} (${s}) trên chuỗi ${chain}. Mọi chuyển nhượng, mua bán ${s} dừng. Có thể mở đóng băng trước khi đốt ví đầu tiên; sau đó không mở lại được. Token khác không bị ảnh hưởng.`
+      : kind === 'first-recall' ? 'Từ lần này không mở đóng băng được nữa.' : `Gõ đúng ký hiệu ${s} và nêu lý do để mở đóng băng trên chuỗi ${chain}.`;
+    $('#ds-sym-l').textContent = `Gõ ${s} để xác nhận`;
+    $('#ds-reason-f').hidden = kind !== 'unfreeze';
+    const ok = $('#ds-ok');
+    ok.textContent = kind === 'freeze' ? 'Đóng băng' : kind === 'unfreeze' ? 'Mở đóng băng' : 'Thu hồi lô đầu';
+    ok.className = `btn ${kind === 'unfreeze' ? 'primary' : 'danger'}`;
+    sym.value = ''; if (kind !== 'unfreeze') sReason.value = '';
+    syncSym(); show('#dlg-sym');
+  };
+  const completeFreeze = () => {
+    D.round.status = 'IN_PROGRESS'; D.round.freezeRequestedAt = null; D.settlementMode = true;
+    D.cases = HOLDERS.map((h) => ({ wallet: h.wallet.toLowerCase(), wptAmount: h.balance, burnedAmount: null, status: 'NOTIFIED', txHash: null, reason: null }));
+  };
+  // Một lô tối đa 10 ví, lấy hồ sơ Chờ đốt hoặc Lỗi.
+  const runBatch = () => {
+    const picked = D.cases.filter((c) => c.status === 'NOTIFIED' || c.status === 'FAILED').slice(0, 10);
+    picked.forEach((c) => { const i = D.cases.indexOf(c); c.status = 'BURNED'; c.burnedAmount = c.wptAmount; c.txHash = hash(i + 500); c.reason = null; });
+    const burnedSum = D.cases.filter((c) => c.status === 'BURNED').reduce((s, c) => s + BigInt(c.wptAmount), 0n);
+    const remaining = D.cases.filter((c) => c.status !== 'BURNED').length, outside = OUTSIDE - burnedSum;
+    let completed = false;
+    if (remaining === 0 && outside === 0n) { D.round.status = 'COMPLETED'; D.round.completedAt = clock(); D.project.status = 'CLOSED'; completed = true; }
+    progress = { burned: D.cases.filter((c) => c.status === 'BURNED').length, pending: 0, failed: D.cases.filter((c) => c.status === 'FAILED').length, remaining, outsideRemaining: outside.toString(), completed, errors: [] };
+  };
+  $('#ds-ok').addEventListener('click', (e) => runDialog(e.currentTarget, () => {
+    if (stage === 'freeze') completeFreeze();
+    else if (stage === 'unfreeze') { D.round.status = 'INITIATED'; D.round.unfreezeRequestedAt = null; D.settlementMode = false; D.cases = []; }
+    else runBatch();
+  }));
+  document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', () => { b.closest('dialog').close(); stage = 'idle'; render(); }));
+
+  $('#ctl').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const a = b.dataset.act;
+    if (a === 'open' || a === 'reschedule') openRound(a);
+    else if (a === 'cancel') { stage = 'cancel'; xReason.value = ''; syncCancel(); show('#dlg-cancel'); }
+    else if (a === 'freeze' || a === 'unfreeze' || a === 'first-recall') openSym(a);
+    else if (a === 'recheck-freeze') {
+      if (D.recheckPending) { D.recheckPending = false; actionError = 'Giao dịch đóng băng đang chờ xác nhận.'; render(); }
+      else { actionError = null; completeFreeze(); render(); }
+    }
+    else if (a === 'next-recall') { b.disabled = true; b.querySelector('span').textContent = 'Đang thu hồi lô (tối đa 10 ví)...'; setTimeout(() => { runBatch(); render(); }, 700); }
+  });
+  $('#cs-rows').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-copy-w]'); if (!b) return;
+    navigator.clipboard?.writeText(b.dataset.copyW).catch(() => {});
+    b.innerHTML = UI.icon('check'); setTimeout(() => { b.innerHTML = UI.icon('copy'); }, 1500);
+  });
+
+  // ===== Trạng thái xem thử =====
+  const apply = (name) => {
+    progress = null; actionError = null;
+    const loading = name === 'loading', error = name === 'error';
+    $('#loading').hidden = !loading; $('#load-error').hidden = !error;
+    document.querySelectorAll('[data-body]').forEach((n) => { n.hidden = loading || error; });
+    if (loading || error) return;
+    D = STATES[name]();
+    render();
+  };
+  // Giao dịch viên không có nút thao tác nên hai trạng thái này nhìn như trạng thái gốc: bỏ tab.
+  if (!isCtl) document.querySelectorAll('#state [data-ctl]').forEach((n) => n.remove());
+  $('#state').addEventListener('click', (e) => { const b = e.target.closest('button[data-state]'); if (b) apply(b.dataset.state); });
+  $('#retry').addEventListener('click', () => { document.querySelector('#state [data-state="frozen"]').click(); });
+  document.querySelector('[data-switch="chain"] .menu')?.addEventListener('click', () => setTimeout(() => { if (D) render(); }, 0));
+  apply('frozen');
+})();
+</script>
+</body>
+</html>

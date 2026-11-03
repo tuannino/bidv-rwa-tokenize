@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giao dịch token</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400;1,500&family=Roboto+Condensed:wght@500&family=Roboto+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/c.css">
+<link rel="stylesheet" href="assets/shell.css">
+<style>
+[hidden] { display: none !important; }
+.field { align-content: start; }
+.form .row:has(> #side-f[hidden]) { grid-template-columns: minmax(0, 1fr); }
+.card.hero .kv dt { color: rgba(255,255,255,.75); }
+.card.hero .kv > div + div { border-color: rgba(255,255,255,.14); }
+.kv dt { flex: 0 1 auto; min-width: 0; }
+.total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: var(--r-inner); background: var(--gold-tile); }
+.total b { font-variant-numeric: tabular-nums; font-size: 20px; color: var(--gold-ink); }
+.checks li .fix { color: var(--muted); margin-top: 2px; }
+.checks li.fail span.d { color: var(--bad); }
+.busy { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.busy svg { width: 16px; height: 16px; animation: spin 1s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.state-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; margin-top: 10px; }
+.entries li { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 12px; }
+.steps li.fail::before { content: "\2715"; background: var(--bad-bg); color: var(--bad-ink); }
+.steps li .mono { display: block; margin-top: 2px; color: var(--ink-2); }
+.modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+.modal .box { position: relative; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); border-radius: var(--r-card); padding: 24px; box-shadow: 0 30px 80px -30px rgba(0,0,0,.5); }
+.modal .x { position: absolute; top: 14px; right: 14px; }
+.modal h2 { font-size: 18px; font-weight: 700; padding-right: 44px; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+@media (max-width: 900px) { .entries { grid-template-columns: minmax(0, 1fr); } .modal .foot .btn { flex: 1; } }
+</style>
+</head>
+<body data-page="trade" data-nav="trade.html" data-roles="investor" data-crumbs="Nhà đầu tư|Giao dịch token">
+<main class="content">
+  <div class="pagehead">
+    <div>
+      <h1>Giao dịch token</h1>
+      <p class="sub" id="sub">Mua token từ người bán theo giá phát hành do ngân hàng cấu hình.</p>
+    </div>
+  </div>
+
+  <div class="state-bar">
+    <span class="small muted">Trạng thái xem thử</span>
+    <div class="tabs" data-states-tabs style="margin:0" role="tablist" aria-label="Trạng thái xem thử">
+      <button type="button" role="tab" aria-selected="true" data-state="data">Có ví</button>
+      <button type="button" role="tab" aria-selected="false" data-state="sell">Bật bán</button>
+      <button type="button" role="tab" aria-selected="false" data-state="fail">Điều kiện chưa đạt</button>
+      <button type="button" role="tab" aria-selected="false" data-state="checking">Đang kiểm tra</button>
+      <button type="button" role="tab" aria-selected="false" data-state="perr">Lỗi xem trước</button>
+      <button type="button" role="tab" aria-selected="false" data-state="rejected">Lệnh bị từ chối</button>
+      <button type="button" role="tab" aria-selected="false" data-state="notbound">Ví chưa định danh</button>
+      <button type="button" role="tab" aria-selected="false" data-state="paused">Giao dịch tạm dừng</button>
+      <button type="button" role="tab" aria-selected="false" data-state="noproject">Chưa có dự án</button>
+      <button type="button" role="tab" aria-selected="false" data-state="loading">Đang tải</button>
+      <button type="button" role="tab" aria-selected="false" data-state="error">Lỗi</button>
+      <button type="button" role="tab" aria-selected="false" data-state="nowallet">Chưa kết nối ví</button>
+    </div>
+  </div>
+
+  <div class="alert" role="note" data-states="data sell fail checking perr rejected notbound paused noproject loading error" id="mock-note">
+    <i data-icon="info"></i>
+    <span>Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span class="mono break">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>. Không cần kết nối ví trình duyệt.</span>
+  </div>
+
+  <!-- Đọc bối cảnh: đang tải, lỗi -->
+  <section class="card" data-states="loading" hidden>
+    <div class="empty" style="padding:48px 16px"><span class="ei"><i data-icon="loader"></i></span><span>Đang đọc số dư và thông tin token…</span></div>
+  </section>
+  <div class="alert bad" role="alert" data-states="error" hidden><i data-icon="alert"></i><span>Lỗi không xác định khi gọi chain.</span></div>
+
+  <!-- Đặt lệnh -->
+  <section class="card span-7" aria-labelledby="ord-h" data-states="data sell fail checking perr rejected notbound paused noproject">
+    <div class="card-h">
+      <div class="t"><i data-icon="cart"></i><h2 id="ord-h">Đặt lệnh</h2></div>
+    </div>
+    <form class="form">
+      <div class="alert warn" role="alert" data-wallet-not-bound data-states="notbound" hidden>
+        <i data-icon="shieldx"></i>
+        <span><b>Ví chưa được định danh</b><br>Ví <span class="mono">0x7099…79C8</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ ngân hàng hoặc kết nối ví khác.</span>
+      </div>
+      <div class="alert warn" role="alert" data-states="paused" hidden>
+        <i data-icon="pause"></i>
+        <span><b>Giao dịch tạm dừng</b><br>Dự án đã đến hạn ngày 25/10/2026; giao dịch mua bán đã tạm dừng.<br><a class="idlink" data-go="portfolio.html" style="color:inherit;text-decoration:underline;text-underline-offset:3px">Xem thông báo ở Tổng quan</a></span>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="tk">Token</label>
+          <select id="tk" class="select" disabled aria-label="Token"><option>WPT: Dự án điện gió An Viên</option></select>
+        </div>
+        <div class="field" id="side-f" hidden>
+          <div class="seg green block" role="tablist" aria-label="Chiều lệnh" id="side">
+            <button type="button" role="tab" aria-pressed="true" data-side="BUY">Mua</button>
+            <button type="button" role="tab" aria-pressed="false" data-side="SELL">Bán</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="qty">Số lượng</label>
+          <input id="qty" class="input" inputmode="numeric" value="10" aria-label="Số lượng" aria-describedby="cap">
+          <span class="hint" id="cap">Tối đa 18 token: số dư 1.893.000 VNDB chia cho giá 100.000 VNDB.</span>
+          <span class="err" id="qerr" role="alert" hidden></span>
+        </div>
+        <div class="field">
+          <label for="price">Giá (VNDB / token, chỉ để xem)</label>
+          <input id="price" class="input" value="100.000" readonly>
+        </div>
+      </div>
+      <div class="total"><span class="muted">Tổng giá trị dự kiến</span><b id="total">1.000.000 VNDB</b></div>
+
+      <section aria-label="Khối kiểm tra trước lệnh" class="inner" style="background:transparent;border:1px solid var(--line);padding:16px">
+        <div class="card-h" style="margin-bottom:12px"><div class="t"><i data-icon="shield"></i><h3>Kiểm tra trước lệnh</h3></div></div>
+        <div id="chk-box"></div>
+      </section>
+
+      <div style="display:grid;gap:6px">
+        <button type="button" class="btn primary lg block" id="confirm"><i data-icon="check"></i><span id="confirm-l">Xác nhận lệnh mua</span></button>
+        <p class="small muted" id="block" hidden></p>
+        <p class="small" style="color:var(--bad)" id="submit-err" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <div class="stack span-5" data-states="data sell fail checking perr rejected notbound paused noproject">
+    <!-- Tóm tắt lệnh -->
+    <section class="card hero" aria-label="Tóm tắt lệnh">
+      <div class="card-h"><div class="t"><i data-icon="receipt"></i><h2>Tóm tắt lệnh</h2></div></div>
+      <dl class="kv" style="position:relative">
+        <div><dt>Loại lệnh</dt><dd id="s-side">Mua</dd></div>
+        <div><dt>Số lượng</dt><dd class="mono" id="s-qty">10</dd></div>
+        <div><dt>Giá</dt><dd class="mono">100.000 VNDB</dd></div>
+        <div><dt>Tổng giá trị dự kiến</dt><dd class="mono" id="s-total" style="color:var(--au300)">1.000.000 VNDB</dd></div>
+        <div><dt>Token đang giữ</dt><dd class="mono" id="s-wpt">150</dd></div>
+        <div><dt>Số dư VNDB</dt><dd class="mono" id="s-vndb">1.893.000</dd></div>
+      </dl>
+    </section>
+
+    <!-- Thông tin token -->
+    <section class="card tint" aria-label="Thông tin token">
+      <div class="card-h"><div class="t"><i data-icon="wind"></i><h2>Thông tin token</h2></div></div>
+      <p class="small muted" id="t-none" hidden>Chuỗi này chưa có dự án nào được token hoá.</p>
+      <dl class="kv" id="t-kv">
+        <div><dt>Dự án</dt><dd>Dự án điện gió An Viên</dd></div>
+        <div><dt>Trần phát hành</dt><dd class="mono">20.000.000</dd></div>
+        <div><dt>Giá phát hành</dt><dd class="mono">100.000 VNDB</dd></div>
+        <div><dt>Trạng thái token</dt><dd>Đã phát hành</dd></div>
+        <div><dt>Trạng thái giao dịch</dt><dd><span class="badge ok" id="t-trading">Đang mở</span></dd></div>
+        <div><dt>Số chưa phân phối</dt><dd class="mono">6.587.500</dd></div>
+        <div><dt>Tuổi thọ còn lại</dt><dd>15 năm</dd></div>
+        <div><dt>Lợi tức mục tiêu</dt><dd>5,8%/năm</dd></div>
+        <div><dt>Phí giao dịch</dt><dd>Không tính</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <!-- Lệnh vừa gửi (TrackedOrder, hiện sau khi gửi lệnh) -->
+  <section class="card" aria-label="Lệnh vừa gửi" id="tracked" hidden>
+    <div class="card-h">
+      <div class="t"><i data-icon="send"></i><h2 id="tr-h">Lệnh mua vừa gửi: Hoàn tất</h2></div>
+      <a class="link-more" id="tr-link" href="#">Xem chi tiết<i data-icon="right"></i></a>
+    </div>
+    <div id="tr-body"></div>
+  </section>
+
+  <!-- Chưa kết nối ví -->
+  <section class="card" data-states="nowallet" hidden>
+    <div class="empty" style="padding:64px 16px">
+      <span class="ei"><i data-icon="wallet"></i></span>
+      <b>Chưa kết nối ví</b>
+      <p class="small" style="max-width:320px">Kết nối ví ở góc trên phải, hoặc mở <a class="idlink" data-go="wallet.html">Ví của tôi</a> để đặt lệnh mua hoặc bán token.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Hộp xác nhận: Đối chiếu lệnh lần cuối -->
+<div class="modal" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-h" hidden>
+  <div class="box">
+    <button class="iconbtn x" type="button" id="dlg-x" aria-label="Đóng"><i data-icon="x"></i></button>
+    <h2 id="dlg-h">Đối chiếu lệnh lần cuối</h2>
+    <p class="small muted" style="margin-top:4px">Kiểm tra lại trước khi gửi. Số VNDB được chốt tại thời điểm gửi.</p>
+    <dl class="kv" style="margin-top:12px">
+      <div><dt>Loại lệnh</dt><dd id="d-side">Mua</dd></div>
+      <div><dt>Số lượng</dt><dd class="mono" id="d-qty">10</dd></div>
+      <div><dt>Giá</dt><dd class="mono">100.000 VNDB</dd></div>
+      <div><dt>Tổng giá trị</dt><dd class="mono" id="d-total">1.000.000 VNDB</dd></div>
+    </dl>
+    <p class="busy" id="permit-prep" hidden style="margin-top:12px"><i data-icon="loader"></i>Đang chuẩn bị nội dung chữ ký ủy quyền…</p>
+    <p class="inner small" id="permit" hidden style="margin-top:12px" data-testid="permit-notice">Bạn sẽ ký cho phép hệ thống chi đúng <b class="mono" id="permit-v">1.000.000 VNDB</b> cho lệnh này, hiệu lực đến 09:44:00 23/10/2026; không tốn phí giao dịch.</p>
+    <p class="small" id="sign-note" role="alert" style="color:var(--bad);margin-top:10px" hidden></p>
+    <div class="foot">
+      <button type="button" class="btn outline" id="dlg-back">Quay lại</button>
+      <button type="button" class="btn primary" id="dlg-send">Gửi lệnh</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/logo.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const nf = (v) => UI.nf(v);
+  const W = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const CAP = {
+    BUY: { max: 18, reason: 'Tối đa 18 token: số dư 1.893.000 VNDB chia cho giá 100.000 VNDB.' },
+    SELL: { max: 150, reason: 'Tối đa 150 token: số token ví đang giữ.' },
+  };
+  // Chuỗi chưa có dự án: số chưa phân phối là 0 nên trần mua là 0 (quantityCaps).
+  const CAP0 = { BUY: { max: 0, reason: 'Tối đa 0 token: số chưa phân phối của người bán chỉ còn 0.' }, SELL: CAP.SELL };
+  const LBL = { BUY: 'Mua', SELL: 'Bán' };
+  const ST = { PLACED: 'Đã đặt', CHECKING: 'Đang kiểm tra', EXECUTING: 'Đang quyết toán', COMPLETED: 'Hoàn tất', REJECTED: 'Bị từ chối', FAILED: 'Thất bại', EXPIRED: 'Hết hạn' };
+  const STEP = ['Tạo lệnh', 'Kiểm tra', 'Đối chiếu số dư', 'Quyết toán', 'Hoàn tất'];
+  const STEP_ST = { done: 'Xong', current: 'Đang xử lý', pending: 'Chưa tới', failed: 'Dừng ở bước này' };
+  const PROGRESS = { PLACED: [1, 'pending'], CHECKING: [1, 'current'], EXECUTING: [3, 'current'], COMPLETED: [5, 'pending'], REJECTED: [1, 'failed'], EXPIRED: [1, 'failed'], FAILED: [3, 'failed'] };
+  const OUTCOME = { COMPLETED: 'cả bốn bút toán đã ghi.', REJECTED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.', EXPIRED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.', FAILED: 'không bút toán nào được ghi, số dư hai bên giữ nguyên.' };
+  const SUB = {
+    on: 'Mua token từ người bán hoặc bán lại cho người bán, theo giá phát hành do ngân hàng cấu hình.',
+    off: 'Mua token từ người bán theo giá phát hành do ngân hàng cấu hình.',
+  };
+  let side = 'BUY', mode = 'data', tracked = null;
+  const sellEnabled = () => mode === 'sell';
+  const walletBound = () => mode !== 'notbound';
+  const tradeBlocked = () => mode === 'paused';
+  // Sau lệnh bị từ chối, màn đọc lại bối cảnh (investor-trade.tsx:258-259): số dư còn 893.000 VNDB nên trần mua là 8.
+  const CAPR = { BUY: { max: 8, reason: 'Tối đa 8 token: số dư 893.000 VNDB chia cho giá 100.000 VNDB.' }, SELL: CAP.SELL };
+  const caps = () => (mode === 'noproject' ? CAP0 : mode === 'rejected' ? CAPR : CAP);
+  const chainNow = () => { try { return localStorage.getItem('bidv-chain') || 'mock'; } catch { return 'mock'; } };
+  const isMock = () => chainNow() === 'mock';
+  const needsPermit = () => ['hardhat-local', 'evm'].includes(chainNow());
+  const ck = (ok, label, detail, fix) => `<li class="${ok ? 'ok' : 'fail'}" data-passed="${ok}"><span class="ci">${UI.icon(ok ? 'check' : 'x')}</span><div><b>${label}</b><span class="d break">${ok ? 'Đạt' : 'Không đạt'}: ${detail}</span>${fix ? `<span class="fix">${fix}</span>` : ''}</div></li>`;
+
+  function conditions() {
+    const frozen = mode === 'fail';
+    return [
+      ck(true, 'Tài khoản', 'Tài khoản Nhà đầu tư có quyền đặt lệnh mua và bán.'),
+      ck(true, 'Định danh', `Hồ sơ đã định danh và ví ${W} nằm trong danh sách được phép.`),
+      ck(!frozen, 'Ví', frozen ? `Ví ${W} đang bị đóng băng.` : `Ví ${W} không bị đóng băng.`, frozen ? 'Liên hệ ngân hàng để xử lý trạng thái đóng băng của ví.' : null),
+      ck(true, 'Token được phép giao dịch', 'WPT đã phát hành và đang mở giao dịch.'),
+      ck(true, 'Rủi ro', `Hồ sơ rủi ro thấp, AML đạt; đồng thời đạt 4 phép kiểm số dư và thanh khoản của lệnh ${side === 'BUY' ? 'mua' : 'bán'}.`),
+    ].join('');
+  }
+  function reasonOf(v) {
+    if (!walletBound()) return 'Ví chưa được định danh';
+    if (v.trim() === '') return 'Nhập số lượng token.';
+    if (!/^\d+$/.test(v.trim()) || +v === 0) return 'Số lượng phải là số nguyên lớn hơn 0.';
+    if (+v > caps()[side].max) return `Vượt trần được phép. ${caps()[side].reason}`;
+    return null;
+  }
+  function render() {
+    const v = $('qty').value, r = reasonOf(v), ok = r === null, q = ok ? +v : null;
+    // Khối kiểm tra: idle, loading, error, checked (TradeCheckBlock).
+    const kind = !ok ? 'idle' : mode === 'checking' ? 'loading' : mode === 'perr' ? 'error' : 'checked';
+    let block = tradeBlocked() ? 'Giao dịch đang tạm dừng theo đợt thu hồi.' : r;
+    if (!block && kind === 'loading') block = 'Đang kiểm tra điều kiện trước lệnh.';
+    if (!block && kind === 'error') block = 'Lỗi không xác định khi gọi chain.';
+    if (!block && mode === 'fail') block = 'Chưa đạt điều kiện: Ví.';
+    const total = ok && kind === 'checked' ? `${nf(q * 100000)} VNDB` : 'Chưa có';
+    $('chk-box').innerHTML = kind === 'idle' ? '<p class="small muted">Nhập số lượng hợp lệ, hệ thống kiểm tra năm điều kiện.</p>'
+      : kind === 'loading' ? `<p class="busy">${UI.icon('loader')}Đang kiểm tra điều kiện…</p>`
+      : kind === 'error' ? '<p class="small" style="color:var(--bad)">Lỗi không xác định khi gọi chain.</p>'
+      : `<ul class="checks">${conditions()}</ul>`;
+    $('sub').textContent = sellEnabled() ? SUB.on : SUB.off;
+    $('side-f').hidden = !sellEnabled();
+    $('side').querySelectorAll('button').forEach((b) => { b.disabled = tradeBlocked(); b.setAttribute('aria-pressed', String(b.dataset.side === side)); });
+    $('tk').innerHTML = mode === 'noproject' ? '' : '<option>WPT: Dự án điện gió An Viên</option>';
+    $('qty').disabled = tradeBlocked() || !walletBound();
+    $('cap').textContent = walletBound() ? caps()[side].reason : 'Ví chưa được định danh';
+    $('qerr').hidden = !(v !== '' && r); $('qerr').textContent = r || '';
+    ['total', 's-total', 'd-total'].forEach((id) => { $(id).textContent = total; $(id).style.fontFamily = total === 'Chưa có' ? 'var(--font)' : ''; });
+    $('s-qty').textContent = ok ? nf(q) : '–'; $('d-qty').textContent = ok ? nf(q) : '–';
+    $('s-side').textContent = LBL[side]; $('d-side').textContent = LBL[side];
+    $('s-wpt').textContent = walletBound() ? '150' : 'Không có';
+    $('s-vndb').textContent = walletBound() ? (mode === 'rejected' ? '893.000' : '1.893.000') : 'Không có';
+    ['s-wpt', 's-vndb'].forEach((id) => { $(id).style.fontFamily = walletBound() ? '' : 'var(--font)'; });
+    $('t-none').hidden = mode !== 'noproject'; $('t-kv').hidden = mode === 'noproject';
+    $('t-trading').textContent = tradeBlocked() ? 'Tạm dừng (đến hạn dự án)' : 'Đang mở';
+    $('t-trading').className = `badge ${tradeBlocked() ? 'warn' : 'ok'}`;
+    $('confirm-l').textContent = `Xác nhận lệnh ${LBL[side].toLowerCase()}`;
+    $('confirm').disabled = block !== null; $('block').hidden = block === null; $('block').textContent = block || '';
+    $('permit-v').textContent = side === 'BUY' ? `${ok ? nf(q * 100000) : '–'} VNDB` : `${ok ? nf(q) : '–'} WPT`;
+  }
+
+  // Lệnh vừa gửi: vẽ đúng các bước và kết cục theo trạng thái (SettlementProgress).
+  function renderTracked() {
+    const t = tracked; $('tracked').hidden = !t; if (!t) return;
+    $('tr-h').textContent = `Lệnh ${LBL[t.side].toLowerCase()} vừa gửi: ${ST[t.status]}`;
+    $('tr-link').href = `${UI.withRole('order-detail.html')}&id=${t.id}`;
+    const [done, next] = PROGRESS[t.status];
+    const steps = STEP.map((label, i) => {
+      const state = i < done ? 'done' : i === done ? next : 'pending';
+      const at = state === 'failed' ? t.updatedAt : state === 'pending' ? '–' : t.stamps[i];
+      return `<li class="${state === 'done' ? 'done' : state === 'current' ? 'now' : state === 'failed' ? 'fail' : ''}" data-state="${state}"><b>${label}</b>Bước ${i + 1}, ${STEP_ST[state]}<span class="mono">${at}</span></li>`;
+    }).join('');
+    const v = nf(t.qty * 100000), w = nf(t.qty);
+    const pays = t.side === 'BUY' ? ['VNDB', v] : ['WPT', w], gets = t.side === 'BUY' ? ['WPT', w] : ['VNDB', v];
+    const entries = [['Nhà đầu tư', pays, '-'], ['Người bán', pays, '+'], ['Người bán', gets, '-'], ['Nhà đầu tư', gets, '+']]
+      .map(([who, [a, n], s]) => `<li><span>${who}, ${a}</span><span class="${s === '-' ? 'neg' : 'pos'}">${s}${n}</span></li>`).join('');
+    const settled = ['COMPLETED', 'REJECTED', 'EXPIRED', 'FAILED'].includes(t.status);
+    $('tr-body').innerHTML = `${settled ? '' : `<p class="busy" style="margin-bottom:12px">${UI.icon('loader')}Hệ thống đang tự quyết toán; màn hình sẽ tự cập nhật kết quả.</p>`}
+      ${t.tx ? `<p class="small" style="margin-bottom:12px">Mã giao dịch${isMock() ? ' mô phỏng' : ''}: <span class="mono break">${t.tx}</span></p>` : ''}
+      ${t.reason ? `<p class="small break" style="color:var(--bad);margin-bottom:12px">${t.reason}</p>` : ''}
+      <ol class="steps">${steps}</ol>
+      <div class="inner" style="margin-top:16px">
+        <p class="strong">Quyết toán là một bước duy nhất: bốn bút toán nằm trong cùng một giao dịch, cùng thành công hoặc cùng huỷ.</p>
+        <p class="small muted" style="margin-top:4px">Kết cục: ${OUTCOME[t.status] || 'chưa có kết cục.'}</p>
+        <ul class="entries">${entries}</ul>
+      </div>`;
+  }
+
+  $('side').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; side = b.dataset.side; render(); });
+  $('qty').addEventListener('input', render);
+
+  function syncChain() {
+    $('mock-note').style.display = isMock() ? '' : 'none';
+    $('dlg-send').textContent = needsPermit() ? 'Ký và đặt lệnh' : 'Gửi lệnh';
+    renderTracked();
+  }
+  document.getElementById('chain')?.addEventListener('change', syncChain);
+
+  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+  const p2 = (n) => String(n).padStart(2, '0');
+  const stamp = (d) => `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+  const hex = (n) => Array.from({ length: n }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  const uuid = () => [8, 4, 4, 4, 12].map(hex).join('-');
+  const close = () => { $('dlg').hidden = true; };
+  $('confirm').addEventListener('click', async () => {
+    syncChain(); $('sign-note').hidden = true; $('dlg').hidden = false;
+    $('permit').hidden = true; $('permit-prep').hidden = !needsPermit();
+    if (needsPermit()) { await wait(500); $('permit-prep').hidden = true; $('permit').hidden = false; }
+  });
+  $('dlg-back').addEventListener('click', close);
+  $('dlg-x').addEventListener('click', close);
+  $('dlg').addEventListener('click', (e) => { if (e.target === $('dlg')) close(); });
+  $('dlg-send').addEventListener('click', async () => {
+    const send = $('dlg-send'), q = +$('qty').value;
+    send.disabled = true; $('dlg-back').disabled = true;
+    if (needsPermit()) { send.textContent = 'Đang chờ ký trong ví…'; await wait(700); send.textContent = 'Đang gửi lệnh…'; await wait(500); }
+    else { send.textContent = 'Đang gửi…'; await wait(400); }
+    send.disabled = false; $('dlg-back').disabled = false; close();
+    const now = new Date(), s = stamp(now);
+    tracked = { id: uuid(), side, qty: q, status: 'EXECUTING', stamps: [s, s, s, s, s], updatedAt: s, tx: null, reason: null };
+    $('qty').value = ''; render(); renderTracked(); syncChain();
+    $('tracked').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await wait(1600);
+    if (tracked) { tracked.status = 'COMPLETED'; tracked.tx = `0x${hex(64)}`; tracked.stamps[4] = stamp(new Date()); renderTracked(); }
+  });
+
+  function show(st) {
+    mode = st;
+    document.querySelectorAll('[data-states-tabs] button').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.state === st)));
+    document.querySelectorAll('[data-states]').forEach((el) => { el.hidden = !el.dataset.states.split(' ').includes(st); });
+    if (!sellEnabled()) side = 'BUY';
+    // Dev xoá ô Số lượng sau khi gửi lệnh (investor-trade.tsx:258), nên tab Lệnh bị từ chối mở với ô rỗng.
+    $('qty').value = st === 'notbound' || st === 'paused' || st === 'rejected' ? '' : '10';
+    // Lệnh bị từ chối khi tự quyết toán: số dư đổi giữa lúc đặt và lúc khớp, máy chủ ghi lý do.
+    tracked = st === 'rejected' ? { id: '5c1e9a07-3d42-4b8e-a6f1-0e27d94b8c13', side: 'BUY', qty: 10, status: 'REJECTED', stamps: ['01/11/2026 09:14:02', '', '', '', ''], updatedAt: '01/11/2026 09:14:03', tx: null, reason: `Số dư VNDB không đủ: cần 1000000, ví ${W} chỉ có 893000.` } : null;
+    syncChain(); render(); renderTracked();
+  }
+  document.querySelectorAll('[data-states-tabs] button').forEach((b) => b.addEventListener('click', () => show(b.dataset.state)));
+  const st = new URLSearchParams(location.search).get('st');
+  show(st && document.querySelector(`[data-states-tabs] button[data-state="${st}"]`) ? st : 'data');
+})();
+</script>
+</body>
+</html>
