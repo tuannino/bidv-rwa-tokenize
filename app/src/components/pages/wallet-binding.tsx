@@ -119,7 +119,7 @@ export function WalletBindingPage() {
                 placeholder="0x…"
                 spellCheck={false}
                 disabled={busy}
-                className={`${INPUT} font-mono`}
+                className={`${INPUT} font-code`}
               />
             </div>
             <div className="sm:col-span-2">
@@ -174,7 +174,7 @@ export function WalletBindingPage() {
               <TableBody>
                 {data.rows.map((row) => (
                   <TableRow key={row.wallet} data-wallet={row.wallet}>
-                    <TableCell className="break-all font-mono text-xs">{row.wallet}</TableCell>
+                    <TableCell className="break-all font-code text-xs">{row.wallet}</TableCell>
                     <TableCell className="text-xs">
                       {row.actorId}, {row.profileName}
                     </TableCell>

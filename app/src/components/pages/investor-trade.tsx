@@ -272,7 +272,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
       {chain === 'mock' && (
         <p className="text-xs text-muted-foreground" role="note">
-          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-mono">{wallet}</span>.
+          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-code">{wallet}</span>.
           Không cần kết nối ví trình duyệt.
         </p>
       )}
@@ -353,7 +353,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
               <div className="flex items-baseline justify-between border-t border-border pt-3">
                 <span className="text-sm text-muted-foreground">Tổng giá trị dự kiến</span>
-                <span className="font-mono text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
+                <span className="tabular-nums text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
               </div>
 
               <TradeCheckBlock preview={preview} wallet={ctx.wallet} />
@@ -464,7 +464,7 @@ function PermitNotice({
   return (
     <p className="rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="permit-notice">
       Bạn sẽ ký cho phép hệ thống chi đúng{' '}
-      <span className="font-mono font-semibold">
+      <span className="tabular-nums font-semibold">
         {formatAmount(prepared.value)} {prepared.tokenSymbol}
       </span>{' '}
       cho lệnh này, hiệu lực đến {until}; không tốn phí giao dịch.
@@ -479,7 +479,7 @@ function Row({ label, mono, children }: { label: string; mono?: boolean; childre
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'font-mono' : undefined}>{children}</dd>
+      <dd className={mono ? 'font-code' : undefined}>{children}</dd>
     </div>
   );
 }
@@ -582,7 +582,7 @@ function TrackedOrder({ order, chain }: { order: OrderView; chain: string }) {
         {order.txHash && (
           <p className="text-sm">
             Mã giao dịch{chain === 'mock' ? ' mô phỏng' : ''}:{' '}
-            <span className="break-all font-mono text-xs">{order.txHash}</span>
+            <span className="break-all font-code text-xs">{order.txHash}</span>
           </p>
         )}
         {order.reason && <p className="text-sm text-destructive">{order.reason}</p>}

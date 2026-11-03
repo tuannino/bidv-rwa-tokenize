@@ -90,7 +90,7 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="space-y-1 rounded-lg border border-border p-3">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all font-mono text-sm font-semibold">{value}</dd>
+      <dd className="break-all font-code text-sm font-semibold">{value}</dd>
     </div>
   );
 }
@@ -99,12 +99,12 @@ function TxLink({ chain, txHash }: { chain: ChainKey; txHash: string | null }) {
   if (!txHash) return <span className="text-xs text-muted-foreground">không có</span>;
   const url = explorerTxUrl(chain, txHash);
   return url ? (
-    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-xs underline">
+    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">
       {short(txHash)}
       <ExternalLink className="h-3 w-3" aria-hidden="true" />
     </a>
   ) : (
-    <span className="font-mono text-xs" title={txHash}>{short(txHash)}</span>
+    <span className="font-code text-xs" title={txHash}>{short(txHash)}</span>
   );
 }
 
@@ -229,9 +229,9 @@ function PayoutsTable({ chain, periodId }: { chain: ChainKey; periodId: string }
         </TableRow></TableHeader>
         <TableBody>{result.data.rows.map((row) => (
           <TableRow key={row.investorWallet}>
-            <TableCell className="font-mono text-xs" title={row.investorWallet}>{short(row.investorWallet)}</TableCell>
-            <TableCell className="text-right font-mono">{amount(row.balanceAt)}</TableCell>
-            <TableCell className="text-right font-mono">{amount(row.amount)}</TableCell>
+            <TableCell className="font-code text-xs" title={row.investorWallet}>{short(row.investorWallet)}</TableCell>
+            <TableCell className="text-right tabular-nums">{amount(row.balanceAt)}</TableCell>
+            <TableCell className="text-right tabular-nums">{amount(row.amount)}</TableCell>
             <TableCell>{PAYOUT_STATUS[row.status] ?? row.status}</TableCell>
             <TableCell><TxLink chain={chain} txHash={row.txHash} /></TableCell>
           </TableRow>
@@ -294,14 +294,14 @@ function HistoryCard({
               </TableRow></TableHeader>
               <TableBody>{result.data.rows.map(({ period, triggerSources }) => (
                 <TableRow key={period.id} data-period={period.periodKey}>
-                  <TableCell className="font-mono text-xs">{period.periodKey}</TableCell>
+                  <TableCell className="font-code text-xs">{period.periodKey}</TableCell>
                   <TableCell>{PERIOD_STATUS[period.status] ?? period.status}</TableCell>
                   <TableCell>{period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa duyệt'}</TableCell>
-                  <TableCell className="font-mono text-xs">{period.approvedBy ?? 'không có'}</TableCell>
+                  <TableCell className="font-code text-xs">{period.approvedBy ?? 'không có'}</TableCell>
                   <TableCell className="text-xs">{when(period.approvedAt)}</TableCell>
-                  <TableCell className="text-right font-mono">{approvedAmountLabel(period, 'table')}</TableCell>
-                  <TableCell className="text-right font-mono">{amount(period.totalAmount)}</TableCell>
-                  <TableCell className="text-right font-mono">{period.reapprovedFrom ? amount(period.reapprovedFrom) : 'không'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{approvedAmountLabel(period, 'table')}</TableCell>
+                  <TableCell className="text-right tabular-nums">{amount(period.totalAmount)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{period.reapprovedFrom ? amount(period.reapprovedFrom) : 'không'}</TableCell>
                   <TableCell className="text-xs">{triggerSources.length ? triggerSources.map((s) => (s === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper')).join(', ') : 'chưa chạy'}</TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => setSelected(selected === period.id ? null : period.id)}>
@@ -334,8 +334,8 @@ function HistoryCard({
               </TableRow></TableHeader>
               <TableBody>{runLog.data.map((run) => (
                 <TableRow key={run.id}>
-                  <TableCell className="font-mono text-xs">{run.periodKey ?? 'vòng rỗng'}</TableCell>
-                  <TableCell className="text-right font-mono">{run.runNo}</TableCell>
+                  <TableCell className="font-code text-xs">{run.periodKey ?? 'vòng rỗng'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{run.runNo}</TableCell>
                   <TableCell>{run.triggerSource === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper'}</TableCell>
                   <TableCell>{run.status}</TableCell>
                   <TableCell className="text-xs">{when(run.startedAt)}</TableCell>
@@ -454,9 +454,9 @@ export function DistributionApprovalPage() {
                     </TableRow></TableHeader>
                     <TableBody>{data.forecast!.rows.map((row) => (
                       <TableRow key={row.wallet}>
-                        <TableCell className="font-mono text-xs" title={row.wallet}>{short(row.wallet)}{row.isVault ? ' (vault)' : ''}</TableCell>
-                        <TableCell className="text-right font-mono">{amount(row.balance)}</TableCell>
-                        <TableCell className="text-right font-mono">{amount(row.share)}</TableCell>
+                        <TableCell className="font-code text-xs" title={row.wallet}>{short(row.wallet)}{row.isVault ? ' (vault)' : ''}</TableCell>
+                        <TableCell className="text-right tabular-nums">{amount(row.balance)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{amount(row.share)}</TableCell>
                       </TableRow>
                     ))}</TableBody>
                   </Table>

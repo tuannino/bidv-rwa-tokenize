@@ -17,7 +17,7 @@ export function WalletNotBoundNotice({ wallet }: { wallet: string }) {
       <div className="space-y-0.5">
         <p className="font-semibold">Ví chưa được định danh</p>
         <p>
-          Ví <span className="font-mono">{short}</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ
+          Ví <span className="font-code">{short}</span> chưa được ngân hàng định danh cho tài khoản này. Liên hệ
           ngân hàng hoặc kết nối ví khác.
         </p>
       </div>

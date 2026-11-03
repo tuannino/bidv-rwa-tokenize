@@ -95,7 +95,7 @@ function Stat({ label, value, unit, hint }: { label: string; value: string; unit
   return (
     <div className="space-y-1 rounded-lg border border-border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-mono text-lg font-semibold">
+      <p className="tabular-nums text-lg font-semibold">
         {value}
         {unit && <span className="ml-1 text-xs font-normal text-muted-foreground">{unit}</span>}
       </p>
@@ -169,7 +169,7 @@ export function SellerOverviewPage() {
                         <dt className="text-sm font-medium">{label}</dt>
                         <dd className="text-xs text-muted-foreground">{definition}</dd>
                       </div>
-                      <dd className="font-mono text-sm font-semibold" data-metric={key}>
+                      <dd className="tabular-nums text-sm font-semibold" data-metric={key}>
                         {nf(token[key])}
                       </dd>
                     </div>
@@ -184,13 +184,13 @@ export function SellerOverviewPage() {
               {token ? (
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <dt className="text-muted-foreground">Mã token</dt>
-                  <dd className="font-mono font-semibold">{token.tokenSymbol}</dd>
+                  <dd className="font-semibold">{token.tokenSymbol}</dd>
                   <dt className="text-muted-foreground">Dự án</dt>
                   <dd>{token.projectName}</dd>
                   <dt className="text-muted-foreground">Trần phát hành</dt>
-                  <dd className="font-mono">{nf(token.cap)}</dd>
+                  <dd className="tabular-nums">{nf(token.cap)}</dd>
                   <dt className="text-muted-foreground">Giá phát hành</dt>
-                  <dd className="font-mono">{nf(token.issuePriceVnd)} VNDB</dd>
+                  <dd className="tabular-nums">{nf(token.issuePriceVnd)} VNDB</dd>
                   <dt className="text-muted-foreground">Tuổi thọ còn lại</dt>
                   <dd>{token.terms.remainingLifetimeYears} năm</dd>
                   <dt className="text-muted-foreground">Lợi tức mục tiêu</dt>
@@ -227,9 +227,9 @@ export function SellerOverviewPage() {
               <TableBody>
                 {data.tokens.map((row) => (
                   <TableRow key={row.tokenSymbol}>
-                    <TableCell className="font-mono font-semibold">{row.tokenSymbol}</TableCell>
+                    <TableCell className="font-semibold">{row.tokenSymbol}</TableCell>
                     {SUPPLY_METRICS.map(([key]) => (
-                      <TableCell key={key} className="text-right font-mono">
+                      <TableCell key={key} className="text-right tabular-nums">
                         {nf(row[key])}
                       </TableCell>
                     ))}
@@ -254,7 +254,7 @@ export function SellerOverviewPage() {
               </div>
               {wallet?.paymentWallet && (
                 <p className="mt-3 break-all text-xs text-muted-foreground">
-                  Địa chỉ vault: <span className="font-mono">{wallet.paymentWallet}</span>
+                  Địa chỉ vault: <span className="font-code">{wallet.paymentWallet}</span>
                 </p>
               )}
               {wallet?.warning && (

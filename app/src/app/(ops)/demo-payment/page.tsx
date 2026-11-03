@@ -22,7 +22,7 @@ export default async function DemoPayment() {
           <h1 className="text-lg font-semibold">Chức năng nạp VNDB mô phỏng không khả dụng</h1>
           <p className="text-sm text-muted-foreground">
             Chỉ mở khi máy chủ bật cờ ENABLE_DEMO_PAYMENT_MINT và vai hiện tại là Giao dịch viên. Vai
-            hiện tại: <span className="font-mono text-foreground">{role}</span>.
+            hiện tại: <span className="font-code text-foreground">{role}</span>.
           </p>
         </div>
       )}

@@ -232,7 +232,7 @@ export function SellerWithdrawPage() {
                     id="w-amount"
                     value={form.amount}
                     onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
-                    className={`${FIELD} font-mono`}
+                    className={`${FIELD} tabular-nums`}
                   />
                 </Field>
                 {quote?.exceedsLimit && (
@@ -251,7 +251,7 @@ export function SellerWithdrawPage() {
                     placeholder="0x…"
                     spellCheck={false}
                     aria-invalid={payoutError !== null}
-                    className={`${FIELD} font-mono`}
+                    className={`${FIELD} font-code`}
                   />
                 </Field>
                 {chain !== 'mock' && (
@@ -306,15 +306,15 @@ export function SellerWithdrawPage() {
             <CardContent>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 <dt className="text-muted-foreground">Số dư VNDB của vault</dt>
-                <dd className="text-right font-mono">{nf(wallet?.paymentVnd)}</dd>
+                <dd className="text-right tabular-nums">{nf(wallet?.paymentVnd)}</dd>
                 <dt className="text-muted-foreground">Phần khoá</dt>
-                <dd className="text-right font-mono">{nf(wallet?.lockedVnd)}</dd>
+                <dd className="text-right tabular-nums">{nf(wallet?.lockedVnd)}</dd>
                 <dt className="text-muted-foreground">Phần được rút</dt>
-                <dd className="text-right font-mono" data-testid="withdrawable">
+                <dd className="text-right tabular-nums" data-testid="withdrawable">
                   {nf(withdrawable)}
                 </dd>
                 <dt className="font-medium">Số tiền nhận được</dt>
-                <dd className="text-right font-mono font-semibold">{nf(quote?.receivedVnd)}</dd>
+                <dd className="text-right tabular-nums font-semibold">{nf(quote?.receivedVnd)}</dd>
               </dl>
               <p className="mt-3 text-xs text-muted-foreground">{describePolicy(wallet?.policy ?? null)}</p>
               <p className="mt-1 text-xs text-muted-foreground">Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).</p>
@@ -353,11 +353,11 @@ export function SellerWithdrawPage() {
                   const url = r.txHash ? explorerTxUrl(chain, r.txHash) : null;
                   return (
                     <TableRow key={r.id} data-status={r.status}>
-                      <TableCell className="font-mono text-xs" title={r.id}>
+                      <TableCell className="font-code text-xs" title={r.id}>
                         {r.id.slice(0, 8)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">{nf(r.amount)}</TableCell>
-                      <TableCell className="font-mono text-xs" title={r.payoutWallet}>
+                      <TableCell className="text-right tabular-nums">{nf(r.amount)}</TableCell>
+                      <TableCell className="font-code text-xs" title={r.payoutWallet}>
                         {short(r.payoutWallet)}
                       </TableCell>
                       <TableCell>{r.purpose}</TableCell>
@@ -366,7 +366,7 @@ export function SellerWithdrawPage() {
                           {WITHDRAW_STATUS_LABELS[r.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className="font-code text-xs">
                         {r.txHash === null ? (
                           ''
                         ) : url ? (
@@ -411,7 +411,7 @@ export function SellerWithdrawPage() {
           </DialogHeader>
           {dialog && (
             <p className="break-all text-sm" data-testid="otp-payout-wallet">
-              Ví nhận: <span className="font-mono">{dialog.wallet}</span> (đã whitelist)
+              Ví nhận: <span className="font-code">{dialog.wallet}</span> (đã whitelist)
             </p>
           )}
           <input
@@ -421,7 +421,7 @@ export function SellerWithdrawPage() {
             maxLength={6}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-            className={`${FIELD} text-center font-mono text-lg tracking-[0.5em]`}
+            className={`${FIELD} text-center font-code text-lg tracking-[0.5em]`}
           />
           {!/^\d{6}$/.test(otp) && otp.length > 0 && (
             <p role="alert" className="text-sm text-destructive">

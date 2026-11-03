@@ -24,7 +24,7 @@ interface Feedback {
 }
 
 const INPUT =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  'w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 const short = (wallet: string | null) => (wallet ? `${wallet.slice(0, 10)}…${wallet.slice(-4)}` : '—');
 
@@ -145,7 +145,7 @@ export function DemoPaymentPage() {
                   {' '}
                   <button
                     type="button"
-                    className="font-mono text-primary hover:underline"
+                    className="font-code text-primary hover:underline"
                     onClick={() => setWallet(context.spvWallet ?? '')}
                   >
                     {short(context.spvWallet)}
@@ -233,10 +233,10 @@ export function DemoPaymentPage() {
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {new Date(row.createdAt).toLocaleString('vi-VN')}
                     </TableCell>
-                    <TableCell className="font-mono text-xs" title={row.toWallet ?? undefined}>
+                    <TableCell className="font-code text-xs" title={row.toWallet ?? undefined}>
                       {short(row.toWallet)}
                     </TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(row.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(row.amount)}</TableCell>
                     <TableCell>
                       <Badge
                         variant={

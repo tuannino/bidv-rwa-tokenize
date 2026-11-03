@@ -115,7 +115,7 @@ export function DashboardPage() {
                   TCC
                   <UnverifiedNote title="Chưa hỗ trợ token TCC" />
                 </span>
-                <span className="font-mono">{"–"}</span>
+                <span className="tabular-nums">{"–"}</span>
               </div>
             </div>
           }
@@ -234,7 +234,7 @@ function KpiCard({
       </div>
       <div
         className={cn(
-          "font-mono text-2xl font-bold tracking-tight",
+          "tabular-nums text-2xl font-bold tracking-tight",
           highlight ? "text-primary" : "text-foreground",
         )}
       >
@@ -251,7 +251,7 @@ function SupplyBar({ label, value }: { label: string; value: string | null }) {
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
         <span>{label}</span>
-        <span className="font-mono">{value ?? "–"}</span>
+        <span className="tabular-nums">{value ?? "–"}</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div className="h-full w-full rounded-full" style={{ backgroundColor: "var(--chart-1)" }} />

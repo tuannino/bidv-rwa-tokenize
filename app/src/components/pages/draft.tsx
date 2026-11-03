@@ -380,7 +380,7 @@ function RequestForm({
             onChange={(event) => setSymbol(event.target.value)}
             placeholder="WPT"
             spellCheck={false}
-            className={`${INPUT_CLASS} font-mono uppercase`}
+            className={`${INPUT_CLASS} uppercase`}
           />
         </Field>
 
@@ -412,7 +412,7 @@ function RequestForm({
               readOnly={Boolean(info?.spvWallet)}
               spellCheck={false}
               placeholder="0x…"
-              className={`${INPUT_CLASS} font-mono`}
+              className={`${INPUT_CLASS} font-code`}
             />
           </Field>
         ) : (
@@ -466,7 +466,7 @@ function RequestForm({
               value={amountShown}
               onValueChange={setAmount}
               readOnly={fullSupplyAmount}
-              className={`${fullSupplyAmount ? INPUT_CLASS.replace('bg-background', 'bg-muted/40') : INPUT_CLASS} font-mono`}
+              className={`${fullSupplyAmount ? INPUT_CLASS.replace('bg-background', 'bg-muted/40') : INPUT_CLASS} tabular-nums`}
             />
           </Field>
           <Field id={id('effective')} label="Ngày hiệu lực">

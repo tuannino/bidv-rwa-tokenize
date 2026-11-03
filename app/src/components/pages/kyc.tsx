@@ -125,7 +125,7 @@ export function KycPage() {
           <p className="text-sm text-muted-foreground">Chưa có nhà đầu tư nào trong danh sách.</p>
           <p className="max-w-md text-xs text-muted-foreground">
             Bảng này đọc từ DB nhà đầu tư, nối ở Phase 4. Hiện tại luồng KYC + whitelist chạy ở
-            chế độ mock tại trang <span className="font-mono">/mint</span>.
+            chế độ mock tại trang <span className="font-code">/mint</span>.
           </p>
         </div>
 
@@ -176,7 +176,7 @@ function KpiCard({
       <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div
         className={cn(
-          "font-mono text-2xl font-bold tracking-tight",
+          "tabular-nums text-2xl font-bold tracking-tight",
           danger ? "text-destructive" : warn ? "text-accent" : "text-foreground",
         )}
       >

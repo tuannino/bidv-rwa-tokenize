@@ -215,7 +215,7 @@ function ProjectRow({ project }: { project: WindProject }) {
       )}
     >
       <div>
-        <div className="font-mono text-xs text-muted-foreground">{project.code}</div>
+        <div className="font-code text-xs text-muted-foreground">{project.code}</div>
         <div className="mt-0.5 font-medium text-foreground">{project.name}</div>
         <div className="text-xs text-muted-foreground">{project.location}</div>
       </div>
@@ -232,16 +232,16 @@ function ProjectRow({ project }: { project: WindProject }) {
         </span>
       </div>
 
-      <div className="text-right font-mono text-foreground">
+      <div className="text-right tabular-nums text-foreground">
         {nf(project.capacityMw, 1)} <span className="text-xs text-muted-foreground">MW</span>
         <div className="text-xs text-muted-foreground">{project.turbines} tổ máy</div>
       </div>
 
-      <div className="text-right font-mono text-foreground">
+      <div className="text-right tabular-nums text-foreground">
         {nf(project.wptIssued)} <span className="text-xs text-muted-foreground">WPT</span>
       </div>
 
-      <div className="text-right font-mono text-foreground">
+      <div className="text-right tabular-nums text-foreground">
         {nf(project.generationMwh)} <span className="text-xs text-muted-foreground">MWh</span>
         <div className="text-xs text-muted-foreground">
           CF {nf(project.capacityFactorPct, 1)}% · {nf(project.ppaPricePerKwh)} đ/kWh
@@ -257,7 +257,7 @@ function ProjectRow({ project }: { project: WindProject }) {
 
       <div className="text-xs text-muted-foreground">
         <div>{project.commissionedAt}</div>
-        <div className="font-mono">{project.operatorAddress}</div>
+        <div className="font-code">{project.operatorAddress}</div>
       </div>
 
       <div className="flex items-start pt-0.5">
@@ -281,7 +281,7 @@ function TxLink({ txHash }: { txHash: string }) {
   if (!url) {
     return (
       <span
-        className="font-mono text-xs text-muted-foreground"
+        className="font-code text-xs text-muted-foreground"
         title={`Chain "${chain}" không có block explorer công khai`}
       >
         {txHash}
@@ -294,7 +294,7 @@ function TxLink({ txHash }: { txHash: string }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-1 font-mono text-xs text-primary transition-colors hover:underline"
+      className="flex items-center gap-1 font-code text-xs text-primary transition-colors hover:underline"
     >
       {txHash}
       <ExternalLink className="h-3 w-3" />
@@ -327,7 +327,7 @@ function StatCard({
         <span className={accent ? "text-primary" : "text-muted-foreground"}>{icon}</span>
       </div>
       <div
-        className={cn("font-mono text-2xl font-bold", accent ? "text-primary" : "text-foreground")}
+        className={cn("tabular-nums text-2xl font-bold", accent ? "text-primary" : "text-foreground")}
       >
         {value}
       </div>

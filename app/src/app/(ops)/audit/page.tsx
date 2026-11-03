@@ -58,8 +58,8 @@ export default async function AuditPage() {
                         {new Date(entry.createdAt).toLocaleString('vi-VN')}
                       </TableCell>
                       <TableCell className="text-xs">{entry.actorRole}</TableCell>
-                      <TableCell className="font-mono text-xs">{entry.action}</TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className="font-code text-xs">{entry.action}</TableCell>
+                      <TableCell className="font-code text-xs">
                         {entry.target ? `${entry.target.slice(0, 10)}…` : '—'}
                       </TableCell>
                       <TableCell>

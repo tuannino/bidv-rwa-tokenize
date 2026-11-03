@@ -81,7 +81,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-foreground">{project.name}</h1>
-          <span className="font-mono text-sm text-muted-foreground">{project.tokenSymbol}</span>
+          <span className="text-sm text-muted-foreground">{project.tokenSymbol}</span>
           {project.onChain ? (
             <OnChainBadge />
           ) : (
@@ -108,14 +108,14 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
           <CardContent>
             <dl className="space-y-2.5 text-sm">
               <Row label="Mã dự án">
-                <span className="font-mono">{project.code}</span>
+                <span className="font-code">{project.code}</span>
               </Row>
               <Row label="Công suất đặt">{nfNum(project.capacityMw, 1)} MW</Row>
               <Row label="Số tổ máy">{nfNum(project.turbines)}</Row>
               <Row label="Giá bán điện (PPA)">{nfNum(project.ppaPricePerKwh)} ₫/kWh</Row>
               <Row label="Vận hành từ">{project.commissionedAt}</Row>
               <Row label="Đơn vị vận hành">
-                <span className="font-mono text-xs">{project.operatorAddress}</span>
+                <span className="font-code text-xs">{project.operatorAddress}</span>
               </Row>
             </dl>
           </CardContent>
@@ -146,8 +146,8 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
                     key={point.period}
                     className="flex items-center justify-between gap-3 text-xs"
                   >
-                    <span className="font-mono text-muted-foreground">{point.period}</span>
-                    <span className="font-mono text-foreground">
+                    <span className="tabular-nums text-muted-foreground">{point.period}</span>
+                    <span className="tabular-nums text-foreground">
                       {nfNum(point.generationMwh)} MWh
                     </span>
                   </li>
@@ -172,7 +172,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
           <CardContent>
             <dl className="space-y-2.5 text-sm">
               <Row label="Ký hiệu">
-                <span className="font-mono font-semibold">{project.tokenSymbol}</span>
+                <span className="font-semibold">{project.tokenSymbol}</span>
               </Row>
               <Row label="Tuổi thọ còn lại">{terms.remainingLifetimeYears} năm</Row>
               <Row label="Lợi tức mục tiêu">{nfNum(terms.annualYieldPercent, 1)}%/năm</Row>
@@ -186,10 +186,10 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
                 <>
                   <Row label="Tên token">{fresh.data.token.name}</Row>
                   <Row label="Tổng cung">
-                    <span className="font-mono">{nfBig(fresh.data.token.totalSupply)}</span>
+                    <span className="tabular-nums">{nfBig(fresh.data.token.totalSupply)}</span>
                   </Row>
                   <Row label="Giá phát hành">
-                    <span className="font-mono">
+                    <span className="tabular-nums">
                       {nfBig(fresh.data.issuePriceVnd)} ₫
                     </span>
                   </Row>
@@ -197,7 +197,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
               ) : (
                 <Row label="WPT dự kiến phát hành">
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="font-mono">{nfNum(project.wptIssued)}</span>
+                    <span className="tabular-nums">{nfNum(project.wptIssued)}</span>
                     <UnverifiedNote />
                   </span>
                 </Row>
@@ -247,7 +247,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
                     Đang giữ
                   </div>
-                  <div className="font-mono text-3xl font-bold text-primary">
+                  <div className="tabular-nums text-3xl font-bold text-primary">
                     {nfBig(fresh.data.balance)}
                   </div>
                 </div>
@@ -255,7 +255,7 @@ export function InvestorTokenDetailPage({ project, terms, mockWallet }: { projec
                   <span className="text-sm text-muted-foreground">
                     Giá trị theo giá phát hành
                   </span>
-                  <span className="font-mono text-lg font-semibold">
+                  <span className="tabular-nums text-lg font-semibold">
                     {nfBig(fresh.data.valueVnd)} ₫
                   </span>
                 </div>

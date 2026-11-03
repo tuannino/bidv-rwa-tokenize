@@ -79,7 +79,7 @@ function Item({
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'truncate text-right font-mono' : 'truncate text-right'} title={typeof children === 'string' ? children : undefined}>
+      <dd className={mono ? 'truncate text-right font-code' : 'truncate text-right'} title={typeof children === 'string' ? children : undefined}>
         {children}
       </dd>
     </div>

@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-roboto);
+  --font-heading: var(--font-roboto);
+  --font-code: var(--font-roboto-condensed);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,115 +48,77 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ── BIDV Brand Colors ──────────────────────────────────────────────────────
-   Primary:  BIDV Green  #1a6b3c  (forest green)
-   Accent:   BIDV Gold   #b8860b  (dark goldenrod)
-   ───────────────────────────────────────────────────────────────────────── */
-
 :root {
-  /* BIDV Light Mode */
-  --background:            oklch(0.98 0.004 145);   /* near-white with green tint */
-  --foreground:            oklch(0.18 0.02 145);    /* deep green-black */
-  --card:                  oklch(1 0 0);
-  --card-foreground:       oklch(0.18 0.02 145);
-  --popover:               oklch(1 0 0);
-  --popover-foreground:    oklch(0.18 0.02 145);
-
-  /* Primary = BIDV Green */
-  --primary:               oklch(0.42 0.12 145);
-  --primary-foreground:    oklch(0.98 0 0);
-
-  /* Secondary = light green tint */
-  --secondary:             oklch(0.94 0.025 145);
-  --secondary-foreground:  oklch(0.3 0.08 145);
-
-  --muted:                 oklch(0.94 0.012 145);
-  --muted-foreground:      oklch(0.52 0.04 145);
-
-  /* Accent = BIDV Gold */
-  --accent:                oklch(0.72 0.13 82);
-  --accent-foreground:     oklch(0.15 0.04 82);
-
-  --destructive:           oklch(0.577 0.245 27.325);
-  --border:                oklch(0.88 0.02 145);
-  --input:                 oklch(0.88 0.02 145);
-  --ring:                  oklch(0.42 0.12 145);
-
-  /* Bảng màu chart (điện gió): xanh BIDV · vàng đồng · sky-blue · amber-đỏ · teal.
-     KHÔNG dùng tím: hue tím lạc tông trên nền xanh-vàng và khó nhìn.
-     chart-5 đã đổi sang teal hue 195 — gợi "gió/năng lượng".
-     Mọi màu dưới đây đã kiểm >= 3:1 so với --card ở CẢ light và dark (WCAG 1.4.11). */
-  --chart-1:               oklch(0.42 0.12 145);   /* BIDV green */
-  /* Gold của chart tối hơn --accent: ở L 0.72 nó chỉ đạt 2.5:1 trên nền card trắng,
-     dưới ngưỡng 3:1 (WCAG 1.4.11) cho đường/vùng biểu đồ. Giữ nguyên hue vàng 82. */
-  --chart-2:               oklch(0.60 0.13 82);    /* BIDV gold (đã hạ L cho tương phản) */
-  --chart-3:               oklch(0.55 0.15 250);   /* sky-blue */
-  --chart-4:               oklch(0.62 0.18 30);    /* amber-đỏ */
-  --chart-5:               oklch(0.60 0.10 195);   /* teal */
-
+  /* Token theo bản chốt UI/UX (xanh ngọc, vàng). Sáng ở :root, Tối ở .dark.
+     Ràng buộc tương phản (WCAG): chữ từ 4,5:1, đồ hoạ từ 3:1 trên nền đặt chúng.
+     Biểu đồ Sáng dùng vàng đậm, xanh 500 thay màu bản chốt vì màu gốc dưới 3:1 trên trắng.
+     --chart-4 đang làm màu chữ nên giữ từ 4,5:1 trên --card. */
+  --background:                   #eff4f4;
+  --foreground:                   #0e1e1d;
+  --card:                         #ffffff;
+  --card-foreground:              #0e1e1d;
+  --popover:                      #ffffff;
+  --popover-foreground:           #0e1e1d;
+  --primary:                      #176e6d;
+  --primary-foreground:           #ffffff;
+  --secondary:                    #f3f7f7;
+  --secondary-foreground:         #324443;
+  --muted:                        #f3f7f7;
+  --muted-foreground:             #556867;
+  --accent:                       #c9971c;
+  --accent-foreground:            #0e1e1d;
+  --destructive:                  #b42318;
+  --border:                       #e1e8e8;
+  --input:                        #e1e8e8;
+  --ring:                         #37a7a5;
+  --chart-1:                      #176e6d;
+  --chart-2:                      #a87a09;
+  --chart-3:                      #1e8886;
+  --chart-4:                      #115d5c;
+  --chart-5:                      #8a6406;
   --radius: 0.625rem;
-
-  /* Sidebar light */
-  --sidebar:                      oklch(0.96 0.018 145);
-  --sidebar-foreground:           oklch(0.2 0.04 145);
-  --sidebar-primary:              oklch(0.42 0.12 145);
-  --sidebar-primary-foreground:   oklch(0.98 0 0);
-  --sidebar-accent:               oklch(0.90 0.03 145);
-  --sidebar-accent-foreground:    oklch(0.25 0.06 145);
-  --sidebar-border:               oklch(0.85 0.025 145);
-  --sidebar-ring:                 oklch(0.42 0.12 145);
-
-  /* BIDV custom tokens */
-  --bidv-green:   #1a6b3c;
-  --bidv-green-light: #2d9058;
-  --bidv-gold:    #b8860b;
-  --bidv-gold-light: #d4a017;
+  --sidebar:                      #ffffff;
+  --sidebar-foreground:           #0e1e1d;
+  --sidebar-primary:              #176e6d;
+  --sidebar-primary-foreground:   #ffffff;
+  --sidebar-accent:               #dff1f1;
+  --sidebar-accent-foreground:    #0e1e1d;
+  --sidebar-border:               #e1e8e8;
+  --sidebar-ring:                 #37a7a5;
 }
 
 .dark {
-  /* BIDV Dark Mode */
-  --background:            oklch(0.13 0.01 145);    /* very dark green-black */
-  --foreground:            oklch(0.94 0.01 145);    /* near-white */
-  --card:                  oklch(0.18 0.015 145);
-  --card-foreground:       oklch(0.94 0.01 145);
-  --popover:               oklch(0.18 0.015 145);
-  --popover-foreground:    oklch(0.94 0.01 145);
-
-  /* Primary = lighter BIDV Green for dark mode */
-  --primary:               oklch(0.58 0.14 145);
-  --primary-foreground:    oklch(0.1 0.02 145);
-
-  --secondary:             oklch(0.22 0.025 145);
-  --secondary-foreground:  oklch(0.9 0.01 145);
-
-  --muted:                 oklch(0.22 0.015 145);
-  --muted-foreground:      oklch(0.60 0.04 145);
-
-  /* Accent = BIDV Gold (brighter in dark) */
-  --accent:                oklch(0.75 0.14 82);
-  --accent-foreground:     oklch(0.12 0.03 82);
-
-  --destructive:           oklch(0.704 0.191 22.216);
-  --border:                oklch(1 0 0 / 10%);
-  --input:                 oklch(1 0 0 / 12%);
-  --ring:                  oklch(0.58 0.14 145);
-
-  /* Cùng hue với light theme, chỉ nâng độ sáng để tương phản trên nền tối. */
-  --chart-1:               oklch(0.58 0.14 145);   /* BIDV green */
-  --chart-2:               oklch(0.75 0.14 82);    /* BIDV gold */
-  --chart-3:               oklch(0.65 0.15 250);   /* sky-blue */
-  --chart-4:               oklch(0.68 0.18 30);    /* amber-đỏ */
-  --chart-5:               oklch(0.72 0.10 195);   /* teal */
-
-  /* Sidebar dark */
-  --sidebar:                      oklch(0.10 0.015 145);
-  --sidebar-foreground:           oklch(0.90 0.01 145);
-  --sidebar-primary:              oklch(0.58 0.14 145);
-  --sidebar-primary-foreground:   oklch(0.1 0.02 145);
-  --sidebar-accent:               oklch(0.20 0.025 145);
-  --sidebar-accent-foreground:    oklch(0.88 0.01 145);
-  --sidebar-border:               oklch(1 0 0 / 8%);
-  --sidebar-ring:                 oklch(0.58 0.14 145);
+  --background:                   #080f0f;
+  --foreground:                   #edf5f5;
+  --card:                         #0f1a1a;
+  --card-foreground:              #edf5f5;
+  --popover:                      #0f1a1a;
+  --popover-foreground:           #edf5f5;
+  --primary:                      #37a7a5;
+  --primary-foreground:           #071212;
+  --secondary:                    #132322;
+  --secondary-foreground:         #c9d6d6;
+  --muted:                        #132322;
+  --muted-foreground:             #a2b4b4;
+  --accent:                       #e0b44a;
+  --accent-foreground:            #1d1300;
+  --destructive:                  #f07068;
+  --border:                       #1e3332;
+  --input:                        #1e3332;
+  --ring:                         #7cc7c6;
+  --chart-1:                      #37a7a5;
+  --chart-2:                      #e0b44a;
+  --chart-3:                      #7cc7c6;
+  --chart-4:                      #1e8886;
+  --chart-5:                      #efd28a;
+  --sidebar:                      #0f1a1a;
+  --sidebar-foreground:           #edf5f5;
+  --sidebar-primary:              #37a7a5;
+  --sidebar-primary-foreground:   #071212;
+  --sidebar-accent:               #162b2a;
+  --sidebar-accent-foreground:    #edf5f5;
+  --sidebar-border:               #1e3332;
+  --sidebar-ring:                 #7cc7c6;
 }
 
 @layer base {

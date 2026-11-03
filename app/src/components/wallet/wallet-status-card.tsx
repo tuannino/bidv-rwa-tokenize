@@ -49,7 +49,7 @@ export function WalletStatusCard({ address, chainKey, onDisconnect }: WalletStat
               trong nhánh chỉ-dành-cho-trình-đọc: rút gọn là chuyện trình bày, không được làm
               mất dữ liệu với người dùng trình đọc màn hình.
             */}
-            <span className="font-mono text-lg font-semibold text-foreground" title={address}>
+            <span className="font-code text-lg font-semibold text-foreground" title={address}>
               {shortenAddress(address)}
             </span>
             <span className="sr-only">Địa chỉ đầy đủ: {address}</span>
@@ -84,7 +84,7 @@ export function WalletStatusCard({ address, chainKey, onDisconnect }: WalletStat
                 đang đọc…
               </span>
             ) : balance.amount ? (
-              <span className="font-mono text-lg font-semibold text-foreground">
+              <span className="tabular-nums text-lg font-semibold text-foreground">
                 {balance.amount} {balance.symbol}
               </span>
             ) : (

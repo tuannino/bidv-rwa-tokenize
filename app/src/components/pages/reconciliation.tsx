@@ -185,7 +185,7 @@ function KpiCard({
       <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div
         className={cn(
-          "font-mono text-2xl font-bold tracking-tight",
+          "tabular-nums text-2xl font-bold tracking-tight",
           warn ? "text-accent" : "text-foreground",
         )}
       >

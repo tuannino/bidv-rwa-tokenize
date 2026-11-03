@@ -43,7 +43,7 @@ test.describe('FIX-05 màn Tổng quan', () => {
     await expect(main.getByText('unverified', { exact: true }).first()).toBeVisible();
     await expect(main.getByText(/whitelisted/i)).toHaveCount(0);
     const projects = main.locator('div.rounded-lg').filter({ has: page.getByText('Dự án đang triển khai', { exact: true }) });
-    await expect(projects.locator('.font-mono').first()).toHaveText(/^\d+$/);
+    await expect(projects.locator('.tabular-nums').first()).toHaveText(/^\d+$/);
   });
 
   test('ba màn vận hành có ghi chú dữ liệu mẫu, tiêu đề giữ nguyên', async ({ page, context, baseURL }) => {

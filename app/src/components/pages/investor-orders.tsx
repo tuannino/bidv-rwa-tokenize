@@ -111,7 +111,7 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
       {chain === 'mock' && (
         <p className="text-xs text-muted-foreground" role="note">
           Chế độ mô phỏng đang lọc theo ví trong hồ sơ Nhà đầu tư:{' '}
-          <span className="font-mono">{wallet}</span>. Không cần kết nối ví trình duyệt.
+          <span className="font-code">{wallet}</span>. Không cần kết nối ví trình duyệt.
         </p>
       )}
 
@@ -180,14 +180,14 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
               <TableBody>
                 {rows.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs" title={order.id}>
+                    <TableCell className="font-code text-xs" title={order.id}>
                       {order.id.slice(0, 8)}
                     </TableCell>
                     <TableCell className="text-xs">{formatDateTime(order.createdAt)}</TableCell>
                     <TableCell>{SIDE_LABELS[order.side]}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(order.wptAmount)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(unitPriceOf(order))}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(order.vndAmount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(order.wptAmount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(unitPriceOf(order))}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(order.vndAmount)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{ORDER_STATUS_LABELS[order.status]}</Badge>
                     </TableCell>

@@ -12,24 +12,24 @@ import { wagmiConfig } from "@/lib/wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
 
 // Accent của modal ví: dùng màu thương hiệu từ lib/brand.ts.
-// RainbowKit nhận chuỗi màu cụ thể, không nhận `var(--primary)` — đây là ngoại lệ
+// RainbowKit nhận chuỗi màu cụ thể, không nhận `var(--primary)`: đây là ngoại lệ
 // đã ghi rõ trong lib/brand.ts, không phải chỗ được hardcode màu tuỳ ý.
 const DARK_WALLET_THEME  = darkTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
 const LIGHT_WALLET_THEME = lightTheme({ accentColor: BRAND.green, accentColorForeground: "white", borderRadius: "medium" });
 
 /**
- * RainbowWithTheme — phải tách ra khỏi Providers để dùng useTheme()
- * Dùng `useIsMounted()` để tránh hydration mismatch: server luôn render darkTheme,
- * client cập nhật đúng theme sau khi hydrate xong.
+ * RainbowWithTheme: tách khỏi Providers để dùng useTheme().
+ * Server không biết theme đã lưu trong trình duyệt nên lần vẽ đầu luôn dùng giao diện Sáng
+ * (khớp defaultTheme="light"); sau khi mount (`useIsMounted()`) mới theo `resolvedTheme`.
  */
 function RainbowWithTheme({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme();
   const mounted = useIsMounted();
 
-  // Trước khi mount: dùng dark để khớp với server render (defaultTheme="dark")
-  const walletTheme = mounted && resolvedTheme === "light"
-    ? LIGHT_WALLET_THEME
-    : DARK_WALLET_THEME;
+  // Trước khi mount: dùng Sáng để khớp lần vẽ đầu (defaultTheme="light").
+  const walletTheme = mounted && resolvedTheme === "dark"
+    ? DARK_WALLET_THEME
+    : LIGHT_WALLET_THEME;
 
   return (
     <RainbowKitProvider theme={walletTheme} locale="en-US">
@@ -42,7 +42,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <RainbowWithTheme>{children}</RainbowWithTheme>

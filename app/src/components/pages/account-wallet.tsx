@@ -78,7 +78,7 @@ export function PaymentWalletValue() {
   if (!wallet) return <span className="text-muted-foreground">Chưa kết nối ví.</span>;
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <span className="break-all font-mono text-xs" data-payment-wallet>{wallet}</span>
+      <span className="break-all font-code text-xs" data-payment-wallet>{wallet}</span>
       <Badge variant={bound ? 'default' : 'destructive'} data-wallet-bound={bound}>
         {bound ? 'Đã định danh' : 'Ví chưa được định danh'}
       </Badge>

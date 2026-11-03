@@ -61,7 +61,7 @@ export function RequestTable({
       <TableBody>
         {rows.map((row) => (
           <TableRow key={row.id} data-request-id={row.id}>
-            <TableCell className="font-mono text-xs">
+            <TableCell className="font-code text-xs">
               {detailHref ? (
                 <Link prefetch={false} className="text-primary underline-offset-4 hover:underline" href={detailHref(row.id)}>
                   {row.id.slice(0, 8)}
@@ -78,7 +78,7 @@ export function RequestTable({
               </TableCell>
             )}
             <TableCell className="text-xs">{row.tokenSymbol}</TableCell>
-            <TableCell className="text-right font-mono">{formatAmount(row.amount)}</TableCell>
+            <TableCell className="text-right tabular-nums">{formatAmount(row.amount)}</TableCell>
             {showSource && (
               <TableCell className="text-xs">
                 {row.burnSource ? BURN_SOURCE_LABELS[row.burnSource] : '—'}

@@ -335,7 +335,7 @@ function IssuanceCard({ issuance }: { issuance: Result<IssuanceOverview | null> 
               <Row label="Ví thanh toán SPV">
                 {issuance.data.spvWallet ? (
                   <span className="flex items-center justify-end gap-2">
-                    <span className="font-mono text-xs">{short(issuance.data.spvWallet)}</span>
+                    <span className="font-code text-xs">{short(issuance.data.spvWallet)}</span>
                     <CopyButton value={issuance.data.spvWallet} />
                   </span>
                 ) : (
@@ -386,7 +386,7 @@ function HistoryCard({ chain, rows }: { chain: ChainKey; rows: PriceHistoryRow[]
                     <TableCell className="text-right tabular-nums">{row.oldValue ? vnd(row.oldValue) : 'không có'}</TableCell>
                     <TableCell className="text-right tabular-nums">{vnd(row.newValue)}</TableCell>
                     <TableCell className="max-w-64 whitespace-normal text-sm">{row.reason ?? 'không ghi'}</TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="font-code text-xs">
                       {!row.txHash ? (
                         'không có'
                       ) : url ? (

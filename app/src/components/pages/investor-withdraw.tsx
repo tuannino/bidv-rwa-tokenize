@@ -313,7 +313,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                     id="pw-amount"
                     value={form.amount}
                     onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
-                    className={`${FIELD} font-mono`}
+                    className={`${FIELD} tabular-nums`}
                   />
                 </Field>
                 {exceeds && (
@@ -329,7 +329,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                     Ví gửi
                   </label>
                   <div className="flex items-center gap-2">
-                    <input id="pw-from" readOnly value={wallet} className={`${FIELD} font-mono`} />
+                    <input id="pw-from" readOnly value={wallet} className={`${FIELD} font-code`} />
                     <Badge className="shrink-0 gap-1" data-wallet-bound="true">
                       <BadgeCheck className="h-3 w-3" aria-hidden="true" />
                       Đã định danh
@@ -344,7 +344,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                     placeholder="0x…"
                     spellCheck={false}
                     aria-invalid={toError !== null}
-                    className={`${FIELD} font-mono`}
+                    className={`${FIELD} font-code`}
                   />
                 </Field>
                 {toError && (
@@ -391,13 +391,13 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
             <CardContent>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 <dt className="text-muted-foreground">Số dư VNDB</dt>
-                <dd className="text-right font-mono" data-testid="payment-balance">
+                <dd className="text-right tabular-nums" data-testid="payment-balance">
                   {nf(balance)}
                 </dd>
                 <dt className="text-muted-foreground">Số rút</dt>
-                <dd className="text-right font-mono">{amount !== null ? nf(amount) : '-'}</dd>
+                <dd className="text-right tabular-nums">{amount !== null ? nf(amount) : '-'}</dd>
                 <dt className="font-medium">Số dư sau rút</dt>
-                <dd className="text-right font-mono font-semibold">{nf(after)}</dd>
+                <dd className="text-right tabular-nums font-semibold">{nf(after)}</dd>
               </dl>
               {!onMock && <p className="mt-3 text-xs text-muted-foreground">Phí gas do ví của bạn trả bằng ETH của mạng.</p>}
             </CardContent>
@@ -434,18 +434,18 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                   const url = txHash ? explorerTxUrl(chain, txHash) : null;
                   return (
                     <TableRow key={r.id} data-status={r.status}>
-                      <TableCell className="font-mono text-xs" title={r.id}>
+                      <TableCell className="font-code text-xs" title={r.id}>
                         {r.id.slice(0, 8)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{new Date(r.createdAt).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell className="text-right font-mono">{nf(r.amount)}</TableCell>
-                      <TableCell className="font-mono text-xs" title={r.toWallet}>
+                      <TableCell className="text-right tabular-nums">{nf(r.amount)}</TableCell>
+                      <TableCell className="font-code text-xs" title={r.toWallet}>
                         {short(r.toWallet)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{PAYMENT_WITHDRAW_STATUS_LABELS[r.status]}</Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell className="font-code text-xs">
                         {txHash === null ? (
                           ''
                         ) : url ? (
@@ -496,7 +496,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
             </DialogDescription>
           </DialogHeader>
           <p className="break-all text-sm" data-testid="otp-payment-target">
-            Ví nhận: <span className="font-mono">{checkedTo}</span> (đã whitelist)
+            Ví nhận: <span className="font-code">{checkedTo}</span> (đã whitelist)
           </p>
           {!onMock && <p className="text-xs text-muted-foreground">Sau khi xác nhận, ví của bạn sẽ hỏi ký giao dịch.</p>}
           <input
@@ -506,7 +506,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
             maxLength={6}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-            className={`${FIELD} text-center font-mono text-lg tracking-[0.5em]`}
+            className={`${FIELD} text-center font-code text-lg tracking-[0.5em]`}
           />
           {!/^\d{6}$/.test(otp) && otp.length > 0 && (
             <p role="alert" className="text-sm text-destructive">
