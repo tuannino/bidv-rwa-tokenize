@@ -92,7 +92,7 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
             </Section>
 
             <Section title="Thông tin tài khoản" note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng" />}>
-              <Field label="Mã người dùng"><span className="font-mono">{customer.actorId}</span></Field>
+              <Field label="Mã người dùng"><span className="font-code">{customer.actorId}</span></Field>
               <Field label="Vai trò">{ROLE_LABELS[customer.role]}</Field>
               <Field label="Trạng thái"><AccountStatusBadge active={customer.status === 'ACTIVE'} /></Field>
               <Field label="Ngày tạo">{formatDateTime(customer.createdAt)}</Field>
@@ -112,13 +112,13 @@ export function AccountInfoPage({ profile }: { profile: AccountProfileView }) {
             </Field>
             <Field label="Phòng chống rửa tiền">{AML_LABELS[customer.amlStatus]}</Field>
             <Field label="Hạn mức giao dịch mỗi ngày" wide>
-              <span className="font-mono">{formatAmount(customer.dailyTransactionLimitVnd)} VNDB</span>
+              <span className="tabular-nums">{formatAmount(customer.dailyTransactionLimitVnd)} VNDB</span>
             </Field>
           </Section>
         </>
       ) : (
         <Section title="Thông tin cán bộ" note={<UnverifiedNote title="Hồ sơ mẫu, chưa có kho người dùng" />}>
-          <Field label="Mã cán bộ"><span className="font-mono">{profile.actorId}</span></Field>
+          <Field label="Mã cán bộ"><span className="font-code">{profile.actorId}</span></Field>
           <Field label="Họ và tên">{profile.fullName}</Field>
           <Field label="Vai trò">{ROLE_LABELS[profile.role]}</Field>
           <Field label="Trạng thái"><AccountStatusBadge active={profile.status === 'ACTIVE'} /></Field>

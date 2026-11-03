@@ -173,7 +173,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">Chi tiết yêu cầu</h1>
-          <p className="font-mono text-xs text-muted-foreground">{requestId}</p>
+          <p className="font-code text-xs text-muted-foreground">{requestId}</p>
         </div>
         <Link prefetch={false} href="/approvals" className="flex items-center gap-1 text-sm text-primary hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -313,7 +313,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
               <ol className="space-y-3">
                 {detail.timeline.map((entry, index) => (
                   <li key={`${entry.at}-${index}`} className="grid gap-1 border-l-2 border-primary/40 pl-3 text-sm sm:grid-cols-[11rem_minmax(0,1fr)]">
-                    <span className="font-mono text-xs text-muted-foreground">{formatDateTime(entry.at)}</span>
+                    <span className="tabular-nums text-xs text-muted-foreground">{formatDateTime(entry.at)}</span>
                     <span>
                       <span className="font-medium">{entry.label}</span>
                       {entry.actor && <span className="text-muted-foreground"> · {entry.actor}</span>}
@@ -336,7 +336,7 @@ function Row({ label, mono, children }: { label: string; mono?: boolean; childre
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'break-all text-right font-mono' : 'text-right'}>{children}</dd>
+      <dd className={mono ? 'break-all text-right font-code' : 'text-right'}>{children}</dd>
     </div>
   );
 }

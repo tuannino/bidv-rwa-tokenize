@@ -123,7 +123,7 @@ export function TransactionHistoryBox() {
                       {new Date(txn.createdAt).toLocaleString('vi-VN')}
                     </TableCell>
                     <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="text-right font-mono">{txn.amount ?? '—'}</TableCell>
+                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -147,14 +147,14 @@ export function TransactionHistoryBox() {
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
+                          className="inline-flex items-center gap-1 font-code text-xs text-primary hover:underline"
                         >
                           {txn.txHash.slice(0, 10)}…
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </a>
                       ) : (
                         <span
-                          className="font-mono text-xs text-muted-foreground"
+                          className="font-code text-xs text-muted-foreground"
                           title={`${txn.txHash} — chain ${txn.chain} không có trình khám phá`}
                         >
                           {txn.txHash.slice(0, 10)}…

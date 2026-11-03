@@ -184,15 +184,15 @@ export function SellerTransactionsPage() {
                     const wallet = row.type === 'WITHDRAW' ? row.payoutWallet : row.investorWallet;
                     return (
                       <TableRow key={`${row.type}:${row.id}`} data-type={row.type}>
-                        <TableCell className="font-mono text-xs" title={row.id}>
+                        <TableCell className="font-code text-xs" title={row.id}>
                           {row.id.slice(0, 8)}
                         </TableCell>
-                        <TableCell className="font-mono text-xs" title={wallet}>
+                        <TableCell className="font-code text-xs" title={wallet}>
                           {shortWallet(wallet)}
                         </TableCell>
                         <TableCell>{TYPE_LABELS[row.type]}</TableCell>
-                        <TableCell className="text-right font-mono">{row.type === 'WITHDRAW' ? '' : nf(row.wptAmount)}</TableCell>
-                        <TableCell className="text-right font-mono">{nf(row.vndAmount)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.type === 'WITHDRAW' ? '' : nf(row.wptAmount)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{nf(row.vndAmount)}</TableCell>
                         <TableCell>{row.type === 'WITHDRAW' ? row.purpose : STEP_LABELS[row.status]}</TableCell>
                         <TableCell>
                           <Badge variant="outline">

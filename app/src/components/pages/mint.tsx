@@ -198,11 +198,11 @@ export function MintPage() {
                 onChange={(event) => setWallet(event.target.value)}
                 placeholder="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
                 spellCheck={false}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <p className="text-xs text-muted-foreground">
                 Ở hardhat-local có thể dùng account #1:{' '}
-                <span className="font-mono">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>
+                <span className="font-code">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</span>
               </p>
             </div>
 
@@ -214,7 +214,7 @@ export function MintPage() {
                 id="mint-amount"
                 value={amount}
                 onValueChange={setAmount}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 tabular-nums text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <p className="text-xs text-muted-foreground">WPT có 0 chữ số thập phân — nhập số nguyên.</p>
             </div>
@@ -274,7 +274,7 @@ export function MintPage() {
             {status ? (
               <>
                 <Row label="Số dư WPT">
-                  <span className="font-mono text-lg font-semibold">{status.balance}</span>
+                  <span className="tabular-nums text-lg font-semibold">{status.balance}</span>
                 </Row>
                 <Row label="Whitelist">
                   <Badge variant={status.whitelisted ? 'default' : 'destructive'}>
@@ -320,10 +320,10 @@ export function MintPage() {
                       {new Date(txn.createdAt).toLocaleTimeString('vi-VN')}
                     </TableCell>
                     <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="font-code text-xs">
                       {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono">{txn.amount ?? '—'}</TableCell>
+                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
                     <TableCell>
                       <Badge
                         variant={

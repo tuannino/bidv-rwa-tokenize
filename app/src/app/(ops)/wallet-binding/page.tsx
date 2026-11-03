@@ -22,7 +22,7 @@ export default async function WalletBinding() {
           <h1 className="text-lg font-semibold">Chức năng định danh ví không khả dụng</h1>
           <p className="text-sm text-muted-foreground">
             Chỉ Giao dịch viên định danh và gắn ví cho hồ sơ khách hàng. Vai hiện tại:{' '}
-            <span className="font-mono text-foreground">{role}</span>.
+            <span className="font-code text-foreground">{role}</span>.
           </p>
         </div>
       )}

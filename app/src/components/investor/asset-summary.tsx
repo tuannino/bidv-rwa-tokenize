@@ -123,13 +123,13 @@ export function AssetSummary() {
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
                 {data.token.symbol} đang giữ
               </div>
-              <div className="font-mono text-3xl font-bold text-primary">{nf(data.balance)}</div>
+              <div className="tabular-nums text-3xl font-bold text-primary">{nf(data.balance)}</div>
             </div>
 
             <div className="space-y-1 border-t border-border pt-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm text-muted-foreground">Giá trị theo giá phát hành</span>
-                <span className="font-mono text-lg font-semibold text-foreground">
+                <span className="tabular-nums text-lg font-semibold text-foreground">
                   {nf(data.valueVnd)} ₫
                 </span>
               </div>
@@ -148,7 +148,7 @@ export function AssetSummary() {
                 {data.whitelisted ? 'đã KYC' : 'chưa KYC'}
               </Badge>
               {data.frozen && <Badge variant="destructive">đang đóng băng</Badge>}
-              <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+              <span className="ml-auto font-code text-[11px] text-muted-foreground">
                 {data.wallet.slice(0, 10)}…{data.wallet.slice(-4)}
               </span>
             </div>
@@ -159,7 +159,7 @@ export function AssetSummary() {
               {data.paymentBalance === null ? (
                 <span className="text-sm text-muted-foreground">Chưa đọc được số dư VNDB</span>
               ) : (
-                <span className="font-mono text-lg font-semibold text-foreground">{nf(data.paymentBalance)} VNDB</span>
+                <span className="tabular-nums text-lg font-semibold text-foreground">{nf(data.paymentBalance)} VNDB</span>
               )}
             </div>
           </div>

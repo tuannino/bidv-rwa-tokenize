@@ -7,7 +7,7 @@ export function StatCard({ label, value }: { label: string; value: number | null
     <Card size="sm" aria-label={label}>
       <CardContent className="space-y-1">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="font-mono text-2xl font-semibold">{value === null ? '—' : formatAmount(value)}</p>
+        <p className="tabular-nums text-2xl font-semibold">{value === null ? '—' : formatAmount(value)}</p>
       </CardContent>
     </Card>
   );

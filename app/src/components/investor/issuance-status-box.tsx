@@ -53,15 +53,15 @@ export function IssuanceStatusBox() {
         ) : data ? (
           <dl className="space-y-3 text-sm">
             <Row label="Ký hiệu token" badge={<OnChainBadge />}>
-              <span className="font-mono font-semibold">{data.symbol}</span>
+              <span className="font-semibold">{data.symbol}</span>
             </Row>
 
             <Row label="Tổng cung đã phát hành" badge={<OnChainBadge />}>
-              <span className="font-mono font-semibold">{nf(data.totalSupply)}</span>
+              <span className="tabular-nums font-semibold">{nf(data.totalSupply)}</span>
             </Row>
 
             <Row label="Giá phát hành">
-              <span className="font-mono font-semibold">
+              <span className="tabular-nums font-semibold">
                 {nf(data.issuePriceVnd)} ₫
               </span>
             </Row>

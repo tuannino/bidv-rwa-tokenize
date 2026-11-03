@@ -40,13 +40,13 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="space-y-1 rounded-lg border border-border p-3">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all font-mono text-sm font-semibold">{value}</dd>
+      <dd className="break-all font-code text-sm font-semibold">{value}</dd>
     </div>
   );
 }
 
 const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
+  'w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
 
 const CONFIG_MODES = [
   { value: 'PERCENT', label: 'Theo tỷ lệ %' },
@@ -184,7 +184,7 @@ function VaultConfigCard({
               <ol className="list-decimal space-y-1 pl-5">
                 {result.steps.map((step) => (
                   <li key={step.txHash}>
-                    {step.label}: {step.detail} <span className="font-mono text-xs">({short(step.txHash)})</span>
+                    {step.label}: {step.detail} <span className="font-code text-xs">({short(step.txHash)})</span>
                   </li>
                 ))}
               </ol>
@@ -274,8 +274,8 @@ function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey;
           rows.map((row) => (
             <div key={row.id} className="space-y-2 rounded-lg border border-border p-3 text-sm" data-request={row.id}>
               <p>
-                <span className="font-mono">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
-                <span className="font-mono">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
+                <span className="font-code">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
+                <span className="font-code">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
               </p>
               <p className="text-muted-foreground">{row.reason}</p>
               {row.status === 'PAYOUT_REVIEW' ? (
@@ -403,12 +403,12 @@ function VaultConfigHistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadK
             <TableBody>{data.rows.map((row) => {
               const url = explorerTxUrl(chain, row.txHash);
               return <TableRow key={`${row.txHash}:${row.param}`} data-param={row.param}>
-                <TableCell className="font-mono text-xs">{row.blockNumber}</TableCell>
+                <TableCell className="tabular-nums text-xs">{row.blockNumber}</TableCell>
                 <TableCell className="text-xs">{new Date(row.timestamp * 1000).toLocaleString('vi-VN')}</TableCell>
                 <TableCell>{PARAM_LABEL[row.param]}</TableCell>
-                <TableCell className="font-mono text-xs">{configValue(row.param, row.oldValue)}</TableCell>
-                <TableCell className="font-mono text-xs">{configValue(row.param, row.newValue)}</TableCell>
-                <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-mono text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
+                <TableCell className="tabular-nums text-xs">{configValue(row.param, row.oldValue)}</TableCell>
+                <TableCell className="tabular-nums text-xs">{configValue(row.param, row.newValue)}</TableCell>
+                <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-code text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
                 <TableCell className="text-xs">
                   {row.actor.source === 'OUTSIDE_APP' ? 'Ngoài app' : `${ROLE_LABEL[row.actor.role] ?? row.actor.role}${row.actor.signer ? ` (ví ký ${short(row.actor.signer)})` : ''}`}
                 </TableCell>
@@ -576,13 +576,13 @@ export function VaultStatusPage() {
                   <TableBody>{data.history.map((row) => {
                     const url = explorerTxUrl(chain, row.txHash);
                     return <TableRow key={`${row.txHash}:${row.periodRef}`}>
-                      <TableCell className="font-mono">{row.periodRef}</TableCell>
-                      <TableCell className="text-right font-mono">{amount(row.distributedPrev)}</TableCell>
-                      <TableCell className="text-right font-mono">{percent(row.rateBps)}</TableCell>
-                      <TableCell className="text-right font-mono">{amount(row.percentLocked)}</TableCell>
-                      <TableCell className="font-mono text-xs" title={row.operator}>{short(row.operator)}</TableCell>
+                      <TableCell className="font-code">{row.periodRef}</TableCell>
+                      <TableCell className="text-right tabular-nums">{amount(row.distributedPrev)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{percent(row.rateBps)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{amount(row.percentLocked)}</TableCell>
+                      <TableCell className="font-code text-xs" title={row.operator}>{short(row.operator)}</TableCell>
                       <TableCell className="text-xs">{new Date(row.timestamp * 1000).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-mono text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
+                      <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-code text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
                     </TableRow>;
                   })}</TableBody>
                 </Table>

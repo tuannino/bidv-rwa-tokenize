@@ -21,7 +21,7 @@ function Wallet({ value }: { value: string }) {
     }
   };
   return (
-    <span className="flex items-center gap-2 font-mono text-xs">
+    <span className="flex items-center gap-2 font-code text-xs">
       <span title={value}>{value.length > 24 ? `${value.slice(0, 12)}...${value.slice(-8)}` : value}</span>
       <Button variant="ghost" size="icon-xs" aria-label={`Sao chép ví ${value}`} onClick={() => void copy()}>
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
@@ -78,7 +78,7 @@ export function RecallCasesTable({ overview }: { overview: RecallOverview }) {
                     {url
                       ? <a className="inline-flex items-center gap-1 underline" href={url} target="_blank" rel="noreferrer">Xem giao dịch <ExternalLink className="size-3" aria-hidden="true" /></a>
                       : row.txHash
-                        ? <span className="font-mono text-xs" title={row.txHash}>{shortHash(row.txHash)}</span>
+                        ? <span className="font-code text-xs" title={row.txHash}>{shortHash(row.txHash)}</span>
                         : '-'}
                     {row.reason && <p className="text-xs text-destructive">{row.reason}</p>}
                   </div>

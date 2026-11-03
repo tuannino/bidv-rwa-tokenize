@@ -48,7 +48,7 @@ export function TokenListBox() {
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-sm font-semibold text-foreground">
+                <span className="text-sm font-semibold text-foreground">
                   {project.tokenSymbol}
                 </span>
                 {project.onChain ? (
@@ -66,7 +66,7 @@ export function TokenListBox() {
 
             <div className="shrink-0 text-right">
               <div className="flex items-center justify-end gap-1.5">
-                <span className="font-mono text-sm font-semibold text-foreground">
+                <span className="tabular-nums text-sm font-semibold text-foreground">
                   {project.onChain
                     ? MOCK_WIND_STATS.whitelistedInvestors.toLocaleString('vi-VN')
                     : '—'}

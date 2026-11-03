@@ -224,14 +224,14 @@ export function OpsTransactionsPage() {
                 {data.rows.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
-                      <Link prefetch={false} href={`/transactions/${order.id}`} title={order.id} className="font-mono text-xs text-primary hover:underline">
+                      <Link prefetch={false} href={`/transactions/${order.id}`} title={order.id} className="font-code text-xs text-primary hover:underline">
                         {order.id.slice(0, 8)}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-xs" title={order.investorWallet}>{shortWallet(order.investorWallet)}</TableCell>
+                    <TableCell className="font-code text-xs" title={order.investorWallet}>{shortWallet(order.investorWallet)}</TableCell>
                     <TableCell className={order.side === 'BUY' ? 'font-medium text-primary' : 'font-medium text-chart-4'}>{SIDE_LABELS[order.side]}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(order.wptAmount)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatAmount(order.vndAmount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(order.wptAmount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatAmount(order.vndAmount)}</TableCell>
                     <TableCell>
                       <span className="text-sm">{order.currentStep.label}</span>
                       <span className="block text-xs text-muted-foreground">{stepStateLabel(order.currentStep.state)}</span>
@@ -298,7 +298,7 @@ function SupplyMetric({
     <Card size="sm" data-testid={`supply-${metric}`}>
       <CardContent>
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 font-mono text-base font-semibold">{formatAmount(value)} WPT</p>
+        <p className="mt-1 tabular-nums text-base font-semibold">{formatAmount(value)} WPT</p>
       </CardContent>
     </Card>
   );

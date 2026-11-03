@@ -32,7 +32,7 @@ export function SettlementProgress({
             </div>
             <div className="mt-1 text-sm font-medium">{step.label}</div>
             <div className="text-xs text-muted-foreground">{STEP_STATE_LABELS[step.state]}</div>
-            <div className="mt-1 font-mono text-xs">{formatDateTime(step.at)}</div>
+            <div className="mt-1 tabular-nums text-xs">{formatDateTime(step.at)}</div>
           </li>
         ))}
       </ol>
@@ -49,7 +49,7 @@ export function SettlementProgress({
         </p>
         <ul className="mt-2 grid gap-1 sm:grid-cols-2">
           {settlement.entries.map((entry, index) => (
-            <li key={index} className="flex justify-between gap-3 font-mono text-xs">
+            <li key={index} className="flex justify-between gap-3 tabular-nums text-xs">
               <span>
                 {entry.account === 'INVESTOR' ? 'Nhà đầu tư' : 'Người bán'}, {entry.asset}
               </span>

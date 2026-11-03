@@ -63,7 +63,7 @@ export function OrderDetailContent({ detail }: { detail: OrderDetailView }) {
               {audit.map((entry, index) => (
                 <li key={index} className="border-b border-border/60 pb-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs">{formatDateTime(entry.at)}</span>
+                    <span className="tabular-nums text-xs">{formatDateTime(entry.at)}</span>
                     <Badge variant="outline">{entry.action}</Badge>
                     <span className="text-xs text-muted-foreground">
                       {entry.actorRole}, {entry.outcome}
@@ -84,7 +84,7 @@ function Row({ label, mono, children }: { label: string; mono?: boolean; childre
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'truncate text-right font-mono' : 'truncate text-right'}>{children}</dd>
+      <dd className={mono ? 'truncate text-right font-code' : 'truncate text-right'}>{children}</dd>
     </div>
   );
 }
