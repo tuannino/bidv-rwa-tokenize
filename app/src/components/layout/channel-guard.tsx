@@ -33,11 +33,11 @@ export async function ChannelGuard({
         <ShieldX className="mx-auto h-8 w-8 text-destructive" aria-hidden="true" />
         <h1 className="text-lg font-semibold">Không có quyền vào kênh {channel}</h1>
         <p className="text-sm text-muted-foreground">
-          Vai trò hiện tại là <span className="font-mono text-foreground">{role}</span>, không có quyền nào
-          trong: <span className="font-mono">{requireAny.join(', ')}</span>.
+          Vai trò hiện tại là <span className="font-code text-foreground">{role}</span>, không có quyền nào
+          trong: <span className="font-code">{requireAny.join(', ')}</span>.
         </p>
         <p className="text-xs text-muted-foreground">
-          Đổi vai trò ở góc trên phải (chỉ khả dụng trong PoC).
+          Bấm &apos;Về trang của vai hiện tại&apos; rồi đổi vai ở đầu thanh bên (chỉ khả dụng trong PoC).
         </p>
         {/* IN-04 F1: màn này không có thanh trên cùng nên không đổi vai được; cho đường về trang của vai. */}
         <Link
