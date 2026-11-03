@@ -40,6 +40,13 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
       inert={open}
       className="sticky top-0 z-30 mx-3 mt-3 flex h-12 shrink-0 items-center justify-between gap-3 rounded-[22px] bg-card/80 px-3 ring-1 ring-border backdrop-blur min-[1100px]:h-14 min-[1100px]:px-5"
     >
+      {/* FE-UX-01c QĐ-6: đường chân trời ở mép dưới. Dải gradient lặp hai chu kỳ, rộng 200%, dịch nửa
+          chiều rộng bằng `translate` nên nối liền, không animate `background-position`. */}
+      <span
+        data-horizon
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 bottom-0 h-0.5 overflow-hidden rounded-full opacity-70 after:absolute after:inset-y-0 after:left-0 after:w-[200%] after:animate-[horizon_8s_linear_infinite] after:bg-[linear-gradient(90deg,transparent,var(--primary)_10%,var(--accent)_25%,var(--primary)_40%,transparent_50%,var(--primary)_60%,var(--accent)_75%,var(--primary)_90%,transparent)]"
+      />
       <div className="flex min-w-0 items-center gap-2">
         <button
           id={MENU_BUTTON_ID}
@@ -77,7 +84,7 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
         {mounted && (
           <button
             onClick={toggleTheme}
-            className="flex size-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex size-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[rotate,background-color,color] duration-300 ease-spring hover:-rotate-12 hover:bg-muted hover:text-foreground"
             title={resolvedTheme === "dark" ? "Chuyển sang Light mode" : "Chuyển sang Dark mode"}
           >
             {resolvedTheme === "dark" ? (
@@ -92,12 +99,13 @@ export function Header({ breadcrumbs = [] }: HeaderProps) {
   );
 }
 
-/** Vùng nội dung chính; có `inert` khi ngăn kéo đang mở (QĐ-4). */
+/** Vùng nội dung chính; có `inert` khi ngăn kéo đang mở (FE-UX-01b QĐ-4). */
 export function ShellMain({ children }: { children: React.ReactNode }) {
   const open = useDrawerOpen();
   return (
     <main inert={open} className="flex-1 px-3 pt-4 pb-6 min-[1100px]:px-6">
-      {children}
+      {/* FE-UX-01c QĐ-4: nội dung màn hiện dần, dịch lên khi vào màn (`rise` trong `globals.css`). */}
+      <div data-page-enter>{children}</div>
     </main>
   );
 }

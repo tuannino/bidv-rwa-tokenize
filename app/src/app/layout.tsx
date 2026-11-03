@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
+import { BackgroundFx } from '@/components/motion/background-fx';
 import { Providers } from '@/components/providers';
 import { ConfigProvider } from '@/lib/config/config-context';
 import { publicConfig } from '@/lib/config/flags';
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="vi" className={`${Roboto.variable} ${RobotoCondensed.variable}`} suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased">
+        <BackgroundFx />
         <ConfigProvider value={config}>
           <Providers>{children}</Providers>
         </ConfigProvider>

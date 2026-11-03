@@ -363,9 +363,14 @@ function NavLink({
         // `aria-label` chứ không để trình đọc đọc trơ con số: "Lập lệnh 3" nghe như tên
         // mục, còn "Lập lệnh, 3 việc đang chờ" thì nói đúng thứ con số nghĩa là gì.
         aria-label={`${pendingCount} việc đang chờ`}
+        // FE-UX-01c QĐ-6: số khác 0 có vòng sáng vàng toả ra (giả phần tử `after`, chỉ `scale`,
+        // `opacity`); `isolate` để vòng nằm trên nền viên, dưới chữ số. Số 0 đứng yên.
+        data-beacon={pendingCount > 0 ? "" : undefined}
         className={cn(
           "min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums",
           pendingCount > 0 ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground",
+          pendingCount > 0 &&
+            "relative isolate after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:rounded-full after:bg-accent after:animate-[beacon_2.4s_ease-out_infinite]",
           collapsed && "absolute -top-1 -right-1 min-w-4 px-1 py-0 leading-4",
         )}
       >
@@ -378,6 +383,8 @@ function NavLink({
       <span
         className={cn(
           "relative flex size-8 shrink-0 items-center justify-center rounded-full",
+          // FE-UX-01c QĐ-5: rê lên mục thì biểu tượng xoay nhẹ, phóng to (lò xo).
+          "transition-[rotate,scale] duration-500 ease-spring group-hover:-rotate-10 group-hover:scale-112",
           active ? "bg-primary-foreground/15 text-primary-foreground" : "bg-sidebar-accent text-sidebar-foreground",
         )}
       >
@@ -436,6 +443,7 @@ function NavLink({
         onClick={closeDrawer}
         title={collapsed ? item.label : undefined}
         className={cn(
+          "group",
           shape,
           active
             ? "bg-primary font-medium text-primary-foreground"
