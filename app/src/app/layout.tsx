@@ -1,21 +1,22 @@
 import type { Metadata } from 'next';
-import { Roboto, Roboto_Condensed } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Providers } from '@/components/providers';
 import { ConfigProvider } from '@/lib/config/config-context';
 import { publicConfig } from '@/lib/config/flags';
 import './globals.css';
 
-// Roboto cho chữ, Roboto Condensed cho mã kỹ thuật (lớp `font-code`). Chỉ nạp các độ đậm đang dùng.
-const roboto = Roboto({
+// Roboto cho chữ, Roboto Condensed cho mã kỹ thuật (lớp `font-code`). Tệp woff2 lưu trong repo
+// (nguồn google/fonts, OFL, cắt latin + vietnamese), không tải từ Google lúc build.
+const Roboto = localFont({
+  src: './fonts/roboto-latin-vi.woff2',
   variable: '--font-roboto',
-  subsets: ['latin', 'vietnamese'],
-  weight: ['300', '400', '500', '700'],
+  weight: '300 700',
   display: 'swap',
 });
-const robotoCondensed = Roboto_Condensed({
+const RobotoCondensed = localFont({
+  src: './fonts/roboto-condensed-latin-vi.woff2',
   variable: '--font-roboto-condensed',
-  subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500'],
+  weight: '400 500',
   display: 'swap',
 });
 
@@ -31,7 +32,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const config = await publicConfig();
 
   return (
-    <html lang="vi" className={`${roboto.variable} ${robotoCondensed.variable}`} suppressHydrationWarning>
+    <html lang="vi" className={`${Roboto.variable} ${RobotoCondensed.variable}`} suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased">
         <ConfigProvider value={config}>
           <Providers>{children}</Providers>
