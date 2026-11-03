@@ -31,7 +31,7 @@ export function BidvLogo({ variant = "full", className = "" }: { variant?: "full
         className={`flex size-10 shrink-0 items-center justify-center rounded-[12px] ${className}`}
         style={{ backgroundColor: BRAND.green }}
       >
-        <svg viewBox="0 0 {FLOWER_BOX.width} {FLOWER_BOX.height}" className="size-7" aria-hidden="true">
+        <svg viewBox={`0 0 ${FLOWER_BOX.width} ${FLOWER_BOX.height}`} className="size-7" aria-hidden="true">
           <use href="#bidv-flower" />
         </svg>
       </span>

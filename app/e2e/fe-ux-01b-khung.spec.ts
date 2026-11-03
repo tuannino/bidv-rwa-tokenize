@@ -35,9 +35,13 @@ test.describe('FE-UX-01b khung giao diện', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await actAs(context, baseURL!, 'TELLER');
     const hydration: string[] = [];
+    // Mọi lỗi console và lỗi trang (ví dụ thuộc tính SVG sai làm trình duyệt báo "Expected number").
+    const errors: string[] = [];
     page.on('console', (message) => {
       if (/hydrat/i.test(message.text())) hydration.push(message.text());
+      if (message.type() === 'error') errors.push(message.text());
     });
+    page.on('pageerror', (error) => errors.push(error.message));
     await open(page, '/');
     expect(Math.abs((await asideWidth(page)) - 270)).toBeLessThanOrEqual(2);
 
@@ -51,6 +55,7 @@ test.describe('FE-UX-01b khung giao diện', () => {
     expect(await asideWidth(page)).toBe(88);
     await expect(page.getByRole('button', { name: 'Mở rộng thanh bên', exact: true })).toBeVisible();
     expect(hydration).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
   test('ca 2: khi thu gọn vẫn giữ tên mục, số việc chờ trong liên kết, ô chọn vai, số liên kết', async ({ page, context, baseURL }) => {
