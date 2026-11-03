@@ -78,7 +78,7 @@ rỗng): mọi mốc ở QĐ-2 giữ nguyên nên các bộ cũ chạy như trư
 
 | Ca | Kiểm | Kết quả |
 |---|---|---|
-| 1 | 1440 px: `aside` rộng 270 (sai số 2); bấm "Thu gọn thanh bên": 88, `localStorage['bidv-rail']` là `'1'`; tải lại: lần đo đầu sau khi chạy JS đã là 88 (không đo dần), có nút "Mở rộng thanh bên", không có cảnh báo hydrate trong console | ✅ |
+| 1 | 1440 px: `aside` rộng 270 (sai số 2); bấm "Thu gọn thanh bên": 88, `localStorage['bidv-rail']` là `'1'`; tải lại: lần đo đầu sau khi chạy JS đã là 88 (không đo dần), có nút "Mở rộng thanh bên", không có cảnh báo hydrate và không có lỗi nào trong console (thêm sau nghiệm thu, mục 9) | ✅ |
 | 2 | Thu gọn: liên kết tên `/Lập lệnh/` còn; `getByLabel(/việc đang chờ/)` hiện, là chữ số, nằm trong `a`; `#channel-switcher` còn trong DOM, là `SELECT`; số `a` trong `aside` bằng lúc mở rộng | ✅ |
 | 3 | `/`, `/draft`, `/portfolio`, `/tokens/WPT` (màn chi tiết): tên trên thanh đầu đúng phần tử cuối `breadcrumbs`; thanh đầu không có heading, không nằm trong `main`; đúng một `h1`, nằm trong `main` | ✅ |
 | 4 | 390 px: `aside` ẩn và có `inert`; nút theme hiện; "Mở menu": `aside` hiện, `aria-expanded="true"`, tiêu điểm ở "Đóng menu", `main` và `header` có `inert`; Esc: đóng, tiêu điểm về "Mở menu"; lớp phủ: đóng; bấm "Lập lệnh": sang `/draft`, `aside` ẩn; `scrollWidth <= 390` ở `/`, `/draft`, `/approvals`, `/portfolio`, `/seller` | ✅ |
@@ -272,3 +272,14 @@ sang `done`). E2E cũ đã sửa selector: **không có**.
 - [x] Mọi call chain qua ILedgerPort: không đổi mã gọi chuỗi.
 - [x] Mọi ký qua ISigner: không đổi.
 - [x] Mọi kiểm quyền qua RBAC: không đổi (`can(role, ...)` ở `app-layout.tsx` giữ nguyên); luật kiến trúc PASS.
+
+## 9. Sửa sau nghiệm thu (Supervisor, 03/11)
+
+- **Lỗi:** bản logo thu gọn (`bidv-logo.tsx`) ghi `viewBox` là chuỗi chữ `"0 0 {FLOWER_BOX.width} {FLOWER_BOX.height}"`
+  (không ghép giá trị), nên mọi trang báo lỗi console `Error: <svg> attribute viewBox: Expected number`. Hình vẫn
+  đúng vì `<symbol>` bông mai có `viewBox` riêng nên lọt qua kiểm bằng mắt.
+- **Sửa:** `viewBox={`0 0 ${FLOWER_BOX.width} ${FLOWER_BOX.height}`}`.
+- **Test:** ca 1 của `fe-ux-01b-khung.spec.ts` thu mọi lỗi console (`type() === 'error'`) và lỗi trang (`pageerror`)
+  qua lần mở và lần tải lại, kiểm mảng rỗng. Trước khi sửa logo, ca 1 đỏ đúng với 4 lỗi `viewBox`; sau khi sửa xanh
+  (bộ 6 ca chạy 2 lần đều 6/6).
+- Ba điểm xin xác nhận ở mục 0.2 và mục 6: Supervisor chấp nhận cả ba.
