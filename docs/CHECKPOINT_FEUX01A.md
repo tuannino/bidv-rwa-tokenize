@@ -6,7 +6,7 @@
 | Phạm vi | **Chỉ frontend.** Không đổi backend, database, hợp đồng, cấu hình triển khai; không thêm gói npm |
 | Nhánh | `feat/fe-ux-01a-nen`, tạo từ `release/ui-v2` (`9c72d75`, sau merge PR chuẩn bị #83) |
 | Spec | `docs/fe-ux-01a-nen/{requirements,design,tasks}.md` (chép nguyên) |
-| Commit | spec `5d4312d`; token, font, theme `6064fe0`; thành phần nền `f00a00d`; `font-mono` `45258d6`; e2e `f5937b0`; tài liệu: commit cuối trên nhánh |
+| Commit | spec `5d4312d`; token, font, theme `6064fe0`; thành phần nền `f00a00d`; `font-mono` `45258d6`; e2e `f5937b0`; tài liệu `42c0194`; font cục bộ (phụ lục 03/11) `b79ef3d`; tài liệu phụ lục: commit cuối trên nhánh |
 | Tiến độ | Xong. PR base `release/ui-v2`, chờ Supervisor nghiệm thu; Claude Code **không** merge |
 
 ## 0. Tóm tắt nghiệm thu
@@ -114,8 +114,9 @@ bằng chú thích ngắn về ràng buộc tương phản. `--radius` giữ ngu
 
 ### 2.3 Font (`layout.tsx`, `globals.css`)
 
-- `Roboto` (300, 400, 500, 700) biến `--font-roboto`, `Roboto_Condensed` (400, 500) biến `--font-roboto-condensed`,
-  subsets `latin`, `vietnamese`, `display: 'swap'`. Bỏ `Geist_Mono` và biến `--font-mono` của nó.
+- Bản đầu: `next/font/google`, `Roboto` (300, 400, 500, 700) biến `--font-roboto`, `Roboto_Condensed` (400, 500)
+  biến `--font-roboto-condensed`, subsets `latin`, `vietnamese`, `display: 'swap'`. Bỏ `Geist_Mono` và biến
+  `--font-mono` của nó. **Đã thay bằng `next/font/local` theo phụ lục 03/11, xem mục 9**; tên biến CSS giữ nguyên.
 - `@theme inline`: `--font-sans: var(--font-roboto)` (sửa UX-01: trước là `var(--font-sans)` tự tham chiếu nên
   trình duyệt rơi về font có chân), `--font-heading: var(--font-roboto)`, `--font-code: var(--font-roboto-condensed)`.
 - CSS xuất ra (`.next/static/chunks/*.css`): có `.font-code{font-family:var(--font-roboto-condensed)}`,
@@ -124,7 +125,7 @@ bằng chú thích ngắn về ràng buộc tương phản. `--radius` giữ ngu
 - Bốn dòng `font-mono` ở `components/layout` (để FE-UX-01b) giờ dùng font monospace mặc định của Tailwind
   (`ui-monospace, ...`) vì `--font-mono` của Geist đã bỏ.
 - `metadata.title`: `'BIDV RWA, token hoá dự án điện gió'` (bỏ gạch dài).
-- Build mock và Hardhat tải font Google thành công trên máy này (mục 1.1, phần `build`, `evm`).
+- Bản đầu build được trên máy dev nhưng CI job C đỏ vì `next/font/google`; sau phụ lục không còn tải font lúc build (mục 9).
 
 ### 2.4 Thành phần nền (`components/ui`, chỉ chuỗi class)
 
@@ -371,7 +372,9 @@ Ghép từng cặp dòng bớt, thêm của 37 tệp: 160 cặp; bỏ tên lớp
 Tệp đổi: `app/src/app/globals.css`, `app/src/app/layout.tsx`, `app/src/components/providers.tsx`,
 `app/src/components/ui/{button,card,dialog,dropdown-menu,table}.tsx`, 37 tệp ở mục 4.3,
 `app/e2e/fix-05-tong-quan.spec.ts`, `app/e2e/fe-ux-01a-nen.spec.ts` (mới), `docs/fe-ux-01a-nen/*` (mới),
-`docs/CHECKPOINT_FEUX01A.md` (mới), `docs/USER_GUIDE.md`, `.kiro/task-status.json`.
+`docs/CHECKPOINT_FEUX01A.md` (mới), `docs/USER_GUIDE.md`, `.kiro/task-status.json`. Phụ lục 03/11 thêm
+`app/src/app/fonts/{roboto-latin-vi.woff2,roboto-condensed-latin-vi.woff2,OFL.txt}` (danh sách trắng mở rộng theo
+phụ lục mục 3).
 
 ```text
 $ git diff --name-only origin/release/ui-v2...HEAD | grep -vE '^(app/src/app/...)$' | grep -vxF -f /tmp/feux01a-files.txt
@@ -403,3 +406,70 @@ $ git diff origin/release/ui-v2...HEAD -U0 -- app/src/app/globals.css app/src/ap
 - [x] Mọi call chain qua ILedgerPort: không đổi mã gọi chuỗi.
 - [x] Mọi ký qua ISigner: không đổi.
 - [x] Mọi kiểm quyền qua RBAC: không đổi; luật kiến trúc PASS (mục 1.1, phần `arch`).
+
+## 9. Font cục bộ (phụ lục FE-UX-01a, 03/11)
+
+**Lý do.** CI job C (phần nặng: build, e2e) đỏ ở PR #84, run
+https://github.com/tuannino/bidv-rwa-tokenize/actions/runs/41650010775/job/125965357913: Turbopack báo
+`Error while looking up import map: next/font/google queries have exactly one entry` khi dựng font Google, build
+và e2e fail. Lỗi phụ thuộc mạng và môi trường, không ổn định. Sếp duyệt ngoại lệ QĐ-3 ngày 03/11: dùng tệp woff2
+trong repo qua `next/font/local`, không đổi sang Webpack.
+
+**Thay đổi** (commit `b79ef3d`, đúng 4 tệp, áp bản vá `20261103_font_local.patch` của Supervisor):
+
+- `app/src/app/layout.tsx`: `import localFont from 'next/font/local'`; hằng `Roboto` (`./fonts/roboto-latin-vi.woff2`,
+  `weight: '300 700'`) và `RobotoCondensed` (`./fonts/roboto-condensed-latin-vi.woff2`, `weight: '400 500'`), cùng
+  biến `--font-roboto`, `--font-roboto-condensed`, `display: 'swap'`. Tên hằng viết hoa để tên họ font do
+  `next/font/local` sinh chứa "Roboto" và "Condensed" (ca 3, ca 4 của `fe-ux-01a-nen.spec.ts` không sửa).
+  `globals.css` không đổi.
+- `app/src/app/fonts/roboto-latin-vi.woff2`, `roboto-condensed-latin-vi.woff2`, `OFL.txt` (mới).
+
+| Tệp | Nguồn (google/fonts, nhánh main) | Xử lý | Cỡ | sha256 |
+|---|---|---|---|---|
+| `roboto-latin-vi.woff2` | `ofl/roboto/Roboto[wdth,wght].ttf` | cố định `wdth=100`, trục `wght` 300 đến 700, cắt latin + vietnamese | 61.860 B | `5d94c19ec5fe101523c4966fe6de108ee6f08ddb92d628212bcc86a878eee6ae` |
+| `roboto-condensed-latin-vi.woff2` | `ofl/robotocondensed/RobotoCondensed[wght].ttf` | trục `wght` 400 đến 500, cắt latin + vietnamese | 44.724 B | `c847fbf21657ccb55b8b34fe8ab0e3cc51df9311e605b09ba9197176acc0c527` |
+| `OFL.txt` | `ofl/roboto/OFL.txt` | chép nguyên văn | 4.394 B | `061402327a96aadb0bfb694a960ed289ecd38d383e396243831ab81feb109c41` |
+
+Checksum đo trên nhánh (`sha256sum app/src/app/fonts/*`) khớp đúng bảng của phụ lục. Lệnh dựng lại (fonttools
+4.65.0 kèm brotli):
+
+```bash
+pip install fonttools brotli
+B=https://raw.githubusercontent.com/google/fonts/main/ofl
+curl -fsSL -o Roboto.ttf "$B/roboto/Roboto%5Bwdth,wght%5D.ttf"
+curl -fsSL -o RobotoCondensed.ttf "$B/robotocondensed/RobotoCondensed%5Bwght%5D.ttf"
+U="U+0000-00FF,U+0102-0103,U+0110-0111,U+0128-0129,U+0131,U+0152-0153,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+2000-206F,U+20AB,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+python -m fontTools.varLib.instancer Roboto.ttf wdth=100 wght=300:700 -o r.ttf
+python -m fontTools.varLib.instancer RobotoCondensed.ttf wght=400:500 -o rc.ttf
+pyftsubset r.ttf  --unicodes="$U" --flavor=woff2 --layout-features='*' --output-file=roboto-latin-vi.woff2
+pyftsubset rc.ttf --unicodes="$U" --flavor=woff2 --layout-features='*' --output-file=roboto-condensed-latin-vi.woff2
+```
+
+**Giấy phép.** Roboto và Roboto Condensed theo SIL Open Font License 1.1: được nhúng, phân phối kèm phần mềm,
+phải giữ thông báo bản quyền và giấy phép (`OFL.txt` đặt cạnh tệp font), không bán riêng tệp font.
+
+**Kiểm.**
+
+```text
+$ rg -n "next/font/google" app/src
+                                    # rỗng
+$ sha256sum app/src/app/fonts/*      # khớp bảng trên
+$ TEST_DATABASE_URL=... USE_LOCAL_SOLC=1 bash scripts/run-local-all.sh build e2e evm
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+  96 passed (2.2m)                  # e2e mock, như trước phụ lục
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+  26 passed (39.8s)                 # e2e Hardhat
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: build e2e evm
+$ ls app/.next/static/media          # hai tệp woff2 tự lưu trữ, không tải từ Google
+roboto_condensed_latin_vi-s.p.1sdoqy6w-qa8q.woff2
+roboto_latin_vi-s.p.3oukl3c3h6gr2.woff2
+```
+
+Trong CSS xuất ra: `--font-roboto:"Roboto", "Roboto Fallback"`, `--font-roboto-condensed:"RobotoCondensed",
+"RobotoCondensed Fallback"`. Chuỗi `fonts.googleapis.com` duy nhất còn trong bản build nằm trong mã của thư viện ví
+(nạp font Inter cho hộp thoại ví lúc chạy, có từ trước), không phải yêu cầu lúc build.
+
+Log: `20261103_feux01a_font_local_build_e2e.log` (gửi kèm). CI job C trên PR #84 sau commit này: đang chạy khi viết mục này; kết quả lần chạy và lần "Re-run jobs" ghi bổ sung vào đây sau khi có.
