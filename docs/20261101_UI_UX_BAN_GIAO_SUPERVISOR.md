@@ -10,6 +10,14 @@
 | Bản mẫu trung gian | Mẫu C, bản 3.2, bản 12 (`docs/prototypes/20261023_ui_ux_mau_c`, `20261101_ui_ux_ban_3_2`, `20261101_ui_ux_ban_12`) chỉ nằm trên nhánh `docs/ui-ux-mau-c` @ `ac5c313`, không đưa vào `dev`; trên `dev` chỉ có bản chốt `docs/prototypes/20261101_ui_ux_ban_chot/` |
 | Phạm vi | **Chỉ frontend.** Không màn nào cần sửa backend để đạt giao diện này (mục 2.4) |
 
+> **Cập nhật 03/11/2026 (kế hoạch đợt nâng cấp giao diện, chủ dự án đã duyệt):**
+>
+> 1. **Thứ tự ưu tiên khi có xung đột:** spec của từng task FE-UX, rồi kế hoạch 03/11, rồi mã `dev` @ `2308509`, rồi tài liệu này, cuối cùng là bản xem thử. Mốc `67ece1e` ở bảng trên là mốc lúc đồng bộ bản xem thử; mã giữa `67ece1e` và `2308509` (FIX-03, FIX-04, FIX-05) có thay đổi màn, spec từng task ghi rõ chỗ phải theo mã mới.
+> 2. **Chuyển động:** lượt đầu (FE-UX-01c) chỉ chuyển động CSS nhẹ: vào trang, rê chuột, menu thả xuống, nền trôi. Các hiệu ứng ở mục 4.6 dùng JS (số lăn, tiêu đề tách từ, thanh đầu co theo cuộn, viên nang kéo giãn, nút hút theo con trỏ, chuyển trang và đổi Sáng Tối bằng View Transitions) chuyển sang task FE-UX-08, làm sau khi đợt chính phát hành.
+> 3. **Gói phụ thuộc:** không dùng `motion` (FE-DEP-1), không dùng `lenis` (FE-DEP-2); duyệt icon 3D (FE-DEP-3).
+> 4. **Trang giới thiệu (FE-UX-07)** làm sau đợt chính; chạm guard vai hoặc `lib/session` thì báo duyệt trước.
+> 5. **Nhánh:** mọi PR FE-UX vào nhánh tích hợp `release/ui-v2`; chỉ merge vào `dev` khi cả đợt đã nghiệm thu.
+
 Tài liệu này đủ để Kiro hiện thực mà không cần đọc lịch sử các vòng thử. Thứ tự đọc: mục 1 (quyết định), mục 2 (phạm vi mã, bắt buộc), mục 4 và 5 (hệ thiết kế, khung), mục 6 (danh sách màn), mục 8 (nghiệm thu).
 
 ---
