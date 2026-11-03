@@ -5,11 +5,13 @@ import { MOCK_VAULT_ADDRESS } from '../../packages/shared/src/mock-vault';
  * FE-UX-01c: chuyển động nhẹ bằng CSS và nền trôi. Chain mock, máy chủ bản build, 1440 px.
  *
  * Ca 4 lập thêm MỘT yêu cầu tạo token (để số việc chờ khác 0) nên đặt cuối tệp. Bước điền form chép
- * từ `maker-checker.spec.ts` ca 1 đến 3 (không import spec cũ).
+ * từ `maker-checker.spec.ts` ca 1 đến 3 (không import spec cũ). Cuối ca 4, Kiểm soát viên TỪ CHỐI yêu
+ * cầu đó để số việc chờ về lại như trước ca: các spec chạy sau trên cùng máy chủ (ví dụ
+ * `investor-channel.spec.ts` kiểm số việc chờ là 0) không bị ảnh hưởng.
  */
 const SPV = MOCK_VAULT_ADDRESS;
 
-async function actAs(context: BrowserContext, baseURL: string, role: 'TELLER') {
+async function actAs(context: BrowserContext, baseURL: string, role: 'TELLER' | 'CONTROLLER') {
   await context.addCookies([
     { name: 'bidv_channel', value: role.toLowerCase(), url: baseURL },
     { name: 'bidv_role', value: role, url: baseURL },
@@ -182,7 +184,7 @@ test.describe('FE-UX-01c chuyển động', () => {
   });
 
   // Đặt cuối tệp: lập thêm một yêu cầu tạo token.
-  test('ca 4: đường chân trời chạy; số việc chờ 0 đứng yên, khác 0 có vòng sáng', async ({ page }) => {
+  test('ca 4: đường chân trời chạy; số việc chờ 0 đứng yên, khác 0 có vòng sáng', async ({ page, context, baseURL }) => {
     await open(page, '/');
     const horizon = page.locator('[data-horizon]');
     expect(await style(horizon, 'animation-name', '::after')).toBe('horizon');
@@ -201,5 +203,25 @@ test.describe('FE-UX-01c chuyển động', () => {
     await expect(badge).not.toHaveText('0');
     await expect(badge).toHaveAttribute('data-beacon', '');
     expect(await style(badge, 'animation-name', '::after')).toBe('beacon');
+
+    // Dọn dữ liệu: Kiểm soát viên từ chối yêu cầu vừa lập, số việc chờ về 0 và vòng sáng tắt.
+    const requestId = await page
+      .getByRole('table', { name: 'Yêu cầu tạo token đã lập' })
+      .locator('tbody tr')
+      .first()
+      .getAttribute('data-request-id');
+    expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
+    await actAs(context, baseURL!, 'CONTROLLER');
+    await open(page, `/approvals/${requestId}`);
+    const actions = page.getByLabel('Khối hành động');
+    await expect(actions).toContainText('Chờ duyệt');
+    await actions.getByLabel('Lý do từ chối').fill('Dọn dữ liệu ca chuyển động');
+    await actions.getByRole('button', { name: 'Từ chối' }).click();
+    await expect(page.getByRole('status').filter({ hasText: /Đã từ chối yêu cầu/ })).toBeVisible();
+    await actAs(context, baseURL!, 'TELLER');
+    await open(page, '/');
+    const after = page.getByRole('complementary').getByRole('link', { name: /Lập lệnh/ }).getByLabel(/việc đang chờ/);
+    await expect(after).toHaveText('0');
+    await expect(after).not.toHaveAttribute('data-beacon');
   });
 });
