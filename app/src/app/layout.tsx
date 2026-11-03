@@ -1,17 +1,26 @@
 import type { Metadata } from 'next';
-import { Geist_Mono } from 'next/font/google';
+import { Roboto, Roboto_Condensed } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { ConfigProvider } from '@/lib/config/config-context';
 import { publicConfig } from '@/lib/config/flags';
 import './globals.css';
 
-const geistMono = Geist_Mono({
-  variable: '--font-mono',
-  subsets: ['latin'],
+// Roboto cho chữ, Roboto Condensed cho mã kỹ thuật (lớp `font-code`). Chỉ nạp các độ đậm đang dùng.
+const roboto = Roboto({
+  variable: '--font-roboto',
+  subsets: ['latin', 'vietnamese'],
+  weight: ['300', '400', '500', '700'],
+  display: 'swap',
+});
+const robotoCondensed = Roboto_Condensed({
+  variable: '--font-roboto-condensed',
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '500'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'BIDV RWA — Token hóa dự án điện gió',
+  title: 'BIDV RWA, token hoá dự án điện gió',
   description:
     'Phát hành token quyền hưởng dự án điện gió có kiểm soát: KYC/whitelist, phát hành, chia lợi tức, hoàn vốn.',
 };
@@ -22,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const config = await publicConfig();
 
   return (
-    <html lang="vi" className={geistMono.variable} suppressHydrationWarning>
+    <html lang="vi" className={`${roboto.variable} ${robotoCondensed.variable}`} suppressHydrationWarning>
       <body className="bg-background text-foreground antialiased">
         <ConfigProvider value={config}>
           <Providers>{children}</Providers>
