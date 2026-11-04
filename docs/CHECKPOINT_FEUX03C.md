@@ -33,7 +33,7 @@ Tệp mới trong `app/src/components/vault/`: `display.ts` (`amount`, `short`),
 | 13 | Lệnh danh sách trắng, màu cứng, ký tự cấm (tasks bước 6) rỗng | ✅ | mục 6 |
 | 14 | Không mã dư thừa | ✅ | mục 2.5 |
 
-**Kết luận:** 14 ✅, 0 🔶, 0 ❌. JS gzip `/vault` +2.550 B (2,49 KB, trần 3 KB, đo theo byte so bản mốc build riêng);
+**Kết luận:** 14 ✅, 0 🔶, 0 ❌. JS gzip `/vault` +2.554 B (2,49 KB, trần 3 KB, đo theo byte);
 các trang đo khác lệch trong khoảng nhiễu build (mục 4); CSS +134 B; action khớp 28/28 (`/vault` 3); `hydration`,
 `consoleErrors`, `pageErrors` 0 ở mọi đường dẫn cả mốc lẫn sau; số `role` trong `main` bằng mốc. Mức rủi ro: thấp
 (dòng lệnh rút dời sang tệp mới, các nhánh kiểm bằng unit test với dữ liệu giả; luồng lưu, rút thật bằng e2e mock và
@@ -214,7 +214,25 @@ Cùng máy, cùng quy trình (`measure.sh` ngoài repo): máy chủ mới cổng
 spec, bản có `consoleErrors`, `pageErrors`; mốc cũng đo bằng bản này) với
 `JS_PAGES=/,/portfolio,/trade,/approvals,/distribution,/vault`. Tiến trình đo khác tiến trình chụp ảnh.
 
-@@DO@@
+| Mục | Mốc `1238a54` | Sau `3a033fb` | Trần |
+|---|---|---|---|
+| Số action khi mở màn | 28 đường dẫn, `/vault` 3 | Khớp 28/28 | không đổi |
+| `hydration`, `consoleErrors`, `pageErrors` (cộng 4 biến thể) | 0 ở cả 28 đường dẫn | 0 ở cả 28 đường dẫn | `/vault` 0, khác không tăng |
+| JS gzip `/vault` (công cụ) | 456,0 KB | 458,5 KB | |
+| JS gzip `/vault` theo byte | 466.979 B | 469.533 B (+2.554 B; so bản mốc build riêng 466.980 B: +2.553 B) | +3 KB (3.072 B) |
+| JS gzip `/` (công cụ; byte) | 558,2 KB; 571.630 B | 558,2 KB; 571.630 B | không tăng |
+| JS gzip `/distribution` | 468,3 KB; 479.558 B | 468,3 KB; 479.571 B | không tăng |
+| JS gzip `/approvals` | 455,2 KB; 466.098 B | 455,2 KB; 466.091 B | không tăng |
+| JS gzip `/portfolio` | 456,1 KB; 467.044 B | 456,1 KB; 467.053 B | không tăng |
+| JS gzip `/trade` | 479,0 KB; 490.460 B | 478,9 KB; 490.441 B | không tăng |
+| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.324 B | 19.458 B (+134 B) | +2 KB |
+| `role` trong `main` (mục 1.2, ca 2) | `note` 1, còn lại 0, hai vai | giống hệt | bằng mốc |
+
+Byte của mốc đo trên chính bản build mốc (`1238a54`, cùng phiên). Các trang khác theo byte lệch -19 đến +13 B, cả
+âm lẫn dương; công cụ đo báo bằng nhau (riêng `/trade` giảm 0,1). Đã so nội dung chunk khác nhau giữa bản mốc build
+riêng và bản sau ở `/`, `/distribution`, `/portfolio` (`chunk_diff.txt` gửi kèm): chỉ đổi tên biến rút gọn, thứ tự
+module, mã tham chiếu server action theo bản build; không thêm mã. Bản đầu dùng `KeyRound` làm các trang này tăng
+thật khoảng 60 B (mục 8), đã sửa.
 
 ## 5. Ảnh (gửi kèm, không commit)
 
@@ -224,7 +242,9 @@ spec, bản có `consoleErrors`, `pageErrors`; mốc cũng đo bằng bản này
   cố định 1 VNDB, chỉ xem, Người bán rút 1 VNDB tới `COMPLETED`); (3) `zz-distribution-approval.spec.ts` (3 ca, một
   dòng Lịch sử chốt kỳ); (4) Kiểm soát viên lưu tay chế độ tỷ lệ 20% ("Đặt tỷ lệ khoá: tỷ lệ khoá 0% thành 20%", "Đổi
   chế độ khoá: chế độ khoá FIXED thành PERCENT"): chế độ "Khoá theo tỷ lệ kỳ", "Tỷ lệ áp" 0%, câu tỷ lệ chờ áp hiện,
-  lịch sử cấu hình 5 dòng, lịch sử chốt kỳ 1 dòng; chụp hai vai, 1440 và 390, Sáng và Tối; tắt. @@ANH@@
+  lịch sử cấu hình 5 dòng, lịch sử chốt kỳ 1 dòng; chụp hai vai, 1440 và 390, Sáng và Tối; tắt. Mốc: bản build `1238a54`, tiến trình mới bật 13:43:27Z, tắt 13:44:27Z. Sau: bản build `3a033fb`, tiến trình mới bật
+  14:18:11Z, tắt 14:19:12Z (04/11/2026, UTC). Hai lượt cùng kết quả bước 4; `scrollWidth` không vượt bề rộng, 0 lỗi
+  console ở mọi ảnh.
 - Lệnh rút 4 trạng thái (`NEEDS_REVIEW` có quyền, `PAYOUT_REVIEW` có quyền, `busy`, chỉ xem): HTML dựng bằng
   `renderToStaticMarkup` với dữ liệu giả như unit test (test tạm, xoá ngay, không commit), CSS bản build tương ứng,
   `page.setContent`, font hệ thống; trước dùng dòng @ `892ee70` và CSS bản mốc, sau dùng dòng cuối và CSS bản sau;
