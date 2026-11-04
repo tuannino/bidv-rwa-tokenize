@@ -30,7 +30,7 @@ Tệp đổi: `scripts/check-checkpoint.mjs`, `app/src/lib/ledger/evm.adapter.ts
 | 8 | Checkpoint ghi phạm vi "backend hẹp, Sếp duyệt 04/11", danh sách tệp, kết quả kiểm | ✅ | đầu tệp, mục 1 |
 
 **Kết luận:** 7 ✅, 1 🔶, 0 ❌. Script checkpoint giờ tìm đúng `CHECKPOINT_FEUX03A.md` (FE-UX-03a phải chạy lệnh hai
-tham số); log Hardhat từ @@MOC@@ dòng lỗi giải mã còn @@SAU@@. Mức rủi ro: thấp (vòng giải mã dời nguyên văn, tập
+tham số); log Hardhat từ 11 dòng lỗi giải mã còn 0. Mức rủi ro: thấp (vòng giải mã dời nguyên văn, tập
 sự kiện lưu không đổi).
 
 ### 0.2 Việc cần Owner quyết
@@ -50,8 +50,27 @@ sự kiện lưu không đổi).
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
-@@RUN@@
+PASS: 20   FAIL: 0   WARN: 3                     (luật kiến trúc, như mốc)
+=> PASS: LỚP 3 - ĐIỂM CẮM (marker)
+=> PASS: LỚP 3 - KHUÔN CHECKPOINT
+=> PASS: APP - TYPECHECK
+=> PASS: APP - LINT
+ Test Files  77 passed | 11 skipped (88)
+      Tests  1517 passed | 74 skipped (1591)
+=> PASS: APP - VITEST
+=> PASS: APP - BUILD BẢN PHÁT HÀNH
+  116 passed, 7 skipped                           (e2e mock)
+=> PASS: APP - E2E (PLAYWRIGHT)
+=> PASS: EVM - BUILD BẢN HARDHAT
+=> PASS: EVM - DỰNG CHUỖI MỚI
+  26 passed, 2 skipped                            (e2e Hardhat)
+=> PASS: EVM - E2E PROJECT HARDHAT
+=> ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
 ```
+
+Lượt chạy đầu đỏ đúng 1 ca `pending-markers.test.ts` (khối sinh trong `docs/tech-report.md` lệch số dòng, DEVIATION 1
+mục 5); sau khi sinh lại, em chạy lại TOÀN BỘ từ đầu, kết quả trên là lượt chạy lại.
 
 Log gửi kèm (không commit): `20261104_fix07_run_local_all.log` và riêng đoạn từ dòng "EVM - E2E PROJECT HARDHAT"
 tới hết: `20261104_fix07_evm_e2e.log` (cùng đoạn của lần chạy mốc `20261104_fix07_evm_e2e_moc.log`). Không chạy
@@ -155,8 +174,8 @@ cũ, thêm vào cuối "Topic <topics[0]>, hợp đồng <địa chỉ>.".
 
 | | Mốc `baf0fd4` (chỉ phần `evm`) | Sau |
 |---|---|---|
-| `grep -c "không giải mã được"` đoạn "EVM - E2E PROJECT HARDHAT" | @@MOC@@ (đều `AbiEventSignatureNotFoundError` topic `0x2f87...656f0d` của `RoleGranted`) | @@SAU@@ |
-| e2e Hardhat | 26 passed, 2 skipped | @@HH@@ |
+| `grep -c "không giải mã được"` đoạn "EVM - E2E PROJECT HARDHAT" | 11 (đều `AbiEventSignatureNotFoundError` topic `0x2f87...656f0d` của `RoleGranted`) | 0 |
+| e2e Hardhat | 26 passed, 2 skipped | 26 passed, 2 skipped |
 
 Tập sự kiện lưu không đổi (QĐ-4): 11 chữ ký bỏ qua vốn đã bị bỏ do giải mã lỗi (ABI rút gọn không có), giờ bỏ
 trước khi giải mã; ca 2 khẳng định dữ liệu sự kiện đang theo dõi giống trước.
