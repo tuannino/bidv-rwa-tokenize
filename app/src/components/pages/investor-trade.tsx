@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingBasket } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
@@ -295,7 +295,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             <CardHeader>
               <CardTitle className="flex items-center gap-2.5 text-base">
                 <CardTitleIcon>
-                  <ShoppingCart />
+                  <ShoppingBasket />
                 </CardTitleIcon>
                 Đặt lệnh
               </CardTitle>
