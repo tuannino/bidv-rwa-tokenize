@@ -11,7 +11,8 @@
 
 Tệp đổi: `scripts/check-checkpoint.mjs`, `app/src/lib/ledger/evm.adapter.ts`, `app/src/lib/ledger/evm-log-decode.ts`
 (mới), `app/test/check-checkpoint.test.ts` (chỉ thêm 4 ca), `app/test/fix-07-evm-log-decode.test.ts` (mới),
-`docs/fix-07-kiem-checkpoint-indexer/*`, `docs/CHECKPOINT_FIX07.md`, `.kiro/task-status.json`.
+`docs/fix-07-kiem-checkpoint-indexer/*`, `docs/CHECKPOINT_FIX07.md`, `.kiro/task-status.json`; ngoài danh sách trắng:
+`docs/tech-report.md` (2 dòng trong khối sinh tự động, mục 5).
 
 ## 0. Tóm tắt nghiệm thu
 
@@ -25,16 +26,19 @@ Tệp đổi: `scripts/check-checkpoint.mjs`, `app/src/lib/ledger/evm.adapter.ts
 | 4 | Unit test mới đủ ca design mục 2, xanh; topic `RoleGranted`, `Approval` đúng | ✅ | mục 1.4 |
 | 5 | Log `evm` không còn dòng "bỏ log không giải mã được" (`grep -c` ra 0); 26 ca Hardhat đạt | ✅ | mục 1.1, 3 |
 | 6 | Không đổi hành vi nghiệp vụ: e2e mock và Hardhat xanh; `indexer-sync.test.ts` xanh không sửa | ✅ | mục 1.1, 3 |
-| 7 | Lệnh danh sách trắng rỗng; `scripts/verify-arch-rules.sh` đạt | ✅ | mục 4 |
+| 7 | Lệnh danh sách trắng rỗng; `scripts/verify-arch-rules.sh` đạt | 🔶 | mục 4, 5: lệnh ra đúng 1 tệp `docs/tech-report.md` (khối sinh tự động); `verify-arch-rules.sh` đạt |
 | 8 | Checkpoint ghi phạm vi "backend hẹp, Sếp duyệt 04/11", danh sách tệp, kết quả kiểm | ✅ | đầu tệp, mục 1 |
 
-**Kết luận:** 8 ✅, 0 🔶, 0 ❌. Script checkpoint giờ tìm đúng `CHECKPOINT_FEUX03A.md` (FE-UX-03a phải chạy lệnh hai
+**Kết luận:** 7 ✅, 1 🔶, 0 ❌. Script checkpoint giờ tìm đúng `CHECKPOINT_FEUX03A.md` (FE-UX-03a phải chạy lệnh hai
 tham số); log Hardhat từ @@MOC@@ dòng lỗi giải mã còn @@SAU@@. Mức rủi ro: thấp (vòng giải mã dời nguyên văn, tập
 sự kiện lưu không đổi).
 
 ### 0.2 Việc cần Owner quyết
 
-- Không có. Nợ QĐ-5 (giữ `strict: false`) ghi ở mục 5.
+- Chấp nhận `docs/tech-report.md` ngoài danh sách trắng (mục 5, DEVIATION 1): chỉ 2 dòng số dòng marker `SC-04` trong
+  khối giữa hai mốc `BEGIN:diem-cam`, `END:diem-cam`, sinh bằng `node scripts/scan-pending.mjs --write-report`. Không sinh lại thì
+  `pending-markers.test.ts` đỏ.
+- Nợ QĐ-5 (giữ `strict: false`) ghi ở mục 5.
 
 ---
 
@@ -160,13 +164,21 @@ trước khi giải mã; ca 2 khẳng định dữ liệu sự kiện đang theo
 ## 4. Lệnh kiểm (tasks bước 5)
 
 ```text
-$ git diff --name-only origin/release/ui-v2...HEAD | grep -vE '^(...danh sách trắng...)$'     # rỗng
+$ git diff --name-only origin/release/ui-v2...HEAD | grep -vE '^(...danh sách trắng...)$'
+docs/tech-report.md                                                                           # DEVIATION 1, mục 5
 $ bash scripts/verify-arch-rules.sh                                                           # PASS 20, FAIL 0, WARN 3 (như mốc)
 $ node scripts/check-checkpoint.mjs docs/CHECKPOINT_FIX07.md docs/fix-07-kiem-checkpoint-indexer/requirements.md   # ĐẠT
 ```
 
 ## 5. DEVIATION và nợ
 
+- **DEVIATION 1, `docs/tech-report.md` ngoài danh sách trắng.** Dời vòng giải mã làm `evm.adapter.ts` ngắn đi 42
+  dòng, nên hai marker `@pending SC-04` dời từ dòng 1257, 1263 về 1215, 1221. Test sẵn có
+  `pending-markers.test.ts` ("docs/tech-report.md có mục điểm cắm và mục đó khớp marker hiện tại") đòi khối sinh tự
+  động khớp số dòng, nên lượt chạy đầu đỏ đúng ca này. Em sinh lại bằng `node scripts/scan-pending.mjs
+  --write-report`; diff đúng 2 dòng trong khối sinh (chỉ đổi số dòng), không sửa tay, chữ ngoài khối không đổi.
+  Cách khác là giữ nguyên số dòng `evm.adapter.ts` bằng dòng độn, em không chọn. Spec sót tệp này trong danh sách
+  trắng; cần Owner chấp nhận.
 - **QĐ-5 (spec cập nhật 04/11):** giữ `strict: false`. Lúc làm, em phát hiện spec bản đầu mâu thuẫn (ca 5b đòi bỏ
   và cảnh báo log hỏng của sự kiện đang theo dõi, nhưng mã dời nguyên văn với `strict: false` không ném lỗi mà trả
   sự kiện thiếu tham số). Em đã báo Sếp; spec cập nhật chốt giữ nguyên hành vi, ca 5b ghi lại hành vi hiện tại. Nợ:
