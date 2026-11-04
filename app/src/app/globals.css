@@ -117,9 +117,11 @@
   --tile-hl-ink:  #ffffff;
   --tile-hl-sub:  rgb(255 255 255 / 0.85);
   --tile-hl-bar:  #efd28a;
+  --tile-hl-chip: rgb(255 255 255 / 0.15);
   --tile-au:      radial-gradient(120% 140% at 100% 0%, #fbe39a 0%, #eec158 38%, #d9a22c 75%, #b98510 100%);
   --tile-au-ink:  #2a1c00;
   --tile-au-sub:  #332200;
+  --tile-au-chip: rgb(255 255 255 / 0.4);
   --tile-leaf:    linear-gradient(150deg, #f1fafa 0%, #dcf0f0 100%);
   --tile-leaf-ink: #0e1e1d;
   --tile-leaf-sub: #4f6261;

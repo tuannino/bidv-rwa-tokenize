@@ -32,8 +32,8 @@ const iconVariants = cva("grid size-10 shrink-0 place-items-center rounded-full 
   variants: {
     tone: {
       default: "bg-muted text-primary",
-      hl: "bg-white/15 text-(--tile-hl-bar)",
-      au: "bg-white/40 text-(--tile-au-sub)",
+      hl: "bg-(--tile-hl-chip) text-(--tile-hl-bar)",
+      au: "bg-(--tile-au-chip) text-(--tile-au-sub)",
       leaf: "bg-primary text-primary-foreground",
       gold: "bg-accent text-accent-foreground",
     },
