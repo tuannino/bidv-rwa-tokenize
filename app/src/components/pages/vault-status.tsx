@@ -2,16 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { CalendarCheck, ExternalLink, History, LockKeyhole, Landmark, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
 import { getVaultConfigHistoryAction, getVaultOverviewAction, saveVaultConfigAction } from '@/app/actions/vault';
 import {
   listWithdrawReviewsAction,
   reconcileWithdrawRequestsAction,
   resolveWithdrawRequestAction,
 } from '@/app/actions/withdraw';
+import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type {
   VaultConfigFormView,
@@ -25,10 +30,10 @@ import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatDateTime } from '@/lib/format';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
+import { amount, short } from '@/components/vault/display';
+import { WithdrawReviewItem } from '@/components/vault/withdraw-review-item';
 
-const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
 const percent = (bps: string) => `${Number(bps) / 100}%`;
-const short = (value: string) => `${value.slice(0, 8)}…${value.slice(-6)}`;
 
 const MODE_LABEL = {
   UNSET: 'Chưa cấu hình, khoá toàn bộ',
@@ -36,17 +41,50 @@ const MODE_LABEL = {
   PERCENT: 'Khoá theo tỷ lệ kỳ',
 } as const;
 
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
+/** Tiêu đề thẻ có biểu tượng tròn (FE-UX-03c QĐ-7); `CardTitle` là `div`, không phải heading. */
+function CardHeading({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="space-y-1 rounded-lg border border-border p-3">
+    <CardTitle className="flex items-center gap-2.5 text-base">
+      <CardTitleIcon>{icon}</CardTitleIcon>
+      {children}
+    </CardTitle>
+  );
+}
+
+/** Ô khoá và giá trị của thẻ "Trạng thái hiện tại" (thay `Metric`): nhãn nhỏ trên, giá trị dưới. */
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="space-y-1.5 rounded-[14px] bg-muted/60 px-3.5 py-3">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all font-code text-sm font-semibold">{value}</dd>
+      <dd className={className ?? 'text-sm font-semibold tabular-nums [overflow-wrap:anywhere]'}>{children}</dd>
     </div>
   );
 }
 
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
+/** Mã giao dịch có liên kết explorer (gộp hai link viết tay của hai bảng lịch sử; cắt 8 ký tự như `short`). */
+function TxHashLink({ chain, txHash }: { chain: ChainKey; txHash: string }) {
+  const url = explorerTxUrl(chain, txHash);
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">
+      {short(txHash)}
+      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+    </a>
+  ) : (
+    <span className="font-code text-xs" title={txHash}>{short(txHash)}</span>
+  );
+}
+
+/** Ô nhập có hậu tố trang trí ("%", "VNDB") nằm trong khung ô, ngoài `input` nên không đổi nhãn. */
+function Suffixed({ suffix, children }: { suffix: string; children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-sm text-muted-foreground">
+        {suffix}
+      </span>
+    </div>
+  );
+}
 
 const CONFIG_MODES = [
   { value: 'PERCENT', label: 'Theo tỷ lệ %' },
@@ -110,25 +148,33 @@ function VaultConfigCard({
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Cấu hình khoá</CardTitle></CardHeader>
+      <CardHeader><CardHeading icon={<LockKeyhole />}>Cấu hình khoá</CardHeading></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định. Ví nhận
           tiền rút do Người bán chọn khi tạo lệnh rút.
         </p>
         {!config.canConfigure && (
-          <p className="text-sm text-muted-foreground">Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem.</p>
+          <Alert tone="info">Chỉ Kiểm soát viên lưu được cấu hình; vai của bạn chỉ xem.</Alert>
         )}
         {config.busy && (
-          <p role="status" className="text-sm text-muted-foreground">
+          <Alert tone="info" role="status">
             Vault đang có thao tác khác ({config.busy.kind === 'WITHDRAW' ? 'lệnh rút đang dở' : 'lần lưu cấu hình khác'}) từ{' '}
             {new Date(config.busy.acquiredAt).toLocaleString('vi-VN')}.
-          </p>
+          </Alert>
         )}
-        <form onSubmit={save} className="grid gap-4 sm:grid-cols-2" aria-label="Biểu mẫu cấu hình khoá">
-          <div role="radiogroup" aria-label="Chế độ khoá" className="flex flex-wrap gap-4 sm:col-span-2">
+        <form onSubmit={save} className="grid gap-4 min-[640px]:grid-cols-2" aria-label="Biểu mẫu cấu hình khoá">
+          {/* Nút chuyển (QĐ-4): radio gốc phủ toàn ô, trong suốt; ô đang chọn, tiêu điểm bàn phím, khoá theo trạng thái radio. */}
+          <div
+            role="radiogroup"
+            aria-label="Chế độ khoá"
+            className="inline-flex w-fit flex-wrap gap-1 rounded-full bg-muted p-1 min-[640px]:col-span-2"
+          >
             {CONFIG_MODES.map((option) => (
-              <label key={option.value} className="flex items-center gap-2 text-sm">
+              <label
+                key={option.value}
+                className="relative cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
+              >
                 <input
                   type="radio"
                   name="vault-mode"
@@ -136,6 +182,7 @@ function VaultConfigCard({
                   checked={mode === option.value}
                   onChange={() => setMode(option.value)}
                   disabled={disabled}
+                  className="absolute inset-0 m-0 size-full cursor-pointer appearance-none opacity-0 disabled:cursor-not-allowed"
                 />
                 {option.label}
               </label>
@@ -144,32 +191,36 @@ function VaultConfigCard({
           {mode === 'PERCENT' ? (
             <div className="space-y-1.5">
               <label htmlFor="vault-percent" className="text-sm font-medium">Tỷ lệ khoá (%)</label>
-              <input id="vault-percent" inputMode="decimal" value={form.percent} onChange={set('percent')} disabled={disabled} className={FIELD} />
+              <Suffixed suffix="%">
+                <input id="vault-percent" inputMode="decimal" value={form.percent} onChange={set('percent')} disabled={disabled} className={`${fieldClass} pr-10 font-code`} />
+              </Suffixed>
               {fieldError('percent') && <p role="alert" className="text-xs text-destructive">{fieldError('percent')}</p>}
               <p role="note" className="text-xs text-muted-foreground">{effectNote}</p>
             </div>
           ) : (
             <div className="space-y-1.5">
               <label htmlFor="vault-fixed" className="text-sm font-medium">Số khoá cố định (VNDB)</label>
-              <AmountInput
-                id="vault-fixed"
-                value={form.fixedLock}
-                onValueChange={(raw) => setForm((current) => ({ ...current, fixedLock: raw }))}
-                disabled={disabled}
-                className={FIELD}
-              />
+              <Suffixed suffix="VNDB">
+                <AmountInput
+                  id="vault-fixed"
+                  value={form.fixedLock}
+                  onValueChange={(raw) => setForm((current) => ({ ...current, fixedLock: raw }))}
+                  disabled={disabled}
+                  className={`${fieldClass} pr-16 font-code`}
+                />
+              </Suffixed>
               {fieldError('fixedLock') && <p role="alert" className="text-xs text-destructive">{fieldError('fixedLock')}</p>}
               <p role="note" className="text-xs text-muted-foreground">{effectNote}</p>
             </div>
           )}
           {/* Lỗi "chỉ nhập một trong hai" gắn vào ô của chế độ kia, ô đó đang ẩn nên hiện ở đây. */}
           {fieldError(mode === 'PERCENT' ? 'fixedLock' : 'percent') && (
-            <p role="alert" className="text-xs text-destructive sm:col-span-2">
+            <p role="alert" className="text-xs text-destructive min-[640px]:col-span-2">
               {fieldError(mode === 'PERCENT' ? 'fixedLock' : 'percent')}
             </p>
           )}
           {config.canConfigure && (
-            <div className="sm:col-span-2">
+            <div className="min-[640px]:col-span-2">
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
                 Lưu cấu hình khoá
@@ -178,10 +229,14 @@ function VaultConfigCard({
           )}
         </form>
         {result && (
-          <div role={result.tone === 'error' ? 'alert' : 'status'} aria-label="Kết quả lưu cấu hình" className="space-y-2 text-sm">
-            <p className={result.tone === 'error' ? 'text-destructive' : 'text-foreground'}>{result.message}</p>
+          <Alert
+            tone={result.tone === 'error' ? 'bad' : 'ok'}
+            role={result.tone === 'error' ? 'alert' : 'status'}
+            aria-label="Kết quả lưu cấu hình"
+          >
+            <p>{result.message}</p>
             {result.tone === 'ok' && result.steps.length > 0 && (
-              <ol className="list-decimal space-y-1 pl-5">
+              <ol className="mt-1.5 list-decimal space-y-1 pl-5">
                 {result.steps.map((step) => (
                   <li key={step.txHash}>
                     {step.label}: {step.detail} <span className="font-code text-xs">({short(step.txHash)})</span>
@@ -189,7 +244,7 @@ function VaultConfigCard({
                 ))}
               </ol>
             )}
-          </div>
+          </Alert>
         )}
       </CardContent>
     </Card>
@@ -254,80 +309,37 @@ function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey;
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">Lệnh rút cần xem xét</CardTitle>
-        <Button type="button" variant="outline" disabled={busy} onClick={() => void reconcile()}>
-          Đối soát lệnh rút
-        </Button>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardHeading icon={<TriangleAlert />}>Lệnh rút cần xem xét</CardHeading>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void reconcile()}>
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+            Đối soát lệnh rút
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {message && (
-          <p role={message.tone === 'error' ? 'alert' : 'status'} className={message.tone === 'error' ? 'text-sm text-destructive' : 'text-sm'}>
+          <Alert tone={message.tone === 'error' ? 'bad' : 'ok'} role={message.tone === 'error' ? 'alert' : 'status'}>
             {message.text}
-          </p>
+          </Alert>
         )}
         {rows === null ? (
-          <p className="text-sm text-muted-foreground">Đang đọc…</p>
+          <EmptyState loading>Đang đọc…</EmptyState>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Không có lệnh rút nào cần xem xét.</p>
+          <EmptyState>Không có lệnh rút nào cần xem xét.</EmptyState>
         ) : (
           rows.map((row) => (
-            <div key={row.id} className="space-y-2 rounded-lg border border-border p-3 text-sm" data-request={row.id}>
-              <p>
-                <span className="font-code">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
-                <span className="font-code">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
-              </p>
-              <p className="text-muted-foreground">{row.reason}</p>
-              {row.status === 'PAYOUT_REVIEW' ? (
-                <p className="text-xs text-muted-foreground">
-                  Lệnh dừng ở bước đặt ví nhận{row.payoutTxHash ? ` (giao dịch ${short(row.payoutTxHash)})` : ''}, chưa rút
-                  tiền: chỉ đánh dấu thất bại được, khi ví ký ngân hàng không còn giao dịch đang chờ.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này):{' '}
-                  {row.candidates.length === 0 ? 'không có' : row.candidates.map((c) => `${short(c.txHash)} (block ${c.blockNumber})`).join(', ')}
-                </p>
-              )}
-              {canResolve && row.status === 'PAYOUT_REVIEW' && (
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    aria-label={`Lý do thất bại ${row.id}`}
-                    placeholder="Lý do, ví dụ đã kiểm explorer"
-                    value={field(row.id).reason}
-                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
-                    className={`${FIELD} font-sans`}
-                  />
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
-                    Đánh dấu thất bại
-                  </Button>
-                </div>
-              )}
-              {canResolve && row.status !== 'PAYOUT_REVIEW' && (
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto]">
-                  <input
-                    aria-label={`Mã giao dịch xác nhận ${row.id}`}
-                    placeholder="Mã giao dịch 0x…"
-                    value={field(row.id).txHash}
-                    onChange={(e) => setField(row.id, 'txHash', e.target.value)}
-                    className={FIELD}
-                  />
-                  <Button type="button" disabled={busy} onClick={() => void resolve(row.id, 'COMPLETED')}>
-                    Xác nhận hoàn tất
-                  </Button>
-                  <input
-                    aria-label={`Lý do thất bại ${row.id}`}
-                    placeholder="Lý do, ví dụ đã kiểm explorer"
-                    value={field(row.id).reason}
-                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
-                    className={`${FIELD} font-sans`}
-                  />
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
-                    Đánh dấu thất bại
-                  </Button>
-                </div>
-              )}
-            </div>
+            <WithdrawReviewItem
+              key={row.id}
+              row={row}
+              canResolve={canResolve}
+              busy={busy}
+              txHash={field(row.id).txHash}
+              reason={field(row.id).reason}
+              onChange={(key, value) => setField(row.id, key, value)}
+              onResolve={(outcome) => void resolve(row.id, outcome)}
+            />
           ))
         )}
       </CardContent>
@@ -385,14 +397,14 @@ function VaultConfigHistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadK
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Lịch sử cấu hình</CardTitle></CardHeader>
+      <CardHeader><CardHeading icon={<History />}>Lịch sử cấu hình</CardHeading></CardHeader>
       <CardContent className="space-y-3">
         {loaded?.error ? (
-          <p role="alert" className="text-sm text-destructive">{loaded.error}</p>
+          <Alert tone="bad" role="alert">{loaded.error}</Alert>
         ) : data === null ? (
-          <p className="text-sm text-muted-foreground">Đang đọc…</p>
+          <EmptyState loading>Đang đọc…</EmptyState>
         ) : data.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Vault chưa có thay đổi cấu hình nào.</p>
+          <EmptyState>Vault chưa có thay đổi cấu hình nào.</EmptyState>
         ) : (
           <Table aria-label="Lịch sử cấu hình">
             <TableHeader><TableRow>
@@ -400,20 +412,19 @@ function VaultConfigHistoryCard({ chain, reloadKey }: { chain: ChainKey; reloadK
               <TableHead>Giá trị cũ</TableHead><TableHead>Giá trị mới</TableHead><TableHead>Giao dịch</TableHead>
               <TableHead>Người thao tác</TableHead>
             </TableRow></TableHeader>
-            <TableBody>{data.rows.map((row) => {
-              const url = explorerTxUrl(chain, row.txHash);
-              return <TableRow key={`${row.txHash}:${row.param}`} data-param={row.param}>
+            <TableBody>{data.rows.map((row) => (
+              <TableRow key={`${row.txHash}:${row.param}`} data-param={row.param}>
                 <TableCell className="tabular-nums text-xs">{row.blockNumber}</TableCell>
                 <TableCell className="text-xs">{new Date(row.timestamp * 1000).toLocaleString('vi-VN')}</TableCell>
                 <TableCell>{PARAM_LABEL[row.param]}</TableCell>
                 <TableCell className="tabular-nums text-xs">{configValue(row.param, row.oldValue)}</TableCell>
                 <TableCell className="tabular-nums text-xs">{configValue(row.param, row.newValue)}</TableCell>
-                <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-code text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
+                <TableCell><TxHashLink chain={chain} txHash={row.txHash} /></TableCell>
                 <TableCell className="text-xs">
                   {row.actor.source === 'OUTSIDE_APP' ? 'Ngoài app' : `${ROLE_LABEL[row.actor.role] ?? row.actor.role}${row.actor.signer ? ` (ví ký ${short(row.actor.signer)})` : ''}`}
                 </TableCell>
-              </TableRow>;
-            })}</TableBody>
+              </TableRow>
+            ))}</TableBody>
           </Table>
         )}
         {data && data.total > data.pageSize && (
@@ -454,32 +465,41 @@ function VaultStatusMetrics({
   configEffective: VaultOverviewView['configEffective'];
   configEffectiveError: string | null;
 }) {
+  // 4 trường đầu là ô số liệu (QĐ-3), 7 trường còn lại ở thẻ ngay dưới; thứ tự và điều kiện hiện giữ nguyên.
   return (
-    <div className="space-y-3">
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Số dư VNDB" value={`${amount(status.vndbBalance)} VNDB`} />
-        <Metric label="Số VNDB đang khoá" value={`${amount(status.lockedAmount)} VNDB`} />
-        <Metric label="Số dư WPT" value={`${amount(status.wptBalance)} WPT`} />
-        <Metric label="VNDB có thể rút" value={`${amount(status.withdrawable)} VNDB`} />
-        <Metric label="Chế độ khoá" value={MODE_LABEL[status.lockMode]} />
-        {status.lockMode === 'PERCENT' && <Metric label="Tỷ lệ áp" value={percent(status.percentRateBps)} />}
-        {status.lockMode === 'FIXED' && (
-          <Metric label="Mức khoá cố định" value={`${amount(status.fixedLockAmount)} VNDB`} />
-        )}
-        <Metric label="Lợi nhuận chia quý trước" value={`${amount(status.lastDistributedPrev)} VNDB`} />
-        <Metric
-          label="Ngày cấu hình có hiệu lực"
-          value={<span title={configEffectiveError ?? undefined}>{configEffectiveText(configEffective, configEffectiveError)}</span>}
-        />
-        <Metric label="Địa chỉ vault" value={status.address} />
-        <Metric label="Trạng thái rút" value={status.withdrawalsPaused ? 'Đang tạm dừng' : 'Đang hoạt động'} />
-      </dl>
-      {status.pendingPercentRateBps !== null && (
-        <p role="note" className="text-sm text-muted-foreground">
-          Tỷ lệ {percent(status.pendingPercentRateBps)} đã lưu, áp từ lần chốt kỳ tiếp theo.
-        </p>
-      )}
-    </div>
+    <>
+      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-4">
+        <Kpi label="Số dư VNDB" value={amount(status.vndbBalance)} unit="VNDB" tone="au" size="lg" className="min-h-0" />
+        <Kpi label="Số VNDB đang khoá" value={amount(status.lockedAmount)} unit="VNDB" />
+        <Kpi label="Số dư WPT" value={amount(status.wptBalance)} unit="WPT" />
+        <Kpi label="VNDB có thể rút" value={amount(status.withdrawable)} unit="VNDB" tone="gold" />
+      </div>
+      <Card>
+        <CardHeader><CardHeading icon={<Landmark />}>Trạng thái hiện tại</CardHeading></CardHeader>
+        <CardContent className="space-y-3">
+          <dl className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+            <Field label="Chế độ khoá">{MODE_LABEL[status.lockMode]}</Field>
+            {status.lockMode === 'PERCENT' && <Field label="Tỷ lệ áp">{percent(status.percentRateBps)}</Field>}
+            {status.lockMode === 'FIXED' && (
+              <Field label="Mức khoá cố định">{`${amount(status.fixedLockAmount)} VNDB`}</Field>
+            )}
+            <Field label="Lợi nhuận chia quý trước">{`${amount(status.lastDistributedPrev)} VNDB`}</Field>
+            <Field label="Ngày cấu hình có hiệu lực">
+              <span title={configEffectiveError ?? undefined}>{configEffectiveText(configEffective, configEffectiveError)}</span>
+            </Field>
+            <Field label="Địa chỉ vault" className="break-all font-code text-sm font-semibold">{status.address}</Field>
+            <Field label="Trạng thái rút">
+              <Badge variant={status.withdrawalsPaused ? 'warn' : 'ok'}>{status.withdrawalsPaused ? 'Đang tạm dừng' : 'Đang hoạt động'}</Badge>
+            </Field>
+          </dl>
+          {status.pendingPercentRateBps !== null && (
+            <Alert tone="info" role="note">
+              Tỷ lệ {percent(status.pendingPercentRateBps)} đã lưu, áp từ lần chốt kỳ tiếp theo.
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
 
@@ -513,33 +533,24 @@ export function VaultStatusPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Vault thanh toán SPV</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Vault thanh toán SPV</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
       {fresh === null ? (
-        <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc trạng thái vault…
-        </div>
+        <EmptyState loading>Đang đọc trạng thái vault…</EmptyState>
       ) : fresh.error ? (
-        <p role="alert" className="text-sm text-destructive">{fresh.error}</p>
+        <Alert tone="bad" role="alert">{fresh.error}</Alert>
       ) : data?.status === null ? (
-        <Card><CardContent className="pt-6">Chain này chưa triển khai vault thanh toán SPV</CardContent></Card>
+        <EmptyState icon={<Landmark />}>Chain này chưa triển khai vault thanh toán SPV</EmptyState>
       ) : data?.status ? (
         <>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Trạng thái hiện tại</CardTitle></CardHeader>
-            <CardContent>
-              <VaultStatusMetrics
-                status={data.status}
-                configEffective={data.configEffective}
-                configEffectiveError={data.configEffectiveError}
-              />
-            </CardContent>
-          </Card>
+          <VaultStatusMetrics
+            status={data.status}
+            configEffective={data.configEffective}
+            configEffectiveError={data.configEffectiveError}
+          />
 
           {data.config && (
             <VaultConfigCard
@@ -560,12 +571,12 @@ export function VaultStatusPage() {
           />
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Lịch sử chốt kỳ (10 lần gần nhất)</CardTitle></CardHeader>
+            <CardHeader><CardHeading icon={<CalendarCheck />}>Lịch sử chốt kỳ (10 lần gần nhất)</CardHeading></CardHeader>
             <CardContent>
               {data.historyError ? (
-                <p role="alert" className="text-sm text-destructive">{data.historyError}</p>
+                <Alert tone="bad" role="alert">{data.historyError}</Alert>
               ) : data.history.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Chưa có kỳ nào được chốt.</p>
+                <EmptyState>Chưa có kỳ nào được chốt.</EmptyState>
               ) : (
                 <Table>
                   <TableHeader><TableRow>
@@ -573,18 +584,17 @@ export function VaultStatusPage() {
                     <TableHead className="text-right">Tỷ lệ</TableHead><TableHead className="text-right">Phần khoá</TableHead>
                     <TableHead>Người đặt</TableHead><TableHead>Thời điểm</TableHead><TableHead>Giao dịch</TableHead>
                   </TableRow></TableHeader>
-                  <TableBody>{data.history.map((row) => {
-                    const url = explorerTxUrl(chain, row.txHash);
-                    return <TableRow key={`${row.txHash}:${row.periodRef}`}>
+                  <TableBody>{data.history.map((row) => (
+                    <TableRow key={`${row.txHash}:${row.periodRef}`}>
                       <TableCell className="font-code">{row.periodRef}</TableCell>
                       <TableCell className="text-right tabular-nums">{amount(row.distributedPrev)}</TableCell>
                       <TableCell className="text-right tabular-nums">{percent(row.rateBps)}</TableCell>
                       <TableCell className="text-right tabular-nums">{amount(row.percentLocked)}</TableCell>
                       <TableCell className="font-code text-xs" title={row.operator}>{short(row.operator)}</TableCell>
                       <TableCell className="text-xs">{new Date(row.timestamp * 1000).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell>{url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">{short(row.txHash)}<ExternalLink className="h-3 w-3" aria-hidden="true" /></a> : <span className="font-code text-xs" title={row.txHash}>{short(row.txHash)}</span>}</TableCell>
-                    </TableRow>;
-                  })}</TableBody>
+                      <TableCell><TxHashLink chain={chain} txHash={row.txHash} /></TableCell>
+                    </TableRow>
+                  ))}</TableBody>
                 </Table>
               )}
             </CardContent>
