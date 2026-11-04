@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
-import { CalendarCheck, ExternalLink, History, KeyRound, Landmark, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { CalendarCheck, ExternalLink, History, LockKeyhole, Landmark, Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
 import { getVaultConfigHistoryAction, getVaultOverviewAction, saveVaultConfigAction } from '@/app/actions/vault';
 import {
   listWithdrawReviewsAction,
@@ -148,7 +148,7 @@ function VaultConfigCard({
 
   return (
     <Card>
-      <CardHeader><CardHeading icon={<KeyRound />}>Cấu hình khoá</CardHeading></CardHeader>
+      <CardHeader><CardHeading icon={<LockKeyhole />}>Cấu hình khoá</CardHeading></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
           Chọn một chế độ khoá: theo tỷ lệ % trên thu ròng của kỳ, hoặc khoá đúng một số VNDB cố định. Ví nhận
