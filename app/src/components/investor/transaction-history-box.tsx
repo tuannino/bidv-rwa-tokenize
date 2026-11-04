@@ -2,24 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { ExternalLink, History, Loader2, Wallet } from 'lucide-react';
-import { explorerTxUrl } from '@bidv/shared';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { History, Wallet } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getWalletTransactionsAction } from '@/app/actions/portfolio';
 import type { TxnView } from '@/lib/bank/mint.service';
 import { OnChainBadge } from './mock-badge';
 import { WalletNotBoundNotice } from './wallet-not-bound-notice';
-import { operationLabel } from '@/lib/txn-labels';
+import { TransactionTable } from './transaction-table';
 
 /**
  * Hộp 3 — LỊCH SỬ GIAO DỊCH của ví đang kết nối.
@@ -69,103 +61,41 @@ export function TransactionHistoryBox() {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          Giao dịch gần đây
-        </CardTitle>
-        <OnChainBadge />
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <History />
+            </CardTitleIcon>
+            Giao dịch gần đây
+          </CardTitle>
+          <OnChainBadge />
+        </div>
       </CardHeader>
 
       <CardContent>
         {!isConnected || !address ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">
+          <EmptyState icon={<Wallet />}>
+            <p>
               Kết nối ví để xem giao dịch của bạn.
             </p>
-          </div>
+          </EmptyState>
         ) : loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang tải…
-          </div>
+          <EmptyState loading>Đang tải…</EmptyState>
         ) : fresh?.notBound ? (
           <WalletNotBoundNotice wallet={address} />
         ) : error ? (
-          <p className="py-6 text-sm text-destructive">{error}</p>
+          <Alert tone="bad">{error}</Alert>
         ) : rows.length === 0 ? (
           /* R7.4: trạng thái rỗng tử tế, không để khoảng trống. */
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <History className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">Chưa có giao dịch nào</p>
-            <p className="max-w-sm text-xs text-muted-foreground">
+          <EmptyState icon={<History />}>
+            <p className="font-medium text-foreground">Chưa có giao dịch nào</p>
+            <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
               Giao dịch sẽ hiện ở đây sau khi ngân hàng phát hành WPT về ví này.
             </p>
-          </div>
+          </EmptyState>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Thời điểm</TableHead>
-                <TableHead>Nghiệp vụ</TableHead>
-                <TableHead className="text-right">Số lượng</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Tra cứu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((txn) => {
-                const url = explorerTxUrl(txn.chain, txn.txHash);
-                return (
-                  <TableRow key={txn.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(txn.createdAt).toLocaleString('vi-VN')}
-                    </TableCell>
-                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          txn.status === 'CONFIRMED'
-                            ? 'default'
-                            : txn.status === 'FAILED'
-                              ? 'destructive'
-                              : 'secondary'
-                        }
-                      >
-                        {txn.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {/*
-                        Chain cục bộ và mock không có trình khám phá -> `explorerTxUrl` trả null.
-                        Khi đó hiện mã giao dịch dạng chữ, không dựng link chết.
-                      */}
-                      {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-code text-xs text-primary hover:underline"
-                        >
-                          {txn.txHash.slice(0, 10)}…
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                        </a>
-                      ) : (
-                        <span
-                          className="font-code text-xs text-muted-foreground"
-                          title={`${txn.txHash} — chain ${txn.chain} không có trình khám phá`}
-                        >
-                          {txn.txHash.slice(0, 10)}…
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <TransactionTable rows={rows} />
         )}
       </CardContent>
     </Card>

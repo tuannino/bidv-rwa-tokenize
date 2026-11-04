@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-03c-vault` (FE-UX-03c, từ `release/ui-v2` @ `1238a54`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-04a-tong-quan-ndt` (FE-UX-04a, từ `release/ui-v2` @ `ad133aa`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -332,10 +332,11 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 - **Vai:** INVESTOR. Menu "Tổng quan", phím tắt E. Đây là màn mặc định của kênh nhà đầu tư.
 - **Chain:**
-  - Trên mọi chain đều cần ví trình duyệt (wagmi `useAccount`), kể cả mock: màn này không dùng ví hồ sơ (`components/investor/asset-summary.tsx:34`, `components/investor/transaction-history-box.tsx:109`).
+  - Trên mọi chain đều cần ví trình duyệt (wagmi `useAccount`), kể cả mock: màn này không dùng ví hồ sơ (`components/investor/asset-summary.tsx:29`, `components/investor/transaction-history-box.tsx:25`).
   - Không có thao tác nào cần ký.
   - Hộp "Trạng thái phát hành" đọc được khi chưa kết nối ví.
 - **Trạng thái:** Dùng được một phần. Số dư VNDB và tên dự án đã lên chuỗi đọc thật (FIX-04). Trạng thái vận hành, vùng, hai dự án chưa lên chuỗi và số nhà đầu tư nắm giữ là số mẫu (`MOCK_PROJECTS`, `MOCK_WIND_STATS` trong `lib/mock-data.ts`), kèm ghi chú "unverified". Không có marker @pending/@blocked.
+- **Bố cục (FE-UX-04a):** tiêu đề và ô chọn token cùng hàng. Từ 1100 px lưới 12 cột: hàng trên "Tài sản đã đầu tư" (7 cột, nền xanh) và "Trạng thái phát hành" (5 cột); hàng dưới "Giao dịch gần đây" (7 cột) và "Token dự án điện gió" (5 cột). Hẹp hơn thì một cột, cùng thứ tự đó. Câu "Chưa có thị trường thứ cấp..." là khối thông báo dưới danh sách thông số, không nằm trong danh sách.
 - **Một lời gọi cho hai hộp (FIX-04 F2):** hộp "Trạng thái phát hành" và "Token dự án điện gió" dùng chung `useTokenSummary` (`components/investor/use-token-summary.ts`): cùng chain thì chỉ một lời gọi `getTokenSummaryAction`. Lời gọi lỗi thì cả hai hộp hết tải, hộp trạng thái báo "Chưa đọc được thông tin token, thử tải lại trang."
 - **Nghiệp vụ:** Danh mục (vị thế đầu tư).
 - **Action khi mở:**
@@ -378,11 +379,11 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-03.** Trên chain mock, màn này đòi ví trình duyệt, trong khi /trade, /orders và /tokens/[symbol] dùng ví hồ sơ và ghi "Không cần kết nối ví trình duyệt". `app/(investor)/portfolio/page.tsx:14` không truyền `mockWallet` xuống; `components/investor/asset-summary.tsx:86` và `components/investor/transaction-history-box.tsx:155` chặn khi chưa có ví wagmi. Hệ quả: cùng một người dùng mock thấy vị thế trên /tokens/WPT nhưng thấy "Chưa kết nối ví" ở /portfolio.
-- **L-30.** Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-summary.tsx:132-134`).
-- **L-31.** Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-history-box.tsx:197` và `:209`).
-- **L-32.** Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`:175`) bỏ sót trường hợp ví có giao dịch mua hoặc bán.
-- **L-33.** Liên kết ghi "Ví của tôi" trong khi menu gọi là "Kết nối ví" (`components/investor/asset-summary.tsx:93`).
+- **L-03.** Trên chain mock, màn này đòi ví trình duyệt, trong khi /trade, /orders và /tokens/[symbol] dùng ví hồ sơ và ghi "Không cần kết nối ví trình duyệt". `app/(investor)/portfolio/page.tsx:14` không truyền `mockWallet` xuống; `components/investor/asset-summary.tsx:91` và `components/investor/transaction-history-box.tsx:77` chặn khi chưa có ví wagmi. Hệ quả: cùng một người dùng mock thấy vị thế trên /tokens/WPT nhưng thấy "Chưa kết nối ví" ở /portfolio.
+- **L-30.** Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-holdings.tsx:59`).
+- **L-31.** Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-table.tsx:39` và `:51`).
+- **L-32.** Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`components/investor/transaction-history-box.tsx:94`) bỏ sót trường hợp ví có giao dịch mua hoặc bán.
+- **L-33.** Liên kết ghi "Ví của tôi" trong khi menu gọi là "Kết nối ví" (`components/investor/asset-summary.tsx:97`).
 
 
 #### 3.1.2. `/trade` Giao dịch token
@@ -547,6 +548,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 - **Vai:** INVESTOR. Breadcrumb: Nhà đầu tư > Tổng quan > ký hiệu token. Ký hiệu không có trong `MOCK_PROJECTS` thì ra trang 404 (`app/(investor)/tokens/[symbol]/page.tsx:22-25`).
 - **Chain:** mock dùng ví hồ sơ. hardhat-local và Sepolia dùng ví wagmi. Không có thao tác ký.
 - **Trạng thái:** Dùng được một phần. Chỉ dự án WPT (`onChain: true`) có số liệu thật; WPT-PQY và WPT-NTH là dữ liệu mẫu hoàn toàn.
+- **Thứ tự thẻ (FE-UX-04a):** "Vị thế của bạn" (nền xanh), "Thông tin dự án", "Thông tin token", rồi "Tình hình vận hành". Từ 1100 px ba thẻ đầu chung một hàng (mỗi thẻ 4 trên 12 cột), "Tình hình vận hành" trải hết hàng dưới; hẹp hơn thì một cột, cùng thứ tự. Trước FE-UX-04a "Vị thế của bạn" đứng cuối.
 - **Nghiệp vụ:** Danh mục (thông tin dự án và vị thế).
 - **Action khi mở:**
   - 1 action (`getPortfolioAction`, ghi 1 dòng `AuditLog`) khi dự án đã lên chuỗi và có ví; ngược lại 0 action.
@@ -557,25 +559,25 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 |---|---|---|---|
 | Tên dự án, ký hiệu, nhãn on-chain / "chưa triển khai trên chuỗi" | Tiêu đề | `MOCK_PROJECTS` | Chỉ hiển thị |
 | Vùng, địa điểm, trạng thái (unverified) | | `MOCK_PROJECTS` (số mẫu) | Chỉ hiển thị |
+| **Vị thế của bạn** | | `getPortfolioAction` | |
+| Đang giữ | WPT ví đang giữ | On-chain `balanceOf` | Chỉ hiển thị |
+| Giá trị theo giá phát hành | Số dư nhân giá áp dụng cho lệnh | Tính toán từ `readEffectiveIssuePrice` (FE-07) | Chỉ hiển thị |
+| Kết nối ví ở góc trên phải... / Chưa có token trên chuỗi... | Trạng thái chặn | | Chỉ hiển thị |
 | **Thông tin dự án** (unverified) | Mã dự án, Công suất đặt, Số tổ máy, Giá bán điện (PPA), Vận hành từ, Đơn vị vận hành | `MOCK_PROJECTS` | Chỉ hiển thị |
-| **Tình hình vận hành** (unverified) | Sản lượng luỹ kế, Hệ số công suất, Sản lượng theo kỳ | `MOCK_PROJECTS`, `MOCK_GENERATION_SERIES`; ghi rõ sẽ do EnergyOracle cấp | Chỉ hiển thị |
 | **Thông tin token** (nhãn on-chain nếu đã lên chuỗi, "unverified" nếu chưa) | | | |
 | Ký hiệu | | `MOCK_PROJECTS.tokenSymbol` | Chỉ hiển thị |
 | Tuổi thọ còn lại / Lợi tức mục tiêu / Phí giao dịch | Điều khoản | SystemConfig `wpt.remaining_lifetime_years`, `wpt.annual_yield_percent`, `wpt.trading_fee_percent` | Chỉ hiển thị, giống nhau cho mọi dự án |
 | Tên token / Tổng cung (dự án đã lên chuỗi) | | On-chain `tokenInfo().name` / `.totalSupply` | Chỉ hiển thị |
 | Giá phát hành (dự án đã lên chuỗi) | Giá áp dụng cho lệnh | `getTokenSummary` > `readEffectiveIssuePrice` (FE-07) | Chỉ hiển thị |
 | WPT dự kiến phát hành (dự án chưa lên chuỗi, hoặc chưa tải xong) | | `MOCK_PROJECTS.wptIssued` | Chỉ hiển thị |
-| **Vị thế của bạn** | | `getPortfolioAction` | |
-| Đang giữ | WPT ví đang giữ | On-chain `balanceOf` | Chỉ hiển thị |
-| Giá trị theo giá phát hành | Số dư nhân giá áp dụng cho lệnh | Tính toán từ `readEffectiveIssuePrice` (FE-07) | Chỉ hiển thị |
-| Kết nối ví ở góc trên phải... / Chưa có token trên chuỗi... | Trạng thái chặn | | Chỉ hiển thị |
+| **Tình hình vận hành** (unverified) | Sản lượng luỹ kế, Hệ số công suất (hai ô số liệu), Sản lượng theo kỳ (biểu đồ cột minh hoạ và danh sách sáu kỳ cùng số) | `MOCK_PROJECTS`, `MOCK_GENERATION_SERIES`; ghi rõ sẽ do EnergyOracle cấp | Chỉ hiển thị |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-45.** Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. (Giá phát hành đã đọc theo giá áp dụng cho lệnh từ FE-07.)
+- **L-45.** Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:198`), nhưng Tuổi thọ, Lợi tức, Phí (`:206-212`) đọc từ SystemConfig, không đọc từ chuỗi. (Giá phát hành đã đọc theo giá áp dụng cho lệnh từ FE-07.)
 - **L-46.** Trang tra dự án trong `MOCK_PROJECTS` viết cứng (`app/(investor)/tokens/[symbol]/page.tsx:22`), không tra bảng `Project` mà /trade dùng. Hai màn có thể hiện tên dự án khác nhau.
-- **L-47.** Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:180-196`) mà không báo là đang tải hay đã lỗi.
+- **L-47.** Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:214-233`) mà không báo là đang tải hay đã lỗi.
 - **L-03.** Ở chế độ mock, màn này hiện vị thế bằng ví hồ sơ, còn /portfolio đòi ví trình duyệt (xem mục /portfolio).
 
 
@@ -1865,10 +1867,10 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 
 | Mã | Màn | Nội dung |
 |---|---|---|
-| L-30 | `/portfolio` | Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-summary.tsx:132-134`). |
-| L-31 | `/portfolio` | Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-history-box.tsx:197` và `:209`). |
-| L-32 | `/portfolio` | Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`:175`) bỏ sót trường hợp ví có giao dịch mua hoặc bán. |
-| L-33 | `/portfolio` | Liên kết ghi "Ví của tôi" trong khi menu gọi là "Kết nối ví" (`components/investor/asset-summary.tsx:93`). |
+| L-30 | `/portfolio` | Huy hiệu ghi "đã KYC" nhưng thực chất đọc danh sách được phép on-chain, không đọc hồ sơ định danh (`components/investor/asset-holdings.tsx:59`). |
+| L-31 | `/portfolio` | Cột "Nghiệp vụ" và "Trạng thái" hiện mã tiếng Anh thô (`components/investor/transaction-table.tsx:39` và `:51`). |
+| L-32 | `/portfolio` | Câu trạng thái rỗng "sau khi ngân hàng phát hành WPT về ví này" (`components/investor/transaction-history-box.tsx:94`) bỏ sót trường hợp ví có giao dịch mua hoặc bán. |
+| L-33 | `/portfolio` | Liên kết ghi "Ví của tôi" trong khi menu gọi là "Kết nối ví" (`components/investor/asset-summary.tsx:97`). |
 | L-34 | `/trade` | Định danh, AML và hạng rủi ro lấy từ hồ sơ mẫu viết cứng (`lib/bank/account-profile.service.ts:55-114`), không lấy từ DB. |
 | L-35 | `/trade` | "Phí giao dịch" chỉ để hiển thị; không có phép trừ phí nào trong `placeOrder`. |
 | L-36 | `/trade` | Chiều bán dùng cùng đơn giá `quotePurchase` với chiều mua. |
@@ -1880,9 +1882,9 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-42 | `/orders/[id]` | Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:96-98`). |
 | L-43 | `/orders/[id]` | Bước quyết toán tự động ghi `actorRole` là INVESTOR, dù tx do ví ngân hàng ký. |
 | L-44 | `/orders/[id]` | "Mã giao dịch" không có liên kết sang trình khám phá khối và không ghi "mô phỏng" như màn /trade. |
-| L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. |
+| L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:198`), nhưng Tuổi thọ, Lợi tức, Phí (`:206-212`) đọc từ SystemConfig, không đọc từ chuỗi. |
 | L-46 | `/tokens/[symbol]` | Trang tra dự án trong `MOCK_PROJECTS` viết cứng (`app/(investor)/tokens/[symbol]/page.tsx:22`), không tra bảng `Project` mà /trade dùng. |
-| L-47 | `/tokens/[symbol]` | Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:180-196`) mà không báo là đang tải hay đã lỗi. |
+| L-47 | `/tokens/[symbol]` | Khi dự án đã lên chuỗi nhưng `getPortfolioAction` lỗi hoặc chưa trả về, thẻ thông tin token hiện dòng mẫu "WPT dự kiến phát hành" (`:214-233`) mà không báo là đang tải hay đã lỗi. |
 | L-50 | `/seller` | Bảng Tồn kho lặp một dòng cho mỗi `Project`, nhưng mọi dòng đọc chung một `tokenInfo()` và `balanceOf` của chain. |
 | L-51 | `/seller` | Định nghĩa "Chưa phân phối" ghi "ví thanh toán của Người bán", thực chất là số dư WPT của vault SPV. |
 | L-52 | `/seller` | `payoutWallet` và `withdrawalsPaused` có trong dữ liệu trả về nhưng màn này không hiển thị. |

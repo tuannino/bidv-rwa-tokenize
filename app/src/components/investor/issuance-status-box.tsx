@@ -1,7 +1,10 @@
 'use client';
 
-import { Gauge, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Gauge } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { UnverifiedNote } from '@/components/ui/unverified-note';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { MOCK_PROJECTS, PROJECT_STATUS_LABELS } from '@/lib/mock-data';
@@ -37,53 +40,57 @@ export function IssuanceStatusBox() {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle role="heading" aria-level={2} className="text-base">Trạng thái phát hành</CardTitle>
-        <Gauge className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Gauge />
+          </CardTitleIcon>
+          Trạng thái phát hành
+        </CardTitle>
       </CardHeader>
 
       <CardContent>
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang đọc thông số token…
-          </div>
+          <EmptyState loading>Đang đọc thông số token…</EmptyState>
         ) : error ? (
-          <p className="py-6 text-sm text-destructive">{error}</p>
+          <Alert tone="bad">{error}</Alert>
         ) : data ? (
-          <dl className="space-y-3 text-sm">
-            <Row label="Ký hiệu token" badge={<OnChainBadge />}>
-              <span className="font-semibold">{data.symbol}</span>
-            </Row>
-
-            <Row label="Tổng cung đã phát hành" badge={<OnChainBadge />}>
-              <span className="tabular-nums font-semibold">{nf(data.totalSupply)}</span>
-            </Row>
-
-            <Row label="Giá phát hành">
-              <span className="tabular-nums font-semibold">
-                {nf(data.issuePriceVnd)} ₫
-              </span>
-            </Row>
-
-            <Row label="Dự án">
-              <span className="text-right">{data.projectName ?? 'Chưa đọc được'}</span>
-            </Row>
-            {ON_CHAIN_PROJECT && (
-              <Row label="Trạng thái vận hành" badge={<UnverifiedNote />}>
-                <span>{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</span>
+          <>
+            <dl className="divide-y divide-border text-sm">
+              <Row label="Ký hiệu token" badge={<OnChainBadge />}>
+                <span className="font-semibold">{data.symbol}</span>
               </Row>
-            )}
+
+              <Row label="Tổng cung đã phát hành" badge={<OnChainBadge />}>
+                <span className="tabular-nums font-semibold">{nf(data.totalSupply)}</span>
+              </Row>
+
+              <Row label="Giá phát hành">
+                <span className="tabular-nums font-semibold">
+                  {nf(data.issuePriceVnd)} ₫
+                </span>
+              </Row>
+
+              <Row label="Dự án">
+                <span className="text-right">{data.projectName ?? 'Chưa đọc được'}</span>
+              </Row>
+              {ON_CHAIN_PROJECT && (
+                <Row label="Trạng thái vận hành" badge={<UnverifiedNote />}>
+                  <Badge variant="info">{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</Badge>
+                </Row>
+              )}
+            </dl>
 
             {/*
               Nói thẳng giới hạn thay vì để người xem tự suy: thiếu câu này, một cán bộ ngân
               hàng có thể hiểu "giá phát hành" là giá đang giao dịch.
+              Đặt ngoài `dl` (trong `dl` chỉ có cặp nhãn, giá trị).
             */}
-            <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+            <Alert tone="info" className="mt-3">
               Chưa có thị trường thứ cấp nên không có giá giao dịch, biến động giá hay khối
               lượng. Giá phát hành là điều khoản của đợt phát hành, không phải giá thị trường.
-            </p>
-          </dl>
+            </Alert>
+          </>
         ) : null}
       </CardContent>
     </Card>
@@ -100,12 +107,12 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <dt className="flex items-center gap-1.5 text-muted-foreground">
+    <div className="flex items-center justify-between gap-3 py-3">
+      <dt className="flex flex-wrap items-center gap-1.5 text-muted-foreground">
         {label}
         {badge}
       </dt>
-      <dd className="text-foreground">{children}</dd>
+      <dd className="text-right font-semibold text-foreground">{children}</dd>
     </div>
   );
 }

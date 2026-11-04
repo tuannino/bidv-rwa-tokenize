@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Loader2, Wallet } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Wallet } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getPortfolioAction } from '@/app/actions/portfolio';
 import type { PortfolioView } from '@/lib/bank/portfolio.service';
 import { OnChainBadge } from './mock-badge';
 import { WalletNotBoundNotice } from './wallet-not-bound-notice';
-import { recallNoticeText } from '@/components/recall/gates';
+import { AssetHoldings } from './asset-holdings';
 
 /**
  * Hộp 1 — TÀI SẢN ĐÃ ĐẦU TƯ của ví đang kết nối.
@@ -23,14 +24,6 @@ import { recallNoticeText } from '@/components/recall/gates';
  *
  * Tự giữ trạng thái lỗi của riêng mình: một hộp lỗi không được làm sập ba hộp còn lại.
  */
-
-const nf = (value: string) => {
-  try {
-    return BigInt(value).toLocaleString('vi-VN');
-  } catch {
-    return value;
-  }
-};
 
 export function AssetSummary() {
   const { address, isConnected } = useAccount();
@@ -78,91 +71,42 @@ export function AssetSummary() {
   const error = fresh?.error ?? null;
   const loading = fresh === null;
 
+  // Thẻ nền xanh: `tile-hl` không đổi `--card`, `--border`, nên đặt lại để ô biểu tượng `EmptyState` và đường kẻ đọc được.
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle role="heading" aria-level={2} className="text-base">Tài sản đã đầu tư</CardTitle>
-        <OnChainBadge />
+    <Card tone="hl" className="[--card:var(--tile-hl-chip)] [--border:var(--tile-hl-chip)]">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <Wallet />
+            </CardTitleIcon>
+            Tài sản đã đầu tư
+          </CardTitle>
+          <OnChainBadge />
+        </div>
       </CardHeader>
 
       <CardContent>
         {/* R5.3: chưa kết nối thì MỜI kết nối, không hiện số 0 — số 0 là một khẳng định sai. */}
         {!isConnected || !address ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-            <p className="max-w-xs text-xs text-muted-foreground">
+          <EmptyState icon={<Wallet />}>
+            <p className="font-medium text-foreground">Chưa kết nối ví</p>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
               Kết nối ví ở góc trên phải, hoặc mở{' '}
               <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
                 Ví của tôi
               </Link>{' '}
               để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.
             </p>
-          </div>
+          </EmptyState>
         ) : loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang đọc số dư từ chuỗi…
-          </div>
+          <EmptyState loading>Đang đọc số dư từ chuỗi…</EmptyState>
         ) : fresh?.notBound ? (
           <WalletNotBoundNotice wallet={address} />
         ) : error ? (
-          <p className="py-6 text-sm text-destructive">{error}</p>
+          <Alert tone="bad">{error}</Alert>
         ) : data ? (
-          <div className="space-y-4">
-            {data.recall && (() => {
-              const notice = recallNoticeText(data.recall);
-              return (
-                <div role="status" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
-                  <p className="font-semibold">{notice.title}</p>
-                  <p>{notice.body}</p>
-                </div>
-              );
-            })()}
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                {data.token.symbol} đang giữ
-              </div>
-              <div className="tabular-nums text-3xl font-bold text-primary">{nf(data.balance)}</div>
-            </div>
-
-            <div className="space-y-1 border-t border-border pt-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-muted-foreground">Giá trị theo giá phát hành</span>
-                <span className="tabular-nums text-lg font-semibold text-foreground">
-                  {nf(data.valueVnd)} ₫
-                </span>
-              </div>
-              {/*
-                Ghi rõ đây KHÔNG phải giá thị trường: hệ thống chưa có thị trường thứ cấp nên
-                không có giá giao dịch. Trình bày như định giá là sai bản chất.
-              */}
-              <p className="text-xs text-muted-foreground">
-                Quy đổi theo giá phát hành {nf(data.issuePriceVnd)} ₫/
-                {data.token.symbol}. Chưa có thị trường thứ cấp nên đây không phải giá giao dịch.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-              <Badge variant={data.whitelisted ? 'default' : 'destructive'}>
-                {data.whitelisted ? 'đã KYC' : 'chưa KYC'}
-              </Badge>
-              {data.frozen && <Badge variant="destructive">đang đóng băng</Badge>}
-              <span className="ml-auto font-code text-[11px] text-muted-foreground">
-                {data.wallet.slice(0, 10)}…{data.wallet.slice(-4)}
-              </span>
-            </div>
-
-            {/* FIX-04 F1: số dư VNDB đọc cùng lời gọi; đọc lỗi thì chỉ dòng này báo, hộp vẫn hiện. */}
-            <div className="flex items-baseline justify-between gap-3 border-t border-border pt-3">
-              <span className="text-sm text-muted-foreground">Số dư VNDB</span>
-              {data.paymentBalance === null ? (
-                <span className="text-sm text-muted-foreground">Chưa đọc được số dư VNDB</span>
-              ) : (
-                <span className="tabular-nums text-lg font-semibold text-foreground">{nf(data.paymentBalance)} VNDB</span>
-              )}
-            </div>
-          </div>
+          <AssetHoldings data={data} />
         ) : null}
       </CardContent>
     </Card>
