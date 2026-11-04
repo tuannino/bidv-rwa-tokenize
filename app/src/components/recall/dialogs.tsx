@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,9 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-
-export const RECALL_FIELD =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
 
 export function RecallDialog({
   open,
@@ -51,7 +49,13 @@ export function RecallDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">{children}</div>
-        {error && <p ref={errorRef} role="alert" tabIndex={-1} className="text-sm text-destructive">{error}</p>}
+        {/* FE-UX-02b QĐ-5: khung `Alert` KHÔNG có `role`; đoạn lỗi bên trong giữ `ref`, `role="alert"`,
+            `tabIndex={-1}` để effect trên đưa tiêu điểm vào đúng câu lỗi. */}
+        {error && (
+          <Alert tone="bad">
+            <p ref={errorRef} role="alert" tabIndex={-1}>{error}</p>
+          </Alert>
+        )}
         <DialogFooter>
           <Button type="button" variant="outline" disabled={busy} onClick={onClose}>Đóng</Button>
           <Button

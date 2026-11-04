@@ -8,13 +8,15 @@ import { STATUS_LABELS } from './gates';
  * `EXECUTING` và `FAILED` hiện rõ chứ không gộp vào "chờ" hay "từ chối": `EXECUTING` kéo dài có
  * thể là giao dịch đã gửi mà chưa biết kết cục — cần người đối soát; `FAILED` là chuỗi không thực
  * hiện được, khác hẳn Kiểm soát viên không đồng ý. Giấu đi là giấu đúng thứ người vận hành cần thấy.
+ *
+ * FE-UX-02b QĐ-4: tô sắc theo nhóm (chờ `warn`, đang gửi `info`, xong `ok`, từ chối, thất bại `bad`).
  */
-const VARIANTS: Record<TokenRequestStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  PENDING: 'secondary',
-  EXECUTING: 'outline',
-  COMPLETED: 'default',
-  REJECTED: 'destructive',
-  FAILED: 'destructive',
+const VARIANTS: Record<TokenRequestStatus, 'ok' | 'warn' | 'bad' | 'info'> = {
+  PENDING: 'warn',
+  EXECUTING: 'info',
+  COMPLETED: 'ok',
+  REJECTED: 'bad',
+  FAILED: 'bad',
 };
 
 export function StatusBadge({ status }: { status: TokenRequestStatus }) {

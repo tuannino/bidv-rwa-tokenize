@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
-import { Check, Copy, ExternalLink, Loader2, TriangleAlert } from 'lucide-react';
+import { Check, Coins, Copy, ExternalLink, Gauge, History, Loader2, PencilLine } from 'lucide-react';
 import { getPriceConfigOverviewAction, setIssuePriceAction } from '@/app/actions/config';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitleIcon } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type {
   IssuanceOverview,
@@ -35,6 +39,10 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * Mọi con số do máy chủ trả; màn chỉ định dạng. Đổi giá có hai lớp xác nhận: hộp "từ X sang Y"
  * luôn hiện; vượt ngưỡng thì máy chủ trả `fieldErrors.confirmLargeChange` và màn mở hộp thứ hai
  * bắt đánh dấu "Tôi đã kiểm số chữ số" rồi mới gửi lại với `confirmLargeChange: true`.
+ *
+ * FE-UX-02b: giá áp dụng là ô số liệu vàng (`Kpi au`) đầu thẻ "Giá phát hành", tổng cung trên chuỗi là
+ * ô xanh đậm (`Kpi hl`) đầu thẻ "Tình trạng phát hành"; `effective-price` nằm TRONG giá trị của ô (test
+ * so đúng chữ "X VNDB"). Cảnh báo, lỗi từng khối, phản hồi đổi giá dùng `Alert` giữ đúng `role`.
  */
 
 const vnd = (value: string) => BigInt(value).toLocaleString('vi-VN');
@@ -48,17 +56,17 @@ const ROLE_LABEL: Record<string, string> = {
   SELLER: 'Người bán',
 };
 
-const FIELD =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
-const NOTICE_WARN =
-  'flex items-start gap-2 rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100';
-
 const PRICE_PATTERN = /^\d+$/;
 const REASON_MIN = 5;
 const REASON_MAX = 200;
 
-function BlockTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-base font-semibold">{children}</h2>;
+function BlockTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2.5 text-base font-semibold">
+      <CardTitleIcon>{icon}</CardTitleIcon>
+      {children}
+    </h2>
+  );
 }
 
 /** Một dòng nhãn và giá trị; số căn phải, chữ số đều độ rộng. */
@@ -69,19 +77,6 @@ function Row({ label, children, numeric }: { label: string; children: React.Reac
       <dd className={numeric ? 'text-right tabular-nums' : 'text-right'}>{children}</dd>
     </div>
   );
-}
-
-function Warn({ children }: { children: React.ReactNode }) {
-  return (
-    <p className={NOTICE_WARN} role="status">
-      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-      <span>{children}</span>
-    </p>
-  );
-}
-
-function PartError({ result }: { result: Result<unknown> }) {
-  return result.ok ? null : <p role="alert" className="text-sm text-destructive">{result.error}</p>;
 }
 
 function CopyButton({ value }: { value: string }) {
@@ -107,16 +102,22 @@ function PriceCard({ price, thresholdTimes }: { price: Result<IssuePriceView>; t
   return (
     <Card aria-label="Giá phát hành">
       <CardHeader>
-        <BlockTitle>Giá phát hành</BlockTitle>
+        <BlockTitle icon={<Coins />}>Giá phát hành</BlockTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <PartError result={price} />
+        {!price.ok && (
+          <Alert tone="bad" role="alert">
+            {price.error}
+          </Alert>
+        )}
         {price.ok && (
           <>
+            <Kpi
+              tone="au"
+              label={price.data.onChain ? 'Giá áp dụng cho lệnh mới (trên hợp đồng)' : 'Giá áp dụng cho lệnh mới'}
+              value={<span data-testid="effective-price">{vnd(price.data.priceVnd)} VNDB</span>}
+            />
             <dl>
-              <Row label={price.data.onChain ? 'Giá áp dụng cho lệnh mới (trên hợp đồng)' : 'Giá áp dụng cho lệnh mới'} numeric>
-                <span data-testid="effective-price">{vnd(price.data.priceVnd)} VNDB</span>
-              </Row>
               <Row label="Giá đã cấu hình" numeric>
                 <span data-testid="configured-price">{vnd(price.data.configuredPriceVnd)} VNDB</span>
               </Row>
@@ -130,10 +131,10 @@ function PriceCard({ price, thresholdTimes }: { price: Result<IssuePriceView>; t
               </Row>
             </dl>
             {price.data.warning && (
-              <Warn>
+              <Alert tone="warn" role="status">
                 Giá trên hợp đồng khác giá đã cấu hình. Giao dịch viên đặt lại đúng giá mong muốn để hai
                 nơi khớp.
-              </Warn>
+              </Alert>
             )}
           </>
         )}
@@ -205,7 +206,7 @@ function ChangePriceCard({
   return (
     <Card aria-label="Đổi giá">
       <CardHeader>
-        <BlockTitle>Đổi giá</BlockTitle>
+        <BlockTitle icon={<PencilLine />}>Đổi giá</BlockTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1.5">
@@ -217,7 +218,7 @@ function ChangePriceCard({
             inputMode="numeric"
             value={price}
             onChange={(event) => setPrice(event.target.value.trim())}
-            className={`${FIELD} text-right tabular-nums`}
+            className={`${fieldClass} text-right tabular-nums`}
             placeholder={currentPrice ?? ''}
           />
         </div>
@@ -231,7 +232,7 @@ function ChangePriceCard({
             value={reason}
             maxLength={REASON_MAX}
             onChange={(event) => setReason(event.target.value)}
-            className={FIELD}
+            className={fieldClass}
             placeholder="Bắt buộc: căn cứ đổi giá, ví dụ số quyết định."
           />
         </div>
@@ -245,19 +246,13 @@ function ChangePriceCard({
           Đổi giá
         </Button>
         {feedback && (
-          <p
+          <Alert
+            tone={feedback.tone === 'success' ? 'ok' : feedback.tone === 'warning' ? 'warn' : 'bad'}
             role="status"
             data-tone={feedback.tone}
-            className={
-              feedback.tone === 'success'
-                ? 'rounded-md border border-primary/30 bg-primary/10 p-3 text-sm'
-                : feedback.tone === 'warning'
-                  ? NOTICE_WARN
-                  : 'rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm'
-            }
           >
             {feedback.message}
-          </p>
+          </Alert>
         )}
       </CardContent>
 
@@ -312,21 +307,25 @@ function IssuanceCard({ issuance }: { issuance: Result<IssuanceOverview | null> 
   return (
     <Card aria-label="Tình trạng phát hành">
       <CardHeader>
-        <BlockTitle>Tình trạng phát hành</BlockTitle>
+        <BlockTitle icon={<Gauge />}>Tình trạng phát hành</BlockTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <PartError result={issuance} />
-        {issuance.ok && !issuance.data && (
-          <p className="text-sm text-muted-foreground">Chain này chưa có dự án nào.</p>
+        {!issuance.ok && (
+          <Alert tone="bad" role="alert">
+            {issuance.error}
+          </Alert>
         )}
+        {issuance.ok && !issuance.data && <EmptyState>Chain này chưa có dự án nào.</EmptyState>}
         {issuance.ok && issuance.data && (
           <>
+            <Kpi
+              tone="hl"
+              label="Tổng cung trên chuỗi"
+              value={`${vnd(issuance.data.supply)} ${issuance.data.tokenSymbol}`}
+            />
             <dl>
               <Row label="Trần phát hành (bảng dự án)" numeric>
                 {vnd(issuance.data.cap)} {issuance.data.tokenSymbol}
-              </Row>
-              <Row label="Tổng cung trên chuỗi" numeric>
-                {vnd(issuance.data.supply)} {issuance.data.tokenSymbol}
               </Row>
               <Row label="Còn được phát hành" numeric>
                 {vnd(issuance.data.remaining)} {issuance.data.tokenSymbol}
@@ -344,7 +343,9 @@ function IssuanceCard({ issuance }: { issuance: Result<IssuanceOverview | null> 
               </Row>
             </dl>
             {issuance.data.overCap && (
-              <Warn>Tổng cung trên chuỗi vượt trần trong bảng dự án. Cần đối soát trước khi phát hành thêm.</Warn>
+              <Alert tone="warn" role="status">
+                Tổng cung trên chuỗi vượt trần trong bảng dự án. Cần đối soát trước khi phát hành thêm.
+              </Alert>
             )}
           </>
         )}
@@ -357,13 +358,11 @@ function HistoryCard({ chain, rows }: { chain: ChainKey; rows: PriceHistoryRow[]
   return (
     <Card aria-label="Lịch sử đổi giá">
       <CardHeader>
-        <BlockTitle>Lịch sử đổi giá</BlockTitle>
+        <BlockTitle icon={<History />}>Lịch sử đổi giá</BlockTitle>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Chưa có lần đổi giá nào. Giá đang dùng là giá mặc định của dự án.
-          </p>
+          <EmptyState>Chưa có lần đổi giá nào. Giá đang dùng là giá mặc định của dự án.</EmptyState>
         ) : (
           <Table aria-label="Bảng lịch sử đổi giá">
             <TableHeader>
@@ -431,22 +430,21 @@ export function PriceConfigPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Giá và phát hành</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Giá và phát hành</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
-      {!result && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Đang tải…
-        </p>
+      {!result && <EmptyState loading>Đang tải…</EmptyState>}
+      {result && !result.ok && (
+        <Alert tone="bad" role="alert">
+          {result.error}
+        </Alert>
       )}
-      {result && !result.ok && <p role="alert" className="text-sm text-destructive">{result.error}</p>}
       {result?.ok && (
         <>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-6">
+          <div className="grid items-start gap-6 min-[1100px]:grid-cols-2">
+            <div className="min-w-0 space-y-6">
               <PriceCard price={result.data.price} thresholdTimes={result.data.thresholdTimes} />
               {result.data.canEdit && (
                 <ChangePriceCard
@@ -457,7 +455,9 @@ export function PriceConfigPage() {
                 />
               )}
             </div>
-            <IssuanceCard issuance={result.data.issuance} />
+            <div className="min-w-0">
+              <IssuanceCard issuance={result.data.issuance} />
+            </div>
           </div>
           <HistoryCard chain={chain} rows={result.data.history} />
         </>
