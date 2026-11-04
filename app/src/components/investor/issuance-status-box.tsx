@@ -56,39 +56,40 @@ export function IssuanceStatusBox() {
           <Alert tone="bad">{error}</Alert>
         ) : data ? (
           <>
-          <dl className="divide-y divide-border text-sm">
-            <Row label="Ký hiệu token" badge={<OnChainBadge />}>
-              <span className="font-semibold">{data.symbol}</span>
-            </Row>
-
-            <Row label="Tổng cung đã phát hành" badge={<OnChainBadge />}>
-              <span className="tabular-nums font-semibold">{nf(data.totalSupply)}</span>
-            </Row>
-
-            <Row label="Giá phát hành">
-              <span className="tabular-nums font-semibold">
-                {nf(data.issuePriceVnd)} ₫
-              </span>
-            </Row>
-
-            <Row label="Dự án">
-              <span className="text-right">{data.projectName ?? 'Chưa đọc được'}</span>
-            </Row>
-            {ON_CHAIN_PROJECT && (
-              <Row label="Trạng thái vận hành" badge={<UnverifiedNote />}>
-                <Badge variant="info">{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</Badge>
+            <dl className="divide-y divide-border text-sm">
+              <Row label="Ký hiệu token" badge={<OnChainBadge />}>
+                <span className="font-semibold">{data.symbol}</span>
               </Row>
-            )}
-          </dl>
 
-          {/*
-            Nói thẳng giới hạn thay vì để người xem tự suy: thiếu câu này, một cán bộ ngân
-            hàng có thể hiểu "giá phát hành" là giá đang giao dịch. Đặt ngoài `dl` (trong `dl` chỉ có cặp nhãn, giá trị).
-          */}
-          <Alert tone="info" className="mt-3">
-            Chưa có thị trường thứ cấp nên không có giá giao dịch, biến động giá hay khối
-            lượng. Giá phát hành là điều khoản của đợt phát hành, không phải giá thị trường.
-          </Alert>
+              <Row label="Tổng cung đã phát hành" badge={<OnChainBadge />}>
+                <span className="tabular-nums font-semibold">{nf(data.totalSupply)}</span>
+              </Row>
+
+              <Row label="Giá phát hành">
+                <span className="tabular-nums font-semibold">
+                  {nf(data.issuePriceVnd)} ₫
+                </span>
+              </Row>
+
+              <Row label="Dự án">
+                <span className="text-right">{data.projectName ?? 'Chưa đọc được'}</span>
+              </Row>
+              {ON_CHAIN_PROJECT && (
+                <Row label="Trạng thái vận hành" badge={<UnverifiedNote />}>
+                  <Badge variant="info">{PROJECT_STATUS_LABELS[ON_CHAIN_PROJECT.status]}</Badge>
+                </Row>
+              )}
+            </dl>
+
+            {/*
+              Nói thẳng giới hạn thay vì để người xem tự suy: thiếu câu này, một cán bộ ngân
+              hàng có thể hiểu "giá phát hành" là giá đang giao dịch.
+              Đặt ngoài `dl` (trong `dl` chỉ có cặp nhãn, giá trị).
+            */}
+            <Alert tone="info" className="mt-3">
+              Chưa có thị trường thứ cấp nên không có giá giao dịch, biến động giá hay khối
+              lượng. Giá phát hành là điều khoản của đợt phát hành, không phải giá thị trường.
+            </Alert>
           </>
         ) : null}
       </CardContent>
