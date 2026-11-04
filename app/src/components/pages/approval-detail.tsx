@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, FileText, History } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { actionBlocks, ApprovalActions, type Feedback } from '@/components/maker-checker/approval-actions';
 import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
 import { BURN_SOURCE_LABELS, describeInvalid } from '@/components/maker-checker/gates';
@@ -35,6 +36,9 @@ import { formatAmount, formatDateTime } from '@/lib/format';
  * HF-05: duyệt mà chưa có biên nhận thì yêu cầu giữ "Đang thực hiện": màn báo vàng, không nói
  * "đã thực hiện xong". Nút "Đối soát" hiện khi máy chủ báo `canReconcile` (đọc cùng lần mở màn,
  * không thêm action); đối soát chỉ chạy khi bấm.
+ *
+ * FE-UX-03a: khối hành động ở `maker-checker/approval-actions.tsx` (dời nguyên văn, QĐ-10); thông tin token và
+ * nội dung yêu cầu cạnh nhau từ 1100 px; nhật ký dạng dòng thời gian (chấm tròn một sắc, đường nối).
  */
 
 /** Câu báo theo trạng thái yêu cầu SAU khi duyệt hoặc đối soát. */
@@ -145,18 +149,16 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold">Chi tiết yêu cầu</h1>
-          <p className="font-code text-xs text-muted-foreground">{requestId}</p>
-        </div>
-        <Link prefetch={false} href="/approvals" className="flex items-center gap-1 text-sm text-primary hover:underline">
+      <header className="space-y-2">
+        <Link prefetch={false} href="/approvals" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Về danh sách
         </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Chi tiết yêu cầu</h1>
+        <p className="font-code text-xs break-all text-muted-foreground">{requestId}</p>
       </header>
 
-      {fresh?.error && <p className="text-sm text-destructive">{fresh.error}</p>}
+      {fresh?.error && <Alert tone="bad">{fresh.error}</Alert>}
 
       {detail && (
         <>
@@ -176,12 +178,17 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
             onReconcile={reconcile}
           />
 
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid gap-6 min-[1100px]:grid-cols-2">
             <TokenInfoBlock info={detail.token} error={detail.tokenError} />
 
             <Card size="sm" aria-label="Khối nội dung yêu cầu">
               <CardHeader>
-                <CardTitle className="text-sm">Nội dung yêu cầu</CardTitle>
+                <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+                  <CardTitleIcon>
+                    <FileText />
+                  </CardTitleIcon>
+                  Nội dung yêu cầu
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <dl className="grid gap-y-2 text-sm">
@@ -189,7 +196,7 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                   <Row label="Token">
                     {detail.request.tokenSymbol} ({detail.request.chain})
                   </Row>
-                  <Row label="Số lượng" mono>
+                  <Row label="Số lượng" numeric>
                     {formatAmount(detail.request.amount)}
                   </Row>
                   {detail.request.burnSource && (
@@ -199,13 +206,13 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
                     {detail.request.wallet}
                   </Row>
                   <Row label="Lý do">{detail.request.reason}</Row>
-                  <Row label="Chứng từ">{detail.request.documentRef ?? '—'}</Row>
-                  <Row label="Ngày hiệu lực">{detail.request.effectiveDate ?? '—'}</Row>
-                  <Row label="Ghi chú">{detail.request.note ?? '—'}</Row>
+                  <Row label="Chứng từ">{detail.request.documentRef ?? '–'}</Row>
+                  <Row label="Ngày hiệu lực">{detail.request.effectiveDate ?? '–'}</Row>
+                  <Row label="Ghi chú">{detail.request.note ?? '–'}</Row>
                   <Row label="Người lập">{detail.request.makerId}</Row>
                   <Row label="Thời điểm lập">{formatDateTime(detail.request.createdAt)}</Row>
                   <Row label="Mã giao dịch" mono>
-                    {detail.request.txHash ?? '—'}
+                    {detail.request.txHash ?? '–'}
                   </Row>
                   <Row label="Thực hiện qua">{detail.custodyLabel}</Row>
                 </dl>
@@ -215,18 +222,30 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
 
           <Card aria-label="Nhật ký">
             <CardHeader>
-              <CardTitle className="text-base">Nhật ký</CardTitle>
+              <CardTitle className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <History />
+                </CardTitleIcon>
+                Nhật ký
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <ol className="space-y-3">
+              <ol className="text-sm">
                 {detail.timeline.map((entry, index) => (
-                  <li key={`${entry.at}-${index}`} className="grid gap-1 border-l-2 border-primary/40 pl-3 text-sm sm:grid-cols-[11rem_minmax(0,1fr)]">
+                  <li
+                    key={`${entry.at}-${index}`}
+                    className="relative grid gap-x-3 gap-y-1 pb-4 pl-6 last:pb-0 min-[640px]:grid-cols-[150px_minmax(0,1fr)]"
+                  >
+                    <span aria-hidden="true" className="absolute top-1.5 left-1 size-2.5 rounded-full bg-primary ring-4 ring-ok-bg" />
+                    {index < detail.timeline.length - 1 && (
+                      <span aria-hidden="true" className="absolute top-5 bottom-0 left-2 w-0.5 bg-border" />
+                    )}
                     <span className="tabular-nums text-xs text-muted-foreground">{formatDateTime(entry.at)}</span>
-                    <span>
-                      <span className="font-medium">{entry.label}</span>
-                      {entry.actor && <span className="text-muted-foreground"> · {entry.actor}</span>}
+                    <span className="min-w-0">
+                      <span className="font-semibold">{entry.label}</span>
+                      {entry.actor && <span className="text-muted-foreground">, {entry.actor}</span>}
                       {entry.detail && (
-                        <span className="block break-all text-xs text-muted-foreground">{entry.detail}</span>
+                        <span className="mt-0.5 block break-all text-xs text-muted-foreground">{entry.detail}</span>
                       )}
                     </span>
                   </li>
@@ -240,11 +259,21 @@ export function ApprovalDetailPage({ requestId }: { requestId: string }) {
   );
 }
 
-function Row({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
+function Row({
+  label,
+  mono,
+  numeric,
+  children,
+}: {
+  label: string;
+  mono?: boolean;
+  numeric?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1">
+    <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-2 last:border-b-0">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'break-all text-right font-code' : 'text-right'}>{children}</dd>
+      <dd className={mono ? 'break-all text-right font-code' : numeric ? 'text-right tabular-nums' : 'text-right'}>{children}</dd>
     </div>
   );
 }
