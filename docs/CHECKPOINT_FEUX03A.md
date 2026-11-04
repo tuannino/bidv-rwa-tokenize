@@ -6,7 +6,7 @@
 | Phạm vi | **Frontend thuần.** Không `lib/`, `app/actions`, `app/api`, `gates.ts`, `components/ui/**`, thành phần `maker-checker` của 02b; không gói npm mới; không đổi câu chữ (trừ QĐ-6), trường, bộ lọc, nút, điều kiện khoá, lời gọi server action |
 | Nhánh | `feat/fe-ux-03a-kiem-soat`, tạo từ `release/ui-v2` (`7b3216d`, sau merge PR #88 FE-UX-02b) |
 | Spec | `docs/fe-ux-03a-kiem-soat/{requirements,design,tasks}.md` (chép nguyên) |
-| Commit | spec `26cdde5`; tách khối hành động, dời nguyên văn `cb4f327`; đổi kiểu, xoá `stat-card.tsx`, test `ab3c910`; nhãn trạng thái góc phải `0ebf41f`; tài liệu: commit cuối trên nhánh |
+| Commit | spec `26cdde5`; tách khối hành động, dời nguyên văn `cb4f327`; đổi kiểu, xoá `stat-card.tsx`, test `ab3c910`; nhãn trạng thái góc phải `0ebf41f`, rồi đổi sang lưới hai cột `8f23809` (mục 8); tài liệu: commit cuối trên nhánh |
 | Tiến độ | Xong. Một PR, base `release/ui-v2`, chờ Supervisor nghiệm thu; Claude Code **không** merge |
 
 ## 0. Tóm tắt nghiệm thu
@@ -48,11 +48,34 @@ UserGuide: Phần 3 mục 3.4.3, 3.4.4 thêm "Bố cục"; "Chốt tại"; Lịc
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
-@@RUN@@
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+BỎ QUA  FE-UX-03a: chưa có docs/CHECKPOINT_FEUX03a.md ...   # tên tệp khác hoa thường, mục 8
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1506 passed | 74 skipped (1580)   # mốc 1502 + 4 ca mới của fe-ux-03a.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+      116 passed, 7 skipped (3.1m)            # project mock đầy đủ: 114 ca cũ + 2 test mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (41.6s)            # project Hardhat: mint (luồng Chấp nhận), chain-scope, ...
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm      # exit=0, trên commit 0ebf41f
+
+$ node scripts/check-checkpoint.mjs docs/CHECKPOINT_FEUX03A.md docs/fe-ux-03a-kiem-soat/requirements.md
+ĐẠT     docs/CHECKPOINT_FEUX03A.md          # 14 dòng / 14 điều kiện
+
+# Commit cuối 8f23809 chỉ đổi lớp ở CardHeader của khối hành động (mục 8); chạy lại trên bản build của nó:
+$ npx playwright test --project=mock         116 passed, 7 skipped (3.1m), exit=0
+$ bash scripts/run-local-all.sh evm          26 passed, 2 skipped (42.3s), ĐẠT, exit=0
 ```
 
 Log gửi kèm (không commit): `20261104_feux03a_run_local_all.log` và riêng đoạn từ dòng "EVM - E2E PROJECT HARDHAT"
-tới hết: `20261104_feux03a_evm_e2e.log`. Không chạy `contracts` (mục 5).
+tới hết: `20261104_feux03a_evm_e2e.log`; chạy lại trên commit cuối: `20261104_feux03a_e2e_mock_cuoi.log`,
+`20261104_feux03a_evm_cuoi.log`. Không chạy `contracts` (mục 5).
 
 Chạy thêm trước đó:
 - Bước tách (commit `cb4f327`, chưa đổi kiểu), bản build riêng `.next-move`, máy chủ cổng 3500: `maker-checker`,
@@ -86,7 +109,16 @@ tính `disabled` của từng nút theo tên, có hay không có nút Đối so�
 | `EXECUTING`, `canReconcile`, `working` | khoá | khoá | khoá | không `reject-block-reason` |
 
 Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc rồi hoàn lại:
-@@MUT@@
+
+| Lỗi gây ra | Kết quả |
+|---|---|
+| Bỏ `aria-label` "Đang chờ duyệt" ở `Kpi` (`approvals.tsx`) | build lại, e2e: `fe-ux-03a-kiem-soat` ca 1 đỏ, `maker-checker.spec.ts:138` đỏ |
+| Trong `actionBlocks` đổi `approveBlockReason(detail)` thành `decisionBlockReason(detail)` | unit dòng 1 và 2 đỏ (nút Chấp nhận mở dù có cảnh báo) |
+| Nút Đối soát không khoá khi `working` (`disabled={false}`) | unit dòng 4 đỏ |
+| Nút Đối soát luôn khoá (`disabled`) | unit dòng 3 đỏ |
+| Bỏ `role="status"` của phản hồi (`approval-actions.tsx`) | build lại, e2e: `fe-ux-03a-kiem-soat` ca 2 và 3 đỏ (bước dọn chờ `status`), `maker-checker.spec.ts:138` đỏ |
+
+Hoàn lại xong, build lại bản đúng, `git status` mã nguồn sạch.
 
 ## 2. Thay đổi
 
@@ -184,11 +216,11 @@ script đo) trên máy chủ dữ liệu riêng (mục 5), yêu cầu chờ duy�
 | Số action khi mở màn | 28 đường dẫn (`/approvals` 3, `/approvals/[id]` 1) | Khớp 28/28 | không đổi |
 | Cảnh báo hydrate | 0 | 0 | 0 |
 | JS gzip `/approvals` | 453,8 KB | 455,2 KB (+1,4) | +3 KB |
-| JS gzip `/approvals/[id]` | 454,7 KB | @@DETAILJS@@ | +3 KB |
+| JS gzip `/approvals/[id]` | 454,7 KB | 455,5 KB (+0,8) | +3 KB |
 | JS gzip `/` | 558,2 KB | 558,2 KB (0) | không tăng |
 | JS gzip `/portfolio` | 456,1 KB | 456,1 KB (0) | không tăng |
 | JS gzip `/trade` | 479,0 KB | 479,0 KB (0) | không tăng |
-| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.194 B | @@CSS@@ | +2 KB |
+| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.194 B | 19.224 B (+30 B) | +2 KB |
 | `role` trong `main` (mục 1.2) | 0, 0, 0 cả hai màn | giống hệt | bằng mốc |
 
 ## 5. Ảnh (gửi kèm, không commit)
@@ -198,7 +230,7 @@ script đo) trên máy chủ dữ liệu riêng (mục 5), yêu cầu chờ duy�
   `approvals_data.js`: Giao dịch viên lập 3 yêu cầu tạo token (1.000, 2.000, 3.000 WPT, có chứng từ); Kiểm soát
   viên chấp nhận yêu cầu 1 (có mã giao dịch), từ chối yêu cầu 2 ("Chứng từ chưa ký, lập lại"), để yêu cầu 3 chờ;
   chụp `/approvals` và chi tiết 3 trạng thái, 1440 và 390, Sáng và Tối; tắt máy chủ. Mốc: bật 06:47:03Z, tắt
-  06:47:58Z. Sau: @@SHOT@@ (04/11/2026, UTC). Trước và sau cùng script. `scrollWidth` không vượt bề rộng ở mọi ảnh
+  06:47:58Z. Sau: bật 07:24:43Z, tắt 07:25:40Z (bản build commit cuối) (04/11/2026, UTC). Trước và sau cùng script. `scrollWidth` không vượt bề rộng ở mọi ảnh
   sau.
 
 ## 6. Lệnh kiểm (tasks bước 6)
