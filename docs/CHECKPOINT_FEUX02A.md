@@ -58,8 +58,13 @@ $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/
       Tests  1488 passed | 74 skipped (1562)   # mốc 1478 + 10 ca mới của fe-ux-02a.test.ts
   => PASS: APP - VITEST
   => PASS: APP - BUILD BẢN PHÁT HÀNH
-@@E2E@@
-@@EVM@@
+      111 passed, 7 skipped (2.7m)            # project mock đầy đủ: 107 ca cũ + 4 ca mới, 0 chập chờn
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (40.0s)            # gồm permit-order.spec.ts ca 14 mua, bán, huỷ ký: xanh
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm      # exit=0
 ```
 
 Log gửi kèm (không commit): `20261104_feux02a_run_local_all.log`. Không chạy `contracts` (mục 5).
@@ -91,7 +96,14 @@ Chờ "tải xong": nút Sáng Tối hiện (đã hydrate), không còn chữ "�
    đúng `settlementStepTone` (`ok, ok, warn, bad, muted`); "Kết cục: cả bốn bút toán đã ghi." nằm trọn một `p`.
 
 Tự gây lỗi 3 điểm Supervisor định thử (mục 5 bảng Supervisor), trên bản sao làm việc rồi hoàn lại:
-@@MUT@@
+
+| Lỗi gây ra | Kết quả |
+|---|---|
+| Bỏ `EXPIRED` khỏi bảng `orderStatusTone` | typecheck 1 lỗi (`Record<OrderStatus, ...>` thiếu khoá); unit nhóm 1 đỏ |
+| `Alert` đặt `role="status"` mặc định | unit nhóm 2 đỏ 4 ca (Alert ok, warn, bad, info) |
+| Đảo sắc `current` và `failed` trong `settlementStepTone` | unit nhóm 1 (`settlementStepTone`) và nhóm 3 (`SettlementProgress`) đỏ |
+
+Hoàn lại xong, `git status` sạch.
 
 ## 2. Thay đổi
 
