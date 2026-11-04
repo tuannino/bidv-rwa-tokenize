@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { getOpsOrderDetailAction } from '@/app/actions/ops';
 import { OrderDetailContent } from '@/components/trading/order-detail-content';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { OrderDetailView } from '@/lib/bank/trade.service';
 
@@ -36,17 +37,14 @@ export function OpsOrderDetailPage({ orderId }: { orderId: string }) {
   const fresh = loaded?.key === requestKey ? loaded : null;
   return (
     <div className="space-y-4">
-      <Link prefetch={false} href="/transactions" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+      <Link prefetch={false} href="/transactions" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Về danh sách giao dịch
       </Link>
       {fresh === null ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang tải lệnh…
-        </p>
+        <EmptyState loading>Đang tải lệnh…</EmptyState>
       ) : fresh.error || !fresh.data ? (
-        <p className="text-sm text-destructive">{fresh.error}</p>
+        <EmptyState tone="bad">{fresh.error}</EmptyState>
       ) : (
         <OrderDetailContent detail={fresh.data} />
       )}

@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { AlertTriangle, CheckCircle2, Coins, Loader2, XCircle } from 'lucide-react';
+import { Coins, History, Loader2 } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { demoPaymentContextAction, mintDemoPaymentAction } from '@/app/actions/demo-payment';
 import type { DemoPaymentContext } from '@/lib/bank/demo-payment.service';
@@ -23,10 +26,7 @@ interface Feedback {
   message: string;
 }
 
-const INPUT =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
-const short = (wallet: string | null) => (wallet ? `${wallet.slice(0, 10)}…${wallet.slice(-4)}` : '—');
+const short = (wallet: string | null) => (wallet ? `${wallet.slice(0, 10)}…${wallet.slice(-4)}` : '–');
 
 export function DemoPaymentPage() {
   const { chain } = useSelectedChain();
@@ -84,7 +84,7 @@ export function DemoPaymentPage() {
         result.ok
           ? {
               tone: 'success',
-              message: `Đã nạp ${formatAmount(result.data.amount)} VNDB vào ${short(result.data.wallet)} · số dư mới ${formatAmount(result.data.balanceAfter)} VNDB · tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
+              message: `Đã nạp ${formatAmount(result.data.amount)} VNDB vào ${short(result.data.wallet)}, số dư mới ${formatAmount(result.data.balanceAfter)} VNDB, tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
             }
           : { tone: 'error', message: result.error },
       );
@@ -94,12 +94,8 @@ export function DemoPaymentPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold">Nạp VNDB mô phỏng</h1>
-        <div
-          role="note"
-          className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+        <h1 className="text-2xl font-semibold tracking-tight">Nạp VNDB mô phỏng</h1>
+        <Alert tone="info" role="note">
           <ul className="list-disc space-y-1 pl-4">
             <li>
               <strong>VNDB (giả lập theo yêu cầu của nghiệp vụ):</strong> Là đồng Stablecoin do bên thứ ba
@@ -110,12 +106,17 @@ export function DemoPaymentPage() {
               tắt khi lên môi trường thật
             </li>
           </ul>
-        </div>
+        </Alert>
       </header>
 
-      <Card>
+      <Card className="min-[1100px]:max-w-[calc((100%-1.5rem)*2/3)]">
         <CardHeader>
-          <CardTitle className="text-base">Nạp vào ví</CardTitle>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <Coins />
+            </CardTitleIcon>
+            Nạp vào ví
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -129,7 +130,7 @@ export function DemoPaymentPage() {
               onChange={(event) => setWallet(event.target.value)}
               placeholder="0x… ví nhà đầu tư đã KYC, hoặc ví người bán"
               spellCheck={false}
-              className={INPUT}
+              className={`${fieldClass} font-code`}
             />
             <datalist id="demo-payment-wallets">
               {knownWallets.map((w) => (
@@ -165,7 +166,7 @@ export function DemoPaymentPage() {
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               inputMode="numeric"
-              className={INPUT}
+              className={`${fieldClass} tabular-nums`}
             />
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>Gợi ý nhanh:</span>
@@ -190,32 +191,25 @@ export function DemoPaymentPage() {
           </Button>
 
           {feedback && (
-            <div
-              role="status"
-              className={
-                feedback.tone === 'success'
-                  ? 'flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm'
-                  : 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm'
-              }
-            >
-              {feedback.tone === 'success' ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              ) : (
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              )}
-              <span>{feedback.message}</span>
-            </div>
+            <Alert tone={feedback.tone === 'success' ? 'ok' : 'bad'} role="status">
+              {feedback.message}
+            </Alert>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lịch sử các lần nạp ({chain})</CardTitle>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <History />
+            </CardTitleIcon>
+            Lịch sử các lần nạp ({chain})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {!context || context.history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có lần nạp nào trên chuỗi này.</p>
+            <EmptyState>Chưa có lần nạp nào trên chuỗi này.</EmptyState>
           ) : (
             <Table>
               <TableHeader>
@@ -238,11 +232,7 @@ export function DemoPaymentPage() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatAmount(row.amount)}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          row.status === 'CONFIRMED' ? 'default' : row.status === 'FAILED' ? 'destructive' : 'outline'
-                        }
-                      >
+                      <Badge variant={row.status === 'CONFIRMED' ? 'ok' : row.status === 'FAILED' ? 'bad' : 'warn'}>
                         {row.status}
                       </Badge>
                     </TableCell>

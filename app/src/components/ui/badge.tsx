@@ -19,6 +19,11 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // FE-UX-02a: nhãn trạng thái có sắc (nền và chữ theo token trạng thái).
+        ok: "bg-ok-bg text-ok-ink",
+        warn: "bg-warn-bg text-warn-ink",
+        bad: "bg-bad-bg text-bad-ink",
+        info: "bg-info-bg text-info-ink",
       },
     },
     defaultVariants: {
