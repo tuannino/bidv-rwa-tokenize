@@ -16,20 +16,26 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
 export function InvestorPortfolioPage() {
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Tổng quan nhà đầu tư</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Tổng quan nhà đầu tư</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <AssetSummary />
-        <IssuanceStatusBox />
+      {/* Lưới 12 cột từ 1100 px, thứ tự DOM giữ: Tài sản (7) cạnh Trạng thái phát hành (5); Giao dịch (7) cạnh Danh sách token (5). */}
+      <div className="grid gap-6 min-[1100px]:grid-cols-12">
+        <div className="grid min-[1100px]:col-span-7">
+          <AssetSummary />
+        </div>
+        <div className="grid min-[1100px]:col-span-5">
+          <IssuanceStatusBox />
+        </div>
+        <div className="grid min-[1100px]:col-span-7">
+          <TransactionHistoryBox />
+        </div>
+        <div className="grid min-[1100px]:col-span-5">
+          <TokenListBox />
+        </div>
       </div>
-
-      <TransactionHistoryBox />
-
-      <TokenListBox />
     </div>
   );
 }

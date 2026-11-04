@@ -28,9 +28,9 @@ async function openPage(page: Page, path: string) {
  */
 type RoleCount = { status: number; note: number; alert: number };
 const ROLE_COUNTS: Record<'/portfolio' | '/tokens/WPT' | '/tokens/WPT-PQY', RoleCount> = {
-  '/portfolio': { status: -1, note: -1, alert: -1 },
-  '/tokens/WPT': { status: -1, note: -1, alert: -1 },
-  '/tokens/WPT-PQY': { status: -1, note: -1, alert: -1 },
+  '/portfolio': { status: 0, note: 0, alert: 0 },
+  '/tokens/WPT': { status: 0, note: 0, alert: 0 },
+  '/tokens/WPT-PQY': { status: 0, note: 0, alert: 0 },
 };
 
 async function countRoles(page: Page, path: string) {
@@ -73,8 +73,8 @@ test.describe('FE-UX-04a Tổng quan nhà đầu tư và chi tiết token', () =
     expect(hrefs).toEqual(['/tokens/WPT', '/tokens/WPT-PQY', '/tokens/WPT-NTH']);
 
     const text = await main.innerText();
-    expect(text).not.toContain('·');
-    expect(text).not.toContain('—');
+    expect(text).not.toContain('\u00b7');
+    expect(text).not.toContain('\u2014');
     expect(roles).toEqual(ROLE_COUNTS['/portfolio']);
   });
 

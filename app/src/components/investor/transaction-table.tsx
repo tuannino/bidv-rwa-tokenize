@@ -37,15 +37,15 @@ export function TransactionTable({ rows }: { rows: TxnView[] }) {
                 {new Date(txn.createdAt).toLocaleString('vi-VN')}
               </TableCell>
               <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-              <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
+              <TableCell className="text-right tabular-nums">{txn.amount ?? '–'}</TableCell>
               <TableCell>
                 <Badge
                   variant={
                     txn.status === 'CONFIRMED'
-                      ? 'default'
+                      ? 'ok'
                       : txn.status === 'FAILED'
-                        ? 'destructive'
-                        : 'secondary'
+                        ? 'bad'
+                        : 'info'
                   }
                 >
                   {txn.status}
@@ -53,7 +53,7 @@ export function TransactionTable({ rows }: { rows: TxnView[] }) {
               </TableCell>
               <TableCell className="text-right">
                 {/*
-                  Chain cục bộ và mock không có trình khám phá -> `explorerTxUrl` trả null.
+                  Chain cục bộ và mock không có trình khám phá nên `explorerTxUrl` trả null.
                   Khi đó hiện mã giao dịch dạng chữ, không dựng link chết.
                 */}
                 {url ? (
@@ -69,7 +69,7 @@ export function TransactionTable({ rows }: { rows: TxnView[] }) {
                 ) : (
                   <span
                     className="font-code text-xs text-muted-foreground"
-                    title={`${txn.txHash} — chain ${txn.chain} không có trình khám phá`}
+                    title={`${txn.txHash}, chain ${txn.chain} không có trình khám phá`}
                   >
                     {txn.txHash.slice(0, 10)}…
                   </span>

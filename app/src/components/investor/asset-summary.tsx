@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Loader2, Wallet } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Wallet } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getPortfolioAction } from '@/app/actions/portfolio';
 import type { PortfolioView } from '@/lib/bank/portfolio.service';
@@ -69,36 +71,40 @@ export function AssetSummary() {
   const error = fresh?.error ?? null;
   const loading = fresh === null;
 
+  // Thẻ nền xanh: `tile-hl` không đổi `--card`, `--border`, nên đặt lại để ô biểu tượng `EmptyState` và đường kẻ đọc được.
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle role="heading" aria-level={2} className="text-base">Tài sản đã đầu tư</CardTitle>
-        <OnChainBadge />
+    <Card tone="hl" className="[--card:var(--tile-hl-chip)] [--border:var(--tile-hl-chip)]">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <Wallet />
+            </CardTitleIcon>
+            Tài sản đã đầu tư
+          </CardTitle>
+          <OnChainBadge />
+        </div>
       </CardHeader>
 
       <CardContent>
         {/* R5.3: chưa kết nối thì MỜI kết nối, không hiện số 0 — số 0 là một khẳng định sai. */}
         {!isConnected || !address ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-            <p className="max-w-xs text-xs text-muted-foreground">
+          <EmptyState icon={<Wallet />}>
+            <p className="font-medium text-foreground">Chưa kết nối ví</p>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
               Kết nối ví ở góc trên phải, hoặc mở{' '}
               <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
                 Ví của tôi
               </Link>{' '}
               để xem hướng dẫn, để biết số lượng WPT đang giữ và giá trị quy đổi.
             </p>
-          </div>
+          </EmptyState>
         ) : loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Đang đọc số dư từ chuỗi…
-          </div>
+          <EmptyState loading>Đang đọc số dư từ chuỗi…</EmptyState>
         ) : fresh?.notBound ? (
           <WalletNotBoundNotice wallet={address} />
         ) : error ? (
-          <p className="py-6 text-sm text-destructive">{error}</p>
+          <Alert tone="bad">{error}</Alert>
         ) : data ? (
           <AssetHoldings data={data} />
         ) : null}

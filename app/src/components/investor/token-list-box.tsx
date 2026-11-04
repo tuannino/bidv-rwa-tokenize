@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRight, Wind } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { UnverifiedNote } from '@/components/ui/unverified-note';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import {
@@ -33,19 +33,24 @@ export function TokenListBox() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Wind />
+          </CardTitleIcon>
           Token dự án điện gió
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="divide-y divide-border p-0">
+      <CardContent className="space-y-1">
         {MOCK_PROJECTS.map((project) => (
           <Link prefetch={false}
             key={project.id}
             href={`/tokens/${project.tokenSymbol}`}
-            className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-muted/60"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[18px] px-4 py-3 transition-colors hover:bg-muted/60 min-[640px]:flex-nowrap"
           >
+            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-primary">
+              <Wind className="size-5" />
+            </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
@@ -59,7 +64,7 @@ export function TokenListBox() {
               </div>
               <ProjectName name={project.name} onChain={project.onChain} view={projectNameView(fresh, project.name)} />
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                {REGION_LABELS[project.region]} · {PROJECT_STATUS_LABELS[project.status]}
+                {REGION_LABELS[project.region]}, {PROJECT_STATUS_LABELS[project.status]}
                 <UnverifiedNote />
               </div>
             </div>
@@ -69,7 +74,7 @@ export function TokenListBox() {
                 <span className="tabular-nums text-sm font-semibold text-foreground">
                   {project.onChain
                     ? MOCK_WIND_STATS.whitelistedInvestors.toLocaleString('vi-VN')
-                    : '—'}
+                    : '–'}
                 </span>
                 {project.onChain && <UnverifiedNote title="Chưa đếm được người nắm giữ thật" />}
               </div>

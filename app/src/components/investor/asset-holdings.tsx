@@ -1,3 +1,4 @@
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import type { PortfolioView } from '@/lib/bank/portfolio.service';
 import { recallNoticeText } from '@/components/recall/gates';
@@ -21,44 +22,47 @@ export function AssetHoldings({ data }: { data: PortfolioView }) {
       {data.recall && (() => {
         const notice = recallNoticeText(data.recall);
         return (
-          <div role="status" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+          <Alert tone="warn" role="status">
             <p className="font-semibold">{notice.title}</p>
             <p>{notice.body}</p>
-          </div>
+          </Alert>
         );
       })()}
       <div>
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+        <div className="text-[13px] text-muted-foreground">
           {data.token.symbol} đang giữ
         </div>
-        <div className="tabular-nums text-3xl font-bold text-primary">{nf(data.balance)}</div>
+        <div className="tabular-nums text-5xl font-semibold tracking-tight">{nf(data.balance)}</div>
       </div>
 
-      <div className="space-y-1 border-t border-border pt-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-sm text-muted-foreground">Giá trị theo giá phát hành</span>
-          <span className="tabular-nums text-lg font-semibold text-foreground">
-            {nf(data.valueVnd)} ₫
+      {/* Hai ô cạnh nhau từ 640 px: giá trị quy đổi; trạng thái tuân thủ và ví. */}
+      <div className="grid gap-3 min-[640px]:grid-cols-2">
+        <div className="space-y-1 rounded-[18px] bg-muted p-4">
+          <div className="space-y-1">
+            <span className="block text-[13px] text-muted-foreground">Giá trị theo giá phát hành</span>
+            <span className="block tabular-nums text-2xl font-semibold">
+              {nf(data.valueVnd)} ₫
+            </span>
+          </div>
+          {/*
+            Ghi rõ đây KHÔNG phải giá thị trường: hệ thống chưa có thị trường thứ cấp nên
+            không có giá giao dịch. Trình bày như định giá là sai bản chất.
+          */}
+          <p className="text-xs text-muted-foreground">
+            Quy đổi theo giá phát hành {nf(data.issuePriceVnd)} ₫/
+            {data.token.symbol}. Chưa có thị trường thứ cấp nên đây không phải giá giao dịch.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap content-start items-center gap-2 rounded-[18px] bg-muted p-4">
+          <Badge variant={data.whitelisted ? 'ok' : 'bad'}>
+            {data.whitelisted ? 'đã KYC' : 'chưa KYC'}
+          </Badge>
+          {data.frozen && <Badge variant="bad">đang đóng băng</Badge>}
+          <span className="w-full font-code text-[11px] text-muted-foreground">
+            {data.wallet.slice(0, 10)}…{data.wallet.slice(-4)}
           </span>
         </div>
-        {/*
-          Ghi rõ đây KHÔNG phải giá thị trường: hệ thống chưa có thị trường thứ cấp nên
-          không có giá giao dịch. Trình bày như định giá là sai bản chất.
-        */}
-        <p className="text-xs text-muted-foreground">
-          Quy đổi theo giá phát hành {nf(data.issuePriceVnd)} ₫/
-          {data.token.symbol}. Chưa có thị trường thứ cấp nên đây không phải giá giao dịch.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Badge variant={data.whitelisted ? 'default' : 'destructive'}>
-          {data.whitelisted ? 'đã KYC' : 'chưa KYC'}
-        </Badge>
-        {data.frozen && <Badge variant="destructive">đang đóng băng</Badge>}
-        <span className="ml-auto font-code text-[11px] text-muted-foreground">
-          {data.wallet.slice(0, 10)}…{data.wallet.slice(-4)}
-        </span>
       </div>
 
       {/* FIX-04 F1: số dư VNDB đọc cùng lời gọi; đọc lỗi thì chỉ dòng này báo, hộp vẫn hiện. */}
@@ -67,7 +71,7 @@ export function AssetHoldings({ data }: { data: PortfolioView }) {
         {data.paymentBalance === null ? (
           <span className="text-sm text-muted-foreground">Chưa đọc được số dư VNDB</span>
         ) : (
-          <span className="tabular-nums text-lg font-semibold text-foreground">{nf(data.paymentBalance)} VNDB</span>
+          <span className="tabular-nums text-lg font-semibold">{nf(data.paymentBalance)} VNDB</span>
         )}
       </div>
     </div>
