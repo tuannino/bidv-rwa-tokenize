@@ -1,7 +1,7 @@
 import { Gavel, Loader2, Lock, RefreshCw, ShieldCheck, ShieldX } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { fieldClass } from '@/components/ui/field';
 import type { TokenRequestDetailView } from '@/lib/bank/token-request.service';
 import type { TokenRequestStatus } from '@/lib/store/token-request.store.port';
@@ -69,16 +69,16 @@ export function ApprovalActions({
 }) {
   return (
     <Card aria-label="Khối hành động">
-      <CardHeader>
+      {/* Lưới hai cột: tiêu đề bên trái, nhãn trạng thái góc phải (không dùng CardAction để module thẻ dùng
+          chung không phình ra ở các trang khác). */}
+      <CardHeader className="grid-cols-[minmax(0,1fr)_auto] items-center">
         <CardTitle className="flex items-center gap-2.5 text-base">
           <CardTitleIcon>
             <Gavel />
           </CardTitleIcon>
           Hành động
         </CardTitle>
-        <CardAction>
-          <StatusBadge status={status} />
-        </CardAction>
+        <StatusBadge status={status} />
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-5 min-[1100px]:grid-cols-[minmax(0,420px)_15rem] min-[1100px]:justify-between">
