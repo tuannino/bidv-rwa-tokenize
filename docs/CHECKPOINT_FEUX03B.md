@@ -219,7 +219,10 @@ báo 455,2 KB cả hai.
   (1.000.000 VNDB); (3) Kiểm soát viên: nút "Duyệt chia 1.000.000 VNDB" mở, 0 lý do chặn, chụp bộ "chờ duyệt"; (4)
   chạy hết `zz-distribution-approval.spec.ts` (3 ca, gồm nạp thêm lần nữa) rồi chụp bộ "đã chia" sau khi bấm "Xem hồ
   sơ" kỳ đầu (lịch sử 1 dòng, hồ sơ trả, lịch chạy 1 dòng); (5) tắt máy chủ. Hai vai, 1440 và 390, Sáng và Tối.
-  @@ANH@@
+  Lượt dùng làm ảnh nộp (script chụp đã cuộn về đầu, mục 8): mốc trên bản build mốc dựng riêng (trang @ `e996915`,
+  `NEXT_DIST_DIR=.next-moc`), bật 11:16:47Z, tắt 11:18:03Z; sau trên bản build `1d9f54a`, bật 11:14:18Z, tắt
+  11:15:35Z (04/11/2026, UTC). Hai lượt: bước 3 nút mở, 0 lý do chặn; bước 4 lịch sử 1 dòng, lịch chạy 1 dòng;
+  `scrollWidth` không vượt bề rộng, 0 lỗi console ở mọi ảnh.
 - Thẻ Kỳ hoạt động 4 trạng thái (`REAPPROVE`, `CONTINUE`, `OPENING`, `busy`): HTML dựng bằng `renderToStaticMarkup`
   với dữ liệu giả như unit test (test tạm, xoá ngay, không commit), chèn CSS bản build tương ứng, `page.setContent`,
   thêm `font-family` hệ thống (bản tĩnh không nạp font của `next/font`); trước dùng thẻ @ `c67f1df` và CSS bản build
