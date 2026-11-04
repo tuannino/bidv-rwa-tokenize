@@ -414,4 +414,69 @@ describe('Suy tên tệp từ mã task', () => {
     if (kq.ok) return;
     expect(kq.thieuCheckpoint, 'chỉ có tệp chi tiết thì coi như chưa có checkpoint chính').toBe(true);
   });
+
+  // FIX-07: so tên tệp không phân biệt hoa thường.
+  it('FIX-07 a: mã FE-UX-03a tìm được CHECKPOINT_FEUX03A.md', () => {
+    const root = repoGia({
+      'docs/fe-ux-03a-x/requirements.md': REQUIREMENTS_MAU,
+      'docs/CHECKPOINT_FEUX03A.md': checkpointMau(),
+    });
+    const kq = resolveTaskFiles(root, 'FE-UX-03a');
+    expect(kq.ok).toBe(true);
+    if (!kq.ok) return;
+    expect(kq.checkpoint).toBe('docs/CHECKPOINT_FEUX03A.md');
+  });
+
+  // Hệ tệp không phân biệt hoa thường (macOS, Windows mặc định) không tạo được hai tệp chỉ khác hoa
+  // thường, nên ca b bỏ qua ở đó.
+  const heTepPhanBietHoaThuong = (() => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'fix07-hoa-thuong-'));
+    try {
+      mkdirSync(path.join(dir, 'a'));
+      mkdirSync(path.join(dir, 'A')); // hệ tệp không phân biệt hoa thường ném EEXIST ở đây
+      return true;
+    } catch {
+      return false;
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  })();
+
+  it.skipIf(!heTepPhanBietHoaThuong)('FIX-07 b: hai tệp gốc chỉ khác hoa thường thì DỪNG, nêu cả hai', () => {
+    const root = repoGia({
+      'docs/fe-ux-03a-x/requirements.md': REQUIREMENTS_MAU,
+      'docs/CHECKPOINT_FEUX03a.md': checkpointMau(),
+      'docs/CHECKPOINT_FEUX03A.md': checkpointMau(),
+    });
+    const kq = resolveTaskFiles(root, 'FE-UX-03a');
+    expect(kq.ok).toBe(false);
+    if (kq.ok) return;
+    expect(kq.thieuCheckpoint).toBe(false);
+    expect(kq.reason).toContain('docs/CHECKPOINT_FEUX03a.md');
+    expect(kq.reason).toContain('docs/CHECKPOINT_FEUX03A.md');
+  });
+
+  it('FIX-07 c: không có tên gốc thì nhận tệp hậu tố khác hoa thường (CHECKPOINT_FEUX03A_V2.md)', () => {
+    const root = repoGia({
+      'docs/fe-ux-03a-x/requirements.md': REQUIREMENTS_MAU,
+      'docs/CHECKPOINT_FEUX03A_V2.md': checkpointMau(),
+    });
+    const kq = resolveTaskFiles(root, 'FE-UX-03a');
+    expect(kq.ok).toBe(true);
+    if (!kq.ok) return;
+    expect(kq.checkpoint).toBe('docs/CHECKPOINT_FEUX03A_V2.md');
+  });
+
+  it('FIX-07 d: có tệp gốc và tệp hậu tố thì chọn tệp gốc (CHECKPOINT_OP04.md)', () => {
+    const root = repoGia({
+      'docs/op-04-x/requirements.md': REQUIREMENTS_MAU,
+      'docs/CHECKPOINT_OP04.md': checkpointMau(),
+      'docs/CHECKPOINT_OP04_PROXY.md': checkpointMau(),
+      'docs/CHECKPOINT_OP04_TXS.md': checkpointMau(),
+    });
+    const kq = resolveTaskFiles(root, 'OP-04');
+    expect(kq.ok).toBe(true);
+    if (!kq.ok) return;
+    expect(kq.checkpoint).toBe('docs/CHECKPOINT_OP04.md');
+  });
 });

@@ -471,6 +471,14 @@ function maKhongGach(task) {
   return task.replace(/-/g, '');
 }
 
+/** Thoát ký tự đặc biệt của RegExp trong mã task trước khi ghép vào biểu thức. */
+function thoatRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Tệp chi tiết đi kèm checkpoint, không phải checkpoint (so không phân biệt hoa thường). */
+const DETAIL_RE = /_DETAIL\.md$/i;
+
 function docThuMuc(abs) {
   try {
     return fs.readdirSync(abs, { withFileTypes: true });
@@ -488,24 +496,33 @@ export function resolveTaskFiles(repoRoot, task) {
   const ma = maKhongGach(task);
 
   // --- checkpoint ---
+  // FIX-07: so tên KHÔNG phân biệt hoa thường (mã task `FE-UX-03a`, tệp `CHECKPOINT_FEUX03A.md`). Đọc
+  // thư mục chứ không `existsSync` đúng tên: trên hệ tệp không phân biệt hoa thường `existsSync` trả
+  // đúng cho mọi biến thể và che mất tệp trùng chỉ khác hoa thường.
   const chinh = `${CHECKPOINT_DIR}/CHECKPOINT_${ma}.md`;
-  let checkpoint = fs.existsSync(path.join(repoRoot, chinh)) ? chinh : null;
+  const maRe = thoatRegExp(ma);
+  const tepTrongDocs = docThuMuc(path.join(repoRoot, CHECKPOINT_DIR))
+    .filter((e) => e.isFile() && !DETAIL_RE.test(e.name))
+    .map((e) => e.name);
+  const nhieuTep = (khop) => ({
+    ok: false,
+    thieuCheckpoint: false,
+    reason:
+      `${task}: có ${khop.length} tệp checkpoint cùng khớp mã này: ${khop.join(', ')}.\n`
+      + '      Script KHÔNG tự chọn: chọn sai tệp là kiểm sai checkpoint mà không ai biết.\n'
+      + `      Gọi tường minh: node scripts/check-checkpoint.mjs <tệp> <requirements>`,
+  });
+  const loc = (re) => tepTrongDocs.filter((ten) => re.test(ten)).map((ten) => `${CHECKPOINT_DIR}/${ten}`).sort();
+
+  // Bước 1, tên gốc: đúng một tệp thì dùng (task có cả tệp gốc và tệp hậu tố vẫn chọn tệp gốc);
+  // từ hai tệp (chỉ khác hoa thường) thì báo lỗi, không tự chọn.
+  const goc = loc(new RegExp(`^CHECKPOINT_${maRe}\\.md$`, 'i'));
+  if (goc.length > 1) return nhieuTep(goc);
+  let checkpoint = goc[0] ?? null;
+  // Bước 2, chỉ khi không có tên gốc: tệp có hậu tố.
   if (checkpoint === null) {
-    const re = new RegExp(`^CHECKPOINT_${ma}(_[A-Za-z0-9]+)*\\.md$`);
-    const khop = docThuMuc(path.join(repoRoot, CHECKPOINT_DIR))
-      .filter((e) => e.isFile() && re.test(e.name) && !e.name.endsWith(DETAIL_SUFFIX))
-      .map((e) => `${CHECKPOINT_DIR}/${e.name}`)
-      .sort();
-    if (khop.length > 1) {
-      return {
-        ok: false,
-        thieuCheckpoint: false,
-        reason:
-          `${task}: có ${khop.length} tệp checkpoint cùng khớp mã này — ${khop.join(', ')}.\n`
-          + '      Script KHÔNG tự chọn: chọn sai tệp là kiểm sai checkpoint mà không ai biết.\n'
-          + `      Gọi tường minh: node scripts/check-checkpoint.mjs <tệp> <requirements>`,
-      };
-    }
+    const khop = loc(new RegExp(`^CHECKPOINT_${maRe}(_[A-Za-z0-9]+)+\\.md$`, 'i'));
+    if (khop.length > 1) return nhieuTep(khop);
     checkpoint = khop[0] ?? null;
   }
   if (checkpoint === null) {
