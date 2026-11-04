@@ -15,11 +15,20 @@ async function actAsInvestor(context: BrowserContext, baseURL: string) {
   ]);
 }
 
-/** "Tải xong" như nhau ở mốc và nhánh mới: `networkidle`, rồi `main` hết chữ "Đang tải", "Đang kiểm tra". */
+/**
+ * "Tải xong" như nhau ở mốc và nhánh mới: `networkidle`, rồi `main` hết chữ "Đang tải", "Đang kiểm tra". Bỏ phần
+ * tử `select` khi đọc chữ: ô lọc Trạng thái của `/orders` có lựa chọn "Đang kiểm tra" (nhãn trạng thái lệnh).
+ */
 async function openPage(page: Page, path: string) {
   await page.goto(path);
   await page.waitForLoadState('networkidle');
-  await expect.poll(async () => /Đang (tải|kiểm tra)/.test(await page.getByRole('main').innerText()), { message: path }).toBe(false);
+  const mainText = () =>
+    page.getByRole('main').evaluate((main) => {
+      const copy = main.cloneNode(true) as HTMLElement;
+      copy.querySelectorAll('select').forEach((select) => select.remove());
+      return copy.textContent ?? '';
+    });
+  await expect.poll(async () => /Đang (tải|kiểm tra)/.test(await mainText()), { message: path }).toBe(false);
 }
 
 /** Chờ hydrate trước mọi `selectOption` (cách `wallet-connect.spec.ts:33`). */
@@ -139,9 +148,11 @@ test.describe('FE-UX-04c Quản lý lệnh, Chi tiết lệnh, Ví của tôi', 
     await page.locator('#chain-selector').selectOption('hardhat-local');
 
     const main = page.getByRole('main');
-    const heading = main.getByRole('heading', { name: 'Chưa kết nối ví' });
-    await expect(heading).toBeVisible();
-    const items = main.locator('[data-slot="card"]').filter({ has: heading }).locator('li');
+    await expect(main.getByRole('heading', { name: 'Chưa kết nối ví' })).toBeVisible();
+    const items = main
+      .locator('[data-slot="card"]')
+      .filter({ has: page.getByRole('heading', { name: 'Chưa kết nối ví' }) })
+      .locator('li');
     await expect(items).toHaveCount(3);
     expect((await items.first().innerText()).trim().startsWith('Bước này chỉ đọc địa chỉ ví')).toBe(true);
     await expect(main.getByRole('button', { name: /Kết nối ví/ })).toBeVisible();
