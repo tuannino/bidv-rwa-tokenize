@@ -7,14 +7,17 @@ import type { PreviewState } from './gates';
  * Hiện TỪNG điều kiện đúng như `previewTokenRequestAction` trả, kèm trạng thái và chi tiết. Không
  * tự đánh giá điều kiện nào: khối này và lần lập thật dùng chung một phép kiểm ở máy chủ, nên điều
  * màn hình nói "đạt" cũng là điều máy chủ sẽ chấp nhận.
+ *
+ * FE-UX-02b: ô nền nhạt bo 18 px (bản chốt `.inner`, `.checks`); giữ `data-check`, `data-passed` và
+ * dấu cách giữa nhãn với kết quả (`{' '}`), test đọc chữ "Không vượt trần còn lại Không đạt".
  */
 export function RequestCheckBlock({ preview }: { preview: PreviewState }) {
   return (
     <section
       aria-label="Khối kiểm tra trước khi lập"
-      className="space-y-2 rounded-lg border border-border p-3"
+      className="space-y-2.5 rounded-[18px] bg-muted/60 p-4"
     >
-      <h3 className="text-sm font-medium">Kiểm tra trước khi lập</h3>
+      <h3 className="text-sm font-semibold">Kiểm tra trước khi lập</h3>
       {preview.kind === 'idle' && (
         <p className="text-sm text-muted-foreground">
           Hệ thống kiểm tra điều kiện ngay khi đủ dữ liệu.
@@ -28,22 +31,22 @@ export function RequestCheckBlock({ preview }: { preview: PreviewState }) {
       )}
       {preview.kind === 'invalid' && <p className="text-sm text-destructive">{preview.message}</p>}
       {preview.kind === 'checked' && (
-        <ul className="space-y-1.5">
+        <ul className="divide-y divide-border/60">
           {preview.checks.map((check) => (
             <li
               key={check.key}
               data-check={check.key}
               data-passed={check.passed}
-              className="flex items-start gap-2 text-sm"
+              className="flex items-start gap-2.5 py-2 text-sm first:pt-0 last:pb-0"
             >
               {check.passed ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-label="đạt" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok-ink" aria-label="đạt" />
               ) : (
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-label="trượt" />
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-bad-ink" aria-label="trượt" />
               )}
               <span>
                 <span className="font-medium">{check.label}</span>
-                <span className={check.passed ? 'text-muted-foreground' : 'text-destructive'}>
+                <span className={check.passed ? 'text-muted-foreground' : 'text-bad-ink'}>
                   {' '}
                   {check.passed ? 'Đạt' : 'Không đạt'}: {check.detail}
                 </span>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CHAINS } from '@bidv/shared';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatAmount, formatDateTime } from '@/lib/format';
 import { ROLE_LABELS } from '@/lib/role-labels';
@@ -16,6 +17,9 @@ import { StatusBadge } from './status-badge';
  *
  * `variant` (UIUX-01): `'history'` cho thẻ "Lịch sử phê duyệt", thêm cột Loại, Người duyệt, Thời
  * điểm duyệt và bỏ Thời điểm lập, Lý do. Cột Chain đứng sau Trạng thái ở cả hai biến thể.
+ *
+ * `loading` (FE-UX-02b): bảng chưa có dữ liệu vì đang tải; khung rỗng hiện vòng quay. Màn Phê duyệt
+ * không truyền, nên vẫn hiện `emptyText` trong khung rỗng không quay như cũ.
  */
 export function RequestTable({
   rows,
@@ -23,15 +27,17 @@ export function RequestTable({
   detailHref,
   emptyText,
   variant = 'queue',
+  loading = false,
 }: {
   rows: readonly TokenRequestRecord[];
   caption: string;
   detailHref?: (id: string) => string;
   emptyText: string;
   variant?: 'queue' | 'history';
+  loading?: boolean;
 }) {
   if (rows.length === 0) {
-    return <p className="py-4 text-sm text-muted-foreground">{emptyText}</p>;
+    return <EmptyState loading={loading}>{emptyText}</EmptyState>;
   }
   const showSource = rows.some((row) => row.type === 'BURN');
   const history = variant === 'history';
@@ -81,7 +87,7 @@ export function RequestTable({
             <TableCell className="text-right tabular-nums">{formatAmount(row.amount)}</TableCell>
             {showSource && (
               <TableCell className="text-xs">
-                {row.burnSource ? BURN_SOURCE_LABELS[row.burnSource] : '—'}
+                {row.burnSource ? BURN_SOURCE_LABELS[row.burnSource] : '–'}
               </TableCell>
             )}
             <TableCell className="text-xs">{row.makerId}</TableCell>
@@ -123,7 +129,7 @@ const TYPE_LABELS: Record<TokenRequestRecord['type'], string> = {
 export function resultText(row: TokenRequestRecord): string {
   switch (row.status) {
     case 'PENDING':
-      return '—';
+      return '–';
     case 'REJECTED': {
       const who = [row.checkerRole ? ROLE_LABELS[row.checkerRole] : null, row.checkerId]
         .filter(Boolean)

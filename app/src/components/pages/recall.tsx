@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { Undo2, Users } from 'lucide-react';
 import {
   cancelRecallAction,
   freezeTokenAction,
@@ -12,12 +13,15 @@ import {
 } from '@/app/actions/recall';
 import { RecallCasesTable } from '@/components/recall/cases-table';
 import { RecallControls, type RecallStage } from '@/components/recall/controls';
-import { RECALL_FIELD, RecallDialog } from '@/components/recall/dialogs';
+import { RecallDialog } from '@/components/recall/dialogs';
 import { currentStep, recallControls, symbolMatches } from '@/components/recall/gates';
 import { RoundInfo } from '@/components/recall/round-info';
 import { RecallSteps } from '@/components/recall/steps';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import type { RecallBatchProgress, RecallOverview } from '@/lib/bank/recall.service';
 import { addDays, isCalendarDate } from '@/lib/bank/recall-phase';
 import type { Result } from '@/lib/bank/result';
@@ -131,29 +135,41 @@ export function RecallPage() {
   };
 
   if (!loaded || loaded.chain !== chain) {
-    return <p role="status" className="text-sm text-muted-foreground">Đang tải tình trạng thu hồi...</p>;
+    return <EmptyState loading role="status">Đang tải tình trạng thu hồi...</EmptyState>;
   }
   if (loadError || !overview || !controls) {
     return (
       <div className="space-y-3">
-        <p role="alert" className="text-sm text-destructive">{loadError ?? 'Không tải được tình trạng thu hồi.'}</p>
+        <EmptyState tone="bad" role="alert">{loadError ?? 'Không tải được tình trạng thu hồi.'}</EmptyState>
         <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>Thử lại</Button>
       </div>
     );
   }
 
+  const step = currentStep(overview);
+
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Thu hồi token</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </div>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
-      <RecallSteps current={currentStep(overview)} />
+      {step !== null && (
+        <Card>
+          <CardContent>
+            <RecallSteps current={step} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
-        <CardHeader><CardTitle>Tình trạng đợt thu hồi</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon><Undo2 /></CardTitleIcon>
+            Tình trạng đợt thu hồi
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-5">
           <RoundInfo overview={overview} progress={progress} />
           {overview.canManage ? (
@@ -165,13 +181,18 @@ export function RecallPage() {
               onRecheckUnfreeze={() => showStage('unfreeze')}
               onRecall={runRecall}
             />
-          ) : <p className="text-sm text-muted-foreground">Giao dịch viên chỉ được xem tình trạng và danh sách hồ sơ.</p>}
-          {actionError && stage === 'idle' && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+          ) : <p className="border-t border-border pt-4 text-sm text-muted-foreground">Giao dịch viên chỉ được xem tình trạng và danh sách hồ sơ.</p>}
+          {actionError && stage === 'idle' && <Alert tone="bad" role="alert">{actionError}</Alert>}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{overview.cases.length > 0 ? 'Hồ sơ thu hồi' : 'Danh sách ví dự kiến'}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon><Users /></CardTitleIcon>
+            {overview.cases.length > 0 ? 'Hồ sơ thu hồi' : 'Danh sách ví dự kiến'}
+          </CardTitle>
+        </CardHeader>
         <CardContent><RecallCasesTable overview={overview} /></CardContent>
       </Card>
 
@@ -187,14 +208,14 @@ export function RecallPage() {
         onSubmit={() => submitRound(stage === 'reschedule' ? 'reschedule' : 'open')}
       >
         <label className="grid gap-1 text-sm">Ngày hết hạn
-          <input className={RECALL_FIELD} type="date" min={overview.today} value={maturityDate} onChange={(event) => setMaturityDate(event.target.value)} />
+          <input className={fieldClass} type="date" min={overview.today} value={maturityDate} onChange={(event) => setMaturityDate(event.target.value)} />
         </label>
         <label className="grid gap-1 text-sm">Số ngày báo trước
-          <input className={RECALL_FIELD} type="number" min={overview.minNoticeDays} max={365} value={noticeDays} onChange={(event) => setNoticeDays(event.target.value)} />
+          <input className={fieldClass} type="number" min={overview.minNoticeDays} max={365} value={noticeDays} onChange={(event) => setNoticeDays(event.target.value)} />
         </label>
         <p className="text-sm text-muted-foreground">Ngày bắt đầu thu hồi: {calculatedRecall ? formatVnDate(calculatedRecall) : 'chưa hợp lệ'}</p>
         <label className="grid gap-1 text-sm">Lý do
-          <textarea className={RECALL_FIELD} maxLength={REASON_MAX} value={reason} onChange={(event) => setReason(event.target.value)} />
+          <textarea className={fieldClass} maxLength={REASON_MAX} value={reason} onChange={(event) => setReason(event.target.value)} />
         </label>
         <p className="text-xs text-muted-foreground">{reason.length}/{REASON_MAX} ký tự</p>
       </RecallDialog>
@@ -215,7 +236,7 @@ export function RecallPage() {
         }}
       >
         <label className="grid gap-1 text-sm">Lý do huỷ
-          <textarea className={RECALL_FIELD} maxLength={REASON_MAX} value={reason} onChange={(event) => setReason(event.target.value)} />
+          <textarea className={fieldClass} maxLength={REASON_MAX} value={reason} onChange={(event) => setReason(event.target.value)} />
         </label>
       </RecallDialog>
 
@@ -246,10 +267,10 @@ export function RecallPage() {
         }}
       >
         <label className="grid gap-1 text-sm">Gõ {symbol} để xác nhận
-          <input className={RECALL_FIELD} autoComplete="off" value={confirmSymbol} onChange={(event) => setConfirmSymbol(event.target.value)} />
+          <input className={fieldClass} autoComplete="off" value={confirmSymbol} onChange={(event) => setConfirmSymbol(event.target.value)} />
         </label>
         {stage === 'unfreeze' && <label className="grid gap-1 text-sm">Lý do mở đóng băng
-          <textarea className={RECALL_FIELD} maxLength={REASON_MAX} value={unfreezeReason} onChange={(event) => setUnfreezeReason(event.target.value)} />
+          <textarea className={fieldClass} maxLength={REASON_MAX} value={unfreezeReason} onChange={(event) => setUnfreezeReason(event.target.value)} />
         </label>}
       </RecallDialog>
     </div>

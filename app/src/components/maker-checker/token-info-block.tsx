@@ -1,5 +1,5 @@
 import { Wind } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import type { TokenInfoView } from '@/lib/bank/token-request.service';
 import { formatAmount, formatDateTime } from '@/lib/format';
 
@@ -9,6 +9,9 @@ import { formatAmount, formatDateTime } from '@/lib/format';
  * Chỉ HIỂN THỊ `TokenInfoView` máy chủ đã tính (`getTokenInfo`). Không cộng trừ con số nào ở đây:
  * "số còn được phát hành" hay "đang lưu hành" tự tính lại ở giao diện là có hai nguồn cho cùng
  * một con số, và khối này sẽ nói khác khối kiểm tra ngay khi một trong hai đổi cách tính.
+ *
+ * FE-UX-02b: ô nền nhạt bo 18 px (`Card tone="tint"`, bản chốt `.inner`); giữ cặp `dt`/`dd` liền kề
+ * (test đọc `dd` ngay sau `dt`) và câu lỗi nằm trong khối.
  */
 export function TokenInfoBlock({
   info,
@@ -20,16 +23,20 @@ export function TokenInfoBlock({
   loading?: boolean;
 }) {
   return (
-    <Card size="sm" className="bg-muted/30" aria-label="Khối thông tin token">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-sm">Thông tin token</CardTitle>
-        <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+    <Card size="sm" tone="tint" className="rounded-[18px]" aria-label="Khối thông tin token">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+          <CardTitleIcon className="bg-card">
+            <Wind />
+          </CardTitleIcon>
+          Thông tin token
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
           <p className="text-sm text-muted-foreground">Đang đọc thông tin token…</p>
         ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="text-sm text-bad-ink">{error}</p>
         ) : !info ? (
           <p className="text-sm text-muted-foreground">
             Nhập mã hoặc ký hiệu token, hệ thống tự đổ thông tin.

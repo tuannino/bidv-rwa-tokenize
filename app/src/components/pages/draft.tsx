@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, Flame, Loader2, PlusCircle, Send, XCircle } from 'lucide-react';
+import { Flame, History, Loader2, PlusCircle, Send, TriangleAlert } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
+import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
 import { RequestCheckBlock } from '@/components/maker-checker/request-check-block';
 import { RequestTable } from '@/components/maker-checker/request-table';
-import { INPUT_CLASS, StatCard } from '@/components/maker-checker/stat-card';
 import { TokenInfoBlock } from '@/components/maker-checker/token-info-block';
 import { fetchTokenInfo, tokenInfoReadErrorMessage } from '@/components/maker-checker/token-info-read';
 import {
@@ -40,7 +42,12 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * liệu và danh sách đều do server action trả (`app/actions/token-request.ts` → `token-request.service`).
  * Nút gửi bị khoá theo đúng kết quả khối kiểm tra máy chủ trả; chốt chặn thật vẫn ở service vì server
  * action gọi được bằng POST trực tiếp.
+ *
+ * FE-UX-02b: hai ô số liệu `Kpi` (sắc thường, giữ `aria-label`), hai thẻ biểu mẫu có biểu tượng tiêu
+ * đề, ô nhập `fieldClass`, cảnh báo và phản hồi dùng `Alert` giữ đúng `role`; bảng yêu cầu hiện khung
+ * đang tải khi chưa có dữ liệu. Không đổi hook, handler, điều kiện khoá.
  */
+const KPI_VALUE = (value: number | null) => (value === null ? '–' : formatAmount(value));
 
 /** Chờ người dùng gõ xong rồi mới hỏi máy chủ — không thì mỗi ký tự là một lượt gọi. */
 const LOOKUP_DEBOUNCE_MS = 300;
@@ -141,38 +148,53 @@ export function DraftPage() {
 
   return (
     <div className="space-y-6" data-chain={chain}>
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Lập lệnh</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Lập lệnh</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Yêu cầu tạo token đang chờ" value={freshStats?.data?.pendingMint ?? null} />
-        <StatCard label="Yêu cầu huỷ token đang chờ" value={freshStats?.data?.pendingBurn ?? null} />
+      <div className="grid gap-4 min-[1100px]:grid-cols-2">
+        <Kpi
+          aria-label="Yêu cầu tạo token đang chờ"
+          label="Yêu cầu tạo token đang chờ"
+          value={KPI_VALUE(freshStats?.data?.pendingMint ?? null)}
+          icon={<PlusCircle />}
+        />
+        <Kpi
+          aria-label="Yêu cầu huỷ token đang chờ"
+          label="Yêu cầu huỷ token đang chờ"
+          value={KPI_VALUE(freshStats?.data?.pendingBurn ?? null)}
+          icon={<Flame />}
+        />
       </div>
-      {freshStats?.error && <p className="text-sm text-destructive">{freshStats.error}</p>}
+      {freshStats?.error && <Alert tone="bad">{freshStats.error}</Alert>}
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid items-start gap-6 min-[1100px]:grid-cols-2">
         <RequestForm type="MINT" chain={chain} revision={revision} onSubmitted={onSubmitted} />
         <RequestForm type="BURN" chain={chain} revision={revision} onSubmitted={onSubmitted} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Yêu cầu đã lập</CardTitle>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <History />
+            </CardTitleIcon>
+            Yêu cầu đã lập
+          </CardTitle>
           <CardDescription>
             Yêu cầu do chính bạn lập, mới nhất trước. Trạng thái cập nhật sau mỗi lần gửi hoặc tải lại trang.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {freshMine?.error && <p className="text-sm text-destructive">{freshMine.error}</p>}
+          {freshMine?.error && <Alert tone="bad">{freshMine.error}</Alert>}
           <section className="space-y-2">
             <h3 className="text-sm font-medium">Yêu cầu tạo token</h3>
             <RequestTable
               caption="Yêu cầu tạo token đã lập"
               rows={freshMine?.mint ?? []}
               emptyText={freshMine ? 'Chưa lập yêu cầu tạo token nào.' : 'Đang tải…'}
+              loading={!freshMine}
             />
           </section>
           <section className="space-y-2">
@@ -181,6 +203,7 @@ export function DraftPage() {
               caption="Yêu cầu huỷ token đã lập"
               rows={freshMine?.burn ?? []}
               emptyText={freshMine ? 'Chưa lập yêu cầu huỷ token nào.' : 'Đang tải…'}
+              loading={!freshMine}
             />
           </section>
         </CardContent>
@@ -364,13 +387,11 @@ function RequestForm({
 
   return (
     <Card aria-label={`Thẻ ${text.title.toLowerCase()}`}>
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">{text.title}</CardTitle>
-        {type === 'MINT' ? (
-          <PlusCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        ) : (
-          <Flame className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        )}
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>{type === 'MINT' ? <PlusCircle /> : <Flame />}</CardTitleIcon>
+          {text.title}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Field id={id('symbol')} label="Mã hoặc ký hiệu token">
@@ -380,7 +401,7 @@ function RequestForm({
             onChange={(event) => setSymbol(event.target.value)}
             placeholder="WPT"
             spellCheck={false}
-            className={`${INPUT_CLASS} uppercase`}
+            className={`${fieldClass} uppercase`}
           />
         </Field>
 
@@ -401,7 +422,7 @@ function RequestForm({
             label="Ví đích (ví thanh toán SPV)"
             hint={
               info?.spvWallet
-                ? 'Đã có ví thanh toán trên chuỗi — yêu cầu tạo token chỉ vào đúng ví này.'
+                ? 'Đã có ví thanh toán trên chuỗi, yêu cầu tạo token chỉ vào đúng ví này.'
                 : 'Chưa phát hành lần nào: nhập ví thanh toán SPV sẽ nhận token.'
             }
           >
@@ -412,7 +433,7 @@ function RequestForm({
               readOnly={Boolean(info?.spvWallet)}
               spellCheck={false}
               placeholder="0x…"
-              className={`${INPUT_CLASS} font-code`}
+              className={`${fieldClass} font-code`}
             />
           </Field>
         ) : (
@@ -421,7 +442,7 @@ function RequestForm({
               id={id('source')}
               value={burnSource}
               onChange={(event) => chooseSource(event.target.value as BurnSource)}
-              className={INPUT_CLASS}
+              className={fieldClass}
             >
               {(Object.keys(BURN_SOURCE_LABELS) as BurnSource[]).map((source) => (
                 <option key={source} value={source}>
@@ -433,12 +454,13 @@ function RequestForm({
         )}
 
         {sourceEffect?.warning && (
-          <div role="alert" className="space-y-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            <p className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-              <span>{sourceEffect.warning}</span>
-            </p>
-            <label className="flex items-center gap-2 font-medium">
+          <Alert
+            tone="bad"
+            role="alert"
+            icon={<TriangleAlert className="mt-px size-[18px] shrink-0" aria-hidden="true" />}
+          >
+            <p>{sourceEffect.warning}</p>
+            <label className="mt-2 flex items-center gap-2 font-medium">
               <input
                 type="checkbox"
                 checked={confirmed}
@@ -446,7 +468,7 @@ function RequestForm({
               />
               Tôi xác nhận huỷ toàn bộ nguồn cung
             </label>
-          </div>
+          </Alert>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -466,7 +488,7 @@ function RequestForm({
               value={amountShown}
               onValueChange={setAmount}
               readOnly={fullSupplyAmount}
-              className={`${fullSupplyAmount ? INPUT_CLASS.replace('bg-background', 'bg-muted/40') : INPUT_CLASS} tabular-nums`}
+              className={`${fieldClass} read-only:bg-muted read-only:text-muted-foreground tabular-nums`}
             />
           </Field>
           <Field id={id('effective')} label="Ngày hiệu lực">
@@ -475,7 +497,7 @@ function RequestForm({
               type="date"
               value={effectiveDate}
               onChange={(event) => setEffectiveDate(event.target.value)}
-              className={INPUT_CLASS}
+              className={fieldClass}
             />
           </Field>
         </div>
@@ -484,7 +506,7 @@ function RequestForm({
             id={id('reason')}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            className={INPUT_CLASS}
+            className={fieldClass}
           />
         </Field>
         <Field id={id('document')} label="Chứng từ">
@@ -493,7 +515,7 @@ function RequestForm({
             value={documentRef}
             onChange={(event) => setDocumentRef(event.target.value)}
             placeholder="Số quyết định, số hồ sơ…"
-            className={INPUT_CLASS}
+            className={fieldClass}
           />
         </Field>
         <Field id={id('note')} label="Ghi chú">
@@ -502,7 +524,7 @@ function RequestForm({
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
-            className={INPUT_CLASS}
+            className={fieldClass}
           />
         </Field>
 
@@ -521,21 +543,9 @@ function RequestForm({
         </div>
 
         {feedback && (
-          <div
-            role="status"
-            className={
-              feedback.tone === 'success'
-                ? 'flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm'
-                : 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm'
-            }
-          >
-            {feedback.tone === 'success' ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-            ) : (
-              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-            )}
-            <span>{feedback.message}</span>
-          </div>
+          <Alert tone={feedback.tone === 'success' ? 'ok' : 'bad'} role="status">
+            {feedback.message}
+          </Alert>
         )}
       </CardContent>
     </Card>

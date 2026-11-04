@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { explorerTxUrl, type ChainKey } from '@bidv/shared';
 import { Check, Copy, ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { RecallOverview } from '@/lib/bank/recall.service';
 import { formatAmount } from '@/lib/format';
+import { caseTone } from './case-tone';
 import { CASE_STATUS_LABELS } from './gates';
 
 function Wallet({ value }: { value: string }) {
@@ -46,14 +49,14 @@ export function RecallCasesTable({ overview }: { overview: RecallOverview }) {
         reason: null,
         preview: true,
       }));
-  if (rows.length === 0) return <p className="text-sm text-muted-foreground">Chưa có ví ngoài vault cần thu hồi.</p>;
+  if (rows.length === 0) return <EmptyState>Chưa có ví ngoài vault cần thu hồi.</EmptyState>;
   const previewTotal = overview.cases.length === 0
     ? rows.reduce((sum, row) => sum + BigInt(row.wptAmount), 0n)
     : null;
   return (
     <div className="space-y-3">
       {previewTotal !== null && <p className="text-sm text-muted-foreground">Dự kiến {rows.length} ví, tổng {formatAmount(previewTotal)} WPT.</p>}
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-[14px] border border-border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -72,7 +75,9 @@ export function RecallCasesTable({ overview }: { overview: RecallOverview }) {
                 <TableCell><Wallet value={row.wallet} /></TableCell>
                 <TableCell className="text-right tabular-nums">{formatAmount(row.wptAmount)}</TableCell>
                 <TableCell className="text-right tabular-nums">{row.burnedAmount ? formatAmount(row.burnedAmount) : '-'}</TableCell>
-                <TableCell>{row.preview ? 'Dự kiến' : CASE_STATUS_LABELS[row.status] ?? row.status}</TableCell>
+                <TableCell>
+                  <Badge variant={caseTone(row.status)}>{row.preview ? 'Dự kiến' : CASE_STATUS_LABELS[row.status] ?? row.status}</Badge>
+                </TableCell>
                 <TableCell>
                   <div className="space-y-1">
                     {url
@@ -80,7 +85,7 @@ export function RecallCasesTable({ overview }: { overview: RecallOverview }) {
                       : row.txHash
                         ? <span className="font-code text-xs" title={row.txHash}>{shortHash(row.txHash)}</span>
                         : '-'}
-                    {row.reason && <p className="text-xs text-destructive">{row.reason}</p>}
+                    {row.reason && <p className="text-xs text-bad-ink">{row.reason}</p>}
                   </div>
                 </TableCell>
               </TableRow>
