@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { explorerTxUrl, type ChainKey } from '@bidv/shared';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import type { ChainKey } from '@bidv/shared';
+import { History, Landmark, Loader2, ShieldCheck, Timer, TriangleAlert, Users } from 'lucide-react';
 import {
   approveDistributionAction,
   continueDistributionAction,
@@ -11,12 +11,15 @@ import {
   listDistributionPeriodsAction,
   reapproveDistributionAction,
 } from '@/app/actions/distribution';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Kpi } from '@/components/ui/kpi';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type {
-  ActivePeriodView,
   DistributionApprovalView,
   DistributionHistoryRow,
   DistributionPageView,
@@ -27,7 +30,12 @@ import type { DistributionRunLogView } from '@/lib/bank/distribution-trigger.ser
 import type { Result } from '@/lib/bank/result';
 import { approvedAmountLabel } from '@/components/pages/distribution-amount-label';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
+import { cn } from '@/lib/utils';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
+import { ActivePeriodCard } from '@/components/distribution/active-period-card';
+import { amount, APPROVAL_STATUS, PERIOD_STATUS, short } from '@/components/distribution/display';
+import { approvalStatusTone, payoutStatusTone, periodStatusTone, runStatusTone } from '@/components/distribution/status-tone';
+import { TxLink } from '@/components/distribution/tx-link';
 
 /**
  * Màn CHIA LỢI NHUẬN (FE-08 QĐ-F).
@@ -42,8 +50,6 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * nên tiếp tục được từ kỳ `OPENING`, vault `SENT`, hồ sơ `SENT`.
  */
 
-const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
-const short = (value: string) => `${value.slice(0, 10)}…${value.slice(-6)}`;
 const when = (value: string | null) => (value ? new Date(value).toLocaleString('vi-VN') : 'chưa có');
 
 /** Câu xác nhận bắt buộc của QĐ-F, giữ nguyên văn. */
@@ -51,24 +57,6 @@ export const CONFIRM_SCOPE =
   'Kiểm soát viên duyệt tổng số VNDB của kỳ; danh sách và tỷ lệ chỉ là dự kiến. Quyền hưởng cuối cùng chốt theo ảnh chụp trên chuỗi lúc mở kỳ.';
 export const CONFIRM_TRANSFER = 'bấm duyệt sẽ chuyển tiền';
 
-const PERIOD_STATUS: Record<string, string> = {
-  OPENING: 'Đang mở trên chuỗi',
-  OPEN: 'Đã mở',
-  DISTRIBUTING: 'Đang chia',
-  COMPLETED: 'Hoàn tất',
-  EXPIRED: 'Hết hạn nhận',
-  CLOSED: 'Đã đóng',
-};
-const APPROVAL_STATUS: Record<string, string> = {
-  APPROVED: 'Đã duyệt',
-  AMOUNT_CHANGED: 'Số đổi, chờ duyệt lại',
-};
-const VAULT_STATUS: Record<string, string> = {
-  PENDING: 'Đã giữ chỗ',
-  SENT: 'Đã gửi, đang đối soát',
-  DONE: 'Đã chốt',
-  CONFLICT: 'CONFLICT, cần xử lý tay',
-};
 const PAYOUT_STATUS: Record<string, string> = {
   PENDING: 'Chờ gửi',
   SENT: 'Đã gửi, đang đối soát',
@@ -86,27 +74,18 @@ const OUTCOME: Record<DistributionApprovalView['outcome'], string> = {
   ALREADY_RUNNING: 'Một lượt khác đang chạy cho kỳ này; tải lại sau.',
 };
 
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
+/** Tiêu đề thẻ có biểu tượng tròn (FE-UX-03b QĐ-6). */
+function CardHeading({ icon, children, className }: { icon: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <div className="space-y-1 rounded-lg border border-border p-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all font-code text-sm font-semibold">{value}</dd>
-    </div>
+    <CardTitle className={cn('flex items-center gap-2.5 text-base', className)}>
+      <CardTitleIcon>{icon}</CardTitleIcon>
+      {children}
+    </CardTitle>
   );
 }
 
-function TxLink({ chain, txHash }: { chain: ChainKey; txHash: string | null }) {
-  if (!txHash) return <span className="text-xs text-muted-foreground">không có</span>;
-  const url = explorerTxUrl(chain, txHash);
-  return url ? (
-    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">
-      {short(txHash)}
-      <ExternalLink className="h-3 w-3" aria-hidden="true" />
-    </a>
-  ) : (
-    <span className="font-code text-xs" title={txHash}>{short(txHash)}</span>
-  );
-}
+/** Chữ thay cho nhãn khi trạng thái rỗng: chữ thường, không dựng `Badge` (FE-UX-03b QĐ-4). */
+const none = (text: string) => <span className="text-muted-foreground">{text}</span>;
 
 /** Hộp xác nhận trước mọi lần duyệt: nói rõ phạm vi duyệt và việc bấm sẽ chuyển tiền (QĐ-F, QĐ-G). */
 function ConfirmDialog({
@@ -129,7 +108,7 @@ function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{CONFIRM_SCOPE}</DialogDescription>
         </DialogHeader>
-        <p className="text-sm font-medium text-destructive">Lưu ý: {CONFIRM_TRANSFER}.</p>
+        <Alert tone="bad">Lưu ý: {CONFIRM_TRANSFER}.</Alert>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={busy}>
             Huỷ
@@ -141,63 +120,6 @@ function ConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ActivePeriodCard({
-  chain,
-  active,
-  canApprove,
-  busy,
-  onReapprove,
-  onContinue,
-}: {
-  chain: ChainKey;
-  active: ActivePeriodView;
-  canApprove: boolean;
-  busy: boolean;
-  onReapprove: () => void;
-  onContinue: () => void;
-}) {
-  const { period, progress } = active;
-  return (
-    <Card aria-label="Kỳ hoạt động">
-      <CardHeader><CardTitle className="text-base">Kỳ hoạt động</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Mã kỳ" value={period.periodKey} />
-          <Metric label="Trạng thái" value={PERIOD_STATUS[period.status] ?? period.status} />
-          <Metric
-            label="Trạng thái duyệt"
-            value={period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa có kết luận duyệt'}
-          />
-          <Metric label="Số đã duyệt" value={approvedAmountLabel(period, 'cell')} />
-          <Metric label="Số thực tế trên chuỗi" value={period.status === 'OPENING' ? 'chưa đọc được' : `${amount(period.totalAmount)} VNDB`} />
-          <Metric label="Chốt kỳ vault" value={period.vaultCloseStatus ? VAULT_STATUS[period.vaultCloseStatus] : 'Chưa chốt'} />
-          <Metric label="Đã trả" value={`${amount(progress.paidAmount)} VNDB (${progress.paid} hồ sơ)`} />
-          <Metric label="Còn phải chi / lỗi" value={`${progress.outstanding} / ${progress.failed}`} />
-        </dl>
-        <p className="text-sm" role="status" aria-label="Ghi chú kỳ hoạt động">{active.note}</p>
-        {active.pendingOnChain && (
-          <p className="text-sm text-muted-foreground">
-            Đã gửi lên chuỗi, đang đối soát
-            {period.openTxHash && period.status === 'OPENING' ? <> (mở kỳ <TxLink chain={chain} txHash={period.openTxHash} />)</> : null}
-            {period.vaultCloseStatus === 'SENT' ? <> (chốt vault <TxLink chain={chain} txHash={period.vaultCloseTxHash} />)</> : null}.
-          </p>
-        )}
-        {canApprove && active.nextAction === 'REAPPROVE' && period.status !== 'OPENING' && (
-          <Button onClick={onReapprove} disabled={busy}>
-            Duyệt lại số thực tế {amount(period.totalAmount)} VNDB
-          </Button>
-        )}
-        {canApprove && active.nextAction === 'CONTINUE' && (
-          <Button onClick={onContinue} disabled={busy}>
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            Tiếp tục chia
-          </Button>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -218,10 +140,10 @@ function PayoutsTable({ chain, periodId }: { chain: ChainKey; periodId: string }
 
   const result = data?.key === key ? data.result : null;
   if (!result) return <p className="text-sm text-muted-foreground">Đang đọc hồ sơ trả…</p>;
-  if (!result.ok) return <p role="alert" className="text-sm text-destructive">{result.error}</p>;
+  if (!result.ok) return <Alert tone="bad" role="alert">{result.error}</Alert>;
   const pages = Math.max(1, Math.ceil(result.data.total / result.data.pageSize));
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 rounded-[18px] bg-muted/60 p-4">
       <Table aria-label="Hồ sơ trả từng ví">
         <TableHeader><TableRow>
           <TableHead>Ví</TableHead><TableHead className="text-right">WPT tại ảnh chụp</TableHead>
@@ -232,7 +154,7 @@ function PayoutsTable({ chain, periodId }: { chain: ChainKey; periodId: string }
             <TableCell className="font-code text-xs" title={row.investorWallet}>{short(row.investorWallet)}</TableCell>
             <TableCell className="text-right tabular-nums">{amount(row.balanceAt)}</TableCell>
             <TableCell className="text-right tabular-nums">{amount(row.amount)}</TableCell>
-            <TableCell>{PAYOUT_STATUS[row.status] ?? row.status}</TableCell>
+            <TableCell><Badge variant={payoutStatusTone(row.status)}>{PAYOUT_STATUS[row.status] ?? row.status}</Badge></TableCell>
             <TableCell><TxLink chain={chain} txHash={row.txHash} /></TableCell>
           </TableRow>
         ))}</TableBody>
@@ -273,59 +195,70 @@ function HistoryCard({
 
   const result = page === 1 ? initial : data?.page === page ? data.result : null;
   const pages = result?.ok ? Math.max(1, Math.ceil(result.data.total / result.data.pageSize)) : 1;
+  // Thẻ "Lịch chạy" tách riêng ngay dưới, vẫn do thành phần này trả (FE-UX-03b QĐ-6): cùng dữ liệu, không gọi thêm.
   return (
-    <Card aria-label="Lịch sử kỳ chia">
-      <CardHeader><CardTitle className="text-base">Lịch sử kỳ chia</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        {!result ? (
-          <p className="text-sm text-muted-foreground">Đang đọc lịch sử…</p>
-        ) : !result.ok ? (
-          <p role="alert" className="text-sm text-destructive">{result.error}</p>
-        ) : result.data.total === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có kỳ chia nào trên chain này.</p>
-        ) : (
-          <>
-            <Table aria-label="Danh sách kỳ chia">
-              <TableHeader><TableRow>
-                <TableHead>Mã kỳ</TableHead><TableHead>Trạng thái</TableHead><TableHead>Duyệt</TableHead>
-                <TableHead>Người duyệt</TableHead><TableHead>Thời điểm duyệt</TableHead>
-                <TableHead className="text-right">Số duyệt</TableHead><TableHead className="text-right">Số thực tế</TableHead>
-                <TableHead className="text-right">Duyệt lại từ</TableHead><TableHead>Nguồn kích hoạt</TableHead><TableHead />
-              </TableRow></TableHeader>
-              <TableBody>{result.data.rows.map(({ period, triggerSources }) => (
-                <TableRow key={period.id} data-period={period.periodKey}>
-                  <TableCell className="font-code text-xs">{period.periodKey}</TableCell>
-                  <TableCell>{PERIOD_STATUS[period.status] ?? period.status}</TableCell>
-                  <TableCell>{period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa duyệt'}</TableCell>
-                  <TableCell className="font-code text-xs">{period.approvedBy ?? 'không có'}</TableCell>
-                  <TableCell className="text-xs">{when(period.approvedAt)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{approvedAmountLabel(period, 'table')}</TableCell>
-                  <TableCell className="text-right tabular-nums">{amount(period.totalAmount)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{period.reapprovedFrom ? amount(period.reapprovedFrom) : 'không'}</TableCell>
-                  <TableCell className="text-xs">{triggerSources.length ? triggerSources.map((s) => (s === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper')).join(', ') : 'chưa chạy'}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => setSelected(selected === period.id ? null : period.id)}>
-                      {selected === period.id ? 'Ẩn hồ sơ' : 'Xem hồ sơ'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}</TableBody>
-            </Table>
-            <div className="flex items-center gap-2 text-sm">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goTo(page - 1)}>Trang trước</Button>
-              <span>Trang {page}/{pages} ({result.data.total} kỳ)</span>
-              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => goTo(page + 1)}>Trang sau</Button>
-            </div>
-            {selected && <PayoutsTable key={selected} chain={chain} periodId={selected} />}
-          </>
-        )}
+    <>
+      <Card aria-label="Lịch sử kỳ chia">
+        <CardHeader><CardHeading icon={<History />}>Lịch sử kỳ chia</CardHeading></CardHeader>
+        <CardContent className="space-y-4">
+          {!result ? (
+            <p className="text-sm text-muted-foreground">Đang đọc lịch sử…</p>
+          ) : !result.ok ? (
+            <Alert tone="bad" role="alert">{result.error}</Alert>
+          ) : result.data.total === 0 ? (
+            <EmptyState>Chưa có kỳ chia nào trên chain này.</EmptyState>
+          ) : (
+            <>
+              <Table aria-label="Danh sách kỳ chia">
+                <TableHeader><TableRow>
+                  <TableHead>Mã kỳ</TableHead><TableHead>Trạng thái</TableHead><TableHead>Duyệt</TableHead>
+                  <TableHead>Người duyệt</TableHead><TableHead>Thời điểm duyệt</TableHead>
+                  <TableHead className="text-right">Số duyệt</TableHead><TableHead className="text-right">Số thực tế</TableHead>
+                  <TableHead className="text-right">Duyệt lại từ</TableHead><TableHead>Nguồn kích hoạt</TableHead><TableHead />
+                </TableRow></TableHeader>
+                <TableBody>{result.data.rows.map(({ period, triggerSources }) => (
+                  <TableRow key={period.id} data-period={period.periodKey}>
+                    <TableCell className="font-code text-xs">{period.periodKey}</TableCell>
+                    <TableCell><Badge variant={periodStatusTone(period.status)}>{PERIOD_STATUS[period.status] ?? period.status}</Badge></TableCell>
+                    <TableCell>
+                      {period.approvalStatus ? (
+                        <Badge variant={approvalStatusTone(period.approvalStatus)}>{APPROVAL_STATUS[period.approvalStatus]}</Badge>
+                      ) : (
+                        none('Chưa duyệt')
+                      )}
+                    </TableCell>
+                    <TableCell className="font-code text-xs">{period.approvedBy ?? 'không có'}</TableCell>
+                    <TableCell className="text-xs">{when(period.approvedAt)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{approvedAmountLabel(period, 'table')}</TableCell>
+                    <TableCell className="text-right tabular-nums">{amount(period.totalAmount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{period.reapprovedFrom ? amount(period.reapprovedFrom) : 'không'}</TableCell>
+                    <TableCell className="text-xs">{triggerSources.length ? triggerSources.map((s) => (s === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper')).join(', ') : 'chưa chạy'}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" onClick={() => setSelected(selected === period.id ? null : period.id)}>
+                        {selected === period.id ? 'Ẩn hồ sơ' : 'Xem hồ sơ'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+              <div className="flex items-center gap-2 text-sm">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goTo(page - 1)}>Trang trước</Button>
+                <span>Trang {page}/{pages} ({result.data.total} kỳ)</span>
+                <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => goTo(page + 1)}>Trang sau</Button>
+              </div>
+              {selected && <PayoutsTable key={selected} chain={chain} periodId={selected} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Lịch chạy (20 lượt gần nhất)</h3>
+      <Card>
+        <CardHeader><CardHeading icon={<Timer />}>Lịch chạy (20 lượt gần nhất)</CardHeading></CardHeader>
+        <CardContent>
           {!runLog.ok ? (
-            <p role="alert" className="text-sm text-destructive">{runLog.error}</p>
+            <Alert tone="bad" role="alert">{runLog.error}</Alert>
           ) : runLog.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có lượt chạy nào.</p>
+            <EmptyState>Chưa có lượt chạy nào.</EmptyState>
           ) : (
             <Table aria-label="Lịch chạy">
               <TableHeader><TableRow>
@@ -337,16 +270,16 @@ function HistoryCard({
                   <TableCell className="font-code text-xs">{run.periodKey ?? 'vòng rỗng'}</TableCell>
                   <TableCell className="text-right tabular-nums">{run.runNo}</TableCell>
                   <TableCell>{run.triggerSource === 'MANUAL' ? 'Kiểm soát viên' : 'Keeper'}</TableCell>
-                  <TableCell>{run.status}</TableCell>
+                  <TableCell><Badge variant={runStatusTone(run.status)}>{run.status}</Badge></TableCell>
                   <TableCell className="text-xs">{when(run.startedAt)}</TableCell>
                   <TableCell className="text-xs">{run.error ?? ''}</TableCell>
                 </TableRow>
               ))}</TableBody>
             </Table>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </>
   );
 }
 
@@ -400,56 +333,110 @@ export function DistributionApprovalPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Chia lợi nhuận</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Chia lợi nhuận</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
       {message && (
-        <p role={message.tone === 'error' ? 'alert' : 'status'} aria-label="Kết quả thao tác chia" className={message.tone === 'error' ? 'text-sm text-destructive' : 'text-sm'}>
+        <Alert
+          tone={message.tone === 'error' ? 'bad' : 'ok'}
+          role={message.tone === 'error' ? 'alert' : 'status'}
+          aria-label="Kết quả thao tác chia"
+        >
           {message.text}
-        </p>
+        </Alert>
       )}
 
       {fresh === null ? (
-        <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc quỹ chia…
-        </div>
+        <EmptyState loading>Đang đọc quỹ chia…</EmptyState>
       ) : !fresh.ok ? (
-        <p role="alert" className="text-sm text-destructive">{fresh.error}</p>
+        <Alert tone="bad" role="alert">{fresh.error}</Alert>
       ) : data ? (
         <>
-          {!data.supported ? (
-            <Card><CardContent className="pt-6 text-sm">{data.approveBlockers.join(' ')}</CardContent></Card>
-          ) : (
-            <>
-              <Card aria-label="Quỹ chia">
-                <CardHeader><CardTitle className="text-base">Quỹ chia</CardTitle></CardHeader>
+          {/* Quỹ chia (4 ô) và thẻ Duyệt chia cùng một lưới 12 cột từ 1100 px; dưới đó một cột. */}
+          <div className="grid gap-4 min-[1100px]:grid-cols-12">
+            {!data.supported ? (
+              <Card className="min-[1100px]:col-span-12">
                 <CardContent>
-                  <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Metric label="Số dư quỹ" value={`${amount(data.pool!.poolBalance)} VNDB`} />
-                    <Metric label="Tổng dự trữ các kỳ" value={`${amount(data.pool!.reservedBalance)} VNDB`} />
-                    <Metric label="Chưa phân bổ" value={`${amount(data.pool!.unallocatedBalance)} VNDB`} />
-                    <Metric label="Ngưỡng tối thiểu" value={`${amount(data.pool!.threshold)} VNDB`} />
-                  </dl>
+                  <EmptyState icon={<Landmark />}>{data.approveBlockers.join(' ')}</EmptyState>
                 </CardContent>
               </Card>
-
-              <Card aria-label="Dự kiến">
-                <CardHeader><CardTitle className="text-base">Dự kiến (tham khảo)</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Theo số dư WPT hiện tại trên tổng cung {amount(data.forecast!.totalSupply)} WPT. Quyền hưởng cuối cùng chốt theo ảnh
-                    chụp trên chuỗi lúc mở kỳ. Tổng dự kiến {amount(data.forecast!.allocated)} VNDB, phần dư làm tròn{' '}
-                    {amount(data.forecast!.dust)} VNDB.
-                  </p>
-                  {data.forecast!.truncated && (
-                    <p role="alert" className="text-sm text-destructive">Danh sách người nhận bị cắt nên không đầy đủ; nút duyệt bị khoá.</p>
+            ) : (
+              <>
+                <CardHeading icon={<Landmark />} className="min-[1100px]:col-span-12">Quỹ chia</CardHeading>
+                <div
+                  aria-label="Quỹ chia"
+                  className={cn(
+                    'grid gap-4 min-[640px]:grid-cols-2',
+                    data.viewerCanApprove ? 'min-[1100px]:col-span-8' : 'min-[1100px]:col-span-12',
                   )}
+                >
+                  <Kpi
+                    label="Số dư quỹ"
+                    value={amount(data.pool!.poolBalance)}
+                    unit="VNDB"
+                    tone="au"
+                    size="lg"
+                    className="min-[640px]:row-span-2"
+                  />
+                  <Kpi label="Chưa phân bổ" value={amount(data.pool!.unallocatedBalance)} unit="VNDB" tone="gold" />
+                  <Kpi label="Tổng dự trữ các kỳ" value={amount(data.pool!.reservedBalance)} unit="VNDB" />
+                  <Kpi
+                    label="Ngưỡng tối thiểu"
+                    value={amount(data.pool!.threshold)}
+                    unit="VNDB"
+                    className="min-[640px]:col-span-2"
+                  />
+                </div>
+              </>
+            )}
+
+            {data.viewerCanApprove && (
+              <Card
+                aria-label="Duyệt chia"
+                className={data.supported ? 'min-[1100px]:col-span-4' : 'min-[1100px]:col-span-12'}
+              >
+                <CardHeader><CardHeading icon={<ShieldCheck />}>Duyệt chia</CardHeading></CardHeader>
+                <CardContent className="flex flex-1 flex-col gap-4">
+                  {data.approveBlockers.length > 0 && (
+                    <ul className="divide-y divide-border/60" aria-label="Lý do chưa duyệt được">
+                      {data.approveBlockers.map((reason) => (
+                        <li key={reason} className="flex items-start gap-2.5 py-2 text-sm first:pt-0 last:pb-0">
+                          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-bad-ink" aria-hidden="true" />
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Button
+                    className="mt-auto w-full"
+                    disabled={busy || data.approveBlockers.length > 0 || !data.pool}
+                    onClick={() => setConfirm({ kind: 'approve', amount: data.pool!.unallocatedBalance })}
+                  >
+                    Duyệt chia {data.pool ? amount(data.pool.unallocatedBalance) : '0'} VNDB
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {data.supported && (
+            <Card tone="tint" aria-label="Dự kiến">
+              <CardHeader><CardHeading icon={<Users />}>Dự kiến (tham khảo)</CardHeading></CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Theo số dư WPT hiện tại trên tổng cung {amount(data.forecast!.totalSupply)} WPT. Quyền hưởng cuối cùng chốt theo ảnh
+                  chụp trên chuỗi lúc mở kỳ. Tổng dự kiến {amount(data.forecast!.allocated)} VNDB, phần dư làm tròn{' '}
+                  {amount(data.forecast!.dust)} VNDB.
+                </p>
+                {data.forecast!.truncated && (
+                  <Alert tone="warn" role="alert">Danh sách người nhận bị cắt nên không đầy đủ; nút duyệt bị khoá.</Alert>
+                )}
+                {/* Bảng cuộn dọc tối đa 280 px: lớp nhắm khung bảng sẵn có của `ui/table` (requirements QĐ-6). */}
+                <div className="overflow-hidden rounded-[18px] bg-card px-2 [&_[data-slot=table-container]]:max-h-[280px] [&_[data-slot=table-container]]:overflow-y-auto">
                   <Table aria-label="Người nhận dự kiến">
-                    <TableHeader><TableRow>
+                    <TableHeader className="sticky top-0 z-10 bg-card"><TableRow>
                       <TableHead>Ví</TableHead><TableHead className="text-right">WPT hiện tại</TableHead><TableHead className="text-right">Phần dự kiến (VNDB)</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>{data.forecast!.rows.map((row) => (
@@ -460,26 +447,7 @@ export function DistributionApprovalPage() {
                       </TableRow>
                     ))}</TableBody>
                   </Table>
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {data.viewerCanApprove && (
-            <Card aria-label="Duyệt chia">
-              <CardHeader><CardTitle className="text-base">Duyệt chia</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {data.approveBlockers.length > 0 && (
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground" aria-label="Lý do chưa duyệt được">
-                    {data.approveBlockers.map((reason) => <li key={reason}>{reason}</li>)}
-                  </ul>
-                )}
-                <Button
-                  disabled={busy || data.approveBlockers.length > 0 || !data.pool}
-                  onClick={() => setConfirm({ kind: 'approve', amount: data.pool!.unallocatedBalance })}
-                >
-                  Duyệt chia {data.pool ? amount(data.pool.unallocatedBalance) : '0'} VNDB
-                </Button>
+                </div>
               </CardContent>
             </Card>
           )}
