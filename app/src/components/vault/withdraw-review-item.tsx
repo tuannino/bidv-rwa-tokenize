@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
+import { fieldClass } from '@/components/ui/field';
 import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
-import { amount, FIELD, short } from './display';
+import { amount, short } from './display';
 
 /**
  * Một dòng "Lệnh rút cần xem xét" (FE-UX-03c QĐ-5): dời nguyên văn từ thân `rows.map` của `WithdrawReviewCard`
@@ -25,12 +26,13 @@ export function WithdrawReviewItem({
   onResolve: (outcome: 'COMPLETED' | 'FAILED') => void;
 }) {
   return (
-    <div className="space-y-2 rounded-lg border border-border p-3 text-sm" data-request={row.id}>
+    <div className="space-y-2 rounded-[18px] bg-muted/60 p-4 text-sm" data-request={row.id}>
       <p>
-        <span className="font-code">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
+        <span className="font-code font-semibold">{row.id.slice(0, 8)}</span>:{' '}
+        <span className="font-semibold tabular-nums">{amount(row.amount)} VNDB</span> tới{' '}
         <span className="font-code">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
       </p>
-      <p className="text-muted-foreground">{row.reason}</p>
+      <p className="break-words text-muted-foreground">{row.reason}</p>
       {row.status === 'PAYOUT_REVIEW' ? (
         <p className="text-xs text-muted-foreground">
           Lệnh dừng ở bước đặt ví nhận{row.payoutTxHash ? ` (giao dịch ${short(row.payoutTxHash)})` : ''}, chưa rút
@@ -43,13 +45,13 @@ export function WithdrawReviewItem({
         </p>
       )}
       {canResolve && row.status === 'PAYOUT_REVIEW' && (
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <div className="grid gap-2 pt-1 min-[640px]:grid-cols-[1fr_auto]">
           <input
             aria-label={`Lý do thất bại ${row.id}`}
             placeholder="Lý do, ví dụ đã kiểm explorer"
             value={reason}
             onChange={(e) => onChange('reason', e.target.value)}
-            className={`${FIELD} font-sans`}
+            className={fieldClass}
           />
           <Button type="button" variant="outline" disabled={busy} onClick={() => void onResolve('FAILED')}>
             Đánh dấu thất bại
@@ -57,13 +59,13 @@ export function WithdrawReviewItem({
         </div>
       )}
       {canResolve && row.status !== 'PAYOUT_REVIEW' && (
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto]">
+        <div className="grid gap-2 pt-1 min-[640px]:grid-cols-[1fr_auto]">
           <input
             aria-label={`Mã giao dịch xác nhận ${row.id}`}
             placeholder="Mã giao dịch 0x…"
             value={txHash}
             onChange={(e) => onChange('txHash', e.target.value)}
-            className={FIELD}
+            className={`${fieldClass} font-code`}
           />
           <Button type="button" disabled={busy} onClick={() => void onResolve('COMPLETED')}>
             Xác nhận hoàn tất
@@ -73,7 +75,7 @@ export function WithdrawReviewItem({
             placeholder="Lý do, ví dụ đã kiểm explorer"
             value={reason}
             onChange={(e) => onChange('reason', e.target.value)}
-            className={`${FIELD} font-sans`}
+            className={fieldClass}
           />
           <Button type="button" variant="outline" disabled={busy} onClick={() => void onResolve('FAILED')}>
             Đánh dấu thất bại
