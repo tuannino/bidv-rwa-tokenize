@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-02a-van-hanh` (FE-UX-02a, từ `release/ui-v2` @ `2065289`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-02b-van-hanh` (FE-UX-02b, từ `release/ui-v2` @ `27a52ad`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -301,6 +301,8 @@ Quy ước chung cho Phần 3:
 
 **Thành phần màn dùng chung** (FE-UX-02a, `components/ui`, chỉ đổi trình bày): ô số liệu (`Kpi`) bo 22 px có nhãn, biểu tượng tròn, con số lớn; ô có bốn sắc theo ngữ nghĩa: xanh ngọc đậm (số chính của màn), vàng (tiền đã chia), xanh nhạt (số liên quan sản lượng hoặc nguồn cung chưa phân phối), vàng nhạt (dự phòng cho màn sau); ô thường nền thẻ. Nhãn trạng thái tô màu theo nhóm: xanh lá là xong (Hoàn tất, CONFIRMED), vàng là đang chạy (Đã đặt, Đang kiểm tra, Đang quyết toán), đỏ là dừng (Bị từ chối, Thất bại, FAILED), xanh dương là hết hạn (`components/trading/order-status-tone.ts`). Hộp thông báo (`Alert`) cùng bốn màu kèm biểu tượng; ghi chú chỉ đọc, ghi chú PoC dùng màu xanh dương. Danh sách đang tải, lỗi, rỗng hiện khung xám (lỗi khung đỏ) có biểu tượng tròn ở giữa (`EmptyState`). Ô nhập, ô chọn cao 44 px, bo 14 px, nền nhạt. Trang chặn vai (Nạp VNDB, Định danh ví) là thẻ đỏ nhạt có biểu tượng khiên. Chữ, nút, bộ lọc, điều kiện khoá không đổi.
 
+**Thu hồi token** (`/recall`, FE-UX-02b, chưa có mục riêng ở Phần 3): khi có đợt, bốn bước "Đã mở đợt", "Đến hạn", "Đã đóng băng", "Hoàn tất" nằm trong một thẻ, dạng chấm tròn nối đường: bước đã qua xanh có dấu tích, bước đang ở viền vàng (ở giai đoạn đã hoàn tất thì bước "Hoàn tất" viền vàng), bước chưa tới mờ. Thẻ "Tình trạng đợt thu hồi" có hàng nhãn đầu (giai đoạn đợt xanh dương, "Đã huỷ" đỏ, "Token trên chuỗi" vàng khi đang đóng băng), mười ô thông tin dạng ô nền nhạt (4 cột từ 1100 px, 2 cột từ 640 px), cảnh báo khoá chain và "Chưa thể đóng băng" là hộp vàng, tiến độ lô là hộp xanh dương; vùng nút có đường kẻ phía trên, mỗi nút có biểu tượng. Bảng hồ sơ có nhãn trạng thái tô màu: Chờ đốt vàng, Đã đốt xanh lá, Lỗi đỏ, Dự kiến và các trạng thái giữa xanh dương (`components/recall/case-tone.ts`). Lỗi thao tác trong hộp thoại hiện trong hộp đỏ, tiêu điểm đặt vào câu lỗi.
+
 
 Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks: runbook `docs/RUNBOOK_FIREBLOCKS.md`.
 
@@ -314,7 +316,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 **Màn chặn vai** (`components/layout/channel-guard.tsx`): mở một màn không thuộc vai đang có hiệu lực thì hiện "Không có quyền vào kênh ...". Màn này không có khung (thanh bên, thanh đầu) nên không đổi vai được; câu hướng dẫn: "Bấm 'Về trang của vai hiện tại' rồi đổi vai ở đầu thanh bên" (FE-UX-01b); IN-04 thêm nút "Về trang của vai hiện tại" trỏ trang mặc định của vai (`roleHomeHref`, `components/layout/role-home.ts`): Nhà đầu tư `/portfolio`, Người bán `/seller`, Giao dịch viên và Kiểm soát viên `/`.
 
-**Ô chọn token** (`components/token/token-scope-select.tsx`, UIUX-02), một hàng riêng ngay dưới tiêu đề của 10 màn: `/draft`, `/approvals`, `/config`, `/vault`, `/distribution`, `/recall`, `/portfolio`, `/seller`, `/seller/withdraw`; riêng `/trade` nằm ở chỗ ô Token cũ trong thẻ "Đặt lệnh".
+**Ô chọn token** (`components/token/token-scope-select.tsx`, UIUX-02), một hàng riêng ngay dưới tiêu đề của 10 màn: `/draft`, `/approvals`, `/config`, `/vault`, `/distribution`, `/recall`, `/portfolio`, `/seller`, `/seller/withdraw`; riêng `/trade` nằm ở chỗ ô Token cũ trong thẻ "Đặt lệnh". Từ FE-UX-02b, ở `/draft`, `/config`, `/recall` ô này nằm cùng hàng với tiêu đề (bên phải), dưới 640 px xuống hàng.
 
 - **Danh sách:** token thật của màn (mặc định WPT), rồi luôn có dòng TCC (Tokenized Carbon Credit) kèm thẻ chữ mờ "(chưa hỗ trợ)", không chọn được bằng chuột hay bàn phím. Danh sách token rỗng (`/trade` trên chain chưa có dự án): ô trống, gợi ý "Chưa có token".
 - **Gõ lọc:** bấm vào ô thì xổ đủ danh sách và chọn sẵn chữ; gõ mã token thì lọc, không phân biệt hoa thường: mã bắt đầu bằng chữ gõ lên đầu, rồi mã chứa chữ gõ, rồi tên dự án hoặc tên loại token chứa chữ gõ. Không dòng nào khớp: "Không có token khớp". Mũi tên lên, xuống đi qua các dòng chọn được; Enter chọn; Esc hoặc rời ô thì trả về token đang chọn.
@@ -918,6 +920,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Action khi tương tác:**
   - Mỗi lần nội dung đổi: `previewTokenRequestAction`
   - Bấm gửi: `createTokenRequestAction`
+- **Bố cục** (FE-UX-02b): tiêu đề và ô chọn token cùng hàng; hai ô số liệu "Yêu cầu tạo token đang chờ", "Yêu cầu huỷ token đang chờ" (chưa đọc được thì "–"); hai thẻ biểu mẫu cạnh nhau từ 1100 px, mỗi thẻ có biểu tượng tiêu đề; khối "Thông tin token" và "Kiểm tra trước khi lập" là ô nền nhạt; ô Số lượng khi tự điền tổng cung có nền đậm hơn; cảnh báo huỷ toàn bộ nguồn cung là hộp đỏ; thẻ "Yêu cầu đã lập" có nhãn trạng thái tô màu (Chờ duyệt vàng, Đang xử lý xanh dương, Hoàn tất xanh lá, Từ chối và Thất bại đỏ; cũng áp ở `/approvals`, `/approvals/[id]`), bảng đang tải hiện khung có vòng quay.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -953,7 +956,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-11.** **Ngày hiệu lực chỉ được lưu, không ràng buộc.** Lúc duyệt hệ thống thực hiện ngay, không so ngày (`S:350`, không có chỗ dùng nào khác).
-- **L-71.** **Vault không hiện trên màn.** Khi chưa có ví SPV, ô ví đích bắt nhập tay, nhưng màn không hiện địa chỉ vault mà R6 bắt buộc. Người dùng chỉ thấy địa chỉ vault trong câu lỗi của khối kiểm tra (`draft.tsx:395-413`).
+- **L-71.** **Vault không hiện trên màn.** Khi chưa có ví SPV, ô ví đích bắt nhập tay, nhưng màn không hiện địa chỉ vault mà R6 bắt buộc. Người dùng chỉ thấy địa chỉ vault trong câu lỗi của khối kiểm tra (`draft.tsx:419-438`).
 - **L-72.** **Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm.** Hệ thống chỉ tra theo `tokenSymbol` (`lib/bank/schemas.ts` `tokenInfoQuerySchema`).
 - **L-73.** **"Mã người bán" là hằng NB001**, không đọc từ dữ liệu dự án (`S:729-732`).
 - **L-01.** **Mỗi lần tải danh sách ghi một dòng AuditLog ALLOWED.** `listTokenRequests` dùng `authorize`, trái với chú thích ở `S:707-709` ("phép đọc dùng assertCan, không ghi sổ") (`S:659`).
@@ -1550,6 +1553,8 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 - **Action khi mở:** đúng 1 action, `getPriceConfigOverviewAction({chain})` > `getPriceConfigOverview` (`lib/bank/config.service.ts:481`). Kiểm quyền bằng `assertCan`, nên mở màn **không** ghi sổ kiểm toán. Bốn khối có kết quả riêng; lời đọc chuỗi chạy song song. Đo lại ở FE-07: 1 action cho cả hai vai.
 - **Action khi tương tác:** `setIssuePriceAction` khi xác nhận đổi giá; xong thì tải lại bằng chính action mở màn.
 
+**Bố cục** (FE-UX-02b): tiêu đề và ô chọn token cùng hàng; từ 1100 px hai cột: trái là thẻ "Giá phát hành" (ô vàng "Giá áp dụng cho lệnh mới" đầu thẻ) và thẻ "Đổi giá", phải là thẻ "Tình trạng phát hành" (ô xanh đậm "Tổng cung trên chuỗi" đầu thẻ); thẻ "Lịch sử đổi giá" trải hết chiều ngang. Mỗi tiêu đề thẻ có biểu tượng; cảnh báo lệch giá, vượt trần là hộp vàng; kết quả đổi giá là hộp xanh lá, vàng hoặc đỏ.
+
 **Khối "Giá phát hành"** (`getIssuePrice`, `lib/bank/config.service.ts:118`)
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu |
@@ -1889,7 +1894,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-64 | `/wallet` | Kết nối ví ở `/wallet` không ghi vào hồ sơ; ví do Giao dịch viên gắn ở `/wallet-binding`. |
 | L-65 | `/wallet` | Câu "Số WPT đang giữ xem ở trang Tổng quan" sai với Người bán: Tổng quan của Người bán hiện số của vault (`wallet-status-card.tsx:113`). |
 | L-69 | `/` | Tiêu đề, breadcrumb "Tổng quan" khác mục menu "Bảng điều khiển" (UIUX-02 QĐ-10 chủ ý giữ; thiết kế lại sau FIX-04). |
-| L-71 | `/draft` | Vault không hiện trên màn: khi chưa có ví SPV, người lập phải nhập tay ví đích, địa chỉ vault mà R6 bắt buộc chỉ lộ ra trong câu lỗi (`draft.tsx:395-413`). |
+| L-71 | `/draft` | Vault không hiện trên màn: khi chưa có ví SPV, người lập phải nhập tay ví đích, địa chỉ vault mà R6 bắt buộc chỉ lộ ra trong câu lỗi (`draft.tsx:419-438`). |
 | L-72 | `/draft` | Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm: hệ thống chỉ tra theo `tokenSymbol`. |
 | L-73 | `/draft` | "Mã người bán" là hằng NB001, không đọc từ dữ liệu dự án (`S:729-732`). |
 | L-74 | `/approvals` | Thẻ số liệu chỉ đếm theo chain đang chọn. |
@@ -1932,3 +1937,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 03/11/2026 | `77651b0` | Dev (Claude) | FE-UX-01b: khung giao diện theo bản chốt: thanh bên thẻ nổi 270 px, thu gọn 88 px nhớ trong trình duyệt, logo mới, ô Vai trò ở đầu và ô Chain ở đáy thanh bên; thanh đầu chỉ còn tên màn, nút Kết nối ví vàng, nút Sáng Tối (bỏ dòng breadcrumb); dưới 1100 px thanh bên là ngăn kéo mở bằng nút menu; công tắc Lưu ký theo màu chính. Màu thương hiệu mới ở `lib/brand.ts`. Không đổi menu, quyền, dữ liệu. Sửa Phần 3 quy ước chung, mục 3.0 |
 | 04/11/2026 | `79ac7d2` | Dev (Claude) | FE-UX-01c: chuyển động nhẹ chỉ bằng CSS: nền trôi ba quầng sáng, nội dung hiện dần khi vào màn, đường sáng mép dưới thanh đầu, vòng sáng số việc chờ khác 0, hiệu ứng rê chuột ở biểu tượng menu, nút Sáng Tối, nút chính; tắt hết khi hệ điều hành bật giảm chuyển động. Không đổi dữ liệu, thao tác. Sửa Phần 3 mục 3.0 |
 | 04/11/2026 | nhánh `feat/fe-ux-02a-van-hanh` | Dev (Claude) | FE-UX-02a: thành phần màn dùng chung (ô số liệu bốn sắc, nhãn trạng thái tô màu theo nhóm, hộp thông báo, khung rỗng, đang tải, lỗi, ô nhập, thẻ chặn) và vẽ lại 5 màn Vận hành `/`, `/transactions`, `/transactions/[id]` (dùng chung `/orders/[id]`), `/demo-payment`, `/wallet-binding`. Không đổi chữ (trừ dấu chấm giữa, gạch dài ở hai chỗ), dữ liệu, thao tác. Sửa Phần 3 mục 3.0, 3.4.1, 3.4.5, 3.4.6, 3.4.7, 3.4.9, số dòng ở L-14, L-26, L-42, L-69 |
+| 04/11/2026 | nhánh `feat/fe-ux-02b-van-hanh` | Dev (Claude) | FE-UX-02b: vẽ lại `/draft`, `/config`, `/recall` bằng thành phần dùng chung của FE-UX-02a (ô số liệu, hộp thông báo, khung rỗng, nhãn trạng thái tô màu, bước thu hồi dạng chấm tròn); nhãn trạng thái yêu cầu token tô màu cả ở `/approvals`. Không đổi chữ (trừ gạch dài ở câu gợi ví thanh toán và ô trống), dữ liệu, thao tác. Sửa Phần 3 mục 3.0 (ô chọn token, đoạn Thu hồi token), 3.4.2, 3.5.3, số dòng ở L-71 |
