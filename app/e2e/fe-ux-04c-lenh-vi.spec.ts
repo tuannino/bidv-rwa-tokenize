@@ -121,6 +121,8 @@ test.describe('FE-UX-04c Quản lý lệnh, Chi tiết lệnh, Ví của tôi', 
     expect(scopeBox.y, 'ghi chú phạm vi dưới thẻ mô phỏng').toBeGreaterThanOrEqual(mockCard.y + mockCard.height - 1);
     expect(Math.abs(scopeBox.width - mockCard.width), 'hai khối rộng bằng nhau').toBeLessThan(4);
 
+    // Ô chọn chain nằm trong ngăn kéo menu ở 390 px: trả 1440 px trước khi chọn.
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.locator('#chain-selector').selectOption('hardhat-local');
     await expect(main.getByRole('heading', { name: 'Chưa có ví trong trình duyệt' })).toBeVisible();
     expect(roles).toEqual(ROLE_COUNTS['/wallet']);
