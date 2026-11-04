@@ -51,7 +51,8 @@ export function TokenListBox() {
             <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-primary">
               <Wind className="size-5" />
             </span>
-            <div className="min-w-0 flex-1">
+            {/* Dưới 640 px khối tên chiếm hết hàng (trừ ô biểu tượng) để khối số nhà đầu tư xuống dưới. */}
+            <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] min-[640px]:basis-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
                   {project.tokenSymbol}
@@ -63,14 +64,14 @@ export function TokenListBox() {
                 )}
               </div>
               <ProjectName name={project.name} onChain={project.onChain} view={projectNameView(fresh, project.name)} />
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                 {REGION_LABELS[project.region]}, {PROJECT_STATUS_LABELS[project.status]}
                 <UnverifiedNote />
               </div>
             </div>
 
-            <div className="shrink-0 text-right">
-              <div className="flex items-center justify-end gap-1.5">
+            <div className="ml-14 shrink-0 min-[640px]:ml-0 min-[640px]:text-right">
+              <div className="flex items-center gap-1.5 min-[640px]:justify-end">
                 <span className="tabular-nums text-sm font-semibold text-foreground">
                   {project.onChain
                     ? MOCK_WIND_STATS.whitelistedInvestors.toLocaleString('vi-VN')
