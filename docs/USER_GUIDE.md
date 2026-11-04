@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-02b-van-hanh` (FE-UX-02b, từ `release/ui-v2` @ `27a52ad`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-03a-kiem-soat` (FE-UX-03a, từ `release/ui-v2` @ `7b3216d`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -973,6 +973,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Action khi mở:**
   - `getApprovalStatsAction(chain)`: trả cả ba số liệu và lịch sử phê duyệt (UIUX-01 QĐ-5), không thêm action
   - `listTokenRequestsAction({chain, type, status, limit:200})` cho mỗi hàng chờ; gọi lại khi đổi bộ lọc trạng thái
+- **Bố cục** (FE-UX-03a): tiêu đề và ô chọn token cùng hàng; ba ô số liệu "Đang chờ duyệt", "Đã duyệt hôm nay", "Đã từ chối hôm nay" cạnh nhau từ 1100 px (chưa đọc được thì "–"); thẻ "Hàng chờ tạo token", "Hàng chờ huỷ token", "Lịch sử phê duyệt" có biểu tượng tiêu đề; hàng bộ lọc: ô tìm co giãn, ô trạng thái rộng khoảng 220 px; bảng đang tải hiện khung có vòng quay, rỗng hiện khung "Không có yêu cầu nào khớp."; nhãn trạng thái tô màu như `/draft`.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1003,6 +1004,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Nghiệp vụ:** Phát hành và huỷ token (duyệt, từ chối, đối soát yêu cầu đang thực hiện).
 - **Action khi mở:** `getTokenRequestDetailAction({requestId, chain})`. Một action (đo lại ở HF-05, vai Kiểm soát viên; vai Giao dịch viên gặp màn chặn quyền, 0 action).
 - **Action khi tương tác:** `approveTokenRequestAction`, `rejectTokenRequestAction`, `reconcileTokenRequestAction` (HF-05, chỉ khi bấm "Đối soát"). Sau mỗi thao tác thì đọc lại toàn bộ.
+- **Bố cục** (FE-UX-03a): liên kết "Về danh sách" có mũi tên ở đầu, rồi tiêu đề và mã đầy đủ. Thẻ "Hành động": nhãn trạng thái góc trên phải; từ 1100 px cột trái gồm lý do khoá (hộp vàng có biểu tượng khoá), ô "Lý do từ chối", cảnh báo duyệt (hộp vàng); cột phải ba nút cao xếp dọc ("Chấp nhận" xanh, "Từ chối" đỏ, "Đối soát" viền); dưới 1100 px xếp dọc, nút trải ngang. Kết quả thao tác là hộp xanh lá, vàng hoặc đỏ. "Thông tin token" và "Nội dung yêu cầu" cạnh nhau, cao bằng nhau; ô thiếu dữ liệu in "–". "Nhật ký" dạng dòng thời gian (chấm tròn, đường nối), người thao tác sau dấu phẩy. Khối hành động nằm ở `components/maker-checker/approval-actions.tsx` (tách để kiểm bằng dữ liệu giả, không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1938,3 +1940,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 04/11/2026 | `79ac7d2` | Dev (Claude) | FE-UX-01c: chuyển động nhẹ chỉ bằng CSS: nền trôi ba quầng sáng, nội dung hiện dần khi vào màn, đường sáng mép dưới thanh đầu, vòng sáng số việc chờ khác 0, hiệu ứng rê chuột ở biểu tượng menu, nút Sáng Tối, nút chính; tắt hết khi hệ điều hành bật giảm chuyển động. Không đổi dữ liệu, thao tác. Sửa Phần 3 mục 3.0 |
 | 04/11/2026 | nhánh `feat/fe-ux-02a-van-hanh` | Dev (Claude) | FE-UX-02a: thành phần màn dùng chung (ô số liệu bốn sắc, nhãn trạng thái tô màu theo nhóm, hộp thông báo, khung rỗng, đang tải, lỗi, ô nhập, thẻ chặn) và vẽ lại 5 màn Vận hành `/`, `/transactions`, `/transactions/[id]` (dùng chung `/orders/[id]`), `/demo-payment`, `/wallet-binding`. Không đổi chữ (trừ dấu chấm giữa, gạch dài ở hai chỗ), dữ liệu, thao tác. Sửa Phần 3 mục 3.0, 3.4.1, 3.4.5, 3.4.6, 3.4.7, 3.4.9, số dòng ở L-14, L-26, L-42, L-69 |
 | 04/11/2026 | nhánh `feat/fe-ux-02b-van-hanh` | Dev (Claude) | FE-UX-02b: vẽ lại `/draft`, `/config`, `/recall` bằng thành phần dùng chung của FE-UX-02a (ô số liệu, hộp thông báo, khung rỗng, nhãn trạng thái tô màu, bước thu hồi dạng chấm tròn); nhãn trạng thái yêu cầu token tô màu cả ở `/approvals`. Không đổi chữ (trừ gạch dài ở câu gợi ví thanh toán và ô trống), dữ liệu, thao tác. Sửa Phần 3 mục 3.0 (ô chọn token, đoạn Thu hồi token), 3.4.2, 3.5.3, số dòng ở L-71 |
+| 04/11/2026 | nhánh `feat/fe-ux-03a-kiem-soat` | Dev (Claude) | FE-UX-03a: vẽ lại `/approvals`, `/approvals/[id]` bằng thành phần dùng chung (ô số liệu, hộp thông báo, khung rỗng và đang tải, nhật ký dạng dòng thời gian); tách khối hành động sang `approval-actions.tsx`; xoá `maker-checker/stat-card.tsx`. Không đổi chữ (trừ gạch dài ở gợi ý lý do từ chối và ô thiếu, dấu chấm giữa ở nhật ký), dữ liệu, thao tác, điều kiện khoá. Sửa Phần 3 mục 3.4.3, 3.4.4 |

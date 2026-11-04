@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { CirclePlus, Clock, Flame, History, Search, ShieldCheck, ShieldX } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
 import { RequestTable } from '@/components/maker-checker/request-table';
-import { INPUT_CLASS, StatCard } from '@/components/maker-checker/stat-card';
 import { STATUS_LABELS } from '@/components/maker-checker/gates';
 import { getApprovalStatsAction, listTokenRequestsAction } from '@/app/actions/token-request';
 import type { ApprovalStatsView } from '@/lib/bank/token-request.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
+import { formatAmount } from '@/lib/format';
 import {
   APPROVAL_HISTORY_LIMIT,
   TOKEN_REQUEST_STATUSES,
@@ -27,10 +30,16 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  *
  * Bộ lọc trạng thái gửi lên máy chủ; ô tìm kiếm chỉ lọc các dòng ĐÃ tải về theo chữ — nó không
  * quyết định gì về nghiệp vụ, chỉ giúp tìm một dòng trong bảng.
+ *
+ * FE-UX-03a: 3 ô số liệu `Kpi` sắc thường (giữ `aria-label`, chưa có số thì "–"); thẻ có biểu tượng tiêu
+ * đề; lỗi là `Alert bad` không `role`; bảng chưa có dữ liệu hiện khung đang tải (`RequestTable loading`).
  */
 
 /** Đủ rộng cho hàng chờ của một PoC; chạm ngưỡng thì màn hình nói ra, không cắt lặng lẽ. */
 const QUEUE_LIMIT = 200;
+
+/** Giá trị ô số liệu: chưa đọc được là "–", không phải 0. */
+const kpiValue = (value: number | null) => (value === null ? '–' : formatAmount(value));
 
 export function ApprovalsPage() {
   const { chain } = useSelectedChain();
@@ -59,18 +68,32 @@ export function ApprovalsPage() {
 
   return (
     <div className="space-y-6" data-chain={chain}>
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Phê duyệt lệnh</h1>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Phê duyệt lệnh</h1>
+        <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
       </header>
 
-      <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Đang chờ duyệt" value={freshStats?.data?.pending ?? null} />
-        <StatCard label="Đã duyệt hôm nay" value={freshStats?.data?.approvedToday ?? null} />
-        <StatCard label="Đã từ chối hôm nay" value={freshStats?.data?.rejectedToday ?? null} />
+      <div className="grid gap-4 min-[1100px]:grid-cols-3">
+        <Kpi
+          aria-label="Đang chờ duyệt"
+          label="Đang chờ duyệt"
+          value={kpiValue(freshStats?.data?.pending ?? null)}
+          icon={<Clock />}
+        />
+        <Kpi
+          aria-label="Đã duyệt hôm nay"
+          label="Đã duyệt hôm nay"
+          value={kpiValue(freshStats?.data?.approvedToday ?? null)}
+          icon={<ShieldCheck />}
+        />
+        <Kpi
+          aria-label="Đã từ chối hôm nay"
+          label="Đã từ chối hôm nay"
+          value={kpiValue(freshStats?.data?.rejectedToday ?? null)}
+          icon={<ShieldX />}
+        />
       </div>
-      {freshStats?.error && <p className="text-sm text-destructive">{freshStats.error}</p>}
+      {freshStats?.error && <Alert tone="bad">{freshStats.error}</Alert>}
 
       <Queue chain={chain} type="MINT" title="Hàng chờ tạo token" />
       <Queue chain={chain} type="BURN" title="Hàng chờ huỷ token" />
@@ -93,12 +116,17 @@ function ApprovalHistory({
   return (
     <Card aria-label={title}>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <History />
+          </CardTitleIcon>
+          {title}
+        </CardTitle>
         <CardDescription>Các yêu cầu đã được duyệt hoặc từ chối trên chain này, mới quyết định trước.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {stats?.error ? (
-          <p className="text-sm text-destructive">{stats.error}</p>
+          <Alert tone="bad">{stats.error}</Alert>
         ) : (
           <RequestTable
             variant="history"
@@ -106,6 +134,7 @@ function ApprovalHistory({
             rows={rows}
             detailHref={(id) => `/approvals/${id}`}
             emptyText={stats ? 'Chưa có quyết định nào.' : 'Đang tải…'}
+            loading={!stats}
           />
         )}
         {rows.length >= APPROVAL_HISTORY_LIMIT && (
@@ -164,23 +193,26 @@ function Queue({ chain, type, title }: { chain: ChainKey; type: TokenRequestType
   return (
     <Card aria-label={title}>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>{type === 'MINT' ? <CirclePlus /> : <Flame />}</CardTitleIcon>
+          {title}
+        </CardTitle>
         <CardDescription>Bấm mã yêu cầu để xem chi tiết và quyết định.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem]">
+        <div className="grid gap-3 min-[640px]:grid-cols-[minmax(0,1fr)_220px]">
           <div className="space-y-1.5">
             <label htmlFor={`${prefix}-search`} className="text-sm font-medium">
               Tìm kiếm
             </label>
             <div className="relative">
-              <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 id={`${prefix}-search`}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Mã yêu cầu, người lập, lý do, chứng từ…"
-                className={`${INPUT_CLASS} pl-9`}
+                className={`${fieldClass} pl-10`}
               />
             </div>
           </div>
@@ -192,7 +224,7 @@ function Queue({ chain, type, title }: { chain: ChainKey; type: TokenRequestType
               id={`${prefix}-status`}
               value={status}
               onChange={(event) => setStatus(event.target.value as StatusFilter)}
-              className={INPUT_CLASS}
+              className={fieldClass}
             >
               <option value="ALL">Tất cả trạng thái</option>
               {TOKEN_REQUEST_STATUSES.map((value) => (
@@ -204,7 +236,7 @@ function Queue({ chain, type, title }: { chain: ChainKey; type: TokenRequestType
           </div>
         </div>
 
-        {fresh?.error && <p className="text-sm text-destructive">{fresh.error}</p>}
+        {fresh?.error && <Alert tone="bad">{fresh.error}</Alert>}
         {fresh && fresh.rows.length >= QUEUE_LIMIT && (
           <p className="text-xs text-muted-foreground">
             Đang hiện {QUEUE_LIMIT} yêu cầu mới nhất. Lọc theo trạng thái để thu hẹp.
@@ -215,6 +247,7 @@ function Queue({ chain, type, title }: { chain: ChainKey; type: TokenRequestType
           rows={rows}
           detailHref={(id) => `/approvals/${id}`}
           emptyText={fresh ? 'Không có yêu cầu nào khớp.' : 'Đang tải…'}
+          loading={!fresh}
         />
       </CardContent>
     </Card>
