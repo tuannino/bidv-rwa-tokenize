@@ -1,4 +1,5 @@
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, ShieldCheck, XCircle } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
 import type { TradePreviewState } from './gates';
 
@@ -10,8 +11,11 @@ import type { TradePreviewState } from './gates';
  */
 export function TradeCheckBlock({ preview, wallet }: { preview: TradePreviewState; wallet: string }) {
   return (
-    <section aria-label="Khối kiểm tra trước lệnh" className="space-y-2 rounded-lg border border-border p-3">
-      <h3 className="text-sm font-medium">Kiểm tra trước lệnh</h3>
+    <section aria-label="Khối kiểm tra trước lệnh" className="space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+        Kiểm tra trước lệnh
+      </h3>
       {preview.kind === 'idle' && (
         <p className="text-sm text-muted-foreground">Nhập số lượng hợp lệ, hệ thống kiểm tra năm điều kiện.</p>
       )}
@@ -25,20 +29,20 @@ export function TradeCheckBlock({ preview, wallet }: { preview: TradePreviewStat
         (preview.notBound ? (
           <WalletNotBoundNotice wallet={wallet} />
         ) : (
-          <p className="text-sm text-destructive">{preview.message}</p>
+          <Alert tone="bad">{preview.message}</Alert>
         ))}
       {preview.kind === 'checked' && (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {preview.conditions.map((check) => (
-            <li key={check.key} data-check={check.key} data-passed={check.passed} className="flex items-start gap-2 text-sm">
+            <li key={check.key} data-check={check.key} data-passed={check.passed} className="flex items-start gap-2 rounded-[14px] bg-muted/60 px-3 py-2.5 text-sm">
               {check.passed ? (
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-label="đạt" />
               ) : (
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-label="không đạt" />
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-bad-ink" aria-label="không đạt" />
               )}
               <span>
                 <span className="font-medium">{check.label}</span>
-                <span className={check.passed ? 'text-muted-foreground' : 'text-destructive'}>
+                <span className={check.passed ? 'text-muted-foreground' : 'text-bad-ink'}>
                   {' '}
                   {check.passed ? 'Đạt' : 'Không đạt'}: {check.detail}
                 </span>

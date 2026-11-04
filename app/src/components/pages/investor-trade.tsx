@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Loader2, Wallet, Wind } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ShoppingBasket } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -15,23 +15,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { listOrdersAction, placeOrderAction, preparePermitAction } from '@/app/actions/purchase';
 import { getTradeContextAction, previewTradeAction } from '@/app/actions/trade';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount } from '@/lib/format';
 import type { OrderView, PermitPreparationView } from '@/lib/bank/purchase.service';
 import { CHAINS } from '@bidv/shared';
-import { WrongChainBanner } from '@/components/wallet/wrong-chain-banner';
 import { useWalletStatus } from '@/lib/hooks/use-wallet-status';
 import { signPermitWithWallet } from '@/lib/signer/wallet-permit';
 import { isUserRejection } from '@/lib/wallet/switch-error';
 import { tradeSides } from '@/components/trading/sides';
-import type { InvestorTokenInfo, TradeContextView } from '@/lib/bank/trade.service';
+import type { TradeContextView } from '@/lib/bank/trade.service';
 import type { OrderSide } from '@/lib/store/order.store.port';
-import { SettlementProgress } from '@/components/trading/settlement-progress';
 import { TradeCheckBlock } from '@/components/trading/trade-check-block';
 import {
-  ORDER_STATUS_LABELS,
   SIDE_LABELS,
   confirmBlockReason,
   isSettled,
@@ -41,8 +40,16 @@ import {
   type TradePreviewState,
 } from '@/components/trading/gates';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
-import { tradeBlockText, tradingStatusLabel } from '@/components/recall/gates';
+import { tradeBlockText } from '@/components/recall/gates';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
+import {
+  ConnectWalletPrompt,
+  OrderSummary,
+  PermitNotice,
+  Row,
+  TokenInfoCard,
+  TrackedOrder,
+} from '@/components/trading/trade-panels';
 
 /**
  * Màn GIAO DỊCH TOKEN của Nhà đầu tư (FE-25 việc 1 đến 8).
@@ -267,37 +274,40 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Giao dịch token</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Giao dịch token</h1>
       </header>
 
       {chain === 'mock' && (
-        <p className="text-xs text-muted-foreground" role="note">
-          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-code">{wallet}</span>.
+        <Alert tone="info" role="note">
+          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-code break-all">{wallet}</span>.
           Không cần kết nối ví trình duyệt.
-        </p>
+        </Alert>
       )}
 
       {freshContext === null ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc số dư và thông tin token…
-        </p>
+        <EmptyState loading>Đang đọc số dư và thông tin token…</EmptyState>
       ) : freshContext.error ? (
-        <p className="text-sm text-destructive">{freshContext.error}</p>
+        <Alert tone="bad">{freshContext.error}</Alert>
       ) : ctx ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Card>
+        // Lưới 12 cột từ 1100 px: Đặt lệnh 7 cột, cột phải 5 cột (Tóm tắt lệnh rồi Thông tin token); dưới đó một cột.
+        <div className="grid gap-6 min-[1100px]:grid-cols-12">
+          <Card className="min-[1100px]:col-span-7">
             <CardHeader>
-              <CardTitle className="text-base">Đặt lệnh</CardTitle>
+              <CardTitle className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <ShoppingBasket />
+                </CardTitleIcon>
+                Đặt lệnh
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               {!ctx.walletBound && <WalletNotBoundNotice wallet={ctx.wallet} />}
               {ctx.tradeBlock && (
-                <div role="alert" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+                <Alert tone="warn" role="alert">
                   <p className="font-semibold">Giao dịch tạm dừng</p>
                   <p>{tradeBlockText(ctx.tradeBlock)}</p>
                   <Link prefetch={false} href="/portfolio" className="underline underline-offset-4">Xem thông báo ở Tổng quan</Link>
-                </div>
+                </Alert>
               )}
               <TokenScopeSelect
                 id="token-scope"
@@ -309,13 +319,14 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
               {/* FIX-02 A4: chỉ một chiều (Nhà đầu tư chỉ mua) thì không dựng cụm nút; `side` giữ BUY. */}
               {tradeSides(ctx.sellEnabled).length > 1 && (
-              <div role="tablist" aria-label="Chiều lệnh" className="grid grid-cols-2 gap-2">
+              <div role="tablist" aria-label="Chiều lệnh" className="grid w-full grid-cols-2 gap-1 rounded-full bg-muted p-1">
                 {tradeSides(ctx.sellEnabled).map((value) => (
                   <Button
                     key={value}
                     role="tab"
                     aria-selected={side === value}
                     variant={side === value ? 'default' : 'outline'}
+                    className="rounded-full"
                     disabled={tradeBlocked}
                     onClick={() => setSide(value)}
                   >
@@ -325,50 +336,52 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
               </div>
               )}
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Số lượng</span>
-                <input
-                  aria-label="Số lượng"
-                  inputMode="numeric"
-                  className={FIELD}
-                  value={quantity}
-                  aria-invalid={quantity !== '' && quantityReason !== null}
-                  disabled={tradeBlocked || !ctx.walletBound}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-                <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
-                  {ctx.walletBound ? ctx.caps[side].reason : WALLET_NOT_BOUND_REASON}
-                </span>
-                {quantity !== '' && quantityReason && (
-                  <span className="block text-xs text-destructive" role="alert">
-                    {quantityReason}
+              <div className="grid gap-4 min-[640px]:grid-cols-2">
+                <label className="block space-y-1.5 text-sm">
+                  <span className="text-muted-foreground">Số lượng</span>
+                  <input
+                    aria-label="Số lượng"
+                    inputMode="numeric"
+                    className={`${fieldClass} aria-invalid:border-destructive`}
+                    value={quantity}
+                    aria-invalid={quantity !== '' && quantityReason !== null}
+                    disabled={tradeBlocked || !ctx.walletBound}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
+                  <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
+                    {ctx.walletBound ? ctx.caps[side].reason : WALLET_NOT_BOUND_REASON}
                   </span>
-                )}
-              </label>
+                  {quantity !== '' && quantityReason && (
+                    <span className="block text-xs text-bad-ink" role="alert">
+                      {quantityReason}
+                    </span>
+                  )}
+                </label>
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Giá (VNDB / token, chỉ để xem)</span>
-                <input aria-label="Giá" className={`${FIELD} bg-muted/40`} value={formatAmount(ctx.priceVnd)} readOnly />
-              </label>
+                <label className="block space-y-1.5 text-sm">
+                  <span className="text-muted-foreground">Giá (VNDB / token, chỉ để xem)</span>
+                  <input aria-label="Giá" className={fieldClass} value={formatAmount(ctx.priceVnd)} readOnly />
+                </label>
+              </div>
 
-              <div className="flex items-baseline justify-between border-t border-border pt-3">
+              <div className="tile-gold relative isolate flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 overflow-hidden rounded-[18px] px-4 py-3">
                 <span className="text-sm text-muted-foreground">Tổng giá trị dự kiến</span>
                 <span className="tabular-nums text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
               </div>
 
               <TradeCheckBlock preview={preview} wallet={ctx.wallet} />
 
-              <div className="space-y-1">
-                <Button className="w-full" disabled={blockReason !== null} onClick={openConfirm}>
+              <div className="space-y-2">
+                <Button className="h-12 w-full" disabled={blockReason !== null} onClick={openConfirm}>
                   Xác nhận lệnh {SIDE_LABELS[side].toLowerCase()}
                 </Button>
                 {blockReason && <p className="text-xs text-muted-foreground">{blockReason}</p>}
-                {submitError && <p className="text-xs text-destructive">{submitError}</p>}
+                {submitError && <Alert tone="bad">{submitError}</Alert>}
               </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
+          <div className="space-y-6 min-[1100px]:col-span-5">
             <OrderSummary side={side} quantity={amount} priceVnd={ctx.priceVnd} total={total} balances={ctx.balances} />
             <TokenInfoCard token={ctx.token} tradeBlock={ctx.tradeBlock} />
           </div>
@@ -383,7 +396,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             <DialogTitle>Đối chiếu lệnh lần cuối</DialogTitle>
             <DialogDescription>Kiểm tra lại trước khi gửi. Số VNDB được chốt tại thời điểm gửi.</DialogDescription>
           </DialogHeader>
-          <dl className="grid gap-2 text-sm">
+          <dl className="text-sm">
             <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
             <Row label="Số lượng" mono>{formatAmount(amount)}</Row>
             <Row label="Giá" mono>{ctx ? `${formatAmount(ctx.priceVnd)} VNDB` : 'Chưa có'}</Row>
@@ -397,9 +410,9 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             />
           )}
           {dialogNote && (
-            <p className="text-sm text-destructive" role="alert" data-testid="sign-note">
+            <Alert tone="bad" role="alert" data-testid="sign-note">
               {dialogNote}
-            </p>
+            </Alert>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
@@ -420,190 +433,6 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-/**
- * Câu xác nhận chữ ký trên chain thật (FE-05 QĐ-I): số và token sẽ ký, giờ hết hạn, không tốn phí.
- * Ví sai mạng thì hiện ngay dải cảnh báo dùng chung, nút ký bị khoá theo `canSign`.
- */
-function PermitNotice({
-  prepared,
-  preparing,
-  walletStatus,
-}: {
-  prepared: PermitPreparationView | null;
-  preparing: boolean;
-  walletStatus: ReturnType<typeof useWalletStatus>;
-}) {
-  const { status, switchToExpected, switching, switchError } = walletStatus;
-  if (status.kind === 'wrong-chain' || status.kind === 'chain-mismatch') {
-    return (
-      <WrongChainBanner
-        currentLabel={status.kind === 'wrong-chain' ? `chain ID ${status.current}` : status.walletChain}
-        expectedLabel={status.kind === 'wrong-chain' ? status.expectedLabel : status.appChain}
-        onSwitch={() => void switchToExpected()}
-        switching={switching}
-        error={switchError}
-      />
-    );
-  }
-  if (!walletStatus.canSign) {
-    return <p className="text-sm text-destructive">{walletStatus.blockedReason}</p>;
-  }
-  if (!prepared) {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        {preparing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-        Đang chuẩn bị nội dung chữ ký ủy quyền…
-      </p>
-    );
-  }
-  const until = new Date(prepared.deadlineAt).toLocaleString('vi-VN');
-  return (
-    <p className="rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="permit-notice">
-      Bạn sẽ ký cho phép hệ thống chi đúng{' '}
-      <span className="tabular-nums font-semibold">
-        {formatAmount(prepared.value)} {prepared.tokenSymbol}
-      </span>{' '}
-      cho lệnh này, hiệu lực đến {until}; không tốn phí giao dịch.
-    </p>
-  );
-}
-
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive';
-
-function Row({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'font-code' : undefined}>{children}</dd>
-    </div>
-  );
-}
-
-function OrderSummary({
-  side,
-  quantity,
-  priceVnd,
-  total,
-  balances,
-}: {
-  side: OrderSide;
-  quantity: string | null;
-  priceVnd: string;
-  total: string | null;
-  balances: TradeContextView['balances'];
-}) {
-  return (
-    <Card size="sm" aria-label="Tóm tắt lệnh">
-      <CardHeader>
-        <CardTitle className="text-sm">Tóm tắt lệnh</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid gap-1 text-sm">
-          <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
-          <Row label="Số lượng" mono>{formatAmount(quantity)}</Row>
-          <Row label="Giá" mono>{formatAmount(priceVnd)} VNDB</Row>
-          <Row label="Tổng giá trị dự kiến" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
-          {/* FIX-01 E1: ví chưa được định danh thì máy chủ không trả số dư; không hiện số cũ. */}
-          <Row label="Token đang giữ" mono>{balances ? formatAmount(balances.wpt) : 'Không có'}</Row>
-          <Row label="Số dư VNDB" mono>{balances ? formatAmount(balances.vndb) : 'Không có'}</Row>
-        </dl>
-      </CardContent>
-    </Card>
-  );
-}
-
-const TOKEN_STATUS_LABELS: Record<InvestorTokenInfo['tokenStatus'], string> = {
-  DRAFT: 'Chưa phát hành',
-  ISSUED: 'Đã phát hành',
-  CLOSED: 'Đã đóng',
-};
-
-function TokenInfoCard({ token, tradeBlock }: { token: InvestorTokenInfo | null; tradeBlock: TradeContextView['tradeBlock'] }) {
-  return (
-    <Card size="sm" aria-label="Thông tin token" className="bg-muted/30">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-sm">Thông tin token</CardTitle>
-        <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-      </CardHeader>
-      <CardContent>
-        {!token ? (
-          <p className="text-sm text-muted-foreground">Chuỗi này chưa có dự án nào được token hoá.</p>
-        ) : (
-          <dl className="grid gap-1 text-sm">
-            <Row label="Dự án">{token.projectName}</Row>
-            <Row label="Trần phát hành" mono>{formatAmount(token.cap)}</Row>
-            <Row label="Giá phát hành" mono>{formatAmount(token.issuePriceVnd)} VNDB</Row>
-            <Row label="Trạng thái token">{TOKEN_STATUS_LABELS[token.tokenStatus]}</Row>
-            <Row label="Trạng thái giao dịch">
-              <Badge variant={token.tradingOpen ? 'secondary' : 'outline'}>
-                {tradingStatusLabel(tradeBlock?.phase ?? 'NONE', token.tradingOpen, 'trade')}
-              </Badge>
-            </Row>
-            <Row label="Số chưa phân phối" mono>{formatAmount(token.undistributed)}</Row>
-            <Row label="Tuổi thọ còn lại">{token.terms.remainingLifetimeYears} năm</Row>
-            <Row label="Lợi tức mục tiêu">
-              {token.terms.annualYieldPercent.toLocaleString('vi-VN')}%/năm
-            </Row>
-            <Row label="Phí giao dịch">
-              {token.terms.tradingFeePercent === 0
-                ? 'Không tính'
-                : `${token.terms.tradingFeePercent.toLocaleString('vi-VN')}%`}
-            </Row>
-          </dl>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TrackedOrder({ order, chain }: { order: OrderView; chain: string }) {
-  return (
-    <Card aria-label="Lệnh vừa gửi">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">
-          Lệnh {SIDE_LABELS[order.side].toLowerCase()} vừa gửi: {ORDER_STATUS_LABELS[order.status]}
-        </CardTitle>
-        <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-          Xem chi tiết
-        </Link>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {!isSettled(order) && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Hệ thống đang tự quyết toán; màn hình sẽ tự cập nhật kết quả.
-          </p>
-        )}
-        {order.txHash && (
-          <p className="text-sm">
-            Mã giao dịch{chain === 'mock' ? ' mô phỏng' : ''}:{' '}
-            <span className="break-all font-code text-xs">{order.txHash}</span>
-          </p>
-        )}
-        {order.reason && <p className="text-sm text-destructive">{order.reason}</p>}
-        <SettlementProgress steps={order.steps} settlement={order.settlement} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConnectWalletPrompt() {
-  return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-      <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        Kết nối ví ở góc trên phải, hoặc mở{' '}
-        <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
-          Ví của tôi
-        </Link>{' '}
-        để đặt lệnh mua hoặc bán token.
-      </p>
     </div>
   );
 }
