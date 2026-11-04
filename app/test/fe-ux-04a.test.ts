@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { CHAIN_KEYS, CHAINS, explorerTxUrl } from '@bidv/shared';
 import { AssetHoldings } from '@/components/investor/asset-holdings';
 import { TransactionTable } from '@/components/investor/transaction-table';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
@@ -114,20 +115,28 @@ function fakeTxn(overrides: Partial<TxnView> = {}): TxnView {
 }
 
 const table = (rows: TxnView[]) => renderToStaticMarkup(createElement(TransactionTable, { rows }));
+const HASH = '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 
 describe('FE-UX-04a nhóm 3: TransactionTable', () => {
-  it('chain không có trình khám phá: không dựng link, mã giao dịch dạng chữ có title', () => {
-    const html = table([fakeTxn()]);
-    expect(html).not.toContain('<a ');
-    expect(html).toContain('title="0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789, chain mock không có trình khám phá"');
-    expect(text(html)).toContain('0xabcdef01…');
-  });
-
-  it('chain có trình khám phá: một link mở tab mới tới đúng giao dịch', () => {
-    const html = table([fakeTxn({ chain: 'evm' })]);
-    expect(count(html, '<a ')).toBe(1);
-    expect(html).toContain('href="https://sepolia.etherscan.io/tx/0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"');
-    expect(html).toContain('rel="noopener noreferrer"');
+  it('chain mock, 3 dòng CONFIRMED, PENDING, FAILED: cột đúng thứ tự, chữ trạng thái giữ mã, "–", không liên kết', () => {
+    const html = table([
+      fakeTxn({ id: 'a', status: 'CONFIRMED' }),
+      fakeTxn({ id: 'b', status: 'PENDING', amount: null }),
+      fakeTxn({ id: 'c', status: 'FAILED' }),
+    ]);
+    const heads = [...html.matchAll(/<th[^>]*>(.*?)<\/th>/g)].map((match) => text(match[1]));
+    expect(heads).toEqual(['Thời điểm', 'Nghiệp vụ', 'Số lượng', 'Trạng thái', 'Tra cứu']);
+    const content = text(html);
+    for (const status of ['CONFIRMED', 'PENDING', 'FAILED']) expect(content).toContain(status);
+    expect(content).toContain('–');
+    expect(html).not.toContain('<a');
+    const titles = [...html.matchAll(/title="([^"]*)"/g)].map((match) => match[1]);
+    expect(titles).toHaveLength(3);
+    for (const title of titles) {
+      expect(title.endsWith('không có trình khám phá')).toBe(true);
+      expect(title).not.toContain('\u2014');
+    }
+    expect(content).not.toContain('\u2014');
   });
 
   it.each([
@@ -138,22 +147,24 @@ describe('FE-UX-04a nhóm 3: TransactionTable', () => {
     expect(table([fakeTxn({ status })])).toContain(tone);
   });
 
-  it('không có số lượng thì hiện "–", không có gạch dài U+2014', () => {
-    const content = text(table([fakeTxn({ amount: null })]));
-    expect(content).toContain('–');
-    expect(content).not.toContain('\u2014');
+  it('chain có trình khám phá: một liên kết mở tab mới, href bằng explorerTxUrl', () => {
+    const chain = CHAIN_KEYS.find((key) => CHAINS[key].explorerBaseUrl)!;
+    const html = table([fakeTxn({ chain, txHash: HASH })]);
+    expect(count(html, '<a ')).toBe(1);
+    expect(html).toContain(`href="${explorerTxUrl(chain, HASH)}"`);
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 });
 
 describe('FE-UX-04a nhóm 4: WalletNotBoundNotice', () => {
-  it('giữ role="alert", data-wallet-not-bound, ví rút gọn và câu hướng dẫn', () => {
-    const html = renderToStaticMarkup(createElement(WalletNotBoundNotice, { wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' }));
+  it('giữ role="alert", data-wallet-not-bound, chữ; ví rút gọn trong phần tử font-code', () => {
+    const wallet = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+    expect(wallet).toHaveLength(42);
+    const html = renderToStaticMarkup(createElement(WalletNotBoundNotice, { wallet }));
     expect(count(html, 'role="alert"')).toBe(1);
     expect(html).toContain('data-wallet-not-bound');
-    expect(html).toContain('data-slot="alert"');
-    const content = text(html);
-    expect(content).toContain('Ví chưa được định danh');
-    expect(content).toContain('0x7099…79C8');
-    expect(content).toContain('Liên hệ ngân hàng hoặc kết nối ví khác.');
+    expect(text(html)).toContain('Ví chưa được định danh');
+    expect(html).toMatch(/<span class="font-code">0x7099…79C8<\/span>/);
   });
 });
