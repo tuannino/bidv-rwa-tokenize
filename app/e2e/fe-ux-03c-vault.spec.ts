@@ -42,11 +42,12 @@ async function readMode(page: Page): Promise<Mode> {
 
 /**
  * Số `role` trong `main` đo trên `release/ui-v2` @ 1238a54 TRƯỚC khi sửa, bằng chính ca 2 chạy trên máy chủ MỚI
- * trong lượt e2e mock đầy đủ (spec chép tạm vào bản mốc), vault `UNSET`.
+ * trong lượt e2e mock đầy đủ (spec chép tạm vào bản mốc, bỏ dòng chờ `[data-kpi]` vì mốc chưa có `Kpi`; dữ liệu đã
+ * chờ bằng ô "Chế độ khoá"), vault `UNSET`. `note` là câu hiệu lực dưới ô của chế độ đang chọn.
  */
 const ROLE_COUNTS: Record<Role, { status: number; note: number; alert: number }> = {
-  CONTROLLER: { status: -1, note: -1, alert: -1 },
-  TELLER: { status: -1, note: -1, alert: -1 },
+  CONTROLLER: { status: 0, note: 1, alert: 0 },
+  TELLER: { status: 0, note: 1, alert: 0 },
 };
 
 async function countRoles(page: Page) {
@@ -97,17 +98,22 @@ test.describe('FE-UX-03c Vault thanh toán SPV', () => {
     const counts: Partial<Record<Role, Awaited<ReturnType<typeof countRoles>>>> = {};
     let mode: Mode = 'UNSET';
 
+    // Vòng 1: đếm NGAY sau khi tải, trước mọi tương tác (chọn chế độ làm hiện thêm role="note"), hai vai.
     for (const role of ROLES) {
       await actAs(context, baseURL!, role);
       await openVault(page);
       await expect(page.getByRole('main').locator('[data-kpi]').first()).toBeVisible();
       mode = await readMode(page);
-      // Đếm NGAY sau khi tải, trước mọi tương tác (chọn chế độ làm hiện thêm role="note").
       if (mode === 'UNSET') {
         counts[role] = await countRoles(page);
         console.log(`FE-UX-03c role counts ${role}: ${JSON.stringify(counts[role])}`);
       }
+    }
 
+    // Vòng 2: tương tác và phân quyền (luôn chạy, kể cả khi bỏ phép đếm).
+    for (const role of ROLES) {
+      await actAs(context, baseURL!, role);
+      await openVault(page);
       const group = page.getByRole('radiogroup', { name: 'Chế độ khoá' });
       if (role === 'CONTROLLER') {
         const fixed = group.getByLabel('Khoá số cố định');
