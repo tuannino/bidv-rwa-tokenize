@@ -34,6 +34,8 @@ Không làm: thêm sự kiện vào ABI rút gọn ở `packages/shared/src/abi/
   - `evm.adapter.ts` gọi `decodeEvmLogs`; không đổi phần còn lại của `fetchLogs` (chia đoạn block, `getLogs`, địa chỉ lọc).
 - **QĐ-4. Không đổi hành vi nghiệp vụ:** tập sự kiện Indexer lưu trước và sau phải giống hệt (4 sự kiện bỏ qua vốn đã bị bỏ do giải mã lỗi). Không đổi `IndexedEventArgs`, không đổi kho sự kiện.
 
+- **QĐ-5. Giữ `strict: false` khi giải mã (ghi nợ, không sửa ở FIX-07).** Dev phát hiện 04/11: với `strict: false`, log của sự kiện đang theo dõi mà `data` hỏng vẫn được giải mã thành sự kiện thiếu tham số (ví dụ `Transfer` thiếu `value`) và được lưu, không cảnh báo. Đổi sang `strict: true` hay thêm phép kiểm tham số đều đổi tập sự kiện Indexer lưu: nếu ABI rút gọn lệch hợp đồng đã triển khai (ví dụ trên Sepolia) thì có thể mất sự kiện thật, ảnh hưởng danh sách người nhận chia lợi nhuận. Vì vậy FIX-07 giữ nguyên, ca 5b ghi lại hành vi hiện tại. Nợ kỹ thuật: task sau kiểm trên Sepolia có sự kiện thiếu tham số hay không, rồi mới chọn `strict: true` hoặc kiểm tham số, có e2e Hardhat và đối chiếu dữ liệu đã lưu.
+
 ## 3. Phạm vi tệp (danh sách trắng)
 
 | Được sửa | Ghi chú |

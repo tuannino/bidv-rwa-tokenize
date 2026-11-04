@@ -22,7 +22,7 @@ Log giả dựng bằng helper viết trong chính tệp test (không thêm depe
 | 3 | Một log cho mỗi sự kiện trong 11 chữ ký (dựng từ ABI đầy đủ): đều bị bỏ, `console.warn` (spy) không được gọi |
 | 4 | Log có topic lạ: bỏ, `console.warn` gọi đúng 1 lần, câu chứa topic và địa chỉ; gọi `decodeEvmLogs` lần hai cùng chain với topic lạ khác: không cảnh báo thêm; gọi với chain khác: cảnh báo thêm 1 lần |
 | 5 | Log thiếu `blockNumber`, thiếu `logIndex`, hoặc thiếu `transactionHash` (ba log riêng): đều bị bỏ như hiện tại, không cảnh báo. Log không có `topics[0]`: bị bỏ, cảnh báo theo quy tắc một lần |
-| 5b | Log có topic của sự kiện ĐANG THEO DÕI (`Transfer` của token và một sự kiện vault) nhưng `data` hỏng (cắt ngắn hoặc sai độ dài): bị bỏ và cảnh báo theo quy tắc một lần (không bị coi là sự kiện bỏ qua có chủ đích); câu cảnh báo chứa topic của `Transfer` |
+| 5b | Ghi lại hành vi HIỆN TẠI (không đổi ở FIX-07): log có topic của sự kiện ĐANG THEO DÕI (`Transfer`, và một sự kiện vault) nhưng `data` hỏng (cắt ngắn): với `strict: false`, viem không ném lỗi mà trả sự kiện thiếu tham số không `indexed`; `decodeEvmLogs` vẫn trả sự kiện đó (ví dụ `Transfer` chỉ có `from`, `to`), KHÔNG cảnh báo. Test khẳng định đúng hành vi này để mọi thay đổi sau phải sửa test có chủ đích. Rủi ro ghi nợ ở requirements QĐ-5 |
 | 6 | Kết quả sắp theo `blockNumber` rồi `logIndex` như hiện tại |
 
 Tập cảnh báo mức mô-đun cô lập giữa các ca bằng `vi.resetModules()` rồi nạp lại mô-đun (`await import(...)`) trong từng ca; KHÔNG xuất hàm đặt lại riêng cho test trong mã production.
