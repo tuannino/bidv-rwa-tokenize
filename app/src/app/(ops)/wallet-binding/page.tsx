@@ -1,5 +1,5 @@
-import { ShieldX } from 'lucide-react';
 import { AppLayout } from '@/components/layout/app-layout';
+import { BlockedNotice } from '@/components/ui/blocked-notice';
 import { WalletBindingPage } from '@/components/pages/wallet-binding';
 import { can } from '@/lib/rbac';
 import { currentRole } from '@/lib/rbac/session';
@@ -17,14 +17,12 @@ export default async function WalletBinding() {
       {can(role, 'investor:whitelist') ? (
         <WalletBindingPage />
       ) : (
-        <div className="mx-auto max-w-md space-y-3 rounded-lg border border-destructive/40 bg-destructive/10 p-6 text-center">
-          <ShieldX className="mx-auto h-8 w-8 text-destructive" aria-hidden="true" />
-          <h1 className="text-lg font-semibold">Chức năng định danh ví không khả dụng</h1>
+        <BlockedNotice title="Chức năng định danh ví không khả dụng">
           <p className="text-sm text-muted-foreground">
             Chỉ Giao dịch viên định danh và gắn ví cho hồ sơ khách hàng. Vai hiện tại:{' '}
             <span className="font-code text-foreground">{role}</span>.
           </p>
-        </div>
+        </BlockedNotice>
       )}
     </AppLayout>
   );

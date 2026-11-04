@@ -42,6 +42,15 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* FE-UX-02a: nền và chữ trạng thái (lớp `bg-ok-bg`, `text-ok-ink`, ...). */
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-ink: var(--ok-ink);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-ink: var(--bad-ink);
+  --color-info-bg: var(--info-bg);
+  --color-info-ink: var(--info-ink);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -88,6 +97,41 @@
   --sidebar-accent-foreground:    #0e1e1d;
   --sidebar-border:               #e1e8e8;
   --sidebar-ring:                 #37a7a5;
+
+  /* FE-UX-02a: trạng thái (bản chốt c.css dòng 19). */
+  --ok-bg:                        #e2f2f2;
+  --ok-ink:                       #0c4746;
+  --warn-bg:                      #fdf1d3;
+  --warn-ink:                     #6e4b00;
+  --bad-bg:                       #fde8e6;
+  --bad-ink:                      #8a1c13;
+  --info-bg:                      #e6eef8;
+  --info-ink:                     #1d3f6b;
+
+  /* FE-UX-02a: ô số liệu theo ngữ nghĩa (xanh là token, vàng là tiền). Nền là gradient nên dùng làm
+     ảnh nền (utility `tile-*` cuối tệp), không khai báo thành `--color-*`. `-ink`: chữ chính,
+     `-sub`: nhãn và chữ phụ, `-bar`: thanh tiến độ trong ô. */
+  /* `hl`: điểm sáng nhất #1e8886 của bản chốt chỉ đạt 4,27:1 với chữ trắng, nên dùng #176e6d; chữ phụ
+     trắng 85% (bản chốt 78% chỉ 3,24:1). `au`: chữ phụ #332200 (bản chốt #4d3500 chỉ 3,52:1 ở góc tối). */
+  --tile-hl:      radial-gradient(120% 130% at 100% 100%, #176e6d 0%, #115d5c 45%, #093f3e 100%);
+  --tile-hl-ink:  #ffffff;
+  --tile-hl-sub:  rgb(255 255 255 / 0.85);
+  --tile-hl-bar:  #efd28a;
+  --tile-hl-chip: rgb(255 255 255 / 0.15);
+  --tile-au:      radial-gradient(120% 140% at 100% 0%, #fbe39a 0%, #eec158 38%, #d9a22c 75%, #b98510 100%);
+  --tile-au-ink:  #2a1c00;
+  --tile-au-sub:  #332200;
+  --tile-au-chip: rgb(255 255 255 / 0.4);
+  --tile-leaf:    linear-gradient(150deg, #f1fafa 0%, #dcf0f0 100%);
+  --tile-leaf-ink: #0e1e1d;
+  --tile-leaf-sub: #4f6261;
+  --tile-leaf-ring: rgb(23 110 109 / 0.12);
+  --tile-leaf-deco: rgb(23 110 109 / 0.08);
+  --tile-gold:    linear-gradient(150deg, #fff9e9 0%, #fbedc4 100%);
+  --tile-gold-ink: #0e1e1d;
+  --tile-gold-sub: #5a4a1f;
+  --tile-gold-ring: rgb(201 151 28 / 0.22);
+  --tile-gold-deco: rgb(201 151 28 / 0.16);
 }
 
 .dark {
@@ -122,6 +166,29 @@
   --sidebar-accent-foreground:    #edf5f5;
   --sidebar-border:               #1e3332;
   --sidebar-ring:                 #7cc7c6;
+
+  --ok-bg:                        #142928;
+  --ok-ink:                       #7dd6d5;
+  --warn-bg:                      #2a2212;
+  --warn-ink:                     #ecc06a;
+  --bad-bg:                       #2c1716;
+  --bad-ink:                      #f5a199;
+  --info-bg:                      #142133;
+  --info-ink:                     #9cc2f0;
+
+  /* Ô `hl` giữ như Sáng. Ô `au` Tối: bản chốt kết thúc ở #8a6406, chữ #2a1c00 trên đó chỉ 3,09:1,
+     nên điểm dừng cuối nâng lên #b98510 (giống Sáng) để vùng chữ đạt ngưỡng (bảng trong checkpoint). */
+  --tile-au:      radial-gradient(120% 140% at 100% 0%, #e9c463 0%, #c9971c 50%, #b98510 100%);
+  --tile-leaf:    linear-gradient(150deg, #102726 0%, #0c1e1d 100%);
+  --tile-leaf-ink: #edf5f5;
+  --tile-leaf-sub: #a2b4b4;
+  --tile-leaf-ring: rgb(55 167 165 / 0.18);
+  --tile-leaf-deco: rgb(55 167 165 / 0.1);
+  --tile-gold:    linear-gradient(150deg, #2a210c 0%, #1d170a 100%);
+  --tile-gold-ink: #edf5f5;
+  --tile-gold-sub: #c9b98f;
+  --tile-gold-ring: rgb(224 180 74 / 0.2);
+  --tile-gold-deco: rgb(224 180 74 / 0.14);
 }
 
 @layer base {
@@ -189,6 +256,72 @@
   }
   [data-bgfx] > * {
     will-change: auto !important;
+  }
+}
+
+/* ── FE-UX-02a: nền ô số liệu và thẻ theo sắc ─────────────────────────────────
+   Đặt màu chữ ngay tại gốc ô, đồng thời ghi đè cục bộ `--card-foreground`, `--foreground`,
+   `--muted-foreground` để phần tử con có sẵn (ghi chú "unverified", thanh tổng cung) đổi màu theo
+   mà không phải sửa chúng. */
+@utility tile-hl {
+  background-image: var(--tile-hl);
+  color: var(--tile-hl-ink);
+  --card-foreground: var(--tile-hl-ink);
+  --foreground: var(--tile-hl-ink);
+  --muted-foreground: var(--tile-hl-sub);
+  --muted: rgb(255 255 255 / 0.16);
+  --chart-1: var(--tile-hl-bar);
+  --primary: var(--tile-hl-ink);
+}
+@utility tile-au {
+  background-image: var(--tile-au);
+  color: var(--tile-au-ink);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
+  --card-foreground: var(--tile-au-ink);
+  --foreground: var(--tile-au-ink);
+  --muted-foreground: var(--tile-au-sub);
+  --muted: rgb(255 255 255 / 0.4);
+  --primary: var(--tile-au-ink);
+}
+@utility tile-leaf {
+  background-image: var(--tile-leaf);
+  color: var(--tile-leaf-ink);
+  box-shadow: inset 0 0 0 1px var(--tile-leaf-ring);
+  --card-foreground: var(--tile-leaf-ink);
+  --foreground: var(--tile-leaf-ink);
+  --muted-foreground: var(--tile-leaf-sub);
+  /* Sọc chéo mảnh ở góc dưới phải (tĩnh). */
+  &::before {
+    content: "";
+    position: absolute;
+    right: -20px;
+    bottom: -30px;
+    width: 220px;
+    height: 120px;
+    pointer-events: none;
+    z-index: -1;
+    background: repeating-linear-gradient(170deg, transparent 0 14px, var(--tile-leaf-deco) 14px 15px);
+  }
+}
+@utility tile-gold {
+  background-image: var(--tile-gold);
+  color: var(--tile-gold-ink);
+  box-shadow: inset 0 0 0 1px var(--tile-gold-ring);
+  --card-foreground: var(--tile-gold-ink);
+  --foreground: var(--tile-gold-ink);
+  --muted-foreground: var(--tile-gold-sub);
+  /* Vân tròn ở góc dưới phải (tĩnh). */
+  &::before {
+    content: "";
+    position: absolute;
+    right: -40px;
+    bottom: -60px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    background: repeating-radial-gradient(circle, var(--tile-gold-deco) 0 2px, transparent 2px 16px);
   }
 }
 

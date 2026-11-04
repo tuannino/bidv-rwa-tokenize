@@ -2,22 +2,25 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Loader2, Search, ShieldCheck, XCircle } from 'lucide-react';
+import { Boxes, ChevronLeft, ChevronRight, Coins, Loader2, Search, ShieldCheck, Users } from 'lucide-react';
 import { executeOrderAction } from '@/app/actions/purchase';
 import { listOpsOrdersAction } from '@/app/actions/ops';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ORDER_STATUS_LABELS, SIDE_LABELS } from '@/components/trading/gates';
+import { orderStatusTone } from '@/components/trading/order-status-tone';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatAmount, formatDateTime } from '@/lib/format';
 import { ORDER_SIDES, ORDER_STATUSES, type OrderSide, type OrderStatus } from '@/lib/store/order.store.port';
 import type { OpsOrderPage } from '@/lib/bank/ops-transactions.service';
 
 const PAGE_SIZE = 12;
-const FIELD =
-  'h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 interface Filters {
   q: string;
@@ -135,75 +138,90 @@ export function OpsTransactionsPage() {
   return (
     <div className="space-y-5" data-chain={chain}>
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Giao dịch toàn hệ thống</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Giao dịch toàn hệ thống</h1>
       </header>
 
       {data && !data.mayExecute && (
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm" role="note">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>Vai trò Kiểm soát viên chỉ có quyền xem. Màn hình không cung cấp hành động can thiệp.</span>
-        </div>
+        <Alert tone="info" role="note" icon={<ShieldCheck className="mt-px size-[18px] shrink-0" aria-hidden="true" />}>
+          Vai trò Kiểm soát viên chỉ có quyền xem. Màn hình không cung cấp hành động can thiệp.
+        </Alert>
       )}
 
       {data?.supply && (
-        <section aria-label="Số liệu nguồn cung" className="grid gap-3 sm:grid-cols-3">
-          <SupplyMetric metric="total" label="Tổng cung" value={data.supply.totalSupply} />
-          <SupplyMetric metric="undistributed" label="Chưa phân phối" value={data.supply.undistributed} />
-          <SupplyMetric metric="circulating" label="Đang lưu hành" value={data.supply.circulating} />
+        <section aria-label="Số liệu nguồn cung" className="grid gap-4 sm:grid-cols-3">
+          <Kpi
+            data-testid="supply-total"
+            tone="hl"
+            label="Tổng cung"
+            value={formatAmount(data.supply.totalSupply)}
+            unit="WPT"
+            icon={<Coins />}
+          />
+          <Kpi
+            data-testid="supply-undistributed"
+            tone="leaf"
+            label="Chưa phân phối"
+            value={formatAmount(data.supply.undistributed)}
+            unit="WPT"
+            icon={<Boxes />}
+          />
+          <Kpi
+            data-testid="supply-circulating"
+            label="Đang lưu hành"
+            value={formatAmount(data.supply.circulating)}
+            unit="WPT"
+            icon={<Users />}
+          />
         </section>
       )}
 
-      <form
-        role="search"
-        className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(13rem,1.4fr)_minmax(11rem,1fr)_7rem_9rem_9rem_9rem]"
-        onSubmit={(event) => event.preventDefault()}
-      >
-        <label className="relative">
-          <span className="sr-only">Tìm mã lệnh hoặc nhà đầu tư</span>
-          <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <input
-            value={filters.q}
-            onChange={setFilter('q')}
-            placeholder="Tìm mã lệnh hoặc nhà đầu tư…"
-            className={`${FIELD} pl-9`}
-          />
-        </label>
-        <select aria-label="Nhà đầu tư" value={filters.investorWallet} onChange={setFilter('investorWallet')} className={FIELD}>
-          <option value="">Tất cả nhà đầu tư</option>
-          {(data?.investors ?? []).map((wallet) => (
-            <option key={wallet} value={wallet}>{shortWallet(wallet)}</option>
-          ))}
-        </select>
-        <select aria-label="Chiều lệnh" value={filters.side} onChange={setFilter('side')} className={FIELD}>
-          <option value="">Mọi chiều</option>
-          {ORDER_SIDES.map((side) => <option key={side} value={side}>{SIDE_LABELS[side]}</option>)}
-        </select>
-        <select aria-label="Trạng thái" value={filters.status} onChange={setFilter('status')} className={FIELD}>
-          <option value="">Mọi trạng thái</option>
-          {ORDER_STATUSES.map((status) => <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>)}
-        </select>
-        <input aria-label="Từ ngày" type="date" value={filters.fromDate} onChange={setFilter('fromDate')} className={FIELD} />
-        <input aria-label="Đến ngày" type="date" value={filters.toDate} onChange={setFilter('toDate')} className={FIELD} />
-      </form>
+      <Card>
+        <CardContent className="space-y-4">
+          <form
+            role="search"
+            className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(13rem,1.4fr)_minmax(11rem,1fr)_8rem_10rem_10rem_10rem]"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <label className="relative">
+              <span className="sr-only">Tìm mã lệnh hoặc nhà đầu tư</span>
+              <Search className="pointer-events-none absolute top-3.5 left-3.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <input
+                value={filters.q}
+                onChange={setFilter('q')}
+                placeholder="Tìm mã lệnh hoặc nhà đầu tư…"
+                className={`${fieldClass} pl-10`}
+              />
+            </label>
+            <select aria-label="Nhà đầu tư" value={filters.investorWallet} onChange={setFilter('investorWallet')} className={fieldClass}>
+              <option value="">Tất cả nhà đầu tư</option>
+              {(data?.investors ?? []).map((wallet) => (
+                <option key={wallet} value={wallet}>{shortWallet(wallet)}</option>
+              ))}
+            </select>
+            <select aria-label="Chiều lệnh" value={filters.side} onChange={setFilter('side')} className={fieldClass}>
+              <option value="">Mọi chiều</option>
+              {ORDER_SIDES.map((side) => <option key={side} value={side}>{SIDE_LABELS[side]}</option>)}
+            </select>
+            <select aria-label="Trạng thái" value={filters.status} onChange={setFilter('status')} className={fieldClass}>
+              <option value="">Mọi trạng thái</option>
+              {ORDER_STATUSES.map((status) => <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>)}
+            </select>
+            <input aria-label="Từ ngày" type="date" value={filters.fromDate} onChange={setFilter('fromDate')} className={fieldClass} />
+            <input aria-label="Đến ngày" type="date" value={filters.toDate} onChange={setFilter('toDate')} className={fieldClass} />
+          </form>
 
-      {feedback && (
-        <div className={feedback.tone === 'success' ? 'rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm' : 'flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'} role="status">
-          {feedback.tone === 'error' && <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
-          <span>{feedback.message}</span>
-        </div>
-      )}
+          {feedback && (
+            <Alert tone={feedback.tone === 'success' ? 'ok' : 'bad'} role="status">
+              {feedback.message}
+            </Alert>
+          )}
 
-      <Card className="py-0">
-        <CardContent className="px-0">
           {fresh === null ? (
-            <p className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Đang tải giao dịch…
-            </p>
+            <EmptyState loading>Đang tải giao dịch…</EmptyState>
           ) : fresh.error ? (
-            <p className="p-4 text-sm text-destructive">{fresh.error}</p>
+            <EmptyState tone="bad">{fresh.error}</EmptyState>
           ) : data && data.rows.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">Không có lệnh nào khớp bộ lọc.</p>
+            <EmptyState>Không có lệnh nào khớp bộ lọc.</EmptyState>
           ) : data ? (
             <Table aria-label="Giao dịch toàn hệ thống">
               <TableHeader>
@@ -224,7 +242,7 @@ export function OpsTransactionsPage() {
                 {data.rows.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
-                      <Link prefetch={false} href={`/transactions/${order.id}`} title={order.id} className="font-code text-xs text-primary hover:underline">
+                      <Link prefetch={false} href={`/transactions/${order.id}`} title={order.id} className="font-code text-xs font-medium text-primary hover:underline">
                         {order.id.slice(0, 8)}
                       </Link>
                     </TableCell>
@@ -236,9 +254,11 @@ export function OpsTransactionsPage() {
                       <span className="text-sm">{order.currentStep.label}</span>
                       <span className="block text-xs text-muted-foreground">{stepStateLabel(order.currentStep.state)}</span>
                     </TableCell>
-                    <TableCell><StatusBadge status={order.status} /></TableCell>
-                    <TableCell className="text-xs">{formatDateTime(order.createdAt)}</TableCell>
-                    <TableCell className="text-xs">{formatDateTime(order.updatedAt)}</TableCell>
+                    <TableCell>
+                      <Badge variant={orderStatusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs tabular-nums">{formatDateTime(order.createdAt)}</TableCell>
+                    <TableCell className="text-xs tabular-nums">{formatDateTime(order.updatedAt)}</TableCell>
                     {data.mayExecute && (
                       <TableCell>
                         {order.canExecute && order.intervention !== 'MANUAL_RECONCILIATION' && order.intervention !== null ? (
@@ -255,7 +275,7 @@ export function OpsTransactionsPage() {
                             Cần đối soát tay
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">–</span>
                         )}
                       </TableCell>
                     )}
@@ -264,49 +284,25 @@ export function OpsTransactionsPage() {
               </TableBody>
             </Table>
           ) : null}
+
+          {data && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>{pageSummary(data)}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon-sm" aria-label="Trang trước" disabled={data.page <= 1} onClick={() => setPage(data.page - 1)}>
+                  <ChevronLeft aria-hidden="true" />
+                </Button>
+                <span className="tabular-nums">{data.page} / {data.totalPages}</span>
+                <Button variant="outline" size="icon-sm" aria-label="Trang sau" disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)}>
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
-
-      {data && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>{pageSummary(data)}</span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon-sm" aria-label="Trang trước" disabled={data.page <= 1} onClick={() => setPage(data.page - 1)}>
-              <ChevronLeft aria-hidden="true" />
-            </Button>
-            <span>{data.page} / {data.totalPages}</span>
-            <Button variant="outline" size="icon-sm" aria-label="Trang sau" disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)}>
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
-
-function SupplyMetric({
-  metric,
-  label,
-  value,
-}: {
-  metric: 'total' | 'undistributed' | 'circulating';
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card size="sm" data-testid={`supply-${metric}`}>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 tabular-nums text-base font-semibold">{formatAmount(value)} WPT</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatusBadge({ status }: { status: OrderStatus }) {
-  const variant = status === 'COMPLETED' ? 'default' : status === 'FAILED' || status === 'REJECTED' ? 'destructive' : 'outline';
-  return <Badge variant={variant}>{ORDER_STATUS_LABELS[status]}</Badge>;
 }
 
 function shortWallet(wallet: string): string {

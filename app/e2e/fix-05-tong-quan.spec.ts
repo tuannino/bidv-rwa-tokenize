@@ -42,7 +42,7 @@ test.describe('FIX-05 màn Tổng quan', () => {
     for (const label of LABELS) await expect(main.getByText(label, { exact: true })).toBeVisible();
     await expect(main.getByText('unverified', { exact: true }).first()).toBeVisible();
     await expect(main.getByText(/whitelisted/i)).toHaveCount(0);
-    const projects = main.locator('div.rounded-lg').filter({ has: page.getByText('Dự án đang triển khai', { exact: true }) });
+    const projects = main.locator('[data-kpi]').filter({ has: page.getByText('Dự án đang triển khai', { exact: true }) });
     await expect(projects.locator('.tabular-nums').first()).toHaveText(/^\d+$/);
   });
 
