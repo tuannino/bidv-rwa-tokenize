@@ -3,10 +3,13 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { TokenInfoCard } from '@/components/trading/trade-panels';
+import { ConnectWalletPrompt, OrderSummary, PermitNotice, TokenInfoCard, TrackedOrder } from '@/components/trading/trade-panels';
 import { TradeCheckBlock } from '@/components/trading/trade-check-block';
 import type { TradePreviewState } from '@/components/trading/gates';
 import type { InvestorTokenInfo } from '@/lib/bank/trade.service';
+import type { OrderView, PermitPreparationView } from '@/lib/bank/purchase.service';
+import type { UseWalletStatusResult } from '@/lib/hooks/use-wallet-status';
+import { formatAmount } from '@/lib/format';
 
 /**
  * FE-UX-04b (design mục 3): số lời gọi action và effect của `/trade` (QĐ-2), biểu thức khoá ô và nút (QĐ-1), và
@@ -37,6 +40,11 @@ describe('FE-UX-04b nhóm 1: số lời gọi action, effect và biểu thức k
     expect(source).not.toContain('Action(');
     expect(source).not.toContain('useEffect(');
     expect(source).not.toContain('useState(');
+  });
+
+  it('investor-trade.tsx không còn const FIELD, amber-', () => {
+    expect(page).not.toContain('const FIELD');
+    expect(page).not.toContain('amber-');
   });
 
   it('biểu thức khoá ô Số lượng, nút xác nhận, nút gửi giữ nguyên văn', () => {
@@ -126,5 +134,127 @@ describe('FE-UX-04b nhóm 5: TokenInfoCard', () => {
       'Lợi tức mục tiêu',
       'Phí giao dịch',
     ]);
+  });
+});
+
+function fakeOrder(overrides: Partial<OrderView> = {}): OrderView {
+  return {
+    id: '11111111-2222-3333-4444-555555555555',
+    chain: 'mock',
+    investorWallet: WALLET,
+    side: 'BUY',
+    wptAmount: '1',
+    vndAmount: '100000',
+    status: 'COMPLETED',
+    txHash: '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+    reason: null,
+    createdAt: '2026-11-04T10:00:00.000Z',
+    updatedAt: '2026-11-04T10:00:05.000Z',
+    steps: [],
+    settlement: { atomic: true, entries: [], outcome: 'APPLIED', rule: 'Quy tắc giả.' },
+    ...overrides,
+  };
+}
+
+const tracked = (order: OrderView) => renderToStaticMarkup(createElement(TrackedOrder, { order, chain: order.chain }));
+
+describe('FE-UX-04b nhóm 3: TrackedOrder', () => {
+  it('REJECTED, NONE_APPLIED, có reason, mock: tiêu đề, liên kết, mã mô phỏng, reason; không câu đang quyết toán', () => {
+    const html = tracked(
+      fakeOrder({
+        status: 'REJECTED',
+        reason: 'Lý do từ chối giả.',
+        settlement: { atomic: true, entries: [], outcome: 'NONE_APPLIED', rule: 'Quy tắc giả.' },
+      }),
+    );
+    const content = text(html);
+    expect(html).toContain('aria-label="Lệnh vừa gửi"');
+    expect(content).toContain('Bị từ chối');
+    expect(html).toContain('href="/orders/11111111-2222-3333-4444-555555555555"');
+    expect(content).toContain('Mã giao dịch mô phỏng');
+    expect(content).toContain('Lý do từ chối giả.');
+    expect(content).not.toContain('Hệ thống đang tự quyết toán');
+  });
+
+  it('EXECUTING, PENDING, không reason: có câu đang quyết toán, không có data-slot="alert"', () => {
+    const html = tracked(
+      fakeOrder({ status: 'EXECUTING', settlement: { atomic: true, entries: [], outcome: 'PENDING', rule: 'Quy tắc giả.' } }),
+    );
+    expect(text(html)).toContain('Hệ thống đang tự quyết toán');
+    expect(html).not.toContain('data-slot="alert"');
+  });
+});
+
+function fakeWalletStatus(canSign: boolean): UseWalletStatusResult {
+  return {
+    status: { kind: 'ready', address: WALLET, chainKey: 'hardhat-local' },
+    canSign,
+    blockedReason: canSign ? null : 'Lý do không ký được giả.',
+    switchToExpected: async () => {},
+    switching: false,
+    switchError: null,
+    disconnect: () => {},
+  };
+}
+
+const PREPARED = {
+  chain: 'hardhat-local',
+  side: 'BUY',
+  wptAmount: '2',
+  vndAmount: '200000',
+  tokenSymbol: 'VNDB',
+  value: '200000',
+  nonce: '0',
+  deadline: '1793800000',
+  deadlineAt: '2026-11-04T12:00:00.000Z',
+  typedData: {},
+} as unknown as PermitPreparationView;
+
+const permit = (prepared: PermitPreparationView | null, preparing: boolean, canSign: boolean) =>
+  renderToStaticMarkup(createElement(PermitNotice, { prepared, preparing, walletStatus: fakeWalletStatus(canSign) }));
+
+describe('FE-UX-04b nhóm 4: PermitNotice', () => {
+  it('đang chuẩn bị', () => {
+    expect(text(permit(null, true, true))).toContain('Đang chuẩn bị nội dung chữ ký ủy quyền…');
+  });
+
+  it('đã chuẩn bị: permit-notice chứa số và token sẽ ký', () => {
+    const html = permit(PREPARED, false, true);
+    expect(html).toContain('data-testid="permit-notice"');
+    expect(text(html)).toContain(`${formatAmount('200000')} VNDB`);
+  });
+
+  it('không ký được: có blockedReason, không permit-notice', () => {
+    const html = permit(PREPARED, false, false);
+    expect(text(html)).toContain('Lý do không ký được giả.');
+    expect(html).not.toContain('permit-notice');
+  });
+});
+
+const summary = (total: string | null, balances: { wpt: string; vndb: string } | null) =>
+  renderToStaticMarkup(createElement(OrderSummary, { side: 'BUY', quantity: '1', priceVnd: '100000', total, balances }));
+
+describe('FE-UX-04b nhóm 6: OrderSummary', () => {
+  it('balances null: "Không có" 2 lần, aria-label, data-tone="hl"; total null: "Chưa có"; 6 nhãn đúng thứ tự', () => {
+    const html = summary(null, null);
+    const content = text(html);
+    expect(count(content, 'Không có')).toBe(2);
+    expect(html).toContain('aria-label="Tóm tắt lệnh"');
+    expect(html).toContain('data-tone="hl"');
+    expect(content).toContain('Chưa có');
+    const labels = [...html.matchAll(/<dt[^>]*>(.*?)<\/dt>/g)].map((match) => text(match[1]));
+    expect(labels).toEqual(['Loại lệnh', 'Số lượng', 'Giá', 'Tổng giá trị dự kiến', 'Token đang giữ', 'Số dư VNDB']);
+  });
+});
+
+describe('FE-UX-04b nhóm 7: ConnectWalletPrompt', () => {
+  it('EmptyState, chữ, liên kết Ví của tôi', () => {
+    const html = renderToStaticMarkup(createElement(ConnectWalletPrompt));
+    const content = text(html);
+    expect(html).toContain('data-slot="empty-state"');
+    expect(content).toContain('Chưa kết nối ví');
+    expect(content).toContain('Kết nối ví ở góc trên phải, hoặc mở');
+    expect(content).toContain('để đặt lệnh mua hoặc bán token.');
+    expect(html).toMatch(/<a[^>]*href="\/wallet"[^>]*>Ví của tôi<\/a>/);
   });
 });

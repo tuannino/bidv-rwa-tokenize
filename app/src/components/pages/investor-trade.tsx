@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Loader2 } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { listOrdersAction, placeOrderAction, preparePermitAction } from '@/app/actions/purchase';
 import { getTradeContextAction, previewTradeAction } from '@/app/actions/trade';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
@@ -271,37 +274,40 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Giao dịch token</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Giao dịch token</h1>
       </header>
 
       {chain === 'mock' && (
-        <p className="text-xs text-muted-foreground" role="note">
-          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-code">{wallet}</span>.
+        <Alert tone="info" role="note">
+          Chế độ mô phỏng đang dùng ví trong hồ sơ Nhà đầu tư: <span className="font-code break-all">{wallet}</span>.
           Không cần kết nối ví trình duyệt.
-        </p>
+        </Alert>
       )}
 
       {freshContext === null ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc số dư và thông tin token…
-        </p>
+        <EmptyState loading>Đang đọc số dư và thông tin token…</EmptyState>
       ) : freshContext.error ? (
-        <p className="text-sm text-destructive">{freshContext.error}</p>
+        <Alert tone="bad">{freshContext.error}</Alert>
       ) : ctx ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Card>
+        // Lưới 12 cột từ 1100 px: Đặt lệnh 7 cột, cột phải 5 cột (Tóm tắt lệnh rồi Thông tin token); dưới đó một cột.
+        <div className="grid gap-6 min-[1100px]:grid-cols-12">
+          <Card className="min-[1100px]:col-span-7">
             <CardHeader>
-              <CardTitle className="text-base">Đặt lệnh</CardTitle>
+              <CardTitle className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <ShoppingCart />
+                </CardTitleIcon>
+                Đặt lệnh
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               {!ctx.walletBound && <WalletNotBoundNotice wallet={ctx.wallet} />}
               {ctx.tradeBlock && (
-                <div role="alert" className="rounded-md border border-amber-400/60 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+                <Alert tone="warn" role="alert">
                   <p className="font-semibold">Giao dịch tạm dừng</p>
                   <p>{tradeBlockText(ctx.tradeBlock)}</p>
                   <Link prefetch={false} href="/portfolio" className="underline underline-offset-4">Xem thông báo ở Tổng quan</Link>
-                </div>
+                </Alert>
               )}
               <TokenScopeSelect
                 id="token-scope"
@@ -313,13 +319,14 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
 
               {/* FIX-02 A4: chỉ một chiều (Nhà đầu tư chỉ mua) thì không dựng cụm nút; `side` giữ BUY. */}
               {tradeSides(ctx.sellEnabled).length > 1 && (
-              <div role="tablist" aria-label="Chiều lệnh" className="grid grid-cols-2 gap-2">
+              <div role="tablist" aria-label="Chiều lệnh" className="grid w-full grid-cols-2 gap-1 rounded-full bg-muted p-1">
                 {tradeSides(ctx.sellEnabled).map((value) => (
                   <Button
                     key={value}
                     role="tab"
                     aria-selected={side === value}
                     variant={side === value ? 'default' : 'outline'}
+                    className="rounded-full"
                     disabled={tradeBlocked}
                     onClick={() => setSide(value)}
                   >
@@ -329,50 +336,52 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
               </div>
               )}
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Số lượng</span>
-                <input
-                  aria-label="Số lượng"
-                  inputMode="numeric"
-                  className={FIELD}
-                  value={quantity}
-                  aria-invalid={quantity !== '' && quantityReason !== null}
-                  disabled={tradeBlocked || !ctx.walletBound}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-                <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
-                  {ctx.walletBound ? ctx.caps[side].reason : WALLET_NOT_BOUND_REASON}
-                </span>
-                {quantity !== '' && quantityReason && (
-                  <span className="block text-xs text-destructive" role="alert">
-                    {quantityReason}
+              <div className="grid gap-4 min-[640px]:grid-cols-2">
+                <label className="block space-y-1.5 text-sm">
+                  <span className="text-muted-foreground">Số lượng</span>
+                  <input
+                    aria-label="Số lượng"
+                    inputMode="numeric"
+                    className={`${fieldClass} aria-invalid:border-destructive`}
+                    value={quantity}
+                    aria-invalid={quantity !== '' && quantityReason !== null}
+                    disabled={tradeBlocked || !ctx.walletBound}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
+                  <span className="block text-xs text-muted-foreground" data-testid="quantity-cap">
+                    {ctx.walletBound ? ctx.caps[side].reason : WALLET_NOT_BOUND_REASON}
                   </span>
-                )}
-              </label>
+                  {quantity !== '' && quantityReason && (
+                    <span className="block text-xs text-bad-ink" role="alert">
+                      {quantityReason}
+                    </span>
+                  )}
+                </label>
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Giá (VNDB / token, chỉ để xem)</span>
-                <input aria-label="Giá" className={`${FIELD} bg-muted/40`} value={formatAmount(ctx.priceVnd)} readOnly />
-              </label>
+                <label className="block space-y-1.5 text-sm">
+                  <span className="text-muted-foreground">Giá (VNDB / token, chỉ để xem)</span>
+                  <input aria-label="Giá" className={fieldClass} value={formatAmount(ctx.priceVnd)} readOnly />
+                </label>
+              </div>
 
-              <div className="flex items-baseline justify-between border-t border-border pt-3">
+              <div className="tile-gold relative isolate flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 overflow-hidden rounded-[18px] px-4 py-3">
                 <span className="text-sm text-muted-foreground">Tổng giá trị dự kiến</span>
                 <span className="tabular-nums text-lg font-semibold">{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</span>
               </div>
 
               <TradeCheckBlock preview={preview} wallet={ctx.wallet} />
 
-              <div className="space-y-1">
-                <Button className="w-full" disabled={blockReason !== null} onClick={openConfirm}>
+              <div className="space-y-2">
+                <Button className="h-12 w-full" disabled={blockReason !== null} onClick={openConfirm}>
                   Xác nhận lệnh {SIDE_LABELS[side].toLowerCase()}
                 </Button>
                 {blockReason && <p className="text-xs text-muted-foreground">{blockReason}</p>}
-                {submitError && <p className="text-xs text-destructive">{submitError}</p>}
+                {submitError && <Alert tone="bad">{submitError}</Alert>}
               </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
+          <div className="space-y-6 min-[1100px]:col-span-5">
             <OrderSummary side={side} quantity={amount} priceVnd={ctx.priceVnd} total={total} balances={ctx.balances} />
             <TokenInfoCard token={ctx.token} tradeBlock={ctx.tradeBlock} />
           </div>
@@ -387,7 +396,7 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             <DialogTitle>Đối chiếu lệnh lần cuối</DialogTitle>
             <DialogDescription>Kiểm tra lại trước khi gửi. Số VNDB được chốt tại thời điểm gửi.</DialogDescription>
           </DialogHeader>
-          <dl className="grid gap-2 text-sm">
+          <dl className="text-sm">
             <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
             <Row label="Số lượng" mono>{formatAmount(amount)}</Row>
             <Row label="Giá" mono>{ctx ? `${formatAmount(ctx.priceVnd)} VNDB` : 'Chưa có'}</Row>
@@ -401,9 +410,9 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
             />
           )}
           {dialogNote && (
-            <p className="text-sm text-destructive" role="alert" data-testid="sign-note">
+            <Alert tone="bad" role="alert" data-testid="sign-note">
               {dialogNote}
-            </p>
+            </Alert>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>
@@ -427,6 +436,3 @@ export function InvestorTradePage({ mockWallet }: { mockWallet: string | null })
     </div>
   );
 }
-
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-invalid:border-destructive';

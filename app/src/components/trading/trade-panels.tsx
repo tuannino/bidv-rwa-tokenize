@@ -1,7 +1,10 @@
 import Link from 'next/link';
-import { Loader2, Wallet, Wind } from 'lucide-react';
+import { Loader2, ReceiptText, Wallet, Wind } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
 import { formatAmount } from '@/lib/format';
 import type { OrderView, PermitPreparationView } from '@/lib/bank/purchase.service';
 import { WrongChainBanner } from '@/components/wallet/wrong-chain-banner';
@@ -43,7 +46,7 @@ export function PermitNotice({
     );
   }
   if (!walletStatus.canSign) {
-    return <p className="text-sm text-destructive">{walletStatus.blockedReason}</p>;
+    return <Alert tone="bad">{walletStatus.blockedReason}</Alert>;
   }
   if (!prepared) {
     return (
@@ -55,7 +58,7 @@ export function PermitNotice({
   }
   const until = new Date(prepared.deadlineAt).toLocaleString('vi-VN');
   return (
-    <p className="rounded-md border border-border bg-muted/40 p-3 text-sm" data-testid="permit-notice">
+    <p className="rounded-[14px] bg-muted p-3 text-sm" data-testid="permit-notice">
       Bạn sẽ ký cho phép hệ thống chi đúng{' '}
       <span className="tabular-nums font-semibold">
         {formatAmount(prepared.value)} {prepared.tokenSymbol}
@@ -65,11 +68,25 @@ export function PermitNotice({
   );
 }
 
-export function Row({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
+/**
+ * Một dòng nhãn, giá trị có kẻ ngăn. `mono`: giá trị là số (`tabular-nums font-semibold`); `valueClassName` nối thêm
+ * vào lớp của `dd`. `dt`, `dd` giữ là anh em trong một `div` (e2e đọc `dd` ngay sau `dt`).
+ */
+export function Row({
+  label,
+  mono,
+  valueClassName,
+  children,
+}: {
+  label: string;
+  mono?: boolean;
+  valueClassName?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1">
+    <div className="flex items-baseline justify-between gap-3 border-b border-border py-2.5 last:border-b-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'font-code' : undefined}>{children}</dd>
+      <dd className={cn('text-right', mono && 'tabular-nums font-semibold', valueClassName)}>{children}</dd>
     </div>
   );
 }
@@ -88,16 +105,24 @@ export function OrderSummary({
   balances: TradeContextView['balances'];
 }) {
   return (
-    <Card size="sm" aria-label="Tóm tắt lệnh">
+    // Thẻ nền xanh: `tile-hl` không đổi `--card`, `--border`, nên đặt lại để đường kẻ đọc được.
+    <Card tone="hl" aria-label="Tóm tắt lệnh" className="[--card:var(--tile-hl-chip)] [--border:var(--tile-hl-chip)]">
       <CardHeader>
-        <CardTitle className="text-sm">Tóm tắt lệnh</CardTitle>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <ReceiptText />
+          </CardTitleIcon>
+          Tóm tắt lệnh
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="grid gap-1 text-sm">
+        <dl className="text-sm">
           <Row label="Loại lệnh">{SIDE_LABELS[side]}</Row>
           <Row label="Số lượng" mono>{formatAmount(quantity)}</Row>
           <Row label="Giá" mono>{formatAmount(priceVnd)} VNDB</Row>
-          <Row label="Tổng giá trị dự kiến" mono>{total ? `${formatAmount(total)} VNDB` : 'Chưa có'}</Row>
+          <Row label="Tổng giá trị dự kiến" mono valueClassName="text-(--tile-hl-bar)">
+            {total ? `${formatAmount(total)} VNDB` : 'Chưa có'}
+          </Row>
           {/* FIX-01 E1: ví chưa được định danh thì máy chủ không trả số dư; không hiện số cũ. */}
           <Row label="Token đang giữ" mono>{balances ? formatAmount(balances.wpt) : 'Không có'}</Row>
           <Row label="Số dư VNDB" mono>{balances ? formatAmount(balances.vndb) : 'Không có'}</Row>
@@ -115,22 +140,26 @@ const TOKEN_STATUS_LABELS: Record<InvestorTokenInfo['tokenStatus'], string> = {
 
 export function TokenInfoCard({ token, tradeBlock }: { token: InvestorTokenInfo | null; tradeBlock: TradeContextView['tradeBlock'] }) {
   return (
-    <Card size="sm" aria-label="Thông tin token" className="bg-muted/30">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-sm">Thông tin token</CardTitle>
-        <Wind className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+    <Card aria-label="Thông tin token">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Wind />
+          </CardTitleIcon>
+          Thông tin token
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {!token ? (
           <p className="text-sm text-muted-foreground">Chuỗi này chưa có dự án nào được token hoá.</p>
         ) : (
-          <dl className="grid gap-1 text-sm">
+          <dl className="text-sm">
             <Row label="Dự án">{token.projectName}</Row>
             <Row label="Trần phát hành" mono>{formatAmount(token.cap)}</Row>
             <Row label="Giá phát hành" mono>{formatAmount(token.issuePriceVnd)} VNDB</Row>
             <Row label="Trạng thái token">{TOKEN_STATUS_LABELS[token.tokenStatus]}</Row>
             <Row label="Trạng thái giao dịch">
-              <Badge variant={token.tradingOpen ? 'secondary' : 'outline'}>
+              <Badge variant={token.tradingOpen ? 'ok' : 'warn'}>
                 {tradingStatusLabel(tradeBlock?.phase ?? 'NONE', token.tradingOpen, 'trade')}
               </Badge>
             </Row>
@@ -154,13 +183,15 @@ export function TokenInfoCard({ token, tradeBlock }: { token: InvestorTokenInfo 
 export function TrackedOrder({ order, chain }: { order: OrderView; chain: string }) {
   return (
     <Card aria-label="Lệnh vừa gửi">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">
-          Lệnh {SIDE_LABELS[order.side].toLowerCase()} vừa gửi: {ORDER_STATUS_LABELS[order.status]}
-        </CardTitle>
-        <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-          Xem chi tiết
-        </Link>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">
+            Lệnh {SIDE_LABELS[order.side].toLowerCase()} vừa gửi: {ORDER_STATUS_LABELS[order.status]}
+          </CardTitle>
+          <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
+            Xem chi tiết
+          </Link>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {!isSettled(order) && (
@@ -175,7 +206,7 @@ export function TrackedOrder({ order, chain }: { order: OrderView; chain: string
             <span className="break-all font-code text-xs">{order.txHash}</span>
           </p>
         )}
-        {order.reason && <p className="text-sm text-destructive">{order.reason}</p>}
+        {order.reason && <Alert tone="bad">{order.reason}</Alert>}
         <SettlementProgress steps={order.steps} settlement={order.settlement} />
       </CardContent>
     </Card>
@@ -184,16 +215,15 @@ export function TrackedOrder({ order, chain }: { order: OrderView; chain: string
 
 export function ConnectWalletPrompt() {
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-      <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
+    <EmptyState icon={<Wallet />} className="py-16">
+      <p className="font-medium text-foreground">Chưa kết nối ví</p>
+      <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
         Kết nối ví ở góc trên phải, hoặc mở{' '}
         <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
           Ví của tôi
         </Link>{' '}
         để đặt lệnh mua hoặc bán token.
       </p>
-    </div>
+    </EmptyState>
   );
 }
