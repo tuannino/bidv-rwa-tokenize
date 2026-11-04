@@ -49,9 +49,10 @@ export async function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
   ]);
 
   // FE-UX-01b: thanh bên là thẻ nổi (ngăn kéo dưới 1100 px); cột bên phải là MỘT vùng cuộn chứa
-  // thanh đầu dính đỉnh rồi `main`. Logo dựng ở đây (server) rồi truyền xuống thanh bên.
+  // thanh đầu dính đỉnh rồi `main`. Logo dựng ở đây (server) rồi truyền xuống thanh bên. Gốc khung không
+  // tô nền (FE-UX-01c): nền ở `body`, để quầng sáng của nền trôi hiện ra.
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar
         nav={withHiddenOps(NAV_BY_ROLE[role], {
           demoPayment: canMintDemoPayment(role),

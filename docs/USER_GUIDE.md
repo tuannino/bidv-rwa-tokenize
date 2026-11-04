@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-01b-khung` @ `77651b0` (FE-UX-01b, từ `release/ui-v2` @ `44a4d7c`), ngày 03/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-01c-chuyen-dong` @ `79ac7d2` (FE-UX-01c, từ `release/ui-v2` @ `5e381bd`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -296,6 +296,8 @@ Quy ước chung cho Phần 3:
 **Thanh đầu** (`components/layout/header.tsx`): bên trái là tên màn (phần tử cuối của breadcrumb trang truyền vào; màn chi tiết là 8 ký tự đầu của mã hoặc ký hiệu token), không còn dòng breadcrumb; bên phải là nút **Kết nối ví** màu vàng và nút Sáng Tối. Thanh dính đỉnh khi cuộn nội dung.
 
 **Màn hẹp dưới 1100 px (điện thoại, máy tính bảng dọc):** thanh bên ẩn; nút **Mở menu** (ba gạch) ở đầu thanh đầu mở thanh bên dạng ngăn kéo trượt từ trái, nền phía sau mờ đi và không bấm được. Đóng bằng nút X, chạm vùng mờ, phím Esc, bấm một mục menu hoặc khi chuyển trang. Khi đóng, ngăn kéo không nhận Tab; khi mở, Tab chỉ đi trong ngăn kéo.
+
+**Chuyển động** (FE-UX-01c, chỉ bằng CSS, không đổi dữ liệu hay thao tác): phía sau nội dung có ba quầng sáng xanh ngọc, vàng trôi rất chậm (giao diện Tối mờ hơn); mỗi lần vào màn, nội dung hiện dần và nhích lên trong nửa giây; mép dưới thanh đầu có đường sáng xanh vàng chạy ngang; số việc chờ khác 0 có vòng sáng vàng toả ra (số 0 đứng yên); rê chuột lên mục menu thì biểu tượng xoay nhẹ, lên nút Sáng Tối thì nút xoay, lên nút chính (nền xanh) thì nút nhấc lên và có vệt sáng quét ngang (nút đang khoá thì không). **Tắt chuyển động:** bật thiết lập giảm chuyển động của hệ điều hành (Windows: Cài đặt, Trợ năng, Hiệu ứng hình ảnh, tắt Hiệu ứng hoạt ảnh; macOS: Cài đặt hệ thống, Trợ năng, Màn hình, Giảm chuyển động; Android, iOS: mục Trợ năng tương ứng). Khi đó mọi hiệu ứng dừng, nội dung hiện ngay, quầng sáng đứng yên.
 
 
 Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks: runbook `docs/RUNBOOK_FIREBLOCKS.md`.
@@ -1921,3 +1923,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 02/11/2026 | `07b5255` | Dev (Claude) | FIX-05: màn Tổng quan (`/`) dùng số thật theo chain qua một action chỉ đọc `getOpsOverviewAction` (dự án đã phát hành, tổng cung, nhà đầu tư đã định danh, lợi tức đã chia, biểu đồ lợi tức theo kỳ); sản lượng và TCC là mẫu kèm "unverified"; bỏ ô nhà đầu tư whitelisted, phân bổ WPT theo dự án, thẻ dự án mẫu. `/assets`, `/kyc`, `/reconciliation` ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề. Bỏ L-70. Sửa Phần 2; Phần 3 quy ước chung, mục 3.4.1, 3.6.1, 3.6.2, 3.6.4; Phụ lục C |
 | 03/11/2026 | `f5937b0` | Dev (Claude) | FE-UX-01a: nền giao diện theo bản chốt UI/UX: token màu Sáng, Tối (xanh ngọc, vàng), font Roboto và Roboto Condensed (sửa lỗi hiện font có chân), mặc định Sáng; thay `font-mono` ở 160 dòng (mã kỹ thuật dùng Roboto Condensed, số dùng chữ số đều cột); bo góc thẻ, hộp thoại, nút, menu thả xuống, tiêu đề bảng. Không đổi bố cục, câu chữ hay dữ liệu của màn. Sửa Phần 3 quy ước chung |
 | 03/11/2026 | `77651b0` | Dev (Claude) | FE-UX-01b: khung giao diện theo bản chốt: thanh bên thẻ nổi 270 px, thu gọn 88 px nhớ trong trình duyệt, logo mới, ô Vai trò ở đầu và ô Chain ở đáy thanh bên; thanh đầu chỉ còn tên màn, nút Kết nối ví vàng, nút Sáng Tối (bỏ dòng breadcrumb); dưới 1100 px thanh bên là ngăn kéo mở bằng nút menu; công tắc Lưu ký theo màu chính. Màu thương hiệu mới ở `lib/brand.ts`. Không đổi menu, quyền, dữ liệu. Sửa Phần 3 quy ước chung, mục 3.0 |
+| 04/11/2026 | `79ac7d2` | Dev (Claude) | FE-UX-01c: chuyển động nhẹ chỉ bằng CSS: nền trôi ba quầng sáng, nội dung hiện dần khi vào màn, đường sáng mép dưới thanh đầu, vòng sáng số việc chờ khác 0, hiệu ứng rê chuột ở biểu tượng menu, nút Sáng Tối, nút chính; tắt hết khi hệ điều hành bật giảm chuyển động. Không đổi dữ liệu, thao tác. Sửa Phần 3 mục 3.0 |
