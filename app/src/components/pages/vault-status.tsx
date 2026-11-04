@@ -25,10 +25,10 @@ import type { WithdrawReviewView } from '@/lib/bank/withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { formatDateTime } from '@/lib/format';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
+import { amount, FIELD, short } from '@/components/vault/display';
+import { WithdrawReviewItem } from '@/components/vault/withdraw-review-item';
 
-const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
 const percent = (bps: string) => `${Number(bps) / 100}%`;
-const short = (value: string) => `${value.slice(0, 8)}…${value.slice(-6)}`;
 
 const MODE_LABEL = {
   UNSET: 'Chưa cấu hình, khoá toàn bộ',
@@ -44,9 +44,6 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
-
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
 
 const CONFIG_MODES = [
   { value: 'PERCENT', label: 'Theo tỷ lệ %' },
@@ -272,62 +269,16 @@ function WithdrawReviewCard({ chain, canResolve, onChanged }: { chain: ChainKey;
           <p className="text-sm text-muted-foreground">Không có lệnh rút nào cần xem xét.</p>
         ) : (
           rows.map((row) => (
-            <div key={row.id} className="space-y-2 rounded-lg border border-border p-3 text-sm" data-request={row.id}>
-              <p>
-                <span className="font-code">{row.id.slice(0, 8)}</span>: {amount(row.amount)} VNDB tới{' '}
-                <span className="font-code">{short(row.payoutWallet)}</span>, tạo lúc {new Date(row.createdAt).toLocaleString('vi-VN')}.
-              </p>
-              <p className="text-muted-foreground">{row.reason}</p>
-              {row.status === 'PAYOUT_REVIEW' ? (
-                <p className="text-xs text-muted-foreground">
-                  Lệnh dừng ở bước đặt ví nhận{row.payoutTxHash ? ` (giao dịch ${short(row.payoutTxHash)})` : ''}, chưa rút
-                  tiền: chỉ đánh dấu thất bại được, khi ví ký ngân hàng không còn giao dịch đang chờ.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Sự kiện Withdrawn ứng viên (chỉ để xem, không chứng minh thuộc lệnh này):{' '}
-                  {row.candidates.length === 0 ? 'không có' : row.candidates.map((c) => `${short(c.txHash)} (block ${c.blockNumber})`).join(', ')}
-                </p>
-              )}
-              {canResolve && row.status === 'PAYOUT_REVIEW' && (
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    aria-label={`Lý do thất bại ${row.id}`}
-                    placeholder="Lý do, ví dụ đã kiểm explorer"
-                    value={field(row.id).reason}
-                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
-                    className={`${FIELD} font-sans`}
-                  />
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
-                    Đánh dấu thất bại
-                  </Button>
-                </div>
-              )}
-              {canResolve && row.status !== 'PAYOUT_REVIEW' && (
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto]">
-                  <input
-                    aria-label={`Mã giao dịch xác nhận ${row.id}`}
-                    placeholder="Mã giao dịch 0x…"
-                    value={field(row.id).txHash}
-                    onChange={(e) => setField(row.id, 'txHash', e.target.value)}
-                    className={FIELD}
-                  />
-                  <Button type="button" disabled={busy} onClick={() => void resolve(row.id, 'COMPLETED')}>
-                    Xác nhận hoàn tất
-                  </Button>
-                  <input
-                    aria-label={`Lý do thất bại ${row.id}`}
-                    placeholder="Lý do, ví dụ đã kiểm explorer"
-                    value={field(row.id).reason}
-                    onChange={(e) => setField(row.id, 'reason', e.target.value)}
-                    className={`${FIELD} font-sans`}
-                  />
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void resolve(row.id, 'FAILED')}>
-                    Đánh dấu thất bại
-                  </Button>
-                </div>
-              )}
-            </div>
+            <WithdrawReviewItem
+              key={row.id}
+              row={row}
+              canResolve={canResolve}
+              busy={busy}
+              txHash={field(row.id).txHash}
+              reason={field(row.id).reason}
+              onChange={(key, value) => setField(row.id, key, value)}
+              onResolve={(outcome) => void resolve(row.id, outcome)}
+            />
           ))
         )}
       </CardContent>
