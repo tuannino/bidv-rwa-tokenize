@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ChainKey } from '@bidv/shared';
-import { Coins, Gauge, History, Landmark, Loader2, Lock, ShieldCheck, Timer, TriangleAlert, Users } from 'lucide-react';
+import { History, Landmark, Loader2, ShieldCheck, Timer, TriangleAlert, Users } from 'lucide-react';
 import {
   approveDistributionAction,
   continueDistributionAction,
@@ -378,16 +378,14 @@ export function DistributionApprovalPage() {
                     unit="VNDB"
                     tone="au"
                     size="lg"
-                    icon={<Landmark />}
                     className="min-[640px]:row-span-2"
                   />
-                  <Kpi label="Chưa phân bổ" value={amount(data.pool!.unallocatedBalance)} unit="VNDB" tone="gold" icon={<Coins />} />
-                  <Kpi label="Tổng dự trữ các kỳ" value={amount(data.pool!.reservedBalance)} unit="VNDB" icon={<Lock />} />
+                  <Kpi label="Chưa phân bổ" value={amount(data.pool!.unallocatedBalance)} unit="VNDB" tone="gold" />
+                  <Kpi label="Tổng dự trữ các kỳ" value={amount(data.pool!.reservedBalance)} unit="VNDB" />
                   <Kpi
                     label="Ngưỡng tối thiểu"
                     value={amount(data.pool!.threshold)}
                     unit="VNDB"
-                    icon={<Gauge />}
                     className="min-[640px]:col-span-2"
                   />
                 </div>
