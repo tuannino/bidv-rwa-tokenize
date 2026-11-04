@@ -469,7 +469,7 @@ function VaultStatusMetrics({
   return (
     <>
       <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-4">
-        <Kpi label="Số dư VNDB" value={amount(status.vndbBalance)} unit="VNDB" tone="au" size="lg" />
+        <Kpi label="Số dư VNDB" value={amount(status.vndbBalance)} unit="VNDB" tone="au" size="lg" className="min-h-0" />
         <Kpi label="Số VNDB đang khoá" value={amount(status.lockedAmount)} unit="VNDB" />
         <Kpi label="Số dư WPT" value={amount(status.wptBalance)} unit="WPT" />
         <Kpi label="VNDB có thể rút" value={amount(status.withdrawable)} unit="VNDB" tone="gold" />
