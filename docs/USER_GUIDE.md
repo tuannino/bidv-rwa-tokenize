@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-04a-tong-quan-ndt` (FE-UX-04a, từ `release/ui-v2` @ `ad133aa`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-04b-giao-dich` (FE-UX-04b, từ `release/ui-v2` @ `e914807`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -395,6 +395,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
   - **Sepolia:** ví phải liên kết trong hồ sơ, nếu không điều kiện "Định danh" trượt với câu "Ví không thuộc hồ sơ nhà đầu tư đang đăng nhập".
   - **Cờ tất toán trên evm:** `@blocked SC-04` (`lib/ledger/evm.adapter.ts:1164-1166`), nên trạng thái tất toán dựa vào bảng `Project`.
 - **Trạng thái:** Dùng được. Riêng ô "Token" chưa có tác dụng, và cờ tất toán trên evm chờ SC-04.
+- **Bố cục (FE-UX-04b):** tiêu đề, dòng chế độ mô phỏng (khối thông báo, chỉ trên mock). Từ 1100 px lưới 12 cột: thẻ "Đặt lệnh" 7 cột bên trái; cột phải 5 cột gồm "Tóm tắt lệnh" (nền xanh) rồi "Thông tin token". Thẻ "Lệnh vừa gửi" rộng hết dưới lưới. Hẹp hơn thì một cột theo thứ tự đó. Trong thẻ Đặt lệnh, Số lượng và Giá cùng hàng từ 640 px; "Tổng giá trị dự kiến" là ô vàng; năm điều kiện mỗi điều kiện một ô. Phần trình bày của Tóm tắt lệnh, Thông tin token, Lệnh vừa gửi, câu chữ ký, Chưa kết nối ví nằm ở `components/trading/trade-panels.tsx`.
 - **Nghiệp vụ:** Mua bán token (mua WPT từ ví SPV của người bán; bán lại cho ví SPV chỉ khi bật cờ `ENABLE_INVESTOR_SELL`, mặc định tắt, FIX-02).
 - **Action khi mở:**
   - 1 action: `getTradeContextAction`.
@@ -451,7 +452,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-04.** Ô "Token" không có `onChange` (`components/pages/investor-trade.tsx:289`). Server luôn lấy `projects[0]` (`lib/bank/trade.service.ts:145`), và `placeOrder` không nhận trường token. Chọn token khác không có tác dụng.
+- **L-04.** Ô "Token" không có `onChange` (`components/pages/investor-trade.tsx:312`, `TokenScopeSelect` không truyền hàm đổi token). Server luôn lấy `projects[0]` (`lib/bank/trade.service.ts:145`), và `placeOrder` không nhận trường token. Chọn token khác không có tác dụng.
 - **L-05.** "Trạng thái giao dịch" được tính là `settling !== true` (`lib/bank/trade.service.ts:146`). Giá trị này bỏ qua `Project.status`, và trên evm `settling` luôn null, nên huy hiệu hiện "Đang mở" kể cả khi dự án CLOSED. Trong khi đó điều kiện 4 lại trượt ("đang ở giai đoạn tất toán hoặc đã đóng", `:380-386`).
 - **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:114`).
 - **L-34.** Định danh, AML và hạng rủi ro lấy từ hồ sơ mẫu viết cứng (`lib/bank/account-profile.service.ts:55-114`), không lấy từ DB.
