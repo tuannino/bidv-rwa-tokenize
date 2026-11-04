@@ -54,7 +54,23 @@ UserGuide: "Chốt tại"; mục 3.5.2 thêm "Bố cục"; câu ô chọn token 
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
-@@RUN@@
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-03b, docs/CHECKPOINT_FEUX03B.md        # phần checkpoint nay tự tìm đúng tệp (FIX-07)
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1527 passed | 74 skipped (1601)   # mốc 1517 + 10 ca mới của fe-ux-03b.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+      119 passed, 7 skipped (3.3m)            # project mock đầy đủ: 116 ca cũ + 3 ca mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (43.6s)            # có zz-distribution-approval.spec.ts 3 ca
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
 ```
 
 Log gửi kèm (không commit): `20261104_feux03b_run_local_all.log` và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới
@@ -96,7 +112,10 @@ Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc 
 
 | Lỗi gây ra | Kết quả |
 |---|---|
-@@MUT@@
+| Bỏ `aria-label="Quỹ chia"` (bản build riêng `.next-mut`, e2e trên máy chủ riêng) | `fe-ux-03b-chia-loi-nhuan` ca 1, 2, 3 đỏ; `zz-distribution-approval` ca "Giao dịch viên xem quỹ" đỏ |
+| Xoá dòng `if (next === 1) return;` | `fe-08-approval.test.ts` ca "màn gọi đúng một action khi mở" đỏ |
+| Đổi sắc `FAILED` của hồ sơ trả (`bad` thành `warn`) | `fe-ux-03b.test.ts` nhóm 1 ca "hồ sơ trả" đỏ |
+| Bỏ điều kiện `period.status !== 'OPENING'` của nút Duyệt lại | `fe-ux-03b.test.ts` nhóm 2 ca `OPENING` đỏ |
 
 ## 2. Thay đổi
 
