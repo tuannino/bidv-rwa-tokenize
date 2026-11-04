@@ -1,13 +1,14 @@
 'use client';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Info, Link2, TriangleAlert, Wallet } from 'lucide-react';
+import { Info, Link2, ShieldCheck, TriangleAlert, Wallet } from 'lucide-react';
 import { CHAINS, type ChainKey } from '@bidv/shared';
 import { NoWalletGuide } from '@/components/wallet/no-wallet-guide';
 import { WalletStatusCard } from '@/components/wallet/wallet-status-card';
 import { WrongChainBanner } from '@/components/wallet/wrong-chain-banner';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
@@ -33,7 +34,7 @@ export function WalletConnectPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Ví của tôi</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Ví của tôi</h1>
       </header>
 
       {/*
@@ -84,7 +85,7 @@ export function WalletConnectPage() {
             error={switchError}
           >
             {/*
-              R4.1/R4.2 — lệch mạng có HAI cách sửa và người dùng được chọn. Hệ thống không tự
+              R4.1/R4.2: lệch mạng có HAI cách sửa và người dùng được chọn. Hệ thống không tự
               đổi mạng của ví, cũng không tự đổi mạng của trang.
             */}
             <UseWalletChainButton walletChainKey={status.walletChainKey} />
@@ -109,17 +110,20 @@ export function WalletConnectPage() {
  */
 function WalletSkeleton() {
   return (
-    <Card aria-busy="true">
-      <CardHeader>
-        <Skeleton className="h-5 w-40" />
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-4 w-72" />
-        <Skeleton className="h-4 w-64" />
-        <span className="sr-only">Đang kiểm tra trạng thái ví…</span>
-      </CardContent>
-    </Card>
+    <div aria-busy="true" className="grid gap-6 min-[1100px]:grid-cols-12">
+      <Card className="min-[1100px]:col-span-7">
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-9 w-64 max-w-full" />
+          <Skeleton className="h-8 w-48 max-w-full" />
+          <Skeleton className="h-4 w-72 max-w-full" />
+          <span className="sr-only">Đang kiểm tra trạng thái ví…</span>
+        </CardContent>
+      </Card>
+      <Skeleton className="h-36 rounded-[22px] min-[1100px]:col-span-5" />
+    </div>
   );
 }
 
@@ -128,8 +132,10 @@ function MockNotice() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Info />
+          </CardTitleIcon>
           Đang ở chế độ mô phỏng
         </CardTitle>
         <CardDescription>
@@ -140,7 +146,7 @@ function MockNotice() {
       </CardHeader>
       <CardContent className="space-y-2 text-sm text-muted-foreground">
         <p>
-          Mua WPT, nhận lợi nhuận và tất toán đều thực hiện được ngay ở chế độ này — kết quả là
+          Mua WPT, nhận lợi nhuận và tất toán đều thực hiện được ngay ở chế độ này, kết quả là
           số liệu mô phỏng, không ghi lên chuỗi nào.
         </p>
         <p className="flex items-start gap-1.5">
@@ -157,12 +163,14 @@ function MockNotice() {
  * Mạng không thuộc họ EVM (Stellar). Ví trình duyệt hiện tại không nói được giao thức đó, nên
  * mời cài ví ở đây là vô nghĩa — nói thẳng là chưa hỗ trợ.
  */
-function UnsupportedChainNotice({ chainLabel }: { chainLabel: string }) {
+export function UnsupportedChainNotice({ chainLabel }: { chainLabel: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <TriangleAlert className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <TriangleAlert />
+          </CardTitleIcon>
           Chưa hỗ trợ ví cho mạng này
         </CardTitle>
         <CardDescription>
@@ -183,8 +191,10 @@ function DisconnectedCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Wallet />
+          </CardTitleIcon>
           Chưa kết nối ví
         </CardTitle>
         <CardDescription>
@@ -192,15 +202,15 @@ function DisconnectedCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ul className="space-y-1.5 text-sm text-muted-foreground">
-          <li>· Bước này chỉ đọc địa chỉ ví, không lấy được tiền và không ký gì.</li>
-          <li>· Mỗi giao dịch sau này đều phải bạn tự xác nhận trong ví.</li>
-          <li>· Ngắt kết nối được bất cứ lúc nào.</li>
+        <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+          <li>Bước này chỉ đọc địa chỉ ví, không lấy được tiền và không ký gì.</li>
+          <li>Mỗi giao dịch sau này đều phải bạn tự xác nhận trong ví.</li>
+          <li>Ngắt kết nối được bất cứ lúc nào.</li>
         </ul>
 
         {/*
           Dùng `ConnectButton.Custom` để nút mang đúng kiểu của hệ thống thiết kế và nhãn
-          tiếng Việt, nhưng hộp thoại chọn ví vẫn là của RainbowKit — không dựng lại phần
+          tiếng Việt, nhưng hộp thoại chọn ví vẫn là của RainbowKit: không dựng lại phần
           khó (phát hiện ví, deep link, WalletConnect).
         */}
         <ConnectButton.Custom>
@@ -240,10 +250,10 @@ function UseWalletChainButton({ walletChainKey }: { walletChainKey: ChainKey }) 
 /** Ranh giới với thao tác của ngân hàng (R7.1, R7.2) và với AU-01. */
 function WalletScopeNote() {
   return (
-    <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+    <Alert tone="info" icon={<ShieldCheck className="mt-px size-[18px] shrink-0" aria-hidden="true" />}>
       Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư. Các thao tác đặc quyền của ngân hàng
       (phát hành, đóng băng, thu hồi) ký bằng khóa phía máy chủ, không đi qua ví trình duyệt. Kết
-      nối ví cũng chưa phải đăng nhập — vai trò hiện tại vẫn lấy từ phiên demo.
-    </p>
+      nối ví cũng chưa phải đăng nhập, vai trò hiện tại vẫn lấy từ phiên demo.
+    </Alert>
   );
 }

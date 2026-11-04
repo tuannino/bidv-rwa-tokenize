@@ -100,8 +100,8 @@ test.describe('FE-UX-04c Quản lý lệnh, Chi tiết lệnh, Ví của tôi', 
     await expect(scope).toHaveCount(1);
     expect(await scope.getAttribute('role')).toBeNull();
     const text = await main.innerText();
-    expect(text).not.toContain('·');
-    expect(text).not.toContain('—');
+    expect(text).not.toContain('\u00b7');
+    expect(text).not.toContain('\u2014');
 
     await page.setViewportSize({ width: 390, height: 900 });
     const mockCard = (await main

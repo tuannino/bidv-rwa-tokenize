@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { Loader2, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { EmptyState } from '@/components/ui/empty-state';
 import { getOrderDetailAction } from '@/app/actions/trade';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import type { OrderDetailView } from '@/lib/bank/trade.service';
@@ -47,24 +49,20 @@ export function InvestorOrderDetailPage({ orderId, mockWallet }: { orderId: stri
 
   if (!wallet || (chain !== 'mock' && !isConnected)) {
     return (
-      <div className="flex flex-col items-center gap-2 py-16 text-center">
-        <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-        <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-      </div>
+      <EmptyState icon={<Wallet />} className="py-16">
+        <p className="font-medium text-foreground">Chưa kết nối ví</p>
+      </EmptyState>
     );
   }
 
   const fresh = loaded?.key === requestKey ? loaded : null;
   if (fresh === null) {
     return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Đang tải lệnh…
-      </p>
+      <EmptyState loading>Đang tải lệnh…</EmptyState>
     );
   }
   if (fresh.notBound) return <WalletNotBoundNotice wallet={wallet} />;
-  if (fresh.error || !fresh.data) return <p className="text-sm text-destructive">{fresh.error}</p>;
+  if (fresh.error || !fresh.data) return <Alert tone="bad">{fresh.error}</Alert>;
 
   return <OrderDetailContent detail={fresh.data} />;
 }

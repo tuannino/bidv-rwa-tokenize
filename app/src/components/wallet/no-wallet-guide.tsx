@@ -1,5 +1,5 @@
 import { Download, ExternalLink, Wallet } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 
 /**
  * Trạng thái `no-provider` — trình duyệt chưa có ví nào (R2.1, R2.2).
@@ -27,8 +27,10 @@ export function NoWalletGuide() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2 text-base">
-          <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+          <CardTitleIcon>
+            <Wallet />
+          </CardTitleIcon>
           Chưa có ví trong trình duyệt
         </CardTitle>
         <CardDescription>
