@@ -34,7 +34,7 @@ Tệp mới trong `app/src/components/distribution/`: `display.ts` (`amount`, `s
 | 14 | Không mã dư thừa | ✅ | mục 2.5 |
 
 **Kết luận:** 14 ✅, 0 🔶, 0 ❌. JS gzip `/distribution` +2.886 B (2,82 KB, trần 3 KB, đo theo byte vì công cụ làm
-tròn 0,1 KB cho +3,0); các trang đo khác không đổi theo công cụ đo; CSS +@@CSS@@ B; action khớp 28/28
+tròn 0,1 KB cho +3,0); các trang đo khác không đổi theo công cụ đo; CSS +100 B; action khớp 28/28
 (`/distribution` 1); số `role` trong `main` bằng mốc (0 ở cả hai vai). Mức rủi ro: thấp (thẻ Kỳ hoạt động dời sang
 tệp mới, các nhánh nút kiểm bằng unit test với dữ liệu giả; luồng duyệt và chia thật bằng e2e mock và Hardhat).
 
@@ -196,7 +196,13 @@ bằng `maker-checker`, `ops-transactions`, `permit-order`, `recall`; đo bằng
 |---|---|---|---|
 | Số action khi mở màn | 28 đường dẫn, `/distribution` 1 | Khớp 28/28 | không đổi |
 | Cảnh báo hydrate | 0 | 0 | 0 |
-@@DO@@
+| JS gzip `/distribution` | 465,5 KB | 468,3 KB (+2,8; theo byte +2.886 B) | +3 KB |
+| JS gzip `/` | 558,2 KB | 558,2 KB (0) | không tăng |
+| JS gzip `/approvals` | 455,2 KB | 455,2 KB (0) | không tăng |
+| JS gzip `/portfolio` | 456,1 KB | 456,1 KB (0) | không tăng |
+| JS gzip `/trade` | 479,0 KB | 479,0 KB (0) | không tăng |
+| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.224 B | 19.324 B (+100 B) | +2 KB |
+| `role` trong `main` (mục 1.2, ca 2) | 0, 0, 0 hai vai | giống hệt | bằng mốc |
 
 JS `/distribution` đo thêm theo byte (công cụ làm tròn 0,1 KB, bản có biểu tượng ô số liệu báo +3,0): script
 `js-bytes.js` cộng gzip từng script như công cụ đo, trên bản build mốc dựng riêng (`NEXT_DIST_DIR=.next-moc`, trang
