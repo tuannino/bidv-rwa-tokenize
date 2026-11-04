@@ -6,7 +6,6 @@ import {
   ContractFunctionZeroDataError,
   createPublicClient,
   createWalletClient,
-  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   http,
@@ -43,8 +42,9 @@ import { serverEnv } from '@/lib/config/env';
 import { createEventIndex, type LiveIndexedEvent } from '@/lib/indexer/event-index';
 import type { ISigner } from '@/lib/signer';
 import { createMemoryChainEventStore } from '@/lib/store/memory.chain-event.store';
-import type { IChainEventStore, IndexedEventArgs, IndexerScope } from '@/lib/store/chain-event.store.port';
+import type { IChainEventStore, IndexerScope } from '@/lib/store/chain-event.store.port';
 import { normalizeEvmAddress } from './address';
+import { decodeEvmLogs } from './evm-log-decode';
 import {
   LedgerError,
   LedgerNotImplementedError,
@@ -612,22 +612,6 @@ export function createEvmLedger(
     logIndex: log.logIndex,
   });
 
-  const serializeEventArgs = (raw: unknown): IndexedEventArgs => {
-    if (!raw || typeof raw !== 'object') return {};
-    return Object.fromEntries(
-      Object.entries(raw as Record<string, unknown>).map(([key, value]) => {
-        if (typeof value === 'bigint') return [key, value.toString()];
-        if (typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)) {
-          return [key, normalizeEvmAddress(value)];
-        }
-        if (typeof value === 'string' && value.startsWith('0x')) return [key, value.toLowerCase()];
-        if (typeof value === 'number' || typeof value === 'boolean' || value === null) return [key, value];
-        return [key, String(value)];
-      }),
-    );
-  };
-
-  let warnedUndecodableLog = false;
   const eventSource = {
     async head() {
       return logReader().getBlockNumber({ cacheTime: 0 });
@@ -672,35 +656,9 @@ export function createEvmLedger(
       const parts = await Promise.all(
         ranges.map(([from, to]) => logReader().getLogs({ address: addresses, fromBlock: from, toBlock: to })),
       );
-      const events: LiveIndexedEvent[] = [];
-      for (const log of parts.flat()) {
-        try {
-          const fromVault = log.address.toLowerCase() === scope.vault.toLowerCase();
-          const decoded = decodeEventLog({
-            abi: (fromVault ? spvPaymentVaultAbi : projectTokenAbi) as Abi,
-            data: log.data,
-            topics: log.topics,
-            strict: false,
-          });
-          if (!decoded.eventName || log.blockNumber === null || log.logIndex === null || log.transactionHash === null) continue;
-          events.push({
-            contract: normalizeEvmAddress(log.address),
-            eventName: decoded.eventName,
-            blockNumber: log.blockNumber,
-            logIndex: log.logIndex,
-            txHash: log.transactionHash,
-            args: serializeEventArgs(decoded.args),
-          });
-        } catch (error) {
-          if (!warnedUndecodableLog) {
-            warnedUndecodableLog = true;
-            console.warn(`Indexer ${chain}: bỏ log không giải mã được; các log sau chỉ bỏ qua im lặng.`, error);
-          }
-        }
-      }
-      return events.sort((a, b) =>
-        a.blockNumber < b.blockNumber ? -1 : a.blockNumber > b.blockNumber ? 1 : a.logIndex - b.logIndex,
-      );
+      // FIX-07: giải mã ở `evm-log-decode.ts` (dời nguyên văn; bỏ im lặng sự kiện không theo dõi, cảnh báo
+      // log lạ một lần mỗi chain).
+      return decodeEvmLogs(parts.flat(), scope, chain);
     },
 
     async timestamps(blockNumbers: readonly bigint[]) {
