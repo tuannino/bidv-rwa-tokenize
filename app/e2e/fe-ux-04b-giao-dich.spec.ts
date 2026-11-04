@@ -27,7 +27,7 @@ async function openTrade(page: Page) {
  * Số `role` trong `main` đo trên `release/ui-v2` @ e914807 TRƯỚC khi sửa, bằng chính ca 1 chạy trên máy chủ MỚI
  * trong lượt e2e mock đầy đủ (spec chép vào bản mốc).
  */
-const ROLE_COUNTS = { status: -1, note: -1, alert: -1 };
+const ROLE_COUNTS = { status: 0, note: 1, alert: 0 };
 
 async function countRoles(page: Page) {
   const main = page.getByRole('main');
