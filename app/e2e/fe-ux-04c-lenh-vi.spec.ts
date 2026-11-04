@@ -42,8 +42,8 @@ async function waitForHydration(page: Page) {
  */
 type RoleCount = { status: number; note: number; alert: number };
 const ROLE_COUNTS: Record<'/orders' | '/wallet', RoleCount> = {
-  '/orders': { status: -1, note: -1, alert: -1 },
-  '/wallet': { status: -1, note: -1, alert: -1 },
+  '/orders': { status: 0, note: 1, alert: 0 },
+  '/wallet': { status: 0, note: 0, alert: 0 },
 };
 
 async function countRoles(page: Page, path: string) {
