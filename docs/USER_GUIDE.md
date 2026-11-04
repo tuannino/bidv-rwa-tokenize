@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-01c-chuyen-dong` @ `79ac7d2` (FE-UX-01c, từ `release/ui-v2` @ `5e381bd`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-02a-van-hanh` (FE-UX-02a, từ `release/ui-v2` @ `2065289`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -299,6 +299,8 @@ Quy ước chung cho Phần 3:
 
 **Chuyển động** (FE-UX-01c, chỉ bằng CSS, không đổi dữ liệu hay thao tác): phía sau nội dung có ba quầng sáng xanh ngọc, vàng trôi rất chậm (giao diện Tối mờ hơn); mỗi lần vào màn, nội dung hiện dần và nhích lên trong nửa giây; mép dưới thanh đầu có đường sáng xanh vàng chạy ngang; số việc chờ khác 0 có vòng sáng vàng toả ra (số 0 đứng yên); rê chuột lên mục menu thì biểu tượng xoay nhẹ, lên nút Sáng Tối thì nút xoay, lên nút chính (nền xanh) thì nút nhấc lên và có vệt sáng quét ngang (nút đang khoá thì không). **Tắt chuyển động:** bật thiết lập giảm chuyển động của hệ điều hành (Windows: Cài đặt, Trợ năng, Hiệu ứng hình ảnh, tắt Hiệu ứng hoạt ảnh; macOS: Cài đặt hệ thống, Trợ năng, Màn hình, Giảm chuyển động; Android, iOS: mục Trợ năng tương ứng). Khi đó mọi hiệu ứng dừng, nội dung hiện ngay, quầng sáng đứng yên.
 
+**Thành phần màn dùng chung** (FE-UX-02a, `components/ui`, chỉ đổi trình bày): ô số liệu (`Kpi`) bo 22 px có nhãn, biểu tượng tròn, con số lớn; ô có bốn sắc theo ngữ nghĩa: xanh ngọc đậm (số chính của màn), vàng (tiền đã chia), xanh nhạt (số liên quan sản lượng hoặc nguồn cung chưa phân phối), vàng nhạt (dự phòng cho màn sau); ô thường nền thẻ. Nhãn trạng thái tô màu theo nhóm: xanh lá là xong (Hoàn tất, CONFIRMED), vàng là đang chạy (Đã đặt, Đang kiểm tra, Đang quyết toán), đỏ là dừng (Bị từ chối, Thất bại, FAILED), xanh dương là hết hạn (`components/trading/order-status-tone.ts`). Hộp thông báo (`Alert`) cùng bốn màu kèm biểu tượng; ghi chú chỉ đọc, ghi chú PoC dùng màu xanh dương. Danh sách đang tải, lỗi, rỗng hiện khung xám (lỗi khung đỏ) có biểu tượng tròn ở giữa (`EmptyState`). Ô nhập, ô chọn cao 44 px, bo 14 px, nền nhạt. Trang chặn vai (Nạp VNDB, Định danh ví) là thẻ đỏ nhạt có biểu tượng khiên. Chữ, nút, bộ lọc, điều kiện khoá không đổi.
+
 
 Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks: runbook `docs/RUNBOOK_FIREBLOCKS.md`.
 
@@ -531,7 +533,7 @@ Không có mục menu, mở từ nút "Chi tiết" hoặc "Xem chi tiết".
 
 - **L-40.** Nhật ký chỉ quét 500 dòng `AuditLog` mới nhất (`lib/bank/trade.service.ts:424-425`, có ghi chú `ponytail`). Mọi lần đọc qua `authorize` (/portfolio ghi 3 dòng mỗi lần mở, /orders ghi 1 dòng mỗi ký tự, /trade ghi 1 dòng mỗi 3 giây) đều chiếm chỗ trong 500 dòng này. Vì vậy lệnh không cũ lắm vẫn có thể hiện "Chưa có dòng nhật ký nào".
 - **L-41.** Các lần đặt lệnh bị từ chối trước khi tạo bản ghi không có mã lệnh trong `detail` (`lib/bank/purchase.service.ts:238-245`), nên không xuất hiện ở đây.
-- **L-42.** Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:67-69`).
+- **L-42.** Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:96-98`).
 - **L-43.** Bước quyết toán tự động ghi `actorRole` là INVESTOR, dù tx do ví ngân hàng ký.
 - **L-44.** "Mã giao dịch" không có liên kết sang trình khám phá khối và không ghi "mô phỏng" như màn /trade.
 
@@ -880,6 +882,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Trạng thái:** Một phần. Bốn số liệu đọc thật, sản lượng và token TCC là số mẫu kèm "unverified" (chưa có nguồn thật).
 - **Nghiệp vụ:** Tổng quan danh mục điện gió.
 - **Action khi mở:** 1 action `getOpsOverviewAction(chain)` > `getOpsOverview` (`lib/bank/overview.service.ts`): kiểm `assertCan('ops:read')`, KHÔNG ghi sổ kiểm toán; đọc song song bốn nguồn, nguồn nào lỗi thì ô đó "Chưa đọc được", các ô khác vẫn hiện. Gọi lại khi đổi chain. Nhà đầu tư, Người bán gọi thẳng action thì bị từ chối.
+- **Bố cục** (FE-UX-02a): từ 1100 px lưới 12 cột: ô "Tổng cung token" xanh ngọc đậm chiếm 4 cột bên trái và hai hàng (con số lớn, thanh WPT, dòng TCC); bên phải hàng trên là "Dự án đang triển khai", "Nhà đầu tư đã định danh" (ô thường), hàng dưới là "Sản lượng luỹ kế" (xanh nhạt) và "Lợi tức đã chia" (vàng). Thẻ biểu đồ trải hết chiều ngang, hai biểu đồ cạnh nhau, mỗi biểu đồ có tiêu đề kèm biểu tượng. Dưới 1100 px hai cột (từ 640 px), dưới 640 px một cột. Lỗi đọc số liệu hiện hộp đỏ dưới tiêu đề.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -896,8 +899,8 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-69.** Tiêu đề và breadcrumb ghi "Tổng quan" (`dashboard.tsx:88`, `app/(ops)/page.tsx:6`), mục menu ghi "Bảng điều khiển". UIUX-02 QĐ-10 chủ ý giữ hai tên; thiết kế lại màn thuộc đợt chuẩn hoá dữ liệu sau FIX-04.
-- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:91-97`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
+- **L-69.** Tiêu đề và breadcrumb ghi "Tổng quan" (`dashboard.tsx:91`, `app/(ops)/page.tsx:6`), mục menu ghi "Bảng điều khiển". UIUX-02 QĐ-10 chủ ý giữ hai tên; thiết kế lại màn thuộc đợt chuẩn hoá dữ liệu sau FIX-04.
+- **L-26.** Nút "Phát hành WPT" dẫn tới `/mint` (`dashboard.tsx:92-95`). Từ FE-22, phát hành chính thức là `/draft` kèm Kiểm soát viên duyệt. Kiểm soát viên cũng thấy nút này.
 
 
 #### 3.4.2. `/draft` Lập lệnh
@@ -1061,6 +1064,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 - **Nghiệp vụ:** Giao dịch và can thiệp lệnh kẹt.
 - **Action khi mở:** `listOpsOrdersAction({chain, q, investorWallet, side, status, fromDate, toDate, page, pageSize:12})` (`lib/bank/ops-transactions.service.ts:81`).
 - **Action khi tương tác:** `executeOrderAction({chain, orderId})`.
+- **Bố cục** (FE-UX-02a): ghi chú chỉ xem (Kiểm soát viên) là hộp xanh dương; ba ô số liệu: Tổng cung (xanh ngọc đậm), Chưa phân phối (xanh nhạt), Đang lưu hành (ô thường), đơn vị WPT đặt nhỏ sau con số; một thẻ chứa bộ lọc, thông báo sau can thiệp, bảng (nhãn trạng thái tô màu theo nhóm; ô Hành động trống in "–") và phân trang.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1077,7 +1081,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-14.** **Thiếu nút cho lệnh EXECUTING mất mã tx.** Máy chủ đã hỗ trợ phục hồi trường hợp này qua `recoverExecutingWithoutTx`: tra `OrderSettled` trên chuỗi rồi chốt, hoặc đưa về CHECKING (`purchase.service.ts:1122,1442`). Giao diện lại chặn và chỉ hiện "Cần đối soát tay" (`ops-transactions.tsx:113,248-260`; `ops-transactions.service.ts:129-130`).
+- **L-14.** **Thiếu nút cho lệnh EXECUTING mất mã tx.** Máy chủ đã hỗ trợ phục hồi trường hợp này qua `recoverExecutingWithoutTx`: tra `OrderSettled` trên chuỗi rồi chốt, hoặc đưa về CHECKING (`purchase.service.ts:1122,1442`). Giao diện lại chặn và chỉ hiện "Cần đối soát tay" (`ops-transactions.tsx:116,263-279`; `ops-transactions.service.ts:129-130`).
 - **L-14.** **Lệnh kẹt ở PLACED không can thiệp được** (`INTERVENTION_ORDER_STATUSES` = CHECKING, EXECUTING).
 - **L-75.** **Nguồn cung chỉ tính cho dự án đầu tiên của chain** (`ops-transactions.service.ts:117`).
 
@@ -1089,6 +1093,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 - **Trạng thái:** **Dùng được**. Chỉ xem, không có nút can thiệp.
 - **Nghiệp vụ:** Giao dịch.
 - **Action khi mở:** `getOpsOrderDetailAction({chain, orderId})`: kiểm `ops:read`, rồi gọi `getOrderDetail` (`lib/bank/trade.service.ts:434`).
+- **Bố cục** (FE-UX-02a, dùng chung với `/orders/[id]` và kết quả đặt lệnh ở `/trade`): từ 1100 px "Thông tin lệnh" (5 cột) và "Tiến trình quyết toán" (7 cột) cạnh nhau, "Nhật ký kiểm toán của lệnh" trải hết chiều ngang dạng dòng thời gian. Năm bước là chấm tròn nối đường: xong dấu tích xanh, đang xử lý vàng, dừng đỏ, chưa tới xám. Quy tắc, kết cục, bốn bút toán nằm trong khung nền nhạt.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1117,6 +1122,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 - **Nghiệp vụ:** Nạp tiền PoC.
 - **Action khi mở:** `demoPaymentContextAction({chain})` (kiểm 2 lớp, không ghi sổ).
 - **Action khi tương tác:** `mintDemoPaymentAction`.
+- **Bố cục** (FE-UX-02a): hộp ghi chú xanh dương; thẻ "Nạp vào ví" rộng hai phần ba từ 1100 px; câu "Tối đa một lần: … VNDB." giữ trong dòng gợi ý; kết quả nạp là hộp xanh lá hoặc đỏ; câu thành công nối bằng dấu phẩy (trước là dấu chấm giữa); ví trống in "–"; trạng thái lịch sử tô màu (CONFIRMED xanh lá, FAILED đỏ, còn lại vàng).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1173,6 +1179,7 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 - **Nghiệp vụ:** định danh ví trên chuỗi và gắn ví cho hồ sơ Nhà đầu tư hoặc Người bán trong MỘT thao tác.
 - **Action khi mở:** 1 action `listWalletBindingsAction({chain})` (`assertCan`, chỉ đọc database, không chạm chuỗi): 200 ví gắn gần nhất của chain, mới gắn trước, kèm danh sách hồ sơ khách hàng cho ô chọn. Đổi chain thì gọi lại.
 - **Action khi bấm:** `bindProfileWalletAction({chain, actorId, wallet})`, xong thì tải lại danh sách.
+- **Bố cục** (FE-UX-02a): hai thẻ có biểu tượng tiêu đề; kết quả là hộp xanh lá hoặc đỏ; danh sách đang tải, lỗi, rỗng hiện khung có biểu tượng.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1859,7 +1866,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-39 | `/orders` | Mỗi lần chỉ tải tối đa 200 lệnh (`components/trading/gates.ts:130`), không có phân trang. |
 | L-40 | `/orders/[id]` | Nhật ký chỉ quét 500 dòng `AuditLog` mới nhất (`lib/bank/trade.service.ts:424-425`, có ghi chú `ponytail`). |
 | L-41 | `/orders/[id]` | Các lần đặt lệnh bị từ chối trước khi tạo bản ghi không có mã lệnh trong `detail` (`lib/bank/purchase.service.ts:238-245`), nên không xuất hiện ở đây. |
-| L-42 | `/orders/[id]` | Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:67-69`). |
+| L-42 | `/orders/[id]` | Nhật ký hiện mã thô `action`, `actorRole` và `outcome` (ví dụ `order:auto-execute`, `INVESTOR`, `SUCCESS`) (`components/trading/order-detail-content.tsx:96-98`). |
 | L-43 | `/orders/[id]` | Bước quyết toán tự động ghi `actorRole` là INVESTOR, dù tx do ví ngân hàng ký. |
 | L-44 | `/orders/[id]` | "Mã giao dịch" không có liên kết sang trình khám phá khối và không ghi "mô phỏng" như màn /trade. |
 | L-45 | `/tokens/[symbol]` | Thẻ "Thông tin token" mang nhãn on-chain (`components/pages/investor-token-detail.tsx:165`), nhưng Tuổi thọ, Lợi tức, Phí (`:172-178`) đọc từ SystemConfig, không đọc từ chuỗi. |
@@ -1924,3 +1931,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 03/11/2026 | `f5937b0` | Dev (Claude) | FE-UX-01a: nền giao diện theo bản chốt UI/UX: token màu Sáng, Tối (xanh ngọc, vàng), font Roboto và Roboto Condensed (sửa lỗi hiện font có chân), mặc định Sáng; thay `font-mono` ở 160 dòng (mã kỹ thuật dùng Roboto Condensed, số dùng chữ số đều cột); bo góc thẻ, hộp thoại, nút, menu thả xuống, tiêu đề bảng. Không đổi bố cục, câu chữ hay dữ liệu của màn. Sửa Phần 3 quy ước chung |
 | 03/11/2026 | `77651b0` | Dev (Claude) | FE-UX-01b: khung giao diện theo bản chốt: thanh bên thẻ nổi 270 px, thu gọn 88 px nhớ trong trình duyệt, logo mới, ô Vai trò ở đầu và ô Chain ở đáy thanh bên; thanh đầu chỉ còn tên màn, nút Kết nối ví vàng, nút Sáng Tối (bỏ dòng breadcrumb); dưới 1100 px thanh bên là ngăn kéo mở bằng nút menu; công tắc Lưu ký theo màu chính. Màu thương hiệu mới ở `lib/brand.ts`. Không đổi menu, quyền, dữ liệu. Sửa Phần 3 quy ước chung, mục 3.0 |
 | 04/11/2026 | `79ac7d2` | Dev (Claude) | FE-UX-01c: chuyển động nhẹ chỉ bằng CSS: nền trôi ba quầng sáng, nội dung hiện dần khi vào màn, đường sáng mép dưới thanh đầu, vòng sáng số việc chờ khác 0, hiệu ứng rê chuột ở biểu tượng menu, nút Sáng Tối, nút chính; tắt hết khi hệ điều hành bật giảm chuyển động. Không đổi dữ liệu, thao tác. Sửa Phần 3 mục 3.0 |
+| 04/11/2026 | nhánh `feat/fe-ux-02a-van-hanh` | Dev (Claude) | FE-UX-02a: thành phần màn dùng chung (ô số liệu bốn sắc, nhãn trạng thái tô màu theo nhóm, hộp thông báo, khung rỗng, đang tải, lỗi, ô nhập, thẻ chặn) và vẽ lại 5 màn Vận hành `/`, `/transactions`, `/transactions/[id]` (dùng chung `/orders/[id]`), `/demo-payment`, `/wallet-binding`. Không đổi chữ (trừ dấu chấm giữa, gạch dài ở hai chỗ), dữ liệu, thao tác. Sửa Phần 3 mục 3.0, 3.4.1, 3.4.5, 3.4.6, 3.4.7, 3.4.9, số dòng ở L-14, L-26, L-42, L-69 |
