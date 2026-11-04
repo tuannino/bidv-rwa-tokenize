@@ -55,7 +55,25 @@ UserGuide: "Chốt tại"; mục 3.5.1 thêm "Bố cục"; câu ô chọn token 
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
-@@RUN@@
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-03c, docs/CHECKPOINT_FEUX03C.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1533 passed | 74 skipped (1607)   # mốc 1527 + 6 ca mới của fe-ux-03c.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+FE-UX-03c role counts CONTROLLER: {"status":0,"note":1,"alert":0}
+FE-UX-03c role counts TELLER: {"status":0,"note":1,"alert":0}
+      122 passed, 7 skipped (3.5m)            # project mock đầy đủ: 119 ca cũ + 3 ca mới; không dòng BO-DEM-ROLE
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (43.4s)            # có vault-withdraw.spec.ts 4 ca
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
 ```
 
 Log gửi kèm (không commit): `20261104_feux03c_run_local_all.log` và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới
@@ -100,7 +118,10 @@ Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc 
 
 | Lỗi gây ra | Kết quả |
 |---|---|
-@@MUT@@
+| Bỏ `aria-label="Chế độ khoá"` (bản build riêng `.next-mut`, e2e trên máy chủ mới) | `fe-ux-03c-vault` ca 2 đỏ; `vault-withdraw` ca "Kiểm soát viên lưu cấu hình" đỏ (2 ca sau không chạy vì `serial`) |
+| Cho nút Lưu hiện với mọi vai (bỏ `config.canConfigure &&`, bản build riêng) | `vault-withdraw` ca "vai khác chỉ xem cấu hình" đỏ |
+| Trong `WithdrawReviewItem` cho dòng `PAYOUT_REVIEW` hiện "Xác nhận hoàn tất" (bỏ `row.status !== 'PAYOUT_REVIEW'`) | `fe-ux-03c.test.ts` ca `PAYOUT_REVIEW` đỏ |
+| Thêm một lời gọi `listWithdrawReviewsAction(` vào trang | `fe-ux-03c.test.ts` nhóm 1 đỏ |
 
 ## 2. Thay đổi
 
