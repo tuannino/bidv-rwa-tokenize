@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-04b-giao-dich` (FE-UX-04b, từ `release/ui-v2` @ `e914807`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-04c-lenh-vi` (FE-UX-04c, từ `release/ui-v2` @ `e6604d0`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -467,6 +467,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 - **Vai:** INVESTOR. Menu "Quản lý lệnh", phím tắt Q. Service kiểm thêm `order:read`. INVESTOR không có `order:read:all`, nên bắt buộc phải lọc theo ví.
 - **Chain:** mock dùng ví hồ sơ. hardhat-local và Sepolia dùng ví wagmi đang kết nối, và chỉ thấy lệnh của ví đó. Không có thao tác ký.
 - **Trạng thái:** Dùng được.
+- **Bố cục (FE-UX-04c):** tiêu đề; dòng chế độ mô phỏng là khối thông báo (chỉ trên mock); thẻ "Bộ lọc" năm ô (5 cột từ 1100 px, 2 cột từ 640 px, một cột hẹp hơn), ô Mã lệnh có biểu tượng tìm; thẻ bảng lệnh, nhãn trạng thái có sắc theo trạng thái (Hoàn tất xanh, đang xử lý vàng, Bị từ chối, Thất bại đỏ, Hết hạn xanh dương), liên kết "Chi tiết" có mũi tên. Đang tải, rỗng, chưa kết nối ví là khối trống có biểu tượng; lỗi là khối thông báo đỏ.
 - **Nghiệp vụ:** Mua bán token (tra cứu lệnh).
 - **Action khi mở:**
   - 1 action: `listOrdersAction`.
@@ -498,7 +499,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-38.** Gõ dở một mã lệnh (chưa đủ UUID) làm server trả "Dữ liệu không hợp lệ.", và câu này thay chỗ bảng (`components/pages/investor-orders.tsx:118` và `:148-149`). Không có thông báo nằm ngay cạnh ô nhập. Chọn "Từ ngày" sau "Đến ngày" cũng bị như vậy.
+- **L-38.** Gõ dở một mã lệnh (chưa đủ UUID) làm server trả "Dữ liệu không hợp lệ.", và câu này thay chỗ bảng (`components/pages/investor-orders.tsx:134` và `:164-165`). Không có thông báo nằm ngay cạnh ô nhập. Chọn "Từ ngày" sau "Đến ngày" cũng bị như vậy.
 - **L-01.** Mỗi ký tự gõ là một lời gọi server và một dòng `AuditLog`.
 - **L-39.** Mỗi lần chỉ tải tối đa 200 lệnh (`components/trading/gates.ts:130`), không có phân trang. Sắp xếp chỉ áp dụng trên 200 dòng đó.
 
@@ -510,6 +511,7 @@ Không có mục menu, mở từ nút "Chi tiết" hoặc "Xem chi tiết".
 - **Vai:** INVESTOR. Breadcrumb: Nhà đầu tư > Quản lý lệnh > 8 ký tự đầu của mã.
 - **Chain:** như /orders. Lệnh của ví khác trả về "Không tìm thấy lệnh ... trong phạm vi được xem."
 - **Trạng thái:** Dùng được. Nhật ký kiểm toán có giới hạn, xem phần Lệch.
+- **Bố cục (FE-UX-04c):** nội dung lệnh không đổi; chưa kết nối ví, đang tải là khối trống có biểu tượng, lỗi (gồm "Không tìm thấy lệnh") là khối thông báo đỏ.
 - **Nghiệp vụ:** Mua bán token.
 - **Action khi mở:**
   - 1 action: `getOrderDetailAction` > `trade.service.getOrderDetail` > `listOrders` (authorize `order:read`, ghi 1 dòng `AuditLog`) rồi `store.listAudit({limit:500})`.
@@ -814,6 +816,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
   - stellar: "Chưa hỗ trợ ví cho mạng này".
   - hardhat-local, evm: dùng ví trình duyệt qua RainbowKit/wagmi.
 - **Trạng thái:** Dùng được trên hardhat-local và evm. Stellar là Chỗ trống (ví trình duyệt chỉ hỗ trợ họ EVM).
+- **Bố cục (FE-UX-04c):** ví đã kết nối: từ 1100 px lưới 12 cột, thẻ "Ví đã kết nối" nền xanh 7 cột (địa chỉ rút gọn cỡ lớn, nút sao chép, xem trên explorer, dòng cuối nút Ngắt kết nối) và ô vàng "Số dư ETH" 5 cột; hẹp hơn thì hai khối xếp dọc. Sai mạng, lệch mạng là khối cảnh báo đỏ; ghi chú phạm vi cuối màn là khối thông báo không có `role`. Ba ý của "Chưa kết nối ví" là danh sách chấm tròn.
 - **Nghiệp vụ:** Liên kết ví (kết nối ví trình duyệt, không lưu vào hồ sơ).
 - **Action khi mở:** 0 server action. Số dư đọc `eth_getBalance` qua wagmi từ trình duyệt (`lib/hooks/use-native-balance.ts`).
 
@@ -835,9 +838,9 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-62.** Breadcrumb là "Nhà đầu tư > Ví của tôi" (`app/(wallet)/wallet/page.tsx:16`), nhưng Người bán cũng vào được trang này. Tiêu đề "Ví của tôi" khác nhãn menu "Kết nối ví".
-- **L-63.** Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:248`). Với SELLER, không màn Người bán nào dùng ví trình duyệt: lệnh rút ký phía máy chủ.
+- **L-63.** Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:254`). Với SELLER, không màn Người bán nào dùng ví trình duyệt: lệnh rút ký phía máy chủ.
 - **L-64.** Kết nối ví ở đây không ghi gì vào hồ sơ. Ví do Giao dịch viên định danh và gắn cho hồ sơ ở `/wallet-binding` (FIX-01).
-- **L-65.** "Số WPT đang giữ xem ở trang Tổng quan" (`wallet-status-card.tsx:113`): với SELLER, trang Tổng quan hiện số của vault, không phải số của ví đang kết nối.
+- **L-65.** "Số WPT đang giữ xem ở trang Tổng quan" (`wallet-status-card.tsx:95`): với SELLER, trang Tổng quan hiện số của vault, không phải số của ví đang kết nối.
 
 
 #### 3.3.2. `/account` Thông tin tài khoản
@@ -1876,7 +1879,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-35 | `/trade` | "Phí giao dịch" chỉ để hiển thị; không có phép trừ phí nào trong `placeOrder`. |
 | L-36 | `/trade` | Chiều bán dùng cùng đơn giá `quotePurchase` với chiều mua. |
 | L-37 | `/trade` | Trần khi bán chỉ xét số WPT đang giữ; thanh khoản VNDB của vault chỉ lộ ra ở điều kiện "Rủi ro". |
-| L-38 | `/orders` | Gõ dở một mã lệnh (chưa đủ UUID) làm server trả "Dữ liệu không hợp lệ.", và câu này thay chỗ bảng (`components/pages/investor-orders.tsx:118` và `:148-149`). |
+| L-38 | `/orders` | Gõ dở một mã lệnh (chưa đủ UUID) làm server trả "Dữ liệu không hợp lệ.", và câu này thay chỗ bảng (`components/pages/investor-orders.tsx:134` và `:164-165`). |
 | L-39 | `/orders` | Mỗi lần chỉ tải tối đa 200 lệnh (`components/trading/gates.ts:130`), không có phân trang. |
 | L-40 | `/orders/[id]` | Nhật ký chỉ quét 500 dòng `AuditLog` mới nhất (`lib/bank/trade.service.ts:424-425`, có ghi chú `ponytail`). |
 | L-41 | `/orders/[id]` | Các lần đặt lệnh bị từ chối trước khi tạo bản ghi không có mã lệnh trong `detail` (`lib/bank/purchase.service.ts:238-245`), nên không xuất hiện ở đây. |
@@ -1899,9 +1902,9 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-60 | `/seller/withdraw` | Màn tính "Số tiền nhận được" trên chuỗi chưa trim (`seller-withdraw.tsx:76`), còn server trim. |
 | L-61 | `/seller/withdraw` | Số dư và "Phần được rút" là ảnh chụp lúc mở màn; giới hạn thật đọc lại trên chuỗi khi gửi, nên màn có thể nhận số mà máy chủ từ chối. |
 | L-62 | `/wallet` | Breadcrumb là "Nhà đầu tư > Ví của tôi" (`app/(wallet)/wallet/page.tsx:16`), nhưng Người bán cũng vào được trang này. |
-| L-63 | `/wallet` | Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:248`). |
+| L-63 | `/wallet` | Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:254`). |
 | L-64 | `/wallet` | Kết nối ví ở `/wallet` không ghi vào hồ sơ; ví do Giao dịch viên gắn ở `/wallet-binding`. |
-| L-65 | `/wallet` | Câu "Số WPT đang giữ xem ở trang Tổng quan" sai với Người bán: Tổng quan của Người bán hiện số của vault (`wallet-status-card.tsx:113`). |
+| L-65 | `/wallet` | Câu "Số WPT đang giữ xem ở trang Tổng quan" sai với Người bán: Tổng quan của Người bán hiện số của vault (`wallet-status-card.tsx:95`). |
 | L-69 | `/` | Tiêu đề, breadcrumb "Tổng quan" khác mục menu "Bảng điều khiển" (UIUX-02 QĐ-10 chủ ý giữ; thiết kế lại sau FIX-04). |
 | L-71 | `/draft` | Vault không hiện trên màn: khi chưa có ví SPV, người lập phải nhập tay ví đích, địa chỉ vault mà R6 bắt buộc chỉ lộ ra trong câu lỗi (`draft.tsx:419-438`). |
 | L-72 | `/draft` | Nhãn "Mã hoặc ký hiệu token" gây hiểu nhầm: hệ thống chỉ tra theo `tokenSymbol`. |
