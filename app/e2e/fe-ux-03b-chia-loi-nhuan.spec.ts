@@ -29,8 +29,8 @@ async function openDistribution(page: Page) {
  * mock đầy đủ (spec chép tạm vào bản mốc).
  */
 const ROLE_COUNTS: Record<Role, { status: number; note: number; alert: number }> = {
-  CONTROLLER: { status: -1, note: -1, alert: -1 },
-  TELLER: { status: -1, note: -1, alert: -1 },
+  CONTROLLER: { status: 0, note: 0, alert: 0 },
+  TELLER: { status: 0, note: 0, alert: 0 },
 };
 
 async function countRoles(page: Page) {
