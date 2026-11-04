@@ -2,24 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { ExternalLink, History, Loader2, Wallet } from 'lucide-react';
-import { explorerTxUrl } from '@bidv/shared';
-import { Badge } from '@/components/ui/badge';
+import { History, Loader2, Wallet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { getWalletTransactionsAction } from '@/app/actions/portfolio';
 import type { TxnView } from '@/lib/bank/mint.service';
 import { OnChainBadge } from './mock-badge';
 import { WalletNotBoundNotice } from './wallet-not-bound-notice';
-import { operationLabel } from '@/lib/txn-labels';
+import { TransactionTable } from './transaction-table';
 
 /**
  * Hộp 3 — LỊCH SỬ GIAO DỊCH của ví đang kết nối.
@@ -104,68 +94,7 @@ export function TransactionHistoryBox() {
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Thời điểm</TableHead>
-                <TableHead>Nghiệp vụ</TableHead>
-                <TableHead className="text-right">Số lượng</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead className="text-right">Tra cứu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((txn) => {
-                const url = explorerTxUrl(txn.chain, txn.txHash);
-                return (
-                  <TableRow key={txn.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(txn.createdAt).toLocaleString('vi-VN')}
-                    </TableCell>
-                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          txn.status === 'CONFIRMED'
-                            ? 'default'
-                            : txn.status === 'FAILED'
-                              ? 'destructive'
-                              : 'secondary'
-                        }
-                      >
-                        {txn.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {/*
-                        Chain cục bộ và mock không có trình khám phá -> `explorerTxUrl` trả null.
-                        Khi đó hiện mã giao dịch dạng chữ, không dựng link chết.
-                      */}
-                      {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-code text-xs text-primary hover:underline"
-                        >
-                          {txn.txHash.slice(0, 10)}…
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                        </a>
-                      ) : (
-                        <span
-                          className="font-code text-xs text-muted-foreground"
-                          title={`${txn.txHash} — chain ${txn.chain} không có trình khám phá`}
-                        >
-                          {txn.txHash.slice(0, 10)}…
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <TransactionTable rows={rows} />
         )}
       </CardContent>
     </Card>
