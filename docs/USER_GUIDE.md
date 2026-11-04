@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-03a-kiem-soat` (FE-UX-03a, từ `release/ui-v2` @ `7b3216d`), ngày 04/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-03b-chia-loi-nhuan` (FE-UX-03b, từ `release/ui-v2` @ `e996915`), ngày 04/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -316,7 +316,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 **Màn chặn vai** (`components/layout/channel-guard.tsx`): mở một màn không thuộc vai đang có hiệu lực thì hiện "Không có quyền vào kênh ...". Màn này không có khung (thanh bên, thanh đầu) nên không đổi vai được; câu hướng dẫn: "Bấm 'Về trang của vai hiện tại' rồi đổi vai ở đầu thanh bên" (FE-UX-01b); IN-04 thêm nút "Về trang của vai hiện tại" trỏ trang mặc định của vai (`roleHomeHref`, `components/layout/role-home.ts`): Nhà đầu tư `/portfolio`, Người bán `/seller`, Giao dịch viên và Kiểm soát viên `/`.
 
-**Ô chọn token** (`components/token/token-scope-select.tsx`, UIUX-02), một hàng riêng ngay dưới tiêu đề của 10 màn: `/draft`, `/approvals`, `/config`, `/vault`, `/distribution`, `/recall`, `/portfolio`, `/seller`, `/seller/withdraw`; riêng `/trade` nằm ở chỗ ô Token cũ trong thẻ "Đặt lệnh". Từ FE-UX-02b, ở `/draft`, `/config`, `/recall` ô này nằm cùng hàng với tiêu đề (bên phải), dưới 640 px xuống hàng.
+**Ô chọn token** (`components/token/token-scope-select.tsx`, UIUX-02), một hàng riêng ngay dưới tiêu đề của 10 màn: `/draft`, `/approvals`, `/config`, `/vault`, `/distribution`, `/recall`, `/portfolio`, `/seller`, `/seller/withdraw`; riêng `/trade` nằm ở chỗ ô Token cũ trong thẻ "Đặt lệnh". Từ FE-UX-02b, ở `/draft`, `/config`, `/recall` (và `/distribution` từ FE-UX-03b) ô này nằm cùng hàng với tiêu đề (bên phải), dưới 640 px xuống hàng.
 
 - **Danh sách:** token thật của màn (mặc định WPT), rồi luôn có dòng TCC (Tokenized Carbon Credit) kèm thẻ chữ mờ "(chưa hỗ trợ)", không chọn được bằng chuột hay bàn phím. Danh sách token rỗng (`/trade` trên chain chưa có dự án): ô trống, gợi ý "Chưa có token".
 - **Gõ lọc:** bấm vào ô thì xổ đủ danh sách và chọn sẵn chữ; gõ mã token thì lọc, không phân biệt hoa thường: mã bắt đầu bằng chữ gõ lên đầu, rồi mã chứa chữ gõ, rồi tên dự án hoặc tên loại token chứa chữ gõ. Không dòng nào khớp: "Không có token khớp". Mũi tên lên, xuống đi qua các dòng chọn được; Enter chọn; Esc hoặc rời ô thì trả về token đang chọn.
@@ -1349,6 +1349,8 @@ Nguồn: overview > `ledger.vaultPeriodCloses(10)`, sự kiện `PeriodClosed`. 
 #### 3.5.2. `/distribution` Chia lợi nhuận
 
 Menu Kiểm soát viên: "Chia lợi nhuận". Menu Giao dịch viên: "Chia lợi nhuận (chỉ xem)".
+
+**Bố cục** (FE-UX-03b): tiêu đề và ô chọn token cùng hàng; kết quả thao tác là hộp xanh lá (chia xong) hoặc đỏ (mọi kết cục khác và lỗi). Nhóm "Quỹ chia" là bốn ô số liệu: "Số dư quỹ" ô xanh đậm lớn, "Chưa phân bổ" ô vàng, "Tổng dự trữ các kỳ", "Ngưỡng tối thiểu" ô thường; từ 1100 px Kiểm soát viên thấy thẻ "Duyệt chia" bên phải (lý do chưa duyệt được mỗi dòng một biểu tượng cảnh báo, nút ở đáy thẻ), Giao dịch viên không có thẻ này nên bốn ô trải hết chiều ngang. Thẻ "Dự kiến (tham khảo)" nền nhạt, bảng người nhận cuộn dọc tối đa 280 px, đầu bảng dính; danh sách bị cắt là hộp vàng. Thẻ "Kỳ hoạt động" gồm các ô nền nhạt, nhãn trạng thái kỳ, trạng thái duyệt, chốt kỳ vault tô màu, ghi chú là hộp xanh dương. Bảng "Danh sách kỳ chia", "Hồ sơ trả từng ví" (khung nền nhạt trong thẻ lịch sử) và "Lịch chạy" (thẻ riêng ngay dưới) có nhãn trạng thái tô màu: chờ, đang mở, đang chia, đang chạy vàng; đã gửi, đã mở, đã đóng xanh dương; hoàn tất, đã duyệt, đã trả, đã chốt, SUCCESS xanh lá; hết hạn, lỗi, CONFLICT, FAILED đỏ (`components/distribution/status-tone.ts`). Chain không có vault: thẻ thông báo trải ngang, thẻ "Duyệt chia" (Kiểm soát viên) vẫn hiện bên dưới với nút khoá. Thẻ "Kỳ hoạt động" nằm ở `components/distribution/active-period-card.tsx` (tách để kiểm bằng dữ liệu giả, không đổi logic).
 
 **Vai:**
 - Menu theo vai: TELLER thấy "Chia lợi nhuận (chỉ xem)" (`nav-config.ts:242-248`), CONTROLLER thấy "Chia lợi nhuận" (`:309-315`), cùng phím tắt C.
