@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { explorerTxUrl, type ChainKey } from '@bidv/shared';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import type { ChainKey } from '@bidv/shared';
+import { Loader2 } from 'lucide-react';
 import {
   approveDistributionAction,
   continueDistributionAction,
@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type {
-  ActivePeriodView,
   DistributionApprovalView,
   DistributionHistoryRow,
   DistributionPageView,
@@ -28,6 +27,9 @@ import type { Result } from '@/lib/bank/result';
 import { approvedAmountLabel } from '@/components/pages/distribution-amount-label';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
+import { ActivePeriodCard, Metric } from '@/components/distribution/active-period-card';
+import { amount, APPROVAL_STATUS, PERIOD_STATUS, short } from '@/components/distribution/display';
+import { TxLink } from '@/components/distribution/tx-link';
 
 /**
  * Màn CHIA LỢI NHUẬN (FE-08 QĐ-F).
@@ -42,8 +44,6 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * nên tiếp tục được từ kỳ `OPENING`, vault `SENT`, hồ sơ `SENT`.
  */
 
-const amount = (value: string) => BigInt(value).toLocaleString('vi-VN');
-const short = (value: string) => `${value.slice(0, 10)}…${value.slice(-6)}`;
 const when = (value: string | null) => (value ? new Date(value).toLocaleString('vi-VN') : 'chưa có');
 
 /** Câu xác nhận bắt buộc của QĐ-F, giữ nguyên văn. */
@@ -51,24 +51,6 @@ export const CONFIRM_SCOPE =
   'Kiểm soát viên duyệt tổng số VNDB của kỳ; danh sách và tỷ lệ chỉ là dự kiến. Quyền hưởng cuối cùng chốt theo ảnh chụp trên chuỗi lúc mở kỳ.';
 export const CONFIRM_TRANSFER = 'bấm duyệt sẽ chuyển tiền';
 
-const PERIOD_STATUS: Record<string, string> = {
-  OPENING: 'Đang mở trên chuỗi',
-  OPEN: 'Đã mở',
-  DISTRIBUTING: 'Đang chia',
-  COMPLETED: 'Hoàn tất',
-  EXPIRED: 'Hết hạn nhận',
-  CLOSED: 'Đã đóng',
-};
-const APPROVAL_STATUS: Record<string, string> = {
-  APPROVED: 'Đã duyệt',
-  AMOUNT_CHANGED: 'Số đổi, chờ duyệt lại',
-};
-const VAULT_STATUS: Record<string, string> = {
-  PENDING: 'Đã giữ chỗ',
-  SENT: 'Đã gửi, đang đối soát',
-  DONE: 'Đã chốt',
-  CONFLICT: 'CONFLICT, cần xử lý tay',
-};
 const PAYOUT_STATUS: Record<string, string> = {
   PENDING: 'Chờ gửi',
   SENT: 'Đã gửi, đang đối soát',
@@ -85,28 +67,6 @@ const OUTCOME: Record<DistributionApprovalView['outcome'], string> = {
   PERIOD_ENDED: 'Kỳ đã hết hạn nhận hoặc đã đóng trên chuỗi.',
   ALREADY_RUNNING: 'Một lượt khác đang chạy cho kỳ này; tải lại sau.',
 };
-
-function Metric({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="space-y-1 rounded-lg border border-border p-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-all font-code text-sm font-semibold">{value}</dd>
-    </div>
-  );
-}
-
-function TxLink({ chain, txHash }: { chain: ChainKey; txHash: string | null }) {
-  if (!txHash) return <span className="text-xs text-muted-foreground">không có</span>;
-  const url = explorerTxUrl(chain, txHash);
-  return url ? (
-    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-code text-xs underline">
-      {short(txHash)}
-      <ExternalLink className="h-3 w-3" aria-hidden="true" />
-    </a>
-  ) : (
-    <span className="font-code text-xs" title={txHash}>{short(txHash)}</span>
-  );
-}
 
 /** Hộp xác nhận trước mọi lần duyệt: nói rõ phạm vi duyệt và việc bấm sẽ chuyển tiền (QĐ-F, QĐ-G). */
 function ConfirmDialog({
@@ -141,63 +101,6 @@ function ConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ActivePeriodCard({
-  chain,
-  active,
-  canApprove,
-  busy,
-  onReapprove,
-  onContinue,
-}: {
-  chain: ChainKey;
-  active: ActivePeriodView;
-  canApprove: boolean;
-  busy: boolean;
-  onReapprove: () => void;
-  onContinue: () => void;
-}) {
-  const { period, progress } = active;
-  return (
-    <Card aria-label="Kỳ hoạt động">
-      <CardHeader><CardTitle className="text-base">Kỳ hoạt động</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Mã kỳ" value={period.periodKey} />
-          <Metric label="Trạng thái" value={PERIOD_STATUS[period.status] ?? period.status} />
-          <Metric
-            label="Trạng thái duyệt"
-            value={period.approvalStatus ? APPROVAL_STATUS[period.approvalStatus] : 'Chưa có kết luận duyệt'}
-          />
-          <Metric label="Số đã duyệt" value={approvedAmountLabel(period, 'cell')} />
-          <Metric label="Số thực tế trên chuỗi" value={period.status === 'OPENING' ? 'chưa đọc được' : `${amount(period.totalAmount)} VNDB`} />
-          <Metric label="Chốt kỳ vault" value={period.vaultCloseStatus ? VAULT_STATUS[period.vaultCloseStatus] : 'Chưa chốt'} />
-          <Metric label="Đã trả" value={`${amount(progress.paidAmount)} VNDB (${progress.paid} hồ sơ)`} />
-          <Metric label="Còn phải chi / lỗi" value={`${progress.outstanding} / ${progress.failed}`} />
-        </dl>
-        <p className="text-sm" role="status" aria-label="Ghi chú kỳ hoạt động">{active.note}</p>
-        {active.pendingOnChain && (
-          <p className="text-sm text-muted-foreground">
-            Đã gửi lên chuỗi, đang đối soát
-            {period.openTxHash && period.status === 'OPENING' ? <> (mở kỳ <TxLink chain={chain} txHash={period.openTxHash} />)</> : null}
-            {period.vaultCloseStatus === 'SENT' ? <> (chốt vault <TxLink chain={chain} txHash={period.vaultCloseTxHash} />)</> : null}.
-          </p>
-        )}
-        {canApprove && active.nextAction === 'REAPPROVE' && period.status !== 'OPENING' && (
-          <Button onClick={onReapprove} disabled={busy}>
-            Duyệt lại số thực tế {amount(period.totalAmount)} VNDB
-          </Button>
-        )}
-        {canApprove && active.nextAction === 'CONTINUE' && (
-          <Button onClick={onContinue} disabled={busy}>
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            Tiếp tục chia
-          </Button>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
