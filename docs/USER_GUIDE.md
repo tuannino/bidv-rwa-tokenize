@@ -635,7 +635,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
   - Trên EVM, "Trạng thái giao dịch" luôn là "Đang mở bán": `isSettlementMode` mang marker `@blocked SC-04` (`evm.adapter.ts:1164`), service bắt lỗi và coi như false (`seller.service.ts:39-46`).
 - **Nghiệp vụ:** Tổng quan Người bán (chỉ đọc).
 - **Action khi mở:** 1 action `getSellerOverviewAction({chain})` > `getSellerOverview`. Ghi 1 dòng AuditLog `seller:read`. Đổi chain thì gọi lại. Không có action khi tương tác; hai nút chỉ là liên kết.
-- **Bố cục (FE-UX-05a):** tiêu đề bên trái, hai nút lối tắt bên phải cùng hàng; ô chọn token hàng riêng. "Token khớp lệnh trong ngày" là bốn ô số liệu cùng một hàng từ 1100 px (hai cột từ 640 px): Số lượng mua ô xanh đậm, Tổng giá trị mua ô vàng, hai ô bán ô thường. Các thẻ có biểu tượng tiêu đề; nguồn cung và thông tin token là danh sách kẻ ngăn, số đậm canh phải; Trạng thái token là nhãn xanh dương, Trạng thái giao dịch nhãn xanh lá khi đang mở bán, vàng khi tạm dừng. Trong hai thẻ ví mỗi số là một ô nền nhạt; "VNDB còn rút được", "Hạn mức còn rút được" là ô vàng. Cảnh báo đối soát là khối thông báo đỏ; đang đọc là khối trống có biểu tượng quay; lỗi là khối thông báo đỏ. Số rỗng hiện gạch ngang ngắn (U+2013). Phần có số liệu nằm ở `components/seller/seller-overview-body.tsx`, `nf` và `describePolicy` ở `components/seller/format.ts` (tách để kiểm bằng dữ liệu giả, không đổi logic).
+- **Bố cục (FE-UX-05a):** tiêu đề bên trái, hai nút lối tắt bên phải cùng hàng; ô chọn token hàng riêng. "Token khớp lệnh trong ngày" là bốn ô số liệu cùng một hàng từ 1100 px (hai cột từ 640 px): Số lượng mua ô xanh đậm, Tổng giá trị mua ô vàng, hai ô bán ô thường. Các thẻ có biểu tượng tiêu đề; nguồn cung và thông tin token là danh sách kẻ ngăn, số đậm canh phải; Trạng thái token là nhãn xanh dương, Trạng thái giao dịch nhãn xanh lá khi đang mở bán, vàng khi tạm dừng. Trong hai thẻ ví mỗi số là một ô nền nhạt; "VNDB còn rút được", "Hạn mức còn rút được" là ô vàng. Cảnh báo đối soát là khối thông báo đỏ; đang đọc là khối trống có biểu tượng quay; lỗi là khối thông báo đỏ. Số rỗng hiện gạch ngang ngắn (U+2013). Phần có số liệu nằm ở `components/seller/seller-overview-body.tsx`, `nf` và `describePolicy` ở `components/seller/format.ts`, hook `useSellerOverview` ở `components/seller/use-seller-overview.ts` (tách để kiểm bằng dữ liệu giả và để `/seller/withdraw` không kéo theo cả trang Tổng quan; không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -698,7 +698,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 - **Trạng thái:** Dùng được. Ghi chú kỹ thuật `ponytail` (`seller.service.ts:35`): lọc và phân trang làm trong bộ nhớ, trên tối đa 500 lệnh và 500 lệnh rút mới nhất.
 - **Nghiệp vụ:** Tổng quan Người bán (sổ giao dịch).
 - **Action khi mở:** 1 action `listSellerTransactionsAction` > `listSellerTransactions`. Mỗi lần đổi bộ lọc hoặc đổi trang gọi thêm 1 lần. Ô tìm kiếm gọi theo từng phím gõ, không có debounce. Mỗi lần gọi ghi 1 dòng AuditLog `seller:read`.
-- **Bố cục (FE-UX-05a):** tiêu đề; một thẻ gồm bộ lọc năm ô (5 cột từ 1100 px, 2 cột từ 640 px), ô tìm có biểu tượng kính lúp; bảng 9 cột cuộn ngang trên màn hẹp; nhãn trạng thái có sắc (lệnh mua bán theo sắc chung của trạng thái lệnh; lệnh rút: Hoàn tất xanh lá, Thất bại đỏ, còn lại vàng); dòng phân trang chữ trái, hai nút phải. Đang tải, không có giao dịch là khối trống có biểu tượng; lỗi là khối thông báo đỏ.
+- **Bố cục (FE-UX-05a):** tiêu đề; một thẻ gồm bộ lọc năm ô (5 cột từ 1100 px, 2 cột từ 640 px), ô tìm có biểu tượng kính lúp; bảng 9 cột cuộn ngang trên màn hẹp; nhãn trạng thái có sắc (lệnh mua bán theo sắc chung của trạng thái lệnh; lệnh rút: Hoàn tất xanh lá, Thất bại đỏ, còn lại vàng); dòng phân trang chữ trái, hai nút phải. Đang tải, không có giao dịch là khối trống có biểu tượng; lỗi là khối thông báo đỏ. Nhãn trạng thái lệnh rút `WITHDRAW_STATUS_LABELS` nằm ở `components/seller/labels.ts` (dùng chung với `/seller/withdraw`).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -711,7 +711,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Loại | Mua / Bán / Rút | `PurchaseOrder.side` hoặc hằng WITHDRAW | |
 | Số token | WPT; để trống với lệnh rút | `PurchaseOrder.wptAmount` | |
 | Số VNDB | | `PurchaseOrder.vndAmount` / `WithdrawRequest.amount` | |
-| Bước hiện tại | Lệnh: "1. Đặt lệnh" đến "4. Đã giao token". Lệnh rút: **mục đích** | `STEP_LABELS[status]` hoặc `WithdrawRequest.purpose` (`seller-transactions.tsx:217`) | Xem phần Lệch |
+| Bước hiện tại | Lệnh: "1. Đặt lệnh" đến "4. Đã giao token". Lệnh rút: **mục đích** | `STEP_LABELS[status]` hoặc `WithdrawRequest.purpose` (`seller-transactions.tsx:207`) | Xem phần Lệch |
 | Trạng thái | Nhãn badge có sắc (FE-UX-05a) | Lệnh: PLACED...EXPIRED. Lệnh rút: SENDING "Đang gửi", SENT "Đã gửi, chờ biên nhận", COMPLETED, FAILED, NEEDS_REVIEW "Cần Kiểm soát viên xem" | |
 | Tạo lúc / Cập nhật | Giờ máy người dùng (vi-VN) | `createdAt` / `updatedAt` | |
 | Dòng phân trang | "{tổng} giao dịch, trang x/y" (FE-UX-05a đổi dấu chấm giữa thành dấu phẩy); cỡ trang 20 | `total` tính sau khi lọc trong bộ nhớ | |
@@ -720,9 +720,9 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-53.** Cột "Bước hiện tại" hiện mục đích rút cho lệnh rút (`seller-transactions.tsx:197,217`), không phải một bước.
-- **L-54.** `STEP_LABELS` mô tả luồng mua ("4. Đã giao token", `seller-transactions.tsx:40-48`) nhưng áp cả cho lệnh Bán.
-- **L-55.** Placeholder chỉ nói "Mã lệnh hoặc ví nhà đầu tư" (`seller-transactions.tsx:157`), trong khi server còn tìm theo ví nhận và txHash của lệnh rút.
+- **L-53.** Cột "Bước hiện tại" hiện mục đích rút cho lệnh rút (`seller-transactions.tsx:187,207`), không phải một bước.
+- **L-54.** `STEP_LABELS` mô tả luồng mua ("4. Đã giao token", `seller-transactions.tsx:41-49`) nhưng áp cả cho lệnh Bán.
+- **L-55.** Placeholder chỉ nói "Mã lệnh hoặc ví nhà đầu tư" (`seller-transactions.tsx:147`), trong khi server còn tìm theo ví nhận và txHash của lệnh rút.
 - **L-56.** Sổ vượt 500 dòng thì `total` và phân trang thiếu dòng cũ (`seller.service.ts:35-36`).
 - **L-57.** Lệnh rút có `txHash` nhưng bảng này không hiện cột mã giao dịch.
 
@@ -1895,9 +1895,9 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-50 | `/seller` | Bảng Tồn kho lặp một dòng cho mỗi `Project`, nhưng mọi dòng đọc chung một `tokenInfo()` và `balanceOf` của chain. |
 | L-51 | `/seller` | Định nghĩa "Chưa phân phối" ghi "ví thanh toán của Người bán", thực chất là số dư WPT của vault SPV. |
 | L-52 | `/seller` | `payoutWallet` và `withdrawalsPaused` có trong dữ liệu trả về nhưng màn này không hiển thị. |
-| L-53 | `/seller/transactions` | Cột "Bước hiện tại" hiện mục đích rút cho lệnh rút (`seller-transactions.tsx:197,217`), không phải một bước. |
-| L-54 | `/seller/transactions` | `STEP_LABELS` mô tả luồng mua ("4. Đã giao token") nhưng áp cả cho lệnh Bán (`seller-transactions.tsx:40-48`). |
-| L-55 | `/seller/transactions` | Placeholder chỉ nói "Mã lệnh hoặc ví nhà đầu tư" (`seller-transactions.tsx:157`), trong khi server còn tìm theo ví nhận và txHash của lệnh rút. |
+| L-53 | `/seller/transactions` | Cột "Bước hiện tại" hiện mục đích rút cho lệnh rút (`seller-transactions.tsx:187,207`), không phải một bước. |
+| L-54 | `/seller/transactions` | `STEP_LABELS` mô tả luồng mua ("4. Đã giao token") nhưng áp cả cho lệnh Bán (`seller-transactions.tsx:41-49`). |
+| L-55 | `/seller/transactions` | Placeholder chỉ nói "Mã lệnh hoặc ví nhà đầu tư" (`seller-transactions.tsx:147`), trong khi server còn tìm theo ví nhận và txHash của lệnh rút. |
 | L-56 | `/seller/transactions` | Sổ vượt 500 dòng thì `total` và phân trang thiếu dòng cũ (`seller.service.ts:35-36`). |
 | L-57 | `/seller/transactions` | Lệnh rút có `txHash` nhưng bảng này không hiện cột mã giao dịch. |
 | L-58 | `/seller/withdraw` | Lệnh về SENT (đã gửi, chờ biên nhận) vẫn hiện bằng giọng lỗi màu đỏ (`seller-withdraw.tsx:114`). |
