@@ -39,10 +39,10 @@ async function open(page: Page, path: string) {
  */
 type RoleCount = { status: number; note: number; alert: number };
 const ROLE_COUNTS: Record<OpsPath, RoleCount> = {
-  '/mint': { status: -1, note: -1, alert: -1 },
-  '/audit': { status: -1, note: -1, alert: -1 },
+  '/mint': { status: 0, note: 0, alert: 0 },
+  '/audit': { status: 0, note: 0, alert: 0 },
 };
-const OPEN_ACTIONS: Record<OpsPath, number> = { '/mint': -1, '/audit': -1 };
+const OPEN_ACTIONS: Record<OpsPath, number> = { '/mint': 1, '/audit': 0 };
 
 const cardWithHeading = (page: Page, name: string | RegExp) =>
   page
