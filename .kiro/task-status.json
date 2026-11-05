@@ -73,7 +73,8 @@
     "FE-UX-04b",
     "FE-UX-04c",
     "FE-UX-04d",
-    "FE-UX-05a"
+    "FE-UX-05a",
+    "FE-UX-05b"
   ],
   "inProgress": [],
   "planned": [
@@ -88,7 +89,7 @@
     "SC-04",
     "SC-08",
     "IN-03",
-    "FE-UX-05b",
+    "FE-UX-05c",
     "FE-UX-06",
     "FE-UX-07",
     "FE-UX-08"

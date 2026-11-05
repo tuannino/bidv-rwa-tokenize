@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-05a-nguoi-ban` (FE-UX-05a, từ `release/ui-v2` @ `11160f1`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-05b-tai-khoan` (FE-UX-05b, từ `release/ui-v2` @ `d5e6b0e`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -454,7 +454,7 @@ Cấu hình, bật lần đầu, vận hành và đường lùi của Fireblocks
 
 - **L-04.** Ô "Token" không có `onChange` (`components/pages/investor-trade.tsx:312`, `TokenScopeSelect` không truyền hàm đổi token). Server luôn lấy `projects[0]` (`lib/bank/trade.service.ts:145`), và `placeOrder` không nhận trường token. Chọn token khác không có tác dụng.
 - **L-05.** "Trạng thái giao dịch" được tính là `settling !== true` (`lib/bank/trade.service.ts:146`). Giá trị này bỏ qua `Project.status`, và trên evm `settling` luôn null, nên huy hiệu hiện "Đang mở" kể cả khi dự án CLOSED. Trong khi đó điều kiện 4 lại trượt ("đang ở giai đoạn tất toán hoặc đã đóng", `:380-386`).
-- **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:114`).
+- **L-06.** Điều kiện "Tài khoản" chỉ kiểm quyền (`lib/bank/trade.service.ts:310-315`), không kiểm `AccountStatus` (ACTIVE/LOCKED). Hạn mức `dailyTransactionLimitVnd` hiện trên màn tài khoản nhưng không được kiểm ở đâu khi đặt lệnh (chỉ được đọc ở `components/pages/account-info.tsx:225`).
 - **L-34.** Định danh, AML và hạng rủi ro lấy từ hồ sơ mẫu viết cứng (`lib/bank/account-profile.service.ts:55-114`), không lấy từ DB.
 - **L-01.** Vòng hỏi lại 3 giây gọi `listOrders`, hàm này dùng `authorize` (`lib/bank/purchase.service.ts:1710`), nên mỗi lần hỏi ghi một dòng `AuditLog` `order:read`. Điều này ngược với lý do ghi ở `lib/bank/trade.service.ts:35-37` (không ghi sổ kiểm toán cho lần đọc lặp lại).
 - **L-35.** "Phí giao dịch" chỉ để hiển thị; không có phép trừ phí nào trong `placeOrder`.
@@ -858,24 +858,25 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 - **Action khi mở:**
   - Vai nhân viên: 0 server action. `getOwnAccountProfile()` được gọi thẳng trong Server Component, không ghi AuditLog.
   - Vai khách hàng: thêm 1 action `getAccountWalletAction({chain, wallet?})`, trả `{ wallet, bound }`, không ghi AuditLog (`assertCan`). Gọi lại khi ví kết nối hoặc chain đổi; kết quả giữ kèm khoá `chain|ví`, kết quả về muộn của ví hoặc chain cũ bị bỏ (E6).
+- **Bố cục (FE-UX-05b):** tiêu đề và nhãn "Chỉ đọc" một hàng. Từ 1100 px lưới 12 cột, đầu màn là ô xanh đậm 4 cột (vòng tròn vàng có chữ viết tắt của tên, rồi Họ và tên hoặc Tên pháp nhân cỡ lớn kèm "unverified", Mã người dùng với khách hàng, Vai trò); khách hàng có thêm thẻ "Thông tin cá nhân/pháp nhân" 8 cột, "Thông tin tài khoản" 4 cột dạng dòng kẻ ngăn, "Hồ sơ định danh và rủi ro" 8 cột; cán bộ có thẻ "Thông tin cán bộ" 8 cột. Họ và tên, Mã người dùng, Vai trò dời từ các thẻ lên ô xanh, không bớt trường. Trong thẻ mỗi trường là một ô nền nhạt (2 cột từ 640 px, 3 cột từ 1180 px); "Ví thanh toán" hết hàng (cá nhân) hoặc rộng 2 cột (tổ chức); "Hạn mức giao dịch mỗi ngày" là ô vàng rộng 2 cột. Nhãn có sắc: trạng thái tài khoản (Đang hoạt động xanh lá, Đã khoá đỏ), trạng thái định danh ở thẻ đầu (Đã xác minh xanh lá, Đang xác minh vàng, Không đạt đỏ), xếp hạng rủi ro (Thấp xám, Trung bình vàng, Cao đỏ), ví (Đã định danh xanh lá, Ví chưa được định danh đỏ). Dưới 1100 px một cột, ô xanh trên cùng. Phần dựng ô ví nằm ở `components/account/payment-wallet-content.tsx`, chữ viết tắt ở `components/account/initials.ts` (tách để kiểm bằng dữ liệu giả, không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
 | Thông tin tài khoản + badge "Chỉ đọc" | | Tĩnh | Khối hồ sơ không có nút hay ô nhập nào |
+| **Ô xanh đầu màn** (unverified) | Chữ viết tắt; Họ và tên / Tên pháp nhân; Mã người dùng (khách hàng); Vai trò | `fullName` (chữ viết tắt suy từ tên: tổ chức hai từ cuối, cá nhân từ đầu và từ cuối), `actorId`, `role` | FE-UX-05b dời lên từ các thẻ |
 | **Khách hàng: Thông tin cá nhân / Thông tin pháp nhân** (unverified; riêng Ví thanh toán lấy từ ví kết nối và trạng thái định danh) | | | |
-| Họ và tên / Tên pháp nhân | | Hồ sơ mẫu `fullName` (NDT001, NB001) | |
 | Người liên hệ | Chỉ với tổ chức | `contactPerson` | |
 | Số điện thoại / Thư điện tử | | `phone` / `email` | |
 | Trạng thái định danh | Đã xác minh / Đang xác minh / Không đạt | `identityStatus` | Hiện hai lần trên màn |
 | Ví thanh toán | Địa chỉ ví kèm nhãn "Đã định danh" hoặc "Ví chưa được định danh"; chưa kết nối ví thì "Chưa kết nối ví." và liên kết "Kết nối ví" | `getAccountWallet`: mock trả ví mẫu và `bound=true`; chain khác `resolveWalletOwner` (bảng `WalletBinding`, ví mẫu chỉ trên hardhat-local) so với hồ sơ của phiên | Cả cá nhân và tổ chức cùng một nhãn |
 | **Khách hàng: Thông tin tài khoản** (unverified) | | | |
-| Mã người dùng / Vai trò / Trạng thái | | `actorId`, `role`, `status` (Đang hoạt động / Đã khoá) | |
+| Trạng thái | | `status` (Đang hoạt động / Đã khoá) | Mã người dùng, Vai trò ở ô xanh |
 | Ngày tạo / Hoạt động gần nhất | | `createdAt` / `lastActiveAt`, chuỗi cố định | |
 | **Khách hàng: Hồ sơ định danh và rủi ro** (unverified) | | | |
 | Loại khách hàng | Cá nhân / Tổ chức | `customerType` | |
 | Xếp hạng rủi ro / Phòng chống rửa tiền | | `riskRating` / `amlStatus` | Màn Giao dịch token đọc hai trường này khi kiểm tra trước lệnh |
 | Hạn mức giao dịch mỗi ngày | VNDB | `dailyTransactionLimitVnd` | Xem phần Lệch |
-| **Nhân viên: Thông tin cán bộ** (unverified) | Mã cán bộ, Họ và tên, Vai trò, Trạng thái, SĐT, Email, Hoạt động gần nhất | Hồ sơ mẫu GDV001, KSV001 | |
+| **Nhân viên: Thông tin cán bộ** (unverified) | Mã cán bộ, Trạng thái, SĐT, Email, Hoạt động gần nhất (Họ và tên, Vai trò ở ô xanh) | Hồ sơ mẫu GDV001, KSV001 | |
 
 
 **Lệch** (tra mã ở Phụ lục C)
