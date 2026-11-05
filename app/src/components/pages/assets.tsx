@@ -3,13 +3,17 @@
 import { useState } from "react";
 import { ChevronDown, ExternalLink, Gauge, Plus, RefreshCw, Wind, Zap } from "lucide-react";
 import { explorerTxUrl } from "@bidv/shared";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Kpi } from "@/components/ui/kpi";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   MOCK_PROJECTS,
   MOCK_WIND_STATS,
@@ -45,10 +49,11 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   MAINTENANCE: "bg-muted-foreground",
 };
 
-const GRID = "grid-cols-[2.2fr_1.4fr_1fr_1.2fr_1.3fr_1.2fr_1.3fr_1.4fr]";
-
 const nf = (value: number, digits = 0) =>
   value.toLocaleString("vi-VN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+/** Bảng sát mép thẻ (`Card` không đệm): ô đầu và cuối cách mép như thanh lọc. */
+const TABLE_EDGE = "[&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4";
 
 type FilterRegion = "ALL" | ProjectRegion;
 type FilterStatus = "ALL" | ProjectStatus;
@@ -65,19 +70,27 @@ export function AssetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-baseline gap-2">
           <HoverHint hint="Xem danh sách dự án điện gió đã token hoá." side="bottom">
-            <h1 className="text-2xl font-semibold text-foreground">Dự án điện gió đã token hoá</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Dự án điện gió đã token hoá</h1>
           </HoverHint>
           <SampleDataNote />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="icon" title="Làm mới">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* QĐ-5: chưa có hành động, khoá kèm chú thích. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Làm mới"
+            aria-label="Làm mới"
+            disabled
+            aria-describedby="assets-poc-note"
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+            <DropdownMenuTrigger className={buttonVariants()} disabled aria-describedby="assets-poc-note">
               <Plus className="h-4 w-4" />
               Thêm dự án
               <ChevronDown className="h-3.5 w-3.5" />
@@ -105,42 +118,48 @@ export function AssetsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <span id="assets-poc-note" className="text-xs text-muted-foreground">
+            Chưa hỗ trợ trong PoC
+          </span>
         </div>
       </div>
 
       {/* Số liệu tổng quan danh mục */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<Wind className="h-4 w-4" />}
+      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-4">
+        <Kpi
+          icon={<Wind />}
           label="Dự án điện gió"
           value={String(MOCK_WIND_STATS.projects)}
           sub={`${MOCK_PROJECTS.reduce((sum, p) => sum + p.turbines, 0)} tổ máy`}
         />
-        <StatCard
-          icon={<Zap className="h-4 w-4" />}
+        <Kpi
+          icon={<Zap />}
           label="Tổng công suất đặt"
-          value={`${nf(MOCK_WIND_STATS.totalCapacityMw, 1)} MW`}
+          value={nf(MOCK_WIND_STATS.totalCapacityMw, 1)}
+          unit="MW"
           sub="Theo hợp đồng PPA với EVN"
         />
-        <StatCard
-          icon={<Gauge className="h-4 w-4" />}
+        <Kpi
+          tone="hl"
+          icon={<Gauge />}
           label="WPT đã phát hành"
           value={nf(MOCK_WIND_STATS.wptIssued)}
           sub={`${nf(MOCK_WIND_STATS.whitelistedInvestors)} nhà đầu tư đã whitelist`}
-          accent
         />
-        <StatCard
-          icon={<Zap className="h-4 w-4" />}
+        <Kpi
+          tone="leaf"
+          icon={<Zap />}
           label="Sản lượng luỹ kế"
-          value={`${nf(MOCK_WIND_STATS.cumulativeGenerationMwh)} MWh`}
+          value={nf(MOCK_WIND_STATS.cumulativeGenerationMwh)}
+          unit="MWh"
           sub={`Lợi tức đã chia: ${nf(MOCK_WIND_STATS.profitDistributedVndBn, 1)} tỷ VND`}
         />
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <Card className="gap-0 py-0">
         {/* Bộ lọc */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">Vùng:</span>
             {(["ALL", ...Object.keys(REGION_LABELS)] as FilterRegion[]).map((region) => (
               <FilterBtn
@@ -151,7 +170,7 @@ export function AssetsPage() {
               />
             ))}
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted-foreground">Trạng thái:</span>
             {(["ALL", ...Object.keys(PROJECT_STATUS_LABELS)] as FilterStatus[]).map((status) => (
               <FilterBtn
@@ -165,63 +184,59 @@ export function AssetsPage() {
           <span className="ml-auto text-xs text-muted-foreground">{filtered.length} kết quả</span>
         </div>
 
-        <div
-          className={cn(
-            "grid gap-4 border-b border-border px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground",
-            GRID,
-          )}
-        >
-          <span>Mã &amp; Tên dự án</span>
-          <span>Vùng</span>
-          <span className="text-right">Công suất</span>
-          <span className="text-right">WPT phát hành</span>
-          <span className="text-right">Sản lượng luỹ kế</span>
-          <span>Trạng thái</span>
-          <span>Vận hành từ</span>
-          <span>TX Hash</span>
-        </div>
-
-        {filtered.map((project) => (
-          <ProjectRow key={project.id} project={project} />
-        ))}
+        <Table className={TABLE_EDGE}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Mã &amp; Tên dự án</TableHead>
+              <TableHead>Vùng</TableHead>
+              <TableHead className="text-right">Công suất</TableHead>
+              <TableHead className="text-right">WPT phát hành</TableHead>
+              <TableHead className="text-right">Sản lượng luỹ kế</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead>Vận hành từ</TableHead>
+              <TableHead>TX Hash</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((project) => (
+              <ProjectRow key={project.id} project={project} />
+            ))}
+          </TableBody>
+        </Table>
 
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 py-16">
-            <Wind className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">Không có dự án nào khớp bộ lọc</p>
-            <p className="text-xs text-muted-foreground">Thử bỏ lọc vùng hoặc trạng thái</p>
+          <div className="p-4">
+            <EmptyState icon={<Wind />}>
+              <p>Không có dự án nào khớp bộ lọc</p>
+              <p className="mt-1 text-xs">Thử bỏ lọc vùng hoặc trạng thái</p>
+            </EmptyState>
           </div>
         )}
 
         <div className="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
           Hiển thị {filtered.length ? 1 : 0}–{filtered.length} / {MOCK_PROJECTS.length} dự án
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
 
 const REGION_HINTS: Record<ProjectRegion, string> = {
-  ONSHORE_HIGHLAND: "Gia Lai · Quảng Trị · Đắk Lắk — gió mùa ổn định",
-  ONSHORE_COASTAL: "Ninh Thuận · Bình Thuận — hệ số công suất cao",
-  NEARSHORE: "Bạc Liêu · Trà Vinh — móng trụ trong bãi bồi",
+  ONSHORE_HIGHLAND: "Gia Lai, Quảng Trị, Đắk Lắk: gió mùa ổn định",
+  ONSHORE_COASTAL: "Ninh Thuận, Bình Thuận: hệ số công suất cao",
+  NEARSHORE: "Bạc Liêu, Trà Vinh: móng trụ trong bãi bồi",
 };
 
 function ProjectRow({ project }: { project: WindProject }) {
   return (
-    <div
-      className={cn(
-        "grid gap-4 border-b border-border/50 px-4 py-3.5 text-sm transition-colors hover:bg-muted/30",
-        GRID,
-      )}
-    >
-      <div>
+    <TableRow>
+      <TableCell className="min-w-56 align-top whitespace-normal">
         <div className="font-code text-xs text-muted-foreground">{project.code}</div>
         <div className="mt-0.5 font-medium text-foreground">{project.name}</div>
         <div className="text-xs text-muted-foreground">{project.location}</div>
-      </div>
+      </TableCell>
 
-      <div className="flex items-start pt-0.5">
+      <TableCell className="align-top">
         <span
           className="rounded px-2 py-0.5 text-xs font-medium"
           style={{
@@ -231,40 +246,40 @@ function ProjectRow({ project }: { project: WindProject }) {
         >
           {REGION_LABELS[project.region]}
         </span>
-      </div>
+      </TableCell>
 
-      <div className="text-right tabular-nums text-foreground">
+      <TableCell className="align-top text-right tabular-nums text-foreground">
         {nf(project.capacityMw, 1)} <span className="text-xs text-muted-foreground">MW</span>
         <div className="text-xs text-muted-foreground">{project.turbines} tổ máy</div>
-      </div>
+      </TableCell>
 
-      <div className="text-right tabular-nums text-foreground">
+      <TableCell className="align-top text-right tabular-nums text-foreground">
         {nf(project.wptIssued)} <span className="text-xs text-muted-foreground">WPT</span>
-      </div>
+      </TableCell>
 
-      <div className="text-right tabular-nums text-foreground">
+      <TableCell className="align-top text-right tabular-nums text-foreground">
         {nf(project.generationMwh)} <span className="text-xs text-muted-foreground">MWh</span>
         <div className="text-xs text-muted-foreground">
-          CF {nf(project.capacityFactorPct, 1)}% · {nf(project.ppaPricePerKwh)} đ/kWh
+          CF {nf(project.capacityFactorPct, 1)}%, {nf(project.ppaPricePerKwh)} đ/kWh
         </div>
-      </div>
+      </TableCell>
 
-      <div className="flex items-start pt-0.5">
+      <TableCell className="align-top">
         <span className="flex items-center gap-1.5 text-xs text-foreground/90">
           <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[project.status])} />
           {PROJECT_STATUS_LABELS[project.status]}
         </span>
-      </div>
+      </TableCell>
 
-      <div className="text-xs text-muted-foreground">
+      <TableCell className="align-top text-xs text-muted-foreground">
         <div>{project.commissionedAt}</div>
         <div className="font-code">{project.operatorAddress}</div>
-      </div>
+      </TableCell>
 
-      <div className="flex items-start pt-0.5">
+      <TableCell className="align-top">
         <TxLink txHash={project.txHash} />
-      </div>
-    </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -300,39 +315,5 @@ function TxLink({ txHash }: { txHash: string }) {
       {txHash}
       <ExternalLink className="h-3 w-3" />
     </a>
-  );
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card p-4",
-        accent ? "border-primary/40 bg-primary/5" : "border-border",
-      )}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-        <span className={accent ? "text-primary" : "text-muted-foreground"}>{icon}</span>
-      </div>
-      <div
-        className={cn("tabular-nums text-2xl font-bold", accent ? "text-primary" : "text-foreground")}
-      >
-        {value}
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
-    </div>
   );
 }

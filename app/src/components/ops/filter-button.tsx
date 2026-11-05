@@ -16,10 +16,10 @@ export function FilterBtn({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-md px-3 py-1 text-xs transition-colors",
+        "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-secondary font-medium text-secondary-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {label}
