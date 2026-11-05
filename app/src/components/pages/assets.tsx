@@ -23,6 +23,7 @@ import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { cn } from "@/lib/utils";
 import { HoverHint } from "@/components/layout/hover-hint";
 import { SampleDataNote } from "@/components/ui/sample-data-note";
+import { FilterBtn } from "@/components/ops/filter-button";
 
 /**
  * Danh mục **dự án điện gió** đã token hoá.
@@ -333,31 +334,5 @@ function StatCard({
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
     </div>
-  );
-}
-
-function FilterBtn({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "rounded-md px-3 py-1 text-xs transition-colors",
-        active
-          ? "bg-secondary font-medium text-secondary-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }
