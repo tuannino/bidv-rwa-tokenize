@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { CHAINS, explorerTxUrl } from '@bidv/shared';
-import { BadgeCheck, ExternalLink, Loader2, Wallet } from 'lucide-react';
+import { CHAINS } from '@bidv/shared';
+import { BadgeCheck, Loader2, Wallet } from 'lucide-react';
 import {
   beginPaymentSendAction,
   cancelPaymentWithdrawAction,
@@ -19,8 +19,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { nf } from '@/components/withdraw/format';
 import { PAYMENT_WITHDRAW_STATUS_LABELS } from '@/components/withdraw/labels';
+import { WithdrawRequestRow } from '@/components/withdraw/withdraw-request-row';
 import type { PaymentWithdrawPageView, PaymentWithdrawView } from '@/lib/bank/payment-withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
@@ -38,17 +40,6 @@ import { isUserRejection } from '@/lib/wallet/switch-error';
 
 const FIELD =
   'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted disabled:opacity-60';
-
-const short = (value: string) => `${value.slice(0, 10)}…${value.slice(-6)}`;
-
-const nf = (value: string | bigint | null | undefined) => {
-  if (value === null || value === undefined || value === '') return '-';
-  try {
-    return BigInt(value).toLocaleString('vi-VN');
-  } catch {
-    return String(value);
-  }
-};
 
 type Feedback = { tone: 'ok' | 'error'; message: string };
 
@@ -429,57 +420,16 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
-                  const txHash = r.completedTxHash ?? r.submittedTxHash;
-                  const url = txHash ? explorerTxUrl(chain, txHash) : null;
-                  return (
-                    <TableRow key={r.id} data-status={r.status}>
-                      <TableCell className="font-code text-xs" title={r.id}>
-                        {r.id.slice(0, 8)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{new Date(r.createdAt).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell className="text-right tabular-nums">{nf(r.amount)}</TableCell>
-                      <TableCell className="font-code text-xs" title={r.toWallet}>
-                        {short(r.toWallet)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{PAYMENT_WITHDRAW_STATUS_LABELS[r.status]}</Badge>
-                      </TableCell>
-                      <TableCell className="font-code text-xs">
-                        {txHash === null ? (
-                          ''
-                        ) : url ? (
-                          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
-                            {short(txHash)}
-                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                          </a>
-                        ) : (
-                          <span title={txHash}>{short(txHash)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-56 text-xs text-muted-foreground">{r.reason ?? ''}</TableCell>
-                      <TableCell>
-                        {r.status === 'CREATED' ? (
-                          <div className="flex gap-2">
-                            <Button type="button" size="sm" disabled={busy !== null} onClick={() => void sendRow(r)}>
-                              Gửi từ ví
-                            </Button>
-                            <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void cancelRow(r)}>
-                              Huỷ
-                            </Button>
-                          </div>
-                        ) : r.status === 'SENDING' ? (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Đang chờ ví ký hoặc kết quả trên chuỗi</p>
-                            <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void cancelRow(r)}>
-                              Huỷ
-                            </Button>
-                          </div>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {rows.map((r) => (
+                  <WithdrawRequestRow
+                    key={r.id}
+                    row={r}
+                    chain={chain}
+                    busy={busy !== null}
+                    onSend={() => sendRow(r)}
+                    onCancel={() => cancelRow(r)}
+                  />
+                ))}
               </TableBody>
             </Table>
           )}
