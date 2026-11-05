@@ -33,9 +33,9 @@ async function open(page: Page, path: SamplePath) {
  */
 type RoleCount = { status: number; note: number; alert: number };
 const ROLE_COUNTS: Record<SamplePath, RoleCount> = {
-  '/assets': { status: -1, note: -1, alert: -1 },
-  '/kyc': { status: -1, note: -1, alert: -1 },
-  '/reconciliation': { status: -1, note: -1, alert: -1 },
+  '/assets': { status: 0, note: 0, alert: 0 },
+  '/kyc': { status: 0, note: 0, alert: 0 },
+  '/reconciliation': { status: 0, note: 0, alert: 0 },
 };
 
 async function countRoles(page: Page, path: SamplePath) {
