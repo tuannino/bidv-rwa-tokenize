@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { RefreshCw, Search, UserCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { fieldClass } from "@/components/ui/field";
+import { Kpi } from "@/components/ui/kpi";
+import { Table, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { HoverHint } from "@/components/layout/hover-hint";
 import { SampleDataNote } from "@/components/ui/sample-data-note";
+import { FilterBtn } from "@/components/ops/filter-button";
 
 /**
  * Nhà đầu tư & KYC.
@@ -26,6 +32,9 @@ const LEVEL_LABELS: Record<KycLevel, string> = {
   VIP: "VIP",
 };
 
+/** Bảng sát mép thẻ (`Card` không đệm): ô đầu và cuối cách mép như thanh lọc. */
+const TABLE_EDGE = "[&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4";
+
 const STATUS_LABELS: Record<KycStatus, string> = {
   ALL: "Tất cả",
   ACTIVE: "Hoạt động",
@@ -40,34 +49,43 @@ export function KycPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-baseline gap-2">
           <HoverHint hint="Xem nhà đầu tư, trạng thái định danh và whitelist ví." side="bottom">
-            <h1 className="text-2xl font-semibold text-foreground">Nhà đầu tư &amp; KYC</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Nhà đầu tư &amp; KYC</h1>
           </HoverHint>
           <SampleDataNote />
         </div>
-        <button
-          type="button"
-          title="Làm mới"
-          className="text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* QĐ-5: chưa có hành động, khoá kèm chú thích. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Làm mới"
+            aria-label="Làm mới"
+            disabled
+            aria-describedby="kyc-poc-note"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <span id="kyc-poc-note" className="text-xs text-muted-foreground">
+            Chưa hỗ trợ trong PoC
+          </span>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Tổng nhà đầu tư" value="0" sub="Đã đăng ký trên hệ thống" />
-        <KpiCard label="Đã whitelist" value="0" sub="Đủ điều kiện nhận WPT" />
-        <KpiCard label="Chờ duyệt KYC" value="0" sub="Cần xử lý trong 24h" warn />
-        <KpiCard label="Đang đóng băng" value="0" sub="Tạm dừng chuyển nhượng on-chain" danger />
+      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-4">
+        <Kpi tone="hl" label="Tổng nhà đầu tư" value="0" sub="Đã đăng ký trên hệ thống" />
+        <Kpi label="Đã whitelist" value="0" sub="Đủ điều kiện nhận WPT" />
+        <Kpi tone="gold" label="Chờ duyệt KYC" value="0" sub="Cần xử lý trong 24h" />
+        <Kpi label="Đang đóng băng" value="0" sub="Tạm dừng chuyển nhượng on-chain" />
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <Card className="gap-0 py-0">
         <div className="space-y-3 border-b border-border p-4">
           <div className="relative">
             <Search
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <label htmlFor="kyc-search" className="sr-only">
@@ -78,7 +96,7 @@ export function KycPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Tìm theo tên, CCCD hoặc địa chỉ ví..."
-              className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={`${fieldClass} pl-10`}
             />
           </div>
 
@@ -109,106 +127,43 @@ export function KycPage() {
           <p className="text-xs text-muted-foreground">0 kết quả</p>
         </div>
 
-        <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_2fr_1.2fr_1fr_1fr] gap-3 border-b border-border px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <span>Nhà đầu tư</span>
-          <span>CCCD</span>
-          <span>Cấp KYC</span>
-          <span>Khẩu vị RR</span>
-          <span>Địa chỉ ví</span>
-          <span className="text-right">WPT nắm giữ</span>
-          <span>Trạng thái</span>
-          <span>Đăng ký</span>
-        </div>
+        <Table className={TABLE_EDGE}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nhà đầu tư</TableHead>
+              <TableHead>CCCD</TableHead>
+              <TableHead>Cấp KYC</TableHead>
+              <TableHead>Khẩu vị RR</TableHead>
+              <TableHead>Địa chỉ ví</TableHead>
+              <TableHead className="text-right">WPT nắm giữ</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead>Đăng ký</TableHead>
+            </TableRow>
+          </TableHeader>
+        </Table>
 
-        <div className="flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
-          <UserCheck className="h-9 w-9 text-muted-foreground/60" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">Chưa có nhà đầu tư nào trong danh sách.</p>
-          <p className="max-w-md text-xs text-muted-foreground">
-            Bảng này đọc từ DB nhà đầu tư, nối ở Phase 4. Hiện tại luồng KYC + whitelist chạy ở
-            chế độ mock tại trang <span className="font-code">/mint</span>.
-          </p>
+        <div className="p-4">
+          <EmptyState icon={<UserCheck />}>
+            <p>Chưa có nhà đầu tư nào trong danh sách.</p>
+            <p className="mx-auto mt-1 max-w-md text-xs">
+              Bảng này đọc từ DB nhà đầu tư, nối ở Phase 4. Hiện tại luồng KYC + whitelist chạy ở
+              chế độ mock tại trang <span className="font-code">/mint</span>.
+            </p>
+          </EmptyState>
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
           <span>Hiển thị 0–0 / 0 nhà đầu tư</span>
           <div className="flex gap-2">
-            <button
-              type="button"
-              disabled
-              className="cursor-not-allowed rounded border border-border px-3 py-1 opacity-50"
-            >
+            <Button type="button" variant="outline" size="sm" disabled>
               Trang trước
-            </button>
-            <button
-              type="button"
-              disabled
-              className="cursor-not-allowed rounded border border-border px-3 py-1 opacity-50"
-            >
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled>
               Trang sau
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  warn,
-  danger,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  warn?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card p-4",
-        danger ? "border-destructive/40" : warn ? "border-accent/50" : "border-border",
-      )}
-    >
-      <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div
-        className={cn(
-          "tabular-nums text-2xl font-bold tracking-tight",
-          danger ? "text-destructive" : warn ? "text-accent" : "text-foreground",
-        )}
-      >
-        {value}
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
-    </div>
-  );
-}
-
-function FilterBtn({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "rounded-md px-3 py-1 text-xs transition-colors",
-        active
-          ? "bg-secondary font-medium text-secondary-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }

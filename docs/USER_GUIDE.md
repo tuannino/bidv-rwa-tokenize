@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-05c-rut-nguoi-ban` (FE-UX-05c, từ `release/ui-v2` @ `d035407`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-06a-man-mau` (FE-UX-06a, từ `release/ui-v2` @ `9eac384`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -1620,9 +1620,10 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 **Thông tin chung**
 - **Vai:** Giao dịch viên và Kiểm soát viên. Không có trong menu.
-- **Trạng thái:** **Chỗ trống**, ghi "Phase 4", không có mã task (`components/pages/kyc.tsx:7-11`). Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
+- **Trạng thái:** **Chỗ trống**, ghi "Phase 4", không có mã task (`components/pages/kyc.tsx:18`). Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** KYC/whitelist.
 - **Action:** không có.
+- **Bố cục (FE-UX-06a):** tiêu đề và ghi chú dữ liệu mẫu bên trái, nút "Làm mới" (khoá) và chú thích "Chưa hỗ trợ trong PoC" bên phải. Bốn ô số liệu một hàng từ 1100 px (hai cột từ 640 px): Tổng nhà đầu tư ô xanh đậm, Chờ duyệt KYC ô vàng, hai ô còn lại ô thường. Một thẻ gồm ô tìm có biểu tượng kính lúp, hai nhóm nút lọc dạng viên nang (nút đang chọn màu chủ đạo), bảng chỉ có hàng tiêu đề, khối trống có biểu tượng, dòng "Hiển thị…" và hai nút phân trang khoá. Nút lọc dùng chung ở `components/ops/filter-button.tsx`.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1630,7 +1631,7 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 | Tìm theo tên, CCCD hoặc địa chỉ ví... | Ô tìm kiếm | chỉ trạng thái máy khách | Không lọc gì |
 | Cấp KYC (Tất cả, Level 1, Level 2, VIP); Trạng thái (Tất cả, Hoạt động, Chờ duyệt, Đóng băng) | Nút lọc | trạng thái máy khách | Không lọc gì |
 | Cột: Nhà đầu tư, CCCD, Cấp KYC, Khẩu vị RR, Địa chỉ ví, WPT nắm giữ, Trạng thái, Đăng ký | Tiêu đề bảng rỗng | | Câu hướng dẫn trỏ sang /mint |
-| Làm mới; Trang trước / Trang sau | | không có xử lý; 2 nút phân trang bị khoá | |
+| Làm mới; Trang trước / Trang sau | | không có xử lý; cả ba nút khoá; nút Làm mới có chú thích "Chưa hỗ trợ trong PoC" (FE-UX-06a) | |
 
 
 #### 3.6.2. `/assets` Dự án điện gió
@@ -1640,10 +1641,11 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 - **Trạng thái:** **Chỗ trống**, dữ liệu mẫu `MOCK_PROJECTS`. Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** Danh mục dự án.
 - **Action:** không có.
+- **Bố cục (FE-UX-06a):** tiêu đề và ghi chú dữ liệu mẫu bên trái; bên phải nút "Làm mới", nút "Thêm dự án" (cả hai khoá, menu không mở) và chú thích "Chưa hỗ trợ trong PoC". Bốn ô số liệu có biểu tượng, một hàng từ 1100 px (hai cột từ 640 px): WPT đã phát hành ô xanh đậm, Sản lượng luỹ kế ô xanh lá, hai ô còn lại ô thường; đơn vị MW, MWh chữ nhỏ sau số. Một thẻ gồm hai nhóm nút lọc dạng viên nang và "{n} kết quả", bảng 8 cột (cuộn ngang trên màn hẹp), khối trống có biểu tượng khi lọc không ra dự án, dòng "Hiển thị…". Gợi ý vùng trong menu và dòng hệ số công suất dùng dấu phẩy, dấu hai chấm thay chấm giữa và gạch dài.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Làm mới; Thêm dự án (3 loại vùng) | | không có xử lý | |
+| Làm mới; Thêm dự án (3 loại vùng) | | không có xử lý; hai nút khoá, chú thích "Chưa hỗ trợ trong PoC" (FE-UX-06a) | |
 | Dự án điện gió, Tổng công suất đặt, WPT đã phát hành, Sản lượng luỹ kế | Thẻ số liệu | mock | |
 | Vùng (Tất cả; Trên bờ Cao nguyên; Trên bờ Ven biển; Gần bờ); Trạng thái (Đang phát điện, Chạy thử nghiệm thu, Bảo trì) | Nút lọc | lọc trên mock | |
 | Cột: Mã & Tên dự án, Vùng, Công suất, WPT phát hành, Sản lượng luỹ kế, Trạng thái, Vận hành từ, TX Hash | | mock; TX Hash dựng liên kết explorer theo chain đang chọn | Mã tx là giả |
@@ -1681,10 +1683,11 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 - **Trạng thái:** **Chỗ trống**, ghi "Phase 3", không có mã task. Sau tiêu đề có ghi chú "(đang hiển thị dữ liệu mẫu)" (FIX-05).
 - **Nghiệp vụ:** Đối soát.
 - **Action:** không có.
+- **Bố cục (FE-UX-06a):** tiêu đề và ghi chú dữ liệu mẫu bên trái, nút "Làm mới dữ liệu" (khoá) và chú thích "Chưa hỗ trợ trong PoC" bên phải. Ba thẻ nguồn một hàng từ 640 px, biểu tượng trong vòng tròn. Ba ô số liệu một hàng từ 640 px: Kỳ đã đối soát khớp ô xanh đậm, Sản lượng đã đối soát ô thường (đơn vị MWh chữ nhỏ), Kỳ lệch chờ xử lý ô vàng khi có kỳ lệch, không thì ô thường. Một thẻ gồm nhóm nút lọc Dự án dạng viên nang, bảng chỉ có hàng tiêu đề, khối trống có biểu tượng, dòng "Hiển thị…".
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
-| Làm mới dữ liệu | | không có xử lý | |
+| Làm mới dữ liệu | | không có xử lý; nút khoá, chú thích "Chưa hỗ trợ trong PoC" (FE-UX-06a) | |
 | SCADA nhà máy / Hoá đơn EVN / On-chain | Thẻ mô tả 3 nguồn số liệu | hằng | |
 | Kỳ đã đối soát khớp (6) / Sản lượng đã đối soát / Kỳ lệch chờ xử lý (0) | Thẻ số liệu | `MOCK_WIND_STATS` | |
 | Dự án (Tất cả và các dự án mẫu) | Nút lọc | mock | Không lọc gì |
@@ -1693,7 +1696,7 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-27.** Thẻ "Kỳ đã đối soát khớp" báo 6 kỳ trong khi bảng báo 0 kỳ (`components/pages/reconciliation.tsx:39,70-88`).
+- **L-27.** Thẻ "Kỳ đã đối soát khớp" báo 6 kỳ trong khi bảng báo 0 kỳ (`components/pages/reconciliation.tsx:45,81-104`).
 
 
 ---
