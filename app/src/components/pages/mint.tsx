@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Coins, Link2, ListChecks, Loader2, ShieldCheck, UserCheck } from 'lucide-react';
+import { Coins, FileClock, Link2, Loader2, ShieldCheck, UserCheck } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
 import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
@@ -298,14 +298,14 @@ export function MintPage() {
         <CardHeader>
           <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
             <CardTitleIcon>
-              <ListChecks />
+              <FileClock />
             </CardTitleIcon>
             Lịch sử giao dịch ({chain})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {txns.length === 0 ? (
-            <EmptyState icon={<ListChecks />}>Chưa có giao dịch nào trên chain này.</EmptyState>
+            <EmptyState icon={<FileClock />}>Chưa có giao dịch nào trên chain này.</EmptyState>
           ) : (
             <TxnHistoryTable txns={txns} />
           )}
