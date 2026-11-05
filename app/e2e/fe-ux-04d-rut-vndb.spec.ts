@@ -74,7 +74,11 @@ test.describe('FE-UX-04d Rút VNDB', () => {
       const computed = getComputedStyle(element);
       return { transform: computed.transform, boxShadow: computed.boxShadow };
     });
-    expect(style).toEqual({ transform: 'none', boxShadow: 'none' });
+    // `shadow-none` của Tailwind 4 tính ra danh sách lớp bóng trong suốt cỡ 0, không phải chữ `none`: coi là không bóng
+    // khi mọi lớp trong suốt. Thiếu lớp `hover:shadow-none!` thì còn bóng nổi của `lift` và bóng trong trắng của `tile-au`.
+    const layers = style.boxShadow === 'none' ? [] : style.boxShadow.split(/,(?![^(]*\))/).map((layer) => layer.trim());
+    expect(style.transform).toBe('none');
+    expect(layers.filter((layer) => !layer.startsWith('rgba(0, 0, 0, 0)')), style.boxShadow).toEqual([]);
 
     await expect(page.locator('[data-wallet-bound="true"]')).toBeVisible();
     const table = page.getByRole('table', { name: 'Lệnh rút của tôi' });
