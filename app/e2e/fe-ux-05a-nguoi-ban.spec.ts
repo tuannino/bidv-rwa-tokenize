@@ -135,7 +135,7 @@ test.describe('FE-UX-05a Tổng quan và Danh sách giao dịch của Người b
       FILTERS.map(async (label) => (await main.getByLabel(label, { exact: true }).boundingBox())!),
     );
     for (const box of boxes) expect(Math.abs(box.y - boxes[0].y), 'năm ô lọc cùng hàng ở 1440 px').toBeLessThan(4);
-    expect(await main.locator('nav[aria-label="Phân trang"]').innerText()).not.toContain('·');
+    expect(await main.locator('nav[aria-label="Phân trang"]').innerText()).not.toContain('\u00b7');
 
     await waitForHydration(page);
     await main.getByLabel('Loại', { exact: true }).selectOption('WITHDRAW');
