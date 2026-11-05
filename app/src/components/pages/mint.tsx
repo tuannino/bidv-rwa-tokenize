@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Coins, Loader2, ShieldCheck, XCircle } from 'lucide-react';
+import { Coins, FileClock, Link2, Loader2, ShieldCheck, UserCheck } from 'lucide-react';
 import type { ChainKey } from '@bidv/shared';
+import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
 import { can } from '@/lib/rbac';
@@ -19,8 +21,8 @@ import {
   readBalanceAction,
 } from '@/app/actions/bank';
 import type { TxnView } from '@/lib/bank/mint.service';
-import { operationLabel } from '@/lib/txn-labels';
 import { HoverHint } from '@/components/layout/hover-hint';
+import { TxnHistoryTable } from '@/components/mint/txn-history-table';
 
 /**
  * Trang KYC + PHÁT HÀNH DỮ LIỆU THỬ — kênh cán bộ ngân hàng.
@@ -150,7 +152,7 @@ export function MintPage() {
       return result.ok
         ? {
             tone: 'success',
-            message: `KYC ${result.data.kycReference} đã duyệt · whitelist=${result.data.whitelisted} · tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
+            message: `KYC ${result.data.kycReference} đã duyệt, whitelist=${result.data.whitelisted}, tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
           }
         : { tone: 'error', message: result.error };
     });
@@ -161,7 +163,7 @@ export function MintPage() {
       return result.ok
         ? {
             tone: 'success',
-            message: `Đã phát hành ${result.data.amount} WPT · số dư mới ${result.data.balanceAfter} · tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
+            message: `Đã phát hành ${result.data.amount} WPT, số dư mới ${result.data.balanceAfter}, tx ${result.data.txHash.slice(0, 12)}… (${result.data.status})`,
           }
         : { tone: 'error', message: result.error };
     });
@@ -170,22 +172,27 @@ export function MintPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <HoverHint hint="Phát hành WPT trực tiếp để tạo dữ liệu thử, chỉ dùng trong PoC." side="bottom">
-          <h1 className="text-xl font-semibold">Phát hành token dự án điện gió (dữ liệu thử)</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Phát hành token dự án điện gió (dữ liệu thử)</h1>
         </HoverHint>
-        <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+        <Alert tone="info">
           Phát hành chính thức đi qua màn{' '}
           <Link prefetch={false} href="/draft" className="font-medium text-primary hover:underline">
             Lập lệnh
           </Link>{' '}
           và Kiểm soát viên duyệt. Nút phát hành ở đây chỉ dành cho dữ liệu thử: cần quyền
           demo:mint-token và cờ ENABLE_DEMO_TOKEN_MINT bật trên máy chủ.
-        </p>
+        </Alert>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card>
+      <div className="grid gap-6 min-[1100px]:grid-cols-12">
+        <Card className="min-[1100px]:col-span-8">
           <CardHeader>
-            <CardTitle className="text-base">Nhà đầu tư</CardTitle>
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+              <CardTitleIcon>
+                <UserCheck />
+              </CardTitleIcon>
+              Nhà đầu tư
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
@@ -198,7 +205,7 @@ export function MintPage() {
                 onChange={(event) => setWallet(event.target.value)}
                 placeholder="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
                 spellCheck={false}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 font-code text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={`${fieldClass} font-code`}
               />
               <p className="text-xs text-muted-foreground">
                 Ở hardhat-local có thể dùng account #1:{' '}
@@ -214,9 +221,9 @@ export function MintPage() {
                 id="mint-amount"
                 value={amount}
                 onValueChange={setAmount}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 tabular-nums text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={`${fieldClass} tabular-nums`}
               />
-              <p className="text-xs text-muted-foreground">WPT có 0 chữ số thập phân — nhập số nguyên.</p>
+              <p className="text-xs text-muted-foreground">WPT có 0 chữ số thập phân: nhập số nguyên.</p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -228,7 +235,7 @@ export function MintPage() {
                 title={mayWhitelist ? undefined : `Vai trò ${config.role} không có quyền whitelist`}
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                1 · KYC + Whitelist
+                1. KYC + Whitelist
               </Button>
 
               <Button
@@ -242,47 +249,40 @@ export function MintPage() {
                 }
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
-                2 · Phát hành dữ liệu thử
+                2. Phát hành dữ liệu thử
               </Button>
             </div>
 
             {feedback && (
-              <div
-                role="status"
-                className={
-                  feedback.tone === 'success'
-                    ? 'flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-foreground'
-                    : 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground'
-                }
-              >
-                {feedback.tone === 'success' ? (
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                ) : (
-                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                )}
-                <span>{feedback.message}</span>
-              </div>
+              <Alert role="status" tone={feedback.tone === 'success' ? 'ok' : 'bad'}>
+                <span className="[overflow-wrap:anywhere]">{feedback.message}</span>
+              </Alert>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-[1100px]:col-span-4">
           <CardHeader>
-            <CardTitle className="text-base">Trạng thái on-chain</CardTitle>
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+              <CardTitleIcon>
+                <Link2 />
+              </CardTitleIcon>
+              Trạng thái on-chain
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="divide-y divide-border text-sm">
             {status ? (
               <>
                 <Row label="Số dư WPT">
                   <span className="tabular-nums text-lg font-semibold">{status.balance}</span>
                 </Row>
                 <Row label="Whitelist">
-                  <Badge variant={status.whitelisted ? 'default' : 'destructive'}>
+                  <Badge variant={status.whitelisted ? 'ok' : 'warn'}>
                     {status.whitelisted ? 'đã KYC' : 'chưa KYC'}
                   </Badge>
                 </Row>
                 <Row label="Đóng băng">
-                  <Badge variant={status.frozen ? 'destructive' : 'outline'}>
+                  <Badge variant={status.frozen ? 'bad' : 'outline'}>
                     {status.frozen ? 'đang băng' : 'bình thường'}
                   </Badge>
                 </Row>
@@ -296,52 +296,18 @@ export function MintPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Lịch sử giao dịch ({chain})</CardTitle>
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <FileClock />
+            </CardTitleIcon>
+            Lịch sử giao dịch ({chain})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {txns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có giao dịch nào trên chain này.</p>
+            <EmptyState icon={<FileClock />}>Chưa có giao dịch nào trên chain này.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Thời điểm</TableHead>
-                  <TableHead>Nghiệp vụ</TableHead>
-                  <TableHead>Ví nhận</TableHead>
-                  <TableHead className="text-right">Số lượng</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {txns.map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(txn.createdAt).toLocaleTimeString('vi-VN')}
-                    </TableCell>
-                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="font-code text-xs">
-                      {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          txn.status === 'CONFIRMED'
-                            ? 'default'
-                            : txn.status === 'FAILED'
-                              ? 'destructive'
-                              : 'secondary'
-                        }
-                      >
-                        {txn.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{txn.actorRole}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <TxnHistoryTable txns={txns} />
           )}
         </CardContent>
       </Card>
@@ -351,7 +317,7 @@ export function MintPage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-3 py-2.5">
       <span className="text-muted-foreground">{label}</span>
       {children}
     </div>
