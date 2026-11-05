@@ -153,8 +153,9 @@ test.describe('FE-UX-06a ba màn dữ liệu mẫu', () => {
     await page.keyboard.press('Enter');
     await expect(coastal).toHaveAttribute('aria-pressed', 'true');
     await expect(projectRows(page)).toHaveCount(COASTAL_PROJECTS);
-    await page.keyboard.press('Tab');
-    expect(await focused(highland), 'Tab sang "Trên bờ, Cao nguyên"').toBe(true);
+    // "Trên bờ, Cao nguyên" đứng TRƯỚC "Trên bờ, Ven biển" (thứ tự `REGION_LABELS`), nên lùi một nút.
+    await page.keyboard.press('Shift+Tab');
+    expect(await focused(highland), 'Shift+Tab sang "Trên bờ, Cao nguyên"').toBe(true);
     await page.keyboard.press('Space');
     await expect(highland).toHaveAttribute('aria-pressed', 'true');
     await expect(projectRows(page)).toHaveCount(0);
