@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-06a-man-mau` (FE-UX-06a, từ `release/ui-v2` @ `9eac384`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-06b-phat-hanh-kiem-toan` (FE-UX-06b, từ `release/ui-v2` @ `d2a5bca`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -931,7 +931,7 @@ FIX-01 đã sửa L-10 (form ghi ví trong trang "Chỉ đọc"), L-66, L-67, L-
 - **Action khi tương tác:**
   - Mỗi lần nội dung đổi: `previewTokenRequestAction`
   - Bấm gửi: `createTokenRequestAction`
-- **Bố cục** (FE-UX-02b): tiêu đề và ô chọn token cùng hàng; hai ô số liệu "Yêu cầu tạo token đang chờ", "Yêu cầu huỷ token đang chờ" (chưa đọc được thì "–"); hai thẻ biểu mẫu cạnh nhau từ 1100 px, mỗi thẻ có biểu tượng tiêu đề; khối "Thông tin token" và "Kiểm tra trước khi lập" là ô nền nhạt; ô Số lượng khi tự điền tổng cung có nền đậm hơn; cảnh báo huỷ toàn bộ nguồn cung là hộp đỏ; thẻ "Yêu cầu đã lập" có nhãn trạng thái tô màu (Chờ duyệt vàng, Đang xử lý xanh dương, Hoàn tất xanh lá, Từ chối và Thất bại đỏ; cũng áp ở `/approvals`, `/approvals/[id]`), bảng đang tải hiện khung có vòng quay.
+- **Bố cục** (FE-UX-02b): tiêu đề và ô chọn token cùng hàng; hai ô số liệu "Yêu cầu tạo token đang chờ", "Yêu cầu huỷ token đang chờ" (chưa đọc được thì "–"); hai thẻ biểu mẫu cạnh nhau từ 1100 px, mỗi thẻ có biểu tượng tiêu đề; khối "Thông tin token" và "Kiểm tra trước khi lập" là ô nền nhạt; khối "Thông tin token" một cột 10 dòng, nhãn trái giá trị phải, giá trị dài (hợp đồng, ví) xuống dòng thay vì bị cắt (FE-UX-06b, cùng ở `/approvals/[id]`); ô Số lượng khi tự điền tổng cung có nền đậm hơn; cảnh báo huỷ toàn bộ nguồn cung là hộp đỏ; thẻ "Yêu cầu đã lập" có nhãn trạng thái tô màu (Chờ duyệt vàng, Đang xử lý xanh dương, Hoàn tất xanh lá, Từ chối và Thất bại đỏ; cũng áp ở `/approvals`, `/approvals/[id]`), bảng đang tải hiện khung có vòng quay.
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -1167,22 +1167,24 @@ Yêu cầu EXECUTING **không có** mã giao dịch ký bằng khoá máy chủ 
 - **Nghiệp vụ:** KYC/whitelist và dữ liệu thử phát hành.
 - **Action khi mở và khi đổi ví:** `listTransactionsAction({chain, limit:20})`; khi ví hợp lệ thì thêm `readBalanceAction`.
 - **Action khi tương tác:** `onboardInvestorAction`, `mintAction` (gọi `mintToInvestorDirect`).
+- **Bố cục (FE-UX-06b):** tiêu đề; dưới là hộp thông báo xanh dương trỏ tới "Lập lệnh". Từ 1100 px lưới 12 cột: thẻ "Nhà đầu tư" 8 cột bên trái, thẻ "Trạng thái on-chain" 4 cột bên phải; hẹp hơn thì một cột, Trạng thái on-chain dưới Nhà đầu tư. Thẻ "Lịch sử giao dịch" rộng hết dưới lưới. Ba thẻ có biểu tượng tiêu đề. Kết quả thao tác là hộp thông báo dưới hàng nút: xanh lá khi thành công, đỏ khi lỗi; chuỗi dài (ví 42 ký tự) tự xuống dòng. Thẻ Trạng thái on-chain là ba dòng kẻ ngăn. Lịch sử rỗng là khối trống có biểu tượng. Bảng lịch sử nằm ở `components/mint/txn-history-table.tsx` (tách để kiểm bằng dữ liệu giả; không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
 | Hộp chú thích trỏ tới "Lập lệnh" | Phát hành chính thức nằm ở /draft | | |
+| Kết quả thao tác | Câu KYC "KYC {mã} đã duyệt, whitelist={…}, tx {…}… ({trạng thái})"; câu phát hành "Đã phát hành {n} WPT, số dư mới {…}, tx {…}… ({trạng thái})" (FE-UX-06b: dấu phẩy thay chấm giữa); câu lỗi của máy chủ | kết quả action | Câu gợi ý dưới ô số lượng: "WPT có 0 chữ số thập phân: nhập số nguyên." |
 | Ví nhà đầu tư | Địa chỉ 0x + 40 ký tự hex | | |
 | Số lượng WPT | Số nguyên, mặc định 100 | | |
-| Nút "1 KYC + Whitelist" (trên màn có dấu chấm giữa sau số 1) | KYC mock tự duyệt, rồi whitelist on-chain | `onboardInvestor`: KYC provider; `ledger.whitelist`; `Txn` (`operation=whitelist`); AuditLog `investor:whitelist` | Mở điều kiện nắm giữ WPT và nạp VNDB |
-| Nút "2 Phát hành dữ liệu thử" (cùng dấu chấm giữa) | Mint thẳng vào ví nhà đầu tư | `mintToInvestorDirect`: chặn nếu ví chưa whitelist; `ledger.mint`; `Txn` PENDING rồi cập nhật trạng thái; AuditLog `token:mint` | Không qua lập duyệt |
-| Trạng thái on-chain: Số dư WPT, Whitelist ("đã KYC" / "chưa KYC"), Đóng băng ("đang băng" / "bình thường") | | `ledger.balanceOf`, `isWhitelisted`, `isFrozen` | |
-| Lịch sử giao dịch (chain): Thời điểm, Nghiệp vụ, Ví nhận, Số lượng, Trạng thái (CONFIRMED / FAILED / PENDING), Vai trò | 20 giao dịch mới nhất của mọi loại | bảng `Txn` | |
+| Nút "1. KYC + Whitelist" (trước FE-UX-06b có dấu chấm giữa sau số 1) | KYC mock tự duyệt, rồi whitelist on-chain | `onboardInvestor`: KYC provider; `ledger.whitelist`; `Txn` (`operation=whitelist`); AuditLog `investor:whitelist` | Mở điều kiện nắm giữ WPT và nạp VNDB |
+| Nút "2. Phát hành dữ liệu thử" (như trên) | Mint thẳng vào ví nhà đầu tư | `mintToInvestorDirect`: chặn nếu ví chưa whitelist; `ledger.mint`; `Txn` PENDING rồi cập nhật trạng thái; AuditLog `token:mint` | Không qua lập duyệt |
+| Trạng thái on-chain: Số dư WPT, Whitelist ("đã KYC" nhãn xanh lá / "chưa KYC" nhãn vàng), Đóng băng ("đang băng" nhãn đỏ / "bình thường" nhãn viền) | | `ledger.balanceOf`, `isWhitelisted`, `isFrozen` | |
+| Lịch sử giao dịch (chain): Thời điểm, Nghiệp vụ, Ví nhận, Số lượng, Trạng thái (CONFIRMED xanh lá / FAILED đỏ / PENDING vàng), Vai trò | 20 giao dịch mới nhất của mọi loại; ô trống là gạch ngang ngắn (U+2013) | bảng `Txn` | |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
 - **L-01.** Mỗi lần tải và mỗi lần gõ ví đều ghi AuditLog ALLOWED, vì `readBalance` và `listTransactions` dùng `authorize` (`mint.service.ts:266,286`).
-- **L-78.** Cột Thời điểm chỉ hiện giờ, không có ngày (`components/pages/mint.tsx:321`).
+- **L-78.** Cột Thời điểm chỉ hiện giờ, không có ngày (`components/mint/txn-history-table.tsx:29`).
 - **L-79.** Trang `/kyc` là chỗ trống. Từ FIX-01, đường chính để định danh ví cho khách hàng là `/wallet-binding` (định danh và gắn hồ sơ một lần); nút "KYC + Whitelist" ở đây chỉ whitelist, không gắn ví cho hồ sơ nào, nên ví đó vẫn "Ví chưa được định danh" ở màn khách hàng.
 
 #### 3.4.9. `/wallet-binding` Định danh ví
@@ -1657,21 +1659,22 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 - **Vai:** Giao dịch viên và Kiểm soát viên (`ops:read` cộng `audit:read`). Không có trong menu.
 - **Trạng thái:** **Dùng được**. Chỉ đọc, 100 dòng mới nhất, không lọc, không phân trang.
 - **Nghiệp vụ:** Kiểm toán.
-- **Action khi mở:** gọi thẳng `listAuditLog(100)` từ Server Component (`app/(ops)/audit/page.tsx:19`, `lib/bank/audit.service.ts`).
+- **Action khi mở:** gọi thẳng `listAuditLog(100)` từ Server Component (`app/(ops)/audit/page.tsx:15`, `lib/bank/audit.service.ts`).
+- **Bố cục (FE-UX-06b):** tiêu đề; một thẻ "Bản ghi gần nhất" có biểu tượng tiêu đề: bảng 6 cột (cuộn ngang trên màn hẹp), rỗng là khối trống có biểu tượng, lỗi đọc sổ là hộp thông báo đỏ. Bảng nằm ở `components/audit/audit-table.tsx` (tách để kiểm bằng dữ liệu giả; không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
 | Thời điểm | | `AuditLog.createdAt` | |
 | Vai trò | | `actorRole` | |
 | Hành động | ví dụ `order:draft`, `order:approve`, `token:mint`, `token:burn`, `demo:mint-payment`, `order:intervene`, `investor:whitelist` | `action` | |
-| Đối tượng | Luôn cắt còn 10 ký tự rồi thêm dấu "…" | `target` | |
-| Kết quả (badge) | ALLOWED, SUCCESS: màu thường; DENIED, FAILURE: màu đỏ | `outcome` | |
-| Chi tiết | | `detail` | |
+| Đối tượng | Luôn cắt còn 10 ký tự rồi thêm dấu "…"; trống là "–" (U+2013) | `target` | |
+| Kết quả (badge) | ALLOWED, SUCCESS: nhãn xanh lá; DENIED, FAILURE: nhãn đỏ (FE-UX-06b) | `outcome` | |
+| Chi tiết | Cắt một dòng; rê chuột thấy đủ câu (FE-UX-06b); trống là "–" | `detail` | |
 
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-26.** Câu khi trống còn ghi "Thử phát hành token ở trang /mint" (`audit/page.tsx:40`), đã lỗi thời từ FE-22.
+- **L-26.** Câu khi trống còn ghi "Thử phát hành token ở trang /mint" (`audit/page.tsx:40`, khối trống), đã lỗi thời từ FE-22.
 - **L-90.** Không hiện cột chain.
 - **L-01.** Sổ bị lấp bởi các dòng ALLOWED của phép đọc (xem /draft, /mint), nên 100 dòng mới nhất dễ không còn thao tác thật.
 
@@ -1921,7 +1924,7 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-75 | `/transactions` | Nguồn cung chỉ tính cho dự án đầu tiên của chain (`ops-transactions.service.ts:117`). |
 | L-76 | `/transactions/[id]` | Không có nút can thiệp ở màn chi tiết; can thiệp chỉ làm được ở danh sách. |
 | L-77 | `/demo-payment` | Lịch sử nạp có thể thiếu: lần nạp cũ hơn 200 giao dịch không hiện (`lib/bank/demo-payment.service.ts:178-180`). |
-| L-78 | `/mint` | Cột Thời điểm chỉ hiện giờ, không có ngày (`components/pages/mint.tsx:321`). |
+| L-78 | `/mint` | Cột Thời điểm chỉ hiện giờ, không có ngày (`components/mint/txn-history-table.tsx:29`). |
 | L-79 | `/mint` | Đây là nơi duy nhất làm KYC/whitelist; trang `/kyc` là chỗ trống. |
 | L-80 | `/vault` | Tên quyền đúng là `vault:configure`, không có `vault:config`; tài liệu nào ghi `vault:config` là ghi sai (`permissions.ts:212`). |
 | L-81 | `/vault` | Giao dịch viên thấy toàn bộ form cấu hình nhưng bị khoá, nút lưu ẩn (`vault-status.tsx:119`, `:175`). |

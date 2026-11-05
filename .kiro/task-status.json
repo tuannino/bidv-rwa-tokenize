@@ -78,7 +78,9 @@
     "FE-UX-05c",
     "FE-UX-06a"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "FE-UX-06b"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
@@ -91,7 +93,6 @@
     "SC-04",
     "SC-08",
     "IN-03",
-    "FE-UX-06b",
     "FE-UX-07",
     "FE-UX-08"
   ],
