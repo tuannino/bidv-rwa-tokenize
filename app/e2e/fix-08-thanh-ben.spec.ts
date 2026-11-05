@@ -21,7 +21,7 @@ async function open(page: Page, path: string) {
 
 const lit = (page: Page) => page.locator('aside nav a[aria-current="page"]');
 
-/** Lớp `bg-primary` (đúng tên lớp, không tính `bg-primary-foreground`) của mọi liên kết trong menu. */
+/** Mỗi liên kết trong menu: có `aria-current` không, có đúng lớp nền chính (so cả tên lớp qua `classList`) không. */
 const primaryFlags = (page: Page) =>
   page.locator('aside nav a').evaluateAll((links) =>
     links.map((link) => ({ current: link.getAttribute('aria-current') === 'page', primary: link.classList.contains('bg-primary') })),
