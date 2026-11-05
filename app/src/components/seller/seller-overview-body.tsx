@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Boxes, Landmark, Package, Wallet, Wind } from 'lucide-react';
+import { ArrowRightLeft, Boxes, Landmark, Package, Wallet, Wind } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
@@ -83,7 +83,7 @@ export function SellerOverviewBody({ data }: { data: SellerOverviewView }) {
       <section className="space-y-3">
         <h2 className="flex items-center gap-2.5 text-base font-medium">
           <CardTitleIcon>
-            <ArrowLeftRight />
+            <ArrowRightLeft />
           </CardTitleIcon>
           Token khớp lệnh trong ngày
         </h2>
