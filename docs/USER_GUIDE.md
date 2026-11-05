@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-06b-phat-hanh-kiem-toan` (FE-UX-06b, từ `release/ui-v2` @ `d2a5bca`), ngày 05/11/2026 |
+| Chốt tại | nhánh `fix/fix-08-thanh-ben` (FIX-08, từ `release/ui-v2` @ `763cd51`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -288,9 +288,9 @@ Quy ước chung cho Phần 3:
 
 **Thanh bên** (`components/layout/sidebar.tsx`, FE-UX-01b): thẻ nổi cách mép 12 px, bo góc lớn, rộng 270 px.
 
-- **Đầu:** logo BIDV (chữ xanh ngọc, bông mai vàng; giao diện Tối chữ trắng; dòng dưới "RWA Tokenize Platform"), bấm về trang đầu của menu. Dưới logo là ô **Vai trò** (chọn vai giả lập, trước nằm ở thanh trên cùng).
-- **Menu:** mỗi mục có biểu tượng trong vòng tròn, nhãn, ô phím tắt; mục đang mở nền xanh ngọc chữ trắng. Số việc chờ (Lập lệnh, Phê duyệt lệnh) là viên tròn bên phải nhãn: 0 nền xám, khác 0 nền vàng. Mục, nhãn, thứ tự, nhóm, điều kiện hiện "Nạp VNDB", "Định danh ví" không đổi; nhóm "Nghiệp vụ ẩn" vẫn gập được và tự mở khi đang ở màn trong nhóm.
-- **Đáy:** công tắc Lưu ký Fireblocks (vai có quyền), ô **Chain** (trước nằm ở thanh trên cùng), dòng `chain, vai trò VAI` chữ mã, và nút **Thu gọn thanh bên**.
+- **Đầu:** logo BIDV (chữ xanh ngọc, bông mai vàng; giao diện Tối chữ trắng; dòng dưới "RWA Tokenize Platform"), bấm về trang đầu của menu. Dưới logo là ô **Vai trò** (chọn vai giả lập, trước nằm ở thanh trên cùng); mỗi lựa chọn ghi "{vai} ({mã})", ví dụ "Người bán (NB001)" (FIX-08).
+- **Menu:** mỗi mục có biểu tượng trong vòng tròn, nhãn, ô phím tắt; mục đang mở nền xanh ngọc chữ trắng. Luôn chỉ **một** mục sáng: mục có đường dẫn khớp dài nhất với màn đang xem (FIX-08, `components/layout/active-nav.ts`), ví dụ ở `/seller/withdraw` chỉ "Tạo lệnh rút" sáng, "Tổng quan" không sáng theo; màn không có trong menu (như `/tokens/WPT`) thì không mục nào sáng. Mục đang sáng được đánh dấu `aria-current="page"` cho trình đọc màn hình. Số việc chờ (Lập lệnh, Phê duyệt lệnh) là viên tròn bên phải nhãn: 0 nền xám, khác 0 nền vàng. Mục, nhãn, thứ tự, nhóm, điều kiện hiện "Nạp VNDB", "Định danh ví" không đổi; nhóm "Nghiệp vụ ẩn" vẫn gập được và tự mở khi đang ở màn trong nhóm.
+- **Đáy:** công tắc Lưu ký Fireblocks (vai có quyền), ô **Chain** (trước nằm ở thanh trên cùng; chain chưa dùng được ghi "{chain}: chưa dùng được" và không chọn được), dòng `chain, vai trò VAI` chữ mã, và nút **Thu gọn thanh bên**.
 - **Thu gọn** (màn từ 1100 px): thanh bên còn 88 px, chỉ còn biểu tượng; số việc chờ thành viên nhỏ ở góc biểu tượng; ô Vai trò và Chain thành nút biểu tượng, bấm thì mở rộng lại để chọn. Lựa chọn thu gọn lưu trong trình duyệt (khoá `bidv-rail`), còn sau khi tải lại.
 
 **Thanh đầu** (`components/layout/header.tsx`): bên trái là tên màn (phần tử cuối của breadcrumb trang truyền vào; màn chi tiết là 8 ký tự đầu của mã hoặc ký hiệu token), không còn dòng breadcrumb; bên phải là nút **Kết nối ví** màu vàng và nút Sáng Tối. Thanh dính đỉnh khi cuộn nội dung.
