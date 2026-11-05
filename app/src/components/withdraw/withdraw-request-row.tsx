@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { nf, short } from '@/components/withdraw/format';
-import { PAYMENT_WITHDRAW_STATUS_LABELS } from '@/components/withdraw/labels';
+import { PAYMENT_WITHDRAW_STATUS_LABELS, PAYMENT_WITHDRAW_STATUS_TONES } from '@/components/withdraw/labels';
 import type { PaymentWithdrawView } from '@/lib/bank/payment-withdraw.service';
 
 /** Một dòng của bảng "Lệnh rút của tôi" (`/withdraw`), dời nguyên văn từ `investor-withdraw.tsx` (FE-UX-04d QĐ-5). */
@@ -34,13 +34,13 @@ export function WithdrawRequestRow({
         {short(row.toWallet)}
       </TableCell>
       <TableCell>
-        <Badge variant="outline">{PAYMENT_WITHDRAW_STATUS_LABELS[row.status]}</Badge>
+        <Badge variant={PAYMENT_WITHDRAW_STATUS_TONES[row.status]}>{PAYMENT_WITHDRAW_STATUS_LABELS[row.status]}</Badge>
       </TableCell>
       <TableCell className="font-code text-xs">
         {txHash === null ? (
           ''
         ) : url ? (
-          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary underline">
             {short(txHash)}
             <ExternalLink className="h-3 w-3" aria-hidden="true" />
           </a>
