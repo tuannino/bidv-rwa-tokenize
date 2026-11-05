@@ -13,10 +13,10 @@ import { listSellerTransactionsAction } from '@/app/actions/seller';
 import type { SellerTxnPage, SellerTxnRow } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
-import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.port';
+import { WITHDRAW_STATUSES } from '@/lib/store/vault.store.port';
 import { nf } from '@/components/seller/format';
-import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
-import { orderStatusTone, type StatusTone } from '@/components/trading/order-status-tone';
+import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';
+import { orderStatusTone } from '@/components/trading/order-status-tone';
 
 /**
  * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8 đến 9, BE-13 QĐ-I): CHỈ ĐỌC.
@@ -46,21 +46,6 @@ const STEP_LABELS: Record<OrderStatus, string> = {
   REJECTED: '2. Dừng ở kiểm tra',
   FAILED: '3. Dừng ở khớp lệnh',
   EXPIRED: '1. Hết hạn chờ',
-};
-
-export { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
-
-/** Sắc nhãn trạng thái lệnh rút (FE-UX-05a QĐ-6): xong `ok`, hỏng `bad`, còn lại đang xử lý `warn`. */
-export const WITHDRAW_STATUS_TONES: Record<WithdrawStatus, StatusTone> = {
-  PAYOUT_SENDING: 'warn',
-  PAYOUT_SENT: 'warn',
-  PAYOUT_SET: 'warn',
-  PAYOUT_REVIEW: 'warn',
-  SENDING: 'warn',
-  SENT: 'warn',
-  COMPLETED: 'ok',
-  FAILED: 'bad',
-  NEEDS_REVIEW: 'warn',
 };
 
 const TYPE_LABELS: Record<SellerTxnRow['type'], string> = { BUY: 'Mua', SELL: 'Bán', WITHDRAW: 'Rút' };

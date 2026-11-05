@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { describePolicy, nf } from '@/components/seller/format';
 import { SellerOverviewBody } from '@/components/seller/seller-overview-body';
-import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/pages/seller-transactions';
+import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';
 import type { SellerOverviewView, SellerWithdrawPolicy } from '@/lib/bank/seller.service';
 
 /**
@@ -19,9 +19,10 @@ const OVERVIEW = 'pages/seller-overview.tsx';
 const TRANSACTIONS = 'pages/seller-transactions.tsx';
 const BODY = 'seller/seller-overview-body.tsx';
 const FORMAT = 'seller/format.ts';
-/** Hook đọc tổng quan và nhãn lệnh rút tách khỏi hai trang để `/seller/withdraw` không kéo theo cả trang (QĐ-9, Sếp duyệt). */
+/** Hook đọc tổng quan, nhãn và sắc lệnh rút tách khỏi hai trang để `/seller/withdraw` không kéo cả trang (QĐ-9, Supervisor duyệt). */
 const HOOK = 'seller/use-seller-overview.ts';
 const LABELS = 'seller/labels.ts';
+const WITHDRAW = 'pages/seller-withdraw.tsx';
 
 describe('FE-UX-05a nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu thức khoá)', () => {
   it.each([
@@ -40,20 +41,28 @@ describe('FE-UX-05a nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu 
     for (const needle of ['Action(', 'useEffect(', 'useState(']) expect(source).not.toContain(needle);
   });
 
-  it(`${OVERVIEW}: giữ data-chain={chain}, export lại nf, describePolicy, useSellerOverview`, () => {
+  it(`${OVERVIEW}: giữ data-chain={chain}, gọi useSellerOverview( đúng 1 lần`, () => {
     const source = read(OVERVIEW);
     expect(count(source, 'data-chain={chain}')).toBe(1);
-    expect(source).toContain("export { describePolicy, nf } from '@/components/seller/format';");
-    expect(source).toContain("export { useSellerOverview } from '@/components/seller/use-seller-overview';");
+    expect(count(source, 'useSellerOverview(')).toBe(1);
   });
 
-  it(`${TRANSACTIONS}: hai điều kiện khoá phân trang nguyên văn, nhập nf từ format, không còn const FIELD`, () => {
+  it(`${WITHDRAW}: nhập từ ba tệp mới, không còn nhập từ ./seller-overview, ./seller-transactions`, () => {
+    const source = read(WITHDRAW);
+    expect(source).toContain("import { describePolicy, nf } from '@/components/seller/format';");
+    expect(source).toContain("import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';");
+    expect(source).toContain("import { useSellerOverview } from '@/components/seller/use-seller-overview';");
+    expect(source).not.toContain("from './seller-overview'");
+    expect(source).not.toContain("from './seller-transactions'");
+  });
+
+  it(`${TRANSACTIONS}: hai điều kiện khoá phân trang nguyên văn, nhập nf từ format, nhãn và sắc từ labels, không còn const FIELD`, () => {
     const source = read(TRANSACTIONS);
     expect(source).not.toContain('const FIELD');
     expect(count(source, 'disabled={page <= 1}')).toBe(1);
     expect(count(source, 'disabled={!data || page >= pages}')).toBe(1);
     expect(source).toContain("import { nf } from '@/components/seller/format';");
-    expect(source).toContain("export { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';");
+    expect(source).toContain("import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';");
   });
 
   it.each([BODY, FORMAT, HOOK])('%s: nhập từ seller.service chỉ bằng import type', (file) => {

@@ -17,9 +17,6 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * Không có nút nào thay đổi dữ liệu — hai nút tắt chỉ là liên kết.
  */
 
-export { describePolicy, nf } from '@/components/seller/format';
-export { useSellerOverview } from '@/components/seller/use-seller-overview';
-
 export function SellerOverviewPage() {
   const { chain } = useSelectedChain();
   const { data, error, loading } = useSellerOverview();
