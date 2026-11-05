@@ -11,7 +11,7 @@ import type { SellerTxnPage, SellerTxnRow } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
 import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.port';
-import { nf } from './seller-overview';
+import { nf } from '@/components/seller/format';
 
 /**
  * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8 đến 9, BE-13 QĐ-I): CHỈ ĐỌC.
