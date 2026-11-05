@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { activeNavHref } from '@/components/layout/active-nav';
@@ -111,5 +111,30 @@ describe('FIX-08 nhóm 2: so với quy tắc cũ trên mọi trang có thật c�
     // Danh sách chỗ quy tắc cũ sáng từ hai mục, lấy bằng một lần chạy đỏ trên mã cũ (tasks bước 3). Một
     // đường dẫn mới sáng hai mục theo quy tắc cũ sẽ làm test đỏ, buộc xem lại.
     expect(duplicates.sort()).toEqual(['SELLER /seller/transactions', 'SELLER /seller/withdraw']);
+  });
+});
+
+const LAYOUT = path.resolve(__dirname, '../src/components/layout');
+const read = (file: string) => readFileSync(path.join(LAYOUT, file), 'utf8');
+const count = (source: string, needle: string) => source.split(needle).length - 1;
+/** Dòng mã (bỏ dòng chú thích), cùng quy tắc tasks 6e. */
+const codeLines = (source: string) => source.split('\n').filter((line) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(line));
+
+describe('FIX-08 nhóm 3: mã nguồn khung', () => {
+  it('sidebar.tsx: một lần activeNavHref, isActive bỏ mục disabled, aria-current, không còn so tiền tố tại chỗ', () => {
+    const source = read('sidebar.tsx');
+    expect(count(source, 'activeNavHref(')).toBe(1);
+    expect(source).toContain('!item.disabled && item.href === activeHref');
+    expect(count(source, 'aria-current={active ? "page" : undefined}')).toBe(1);
+    expect(source).not.toContain('pathname.startsWith(item.href');
+  });
+
+  it.each(['sidebar.tsx', 'channel-switcher.tsx', 'chain-selector.tsx'])('%s: không U+00B7, U+2014 ngoài dòng chú thích', (file) => {
+    for (const line of codeLines(read(file))) expect(line, line).not.toMatch(/[\u00b7\u2014]/);
+  });
+
+  it('channel-switcher.tsx: nhãn lựa chọn "{vai} ({mã})"; chain-selector.tsx: không còn destructive', () => {
+    expect(read('channel-switcher.tsx')).toContain('({SAMPLE_ACCOUNTS[channel]})');
+    expect(read('chain-selector.tsx')).not.toContain('destructive');
   });
 });

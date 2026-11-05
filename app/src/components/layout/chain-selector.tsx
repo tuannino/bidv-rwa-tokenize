@@ -59,13 +59,13 @@ export function ChainSelector({
           {config.chains.map((option) => (
             <option key={option.key} value={option.key} disabled={!option.selectable}>
               {option.label}
-              {option.selectable ? '' : ' — chưa dùng được'}
+              {option.selectable ? '' : ': chưa dùng được'}
             </option>
           ))}
         </select>
 
         {active?.disabledReason && (
-          <span className="block text-xs text-destructive" role="status">
+          <span className="block text-xs text-bad-ink" role="status">
             {active.disabledReason}
           </span>
         )}
