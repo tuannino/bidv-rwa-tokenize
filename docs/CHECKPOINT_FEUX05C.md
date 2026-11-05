@@ -38,7 +38,7 @@ mốc 19.493 B. Action khớp 28/28; `hydration`, `consoleErrors`, `pageErrors` 
 trong `main` (0, 0, 0) và số action khi mở màn (2) bằng mốc. Mức rủi ro: thấp.
 
 UserGuide: "Chốt tại"; 3.2.3 thêm "Bố cục (FE-UX-05c)"; dòng Trạng thái có sắc; dòng mã L-58, L-60 trỏ đúng dòng mới
-(cả Phụ lục C). task-status: `FE-UX-05c` xong.
+(cả Phụ lục C). task-status: `FE-UX-05c` xong (`done`).
 
 ### 0.2 Việc cần Owner quyết
 
@@ -50,7 +50,40 @@ UserGuide: "Chốt tại"; 3.2.3 thêm "Bố cục (FE-UX-05c)"; dòng Trạng t
 
 ### 1.1 Lệnh và kết quả
 
-KẾT_QUẢ_BỘ_KIỂM
+`FE-UX-05c` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
+bật, trên HEAD `b13ccf0` (mã `app/src` bằng `51d557a`), 08:11:00Z đến 08:20:03Z (05/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-05c, docs/CHECKPOINT_FEUX05C.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1724 passed | 74 skipped (1798)   # mốc 1693 + 31 ca mới của fe-ux-05c.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+FE-UX-05c role counts /seller/withdraw: {"status":0,"note":0,"alert":0}
+FE-UX-05c open actions /seller/withdraw: 2
+      151 passed, 7 skipped (5.1m)            # project mock đầy đủ: 147 ca cũ + 4 ca mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (46.2s)            # toàn bộ project Hardhat, có vault-withdraw (4 ca)
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Log gửi kèm (không commit): `20261105_feux05c_run_local_all.log` (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã
+che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết: `20261105_feux05c_evm_e2e.log`. Không chạy `contracts`.
+Dòng `RpcRequestError` trong phần vitest là log của ca kiểm đường đọc dự phòng của indexer (có từ trước), ca đó đạt.
+
+Ngoài bộ trên: bước 3 (tasks) chạy `ops-transactions`, `vault-withdraw` trên bản build riêng của commit dời `57d407b`
+(máy chủ mới): 6 ca đạt. Bước 4, 7 chạy `fe-ux-05c-rut-nguoi-ban`, `ops-transactions`, `vault-withdraw`,
+`uiux-02-dau-man` (project mock) trên bản build `51d557a`: 17 ca đạt; `fe-ux-05c`, `fe-ux-05a`, `hf-01-hieu-nang`,
+`uiux-02-dau-man` (unit) đạt.
 
 ### 1.2 e2e mới `app/e2e/fe-ux-05c-rut-nguoi-ban.spec.ts` (project mock, vai Người bán; không tạo lệnh, không đổi dữ liệu)
 
