@@ -52,7 +52,37 @@ L-78 trỏ `txn-history-table.tsx:29`; 3.6.3 `/audit` thêm "Bố cục (FE-UX-0
 
 ### 1.1 Lệnh và kết quả
 
-__DIEN_1_1__
+`FE-UX-06b` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
+bật, trên HEAD `9138486` (mã `app/src` bằng `eb7d37d`), 11:45:56Z đến 11:56:37Z (05/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-06b, docs/CHECKPOINT_FEUX06B.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1765 passed | 74 skipped (1839)   # mốc 1741 + 24 ca mới của fe-ux-06b.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+FE-UX-06b role counts /mint: {"status":0,"note":0,"alert":0}
+FE-UX-06b role counts /audit: {"status":0,"note":0,"alert":0}
+FE-UX-06b open actions /mint: 1
+FE-UX-06b open actions /audit: 0
+      160 passed, 7 skipped (6.3m)            # project mock đầy đủ: 155 ca cũ + 5 ca mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (46.7s)            # toàn bộ project Hardhat, gồm mint.spec.ts, zz-distribution-approval.spec.ts
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Log gửi kèm (không commit): `20261105_feux06b_run_local_all.log` (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã
+che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết: `20261105_feux06b_evm_e2e.log`. Không chạy `contracts`.
+Dòng `RpcRequestError` trong phần vitest là log của ca kiểm đường đọc dự phòng của indexer (có từ trước), ca đó đạt.
 
 Ngoài bộ trên: bước 3 (tasks) chạy `mint`, `uiux-02-dau-man` (e2e, project mock) trên bản build riêng của commit dời
 `9b94001` (máy chủ mới): 11 ca đạt, 4 bỏ qua (ca chỉ chạy trên Hardhat); `op07-chain-scope`, `fe-ux-06b` (phần dời) đạt.
@@ -285,7 +315,7 @@ Dựng bằng `renderToStaticMarkup` (test tạm trong `app/test`, chạy xong x
 ## 6. Lệnh kiểm (tasks bước 6, `LC_ALL=C`)
 
 ```text
-FE-UX-06b tasks bước 6, HEAD d08efba, base origin/release/ui-v2 d2a5bca
+FE-UX-06b tasks bước 6, HEAD 9138486, base origin/release/ui-v2 d2a5bca
 == 6a      # rỗng
 == 6b      # rỗng
 == 6c      # rỗng
