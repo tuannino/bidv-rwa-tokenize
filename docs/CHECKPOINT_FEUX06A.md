@@ -40,7 +40,7 @@ mọi đường dẫn cả mốc lẫn sau; số `role` ba màn (0, 0, 0) bằng
 không cuộn); bản mới cuộn trong khung bảng, `main` không tràn. Mức rủi ro: thấp (ba màn chỉ đọc số mẫu).
 
 UserGuide: "Chốt tại"; 3.6.1, 3.6.2, 3.6.4 thêm "Bố cục (FE-UX-06a)" và nút khoá; dòng mã `kyc.tsx:18`, L-27
-`reconciliation.tsx:45,81-104`. task-status: `FE-UX-06` tách `FE-UX-06a` (xong), `FE-UX-06b` (planned).
+`reconciliation.tsx:45,81-104`. task-status: `FE-UX-06` tách `FE-UX-06a` (xong, `done`), `FE-UX-06b` (planned).
 
 ### 0.2 Việc cần Owner quyết
 
@@ -52,7 +52,40 @@ UserGuide: "Chốt tại"; 3.6.1, 3.6.2, 3.6.4 thêm "Bố cục (FE-UX-06a)" v�
 
 ### 1.1 Lệnh và kết quả
 
-KẾT_QUẢ_BỘ_KIỂM
+`FE-UX-06a` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
+bật, trên HEAD `f5d9170` (mã `app/src` bằng `cd7a43b`), 10:00:26Z đến 10:10:11Z (05/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-06a, docs/CHECKPOINT_FEUX06A.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1741 passed | 74 skipped (1815)   # mốc 1724 + 17 ca mới của fe-ux-06a.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+FE-UX-06a role counts /assets: {"status":0,"note":0,"alert":0}
+FE-UX-06a role counts /kyc: {"status":0,"note":0,"alert":0}
+FE-UX-06a role counts /reconciliation: {"status":0,"note":0,"alert":0}
+      155 passed, 7 skipped (5.6m)            # project mock đầy đủ: 151 ca cũ + 4 ca mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (47.1s)            # toàn bộ project Hardhat
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Log gửi kèm (không commit): `20261105_feux06a_run_local_all.log` (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã
+che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết: `20261105_feux06a_evm_e2e.log`. Không chạy `contracts`.
+Dòng `RpcRequestError` trong phần vitest là log của ca kiểm đường đọc dự phòng của indexer (có từ trước), ca đó đạt.
+
+Ngoài bộ trên: bước 3 (tasks) chạy `fix-05-tong-quan` (e2e) trên bản build riêng của commit dời `767352a` (máy chủ mới):
+2 ca đạt. Bước 4, 7 chạy `fe-ux-06a-man-mau`, `fix-05-tong-quan`, `uiux-02-dau-man`, `fe-ux-01a-nen` (project mock) trên bản
+build `cd7a43b` cộng tệp e2e `538c2d8`: 19 ca đạt; `fe-ux-06a`, `fix-05-tong-quan`, `uiux-02-dau-man` (unit) đạt.
 
 ### 1.2 e2e mới `app/e2e/fe-ux-06a-man-mau.spec.ts` (project mock, vai Giao dịch viên; không đổi dữ liệu)
 
