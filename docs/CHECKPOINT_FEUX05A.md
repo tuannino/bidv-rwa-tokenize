@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Mã task | FE-UX-05a |
-| Phạm vi | **Frontend thuần.** Không `lib/`, `app/actions`, `app/api`, `app/src/app/**`, `components/ui/*`, `components/trading/*`, `components/recall/*`, `components/token/*`, `components/layout/*`; không gói npm mới; không đổi câu chữ (trừ QĐ-7), trường, thứ tự trường, cột, liên kết, nút, điều kiện hiện, lời gọi server action, số action khi mở màn. `seller-withdraw.tsx` chỉ đổi dòng nhập (QĐ-9, mục 8) |
+| Phạm vi | **Frontend thuần.** Không `lib/`, `app/actions`, `app/api`, `app/src/app/**`, `components/ui/*`, `components/trading/*`, `components/recall/*`, `components/token/*`, `components/layout/*`; không gói npm mới; không đổi câu chữ (trừ QĐ-7), trường, thứ tự trường, cột, liên kết, nút, điều kiện hiện, lời gọi server action, số action khi mở màn. `seller-withdraw.tsx` chỉ thay hai dòng nhập `:24-25` (QĐ-9; mở rộng phạm vi đã được Supervisor duyệt, mục 8) |
 | Nhánh | `feat/fe-ux-05a-nguoi-ban`, tạo từ `release/ui-v2` @ `11160f1` (sau merge PR #96 FE-UX-04d; đã gồm 04a đến 04d). **Merge-base dùng để đo mốc: `11160f1`**. Không có PR nào merge vào `release/ui-v2` trong lúc làm nên không phải rebase; mọi mốc và cả bộ kiểm thử mục 5 chạy trên merge-base này |
 | Spec | `docs/fe-ux-05a-nguoi-ban/{requirements,design,tasks}.md` (chép nguyên) |
-| Commit | spec `84c14f0`; e2e nháp `6879a63`, `52361db`; **dời 1** `b746d6f`; hai màn, unit 3, 4, số `role` mốc `7414967`; UserGuide, task-status `bbb3e04`; **dời 2** (QĐ-9) `16f4c5e`; biểu tượng `862ffa5`; UserGuide dòng mã `c1a16ab`; tài liệu: các commit cuối trên nhánh |
+| Commit | spec `84c14f0`; e2e nháp `6879a63`, `52361db`; **dời 1** `b746d6f`; hai màn, unit 3, 4, số `role` mốc `7414967`; UserGuide, task-status `bbb3e04`; **dời 2** (QĐ-9) `16f4c5e`, `e001470`; biểu tượng `862ffa5`; UserGuide dòng mã `c1a16ab`; tài liệu: các commit cuối trên nhánh |
 | Tiến độ | Xong. Một PR, base `release/ui-v2`, chờ Supervisor nghiệm thu; Claude Code **không** merge |
 
 ## 0. Tóm tắt nghiệm thu
@@ -16,27 +16,29 @@
 | # | Điều kiện (rút gọn từ `requirements.md` mục 4) | | Bằng chứng |
 |---|---|---|---|
 | 1 | Hai màn đúng bố cục bản chốt trừ "Không làm"; bảng đối chiếu từng dòng hai notes | ✅ | mục 2.2, 7 |
-| 2 | Bố cục, thành phần đúng QĐ-3, QĐ-5, QĐ-6; 4 ô số liệu đúng thứ tự, sắc, mỗi ô bọc `div.rounded-lg` | 🔶 | mục 1.2, 1.3, 2.2; biểu tượng nhóm đổi (mục 8) |
+| 2 | Bố cục, thành phần đúng QĐ-3, QĐ-5, QĐ-6; 4 ô số liệu đúng thứ tự, sắc, mỗi ô bọc `div.rounded-lg` | 🔶 | mục 1.2, 1.3, 2.2; DEVIATION biểu tượng nhóm, Supervisor duyệt (mục 8) |
 | 3 | `format.ts`, `SellerOverviewBody` dời đúng QĐ-4, commit riêng; đoạn trước và sau | ✅ | mục 3, `CHECKPOINT_FEUX05A_DETAIL.md` |
 | 4 | Không còn `amber-*`, `*-destructive`, `FIELD` trong tệp phạm vi | ✅ | mục 6 (6b), 1.3 nhóm 1 |
 | 5 | Chữ chỉ đổi đúng QĐ-7 (6d đúng kỳ vọng) | ✅ | mục 6 |
 | 6 | Diff giữ logic (QĐ-1, QĐ-2); liệt kê đoạn đổi gần hook, effect, handler, điều kiện khoá | ✅ | mục 2.3 |
-| 7 | Action đúng QĐ-2 (ca 4), 28 đường dẫn không đổi; JS, CSS trong trần QĐ-9; lỗi hai màn 0 | 🔶 | mục 4; đạt trần sau khi tách thêm hai tệp ngoài danh sách trắng (mục 8) |
+| 7 | Action đúng QĐ-2 (ca 4), 28 đường dẫn không đổi; JS, CSS trong trần QĐ-9; lỗi hai màn 0 | 🔶 | mục 4: ba trang Người bán đạt trần sau khi tách hai tệp (Supervisor duyệt); ba trang ngoài phạm vi lệch +18 đến +71 B gzip, so chunk không thêm mã |
 | 8 | Mốc test QĐ-8 giữ; không sửa test có sẵn | ✅ | mục 1.1, 2.4 |
 | 9 | Ảnh 1440, 390, Sáng, Tối, trước và sau, vai Người bán, tiến trình mock mới, đủ env | ✅ | mục 5 |
 | 10 | Trạng thái không dựng được trên mock: unit test và ảnh dựng ngoài repo | ✅ | mục 1.3, 5 |
 | 11 | `fe-ux-05a-nguoi-ban.spec.ts` đủ 4 ca, `fe-ux-05a.test.ts` đủ 4 nhóm, xanh | ✅ | mục 1.2, 1.3 |
 | 12 | Kiểm thử mục 5 đạt, kèm log; "EVM - E2E PROJECT HARDHAT" xanh (gồm `vault-withdraw`) | ✅ | mục 1.1 |
-| 13 | Lệnh danh sách trắng, màu cứng, ký tự cấm (tasks bước 6) đúng kỳ vọng | 🔶 | mục 6: 6a in đúng ba tệp ngoài danh sách đã được duyệt |
+| 13 | Lệnh danh sách trắng, màu cứng, ký tự cấm (tasks bước 6) đúng kỳ vọng | ✅ | mục 6 (6a theo danh sách Supervisor bổ sung) |
 | 14 | Không mã dư thừa | ✅ | mục 2.5 |
 
-**Kết luận:** 11 ✅, 3 🔶, 0 ❌. Ba 🔶 cùng một gốc: trần JS `/seller/withdraw` (QĐ-9). Đổi đúng một dòng nhập như QĐ-9
-cho phép chỉ bớt 40 B, màn rút vẫn +2,8 KB; em DỪNG và báo Owner. Owner (Sếp) duyệt tách nguyên văn `useSellerOverview`,
-`WITHDRAW_STATUS_LABELS` sang `components/seller/use-seller-overview.ts`, `components/seller/labels.ts` (hai trang export
-lại tên cũ) và đổi các dòng nhập của `seller-withdraw.tsx`; cùng lúc duyệt đổi biểu tượng nhóm "Token khớp lệnh trong
-ngày" từ `ArrowLeftRight` (có ở thanh bên, làm chunk chung mọi trang +95 B thô) sang `ArrowRightLeft`. Kết quả JS gzip
-so bản mốc build riêng: `/seller` +2.576 B (trần 3 KB), `/seller/transactions` -3.742 B, `/seller/withdraw` -90.121 B;
-trang khác lệch -44 đến +71 B, đã so chunk: không thêm mã (mục 4). CSS -12 B. Action khớp 28/28; `hydration`,
+**Kết luận:** 12 ✅, 2 🔶, 0 ❌. Hai 🔶 là DEVIATION đã được Supervisor duyệt (mục 8):
+(1) **Mở rộng phạm vi đã được Supervisor duyệt** cho trần JS `/seller/withdraw` (QĐ-9): đổi một dòng nhập như QĐ-9 cho
+phép chỉ bớt 40 B, màn rút vẫn +2,8 KB; em dừng và báo; Supervisor duyệt tách nguyên văn `useSellerOverview` sang
+`components/seller/use-seller-overview.ts`, `WITHDRAW_STATUS_LABELS` và bảng sắc mới `WITHDRAW_STATUS_TONES` sang
+`components/seller/labels.ts`, bỏ mọi dòng export lại ở hai trang, `seller-withdraw.tsx` chỉ thay hai dòng nhập `:24-25`.
+(2) Biểu tượng nhóm "Token khớp lệnh trong ngày" dùng `ArrowRightLeft` thay `ArrowLeftRight` của QĐ-5.
+JS gzip so bản mốc build riêng: `/seller` +2.535 B (trần 3 KB), `/seller/transactions` -3.777 B, `/seller/withdraw`
+-90.081 B; tám trang khác -44 đến -3 B; `/orders` +71, `/distribution` +59, `/approvals` +18 B gzip, đã so chunk: cùng
+kích thước thô hoặc chỉ đổi thứ tự module, không thêm mã (mục 4). CSS -12 B. Action khớp 28/28; `hydration`,
 `consoleErrors`, `pageErrors` 0 ở mọi đường dẫn cả mốc lẫn sau; số `role` hai màn bằng mốc (0, 0, 0). Mức rủi ro: thấp.
 
 UserGuide: "Chốt tại"; 3.2.1, 3.2.2 thêm "Bố cục"; dòng phân trang; dòng mã L-08, L-09, L-53, L-54, L-55 theo tệp mới
@@ -44,8 +46,7 @@ UserGuide: "Chốt tại"; 3.2.1, 3.2.2 thêm "Bố cục"; dòng phân trang; d
 
 ### 0.2 Việc cần Owner quyết
 
-- Đã quyết trong lúc làm (mục 8): tách hai tệp ngoài danh sách trắng để `/seller/withdraw` đạt trần; đổi biểu tượng
-  sang `ArrowRightLeft`. Supervisor xem lại hai lệch này khi nghiệm thu.
+- Không có. Hai việc phát sinh trong lúc làm (trần JS màn rút, biểu tượng) đã được Supervisor quyết; mục 8.
 
 ---
 
@@ -54,7 +55,7 @@ UserGuide: "Chốt tại"; 3.2.1, 3.2.2 thêm "Bố cục"; dòng phân trang; d
 ### 1.1 Lệnh và kết quả
 
 `FE-UX-05a` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
-bật, trên HEAD `c1a16ab` cộng checkpoint chưa commit.
+bật, trên HEAD `e001470` cộng checkpoint chưa commit.
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
@@ -64,16 +65,16 @@ $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/
   => PASS: LỚP 3 - KHUÔN CHECKPOINT
   => PASS: APP - TYPECHECK
   => PASS: APP - LINT
-      Tests  1649 passed | 74 skipped (1723)   # mốc 1625 + 24 ca mới của fe-ux-05a.test.ts
+      Tests  1650 passed | 74 skipped (1724)   # mốc 1625 + 25 ca mới của fe-ux-05a.test.ts
   => PASS: APP - VITEST
   => PASS: APP - BUILD BẢN PHÁT HÀNH
 FE-UX-05a role counts /seller: {"status":0,"note":0,"alert":0}
 FE-UX-05a role counts /seller/transactions: {"status":0,"note":0,"alert":0}
-      143 passed, 7 skipped (4.4m)            # project mock đầy đủ: 139 ca cũ + 4 ca mới
+      143 passed, 7 skipped (4.5m)            # project mock đầy đủ: 139 ca cũ + 4 ca mới
   => PASS: APP - E2E (PLAYWRIGHT)
   => PASS: EVM - BUILD BẢN HARDHAT
   => PASS: EVM - DỰNG CHUỖI MỚI
-      26 passed, 2 skipped (44.1s)            # toàn bộ project Hardhat, có vault-withdraw, chain-scope
+      26 passed, 2 skipped (42.5s)            # toàn bộ project Hardhat, có vault-withdraw, chain-scope
   => PASS: EVM - E2E PROJECT HARDHAT
   => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
 EXIT=0
@@ -101,17 +102,18 @@ Chờ tải như nhau ở mốc và sau: `networkidle`, rồi `/seller` hết ch
 Hằng số `role` đo trên bản build mốc `11160f1` bằng chính ca 1, ca 2 trong lượt e2e mock đầy đủ trên máy chủ mới: cả hai
 màn `{ status: 0, note: 0, alert: 0 }` (lượt đó 141 ca đạt, 2 ca đỏ đúng cột Mốc). Lượt sau cho đúng số đó.
 
-### 1.3 Unit test mới `app/test/fe-ux-05a.test.ts` (môi trường `node`, 24 ca)
+### 1.3 Unit test mới `app/test/fe-ux-05a.test.ts` (môi trường `node`, 25 ca)
 
-Nhóm 1 (mã nguồn): `use-seller-overview.ts` 1 `getSellerOverviewAction(`, 1 `useEffect(` và `seller-overview.tsx` 0, 0
-(trên mốc hai số 1, 1 nằm ở `seller-overview.tsx`; tách hook ở mục 8); `seller-transactions.tsx` 1
+Nhóm 1 (mã nguồn): `use-seller-overview.ts` 1 `getSellerOverviewAction(`, 1 `useEffect(`; `seller-overview.tsx` 0, 0 và
+đúng 1 `useSellerOverview(` (trên mốc 1, 1 nằm ở `seller-overview.tsx`; hook dời ở mục 3); `seller-transactions.tsx` 1
 `listSellerTransactionsAction(`, 1 `useEffect(` (mốc 1, 1); `seller-overview-body.tsx`, `format.ts`, `labels.ts` không
-`Action(`, `useEffect(`, `useState(`; `seller-overview.tsx` đúng một `data-chain={chain}` và dòng export lại `nf`,
-`describePolicy`, `useSellerOverview`; `seller-transactions.tsx` đúng một `disabled={page <= 1}`,
-`disabled={!data || page >= pages}` (mốc 1, 1), nhập `nf` từ `@/components/seller/format`, export lại
-`WITHDRAW_STATUS_LABELS`, không `const FIELD`; mọi dòng nhập từ `@/lib/bank/seller.service` ở `seller-overview-body.tsx`,
-`format.ts`, `use-seller-overview.ts` bắt đầu bằng `import type`; `seller-overview-body.tsx` không `MockBadge`, không câu
-"Hệ thống chưa có lệnh bán lại".
+`Action(`, `useEffect(`, `useState(`; `seller-overview.tsx` đúng một `data-chain={chain}`; `seller-withdraw.tsx` nhập
+`describePolicy`, `nf` từ `@/components/seller/format`, `WITHDRAW_STATUS_LABELS` từ `@/components/seller/labels`,
+`useSellerOverview` từ `@/components/seller/use-seller-overview`, không còn nhập từ `./seller-overview`,
+`./seller-transactions`; `seller-transactions.tsx` đúng một `disabled={page <= 1}`, `disabled={!data || page >= pages}`
+(mốc 1, 1), nhập `nf` từ `format.ts`, nhãn và sắc từ `labels.ts`, không `const FIELD`; mọi dòng nhập từ
+`@/lib/bank/seller.service` ở `seller-overview-body.tsx`, `format.ts`, `use-seller-overview.ts` bắt đầu bằng `import type`;
+`seller-overview-body.tsx` không `MockBadge`, không câu "Hệ thống chưa có lệnh bán lại".
 
 Nhóm 2 (`format.ts`): `nf(null)`, `nf(undefined)` là U+2013; `nf('1250')` là "1.250"; `nf('abc')` là "abc";
 `describePolicy` với `null`, `UNSET`, `FIXED`, `PERCENT` ra đúng bốn câu chép từ mã mốc.
@@ -124,9 +126,9 @@ lần; `paymentWallet: null` thì câu chưa có ví thanh toán; `today.sell` t
 "0 lệnh"; `tradingOpen: false`, `recallPhase: 'FROZEN'` thì nhãn Trạng thái giao dịch là `Badge` sắc `warn`, chữ
 "Tạm dừng (đã đóng băng)".
 
-Nhóm 4: `WITHDRAW_STATUS_TONES` đúng các khoá của `WITHDRAW_STATUS_LABELS`; `COMPLETED` `ok`, `FAILED` `bad`, còn lại `warn`.
+Nhóm 4 (đọc từ `components/seller/labels.ts`): `WITHDRAW_STATUS_TONES` đúng các khoá của `WITHDRAW_STATUS_LABELS`; `COMPLETED` `ok`, `FAILED` `bad`, còn lại `warn`.
 
-Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc rồi hoàn lại:
+Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc rồi hoàn lại (unit chạy lại trên HEAD `e001470`):
 
 | Lỗi gây ra | Kết quả |
 |---|---|
@@ -156,7 +158,7 @@ Tự gây lỗi 4 điểm Supervisor định thử, trên bản sao làm việc 
 
 Không đổi ký tự: `useSellerOverview` (state, effect, mảng phụ thuộc, `cancelled`, `fresh`, `reload`; dời nguyên văn sang
 tệp riêng ở `16f4c5e`), `SellerTransactionsPage` (state `filters`, `page`, `loaded`; `query`, `key`, effect, `fresh`,
-`pages`, `set`; `statusOptions`; `STATUS_LABELS`, `STEP_LABELS`, `WITHDRAW_STATUS_LABELS` (dời nguyên văn, export lại),
+`pages`, `set`; `statusOptions`; `STATUS_LABELS`, `STEP_LABELS`, `WITHDRAW_STATUS_LABELS` (dời nguyên văn sang `labels.ts`),
 `TYPE_LABELS`). Các đoạn có đụng:
 
 - `/seller`: chuỗi nhánh `loading`, `error || !data`, có dữ liệu giữ điều kiện và thứ tự; đổi phần tử. `data-chain={chain}`
@@ -181,7 +183,8 @@ thêm `data-chain`.
 
 Đã xoá: `FIELD`; `Loader2` ở hai trang (đang tải thành `EmptyState`); lớp `*-destructive`; `lg:col-span-1` vô tác dụng
 của ô tìm; import `Card`, `Table`, `tradingStatusLabel`, `ProjectStatus`, `SellerWithdrawPolicy`, `useEffect`,
-`useState`, `getSellerOverviewAction` ở `seller-overview.tsx` (hết chỗ dùng sau khi dời). Lint đạt, không import thừa.
+`useState`, `getSellerOverviewAction` ở `seller-overview.tsx` và kiểu `WithdrawStatus`, `StatusTone` ở `seller-transactions.tsx`
+(hết chỗ dùng sau khi dời); mọi dòng export lại ở hai trang (không nơi nào nhập). Lint đạt, không import thừa.
 
 ## 3. Dời nguyên văn
 
@@ -193,9 +196,13 @@ của ô tìm; import `Card`, `Table`, `tradingStatusLabel`, `ProjectStatus`, `S
   trống và vỏ hàm, chỉ khác `data?.tokens[0]` thành `data.tokens[0]`, `data?.wallet` thành `data.wallet`. Trang export
   lại `nf`, `describePolicy`; `seller-transactions.tsx` nhập `nf` từ `format.ts`. Commit này chưa đổi kiểu; e2e bước 3
   trên bản build riêng của commit này đạt 10 ca.
-- **Dời 2** (`16f4c5e`, QĐ-9, Sếp duyệt): `useSellerOverview` (34 dòng) sang `components/seller/use-seller-overview.ts`,
-  `WITHDRAW_STATUS_LABELS` (12 dòng) sang `components/seller/labels.ts`, nguyên văn (đoạn trước nằm nguyên trong tệp
-  mới); hai trang export lại tên cũ; `seller-withdraw.tsx` đổi hai dòng nhập thành ba dòng nhập từ `components/seller/`.
+- **Dời 2** (`16f4c5e`, `e001470`; QĐ-9, mở rộng phạm vi đã được Supervisor duyệt): `useSellerOverview` (34 dòng) sang
+  `components/seller/use-seller-overview.ts`; `WITHDRAW_STATUS_LABELS` (12 dòng) và `WITHDRAW_STATUS_TONES` (12 dòng, bảng
+  sắc QĐ-6 tạo ở `7414967`) sang `components/seller/labels.ts`; nguyên văn (đoạn trước nằm nguyên trong tệp mới).
+  `seller-transactions.tsx` nhập cả nhãn và sắc từ `labels.ts`. `seller-withdraw.tsx` chỉ thay hai dòng nhập `:24-25` bằng
+  ba dòng nhập từ `components/seller/` (`format`, `labels`, `use-seller-overview`). `e001470` bỏ mọi dòng export lại ở hai
+  trang (`describePolicy`, `nf`, `useSellerOverview`, `WITHDRAW_STATUS_LABELS`): ngoài `seller-withdraw.tsx` không nơi nào
+  nhập.
 
 ## 4. Đo trước và sau
 
@@ -206,11 +213,11 @@ Cùng máy, cùng quy trình (script ngoài repo): máy chủ mới cổng 3300 
 `khong tim thay lien ket` (đủ `/transactions/[id]`, `/approvals/[id]`, `/orders/[id]`). Tiến trình đo khác tiến trình
 chụp ảnh. JS theo byte: script riêng cộng gzip mọi script khi mở trang, máy chủ mới cổng 3500 sau `ops-transactions`.
 
-| Mục | Mốc `11160f1` | Sau `862ffa5` | Trần |
+| Mục | Mốc `11160f1` | Sau `e001470` | Trần |
 |---|---|---|---|
 | Số action khi mở màn | 28 đường dẫn; `/seller` 1, `/seller/transactions` 1, `/seller/withdraw` 2 | Khớp 28/28 | không đổi |
 | `hydration`, `consoleErrors`, `pageErrors` | 0 ở cả 28 đường dẫn | 0 ở cả 28 đường dẫn | hai màn 0, khác không tăng |
-| JS gzip (công cụ) `/seller`; `/seller/transactions`; `/seller/withdraw` | 454,6; 540,4; 553,8 KB | 457,1; 536,8; 465,8 KB | |
+| JS gzip (công cụ) `/seller`; `/seller/transactions`; `/seller/withdraw` | 454,6; 540,4; 553,8 KB | 457,1; 536,7; 465,8 KB | |
 | JS gzip (công cụ) `/`; `/portfolio`; `/trade`; `/approvals` | 558,3; 456,9; 480,0; 455,2 KB | 558,3; 456,9; 480,0; 455,2 KB | không tăng |
 | CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.458 B | 19.446 B (-12 B) | +2 KB |
 | `role` trong `main` (ca 1, ca 2) | 0, 0, 0 cả hai màn | giống hệt | bằng mốc |
@@ -218,34 +225,53 @@ chụp ảnh. JS theo byte: script riêng cộng gzip mọi script khi mở tran
 JS gzip theo byte. Bản mốc của lượt e2e đầy đủ build đúng mã `11160f1`; bản mốc build riêng build lại `11160f1` sau bản
 cuối, cùng phiên (`NEXT_DIST_DIR=.next-moc`, gỡ tạm `components/seller/` khi build, đã xoá thư mục):
 
-| Trang | Mốc (lượt e2e) | Mốc build riêng | Sau `862ffa5` | Chênh so build riêng | Trần |
+| Trang | Mốc (lượt e2e) | Mốc build riêng | Sau `e001470` | Chênh so build riêng | Trần |
 |---|---|---|---|---|---|
-| `/portfolio` | 467827 | 467827 | 467824 | -3 | không tăng |
-| `/tokens/WPT` | 463067 | 463069 | 463029 | -40 | không tăng |
-| `/trade` | 491559 | 491559 | 491515 | -44 | không tăng |
-| `/orders` | 549407 | 549404 | 549475 | +71 | không tăng |
-| `/orders/[id]` | 463379 | 463377 | 463365 | -12 | không tăng |
-| `/withdraw` | 485787 | 485786 | 485768 | -18 | không tăng |
-| `/` | 571662 | 571659 | 571656 | -3 | không tăng |
-| `/approvals` | 466097 | 466094 | 466112 | +18 | không tăng |
-| `/distribution` | 479562 | 479561 | 479620 | +59 | không tăng |
-| `/vault` | 469579 | 469576 | 469567 | -9 | không tăng |
-| `/wallet` | 466924 | 466922 | 466913 | -9 | không tăng |
-| `/seller` | 465537 | 465535 | 468111 | +2576 | +3.072 |
-| `/seller/transactions` | 553411 | 553408 | 549666 | -3742 | +3.072 |
-| `/seller/withdraw` | 567077 | 567075 | 476954 | -90121 | +1.024 |
+| `/portfolio` | 467827 | 467827 | 467824 | -3 | bằng mốc |
+| `/tokens/WPT` | 463067 | 463069 | 463029 | -40 | bằng mốc |
+| `/trade` | 491559 | 491559 | 491515 | -44 | bằng mốc |
+| `/orders` | 549407 | 549404 | 549475 | +71 | bằng mốc |
+| `/orders/[id]` | 463379 | 463377 | 463365 | -12 | bằng mốc |
+| `/withdraw` | 485787 | 485786 | 485768 | -18 | bằng mốc |
+| `/` | 571662 | 571659 | 571656 | -3 | bằng mốc |
+| `/approvals` | 466097 | 466094 | 466112 | +18 | bằng mốc |
+| `/distribution` | 479562 | 479561 | 479620 | +59 | bằng mốc |
+| `/vault` | 469579 | 469576 | 469567 | -9 | bằng mốc |
+| `/wallet` | 466924 | 466922 | 466913 | -9 | bằng mốc |
+| `/seller` | 465537 | 465535 | 468070 | +2535 | +3.072 |
+| `/seller/transactions` | 553411 | 553408 | 549631 | -3777 | +3.072 |
+| `/seller/withdraw` | 567077 | 567075 | 476994 | -90081 | không tăng |
 
-Đã lưu và so từng chunk giữa bản mốc build riêng và bản sau cho các trang tăng:
+Đã lưu và so từng chunk giữa bản mốc build riêng và bản sau cho ba trang ngoài phạm vi còn tăng (số byte của ba trang này
+ở lượt đo `862ffa5` và lượt cuối `e001470` bằng nhau từng byte, nên kết quả so chunk ở lượt `862ffa5` áp cho lượt cuối):
 
-- `/distribution` (+59), `/portfolio` (-3): cùng số tệp, tổng kích thước thô bằng nhau; lệch gzip là nhiễu nén.
+- `/distribution` (+59): cùng số tệp, tổng kích thước thô bằng nhau (1.589.293 B); lệch gzip là nhiễu nén.
 - `/orders` (+71): chunk khác 21.536 B thành 21.540 B thô; khác ở thứ tự module (hai module `loader-circle`,
   `shield-alert` đổi chỗ), mã module, mã tham chiếu server action; không thêm mã.
 - `/approvals` (+18): chunk khác 29.637 B thành 29.634 B thô; chỉ đổi thứ tự module.
-- Lượt đo đầu (trước khi đổi biểu tượng) mọi trang có chunk chung 178.700 B thành 178.795 B: `ArrowLeftRight` (có ở
-  thanh bên) thành module dùng chung khi `SellerOverviewBody` dùng lại. Đổi sang `ArrowRightLeft` (`862ffa5`) thì chunk
-  chung về 178.700 B.
-- `/seller/withdraw` lượt đo đầu +2.811 B; đổi một dòng nhập như QĐ-9 cho phép (thử trên bản build riêng, đã hoàn
-  nguyên) còn +2.771 B; sau dời 2: -90.121 B (màn rút không còn kéo trang Tổng quan và Danh sách giao dịch vào chunk).
+
+Byte trước và sau của DEVIATION biểu tượng (trang đo ngoài ba trang Người bán; "lượt 1" là bản `7414967` còn
+`ArrowLeftRight`, cùng mốc build riêng):
+
+| Trang | Mốc build riêng | Lượt 1 `ArrowLeftRight` | Chênh | Cuối `ArrowRightLeft` | Chênh |
+|---|---|---|---|---|---|
+| `/portfolio` | 467827 | 467891 | +64 | 467824 | -3 |
+| `/tokens/WPT` | 463069 | 463057 | -12 | 463029 | -40 |
+| `/trade` | 491559 | 491551 | -8 | 491515 | -44 |
+| `/orders` | 549404 | 549427 | +23 | 549475 | +71 |
+| `/orders/[id]` | 463377 | 463388 | +11 | 463365 | -12 |
+| `/withdraw` | 485786 | 485800 | +14 | 485768 | -18 |
+| `/` | 571659 | 571680 | +21 | 571656 | -3 |
+| `/approvals` | 466094 | 466146 | +52 | 466112 | +18 |
+| `/distribution` | 479561 | 479608 | +47 | 479620 | +59 |
+| `/vault` | 469576 | 469560 | -16 | 469567 | -9 |
+| `/wallet` | 466922 | 466960 | +38 | 466913 | -9 |
+
+Ở lượt 1 mọi trang có chunk chung 178.700 B thành 178.795 B thô: `ArrowLeftRight` (có ở thanh bên) tách thành module
+dùng chung khi `SellerOverviewBody` dùng lại; đổi sang `ArrowRightLeft` thì chunk chung về 178.700 B.
+
+`/seller/withdraw`: lượt 1 +2.813 B; đổi một dòng nhập như QĐ-9 cho phép (thử trên bản build riêng, đã hoàn nguyên) còn
++2.773 B; sau dời 2: -90.081 B (màn rút không còn kéo trang Tổng quan và Danh sách giao dịch vào chunk).
 
 CSS mốc lấy từ bản build mốc sạch (19.458 B). Bản mốc build riêng cho 19.497 B vì build lúc `.next-moc` nằm trong `app/`;
 không dùng số đó.
@@ -257,7 +283,7 @@ không dùng số đó.
   `USE_MOCK_KYC`, `USE_MOCK_DB`, `DEMO_ROLE`, `ENABLE_DEMO_TOKEN_MINT`, `ENABLE_DEMO_PAYMENT_MINT`,
   `ENABLE_INVESTOR_SELL`, khoá ký mẫu Hardhat, `RPC_HARDHAT`); `E2E_BASE_URL=… npx playwright test e2e/ops-transactions.spec.ts
   e2e/vault-withdraw.spec.ts` (6 ca đạt: có lệnh mua, bán, rút); chụp `/seller`, `/seller/transactions`; tắt. Mốc (bản
-  build `11160f1`): bật 04:04:55Z, tắt 04:05:38Z. Sau (bản build `862ffa5`): bật 04:51:59Z, tắt 04:52:46Z (05/11/2026,
+  build `11160f1`): bật 04:04:55Z, tắt 04:05:38Z. Sau (bản build `e001470`): bật 05:22:35Z, tắt 05:23:19Z (05/11/2026,
   UTC). `main` không tràn ngang, 0 lỗi console ở cả 8 ảnh mỗi lượt.
 - 28 đường dẫn của script đo, trước (`moc/do/`) và sau (`sau/do/`), 1440 và 390, Sáng và Tối.
 - Trạng thái không dựng được trên mock (6 trạng thái): đủ số; cảnh báo đối soát ở hai thẻ ví; chưa có dự án; chưa có ví
@@ -271,11 +297,8 @@ không dùng số đó.
 ## 6. Lệnh kiểm (tasks bước 6, `LC_ALL=C`)
 
 ```text
-6a $ git diff --name-only --diff-filter=d ... | grep -vE '^(...danh sách trắng tasks.md...)$'
-app/src/components/pages/seller-withdraw.tsx
-app/src/components/seller/labels.ts
-app/src/components/seller/use-seller-overview.ts
-   $ (thêm ba tệp trên vào danh sách)                                                   # rỗng
+6a $ git diff --name-only --diff-filter=d ... | grep -vE '^(...danh sách trắng tasks.md, cộng seller-withdraw.tsx,
+      seller/(use-seller-overview|labels).ts theo Supervisor...)$'                        # rỗng
    $ git diff --name-only --diff-filter=D origin/release/ui-v2...HEAD                     # rỗng
 6b $ rg -n '...màu cứng...|-destructive\b' <hai trang> app/src/components/seller/        # rỗng
 6c $ comm -13 /tmp/feux05a-del.txt /tmp/feux05a-add.txt | rg -n '...ký tự cấm...'        # rỗng
@@ -285,9 +308,8 @@ giao dịch <chấm giữa> trang $
 6e $ rg -n '...ký tự cấm...' <hai trang> app/src/components/seller/ <test> <e2e> | rg -v '<dòng chú thích>'   # rỗng
 ```
 
-("<gạch dài>", "<chấm giữa>" thay cho U+2014, U+00B7 lệnh in ra.) Chạy trên HEAD `c1a16ab`. 6a: `seller-withdraw.tsx`
-được QĐ-9 cho thêm vào 6a; `labels.ts`, `use-seller-overview.ts` là hai tệp Owner duyệt (mục 8). 6d đúng hai dòng QĐ-7:
-câu gợi ý `seller-overview.tsx:249` (nay ở `seller-overview-body.tsx`, gạch dài thành dấu phẩy) và dòng phân trang
+("<gạch dài>", "<chấm giữa>" thay cho U+2014, U+00B7 lệnh in ra.) Chạy trên HEAD `e001470`. 6d đúng hai dòng QĐ-7: câu
+gợi ý `seller-overview.tsx:249` (nay ở `seller-overview-body.tsx`, gạch dài thành dấu phẩy) và dòng phân trang
 `seller-transactions.tsx:214` (chấm giữa thành dấu phẩy; `$` cuối vì `${…}` tách chuỗi). `nf` đổi U+2014 thành U+2013
 nằm trong dấu nháy đơn nên `ext` không bắt. `docs/tech-report.md` không đổi (không marker trong các tệp đã sửa).
 
@@ -337,18 +359,29 @@ Cột "Kết quả": **Làm** (đúng bản chốt), **Giữ** (màn thật đã
 
 ## 8. Nợ và DEVIATION
 
-- **Trần JS `/seller/withdraw` (QĐ-9), Owner duyệt.** Sau khi đổi kiểu, màn rút +2.811 B (trần 1 KB) vì nhập
-  `useSellerOverview` từ `seller-overview.tsx` và `WITHDRAW_STATUS_LABELS` từ `seller-transactions.tsx`, kéo cả hai trang
-  (gồm `SellerOverviewBody`, `Kpi`, `EmptyState`, `fieldClass`…) vào chunk. Đổi đúng một dòng nhập như QĐ-9 cho phép chỉ
-  bớt 40 B. Em dừng và báo; Owner chọn tách nguyên văn hai thứ đó sang `components/seller/use-seller-overview.ts`,
-  `components/seller/labels.ts` (ngoài danh sách trắng), hai trang export lại tên cũ, `seller-withdraw.tsx` chỉ đổi các
-  dòng nhập (`16f4c5e`). Hệ quả: số lời gọi `getSellerOverviewAction(`, `useEffect(` của QĐ-2 nay nằm ở tệp hook (unit
-  nhóm 1 đếm ở đó và đòi `seller-overview.tsx` là 0); 6a in ba tệp.
-- **Biểu tượng nhóm "Token khớp lệnh trong ngày", Owner duyệt.** QĐ-5 ghi `ArrowLeftRight`; biểu tượng này có ở thanh
-  bên, dùng lại làm chunk chung mọi trang +95 B thô (lượt đo đầu `/portfolio` +69, `/approvals` +52 B gzip). Đổi sang
-  `ArrowRightLeft` cùng nghĩa (`862ffa5`), như FE-UX-04b đổi `ShoppingCart`.
-- **Lượt đo bản sau chạy hai lần:** lượt đầu (HEAD `7414967`) cho ra hai vấn đề trên; số trong mục 4, 5 là lượt hai
-  (HEAD `862ffa5`) trên tiến trình mới. Lượt đầu giữ ở `sau_lan1/` (gửi kèm, không dùng số nào).
+- **DEVIATION 1: trần JS `/seller/withdraw` (QĐ-9). Mở rộng phạm vi đã được Supervisor duyệt.** Sau khi đổi kiểu, màn
+  rút +2.813 B (trần 1 KB) vì nhập `useSellerOverview` từ `seller-overview.tsx` và `WITHDRAW_STATUS_LABELS` từ
+  `seller-transactions.tsx`, kéo cả hai trang (gồm `SellerOverviewBody`, `Kpi`, `EmptyState`, `fieldClass`…) vào chunk.
+  Đổi đúng một dòng nhập như QĐ-9 cho phép chỉ bớt 40 B; em dừng và báo. Supervisor duyệt:
+  - tệp mới `components/seller/use-seller-overview.ts` chứa `useSellerOverview`, dời nguyên văn;
+  - tệp mới `components/seller/labels.ts` chứa `WITHDRAW_STATUS_LABELS` (dời nguyên văn) và `WITHDRAW_STATUS_TONES`
+    (QĐ-6); `seller-transactions.tsx` nhập cả hai từ đây;
+  - dời trong commit riêng (`16f4c5e`, `e001470`), đoạn trước và sau ở `CHECKPOINT_FEUX05A_DETAIL.md` mục 2;
+  - `seller-withdraw.tsx` chỉ thay hai dòng `:24-25` bằng các dòng nhập từ `format`, `use-seller-overview`, `labels`;
+  - không giữ export lại ở hai trang;
+  - unit nhóm 1 đếm `getSellerOverviewAction(`, `useEffect(` ở tệp hook, `seller-overview.tsx` 0 lời gọi đó và 1
+    `useSellerOverview(`; kiểm dòng nhập của `seller-withdraw.tsx`; nhóm 4 đọc từ `labels.ts`;
+  - lệnh 6a thêm ba tệp.
+  Kết quả: `/seller/withdraw` -90.081 B so mốc; `/seller` +2.535 B, `/seller/transactions` -3.777 B (trần 3 KB).
+- **DEVIATION 2: biểu tượng nhóm "Token khớp lệnh trong ngày" (QĐ-5), Supervisor duyệt.** QĐ-5 ghi `ArrowLeftRight`;
+  biểu tượng này có ở thanh bên, dùng lại làm chunk chung mọi trang +95 B thô (bảng byte trước và sau ở mục 4: lượt 1
+  `/portfolio` +64, `/approvals` +52, `/distribution` +47 B gzip). Dùng `ArrowRightLeft` cùng nghĩa (`862ffa5`), như
+  FE-UX-04b đổi `ShoppingCart`.
+- **Ba trang ngoài phạm vi chưa bằng mốc từng byte:** `/orders` +71, `/distribution` +59, `/approvals` +18 B gzip; so
+  chunk cho thấy chỉ đổi thứ tự module hoặc nhiễu nén, không có mã mới (mục 4). Không làm được gì thêm trong phạm vi.
+- **Lượt đo bản sau chạy ba lần:** lượt 1 (`7414967`) cho ra hai vấn đề trên; lượt 2 (`862ffa5`) sau khi tách lần đầu;
+  lượt 3 (`e001470`) theo quyết định cuối của Supervisor. Số trong mục 4, 5 là lượt 3 trên tiến trình mới; hai lượt
+  trước giữ ở `sau_lan1/`, `sau_lan2/` (gửi kèm).
 - **Chưa làm theo requirements mục 1 "Không làm":** câu phụ dưới tiêu đề; biểu tượng đầu dòng nguồn cung và trong ô số
   liệu; ảnh tua-bin nền ô; hiệu ứng (FE-UX-08); `/seller/withdraw` (05b, chỉ đổi dòng nhập).
 

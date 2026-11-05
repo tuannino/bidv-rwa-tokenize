@@ -464,7 +464,7 @@ Chỗ gọi trong trang (tại `b746d6f`):
         <SellerOverviewBody data={data} />
 ```
 
-## 2. Lần dời 2 (commit `16f4c5e`, QĐ-9, Sếp duyệt)
+## 2. Lần dời 2 (commit `16f4c5e` và `e001470`, QĐ-9, mở rộng phạm vi đã được Supervisor duyệt)
 
 ### 2.1 `useSellerOverview`
 
@@ -602,5 +602,87 @@ export const WITHDRAW_STATUS_LABELS: Record<WithdrawStatus, string> = {
 
 ```
 
-`seller-overview.tsx` export lại `useSellerOverview`, `seller-transactions.tsx` export lại `WITHDRAW_STATUS_LABELS` (tên cũ vẫn
-dùng được ở mọi chỗ nhập).
+Ở `16f4c5e` hai trang còn export lại tên cũ; theo quyết định Supervisor, `e001470` bỏ các dòng export lại đó (kể cả
+`export { describePolicy, nf }` ở `seller-overview.tsx`) vì ngoài `seller-withdraw.tsx` không nơi nào nhập.
+
+### 2.4 `WITHDRAW_STATUS_TONES` (commit `e001470`)
+
+Trước (`seller-transactions.tsx` tại `e001470~1`, bảng sắc mới của QĐ-6 tạo ở `7414967`):
+
+```tsx
+/** Sắc nhãn trạng thái lệnh rút (FE-UX-05a QĐ-6): xong `ok`, hỏng `bad`, còn lại đang xử lý `warn`. */
+export const WITHDRAW_STATUS_TONES: Record<WithdrawStatus, StatusTone> = {
+  PAYOUT_SENDING: 'warn',
+  PAYOUT_SENT: 'warn',
+  PAYOUT_SET: 'warn',
+  PAYOUT_REVIEW: 'warn',
+  SENDING: 'warn',
+  SENT: 'warn',
+  COMPLETED: 'ok',
+  FAILED: 'bad',
+  NEEDS_REVIEW: 'warn',
+};
+```
+
+Sau (`components/seller/labels.ts` tại `e001470`; nguyên văn, 12 dòng; tệp chứa cả nhãn và sắc):
+
+```ts
+import type { StatusTone } from '@/components/trading/order-status-tone';
+import type { WithdrawStatus } from '@/lib/store/vault.store.port';
+
+/** Trạng thái lệnh rút (BE-13 QĐ-E, FIX-01 G4). */
+export const WITHDRAW_STATUS_LABELS: Record<WithdrawStatus, string> = {
+  PAYOUT_SENDING: 'Đang đặt ví nhận',
+  PAYOUT_SENT: 'Đang đặt ví nhận',
+  PAYOUT_SET: 'Đã đặt ví nhận, chờ gửi rút',
+  PAYOUT_REVIEW: 'Cần xem xét (đặt ví nhận)',
+  SENDING: 'Đang gửi',
+  SENT: 'Đã gửi, chờ biên nhận',
+  COMPLETED: 'Hoàn tất',
+  FAILED: 'Thất bại',
+  NEEDS_REVIEW: 'Cần Kiểm soát viên xem',
+};
+
+/** Sắc nhãn trạng thái lệnh rút (FE-UX-05a QĐ-6): xong `ok`, hỏng `bad`, còn lại đang xử lý `warn`. */
+export const WITHDRAW_STATUS_TONES: Record<WithdrawStatus, StatusTone> = {
+  PAYOUT_SENDING: 'warn',
+  PAYOUT_SENT: 'warn',
+  PAYOUT_SET: 'warn',
+  PAYOUT_REVIEW: 'warn',
+  SENDING: 'warn',
+  SENT: 'warn',
+  COMPLETED: 'ok',
+  FAILED: 'bad',
+  NEEDS_REVIEW: 'warn',
+};
+```
+
+### 2.5 Dòng đổi ở hai trang tại `e001470`
+
+```diff
+-export { describePolicy, nf } from '@/components/seller/format';
+-export { useSellerOverview } from '@/components/seller/use-seller-overview';
+-
+-import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.port';
++import { WITHDRAW_STATUSES } from '@/lib/store/vault.store.port';
+-import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
+-import { orderStatusTone, type StatusTone } from '@/components/trading/order-status-tone';
++import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';
++import { orderStatusTone } from '@/components/trading/order-status-tone';
+-export { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
+-
+-/** Sắc nhãn trạng thái lệnh rút (FE-UX-05a QĐ-6): xong `ok`, hỏng `bad`, còn lại đang xử lý `warn`. */
+-export const WITHDRAW_STATUS_TONES: Record<WithdrawStatus, StatusTone> = {
+-  PAYOUT_SENDING: 'warn',
+-  PAYOUT_SENT: 'warn',
+-  PAYOUT_SET: 'warn',
+-  PAYOUT_REVIEW: 'warn',
+-  SENDING: 'warn',
+-  SENT: 'warn',
+-  COMPLETED: 'ok',
+-  FAILED: 'bad',
+-  NEEDS_REVIEW: 'warn',
+-};
+-
+
+```
