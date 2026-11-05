@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { nf } from '@/components/seller/format';
-import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
+import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';
 import { short } from '@/components/withdraw/format';
 import type { WithdrawRequestView } from '@/lib/bank/withdraw.service';
 
@@ -32,7 +32,7 @@ export function SellerWithdrawRow({
       </TableCell>
       <TableCell>{row.purpose}</TableCell>
       <TableCell>
-        <Badge variant="outline" title={row.reason ?? undefined}>
+        <Badge variant={WITHDRAW_STATUS_TONES[row.status]} title={row.reason ?? undefined}>
           {WITHDRAW_STATUS_LABELS[row.status]}
         </Badge>
       </TableCell>
@@ -40,7 +40,7 @@ export function SellerWithdrawRow({
         {row.txHash === null ? (
           ''
         ) : url ? (
-          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary underline underline-offset-3">
             {short(row.txHash)}
             <ExternalLink className="h-3 w-3" aria-hidden="true" />
           </a>

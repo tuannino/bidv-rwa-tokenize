@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { Loader2 } from 'lucide-react';
+import { Gauge, Info, Link2, ListChecks, Loader2, Receipt, Send, Wallet } from 'lucide-react';
 import {
   cancelWithdrawRequestAction,
   checkPayoutWalletAction,
@@ -10,10 +10,13 @@ import {
   createWithdrawRequestAction,
   reconcileAndListMyWithdrawRequestsAction,
 } from '@/app/actions/withdraw';
+import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { WithdrawRequestView } from '@/lib/bank/withdraw.service';
 import { quoteWithdraw } from '@/lib/bank/withdraw-limit';
@@ -33,9 +36,6 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
  * thêm một giao dịch đặt ví nhận trước khi rút. Bấm "Tạo lệnh rút" thì máy chủ kiểm ví nhận TRƯỚC khi
  * mở hộp mã một lần. Không thu phí trong PoC: số nhận bằng số rút.
  */
-
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted';
 
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
@@ -197,23 +197,23 @@ export function SellerWithdrawPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Tạo lệnh rút</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Tạo lệnh rút</h1>
       </header>
 
       <TokenScopeSelect id="token-scope" className="w-full sm:w-72" />
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc số dư…
-        </div>
+        <EmptyState loading>Đang đọc số dư…</EmptyState>
       ) : error || !data ? (
-        <p className="py-6 text-sm text-destructive">{error}</p>
+        <Alert tone="bad">{error}</Alert>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Card>
+        <div className="grid gap-6 min-[1100px]:grid-cols-12">
+          <Card className="min-[1100px]:col-span-7">
             <CardHeader>
-              <CardTitle role="heading" aria-level={2} className="text-base">
+              <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <Send />
+                </CardTitleIcon>
                 Thông tin lệnh rút
               </CardTitle>
             </CardHeader>
@@ -230,30 +230,48 @@ export function SellerWithdrawPage() {
                     id="w-amount"
                     value={form.amount}
                     onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
-                    className={`${FIELD} tabular-nums`}
+                    className={`${fieldClass} tabular-nums`}
                   />
                 </Field>
                 {quote?.exceedsLimit && (
-                  <p role="alert" className="text-sm font-medium text-destructive">
+                  <p role="alert" className="text-sm font-medium text-bad-ink">
                     Vượt phần được rút: chỉ rút được tối đa {nf(withdrawable)} VNDB.
                   </p>
                 )}
                 <Field id="w-network" label="Mạng">
-                  <input id="w-network" readOnly value={chainLabel} className={FIELD} />
+                  <div className="relative">
+                    <Link2
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input id="w-network" readOnly value={chainLabel} className={`${fieldClass} pl-10 read-only:bg-muted`} />
+                  </div>
                 </Field>
                 <Field id="w-address" label="Ví nhận">
-                  <input
-                    id="w-address"
-                    value={payoutInput}
-                    onChange={(e) => setPayout(e.target.value)}
-                    placeholder="0x…"
-                    spellCheck={false}
-                    aria-invalid={payoutError !== null}
-                    className={`${FIELD} font-code`}
-                  />
+                  <div className="relative">
+                    <Wallet
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input
+                      id="w-address"
+                      value={payoutInput}
+                      onChange={(e) => setPayout(e.target.value)}
+                      placeholder="0x…"
+                      spellCheck={false}
+                      aria-invalid={payoutError !== null}
+                      className={`${fieldClass} pl-10 font-code`}
+                    />
+                  </div>
                 </Field>
                 {chain !== 'mock' && (
-                  <Button type="button" variant="outline" disabled={!address} onClick={() => address && setPayout(address)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!address}
+                    onClick={() => address && setPayout(address)}
+                  >
                     Dùng ví đang kết nối
                   </Button>
                 )}
@@ -263,59 +281,79 @@ export function SellerWithdrawPage() {
                   </p>
                 )}
                 {payoutError && (
-                  <p role="alert" className="text-sm text-destructive">
+                  <p role="alert" className="text-sm text-bad-ink">
                     {payoutError}
                   </p>
                 )}
                 <Field id="w-purpose" label="Mục đích">
-                  <input id="w-purpose" value={form.purpose} onChange={set('purpose')} className={FIELD} />
+                  <input id="w-purpose" value={form.purpose} onChange={set('purpose')} className={fieldClass} />
                 </Field>
                 <Field id="w-note" label="Ghi chú">
-                  <textarea id="w-note" rows={2} value={form.note} onChange={set('note')} className={FIELD} />
+                  <textarea id="w-note" rows={2} value={form.note} onChange={set('note')} className={fieldClass} />
                 </Field>
                 {blocker && (
-                  <p role="note" className="text-sm text-muted-foreground">
+                  <Alert tone="warn" role="note">
                     {blocker}
-                  </p>
+                  </Alert>
                 )}
-                <Button type="submit" disabled={!canSubmit}>
-                  {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-                  Tạo lệnh rút
-                </Button>
-                {feedback && !otpOpen && (
-                  <p
-                    role={feedback.tone === 'error' ? 'alert' : 'status'}
-                    aria-label="Kết quả lệnh rút"
-                    className={feedback.tone === 'error' ? 'text-sm text-destructive' : 'text-sm text-foreground'}
-                  >
-                    {feedback.message}
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" size="lg" disabled={!canSubmit}>
+                    {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                    Tạo lệnh rút
+                  </Button>
+                  {feedback && !otpOpen && (
+                    <Alert
+                      tone={feedback.tone === 'error' ? 'bad' : 'ok'}
+                      role={feedback.tone === 'error' ? 'alert' : 'status'}
+                      aria-label="Kết quả lệnh rút"
+                      className="break-all"
+                    >
+                      {feedback.message}
+                    </Alert>
+                  )}
+                </div>
               </form>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-[1100px]:col-span-5">
             <CardHeader>
-              <CardTitle role="heading" aria-level={2} className="text-base">
+              <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <Gauge />
+                </CardTitleIcon>
                 Hệ thống tính
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <dt className="text-muted-foreground">Số dư VNDB của vault</dt>
-                <dd className="text-right tabular-nums">{nf(wallet?.paymentVnd)}</dd>
-                <dt className="text-muted-foreground">Phần khoá</dt>
-                <dd className="text-right tabular-nums">{nf(wallet?.lockedVnd)}</dd>
-                <dt className="text-muted-foreground">Phần được rút</dt>
-                <dd className="text-right tabular-nums" data-testid="withdrawable">
-                  {nf(withdrawable)}
-                </dd>
-                <dt className="font-medium">Số tiền nhận được</dt>
-                <dd className="text-right tabular-nums font-semibold">{nf(quote?.receivedVnd)}</dd>
+              <dl className="divide-y divide-border text-sm">
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="text-muted-foreground">Số dư VNDB của vault</dt>
+                  <dd className="text-right tabular-nums">{nf(wallet?.paymentVnd)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="text-muted-foreground">Phần khoá</dt>
+                  <dd className="text-right tabular-nums">{nf(wallet?.lockedVnd)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="text-muted-foreground">Phần được rút</dt>
+                  <dd className="text-right tabular-nums" data-testid="withdrawable">
+                    {nf(withdrawable)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="font-medium text-foreground">Số tiền nhận được</dt>
+                  <dd className="text-right font-bold tabular-nums">{nf(quote?.receivedVnd)}</dd>
+                </div>
               </dl>
-              <p className="mt-3 text-xs text-muted-foreground">{describePolicy(wallet?.policy ?? null)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).</p>
+              <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="mt-px size-4 shrink-0" aria-hidden="true" />
+                {describePolicy(wallet?.policy ?? null)}
+              </p>
+              <p className="mt-1.5 flex items-start gap-2 text-xs text-muted-foreground">
+                <Receipt className="mt-px size-4 shrink-0" aria-hidden="true" />
+                Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -323,15 +361,18 @@ export function SellerWithdrawPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle role="heading" aria-level={2} className="text-base">
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <ListChecks />
+            </CardTitleIcon>
             Yêu cầu rút của tôi
           </CardTitle>
         </CardHeader>
         <CardContent>
           {requests?.key === chain && requests.error ? (
-            <p className="text-sm text-destructive">{requests.error}</p>
+            <Alert tone="bad">{requests.error}</Alert>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có yêu cầu rút nào trên chain này.</p>
+            <EmptyState>Chưa có yêu cầu rút nào trên chain này.</EmptyState>
           ) : (
             <Table aria-label="Yêu cầu rút của tôi">
               <TableHeader>
@@ -383,17 +424,17 @@ export function SellerWithdrawPage() {
             maxLength={6}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-            className={`${FIELD} text-center font-code text-lg tracking-[0.5em]`}
+            className={`${fieldClass} text-center font-code text-lg tracking-[0.5em]`}
           />
           {!/^\d{6}$/.test(otp) && otp.length > 0 && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-bad-ink">
               Mã một lần phải đúng sáu chữ số.
             </p>
           )}
           {feedback?.tone === 'error' && otpOpen && (
-            <p role="alert" className="text-sm text-destructive">
+            <Alert tone="bad" role="alert">
               {feedback.message}
-            </p>
+            </Alert>
           )}
           <DialogFooter>
             <Button type="button" disabled={!/^\d{6}$/.test(otp) || submitting} onClick={() => void confirm()}>

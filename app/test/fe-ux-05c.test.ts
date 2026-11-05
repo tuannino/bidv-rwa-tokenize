@@ -45,13 +45,20 @@ describe('FE-UX-05c nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu 
     'aria-label="Yêu cầu rút của tôi"',
     '<SellerWithdrawRow key={r.id}',
     "role={feedback.tone === 'error' ? 'alert' : 'status'}",
+    '<Alert tone="warn" role="note"',
   ])(`${PAGE}: có nguyên văn %s`, (expression) => {
     expect(count(flat(read(PAGE)), expression)).toBe(1);
   });
 
-  it(`${PAGE}: không còn const short, explorerTxUrl`, () => {
+  it(`${PAGE}: không còn const FIELD, const short, -destructive, explorerTxUrl`, () => {
     const source = read(PAGE);
-    for (const needle of ['const short', 'explorerTxUrl']) expect(source).not.toContain(needle);
+    for (const needle of ['const FIELD', 'const short', '-destructive', 'explorerTxUrl']) expect(source).not.toContain(needle);
+  });
+
+  it(`${PAGE}: mọi lớp col-span- có tiền tố mốc`, () => {
+    const spans = read(PAGE).match(/[\w:[\]-]*col-span-[\w-]+/g) ?? [];
+    expect(spans.length).toBeGreaterThan(0);
+    for (const span of spans) expect(span, span).toMatch(/^min-\[\d+px\]:col-span-/);
   });
 
   it(`${ROW}: không Action(, useEffect(, useState(; short, nf nhập đúng nguồn; điều kiện PAYOUT_SET`, () => {
@@ -60,6 +67,7 @@ describe('FE-UX-05c nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu 
     expect(source).toContain("import { short } from '@/components/withdraw/format'");
     expect(source).toContain("import { nf } from '@/components/seller/format'");
     expect(count(source, "row.status === 'PAYOUT_SET'")).toBe(1);
+    expect(count(source, 'WITHDRAW_STATUS_TONES[row.status]')).toBe(1);
   });
 
   it.each([PAGE, ROW])('%s: nhập từ withdraw.service chỉ bằng import type', (file) => {
@@ -114,6 +122,7 @@ describe('FE-UX-05c nhóm 2: SellerWithdrawRow', () => {
     expect(html).not.toContain('<a');
     expect(html).toContain(`<span title="${HASH}">${short(HASH)}</span>`);
     expect(text(cell(html, 4))).toBe('Hoàn tất');
+    expect(badge(html)).toContain('bg-ok-bg');
     expect(buttons(html)).toEqual([]);
   });
 
@@ -130,6 +139,7 @@ describe('FE-UX-05c nhóm 2: SellerWithdrawRow', () => {
     const html = row({ status: 'PAYOUT_SET' });
     expect(buttons(html).map(text)).toEqual(['Gửi lệnh rút', 'Huỷ']);
     expect(text(cell(html, 4))).toBe('Đã đặt ví nhận, chờ gửi rút');
+    expect(badge(html)).toContain('bg-warn-bg');
     expect(text(cell(html, 5))).toBe('');
   });
 
@@ -143,6 +153,7 @@ describe('FE-UX-05c nhóm 2: SellerWithdrawRow', () => {
   it('FAILED không lý do: nhãn "Thất bại", không thuộc tính title trên nhãn', () => {
     const html = row({ status: 'FAILED' });
     expect(text(cell(html, 4))).toBe('Thất bại');
+    expect(badge(html)).toContain('bg-bad-bg');
     expect(badge(html)).not.toContain('title=');
   });
 
