@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-05b-tai-khoan` (FE-UX-05b, từ `release/ui-v2` @ `d5e6b0e`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-05c-rut-nguoi-ban` (FE-UX-05c, từ `release/ui-v2` @ `d035407`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -741,6 +741,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
   - `reconcileAndListMyWithdrawRequestsAction` (`app/actions/withdraw.ts:360-363`): đối soát rồi đọc danh sách trong một lượt. Ghi AuditLog `vault:read` và `vault:withdraw`.
 - **Action khi bấm Tạo lệnh rút:** 1 action `checkPayoutWalletAction` (kiểm ví nhận trước khi mở hộp mã một lần, `assertCan`, không ghi sổ).
 - **Action khi bấm Xác nhận:** 1 action `createWithdrawRequestAction` (hoặc `continueWithdrawRequestAction` khi gửi rút cho lệnh đã đặt ví nhận), sau đó tự gọi lại 2 action khi mở. Nút "Huỷ" trên dòng lệnh gọi `cancelWithdrawRequestAction`.
+- **Bố cục (FE-UX-05c):** tiêu đề; ô chọn token hàng riêng. Từ 1100 px lưới 12 cột: thẻ "Thông tin lệnh rút" 7 cột, thẻ "Hệ thống tính" 5 cột; hẹp hơn thì xếp dọc, "Hệ thống tính" dưới nút "Tạo lệnh rút". Thẻ "Yêu cầu rút của tôi" rộng hết bên dưới. Ba thẻ có biểu tượng tiêu đề. Ô Mạng có biểu tượng liên kết, ô Ví nhận có biểu tượng ví bên trái (trang trí, không đổi nhãn). Câu vượt phần được rút và lỗi ví nhận màu đỏ; câu chặn là khối thông báo vàng; kết quả là khối thông báo xanh lá (thành công) hoặc đỏ (lỗi), cùng hàng với nút "Tạo lệnh rút". "Hệ thống tính": bốn dòng kẻ ngăn, nhãn trái số phải, "Số tiền nhận được" đậm; hai câu ghi chú có biểu tượng đầu dòng. Nhãn trạng thái của dòng lệnh có sắc theo bảng chung với `/seller/transactions` (Hoàn tất xanh lá, Thất bại đỏ, còn lại vàng); mã giao dịch có liên kết màu chủ đạo. Đang đọc số dư, chưa có yêu cầu rút là khối trống có biểu tượng; lỗi tải là khối thông báo đỏ; lỗi trong hộp mã một lần là khối thông báo đỏ. Một dòng bảng nằm ở `components/seller/seller-withdraw-row.tsx` (tách để kiểm bằng dữ liệu giả, không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -764,7 +765,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | "Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC)." | | Hằng số | |
 | **Bảng Yêu cầu rút của tôi** (50 lệnh, chỉ của người đang thao tác) | | `listMyWithdrawRequests`: `WithdrawRequest` lọc theo `chain` và `createdBy` = actor | |
 | Mã / Số tiền / Ví nhận / Mục đích | | `id` (8 ký tự), `amount`, `payoutWallet`, `purpose` | |
-| Trạng thái | Badge; rê chuột thấy `reason`. Nhãn mới (FIX-01): "Đang đặt ví nhận" (PAYOUT_SENDING, PAYOUT_SENT), "Đã đặt ví nhận, chờ gửi rút" (PAYOUT_SET), "Cần xem xét (đặt ví nhận)" (PAYOUT_REVIEW) | `WithdrawRequest.status`, `reason` | |
+| Trạng thái | Badge có sắc (FE-UX-05c); rê chuột thấy `reason`. Nhãn mới (FIX-01): "Đang đặt ví nhận" (PAYOUT_SENDING, PAYOUT_SENT), "Đã đặt ví nhận, chờ gửi rút" (PAYOUT_SET), "Cần xem xét (đặt ví nhận)" (PAYOUT_REVIEW) | `WithdrawRequest.status`, `reason` | |
 | Nút "Gửi lệnh rút", "Huỷ" | Chỉ trên dòng PAYOUT_SET | `continueWithdrawRequest` (mã một lần, đọc lại vault ngay lúc gửi: đúng ví, không tạm dừng, không vượt phần được rút; không đạt thì FAILED, nhả khoá); `cancelWithdrawRequest` (FAILED "Đã huỷ", nhả khoá) | Chỉ người tạo lệnh |
 | Giao dịch | txHash rút gọn. Có link explorer chỉ trên evm (Etherscan Sepolia) | `WithdrawRequest.txHash`, `explorerTxUrl` | |
 | Thời điểm | | `createdAt` | |
@@ -802,10 +803,10 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 
 **Lệch** (tra mã ở Phụ lục C)
 
-- **L-58.** Lệnh về SENT (đã gửi, chờ biên nhận) vẫn hiện bằng giọng lỗi màu đỏ (`seller-withdraw.tsx:114`).
+- **L-58.** Lệnh về SENT (đã gửi, chờ biên nhận) vẫn hiện bằng giọng lỗi màu đỏ (`seller-withdraw.tsx:144-149`).
 - **L-18.** Đối soát kiểm quyền bằng `anyOf(['vault:read','vault:withdraw'])` nhưng `authorize` ghi sổ với tên `vault:read` (`withdraw.service.ts:409`). Vì vậy AuditLog có dòng SELLER + `vault:read` + ALLOWED, dù SELLER không có quyền `vault:read` trong bảng quyền.
 - **L-59.** Đối soát chỉ quét 20 lệnh SENDING/SENT (`withdraw.service.ts:412`). Bảng "Yêu cầu rút của tôi" giới hạn 50 dòng.
-- **L-60.** Màn tính "Số tiền nhận được" trên chuỗi chưa trim (`seller-withdraw.tsx:76`), còn server trim. Số có khoảng trắng thì màn hiện dấu gạch ngang dài và tắt nút, dù server sẽ nhận.
+- **L-60.** Màn tính "Số tiền nhận được" trên chuỗi chưa trim (`seller-withdraw.tsx:98`), còn server trim. Số có khoảng trắng thì màn hiện dấu gạch ngang dài và tắt nút, dù server sẽ nhận.
 - **L-61.** Số dư và "Phần được rút" trên màn chỉ là ảnh chụp lúc mở màn. Giới hạn thật được đọc lại trên chuỗi khi gửi lệnh (bước 6), nên màn có thể chấp nhận một số mà server từ chối.
 
 
@@ -1901,9 +1902,9 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | L-55 | `/seller/transactions` | Placeholder chỉ nói "Mã lệnh hoặc ví nhà đầu tư" (`seller-transactions.tsx:132`), trong khi server còn tìm theo ví nhận và txHash của lệnh rút. |
 | L-56 | `/seller/transactions` | Sổ vượt 500 dòng thì `total` và phân trang thiếu dòng cũ (`seller.service.ts:35-36`). |
 | L-57 | `/seller/transactions` | Lệnh rút có `txHash` nhưng bảng này không hiện cột mã giao dịch. |
-| L-58 | `/seller/withdraw` | Lệnh về SENT (đã gửi, chờ biên nhận) vẫn hiện bằng giọng lỗi màu đỏ (`seller-withdraw.tsx:114`). |
+| L-58 | `/seller/withdraw` | Lệnh về SENT (đã gửi, chờ biên nhận) vẫn hiện bằng giọng lỗi màu đỏ (`seller-withdraw.tsx:144-149`). |
 | L-59 | `/seller/withdraw` | Đối soát chỉ quét 20 lệnh SENDING/SENT (`withdraw.service.ts:412`). |
-| L-60 | `/seller/withdraw` | Màn tính "Số tiền nhận được" trên chuỗi chưa trim (`seller-withdraw.tsx:76`), còn server trim. |
+| L-60 | `/seller/withdraw` | Màn tính "Số tiền nhận được" trên chuỗi chưa trim (`seller-withdraw.tsx:98`), còn server trim. |
 | L-61 | `/seller/withdraw` | Số dư và "Phần được rút" là ảnh chụp lúc mở màn; giới hạn thật đọc lại trên chuỗi khi gửi, nên màn có thể nhận số mà máy chủ từ chối. |
 | L-62 | `/wallet` | Breadcrumb là "Nhà đầu tư > Ví của tôi" (`app/(wallet)/wallet/page.tsx:16`), nhưng Người bán cũng vào được trang này. |
 | L-63 | `/wallet` | Mọi câu chữ đều nói về nhà đầu tư, ví dụ "Ví ở trang này chỉ dùng cho thao tác của nhà đầu tư" (`wallet-connect.tsx:254`). |
