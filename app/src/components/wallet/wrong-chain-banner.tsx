@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, TriangleAlert } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 export interface WrongChainBannerProps {
@@ -41,39 +42,39 @@ export function WrongChainBanner({
   children,
 }: WrongChainBannerProps) {
   return (
-    <div
+    <Alert
+      tone="bad"
       role="alert"
-      className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4"
+      icon={<TriangleAlert className="mt-px size-[18px] shrink-0" aria-hidden="true" />}
     >
-      <div className="flex items-start gap-3">
-        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+      <div className="space-y-3">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">Ví đang ở mạng khác</p>
-          <p className="text-sm text-muted-foreground">
-            Ví đang ở <span className="font-medium text-foreground">{currentLabel}</span>, còn phần
-            này làm việc trên <span className="font-medium text-foreground">{expectedLabel}</span>.
+          <p className="font-semibold">Ví đang ở mạng khác</p>
+          <p>
+            Ví đang ở <span className="font-semibold">{currentLabel}</span>, còn phần
+            này làm việc trên <span className="font-semibold">{expectedLabel}</span>.
             Hai bên phải cùng một mạng mới thực hiện được giao dịch.
           </p>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2 pl-7">
-        <Button onClick={onSwitch} disabled={switching} size="sm">
-          {switching && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-          {switching ? 'Đang chờ ví…' : `Chuyển ví sang ${expectedLabel}`}
-        </Button>
-        {children}
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={onSwitch} disabled={switching} size="sm">
+            {switching && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            {switching ? 'Đang chờ ví…' : `Chuyển ví sang ${expectedLabel}`}
+          </Button>
+          {children}
+        </div>
 
-      {/*
-        Từ chối chuyển mạng thì hiện lý do ngay tại đây và GIỮ NGUYÊN cảnh báo. Không thử lại
-        tự động: gọi lại là dựng vòng lặp hộp thoại mà người dùng không thoát được.
-      */}
-      {error && (
-        <p className="pl-7 text-xs text-destructive" role="status">
-          {error}
-        </p>
-      )}
-    </div>
+        {/*
+          Từ chối chuyển mạng thì hiện lý do ngay tại đây và GIỮ NGUYÊN cảnh báo. Không thử lại
+          tự động: gọi lại là dựng vòng lặp hộp thoại mà người dùng không thoát được.
+        */}
+        {error && (
+          <p className="text-xs text-bad-ink" role="status">
+            {error}
+          </p>
+        )}
+      </div>
+    </Alert>
   );
 }

@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Filter, Search, Wallet } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { listOrdersAction } from '@/app/actions/purchase';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
@@ -24,6 +27,7 @@ import {
   type OrderFilters,
   type SortDirection,
 } from '@/components/trading/gates';
+import { orderStatusTone } from '@/components/trading/order-status-tone';
 
 /**
  * Màn QUẢN LÝ LỆNH của Nhà đầu tư (FE-25 việc 9, 10, 13, 14).
@@ -43,9 +47,6 @@ const COLUMNS: Array<{ key: OrderColumn; label: string; numeric?: boolean }> = [
   { key: 'status', label: 'Trạng thái' },
   { key: 'updatedAt', label: 'Cập nhật' },
 ];
-
-const FIELD =
-  'rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }) {
   const { address, isConnected } = useAccount();
@@ -84,11 +85,10 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
 
   if (!wallet || (chain !== 'mock' && !isConnected)) {
     return (
-      <div className="flex flex-col items-center gap-2 py-16 text-center">
-        <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-        <p className="text-sm font-medium text-foreground">Chưa kết nối ví</p>
-        <p className="max-w-xs text-xs text-muted-foreground">Kết nối ví để xem lệnh của chính mình.</p>
-      </div>
+      <EmptyState icon={<Wallet />} className="py-16">
+        <p className="font-medium text-foreground">Chưa kết nối ví</p>
+        <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">Kết nối ví để xem lệnh của chính mình.</p>
+      </EmptyState>
     );
   }
 
@@ -105,24 +105,35 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Quản lý lệnh</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Quản lý lệnh</h1>
       </header>
 
       {chain === 'mock' && (
-        <p className="text-xs text-muted-foreground" role="note">
+        <Alert tone="info" role="note">
           Chế độ mô phỏng đang lọc theo ví trong hồ sơ Nhà đầu tư:{' '}
-          <span className="font-code">{wallet}</span>. Không cần kết nối ví trình duyệt.
-        </p>
+          <span className="font-code break-all">{wallet}</span>. Không cần kết nối ví trình duyệt.
+        </Alert>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Bộ lọc</CardTitle>
+          <CardTitle className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <Filter />
+            </CardTitleIcon>
+            Bộ lọc
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <form role="search" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" onSubmit={(e) => e.preventDefault()}>
-            <input aria-label="Mã lệnh" placeholder="Mã lệnh (UUID)" value={filters.orderId} onChange={set('orderId')} className={FIELD} />
-            <select aria-label="Chiều" value={filters.side} onChange={set('side')} className={FIELD}>
+          <form role="search" className="grid gap-3 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-5" onSubmit={(e) => e.preventDefault()}>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <input aria-label="Mã lệnh" placeholder="Mã lệnh (UUID)" value={filters.orderId} onChange={set('orderId')} className={`${fieldClass} pl-10`} />
+            </div>
+            <select aria-label="Chiều" value={filters.side} onChange={set('side')} className={fieldClass}>
               <option value="">Mọi chiều</option>
               {ORDER_SIDES.map((s) => (
                 <option key={s} value={s}>
@@ -130,7 +141,7 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
                 </option>
               ))}
             </select>
-            <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={FIELD}>
+            <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={fieldClass}>
               <option value="">Mọi trạng thái</option>
               {ORDER_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -138,8 +149,8 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
                 </option>
               ))}
             </select>
-            <input aria-label="Từ ngày" type="date" value={filters.fromDate} onChange={set('fromDate')} className={FIELD} />
-            <input aria-label="Đến ngày" type="date" value={filters.toDate} onChange={set('toDate')} className={FIELD} />
+            <input aria-label="Từ ngày" type="date" value={filters.fromDate} onChange={set('fromDate')} className={fieldClass} />
+            <input aria-label="Đến ngày" type="date" value={filters.toDate} onChange={set('toDate')} className={fieldClass} />
           </form>
         </CardContent>
       </Card>
@@ -147,25 +158,22 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
       <Card>
         <CardContent className="pt-4">
           {fresh === null ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Đang tải lệnh…
-            </p>
+            <EmptyState loading>Đang tải lệnh…</EmptyState>
           ) : fresh.notBound ? (
             <WalletNotBoundNotice wallet={wallet} />
           ) : fresh.error ? (
-            <p className="text-sm text-destructive">{fresh.error}</p>
+            <Alert tone="bad">{fresh.error}</Alert>
           ) : rows && rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Không có lệnh nào khớp bộ lọc.</p>
+            <EmptyState>Không có lệnh nào khớp bộ lọc.</EmptyState>
           ) : rows ? (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/60 hover:bg-muted/60">
                   {COLUMNS.map((column) => (
                     <TableHead key={column.key} className={column.numeric ? 'text-right' : undefined}>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1"
+                        className="inline-flex items-center gap-1 text-xs font-semibold"
                         onClick={() => toggleSort(column.key)}
                         aria-label={`Sắp xếp theo ${column.label}`}
                       >
@@ -189,12 +197,13 @@ export function InvestorOrdersPage({ mockWallet }: { mockWallet: string | null }
                     <TableCell className="text-right tabular-nums">{formatAmount(unitPriceOf(order))}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatAmount(order.vndAmount)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{ORDER_STATUS_LABELS[order.status]}</Badge>
+                      <Badge variant={orderStatusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</Badge>
                     </TableCell>
                     <TableCell className="text-xs">{formatDateTime(order.updatedAt)}</TableCell>
                     <TableCell>
-                      <Link prefetch={false} href={`/orders/${order.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
+                      <Link prefetch={false} href={`/orders/${order.id}`} className="inline-flex items-center gap-0.5 text-sm text-primary underline-offset-4 hover:underline">
                         Chi tiết
+                        <ChevronRight className="size-4" aria-hidden="true" />
                       </Link>
                     </TableCell>
                   </TableRow>
