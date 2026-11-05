@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { Gauge, Info, Link2, ListChecks, Loader2, Receipt, Send, Wallet } from 'lucide-react';
+import { Gauge, Info, Link2, ListChecks, Loader2, ReceiptText, Send, Wallet } from 'lucide-react';
 import {
   cancelWithdrawRequestAction,
   checkPayoutWalletAction,
@@ -351,7 +351,7 @@ export function SellerWithdrawPage() {
                 {describePolicy(wallet?.policy ?? null)}
               </p>
               <p className="mt-1.5 flex items-start gap-2 text-xs text-muted-foreground">
-                <Receipt className="mt-px size-4 shrink-0" aria-hidden="true" />
+                <ReceiptText className="mt-px size-4 shrink-0" aria-hidden="true" />
                 Phí ngân hàng ngoài chuỗi: chưa áp dụng (POC).
               </p>
             </CardContent>
