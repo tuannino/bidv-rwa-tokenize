@@ -3,7 +3,7 @@ import type { SellerWithdrawPolicy } from '@/lib/bank/seller.service';
 /** Định dạng dùng chung của các màn Người bán, dời nguyên văn từ `seller-overview.tsx` (FE-UX-05a QĐ-4). */
 
 export const nf = (value: string | null | undefined) => {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return '–';
   try {
     return BigInt(value).toLocaleString('vi-VN');
   } catch {
