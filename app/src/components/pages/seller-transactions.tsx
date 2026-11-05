@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { listSellerTransactionsAction } from '@/app/actions/seller';
 import type { SellerTxnPage, SellerTxnRow } from '@/lib/bank/seller.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { ORDER_STATUSES, type OrderStatus } from '@/lib/store/order.store.port';
-import { WITHDRAW_STATUSES, type WithdrawStatus } from '@/lib/store/vault.store.port';
-import { nf } from './seller-overview';
+import { WITHDRAW_STATUSES } from '@/lib/store/vault.store.port';
+import { nf } from '@/components/seller/format';
+import { WITHDRAW_STATUS_LABELS, WITHDRAW_STATUS_TONES } from '@/components/seller/labels';
+import { orderStatusTone } from '@/components/trading/order-status-tone';
 
 /**
  * Màn DANH SÁCH GIAO DỊCH NGƯỜI BÁN (FE-21 việc 8 đến 9, BE-13 QĐ-I): CHỈ ĐỌC.
@@ -43,19 +48,6 @@ const STEP_LABELS: Record<OrderStatus, string> = {
   EXPIRED: '1. Hết hạn chờ',
 };
 
-/** Trạng thái lệnh rút (BE-13 QĐ-E, FIX-01 G4). */
-export const WITHDRAW_STATUS_LABELS: Record<WithdrawStatus, string> = {
-  PAYOUT_SENDING: 'Đang đặt ví nhận',
-  PAYOUT_SENT: 'Đang đặt ví nhận',
-  PAYOUT_SET: 'Đã đặt ví nhận, chờ gửi rút',
-  PAYOUT_REVIEW: 'Cần xem xét (đặt ví nhận)',
-  SENDING: 'Đang gửi',
-  SENT: 'Đã gửi, chờ biên nhận',
-  COMPLETED: 'Hoàn tất',
-  FAILED: 'Thất bại',
-  NEEDS_REVIEW: 'Cần Kiểm soát viên xem',
-};
-
 const TYPE_LABELS: Record<SellerTxnRow['type'], string> = { BUY: 'Mua', SELL: 'Bán', WITHDRAW: 'Rút' };
 
 /** Bộ lọc trạng thái nhận đúng tập trạng thái của loại đang lọc. */
@@ -69,9 +61,6 @@ const statusOptions = (type: string): Array<[string, string]> => {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString('vi-VN');
 const shortWallet = (w: string) => `${w.slice(0, 6)}…${w.slice(-4)}`;
-
-const FIELD =
-  'rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 interface Filters {
   q: string;
@@ -123,26 +112,36 @@ export function SellerTransactionsPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-foreground">Danh sách giao dịch</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Danh sách giao dịch</h1>
       </header>
 
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" role="search" onSubmit={(e) => e.preventDefault()}>
-            <input
-              aria-label="Mã lệnh hoặc nhà đầu tư"
-              placeholder="Mã lệnh hoặc ví nhà đầu tư"
-              value={filters.q}
-              onChange={set('q')}
-              className={`${FIELD} lg:col-span-1`}
-            />
-            <select aria-label="Loại" value={filters.type} onChange={set('type')} className={FIELD}>
+          <form
+            className="grid gap-3 min-[640px]:grid-cols-2 min-[1100px]:grid-cols-5"
+            role="search"
+            onSubmit={(e) => e.preventDefault()}
+          >
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                aria-label="Mã lệnh hoặc nhà đầu tư"
+                placeholder="Mã lệnh hoặc ví nhà đầu tư"
+                value={filters.q}
+                onChange={set('q')}
+                className={`${fieldClass} pl-10`}
+              />
+            </div>
+            <select aria-label="Loại" value={filters.type} onChange={set('type')} className={fieldClass}>
               <option value="">Mọi loại</option>
               <option value="BUY">Mua</option>
               <option value="SELL">Bán</option>
               <option value="WITHDRAW">Rút</option>
             </select>
-            <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={FIELD}>
+            <select aria-label="Trạng thái" value={filters.status} onChange={set('status')} className={fieldClass}>
               <option value="">Mọi trạng thái</option>
               {statusOptions(filters.type).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -150,19 +149,16 @@ export function SellerTransactionsPage() {
                 </option>
               ))}
             </select>
-            <input aria-label="Từ ngày" type="date" value={filters.from} onChange={set('from')} className={FIELD} />
-            <input aria-label="Đến ngày" type="date" value={filters.to} onChange={set('to')} className={FIELD} />
+            <input aria-label="Từ ngày" type="date" value={filters.from} onChange={set('from')} className={fieldClass} />
+            <input aria-label="Đến ngày" type="date" value={filters.to} onChange={set('to')} className={fieldClass} />
           </form>
 
           {fresh === null ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Đang tải…
-            </div>
+            <EmptyState loading>Đang tải…</EmptyState>
           ) : fresh.error ? (
-            <p className="py-6 text-sm text-destructive">{fresh.error}</p>
+            <Alert tone="bad">{fresh.error}</Alert>
           ) : data && data.rows.length === 0 ? (
-            <p className="py-6 text-sm text-muted-foreground">Không có giao dịch khớp bộ lọc.</p>
+            <EmptyState>Không có giao dịch khớp bộ lọc.</EmptyState>
           ) : (
             data && (
               <Table>
@@ -195,7 +191,9 @@ export function SellerTransactionsPage() {
                         <TableCell className="text-right tabular-nums">{nf(row.vndAmount)}</TableCell>
                         <TableCell>{row.type === 'WITHDRAW' ? row.purpose : STEP_LABELS[row.status]}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">
+                          <Badge
+                            variant={row.type === 'WITHDRAW' ? WITHDRAW_STATUS_TONES[row.status] : orderStatusTone(row.status)}
+                          >
                             {row.type === 'WITHDRAW' ? WITHDRAW_STATUS_LABELS[row.status] : STATUS_LABELS[row.status]}
                           </Badge>
                         </TableCell>
@@ -211,7 +209,7 @@ export function SellerTransactionsPage() {
 
           <nav className="flex items-center justify-between text-sm" aria-label="Phân trang">
             <span className="text-muted-foreground">
-              {data ? `${data.total} giao dịch · trang ${data.page}/${pages}` : ''}
+              {data ? `${data.total} giao dịch, trang ${data.page}/${pages}` : ''}
             </span>
             <div className="flex gap-2">
               <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>

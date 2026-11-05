@@ -21,8 +21,9 @@ import type { WithdrawRequestView } from '@/lib/bank/withdraw.service';
 import { quoteWithdraw } from '@/lib/bank/withdraw-limit';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
-import { describePolicy, nf, useSellerOverview } from './seller-overview';
-import { WITHDRAW_STATUS_LABELS } from './seller-transactions';
+import { describePolicy, nf } from '@/components/seller/format';
+import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
+import { useSellerOverview } from '@/components/seller/use-seller-overview';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 /**
