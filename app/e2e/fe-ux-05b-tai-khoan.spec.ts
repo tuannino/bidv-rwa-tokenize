@@ -35,9 +35,9 @@ async function openAccount(page: Page, role: AccountRole) {
  */
 type RoleCount = { status: number; note: number; alert: number };
 const ROLE_COUNTS: Record<'INVESTOR' | 'SELLER' | 'TELLER', RoleCount> = {
-  INVESTOR: { status: -1, note: -1, alert: -1 },
-  SELLER: { status: -1, note: -1, alert: -1 },
-  TELLER: { status: -1, note: -1, alert: -1 },
+  INVESTOR: { status: 0, note: 0, alert: 0 },
+  SELLER: { status: 0, note: 0, alert: 0 },
+  TELLER: { status: 0, note: 0, alert: 0 },
 };
 
 async function countRoles(page: Page, role: AccountRole) {
@@ -106,29 +106,31 @@ test.describe('FE-UX-05b Thông tin tài khoản', () => {
     browser,
     baseURL,
   }) => {
+    // Đếm `role` của cả hai vai trước mọi phép kiểm, để bản mốc (chưa có ô xanh) vẫn đo được cả hai.
     const seller = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await actAs(seller, baseURL!, 'SELLER');
     const s = await seller.newPage();
     await openAccount(s, 'SELLER');
     const sellerRoles = await countRoles(s, 'SELLER');
+    const teller = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await actAs(teller, baseURL!, 'TELLER');
+    const t = await teller.newPage();
+    await openAccount(t, 'TELLER');
+    const tellerRoles = await countRoles(t, 'TELLER');
+
     for (const text of ['Tên pháp nhân', 'Công ty Cổ phần Điện gió An Viên', 'NB001', 'AV']) {
       await expect(hero(s)).toContainText(text);
     }
     const legal = cardWithHeading(s, 'Thông tin pháp nhân');
     await expect(legal).toContainText('Người liên hệ');
     await expect(legal).toContainText('Trần Thị Bình');
-    await seller.close();
 
-    const teller = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await actAs(teller, baseURL!, 'TELLER');
-    const t = await teller.newPage();
-    await openAccount(t, 'TELLER');
-    const tellerRoles = await countRoles(t, 'TELLER');
     for (const text of ['Lê Minh Cường', 'Giao dịch viên', 'LC']) await expect(hero(t)).toContainText(text);
     const staff = cardWithHeading(t, 'Thông tin cán bộ');
     await expect(staff).toContainText('GDV001');
     await sameRow(hero(t), staff, 'ô xanh và Thông tin cán bộ');
     await expect(t.getByRole('main').locator('[data-payment-wallet]')).toHaveCount(0);
+    await seller.close();
     await teller.close();
 
     expect(sellerRoles).toEqual(ROLE_COUNTS.SELLER);
