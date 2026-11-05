@@ -19,26 +19,32 @@ const OVERVIEW = 'pages/seller-overview.tsx';
 const TRANSACTIONS = 'pages/seller-transactions.tsx';
 const BODY = 'seller/seller-overview-body.tsx';
 const FORMAT = 'seller/format.ts';
+/** Hook đọc tổng quan và nhãn lệnh rút tách khỏi hai trang để `/seller/withdraw` không kéo theo cả trang (QĐ-9, Sếp duyệt). */
+const HOOK = 'seller/use-seller-overview.ts';
+const LABELS = 'seller/labels.ts';
 
 describe('FE-UX-05a nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu thức khoá)', () => {
   it.each([
-    [OVERVIEW, 'getSellerOverviewAction(', 1],
-    [OVERVIEW, 'useEffect(', 1],
+    [HOOK, 'getSellerOverviewAction(', 1],
+    [HOOK, 'useEffect(', 1],
+    [OVERVIEW, 'getSellerOverviewAction(', 0],
+    [OVERVIEW, 'useEffect(', 0],
     [TRANSACTIONS, 'listSellerTransactionsAction(', 1],
     [TRANSACTIONS, 'useEffect(', 1],
   ] as const)('%s: %s đúng %i', (file, needle, expected) => {
     expect(count(read(file), needle)).toBe(expected);
   });
 
-  it.each([BODY, FORMAT])('%s: không Action(, useEffect(, useState(', (file) => {
+  it.each([BODY, FORMAT, LABELS])('%s: không Action(, useEffect(, useState(', (file) => {
     const source = read(file);
     for (const needle of ['Action(', 'useEffect(', 'useState(']) expect(source).not.toContain(needle);
   });
 
-  it(`${OVERVIEW}: giữ data-chain={chain}, export lại nf và describePolicy`, () => {
+  it(`${OVERVIEW}: giữ data-chain={chain}, export lại nf, describePolicy, useSellerOverview`, () => {
     const source = read(OVERVIEW);
     expect(count(source, 'data-chain={chain}')).toBe(1);
     expect(source).toContain("export { describePolicy, nf } from '@/components/seller/format';");
+    expect(source).toContain("export { useSellerOverview } from '@/components/seller/use-seller-overview';");
   });
 
   it(`${TRANSACTIONS}: hai điều kiện khoá phân trang nguyên văn, nhập nf từ format, không còn const FIELD`, () => {
@@ -47,9 +53,10 @@ describe('FE-UX-05a nhóm 1: mã nguồn (số lời gọi bằng mốc, biểu 
     expect(count(source, 'disabled={page <= 1}')).toBe(1);
     expect(count(source, 'disabled={!data || page >= pages}')).toBe(1);
     expect(source).toContain("import { nf } from '@/components/seller/format';");
+    expect(source).toContain("export { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';");
   });
 
-  it.each([BODY, FORMAT])('%s: nhập từ seller.service chỉ bằng import type', (file) => {
+  it.each([BODY, FORMAT, HOOK])('%s: nhập từ seller.service chỉ bằng import type', (file) => {
     const lines = read(file)
       .split('\n')
       .filter((line) => line.includes("from '@/lib/bank/seller.service'"));
