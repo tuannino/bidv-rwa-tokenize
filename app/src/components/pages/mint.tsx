@@ -8,7 +8,6 @@ import { AmountInput } from '@/components/ui/amount-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
 import { can } from '@/lib/rbac';
@@ -19,8 +18,8 @@ import {
   readBalanceAction,
 } from '@/app/actions/bank';
 import type { TxnView } from '@/lib/bank/mint.service';
-import { operationLabel } from '@/lib/txn-labels';
 import { HoverHint } from '@/components/layout/hover-hint';
+import { TxnHistoryTable } from '@/components/mint/txn-history-table';
 
 /**
  * Trang KYC + PHÁT HÀNH DỮ LIỆU THỬ — kênh cán bộ ngân hàng.
@@ -302,46 +301,7 @@ export function MintPage() {
           {txns.length === 0 ? (
             <p className="text-sm text-muted-foreground">Chưa có giao dịch nào trên chain này.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Thời điểm</TableHead>
-                  <TableHead>Nghiệp vụ</TableHead>
-                  <TableHead>Ví nhận</TableHead>
-                  <TableHead className="text-right">Số lượng</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {txns.map((txn) => (
-                  <TableRow key={txn.id}>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(txn.createdAt).toLocaleTimeString('vi-VN')}
-                    </TableCell>
-                    <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
-                    <TableCell className="font-code text-xs">
-                      {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          txn.status === 'CONFIRMED'
-                            ? 'default'
-                            : txn.status === 'FAILED'
-                              ? 'destructive'
-                              : 'secondary'
-                        }
-                      >
-                        {txn.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{txn.actorRole}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <TxnHistoryTable txns={txns} />
           )}
         </CardContent>
       </Card>
