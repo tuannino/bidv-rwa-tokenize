@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `feat/fe-ux-04c-lenh-vi` (FE-UX-04c, từ `release/ui-v2` @ `e6604d0`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-04d-rut-vndb` (FE-UX-04d, từ `release/ui-v2` @ `400ffcc`), ngày 05/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -598,6 +598,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
   - "Tạo lệnh rút": `checkPaymentWithdrawTargetAction` (kiểm ví nhận, không ghi sổ), đạt thì mở hộp mã một lần.
   - "Xác nhận": `createPaymentWithdrawAction` (A1) rồi ngay `beginPaymentSendAction` (A8); chain khác mock: ví gửi giao dịch rồi `submitPaymentWithdrawTxAction` (A2); từ chối ký (4001) thì `cancelPaymentWithdrawAction` với `walletRejected`.
   - Dòng "Chờ gửi": "Gửi từ ví" (A8), "Huỷ" (A3). Dòng "Chờ ký trong ví": chỉ "Huỷ".
+- **Bố cục (FE-UX-04d):** tiêu đề; từ 1100 px lưới 12 cột: thẻ "Thông tin lệnh rút" 7 cột, thẻ "Hệ thống tính" 5 cột cao bằng nhau; hẹp hơn thì xếp dọc, "Hệ thống tính" dưới nút "Tạo lệnh rút". Thẻ "Lệnh rút của tôi" rộng hết bên dưới. Ba thẻ có biểu tượng tiêu đề. Ô Số tiền rút có chữ "VNDB" bên phải trong khung ô; ô Mạng có biểu tượng liên kết, ô Ví gửi có biểu tượng khoá bên trái (trang trí, không đổi nhãn); "Đã định danh" là nhãn xanh lá. Câu vượt số dư và lỗi ví nhận màu đỏ; kết quả là khối thông báo xanh lá (thành công) hoặc đỏ (lỗi). "Hệ thống tính": hai dòng Số dư VNDB, Số rút có kẻ ngăn, câu phí gas có biểu tượng ngọn lửa (chỉ chain thật), "Số dư sau rút" là ô vàng đậm dính đáy thẻ (không nổi khi rê chuột). Nhãn trạng thái của dòng lệnh có sắc: Chờ gửi, Chờ ký trong ví, Đã gửi chờ xác nhận vàng; Hoàn tất xanh lá; Thất bại đỏ; Đã huỷ, Hết hạn xanh dương; mã giao dịch có liên kết màu chủ đạo. Chưa kết nối ví, đang đọc số dư, chưa có lệnh là khối trống có biểu tượng; lỗi tải là khối thông báo đỏ; lỗi trong hộp mã một lần là khối thông báo đỏ. Một dòng bảng nằm ở `components/withdraw/withdraw-request-row.tsx`, hàm định dạng ở `components/withdraw/format.ts` (tách để kiểm bằng dữ liệu giả, không đổi logic).
 
 | Tên trên màn | Ý nghĩa | Nguồn dữ liệu | Dùng ở đâu / để làm gì |
 |---|---|---|---|
@@ -608,7 +609,7 @@ Không có mục menu, mở từ hộp "Token dự án điện gió" ở `/portf
 | Mục đích, Ghi chú | Bắt buộc tối đa 200 ký tự; tuỳ chọn tối đa 500 | `PaymentWithdrawRequest.purpose`, `note` | |
 | Hộp "Xác nhận mã một lần" | 6 chữ số; dòng "Ví nhận: <ví> (đã whitelist)" | Chỉ kiểm dạng; mã không lưu, không vào log, sổ kiểm toán hay câu lỗi | |
 | Dòng kết quả | "Đã rút X VNDB tới ví ..."; "Đã gửi, chờ xác nhận trên chuỗi; mở lại màn sau ít phút."; câu lỗi | Kết quả action | |
-| **Khối Hệ thống tính** | Số dư VNDB, Số rút, Số dư sau rút; "Phí gas do ví của bạn trả bằng ETH của mạng." (ẩn trên mock) | `paymentBalanceOf` lúc mở màn | Ảnh chụp lúc mở; máy chủ đọc lại khi tạo và khi gửi |
+| **Khối Hệ thống tính** | Số dư VNDB, Số rút; "Phí gas do ví của bạn trả bằng ETH của mạng." (ẩn trên mock); ô "Số dư sau rút" (VNDB) ở đáy thẻ | `paymentBalanceOf` lúc mở màn | Ảnh chụp lúc mở; máy chủ đọc lại khi tạo và khi gửi |
 | **Bảng Lệnh rút của tôi** | Mã, Thời điểm, Số tiền, Ví nhận, Trạng thái, Mã giao dịch (`completedTxHash` hoặc `submittedTxHash`, link explorer trên evm), Lý do, Thao tác | Bảng `PaymentWithdrawRequest` lọc theo chain và ví gửi | |
 
 **Luồng** (`lib/bank/payment-withdraw.service.ts`):

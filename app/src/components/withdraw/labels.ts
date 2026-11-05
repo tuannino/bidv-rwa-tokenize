@@ -10,3 +10,14 @@ export const PAYMENT_WITHDRAW_STATUS_LABELS: Record<PaymentWithdrawStatus, strin
   CANCELLED: 'Đã huỷ',
   EXPIRED: 'Hết hạn',
 };
+
+/** Sắc nhãn trạng thái lệnh rút (FE-UX-04d QĐ-6): đang dở `warn`, xong `ok`, hỏng `bad`, huỷ hoặc hết hạn `info`. */
+export const PAYMENT_WITHDRAW_STATUS_TONES: Record<PaymentWithdrawStatus, 'ok' | 'warn' | 'bad' | 'info'> = {
+  CREATED: 'warn',
+  SENDING: 'warn',
+  SUBMITTED: 'warn',
+  COMPLETED: 'ok',
+  FAILED: 'bad',
+  CANCELLED: 'info',
+  EXPIRED: 'info',
+};

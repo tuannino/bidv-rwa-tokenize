@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { CHAINS, explorerTxUrl } from '@bidv/shared';
-import { BadgeCheck, ExternalLink, Loader2, Wallet } from 'lucide-react';
+import { CHAINS } from '@bidv/shared';
+import { BadgeCheck, Flame, Gauge, Link2, ListChecks, Loader2, LockKeyhole, Send, Wallet } from 'lucide-react';
 import {
   beginPaymentSendAction,
   cancelPaymentWithdrawAction,
@@ -14,13 +14,19 @@ import {
   submitPaymentWithdrawTxAction,
 } from '@/app/actions/payment-withdraw';
 import { WalletNotBoundNotice } from '@/components/investor/wallet-not-bound-notice';
+import { Alert } from '@/components/ui/alert';
 import { AmountInput } from '@/components/ui/amount-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { fieldClass } from '@/components/ui/field';
+import { Kpi } from '@/components/ui/kpi';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { nf } from '@/components/withdraw/format';
 import { PAYMENT_WITHDRAW_STATUS_LABELS } from '@/components/withdraw/labels';
+import { WithdrawRequestRow } from '@/components/withdraw/withdraw-request-row';
 import type { PaymentWithdrawPageView, PaymentWithdrawView } from '@/lib/bank/payment-withdraw.service';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
@@ -35,20 +41,6 @@ import { isUserRejection } from '@/lib/wallet/switch-error';
  * gửi qua ví rồi báo mã; máy chủ chỉ chốt hoàn tất khi có bằng chứng trên chuỗi. Chain mock không có ví
  * trình duyệt: máy chủ chuyển thay, lệnh về "Hoàn tất" ngay.
  */
-
-const FIELD =
-  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted disabled:opacity-60';
-
-const short = (value: string) => `${value.slice(0, 10)}…${value.slice(-6)}`;
-
-const nf = (value: string | bigint | null | undefined) => {
-  if (value === null || value === undefined || value === '') return '-';
-  try {
-    return BigInt(value).toLocaleString('vi-VN');
-  } catch {
-    return String(value);
-  }
-};
 
 type Feedback = { tone: 'ok' | 'error'; message: string };
 
@@ -253,7 +245,7 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
 
   const header = (
     <header className="space-y-1">
-      <h1 className="text-xl font-semibold text-foreground">Rút VNDB</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Rút VNDB</h1>
     </header>
   );
 
@@ -261,18 +253,15 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
     return (
       <div className="space-y-6">
         {header}
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-            <Wallet className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium">Chưa kết nối ví</p>
-            <p className="text-xs text-muted-foreground">
-              Kết nối ví đã định danh để rút VNDB.{' '}
-              <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
-                Kết nối ví
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={<Wallet />}>
+          <p className="font-medium text-foreground">Chưa kết nối ví</p>
+          <p className="mt-1 text-xs">
+            Kết nối ví đã định danh để rút VNDB.{' '}
+            <Link prefetch={false} href="/wallet" className="text-primary underline-offset-4 hover:underline">
+              Kết nối ví
+            </Link>
+          </p>
+        </EmptyState>
       </div>
     );
   }
@@ -285,17 +274,17 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
       {fresh?.notBound ? (
         <WalletNotBoundNotice wallet={wallet} />
       ) : data === null && fresh?.error ? (
-        <p className="py-6 text-sm text-destructive">{fresh.error}</p>
+        <Alert tone="bad">{fresh.error}</Alert>
       ) : data === null ? (
-        <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Đang đọc số dư…
-        </div>
+        <EmptyState loading>Đang đọc số dư…</EmptyState>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Card>
+        <div className="grid gap-6 min-[1100px]:grid-cols-12">
+          <Card className="min-[1100px]:col-span-7">
             <CardHeader>
-              <CardTitle role="heading" aria-level={2} className="text-base">
+              <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <Send />
+                </CardTitleIcon>
                 Thông tin lệnh rút
               </CardTitle>
             </CardHeader>
@@ -309,28 +298,53 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                 }}
               >
                 <Field id="pw-amount" label="Số tiền rút (VNDB)">
-                  <AmountInput
-                    id="pw-amount"
-                    value={form.amount}
-                    onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
-                    className={`${FIELD} tabular-nums`}
-                  />
+                  <div className="relative">
+                    <AmountInput
+                      id="pw-amount"
+                      value={form.amount}
+                      onValueChange={(raw) => setForm((current) => ({ ...current, amount: raw }))}
+                      className={`${fieldClass} pr-16 tabular-nums`}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                    >
+                      VNDB
+                    </span>
+                  </div>
                 </Field>
                 {exceeds && (
-                  <p role="alert" className="text-sm font-medium text-destructive">
+                  <p role="alert" className="text-sm font-medium text-bad-ink">
                     Vượt số dư: chỉ rút được tối đa {nf(balance)} VNDB.
                   </p>
                 )}
                 <Field id="pw-network" label="Mạng">
-                  <input id="pw-network" readOnly value={chainLabel} className={FIELD} />
+                  <div className="relative">
+                    <Link2
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <input id="pw-network" readOnly value={chainLabel} className={`${fieldClass} pl-10 read-only:bg-muted`} />
+                  </div>
                 </Field>
                 <div className="space-y-1.5">
                   <label htmlFor="pw-from" className="text-sm font-medium">
                     Ví gửi
                   </label>
                   <div className="flex items-center gap-2">
-                    <input id="pw-from" readOnly value={wallet} className={`${FIELD} font-code`} />
-                    <Badge className="shrink-0 gap-1" data-wallet-bound="true">
+                    <div className="relative min-w-0 flex-1">
+                      <LockKeyhole
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                      />
+                      <input
+                        id="pw-from"
+                        readOnly
+                        value={wallet}
+                        className={`${fieldClass} pl-10 font-code read-only:bg-muted`}
+                      />
+                    </div>
+                    <Badge variant="ok" className="shrink-0 gap-1" data-wallet-bound="true">
                       <BadgeCheck className="h-3 w-3" aria-hidden="true" />
                       Đã định danh
                     </Badge>
@@ -344,20 +358,20 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                     placeholder="0x…"
                     spellCheck={false}
                     aria-invalid={toError !== null}
-                    className={`${FIELD} font-code`}
+                    className={`${fieldClass} font-code`}
                   />
                 </Field>
                 {toError && (
-                  <p role="alert" className="text-sm text-destructive">
+                  <p role="alert" className="text-sm text-bad-ink">
                     {toError}
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">Ví nhận phải đã whitelist trên chuỗi và khác ví gửi.</p>
                 <Field id="pw-purpose" label="Mục đích">
-                  <input id="pw-purpose" value={form.purpose} onChange={set('purpose')} className={FIELD} />
+                  <input id="pw-purpose" value={form.purpose} onChange={set('purpose')} className={fieldClass} />
                 </Field>
                 <Field id="pw-note" label="Ghi chú">
-                  <textarea id="pw-note" rows={2} value={form.note} onChange={set('note')} className={FIELD} />
+                  <textarea id="pw-note" rows={2} value={form.note} onChange={set('note')} className={fieldClass} />
                 </Field>
                 <Button type="submit" disabled={!canSubmit}>
                   {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
@@ -370,36 +384,54 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                   </p>
                 )}
                 {feedback && !dialogOpen && (
-                  <p
+                  <Alert
+                    tone={feedback.tone === 'error' ? 'bad' : 'ok'}
                     role={feedback.tone === 'error' ? 'alert' : 'status'}
                     aria-label="Kết quả rút VNDB"
-                    className={feedback.tone === 'error' ? 'break-all text-sm text-destructive' : 'break-all text-sm text-foreground'}
+                    className="break-all"
                   >
                     {feedback.message}
-                  </p>
+                  </Alert>
                 )}
               </form>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-[1100px]:col-span-5">
             <CardHeader>
-              <CardTitle role="heading" aria-level={2} className="text-base">
+              <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+                <CardTitleIcon>
+                  <Gauge />
+                </CardTitleIcon>
                 Hệ thống tính
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                <dt className="text-muted-foreground">Số dư VNDB</dt>
-                <dd className="text-right tabular-nums" data-testid="payment-balance">
-                  {nf(balance)}
-                </dd>
-                <dt className="text-muted-foreground">Số rút</dt>
-                <dd className="text-right tabular-nums">{amount !== null ? nf(amount) : '-'}</dd>
-                <dt className="font-medium">Số dư sau rút</dt>
-                <dd className="text-right tabular-nums font-semibold">{nf(after)}</dd>
+            <CardContent className="flex flex-1 flex-col">
+              <dl className="divide-y divide-border text-sm">
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="text-muted-foreground">Số dư VNDB</dt>
+                  <dd className="text-right tabular-nums" data-testid="payment-balance">
+                    {nf(balance)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="text-muted-foreground">Số rút</dt>
+                  <dd className="text-right tabular-nums">{amount !== null ? nf(amount) : '-'}</dd>
+                </div>
               </dl>
-              {!onMock && <p className="mt-3 text-xs text-muted-foreground">Phí gas do ví của bạn trả bằng ETH của mạng.</p>}
+              {!onMock && (
+                <p className="mt-3.5 flex items-start gap-2 text-xs text-muted-foreground">
+                  <Flame className="mt-px size-4 shrink-0" aria-hidden="true" />
+                  Phí gas do ví của bạn trả bằng ETH của mạng.
+                </p>
+              )}
+              <Kpi
+                tone="au"
+                label="Số dư sau rút"
+                value={nf(after)}
+                unit="VNDB"
+                className="mt-auto hover:transform-none! hover:shadow-none!"
+              />
             </CardContent>
           </Card>
         </div>
@@ -407,13 +439,16 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
 
       <Card>
         <CardHeader>
-          <CardTitle role="heading" aria-level={2} className="text-base">
+          <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+            <CardTitleIcon>
+              <ListChecks />
+            </CardTitleIcon>
             Lệnh rút của tôi
           </CardTitle>
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có lệnh rút VNDB nào của ví này trên chain này.</p>
+            <EmptyState>Chưa có lệnh rút VNDB nào của ví này trên chain này.</EmptyState>
           ) : (
             <Table aria-label="Lệnh rút của tôi">
               <TableHeader>
@@ -429,57 +464,16 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
-                  const txHash = r.completedTxHash ?? r.submittedTxHash;
-                  const url = txHash ? explorerTxUrl(chain, txHash) : null;
-                  return (
-                    <TableRow key={r.id} data-status={r.status}>
-                      <TableCell className="font-code text-xs" title={r.id}>
-                        {r.id.slice(0, 8)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{new Date(r.createdAt).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell className="text-right tabular-nums">{nf(r.amount)}</TableCell>
-                      <TableCell className="font-code text-xs" title={r.toWallet}>
-                        {short(r.toWallet)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{PAYMENT_WITHDRAW_STATUS_LABELS[r.status]}</Badge>
-                      </TableCell>
-                      <TableCell className="font-code text-xs">
-                        {txHash === null ? (
-                          ''
-                        ) : url ? (
-                          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
-                            {short(txHash)}
-                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                          </a>
-                        ) : (
-                          <span title={txHash}>{short(txHash)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-56 text-xs text-muted-foreground">{r.reason ?? ''}</TableCell>
-                      <TableCell>
-                        {r.status === 'CREATED' ? (
-                          <div className="flex gap-2">
-                            <Button type="button" size="sm" disabled={busy !== null} onClick={() => void sendRow(r)}>
-                              Gửi từ ví
-                            </Button>
-                            <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void cancelRow(r)}>
-                              Huỷ
-                            </Button>
-                          </div>
-                        ) : r.status === 'SENDING' ? (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Đang chờ ví ký hoặc kết quả trên chuỗi</p>
-                            <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void cancelRow(r)}>
-                              Huỷ
-                            </Button>
-                          </div>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {rows.map((r) => (
+                  <WithdrawRequestRow
+                    key={r.id}
+                    row={r}
+                    chain={chain}
+                    busy={busy !== null}
+                    onSend={() => sendRow(r)}
+                    onCancel={() => cancelRow(r)}
+                  />
+                ))}
               </TableBody>
             </Table>
           )}
@@ -506,17 +500,17 @@ export function InvestorWithdrawPage({ mockWallet }: { mockWallet: string | null
             maxLength={6}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-            className={`${FIELD} text-center font-code text-lg tracking-[0.5em]`}
+            className={`${fieldClass} text-center font-code text-lg tracking-[0.5em]`}
           />
           {!/^\d{6}$/.test(otp) && otp.length > 0 && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-bad-ink">
               Mã một lần phải đúng sáu chữ số.
             </p>
           )}
           {feedback?.tone === 'error' && dialogOpen && (
-            <p role="alert" className="text-sm text-destructive">
+            <Alert tone="bad" role="alert">
               {feedback.message}
-            </p>
+            </Alert>
           )}
           <DialogFooter>
             <Button type="button" disabled={!/^\d{6}$/.test(otp) || busy !== null} onClick={() => void confirm()}>

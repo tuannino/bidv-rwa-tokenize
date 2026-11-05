@@ -1,0 +1,71 @@
+# FE-UX-04d: Rút VNDB của Nhà đầu tư (`/withdraw`)
+
+| | |
+|---|---|
+| Nhánh | `feat/fe-ux-04d-rut-vndb` từ `release/ui-v2` @ `e914807` hoặc sau. Nếu PR khác (FE-UX-04b, 04c) merge vào `release/ui-v2` trong lúc làm: rebase lên head mới, chạy lại TOÀN BỘ kiểm thử mục 5 trên nhánh đã rebase và đo lại TOÀN BỘ mốc (JS, CSS, action, lỗi, `role`, ảnh trước) từ merge-base mới; checkpoint ghi merge-base đã dùng và log của lần chạy sau rebase |
+| PR | Một PR, **base `release/ui-v2`**, KHÔNG vào `dev`. Không tự merge |
+| Loại | Frontend thuần. Không `lib/`, `app/actions`, `app/api`, route `app/src/app/**`; không thêm gói npm; không sửa `components/ui/*`, `components/investor/*`, `components/trading/*`, `components/wallet/*`, `components/layout/*` (thiếu gì thì báo) |
+| Mức kiểm thử | **B**, phạm vi ở mục 5. Lệnh `evm` chạy TOÀN BỘ project Hardhat (không bộ Hardhat nào mở `/withdraw`; chạy để giữ chuẩn của đợt) |
+| Song song | Song song được với FE-UX-04b, 04c (khác tệp mã). Các PR cùng sửa `docs/USER_GUIDE.md`, `.kiro/task-status.json`: PR merge sau tự gộp, mỗi mã ở đúng một danh sách. Tệp tạm của lệnh kiểm dùng tên riêng (tasks bước 6) |
+| Nguồn | Kế hoạch 03/11; `docs/20261101_UI_UX_BAN_GIAO_SUPERVISOR.md` mục 4.4, 6, 7.1, 8; bản chốt `withdraw.html`, `assets/c.css`; `notes/withdraw.md` |
+| Thứ tự ưu tiên khi nguồn xung đột | Spec này, rồi kế hoạch 03/11, rồi mã `release/ui-v2` @ `e914807`, rồi tài liệu bàn giao, `docs/USER_GUIDE.md` và notes, cuối cùng là bản xem thử |
+
+## 1. Mục tiêu
+
+Vẽ lại `/withdraw` theo bản chốt bằng thành phần dùng chung (`Card`, `CardTitleIcon`, `Kpi`, `Alert`, `EmptyState`, `Badge` sắc, `fieldClass`). Không đổi câu chữ (trừ hai chữ "VNDB" thêm ở QĐ-4: hậu tố trang trí của ô Số tiền rút và đơn vị của ô Số dư sau rút), trường, thứ tự trường, cột, nút, điều kiện khoá, luồng tạo lệnh, mã một lần, gửi qua ví, huỷ, lời gọi server action, số action khi mở màn.
+
+Không làm: câu phụ dưới tiêu đề (test cấm: `uiux-02-dau-man.test.ts:203`, `:261-264`; `uiux-02-dau-man.spec.ts:161`); ô chọn token (test `uiux-02-dau-man.test.ts:94` cấm); bảng thành thẻ ở màn nhỏ (bản chốt có; giữ bảng cuộn ngang); biểu tượng trang trí trên nút; biểu tượng đầu dòng của `dl` và biểu tượng trong ô `Kpi` (bản chốt có; trần JS và ô số liệu không biểu tượng như 03b); thẻ Lệnh rút của tôi dùng `ListChecks` thay biểu tượng lịch sử của bản chốt (`History` đã dùng ở Tổng quan nhà đầu tư với nghĩa giao dịch gần đây); hiệu ứng nổi khi rê chuột của `Kpi` (FE-UX-08); màn Rút VNDB của Người bán (`seller-withdraw.tsx`, FE-UX-05).
+
+## 2. Quyết định (QĐ)
+
+- **QĐ-1. Không đổi logic.** Giữ nguyên trong `investor-withdraw.tsx`: mọi `useState`, effect (điều kiện, mảng phụ thuộc, `cancelled`), `requestKey`, `fresh`, `sameScope`, `data`, `reload`; `balance`, `amount`, `exceeds`, `after`, `canSubmit`; `set`, `provider`, `openConfirm`, `sendFromWallet`, `confirm`, `sendRow`, `cancelRow`; `settledMessage`; các nhánh `!wallet`, `notBound`, lỗi, đang tải và thứ tự của chúng; mọi `disabled` (nút Tạo lệnh rút `!canSubmit`; nút trong dòng `busy !== null`; nút Xác nhận `!/^\d{6}$/.test(otp) || busy !== null`); điều kiện hiện câu lỗi, `busy`, `feedback` (ngoài hộp khi `!dialogOpen`, trong hộp khi lỗi và `dialogOpen`), câu phí gas (`!onMock`), câu ký ví trong hộp (`!onMock`). Diff chỉ là vỏ JSX, `className`, thay khối tự viết bằng thành phần dùng chung có cùng chữ và thuộc tính, và việc dời ở QĐ-5.
+- **QĐ-2. Số action khi mở màn giữ nguyên: 1** (`getPaymentWithdrawPageAction`; chain mock dùng ví hồ sơ). Trong mã `investor-withdraw.tsx`: 1 `getPaymentWithdrawPageAction(`, 1 `checkPaymentWithdrawTargetAction(`, 1 `createPaymentWithdrawAction(`, 1 `beginPaymentSendAction(`, 1 `submitPaymentWithdrawTxAction(`, 2 `cancelPaymentWithdrawAction(`, 1 `useEffect(`; tệp mới ở QĐ-5 không có `Action(`, `useEffect(`, `useState(` (unit nhóm 1). Số 1 khi mở đo lúc chạy bằng e2e ca 4.
+- **QĐ-3. Bố cục.** Đầu màn chỉ `h1` "Rút VNDB" (`text-2xl font-semibold tracking-tight`), cả ở nhánh chưa kết nối. Lưới 12 cột từ 1100 px, dưới đó một cột: thẻ Thông tin lệnh rút `min-[1100px]:col-span-7`, thẻ Hệ thống tính `min-[1100px]:col-span-5`; thẻ Lệnh rút của tôi rộng hết dưới lưới. Mọi `col-span` kèm tiền tố `min-[1100px]:`.
+- **QĐ-4. Hai thẻ trên:**
+  - Thông tin lệnh rút: `CardTitle` giữ `role="heading" aria-level={2}`, thêm `CardTitleIcon` `Send` trong `CardTitle`; `form` giữ `aria-label="Biểu mẫu rút VNDB"`, `onSubmit`; mọi ô giữ `id`, nhãn, `value`, `onChange`, `readOnly`, `placeholder`, `spellCheck`, `aria-invalid`, thứ tự; lớp `fieldClass` (ô chỉ đọc thêm `read-only:bg-muted`; ô ví thêm `font-code`); `FIELD` xoá. Trang trí trong khung ô (`aria-hidden`, `pointer-events-none`, không đổi nhãn): ô Số tiền rút hậu tố chữ "VNDB" bên phải; ô Mạng biểu tượng `Link2` bên trái; ô Ví gửi biểu tượng `LockKeyhole` bên trái. Nhãn "Đã định danh" thành `Badge variant="ok"`, giữ `data-wallet-bound="true"` và `BadgeCheck`. Câu "Vượt số dư…", lỗi ví nhận giữ `role="alert"`, màu `text-bad-ink`. Dòng `busy` giữ `role="status"`. Kết quả `feedback` ngoài hộp thành `Alert` (`bad` khi lỗi, `ok` khi thành công) GIỮ `role` theo `tone`, `aria-label="Kết quả rút VNDB"`, lớp `break-all`.
+  - Hệ thống tính: `CardTitle` giữ heading, `CardTitleIcon` `Gauge`; `dl` hai dòng Số dư VNDB (giữ `data-testid="payment-balance"`), Số rút, kẻ ngăn; dòng thứ ba "Số dư sau rút" thành `Kpi tone="au"`; thứ tự trong thẻ như bản chốt: `dl`, câu phí gas, rồi `Kpi` dính đáy thẻ: thẻ Hệ thống tính dùng `<CardContent className="flex flex-1 flex-col">` (thiếu `flex-1` thì nội dung không chiếm phần cao còn lại và `mt-auto` vô tác dụng) và `Kpi` có `mt-auto`; `label` "Số dư sau rút", `value` `nf(after)`, `unit` "VNDB" (cùng hậu tố ô Số tiền rút là hai chữ duy nhất được thêm; số không đổi); `Kpi` đặt lớp `hover:transform-none! hover:shadow-none!` để bỏ hiệu ứng nổi của `lift` (`globals.css:228-236`: `lift` dùng `transform: translateY(-3px)` và `box-shadow` trong `@media (hover: hover)`; `translate-y-0` chỉ đặt thuộc tính `translate` riêng nên KHÔNG ghi đè được; dấu `!` để thắng thứ tự lớp), hiệu ứng để FE-UX-08; câu phí gas giữ chữ, điều kiện, thêm biểu tượng `Flame` `aria-hidden`, đặt ngay sau `dl` (đổi chỗ với dòng Số dư sau rút trong DOM là chủ ý, theo bản chốt).
+- **QĐ-5. Tách dòng lệnh rút (commit riêng, dời NGUYÊN VĂN).** Trạng thái `CREATED`, `SENDING`, có mã giao dịch trên chain có explorer chỉ có trên chain thật, không dựng được trên mock. Dời thân `rows.map` (`investor-withdraw.tsx:433-480`, từ `const txHash` tới `</TableRow>`) thành `WithdrawRequestRow` ở tệp mới `components/withdraw/withdraw-request-row.tsx`, nhận `row`, `chain`, `busy`, `onSend`, `onCancel`. Các phép sửa được phép, ngoài ra không gì khác: `r` thành `row`; `void sendRow(r)` thành `void onSend()`; `void cancelRow(r)` thành `void onCancel()`; `busy !== null` thành `busy`; XOÁ `key={r.id}` ở `:436` (khoá ở lại chỗ gọi trong `rows.map`); thêm `);` đóng `return` (`:481`) và vỏ hàm, import. Trang truyền `key={r.id}`, `busy={busy !== null}`, `onSend={() => sendRow(r)}`, `onCancel={() => cancelRow(r)}`. Hàm `short` (`:42`) và `nf` (`:44-51`) dời nguyên văn sang `components/withdraw/format.ts`, chỉ thêm `export`. Sau khi dời: tệp dòng nhập `short`, `nf`; trang chỉ nhập `nf` (`short` chỉ dùng trong dòng) và bỏ các import không còn dùng (`explorerTxUrl`, `ExternalLink`, `TableCell` và bất kỳ import nào khác hết chỗ dùng). Checkpoint dán đoạn trước và sau. Commit sau mới đổi kiểu.
+- **QĐ-5b. Ranh giới máy chủ, trình duyệt:** `PaymentWithdrawView` nằm ở `lib/bank/payment-withdraw.service.ts` (có `import 'server-only'`). Tệp mới và trang chỉ nhập KIỂU: `import type { PaymentWithdrawView } from '@/lib/bank/payment-withdraw.service';` (trang đang làm vậy ở `:24`). Không nhập giá trị nào từ tệp này vào thành phần trình duyệt (unit nhóm 1 kiểm).
+- **QĐ-6. Thẻ Lệnh rút của tôi và dòng lệnh:** `CardTitle` giữ heading, `CardTitleIcon` `ListChecks`; bảng giữ `aria-label="Lệnh rút của tôi"`, 8 cột đúng thứ tự; rỗng thành `EmptyState` giữ chữ. Trong `WithdrawRequestRow`: giữ `data-status`, `title`, chữ, các nút và điều kiện; nhãn trạng thái `Badge variant={PAYMENT_WITHDRAW_STATUS_TONES[row.status]}` với bảng sắc MỚI trong `components/withdraw/labels.ts` (kiểu `Record<PaymentWithdrawStatus, 'ok' | 'warn' | 'bad' | 'info'>`: `CREATED`, `SENDING`, `SUBMITTED` `warn`; `COMPLETED` `ok`; `FAILED` `bad`; `CANCELLED`, `EXPIRED` `info`); liên kết mã giao dịch chữ `primary`.
+- **QĐ-7. Nhánh trạng thái và hộp mã:** chưa kết nối: `h1` rồi `EmptyState` biểu tượng `Wallet`, giữ "Chưa kết nối ví", câu và liên kết "Kết nối ví" (`prefetch={false}`); `WalletNotBoundNotice` giữ; lỗi tải thành `Alert bad` KHÔNG `role`; "Đang đọc số dư…" thành `EmptyState loading`. Hộp "Xác nhận mã một lần": giữ `DialogTitle`, `DialogDescription`, `data-testid="otp-payment-target"`, câu ký ví, ô mã (`aria-label`, `inputMode`, `autoComplete`, `maxLength`, `onChange`), lớp `fieldClass` cộng `text-center font-code text-lg tracking-[0.5em]`; câu "Mã một lần phải đúng sáu chữ số." giữ là `p role="alert"`, màu `text-bad-ink`; lỗi `feedback` trong hộp (`:516-520`) thành `Alert bad` giữ `role="alert"`; nút Xác nhận giữ.
+- **QĐ-8. Mốc test phải giữ** (không sửa `app/test/**`, e2e có sẵn):
+  - `investor-withdraw.spec.ts:43-66` (`form` "Biểu mẫu rút VNDB" và ô "Ví gửi" có giá trị ví; `payment-balance`; ô "Số tiền rút (VNDB)", "Ví nhận", "Mục đích"; nút "Tạo lệnh rút"; `dialog` có `otp-payment-target` chứa "{ví} (đã whitelist)", ô "Mã một lần", nút "Xác nhận" khoá khi 5 số; `getByLabel('Kết quả rút VNDB')` chứa "Đã rút 1 VNDB tới ví …"; bảng "Lệnh rút của tôi" dòng đầu `data-status="COMPLETED"`, chữ "Hoàn tất").
+  - Lưu ý `getByLabel('Số tiền rút (VNDB)')`, `getByLabel('Ví nhận')` gọi ở cấp trang chế độ strict: hậu tố, biểu tượng trang trí không được là `label` hay có `aria-label` trùng.
+  - `uiux-02-dau-man.test.ts:94`, `:203`, `:261-264`; `uiux-02-dau-man.spec.ts:161`, `:226-233` (đúng một `h1` trong `main`).
+- **QĐ-9. Hiệu năng:** JS gzip `/withdraw` không tăng quá 3 KB (theo byte so bản build mốc riêng); các trang đo khác không tăng; CSS gzip không tăng quá 2 KB. `metrics.json` của `/withdraw` ba số lỗi bằng 0; đường dẫn khác không tăng so với mốc.
+
+## 3. Phạm vi tệp (danh sách trắng)
+
+| Được sửa | Ghi chú |
+|---|---|
+| `app/src/components/pages/investor-withdraw.tsx` | QĐ-1 đến QĐ-7 |
+| `app/src/components/withdraw/withdraw-request-row.tsx`, `format.ts` (mới), `labels.ts` | QĐ-5, QĐ-6 |
+| `app/e2e/fe-ux-04d-rut-vndb.spec.ts`, `app/test/fe-ux-04d.test.ts` (mới) | Design mục 3 |
+| `docs/tech-report.md` | CHỈ khi số dòng marker dời, chỉ đổi khối tự sinh bằng `node scripts/scan-pending.mjs --write-report` |
+| `docs/fe-ux-04d-rut-vndb/{requirements,design,tasks}.md`, `docs/CHECKPOINT_FEUX04D.md` (và `_DETAIL.md` nếu quá 800 dòng), `docs/USER_GUIDE.md`, `.kiro/task-status.json` | Theo quy ước repo |
+
+Cấm mọi tệp khác (xem dòng Loại), gồm `globals.css`, `app/src/app/**`, `lib/**`, `app/test/**` có sẵn, e2e có sẵn, `package*.json`.
+
+## 4. Điều kiện hoàn thành
+
+- [ ] Màn đúng bố cục bản chốt trừ mục 1 "Không làm"; bảng đối chiếu từng dòng `notes/withdraw.md` trong checkpoint (dòng nào bỏ thì ghi lý do).
+- [ ] Bố cục, thành phần đúng QĐ-3, QĐ-4, QĐ-6, QĐ-7.
+- [ ] `WithdrawRequestRow`, `short`, `nf` dời đúng QĐ-5 (chỉ các phép thay được phép), commit riêng; checkpoint dán đoạn trước và sau.
+- [ ] Không còn `amber-*`, `*-destructive`, `FIELD` trong các tệp phạm vi.
+- [ ] Không đổi chữ ngoài hai chữ "VNDB" thêm ở QĐ-4 (hậu tố ô Số tiền rút, đơn vị ô Số dư sau rút) (tasks bước 6d rỗng hoặc chỉ mảnh do tách phần tử, giải thích từng dòng).
+- [ ] Diff giữ logic (QĐ-1, QĐ-2); checkpoint liệt kê từng đoạn đổi nằm gần hook, handler, điều kiện khoá, kèm lý do an toàn.
+- [ ] Số action khi mở `/withdraw` đúng 1 (e2e ca 4) và không đổi ở 28 đường dẫn; JS, CSS trong trần QĐ-9; ba số lỗi của `/withdraw` bằng 0.
+- [ ] Mốc test QĐ-8 giữ nguyên; không sửa test có sẵn.
+- [ ] Ảnh 1440 và 390, Sáng và Tối, trước và sau, vai Nhà đầu tư, mỗi lượt một tiến trình mock MỚI khởi động: `npx next start --port <cổng>` với ĐỦ biến của `webServer.env` trong `playwright.config.ts:93-110` (trước từ bản build mốc, sau từ bản build nhánh; không dùng lại máy chủ đã chạy test, script đo hay chụp lượt trước). Công thức: `E2E_BASE_URL=http://localhost:<cổng> npx playwright test e2e/investor-withdraw.spec.ts` (định danh ví, nạp 1.000 VNDB, rút 1 VNDB tới "Hoàn tất"), rồi chụp (a) `/withdraw` vừa mở; (b) nhập số tiền vượt số dư; (c) nhập đủ hợp lệ tới ví NB001, bấm "Tạo lệnh rút", chụp hộp mã một lần. Script chụp ngoài repo, không commit.
+- [ ] Trạng thái không dựng được trên mock (dòng `CREATED`, `SENDING`, `SUBMITTED`, `CANCELLED` có lý do, có mã giao dịch trên chain có và không có explorer, `busy`): unit test (design mục 3) và ảnh dựng ngoài repo bằng `renderToStaticMarkup` cộng CSS bản build, `page.setContent`, bảng trong `table` như trang (Sáng, Tối, 1440, 390).
+- [ ] `fe-ux-04d-rut-vndb.spec.ts` (project mock) đủ 4 ca và `fe-ux-04d.test.ts` đủ 3 nhóm (design mục 3), xanh.
+- [ ] Kiểm thử đúng mục 5, đạt, kèm log; log có mục "EVM - E2E PROJECT HARDHAT" xanh.
+- [ ] Lệnh danh sách trắng, màu cứng, ký tự cấm (tasks bước 6) đúng kỳ vọng.
+- [ ] Không mã dư thừa: hằng, hàm, import, lớp không còn dùng xoá hẳn.
+
+## 5. Phạm vi kiểm thử
+
+| Ai | Chạy | Không chạy |
+|---|---|---|
+| Dev | `bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm` một lần, khi cổng e2e trống, lưu log; đo bằng `tools/20261104_do_moc_measure.js` (gửi kèm, sha256 `6079a0d679000d4c2bbe559d5a3eb90d362bb018243d45c0888f2fad26cdae1c`; `JS_PAGES=/,/portfolio,/trade,/approvals,/withdraw`), JS `/withdraw` theo byte so bản mốc build riêng, CSS theo cách 01c. Gửi riêng đoạn log từ "EVM - E2E PROJECT HARDHAT" tới hết | `contracts` |
+| Supervisor | Đọc diff, đối chiếu commit dời; build; chạy `fe-ux-04d-rut-vndb`, `investor-withdraw`, `uiux-02-dau-man` (e2e và unit), unit test mới; gây lỗi có chủ đích 4 điểm (trong `WithdrawRequestRow` bỏ `disabled={busy}` của nút "Gửi từ ví"; bỏ `role="alert"` của câu "Vượt số dư"; đổi `aria-label="Kết quả rút VNDB"` thành chữ khác; thêm một lời gọi `getPaymentWithdrawPageAction(` vào trang); xem ảnh | Full suite |
