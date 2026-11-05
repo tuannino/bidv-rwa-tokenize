@@ -27,13 +27,13 @@ export function PaymentWalletContent({ state }: { state: AccountWalletState | nu
     );
   }
   if (!state.result) return <span className="text-muted-foreground">Đang đọc…</span>;
-  if (!state.result.ok) return <span className="text-destructive">{state.result.error}</span>;
+  if (!state.result.ok) return <span className="text-bad-ink">{state.result.error}</span>;
   const { wallet, bound } = state.result.data;
   if (!wallet) return <span className="text-muted-foreground">Chưa kết nối ví.</span>;
   return (
     <span className="flex flex-wrap items-center gap-2">
       <span className="break-all font-code text-xs" data-payment-wallet>{wallet}</span>
-      <Badge variant={bound ? 'default' : 'destructive'} data-wallet-bound={bound}>
+      <Badge variant={bound ? 'ok' : 'bad'} data-wallet-bound={bound}>
         {bound ? 'Đã định danh' : 'Ví chưa được định danh'}
       </Badge>
     </span>
