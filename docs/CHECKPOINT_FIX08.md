@@ -32,7 +32,7 @@
 
 **Kết luận:** 14 ✅, 0 🔶, 0 ❌. Quy tắc cũ sáng hai mục ở đúng hai chỗ: `SELLER /seller/transactions`, `SELLER /seller/withdraw`
 (khoá cứng trong unit nhóm 2); mọi chỗ khác của 28 trang, bốn vai, kết quả mới giống hệt cũ. JS gzip mọi trang +84 B (trần
-200 B), so chunk: chỉ module thanh bên trong chunk khung dùng chung đổi. CSS __CSS_KET_LUAN__. Action khớp 28/28; `hydration`,
+200 B), so chunk: chỉ module thanh bên trong chunk khung dùng chung đổi. CSS 19.237 B, giống bản mốc từng byte. Action khớp 28/28; `hydration`,
 `consoleErrors`, `pageErrors` 0 ở mọi đường dẫn cả mốc lẫn sau. Bốn điểm gây lỗi của Supervisor đều làm unit đỏ (mục 1.3).
 Mức rủi ro: thấp (khung dùng chung, nhưng chỉ đổi cách chọn mục sáng và chữ; menu, điều hướng, quyền không đổi).
 
@@ -50,7 +50,54 @@ marker nào dời dòng: các tệp sửa không có `@pending`, `@blocked`, `@f
 
 ### 1.1 Lệnh và kết quả
 
-__DIEN_1_1__
+`FIX-08` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
+bật, trên HEAD `d6b0c4c` (mã `app/src`, `app/test`, `app/e2e` bằng `0921351`), 18:24:44Z đến 18:35:19Z (05/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  PASS: 20   FAIL: 0   WARN: 3
+  => PASS có cảnh báo: luật kiến trúc
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FIX-08, docs/CHECKPOINT_FIX08.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1784 passed | 74 skipped (1858)
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+  163 passed, 7 skipped (6.3m)
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+  26 passed, 2 skipped (46.4s)
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Vitest 1784 bằng mốc 1765 (sau FE-UX-06b) cộng 19 ca `fix-08.test.ts`; e2e mock 163 bằng 160 cộng 3 ca
+`fix-08-thanh-ben.spec.ts`; WARN 3 của luật kiến trúc như mốc. Log gửi kèm (không commit): `20261105_fix08_run_local_all.log`
+(dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết:
+`20261105_fix08_evm_e2e.log`. Không chạy `contracts`.
+
+Lượt chạy đầu (cùng mã, ngay trước lượt trên) **đỏ ở APP - VITEST**: 65 ca của các tệp cần Postgres (`store-constraints`,
+`mock-ledger-state-store`, `op07-chain-scope`…) báo `connect ECONNREFUSED 127.0.0.1:5432` vì máy chủ Postgres đã tắt (container
+khởi động lại trong lúc chờ); mọi phần khác của lượt đó đạt (e2e mock 163, Hardhat 26). Bật lại Postgres rồi chạy lại cả bộ:
+lượt trên. Log lượt đầu gửi kèm: `20261105_fix08_run_local_all_lan1_postgres_tat.log`.
+
+Sau khi viết xong checkpoint (tasks bước 8), chạy lại phần `checkpoint` với `.kiro/task-status.json` như ở HEAD lúc đó (FIX-08
+còn ở `inProgress`, để script thật sự kiểm, không "bỏ qua"):
+
+```text
+$ bash scripts/run-local-all.sh checkpoint
+########## LỚP 3 - KHUÔN CHECKPOINT ##########
+ĐẠT     FIX-08, docs/CHECKPOINT_FIX08.md
+  mục 0: 34/60 dòng, bảng đối chiếu 14 dòng / 14 điều kiện, 14 ✅ 0 🔶 0 ❌, cả tệp 304/800 dòng
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => ĐẠT các phần đã chạy: checkpoint
+```
+
+(Dấu chấm giữa máy in giữa các ý đổi thành dấu phẩy.)
 
 Ngoài bộ trên, trên bản build `882fe95` (máy chủ mới cổng 3600): `fix-08-thanh-ben` (project mock) 3 ca đạt; rồi
 `fix-08-thanh-ben`, `investor-channel`, `fe-ux-01b-khung`, `uiux-02-dau-man`, `chain-selector` (project mock) 40 ca đạt;
@@ -156,7 +203,7 @@ Tiến trình đo khác tiến trình chụp ảnh. JS theo byte: script riêng 
 | Số action khi mở màn | 28 đường dẫn | Khớp 28/28 | không đổi |
 | `hydration`, `consoleErrors`, `pageErrors` | 0 ở cả 28 đường dẫn | 0 ở cả 28 đường dẫn | 0 |
 | JS gzip (công cụ) `/`; `/portfolio`; `/trade`; `/approvals`; `/seller`; `/seller/withdraw` | 558,3; 456,8; 480,0; 455,2; 457,1; 467,5 KB | 558,3; 456,9; 480,1; 455,3; 457,1; 467,6 KB | +200 B |
-| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.237 B | __CSS_SAU__ | không tăng |
+| CSS gzip (`.next/static/chunks/*.css`, 1 tệp, gzip mức 9) | 19.237 B | 19.237 B (bản build `0921351`, giống mốc từng byte) | không tăng |
 
 JS gzip theo byte (mốc lượt đầu; mốc build riêng build lại `763cd51` sau bản cuối, cùng phiên, `NEXT_DIST_DIR=.next-moc`, gỡ
 tạm `active-nav.ts`, đã xoá thư mục; sau; chênh so mốc lượt đầu):
@@ -226,7 +273,31 @@ các lựa chọn trong `notes.json`):
 ## 6. Lệnh kiểm (tasks bước 6, `LC_ALL=C`)
 
 ```text
-__LENH_KIEM__
+FIX-08 tasks bước 6, HEAD d6b0c4c, base origin/release/ui-v2 763cd51
+== 6a
+1
+4
+4
+-      /Nhà đầu tư <chấm giữa> NDT001/,
+-      /Người bán <chấm giữa> NB001/,
+-      /Giao dịch viên <chấm giữa> GDV001/,
+-      /Kiểm soát viên <chấm giữa> KSV001/,
++      /Nhà đầu tư \(NDT001\)/,
++      /Người bán \(NB001\)/,
++      /Giao dịch viên \(GDV001\)/,
++      /Kiểm soát viên \(KSV001\)/,
+== 6b
+== 6c
+== 6d
+/Giao dịch viên <chấm giữa> GDV001/,
+/Kiểm soát viên <chấm giữa> KSV001/,
+/Người bán <chấm giữa> NB001/,
+/Nhà đầu tư <chấm giữa> NDT001/,
+Chọn vai trò đang giả lập <gạch dài> chỉ dùng để demo, không phải xác thực thật
+Sắp có <gạch dài> chưa mở trong phiên bản này
+<gạch dài> chưa dùng được
+== 6e
+== hết
 ```
 
 ("<chấm giữa>", "<gạch dài>" thay cho U+00B7, U+2014 lệnh in ra.) 6a: hai lệnh đầu rỗng; `investor-channel.spec.ts` đúng 1
