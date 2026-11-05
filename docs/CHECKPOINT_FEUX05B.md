@@ -52,7 +52,40 @@ UserGuide: "Chốt tại"; 3.3.2 thêm "Bố cục (FE-UX-05b)"; bảng trườn
 
 ### 1.1 Lệnh và kết quả
 
-KẾT_QUẢ_BỘ_KIỂM
+`FE-UX-05b` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres
+bật, trên HEAD `2131c18` (mã `app/src` bằng `e468f17`), 06:54:38Z đến 07:03:21Z (05/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  => PASS có cảnh báo: luật kiến trúc          # PASS 20, FAIL 0, WARN 3 (như mốc)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FE-UX-05b, docs/CHECKPOINT_FEUX05B.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+      Tests  1693 passed | 74 skipped (1767)   # mốc 1650 + 43 ca mới của fe-ux-05b.test.ts
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+FE-UX-05b role counts INVESTOR: {"status":0,"note":0,"alert":0}
+FE-UX-05b role counts SELLER: {"status":0,"note":0,"alert":0}
+FE-UX-05b role counts TELLER: {"status":0,"note":0,"alert":0}
+      147 passed, 7 skipped (4.8m)            # project mock đầy đủ: 143 ca cũ + 4 ca mới
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+      26 passed, 2 skipped (43.3s)            # toàn bộ project Hardhat
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Log gửi kèm (không commit): `20261105_feux05b_run_local_all.log` (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã
+che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết: `20261105_feux05b_evm_e2e.log`. Không chạy `contracts`.
+Dòng `RpcRequestError` trong phần vitest là log của ca kiểm đường đọc dự phòng của indexer (có từ trước), ca đó đạt.
+
+Ngoài bộ trên: bước 3 (tasks) chạy `account-info`, `fix-04-noi-du-lieu-that` trên bản build riêng của commit dời
+`f015f9e` (máy chủ mới): 16 ca đạt. Bước 4, 7 chạy `fe-ux-05b-tai-khoan`, `account-info`, `fix-04-noi-du-lieu-that`,
+`uiux-02-dau-man` trên bản build `e468f17`: 27 ca đạt.
 
 ### 1.2 e2e mới `app/e2e/fe-ux-05b-tai-khoan.spec.ts` (project mock; không đổi dữ liệu; vai đặt bằng cookie)
 
