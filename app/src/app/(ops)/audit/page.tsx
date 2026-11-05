@@ -1,5 +1,8 @@
 import { AppLayout } from '@/components/layout/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollText } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle, CardTitleIcon } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { listAuditLog } from '@/lib/bank/audit.service';
 import { HoverHint } from '@/components/layout/hover-hint';
 import { AuditTable } from '@/components/audit/audit-table';
@@ -16,21 +19,26 @@ export default async function AuditPage() {
       <div className="space-y-6">
         <header className="space-y-1">
           <HoverHint hint="Xem lịch sử mọi thao tác và lần kiểm quyền trong hệ thống." side="bottom">
-            <h1 className="text-xl font-semibold">Sổ kiểm toán</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Sổ kiểm toán</h1>
           </HoverHint>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bản ghi gần nhất</CardTitle>
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2.5 text-base">
+              <CardTitleIcon>
+                <ScrollText />
+              </CardTitleIcon>
+              Bản ghi gần nhất
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {!result.ok ? (
-              <p className="text-sm text-destructive">{result.error}</p>
+              <Alert tone="bad">{result.error}</Alert>
             ) : result.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <EmptyState icon={<ScrollText />}>
                 Chưa có bản ghi. Thử phát hành token ở trang /mint rồi quay lại.
-              </p>
+              </EmptyState>
             ) : (
               <AuditTable entries={result.data} />
             )}

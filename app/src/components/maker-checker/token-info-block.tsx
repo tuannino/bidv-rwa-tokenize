@@ -42,7 +42,7 @@ export function TokenInfoBlock({
             Nhập mã hoặc ký hiệu token, hệ thống tự đổ thông tin.
           </p>
         ) : (
-          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <dl className="grid gap-y-2 text-sm">
             <Item label="Dự án">{info.projectName}</Item>
             <Item label="Hợp đồng" mono>
               {info.contractAddress ?? 'chưa ghi trong bảng dự án'}
@@ -86,7 +86,7 @@ function Item({
   return (
     <div className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border/60 py-1">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={mono ? 'truncate text-right font-code' : 'truncate text-right'} title={typeof children === 'string' ? children : undefined}>
+      <dd className={mono ? 'min-w-0 text-right font-code [overflow-wrap:anywhere]' : 'min-w-0 text-right [overflow-wrap:anywhere]'} title={typeof children === 'string' ? children : undefined}>
         {children}
       </dd>
     </div>

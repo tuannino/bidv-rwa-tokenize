@@ -9,6 +9,16 @@ import {
 } from '@/components/ui/table';
 import type { AuditRecord } from '@/lib/store/store.port';
 
+type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
+
+/** FE-UX-06b QĐ-5: sắc nhãn kết quả kiểm toán, chữ nhãn giữ mã kết quả. */
+const OUTCOME_TONES: Record<AuditRecord['outcome'], BadgeVariant> = {
+  ALLOWED: 'ok',
+  SUCCESS: 'ok',
+  DENIED: 'bad',
+  FAILURE: 'bad',
+};
+
 /** Bảng Sổ kiểm toán (FE-UX-06b QĐ-2: dời nguyên văn từ `app/(ops)/audit/page.tsx`). */
 export function AuditTable({ entries }: { entries: AuditRecord[] }) {
   return (
@@ -32,21 +42,16 @@ export function AuditTable({ entries }: { entries: AuditRecord[] }) {
             <TableCell className="text-xs">{entry.actorRole}</TableCell>
             <TableCell className="font-code text-xs">{entry.action}</TableCell>
             <TableCell className="font-code text-xs">
-              {entry.target ? `${entry.target.slice(0, 10)}…` : '—'}
+              {entry.target ? `${entry.target.slice(0, 10)}…` : '–'}
             </TableCell>
             <TableCell>
-              <Badge
-                variant={
-                  entry.outcome === 'SUCCESS' || entry.outcome === 'ALLOWED'
-                    ? 'default'
-                    : 'destructive'
-                }
-              >
-                {entry.outcome}
-              </Badge>
+              <Badge variant={OUTCOME_TONES[entry.outcome]}>{entry.outcome}</Badge>
             </TableCell>
-            <TableCell className="max-w-[28rem] truncate text-xs text-muted-foreground">
-              {entry.detail ?? '—'}
+            <TableCell
+              className="max-w-[28rem] truncate text-xs text-muted-foreground"
+              title={entry.detail ?? undefined}
+            >
+              {entry.detail ?? '–'}
             </TableCell>
           </TableRow>
         ))}

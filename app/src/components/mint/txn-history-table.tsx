@@ -3,6 +3,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { TxnView } from '@/lib/bank/mint.service';
 import { operationLabel } from '@/lib/txn-labels';
 
+type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>['variant']>;
+
+/** FE-UX-06b QĐ-5: sắc nhãn trạng thái giao dịch, chữ nhãn giữ mã trạng thái. */
+const TXN_STATUS_TONES: Record<TxnView['status'], BadgeVariant> = { CONFIRMED: 'ok', FAILED: 'bad', PENDING: 'warn' };
+
 /** Bảng lịch sử giao dịch của `/mint` (FE-UX-06b QĐ-2: dời nguyên văn từ `components/pages/mint.tsx`). */
 export function TxnHistoryTable({ txns }: { txns: TxnView[] }) {
   return (
@@ -25,21 +30,11 @@ export function TxnHistoryTable({ txns }: { txns: TxnView[] }) {
             </TableCell>
             <TableCell className="font-medium">{operationLabel(txn.operation)}</TableCell>
             <TableCell className="font-code text-xs">
-              {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '—'}
+              {txn.toWallet ? `${txn.toWallet.slice(0, 10)}…${txn.toWallet.slice(-4)}` : '–'}
             </TableCell>
-            <TableCell className="text-right tabular-nums">{txn.amount ?? '—'}</TableCell>
+            <TableCell className="text-right tabular-nums">{txn.amount ?? '–'}</TableCell>
             <TableCell>
-              <Badge
-                variant={
-                  txn.status === 'CONFIRMED'
-                    ? 'default'
-                    : txn.status === 'FAILED'
-                      ? 'destructive'
-                      : 'secondary'
-                }
-              >
-                {txn.status}
-              </Badge>
+              <Badge variant={TXN_STATUS_TONES[txn.status]}>{txn.status}</Badge>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">{txn.actorRole}</TableCell>
           </TableRow>
