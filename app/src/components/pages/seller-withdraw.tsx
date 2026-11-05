@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { explorerTxUrl } from '@bidv/shared';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   cancelWithdrawRequestAction,
   checkPayoutWalletAction,
@@ -12,17 +11,17 @@ import {
   reconcileAndListMyWithdrawRequestsAction,
 } from '@/app/actions/withdraw';
 import { AmountInput } from '@/components/ui/amount-input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { WithdrawRequestView } from '@/lib/bank/withdraw.service';
 import { quoteWithdraw } from '@/lib/bank/withdraw-limit';
 import { useSelectedChain } from '@/lib/chains/use-selected-chain';
 import { usePublicConfig } from '@/lib/config/config-context';
 import { describePolicy, nf } from '@/components/seller/format';
 import { WITHDRAW_STATUS_LABELS } from '@/components/seller/labels';
+import { SellerWithdrawRow } from '@/components/seller/seller-withdraw-row';
 import { useSellerOverview } from '@/components/seller/use-seller-overview';
 import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
@@ -37,8 +36,6 @@ import { TokenScopeSelect } from '@/components/token/token-scope-select';
 
 const FIELD =
   'w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring read-only:bg-muted';
-
-const short = (value: string) => `${value.slice(0, 10)}…${value.slice(-6)}`;
 
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
@@ -350,51 +347,15 @@ export function SellerWithdrawPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
-                  const url = r.txHash ? explorerTxUrl(chain, r.txHash) : null;
-                  return (
-                    <TableRow key={r.id} data-status={r.status}>
-                      <TableCell className="font-code text-xs" title={r.id}>
-                        {r.id.slice(0, 8)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{nf(r.amount)}</TableCell>
-                      <TableCell className="font-code text-xs" title={r.payoutWallet}>
-                        {short(r.payoutWallet)}
-                      </TableCell>
-                      <TableCell>{r.purpose}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" title={r.reason ?? undefined}>
-                          {WITHDRAW_STATUS_LABELS[r.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-code text-xs">
-                        {r.txHash === null ? (
-                          ''
-                        ) : url ? (
-                          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
-                            {short(r.txHash)}
-                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                          </a>
-                        ) : (
-                          <span title={r.txHash}>{short(r.txHash)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">{new Date(r.createdAt).toLocaleString('vi-VN')}</TableCell>
-                      <TableCell>
-                        {r.status === 'PAYOUT_SET' ? (
-                          <div className="flex gap-2">
-                            <Button type="button" size="sm" onClick={() => openContinue(r)}>
-                              Gửi lệnh rút
-                            </Button>
-                            <Button type="button" size="sm" variant="outline" onClick={() => void cancel(r.id)}>
-                              Huỷ
-                            </Button>
-                          </div>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {rows.map((r) => (
+                  <SellerWithdrawRow
+                    key={r.id}
+                    row={r}
+                    chain={chain}
+                    onContinue={() => openContinue(r)}
+                    onCancel={() => cancel(r.id)}
+                  />
+                ))}
               </TableBody>
             </Table>
           )}
