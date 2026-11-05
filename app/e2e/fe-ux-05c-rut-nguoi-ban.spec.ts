@@ -29,8 +29,8 @@ async function openWithdraw(page: Page) {
  * Số `role` trong `main` và số action khi mở màn đo trên `release/ui-v2` @ d035407 TRƯỚC khi sửa, bằng chính ca 1, ca 4
  * chạy trên máy chủ MỚI (spec chép vào bản mốc).
  */
-const ROLE_COUNTS = { status: -1, note: -1, alert: -1 };
-const OPEN_ACTIONS = -1;
+const ROLE_COUNTS = { status: 0, note: 0, alert: 0 };
+const OPEN_ACTIONS = 2;
 
 async function countRoles(page: Page) {
   const main = page.getByRole('main');
