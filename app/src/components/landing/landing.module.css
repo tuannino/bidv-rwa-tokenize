@@ -142,3 +142,79 @@
     to { transform: translateX(18px); }
   }
 }
+
+/* Thanh trên: nền kính mờ; ẩn thì dịch lên và mờ đi (QĐ-10). Tab vào thanh đang ẩn thì hiện lại, để
+   tiêu điểm không nằm ngoài màn hình. */
+.bar {
+  background: color-mix(in oklab, var(--card) 75%, transparent);
+  backdrop-filter: blur(12px);
+  transition: translate .5s var(--ease-wind), opacity .5s var(--ease-wind);
+}
+.bar[data-hidden] {
+  translate: -50% -140%;
+  opacity: 0;
+}
+.bar[data-hidden]:has(:focus-visible) {
+  translate: -50% 0;
+  opacity: 1;
+}
+
+/* Nút về đầu trang (QĐ-8): góc phải ngay dưới thanh trên, nằm trong lề phải từ 1304 px. Lúc nghỉ mờ,
+   không làm mờ nền phía sau; di chuột hoặc tiêu điểm thì rõ. Ẩn thì trong suốt, dịch 8 px. */
+.toTop {
+  right: max(12px, calc((100% - 1200px) / 2 - 56px));
+  background: color-mix(in oklab, var(--card) 40%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent);
+  opacity: 0;
+  translate: 0 8px;
+  pointer-events: none;
+  transition: opacity .3s var(--ease-wind), translate .3s var(--ease-wind), background-color .3s var(--ease-wind);
+}
+.toTop[data-show] {
+  opacity: .6;
+  translate: 0 0;
+  pointer-events: auto;
+}
+.toTop[data-show]:hover,
+.toTop[data-show]:focus-visible {
+  opacity: 1;
+  background: color-mix(in oklab, var(--card) 85%, transparent);
+}
+.toTop:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Nút phát phóng to khi di chuột lên khung. Đường cong lò xo viết thẳng vì `--ease-spring` ở
+   `@theme inline` chỉ được Tailwind chèn vào lớp `ease-spring`, không có biến CSS lúc chạy. */
+.bigplay {
+  transition: scale .5s cubic-bezier(.34, 1.4, .64, 1);
+}
+@media (hover: hover) {
+  :where(button):hover > .bigplay {
+    scale: 1.08;
+  }
+}
+
+/* Năm chặng: đường ray, bong bóng ảnh (viền nền trang 8 px che đường ray), nghiêng nhẹ khi di chuột. */
+.rail {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  opacity: .25;
+}
+.bubble {
+  box-shadow: 0 0 0 8px var(--background), 0 18px 34px -18px color-mix(in oklab, var(--primary) 50%, transparent);
+  transition: translate .5s cubic-bezier(.34, 1.4, .64, 1), rotate .5s cubic-bezier(.34, 1.4, .64, 1);
+}
+@media (hover: hover) {
+  :where(div):hover > .bubble {
+    translate: 0 -6px;
+    rotate: -6deg;
+  }
+}
+
+/* Chữ lớn ở chân trang: chữ gradient xanh sang vàng. */
+.word {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background-clip: text;
+  color: transparent;
+}

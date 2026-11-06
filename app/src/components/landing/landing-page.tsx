@@ -178,7 +178,7 @@ export function LandingPage() {
             <div className="relative grid gap-[22px] min-[760px]:grid-cols-5 min-[760px]:gap-0">
               <span
                 aria-hidden="true"
-                className="absolute inset-x-[10%] top-11 hidden h-1 rounded-full bg-linear-to-r from-primary to-accent opacity-25 min-[760px]:block"
+                className={cn(styles.rail, 'absolute inset-x-[10%] top-11 hidden h-1 rounded-full min-[760px]:block')}
               />
               <span aria-hidden="true" className="absolute inset-x-[10%] top-10 hidden overflow-x-clip min-[760px]:block">
                 <span className={styles.pulse} />
@@ -188,9 +188,9 @@ export function LandingPage() {
               {STEPS.map((step) => (
                 <div
                   key={step.label}
-                  className="group relative grid grid-cols-[76px_1fr] items-center gap-3.5 min-[760px]:block min-[760px]:px-2.5 min-[760px]:text-center"
+                  className="relative grid grid-cols-[76px_1fr] items-center gap-3.5 min-[760px]:block min-[760px]:px-2.5 min-[760px]:text-center"
                 >
-                  <div className="relative z-[1] grid size-[68px] place-items-center rounded-full bg-card shadow-lg ring-8 ring-background transition-transform duration-500 ease-spring group-hover:-translate-y-1.5 group-hover:-rotate-6 min-[760px]:mx-auto min-[760px]:mb-4 min-[760px]:size-[92px]">
+                  <div className={cn(styles.bubble, 'relative z-[1] grid size-[68px] place-items-center rounded-full bg-card min-[760px]:mx-auto min-[760px]:mb-4 min-[760px]:size-[92px]')}>
                     <Img3d name={step.image} size={56} className="size-12 min-[760px]:size-14" />
                   </div>
                   <div>
@@ -333,7 +333,7 @@ export function LandingPage() {
       <footer className={cn(FRAME, 'pt-14 pb-10')}>
         <div
           aria-hidden="true"
-          className="bg-linear-to-r from-primary to-accent bg-clip-text text-[clamp(56px,12vw,168px)] leading-[.9] font-bold tracking-[-.03em] text-transparent opacity-90"
+          className={cn(styles.word, 'text-[clamp(56px,12vw,168px)] leading-[.9] font-bold tracking-[-.03em] opacity-90')}
         >
           BIDV RWA
         </div>

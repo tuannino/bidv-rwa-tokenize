@@ -8,6 +8,7 @@ import { useIsMounted } from '@/lib/hooks/use-is-mounted';
 import { cn } from '@/lib/utils';
 import { EnterChannelForm } from './enter-channel-form';
 import { landingChromeState } from './landing-data';
+import styles from './landing.module.css';
 
 /** Khung nội dung của trang giới thiệu: thanh trên và các khối cùng mép (QĐ-10). */
 const FRAME = 'w-[min(1200px,calc(100%-48px))]';
@@ -78,12 +79,11 @@ export function LandingChrome({
   return (
     <>
       <header
+        data-hidden={navHidden || undefined}
         className={cn(
           FRAME,
-          'fixed top-3.5 left-1/2 z-30 flex h-14 -translate-x-1/2 items-center gap-[18px] rounded-full bg-card/75 py-2 pr-2 pl-3.5 shadow-lg ring-1 ring-border backdrop-blur-md',
-          'transition-[translate,opacity] duration-500 ease-wind',
-          // Tab vào thanh đang ẩn thì hiện lại, để tiêu điểm không nằm ngoài màn hình.
-          navHidden && '-translate-y-[140%] opacity-0 has-[:focus-visible]:translate-y-0 has-[:focus-visible]:opacity-100',
+          styles.bar,
+          'fixed top-3.5 left-1/2 z-30 flex h-14 -translate-x-1/2 items-center gap-[18px] rounded-full py-2 pr-2 pl-3.5 shadow-lg ring-1 ring-border',
         )}
       >
         <a
@@ -130,13 +130,8 @@ export function LandingChrome({
         aria-label="Về đầu trang"
         onClick={toTop}
         inert={!showTop}
-        className={cn(
-          'fixed top-[84px] right-[max(12px,calc((100%_-_1200px)/2_-_56px))] z-30 grid size-10 place-items-center rounded-full bg-card/40 text-foreground ring-1 ring-border/60',
-          'transition-[opacity,translate,background-color] duration-300 ease-wind',
-          showTop
-            ? 'opacity-60 hover:bg-card/85 hover:opacity-100 focus-visible:bg-card/85 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-            : 'pointer-events-none translate-y-2 opacity-0',
-        )}
+        data-show={showTop || undefined}
+        className={cn(styles.toTop, 'fixed top-[84px] z-30 grid size-10 place-items-center rounded-full text-foreground')}
       >
         <ArrowUp className="size-5" aria-hidden="true" />
       </button>

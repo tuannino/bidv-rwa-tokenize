@@ -47,13 +47,13 @@ export function HeroVideo({ scene }: { scene: React.ReactNode }) {
             type="button"
             aria-label="Phát video giới thiệu dự án điện gió"
             onClick={() => setPlayed(true)}
-            className="group absolute inset-0 grid place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--tile-hl-bar) focus-visible:ring-inset"
+            className="absolute inset-0 grid place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--tile-hl-bar) focus-visible:ring-inset"
           >
             {scene}
             <span
               className={cn(
                 styles.bigplay,
-                'tile-au relative grid size-[104px] place-items-center rounded-full shadow-2xl transition-transform duration-500 ease-spring group-hover:scale-108',
+                'tile-au relative grid size-[104px] place-items-center rounded-full shadow-2xl',
               )}
             >
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="ml-1.5 size-10">
