@@ -64,6 +64,7 @@ import {
   type VaultPeriodClose,
   type VaultWithdrawal,
 } from './ledger.port';
+import { inputCarriesTag } from './payment-tag';
 
 /**
  * Adapter EVM (hardhat-local + evm testnet) bằng viem.
@@ -1577,13 +1578,13 @@ export function createEvmLedger(
     /**
      * Tìm giao dịch của một lệnh rút theo nhãn (QĐ-11): log `Transfer` của VNDB lọc `from`, `to` bằng
      * topic, theo đoạn `evmLogBlockChunk` như Indexer; với từng ứng viên đúng số, đọc giao dịch và chỉ
-     * nhận khi người gửi là ví gửi và `input` kết thúc bằng nhãn. Không dựa vào khoảng khối.
+     * nhận khi người gửi là ví gửi và `input` chứa nhãn đúng ranh giới byte (calldata có thể bị ví gói lồng,
+     * ví dụ EIP-7702; FIX-09). Không dựa vào khoảng khối.
      */
     async findPaymentTransferByTag({ from, to, value, tag, fromBlock }) {
       const token = addressOf('VNDToken');
       const sender = normalizeEvmAddress(from);
       const receiver = normalizeEvmAddress(to);
-      const wanted = tag.toLowerCase().replace(/^0x/, '');
       try {
         const latest = await reader().getBlockNumber();
         if (fromBlock > latest) return null;
@@ -1616,7 +1617,7 @@ export function createEvmLedger(
           if (checked.has(hash)) continue;
           checked.add(hash);
           const tx = await reader().getTransaction({ hash });
-          if (tx.from.toLowerCase() === sender.toLowerCase() && tx.input.toLowerCase().endsWith(wanted)) {
+          if (tx.from.toLowerCase() === sender.toLowerCase() && inputCarriesTag(tx.input, tag)) {
             return { txHash: hash, blockNumber: log.blockNumber! };
           }
         }

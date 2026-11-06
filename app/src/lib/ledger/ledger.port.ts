@@ -381,7 +381,8 @@ export interface ILedgerPaymentTransfer {
   paymentTransferReceipt(txHash: string): Promise<PaymentTransferEvidence>;
   /**
    * Log `Transfer` của VNDB từ `from` tới `to` đúng `value`, từ `fromBlock` tới khối mới nhất; chỉ nhận
-   * ứng viên mà giao dịch do `from` gửi và `input` kết thúc bằng `tag`. Trả ứng viên đầu tiên theo khối.
+   * ứng viên mà giao dịch do `from` gửi và `input` chứa `tag` đúng ranh giới byte (calldata có thể bị ví gói
+   * lồng, ví dụ EIP-7702; FIX-09). Trả ứng viên đầu tiên theo khối.
    */
   findPaymentTransferByTag(query: PaymentTransferQuery): Promise<{ txHash: string; blockNumber: bigint } | null>;
   /**

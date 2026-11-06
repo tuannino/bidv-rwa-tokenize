@@ -14,6 +14,7 @@ import {
 } from '@bidv/shared';
 import { chainFamily } from '@/lib/chains/registry';
 import { getLedger, normalizeEvmAddress, type ILedgerPort, type PaymentTransferEvidence } from '@/lib/ledger';
+import { inputCarriesTag } from '@/lib/ledger/payment-tag';
 import { assertCan, type Role } from '@/lib/rbac';
 import { currentActorId, currentRole } from '@/lib/rbac/session';
 import {
@@ -166,7 +167,8 @@ export function paymentTargetError(input: {
 }
 
 /**
- * Bằng chứng hoàn tất (QĐ-9): người gửi giao dịch là ví gửi, dữ liệu gọi kết thúc bằng nhãn của lệnh,
+ * Bằng chứng hoàn tất (QĐ-9): người gửi giao dịch là ví gửi, dữ liệu gọi chứa nhãn của lệnh đúng ranh giới
+ * byte (calldata có thể bị ví gói lồng, ví dụ EIP-7702; FIX-09),
  * và có ít nhất một log `Transfer` của VNDB khớp đủ ví gửi, ví nhận, số lượng. Log khác không làm hỏng
  * việc khớp. Biên nhận thành công kiểm ở nơi gọi.
  */
@@ -175,8 +177,7 @@ export function matchesTransfer(
   evidence: Pick<PaymentTransferEvidence, 'txFrom' | 'input' | 'transfers'>,
 ): boolean {
   if (!same(evidence.txFrom, request.fromWallet)) return false;
-  const tag = paymentTag(request.id).slice(2).toLowerCase();
-  if (!evidence.input || !evidence.input.toLowerCase().endsWith(tag)) return false;
+  if (!evidence.input || !inputCarriesTag(evidence.input, paymentTag(request.id))) return false;
   const amount = BigInt(request.amount);
   return evidence.transfers.some(
     (transfer) => same(transfer.from, request.fromWallet) && same(transfer.to, request.toWallet) && transfer.value === amount,
