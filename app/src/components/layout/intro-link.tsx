@@ -1,13 +1,22 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { usePublicConfig } from "@/lib/config/config-context";
+import { can } from "@/lib/rbac";
+import { AREA_GATES } from "@/lib/rbac/area-gates";
 import { cn } from "@/lib/utils";
 
 /**
  * FE-UX-07a QĐ-9: liên kết "Giới thiệu dự án" ở đáy thanh bên, ngay trên ô chọn chain. Chỉ Nhà đầu tư
- * thấy (điều kiện đặt ở `sidebar.tsx`). Không phải mục menu: không nằm trong `nav`, không đánh dấu trang đang xem.
+ * thấy: hiện khi vai vào được khu Nhà đầu tư (`AREA_GATES.investor` qua `can()`, luật 3 kiến trúc, không
+ * so sánh vai cứng; chỉ vai INVESTOR qua cổng này, `four-roles-routes.test.ts` khoá). Không phải mục
+ * menu: không nằm trong `nav`, không đánh dấu trang đang xem.
  * Thanh bên thu gọn thì chỉ còn mũi tên, tên đọc qua `aria-label`, `title` và chữ `sr-only`.
  */
 export function IntroLink({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const config = usePublicConfig();
+  if (!AREA_GATES.investor.some((action) => can(config.role, action))) return null;
   return (
     <Link
       prefetch={false}

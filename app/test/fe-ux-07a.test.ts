@@ -46,11 +46,17 @@ const OLD_SENTENCES = [
 ];
 
 describe('FE-UX-07a nhóm 1: mã nguồn', () => {
-  it('sidebar.tsx: đúng một IntroLink, chỉ với Nhà đầu tư, đứng trước ChainSelector', () => {
+  it('sidebar.tsx: đúng một IntroLink, đứng trước ChainSelector', () => {
     const source = flat('src/components/layout/sidebar.tsx');
     expect(source.match(/<IntroLink\b/g)).toHaveLength(1);
-    expect(source).toContain('{config.role === "INVESTOR" && <IntroLink collapsed={collapsed} onNavigate={closeDrawer} />}');
+    expect(source).toContain('<IntroLink collapsed={collapsed} onNavigate={closeDrawer} />');
     expect(source.indexOf('<IntroLink')).toBeLessThan(source.indexOf('<ChainSelector'));
+  });
+
+  it('intro-link.tsx: chỉ hiện với vai vào được khu Nhà đầu tư, kiểm qua can(), không so sánh vai cứng', () => {
+    const source = flat('src/components/layout/intro-link.tsx');
+    expect(source).toContain('if (!AREA_GATES.investor.some((action) => can(config.role, action))) return null;');
+    expect(source).not.toMatch(/role\s*[!=]==?|[!=]==?\s*['"](INVESTOR|SELLER|TELLER|CONTROLLER)['"]/);
   });
 
   it('intro-link.tsx: không prefetch, trỏ /gioi-thieu, chữ đúng, mũi tên xanh mờ, không aria-current', () => {

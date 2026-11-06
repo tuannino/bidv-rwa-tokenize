@@ -269,7 +269,7 @@ export function Sidebar({
 
         {/* Đáy: Lưu ký (IN-04), chọn chain, trạng thái mạng, nút thu gọn */}
         <div className={cn("space-y-2 border-t border-border px-4 pt-3 pb-4", collapsed && "px-3")}>
-          {config.role === "INVESTOR" && <IntroLink collapsed={collapsed} onNavigate={closeDrawer} />}
+          <IntroLink collapsed={collapsed} onNavigate={closeDrawer} />
           {custody && <CustodyToggle state={custody} collapsed={collapsed} />}
           <ChainSelector collapsed={collapsed} onExpand={() => setRail(false)} />
           <div className={cn("flex items-center justify-between gap-2", collapsed && "justify-center")}>
