@@ -1,4 +1,4 @@
-import { ArrowRight, LayoutDashboard, Moon, Sun, Wallet, Wind } from 'lucide-react';
+import { ArrowRight, ArrowUp, LayoutDashboard, Moon, Sun, Wallet, Wind } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Kpi } from '@/components/ui/kpi';
@@ -79,7 +79,19 @@ export function LandingPage() {
       <LandingChrome
         logo={<BidvLogo variant="inline" />}
         themeIcons={{ sun: <Sun className="size-4" />, moon: <Moon className="size-4" /> }}
-        enterIcon={<ArrowRight className="size-4" aria-hidden="true" />}
+        enter={
+          <EnterChannelForm channel="teller">
+            <button
+              type="submit"
+              aria-label="Vào hệ thống"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowRight className="size-4" aria-hidden="true" />
+              <span className="max-[759px]:hidden">Vào hệ thống</span>
+            </button>
+          </EnterChannelForm>
+        }
+        toTopIcon={<ArrowUp className="size-5" aria-hidden="true" />}
       />
 
       <main id="top" className={styles.root}>

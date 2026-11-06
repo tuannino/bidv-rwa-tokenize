@@ -1,12 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { buttonVariants } from '@/components/ui/button';
 import { useIsMounted } from '@/lib/hooks/use-is-mounted';
-import { cn } from '@/lib/utils';
-import { EnterChannelForm } from './enter-channel-form';
 import { landingChromeState } from './landing-data';
 import styles from './landing.module.css';
 
@@ -23,18 +19,23 @@ const ANCHORS = [
 /**
  * FE-UX-07a: thanh trên (QĐ-10) và nút về đầu trang (QĐ-8) của trang giới thiệu.
  *
- * Logo và biểu tượng có ở khung (`Sun`, `Moon`, `ArrowRight`) dựng ở server rồi truyền vào qua prop
- * (QĐ-7, QĐ-15). Một trình nghe `scroll` thụ động dùng chung, gom vào một `requestAnimationFrame` mỗi
+ * Logo, mọi biểu tượng và form "Vào hệ thống" dựng ở server rồi truyền vào qua prop (QĐ-7, QĐ-15); tệp
+ * này không nhập `lucide-react`, `cva`, `cn` hay server action, để không chung module nào với khung ngoài
+ * phần layout gốc vốn đã chung, nên thêm trang này không làm Turbopack chia lại chunk của các trang có
+ * khung. Một trình nghe `scroll` thụ động dùng chung, gom vào một `requestAnimationFrame` mỗi
  * khung hình; `anchorY` giữ trong ref; chỉ `setState` khi trạng thái thật sự đổi.
  */
 export function LandingChrome({
   logo,
   themeIcons,
-  enterIcon,
+  enter,
+  toTopIcon,
 }: {
   logo: React.ReactNode;
   themeIcons: { sun: React.ReactNode; moon: React.ReactNode };
-  enterIcon: React.ReactNode;
+  /** Form "Vào hệ thống" (khu vận hành), dựng ở server. */
+  enter: React.ReactNode;
+  toTopIcon: React.ReactNode;
 }) {
   const [navHidden, setNavHidden] = useState(false);
   const [showTop, setShowTop] = useState(false);
@@ -80,11 +81,7 @@ export function LandingChrome({
     <>
       <header
         data-hidden={navHidden || undefined}
-        className={cn(
-          FRAME,
-          styles.bar,
-          'fixed top-3.5 left-1/2 z-30 flex h-14 -translate-x-1/2 items-center gap-[18px] rounded-full py-2 pr-2 pl-3.5 shadow-lg ring-1 ring-border',
-        )}
+        className={`${FRAME} ${styles.bar} fixed top-3.5 left-1/2 z-30 flex h-14 -translate-x-1/2 items-center gap-[18px] rounded-full py-2 pr-2 pl-3.5 shadow-lg ring-1 ring-border`}
       >
         <a
           ref={logoLink}
@@ -116,12 +113,7 @@ export function LandingChrome({
               {resolvedTheme === 'dark' ? themeIcons.sun : themeIcons.moon}
             </button>
           )}
-          <EnterChannelForm channel="teller">
-            <button type="submit" aria-label="Vào hệ thống" className={cn(buttonVariants(), 'h-10 gap-2 px-4')}>
-              {enterIcon}
-              <span className="max-[759px]:hidden">Vào hệ thống</span>
-            </button>
-          </EnterChannelForm>
+          {enter}
         </div>
       </header>
 
@@ -131,9 +123,9 @@ export function LandingChrome({
         onClick={toTop}
         inert={!showTop}
         data-show={showTop || undefined}
-        className={cn(styles.toTop, 'fixed top-[84px] z-30 grid size-10 place-items-center rounded-full text-foreground')}
+        className={`${styles.toTop} fixed top-[84px] z-30 grid size-10 place-items-center rounded-full text-foreground`}
       >
-        <ArrowUp className="size-5" aria-hidden="true" />
+        {toTopIcon}
       </button>
     </>
   );

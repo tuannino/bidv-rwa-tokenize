@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
-import { cn } from '@/lib/utils';
 import { LANDING_VIDEO_ID } from './landing-data';
 import styles from './landing.module.css';
 
@@ -32,7 +31,7 @@ export function HeroVideo({ scene }: { scene: React.ReactNode }) {
   const playing = played || !reduced;
 
   return (
-    <div className={cn(styles.player, 'relative mx-auto mt-10 w-[min(980px,100%)] rounded-[28px] p-2 shadow-2xl')}>
+    <div className={`${styles.player} relative mx-auto mt-10 w-[min(980px,100%)] rounded-[28px] p-2 shadow-2xl`}>
       <div className="tile-hl relative aspect-video overflow-hidden rounded-[22px]">
         {playing ? (
           <iframe
@@ -50,12 +49,7 @@ export function HeroVideo({ scene }: { scene: React.ReactNode }) {
             className="absolute inset-0 grid place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--tile-hl-bar) focus-visible:ring-inset"
           >
             {scene}
-            <span
-              className={cn(
-                styles.bigplay,
-                'tile-au relative grid size-[104px] place-items-center rounded-full shadow-2xl',
-              )}
-            >
+            <span className={`${styles.bigplay} tile-au relative grid size-[104px] place-items-center rounded-full shadow-2xl`}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="ml-1.5 size-10">
                 <path d="M7 4.5v15l13-7.5z" />
               </svg>
