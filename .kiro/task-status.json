@@ -61,7 +61,9 @@
     "FIX-04",
     "FIX-05"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "FIX-09"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
