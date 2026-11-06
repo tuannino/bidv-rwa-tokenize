@@ -36,6 +36,7 @@ import { ChainSelector } from "./chain-selector";
 import { ChannelSwitcher } from "./channel-switcher";
 import { CustodyToggle, type CustodyToggleState } from "./custody-toggle";
 import { HoverHint } from "./hover-hint";
+import { IntroLink } from "./intro-link";
 import { MENU_BUTTON_ID, closeDrawer, setRail, useDrawerPath, useNarrow, useRail, useRailAnimated } from "./shell-state";
 import {
   TELLER_NAV,
@@ -268,6 +269,7 @@ export function Sidebar({
 
         {/* Đáy: Lưu ký (IN-04), chọn chain, trạng thái mạng, nút thu gọn */}
         <div className={cn("space-y-2 border-t border-border px-4 pt-3 pb-4", collapsed && "px-3")}>
+          {config.role === "INVESTOR" && <IntroLink collapsed={collapsed} onNavigate={closeDrawer} />}
           {custody && <CustodyToggle state={custody} collapsed={collapsed} />}
           <ChainSelector collapsed={collapsed} onExpand={() => setRail(false)} />
           <div className={cn("flex items-center justify-between gap-2", collapsed && "justify-center")}>

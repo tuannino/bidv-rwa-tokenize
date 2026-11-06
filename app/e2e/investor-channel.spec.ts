@@ -202,8 +202,8 @@ test.describe('Điều hướng theo vai trò', () => {
 
     const sidebar = page.getByRole('complementary');
     await expect(sidebar.locator('[aria-disabled="true"]')).toHaveCount(0);
-    // Sáu mục theo tài liệu yêu cầu, cộng liên kết logo ở đầu thanh.
-    await expect(sidebar.getByRole('link')).toHaveCount(7);
+    // Sáu mục theo tài liệu yêu cầu, cộng liên kết logo ở đầu thanh và liên kết "Giới thiệu dự án" ở đáy (FE-UX-07a).
+    await expect(sidebar.getByRole('link')).toHaveCount(8);
   });
 
   test('bấm mục Giao dịch token ở mock thì dùng ví hồ sơ, không đòi kết nối ví', async ({
