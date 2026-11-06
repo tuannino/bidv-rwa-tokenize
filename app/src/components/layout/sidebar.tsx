@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useSelectedChain } from "@/lib/chains/use-selected-chain";
 import { usePublicConfig } from "@/lib/config/config-context";
 import { getPendingWorkAction } from "@/app/actions/token-request";
+import { activeNavHref } from "./active-nav";
 import { ChainSelector } from "./chain-selector";
 import { ChannelSwitcher } from "./channel-switcher";
 import { CustodyToggle, type CustodyToggleState } from "./custody-toggle";
@@ -122,14 +123,15 @@ export function Sidebar({
       : NO_COUNTS;
 
   /**
-   * `/` chỉ khớp chính nó. Mọi mục khác khớp cả đường dẫn con, để `/seller/withdraw` vẫn làm
-   * sáng mục `Tạo lệnh rút` — nhưng KHÔNG để `/seller` sáng theo, nên phải so bằng trước rồi
-   * mới so tiền tố có dấu gạch.
+   * FIX-08: đúng một mục sáng (hoặc không mục nào nếu màn không có trong menu). `activeNavHref` lấy
+   * `href` khớp DÀI NHẤT trong mọi mục bấm được của mọi nhóm (gồm nhóm ẩn), nên ở `/seller/withdraw`
+   * chỉ `Tạo lệnh rút` sáng, `/seller` không sáng theo. Mục `disabled` không dự phần và không sáng.
    */
-  const isActive = (item: NavItem) =>
-    item.href === "/"
-      ? pathname === "/"
-      : pathname === item.href || pathname.startsWith(item.href + "/");
+  const activeHref = activeNavHref(
+    nav.groups.flatMap((group) => group.items.filter((item) => !item.disabled).map((item) => item.href)),
+    pathname,
+  );
+  const isActive = (item: NavItem) => !item.disabled && item.href === activeHref;
 
   const firstHref = nav.groups[0]?.items[0]?.href ?? "/";
 
@@ -423,7 +425,7 @@ function NavLink({
     return (
       <div
         aria-disabled="true"
-        title="Sắp có — chưa mở trong phiên bản này"
+        title="Sắp có: chưa mở trong phiên bản này"
         className={cn(shape, "cursor-not-allowed text-sidebar-foreground/40")}
       >
         {body}
@@ -441,6 +443,7 @@ function NavLink({
         // nên mỗi lần mở trang tốn thêm chừng đó lượt Worker. Bấm mới tải.
         prefetch={false}
         onClick={closeDrawer}
+        aria-current={active ? "page" : undefined}
         title={collapsed ? item.label : undefined}
         className={cn(
           "group",

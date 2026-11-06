@@ -95,10 +95,10 @@ test.describe('Bộ chọn vai trò', () => {
     const options = page.locator('#channel-switcher option');
     await expect(options).toHaveCount(4);
     await expect(options).toHaveText([
-      /Nhà đầu tư · NDT001/,
-      /Người bán · NB001/,
-      /Giao dịch viên · GDV001/,
-      /Kiểm soát viên · KSV001/,
+      /Nhà đầu tư \(NDT001\)/,
+      /Người bán \(NB001\)/,
+      /Giao dịch viên \(GDV001\)/,
+      /Kiểm soát viên \(KSV001\)/,
     ]);
   });
 

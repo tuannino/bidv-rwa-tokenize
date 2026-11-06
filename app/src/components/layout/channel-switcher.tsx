@@ -56,7 +56,7 @@ export function ChannelSwitcher({
         <label
           htmlFor="channel-switcher"
           className="flex items-center gap-1.5 text-xs text-muted-foreground"
-          title="Chọn vai trò đang giả lập — chỉ dùng để demo, không phải xác thực thật"
+          title="Chọn vai trò đang giả lập: chỉ dùng để demo, không phải xác thực thật"
         >
           <UserCog className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Vai trò</span>
@@ -77,7 +77,7 @@ export function ChannelSwitcher({
         >
           {CHANNELS.map((channel) => (
             <option key={channel} value={channel}>
-              {LABELS[channel]} · {SAMPLE_ACCOUNTS[channel]}
+              {LABELS[channel]} ({SAMPLE_ACCOUNTS[channel]})
             </option>
           ))}
         </select>
