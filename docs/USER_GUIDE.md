@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Dự án | Token hoá Nhà máy điện gió An Viên, bản thử nghiệm (PoC) |
-| Chốt tại | nhánh `fix/fix-08-thanh-ben` (FIX-08, từ `release/ui-v2` @ `763cd51`), ngày 05/11/2026 |
+| Chốt tại | nhánh `feat/fe-ux-07a-gioi-thieu` (FE-UX-07a, từ `release/ui-v2` @ `29c5708`), ngày 06/11/2026 |
 | Nơi đặt trong repo | `docs/USER_GUIDE.md`, cùng thư mục với runbook `docs/TESTNET_SEPOLIA.md` |
 | Người cập nhật | Người viết mã cập nhật trong commit tài liệu cuối của mỗi task, như `docs/tech-report.md` (xem mục 0) |
 | Nguồn | Đọc mã nguồn tại commit trên, tài liệu bàn giao, DS-01 bản 5, các spec đã chốt. Mọi khẳng định về màn hình có đường dẫn tệp để kiểm lại |
@@ -212,6 +212,8 @@ Nhóm "Nghiệp vụ ẩn" (FIX-01 QĐ-5) chỉ có ở menu Giao dịch viên, 
 
 Đáy menu của Giao dịch viên và Kiểm soát viên, ngay trên khối trạng thái mạng, có dòng "Lưu ký Fireblocks" kèm công tắc (IN-04, mục 3.0).
 
+Đáy menu của Nhà đầu tư, ngay trên ô Chain, có liên kết "Giới thiệu dự án" tới trang giới thiệu `/gioi-thieu` (FE-UX-07a, mục 3.7). Đây không phải mục menu: không có phím tắt, không sáng như mục đang mở.
+
 Chữ trong ngoặc là phím tắt hiển thị cạnh menu. Hiện chỉ là nhãn, bấm phím chưa chuyển màn (`components/layout/sidebar.tsx:278`).
 
 ### 2.2. Trạng thái từng màn
@@ -248,6 +250,7 @@ Cột "Chain": **M** = mock, **H** = hardhat-local, **S** = Sepolia (`evm`). Ste
 | `/assets` | Dự án điện gió | Giao dịch viên, Kiểm soát viên | Danh mục dự án | | Chỗ trống (số mẫu), ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề (FIX-05) | 0 | | |
 | `/audit` | Sổ kiểm toán | Giao dịch viên, Kiểm soát viên | Kiểm toán | M H S | Dùng được: 100 dòng gần nhất, không lọc | 0 (đọc trong Server Component) | | |
 | `/reconciliation` | Đối soát doanh thu điện | Giao dịch viên, Kiểm soát viên | Đối soát | | Chỗ trống, ghi "(đang hiển thị dữ liệu mẫu)" sau tiêu đề (FIX-05) | 0 | | |
+| `/gioi-thieu` | Trang giới thiệu | Công khai, không cần vai | Giới thiệu dự án, chọn vai để vào thử | Không theo chain | Dùng được (FE-UX-07a): số liệu là hằng mẫu kèm "unverified", video và ảnh 3D là tạm | 0 | Không | FE-UX-08 (hiệu ứng), video và ảnh chính thức |
 
 ### 2.3. Tóm tắt theo nghiệp vụ
 
@@ -290,7 +293,7 @@ Quy ước chung cho Phần 3:
 
 - **Đầu:** logo BIDV (chữ xanh ngọc, bông mai vàng; giao diện Tối chữ trắng; dòng dưới "RWA Tokenize Platform"), bấm về trang đầu của menu. Dưới logo là ô **Vai trò** (chọn vai giả lập, trước nằm ở thanh trên cùng); mỗi lựa chọn ghi "{vai} ({mã})", ví dụ "Người bán (NB001)" (FIX-08).
 - **Menu:** mỗi mục có biểu tượng trong vòng tròn, nhãn, ô phím tắt; mục đang mở nền xanh ngọc chữ trắng. Luôn chỉ **một** mục sáng: mục có đường dẫn khớp dài nhất với màn đang xem (FIX-08, `components/layout/active-nav.ts`), ví dụ ở `/seller/withdraw` chỉ "Tạo lệnh rút" sáng, "Tổng quan" không sáng theo; màn không có trong menu (như `/tokens/WPT`) thì không mục nào sáng. Mục đang sáng được đánh dấu `aria-current="page"` cho trình đọc màn hình. Số việc chờ (Lập lệnh, Phê duyệt lệnh) là viên tròn bên phải nhãn: 0 nền xám, khác 0 nền vàng. Mục, nhãn, thứ tự, nhóm, điều kiện hiện "Nạp VNDB", "Định danh ví" không đổi; nhóm "Nghiệp vụ ẩn" vẫn gập được và tự mở khi đang ở màn trong nhóm.
-- **Đáy:** công tắc Lưu ký Fireblocks (vai có quyền), ô **Chain** (trước nằm ở thanh trên cùng; chain chưa dùng được ghi "{chain}: chưa dùng được" và không chọn được), dòng `chain, vai trò VAI` chữ mã, và nút **Thu gọn thanh bên**.
+- **Đáy:** riêng Nhà đầu tư, dòng đầu là liên kết **Giới thiệu dự án** có mũi tên xanh mờ (dịch sang phải khi rê chuột), mở trang giới thiệu `/gioi-thieu` (FE-UX-07a, `components/layout/intro-link.tsx`, mục 3.7); thanh bên thu gọn chỉ còn mũi tên, tên hiện khi dừng chuột; ở ngăn kéo, bấm liên kết thì ngăn kéo đóng. Ba vai còn lại không có liên kết này. Tiếp theo là công tắc Lưu ký Fireblocks (vai có quyền), ô **Chain** (trước nằm ở thanh trên cùng; chain chưa dùng được ghi "{chain}: chưa dùng được" và không chọn được), dòng `chain, vai trò VAI` chữ mã, và nút **Thu gọn thanh bên**.
 - **Thu gọn** (màn từ 1100 px): thanh bên còn 88 px, chỉ còn biểu tượng; số việc chờ thành viên nhỏ ở góc biểu tượng; ô Vai trò và Chain thành nút biểu tượng, bấm thì mở rộng lại để chọn. Lựa chọn thu gọn lưu trong trình duyệt (khoá `bidv-rail`), còn sau khi tải lại.
 
 **Thanh đầu** (`components/layout/header.tsx`): bên trái là tên màn (phần tử cuối của breadcrumb trang truyền vào; màn chi tiết là 8 ký tự đầu của mã hoặc ký hiệu token), không còn dòng breadcrumb; bên phải là nút **Kết nối ví** màu vàng và nút Sáng Tối. Thanh dính đỉnh khi cuộn nội dung.
@@ -1704,6 +1707,45 @@ Menu Giao dịch viên và Kiểm soát viên: "Giá và phát hành" (H), đặ
 
 ---
 
+### 3.7. Trang giới thiệu `/gioi-thieu` (FE-UX-07a)
+
+Trang công khai giới thiệu dự án theo bản chốt UI/UX (`docs/prototypes/20261101_ui_ux_ban_chot/index.html`). Ai cũng mở được, không cần chọn vai, không có thanh bên và không có màn chặn vai (nhóm route `app/(public)`, ngoại lệ duy nhất của quy tắc "mọi trang nằm trong một khu vực có cổng"). Mở trang không gọi server action nào: số liệu đọc lúc dựng ở máy chủ từ hằng. Mã: `components/landing/`.
+
+**Lối vào:** liên kết "Giới thiệu dự án" ở đáy thanh bên Nhà đầu tư (mục 3.0). Ba vai còn lại mở bằng đường dẫn.
+
+**Bố cục** (từ trên xuống): thanh trên; màn đầu nền xanh ngọc đậm có cảnh tua-bin, tiêu đề "Nền tảng Token hoá dự án điện gió, đầu tư bền vững, lợi tức dài hạn", câu dẫn, khung video, hai nút; sáu ô số liệu chồng lên đáy màn đầu; "Gió hoá dòng tiền trong năm chặng" (Gió, Điện, Doanh thu, Quỹ chia, Lợi tức); "Ba dự án điện gió"; "Một nền tảng, bốn vai"; "Minh bạch và kiểm soát như ngân hàng"; khối kết "Sẵn sàng xem thử hệ thống?"; chân trang. Màn từ 1100 px sáu ô số liệu một hàng; hẹp hơn 760 px mọi lưới một cột (ô số liệu hai cột), năm chặng xếp dọc ảnh bên trái chữ bên phải.
+
+| Trường | Hiển thị | Nguồn |
+|---|---|---|
+| Dự án điện gió | Số dự án; phụ "Gần bờ và ven biển"; kèm "unverified" | Số phần tử `MOCK_PROJECTS` (`lib/mock-data.ts`) |
+| Công suất đặt | MW, một chữ số thập phân; phụ "{tổng tua-bin} tua-bin"; kèm "unverified" | `MOCK_WIND_STATS.totalCapacityMw`; tổng `turbines` của `MOCK_PROJECTS` |
+| Sản lượng luỹ kế | MWh; phụ "Nguồn EnergyOracle"; kèm "unverified" | `MOCK_WIND_STATS.cumulativeGenerationMwh` |
+| WPT đã phát hành | Số token; phụ "Token quyền hưởng"; kèm "unverified" | `MOCK_WIND_STATS.wptIssued` |
+| Lợi tức đã chia | Tỷ, một chữ số thập phân; phụ "VND, {số kỳ} kỳ"; kèm "unverified". Hiện 5,8 tỷ, 6 kỳ, khớp `/assets` (bản chốt vẽ tay 86,4 tỷ) | `MOCK_WIND_STATS.profitDistributedVndBn`, `distributionPeriods` |
+| Lợi tức mục tiêu | %/năm; phụ "Theo điều khoản phát hành"; kèm "unverified" (dừng chuột: "Hằng mặc định, chưa đọc cấu hình đang hiệu lực") | `WPT_ANNUAL_YIELD_PERCENT` (`lib/config/issue-terms.ts`), không đọc `SystemConfig` |
+| Thẻ dự án (3 thẻ) | Nhãn góc "ON-CHAIN, {mã token}" hoặc "DỮ LIỆU MẪU, {mã token}"; tên; vùng và trạng thái; Công suất đặt, Tua-bin, Hệ số công suất. Hai dự án chưa lên chuỗi kèm "unverified". Thẻ không bấm được | `MOCK_PROJECTS`, `REGION_LABELS`, `PROJECT_STATUS_LABELS` |
+
+**Nút vào hệ thống:** mỗi nút là một form gọi `setChannel` (`app/actions/session.ts`): đặt cookie khu vực và vai rồi chuyển tới trang đầu của khu vực.
+
+| Nút | Vào khu vực | Trang đích |
+|---|---|---|
+| "Vào hệ thống" (thanh trên), "Vào Bảng điều khiển" (khối kết), "Vào khu vận hành" (thẻ Giao dịch viên) | Giao dịch viên | `/` |
+| "Tôi là nhà đầu tư" (màn đầu), "Vào khu nhà đầu tư" (thẻ Nhà đầu tư, khối kết) | Nhà đầu tư | `/portfolio` |
+| "Vào khu người bán" (thẻ Người bán) | Người bán | `/seller` |
+| "Vào khu kiểm soát" (thẻ Kiểm soát viên) | Kiểm soát viên | `/` |
+
+"Khám phá dự án" chỉ cuộn tới khối "Ba dự án điện gió". Bấm chỗ nào trong thẻ vai cũng như bấm nút của thẻ.
+
+**Thanh trên:** viên nang nổi, cùng mép khung nội dung (rộng tối đa 1200 px, cách mép màn 24 px mỗi bên). Trái là logo BIDV (bấm về đầu trang); giữa (từ 760 px) bốn liên kết "Dự án", "Cách hoạt động", "Dành cho bạn", "Minh bạch" cuộn tới khối tương ứng; phải là nút Sáng Tối và nút "Vào hệ thống" (dưới 760 px chỉ còn biểu tượng). Cuộn xuống quá 160 px thì thanh trượt lên và ẩn; cuộn lên từ 6 px trở lên (tính từ điểm đổi chiều cuộn gần nhất, nên cuộn chậm vẫn có tác dụng) thì hiện lại; dưới 160 px luôn hiện. Tab vào thanh đang ẩn thì thanh hiện.
+
+**Nút về đầu trang:** nút tròn 40 px có mũi tên lên, góc trên bên phải ngay dưới thanh trên. Chỉ hiện khi đã cuộn quá 80% chiều cao cửa sổ; lúc ẩn không bấm được và không nhận Tab. Lúc nghỉ mờ, nhìn xuyên thấy chữ bên dưới; rê chuột hoặc Tab vào thì rõ. Màn từ 1304 px nút nằm trong lề phải, không che nội dung; màn hẹp hơn nút đè lên mép nội dung. Bấm thì cuộn về đầu trang (giảm chuyển động thì nhảy ngay) và tiêu điểm về logo.
+
+**Video:** video tạm, mã ở một hằng duy nhất `LANDING_VIDEO_ID` (`components/landing/landing-data.ts`), sẽ thay bằng video chính thức. Bình thường video tự phát, tắt tiếng, lặp lại, nhúng qua `youtube-nocookie.com`; chú thích dưới khung "Video tạm để thử giao diện, sẽ thay bằng video chính thức. Đang tắt tiếng, bấm biểu tượng loa để nghe.". Khi bật giảm chuyển động: khung là ảnh nền có nút phát, trang không tải gì từ YouTube cho tới khi bấm nút. Liên kết "Không xem được? Mở trên YouTube" mở tab mới.
+
+**Chuyển động** (chỉ bằng CSS): cánh tua-bin quay, đường gió chạy, quầng sáng sau khung video, vòng sóng quanh nút phát, chấm chạy dọc đường ray năm chặng, gợi ý cuộn ở đáy màn đầu, cảnh trời trôi chậm khi cuộn (trình duyệt hỗ trợ). Bật giảm chuyển động thì dừng hết. Hiệu ứng số lăn, hiện dần khi cuộn làm ở FE-UX-08.
+
+**Ảnh 3D** ở các chặng, thẻ vai, thẻ minh bạch là ảnh tạm (Microsoft Fluent UI Emoji, MIT, `public/landing/3d/LICENSE.txt`), sẽ thay bằng bộ ảnh chính thức.
+
 ## Phụ lục A. Trạng thái và nhãn
 
 Cột `status` trong database là `String`, không phải enum Postgres. Chốt chặn giá trị nằm trong mã (`assertStatus`), nên thêm trạng thái mới phải sửa hằng số ở tệp nguồn ghi dưới đây.
@@ -1962,3 +2004,4 @@ Gom vào một đợt dọn giao diện (đề xuất mã FE-28) trừ khi ghi k
 | 04/11/2026 | nhánh `feat/fe-ux-02a-van-hanh` | Dev (Claude) | FE-UX-02a: thành phần màn dùng chung (ô số liệu bốn sắc, nhãn trạng thái tô màu theo nhóm, hộp thông báo, khung rỗng, đang tải, lỗi, ô nhập, thẻ chặn) và vẽ lại 5 màn Vận hành `/`, `/transactions`, `/transactions/[id]` (dùng chung `/orders/[id]`), `/demo-payment`, `/wallet-binding`. Không đổi chữ (trừ dấu chấm giữa, gạch dài ở hai chỗ), dữ liệu, thao tác. Sửa Phần 3 mục 3.0, 3.4.1, 3.4.5, 3.4.6, 3.4.7, 3.4.9, số dòng ở L-14, L-26, L-42, L-69 |
 | 04/11/2026 | nhánh `feat/fe-ux-02b-van-hanh` | Dev (Claude) | FE-UX-02b: vẽ lại `/draft`, `/config`, `/recall` bằng thành phần dùng chung của FE-UX-02a (ô số liệu, hộp thông báo, khung rỗng, nhãn trạng thái tô màu, bước thu hồi dạng chấm tròn); nhãn trạng thái yêu cầu token tô màu cả ở `/approvals`. Không đổi chữ (trừ gạch dài ở câu gợi ví thanh toán và ô trống), dữ liệu, thao tác. Sửa Phần 3 mục 3.0 (ô chọn token, đoạn Thu hồi token), 3.4.2, 3.5.3, số dòng ở L-71 |
 | 04/11/2026 | nhánh `feat/fe-ux-03a-kiem-soat` | Dev (Claude) | FE-UX-03a: vẽ lại `/approvals`, `/approvals/[id]` bằng thành phần dùng chung (ô số liệu, hộp thông báo, khung rỗng và đang tải, nhật ký dạng dòng thời gian); tách khối hành động sang `approval-actions.tsx`; xoá `maker-checker/stat-card.tsx`. Không đổi chữ (trừ gạch dài ở gợi ý lý do từ chối và ô thiếu, dấu chấm giữa ở nhật ký), dữ liệu, thao tác, điều kiện khoá. Sửa Phần 3 mục 3.4.3, 3.4.4 |
+| 06/11/2026 | nhánh `feat/fe-ux-07a-gioi-thieu` | Dev (Claude) | FE-UX-07a: trang giới thiệu công khai `/gioi-thieu` (mục 3.7 mới): không cần vai, không thanh bên, mở trang không gọi action; số liệu là hằng mẫu kèm "unverified"; nút vào bốn khu vực qua `setChannel`; thanh trên ẩn khi cuộn xuống, hiện khi cuộn lên; nút về đầu trang; video tạm không tải khi giảm chuyển động. Liên kết "Giới thiệu dự án" ở đáy thanh bên Nhà đầu tư. Sửa Phần 2 mục 2.1, 2.2; Phần 3 mục 3.0, 3.7 (mới) |

@@ -117,6 +117,8 @@ describe('FE-UX-07a nhóm 1: mã nguồn', () => {
     expect(source).toContain("removeEventListener('scroll'");
     expect(source).toContain('requestAnimationFrame(');
     expect(source).toContain('cancelAnimationFrame(');
+    // QĐ-8: nút về đầu trang lúc ẩn có inert (không bấm được, không nhận Tab).
+    expect(source).toContain('inert={!showTop}');
   });
 });
 
