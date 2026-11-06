@@ -6,7 +6,7 @@
 | Phạm vi | **Backend, chỉ đọc và đối chiếu.** `lib/ledger/payment-tag.ts` (mới), `findPaymentTransferByTag` và một dòng import trong `lib/ledger/evm.adapter.ts`, `matchesTransfer` cùng chú thích và một dòng import trong `lib/bank/payment-withdraw.service.ts`, một chú thích trong `lib/ledger/ledger.port.ts`. Không đổi schema, hợp đồng, quyền, action, giao diện, câu chữ người dùng thấy, `reconcileOne`, mock; không gói npm mới |
 | Nhánh | `fix/fix-09-rut-vndb-eip7702`, tạo từ `dev` @ `2308509` (Sếp duyệt sửa thẳng vào `dev` 06/11). Không có PR nào merge vào `dev` trong lúc làm |
 | Spec | `docs/fix-09-rut-vndb-eip7702/{requirements,tasks}.md` (chép nguyên) |
-| Commit | spec, task-status `2a11837`; mã và unit `634c997`; tài liệu: các commit cuối trên nhánh |
+| Commit | spec, task-status `2a11837`; mã và unit `634c997`; checkpoint bản đầu, khối marker `tech-report` `d15b991`; tài liệu: commit cuối trên nhánh |
 | Tiến độ | PR 1 base `dev`, chờ Supervisor nghiệm thu; Claude Code **không** merge. PR 2 (đồng bộ `dev` vào `release/ui-v2`) làm sau khi Sếp merge PR 1 (mục 7) |
 
 ## 0. Tóm tắt nghiệm thu
@@ -49,7 +49,38 @@ sửa lỗi revert, chỉ sửa việc nhận diện lần chuyển gói lồng 
 
 ### 1.1 Lệnh và kết quả (requirements mục 6)
 
-__DIEN_1_1__
+`FIX-09` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres bật, trên HEAD
+`d15b991` (mã `app/src`, `app/test` bằng `634c997`), 06:40:11Z đến 06:46:30Z (06/11/2026, UTC).
+
+```text
+$ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
+  PASS: 20   FAIL: 0   WARN: 3
+  => PASS có cảnh báo: luật kiến trúc
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+ĐẠT     FIX-09, docs/CHECKPOINT_FIX09.md
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT
+ ✓ test/fix-09.test.ts (15 tests)
+ ✓ test/fe-23-payment-withdraw.test.ts (29 tests | 1 skipped)
+      Tests  1493 passed | 74 skipped (1567)
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+  ✓ [mock] › e2e/investor-withdraw.spec.ts › FE-23: Nhà đầu tư rút VNDB › Nhà đầu tư rút 1 VNDB tới ví NB001, thấy dòng "Hoàn tất"
+  90 passed, 7 skipped (1.9m)
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+  26 passed, 2 skipped (41.6s)
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
+```
+
+Vitest 1493 gồm 15 ca mới của `fix-09.test.ts`; không ca nào đỏ. Trong `fe-23-payment-withdraw` ca bị bỏ qua là ca 14 (bộ này
+không đặt `TEST_HARDHAT_RPC`; ca 14 chạy riêng ở mục 1.3), ca 13 Postgres chạy. WARN 3 của luật kiến trúc như mốc. Log gửi kèm
+(không commit): `20261106_fix09_run_local_all.log` (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã che) và riêng đoạn từ
+"EVM - E2E PROJECT HARDHAT" tới hết: `20261106_fix09_evm_e2e.log`. Không chạy `contracts`.
 
 ### 1.2 Unit test mới `app/test/fix-09.test.ts` (môi trường `node`, 15 ca, không gọi mạng)
 

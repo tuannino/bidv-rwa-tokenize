@@ -59,11 +59,10 @@
     "UIUX-02",
     "FIX-03",
     "FIX-04",
-    "FIX-05"
-  ],
-  "inProgress": [
+    "FIX-05",
     "FIX-09"
   ],
+  "inProgress": [],
   "planned": [
     "AU-01",
     "AU-02",
