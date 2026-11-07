@@ -135,6 +135,15 @@
 
   /* FE-UX-07a: chữ của nút trắng trên nền tối ở trang giới thiệu (--g700 bản chốt, 7,6:1 trên --tile-hl-ink); Sáng, Tối như nhau. */
   --lp-deep: #115d5c;
+
+  /* FE-UX-07b: thanh đầu theo bản chốt (shell.css:180-183, :283; c.css:110). Nền và bóng đổi theo --hp. */
+  --hdr-on:          rgb(3 46 45 / 0.9);
+  --hdr-shadow:      rgb(1 40 39);
+  --hdr-accent-from: #6fd8d0;
+  --hdr-accent-to:   #fec629;
+  --hdr-gold-from:   #e0b44a;
+  --hdr-gold-to:     #c9971c;
+  --hdr-gold-ink:    #1d1300;
 }
 
 .dark {
@@ -192,6 +201,10 @@
   --tile-gold-sub: #c9b98f;
   --tile-gold-ring: rgb(224 180 74 / 0.2);
   --tile-gold-deco: rgb(224 180 74 / 0.14);
+
+  /* FE-UX-07b: nền thanh đầu đậm hơn; bóng thành viền tóc trắng (shell.css:124, :182). */
+  --hdr-on:          rgb(2 30 29 / 0.92);
+  --hdr-shadow:      rgb(255 255 255);
 }
 
 @layer base {

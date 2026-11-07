@@ -35,7 +35,7 @@ export const DEFAULT_CHAIN: ChainKey = 'mock';
 export const CHAINS: Record<ChainKey, ChainInfo> = {
   'hardhat-local': {
     key: 'hardhat-local',
-    label: 'Hardhat Local',
+    label: 'Private Chain',
     family: 'evm',
     chainId: 31337,
     defaultRpcUrl: 'http://127.0.0.1:8545',
