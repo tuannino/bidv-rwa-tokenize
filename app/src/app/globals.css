@@ -132,6 +132,9 @@
   --tile-gold-sub: #5a4a1f;
   --tile-gold-ring: rgb(201 151 28 / 0.22);
   --tile-gold-deco: rgb(201 151 28 / 0.16);
+
+  /* FE-UX-07a: chữ của nút trắng trên nền tối ở trang giới thiệu (--g700 bản chốt, 7,6:1 trên --tile-hl-ink); Sáng, Tối như nhau. */
+  --lp-deep: #115d5c;
 }
 
 .dark {

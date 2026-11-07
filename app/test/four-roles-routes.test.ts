@@ -27,6 +27,9 @@ const AREA_DIR: Record<Area, string> = {
   account: '(account)',
 };
 
+/** FE-UX-07a QĐ-2: nhóm route công khai duy nhất (trang giới thiệu), không thuộc khu vực nào. */
+const PUBLIC_DIR = '(public)';
+
 /**
  * Quét mọi `page.tsx` trong một route-group và suy ra đường dẫn URL.
  *
@@ -235,6 +238,29 @@ describe('FE-20 ca 7 — ba màn đã có vẫn chạy', () => {
     expect(groups).not.toContain('(audit)');
     expect(groups).not.toContain('(admin)');
     expect(groups).not.toContain('(client)');
-    expect(groups.sort()).toEqual(AREAS.map((area) => AREA_DIR[area]).sort());
+    // FE-UX-07a QĐ-2: cộng đúng một nhóm công khai `(public)`.
+    expect(groups.sort()).toEqual([...AREAS.map((area) => AREA_DIR[area]), PUBLIC_DIR].sort());
+  });
+});
+
+// ===========================================================================
+//  FE-UX-07a QĐ-2: nhóm công khai `(public)`, ngoại lệ duy nhất, không cổng
+// ===========================================================================
+
+describe('FE-UX-07a: nhóm công khai chỉ chứa trang giới thiệu', () => {
+  it('các trang trong (public) đúng bằng /gioi-thieu', () => {
+    expect(routesIn(PUBLIC_DIR)).toEqual(['/gioi-thieu']);
+  });
+
+  it('layout của (public) không gắn cổng nào', () => {
+    const source = readFileSync(path.join(APP_DIR, PUBLIC_DIR, 'layout.tsx'), 'utf8');
+    expect(source).not.toContain('ChannelGuard');
+    expect(source).not.toContain('AREA_GATES');
+  });
+
+  it('không đường dẫn nào của (public) trùng đường dẫn của khu vực có cổng', () => {
+    for (const route of routesIn(PUBLIC_DIR)) {
+      expect(ALL_ROUTES, `${route} có ở cả (public) và một khu vực có cổng`).not.toContain(route);
+    }
   });
 });

@@ -1,0 +1,220 @@
+/* FE-UX-07a: chuyển động và trang trí riêng của trang giới thiệu (bản chốt index.html dòng 10-156,
+   c.css dòng 586-589). Chỉ dùng var(...), không mã màu. Quy tắc prefers-reduced-motion toàn cục ở
+   globals.css tắt mọi animation và transition. */
+
+/* Gốc trang `.root` (thẻ main): bấm neo thì cuộn mượt, trừ khi người dùng chọn giảm chuyển động. */
+:global(html):has(.root) {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  :global(html):has(.root) {
+    scroll-behavior: auto;
+  }
+}
+
+/* Đường gió chạy ngang cảnh tua-bin. */
+.streak {
+  stroke-dasharray: 90 700;
+  animation: streak 7s linear infinite;
+}
+@keyframes streak {
+  from { stroke-dashoffset: 790; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Khung video: viền gradient, quầng sáng phía sau. */
+.player {
+  background: linear-gradient(135deg, var(--tile-hl-bar), color-mix(in oklab, var(--tile-hl-ink) 18%, transparent) 40%, var(--ring));
+}
+.player::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  border-radius: 60px;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--accent) 35%, transparent), transparent);
+  filter: blur(30px);
+  animation: glow 6s ease-in-out infinite alternate;
+}
+@keyframes glow {
+  to { opacity: .5; transform: scale(.94); }
+}
+
+/* Vòng sóng quanh nút phát. */
+.bigplay::before,
+.bigplay::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--tile-hl-bar) 60%, transparent);
+  animation: ring 2.4s var(--ease-wind) infinite;
+}
+.bigplay::after {
+  animation-delay: 1.2s;
+}
+@keyframes ring {
+  0% { transform: scale(1); opacity: .6; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+/* Gợi ý cuộn ở đáy màn đầu. */
+.hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  width: 26px;
+  height: 40px;
+  translate: -50% 0;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklab, var(--tile-hl-ink) 50%, transparent);
+}
+.hint::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 4px;
+  height: 8px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--tile-hl-ink);
+  animation: hint 1.8s var(--ease-wind) infinite;
+}
+@keyframes hint {
+  0% { opacity: 0; transform: translateY(-4px); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(12px); }
+}
+
+/* Năm chặng: ba chấm chạy dọc đường ray. Mỗi chấm là một lớp rộng bằng đường ray, dịch bằng
+   translate theo phần trăm bề rộng của chính nó (chỉ đổi translate, opacity). */
+.pulse {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 12px;
+  animation: travel 5s var(--ease-wind) infinite;
+}
+.pulse::before {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent) 20%, transparent);
+}
+.pulse2 {
+  animation-delay: 1.7s;
+}
+.pulse2::before {
+  background: var(--primary);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 20%, transparent);
+}
+.pulse3 {
+  animation-delay: 3.4s;
+}
+@keyframes travel {
+  0% { translate: 0 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { translate: 98% 0; opacity: 0; }
+}
+
+/* Thị sai khi cuộn: cảnh trời màn đầu trôi chậm và mờ dần, cảnh trong ảnh thẻ dự án trôi ngang. */
+@supports (animation-timeline: scroll()) {
+  .sky {
+    animation: sky linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 100vh;
+  }
+  .pic {
+    animation: pic linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+  @keyframes sky {
+    to { transform: translateY(28%) scale(1.06); opacity: .4; }
+  }
+  @keyframes pic {
+    from { transform: translateX(-18px); }
+    to { transform: translateX(18px); }
+  }
+}
+
+/* Thanh trên: nền kính mờ; ẩn thì dịch lên và mờ đi (QĐ-10). Tab vào thanh đang ẩn thì hiện lại, để
+   tiêu điểm không nằm ngoài màn hình. */
+.bar {
+  background: color-mix(in oklab, var(--card) 75%, transparent);
+  backdrop-filter: blur(12px);
+  transition: translate .5s var(--ease-wind), opacity .5s var(--ease-wind);
+}
+.bar[data-hidden] {
+  translate: -50% -140%;
+  opacity: 0;
+}
+.bar[data-hidden]:has(:focus-visible) {
+  translate: -50% 0;
+  opacity: 1;
+}
+
+/* Nút về đầu trang (QĐ-8): góc phải ngay dưới thanh trên, nằm trong lề phải từ 1304 px. Lúc nghỉ mờ,
+   không làm mờ nền phía sau; di chuột hoặc tiêu điểm thì rõ. Ẩn thì trong suốt, dịch 8 px. */
+.toTop {
+  right: max(12px, calc((100% - 1200px) / 2 - 56px));
+  background: color-mix(in oklab, var(--card) 40%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent);
+  opacity: 0;
+  translate: 0 8px;
+  pointer-events: none;
+  transition: opacity .3s var(--ease-wind), translate .3s var(--ease-wind), background-color .3s var(--ease-wind);
+}
+.toTop[data-show] {
+  opacity: .6;
+  translate: 0 0;
+  pointer-events: auto;
+}
+.toTop[data-show]:hover,
+.toTop[data-show]:focus-visible {
+  opacity: 1;
+  background: color-mix(in oklab, var(--card) 85%, transparent);
+}
+.toTop:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Nút phát phóng to khi di chuột lên khung. Đường cong lò xo viết thẳng vì `--ease-spring` ở
+   `@theme inline` chỉ được Tailwind chèn vào lớp `ease-spring`, không có biến CSS lúc chạy. */
+.bigplay {
+  transition: scale .5s cubic-bezier(.34, 1.4, .64, 1);
+}
+@media (hover: hover) {
+  :where(button):hover > .bigplay {
+    scale: 1.08;
+  }
+}
+
+/* Năm chặng: đường ray, bong bóng ảnh (viền nền trang 8 px che đường ray), nghiêng nhẹ khi di chuột. */
+.rail {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  opacity: .25;
+}
+.bubble {
+  box-shadow: 0 0 0 8px var(--background), 0 18px 34px -18px color-mix(in oklab, var(--primary) 50%, transparent);
+  transition: translate .5s cubic-bezier(.34, 1.4, .64, 1), rotate .5s cubic-bezier(.34, 1.4, .64, 1);
+}
+@media (hover: hover) {
+  :where(div):hover > .bubble {
+    translate: 0 -6px;
+    rotate: -6deg;
+  }
+}
+
+/* Chữ lớn ở chân trang: chữ gradient xanh sang vàng. */
+.word {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background-clip: text;
+  color: transparent;
+}
