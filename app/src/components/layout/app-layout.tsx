@@ -66,7 +66,7 @@ export async function AppLayout({ children, breadcrumbs }: AppLayoutProps) {
       {/* `tabIndex={-1}`: khi ngăn kéo mở, mọi phần tử con có `inert` thì Chrome cho Tab vào chính vùng
           cuộn này; bỏ nó khỏi thứ tự Tab để tiêu điểm không ra khỏi ngăn kéo. */}
       <div tabIndex={-1} className="flex min-w-0 flex-1 flex-col overflow-y-auto outline-none">
-        <Header breadcrumbs={breadcrumbs} />
+        <Header breadcrumbs={breadcrumbs} logo={<BidvLogo variant="compact" />} />
         <ShellMain>{children}</ShellMain>
       </div>
     </div>
