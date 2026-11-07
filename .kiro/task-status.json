@@ -81,7 +81,9 @@
     "FIX-08",
     "FE-UX-07a"
   ],
-  "inProgress": [],
+  "inProgress": [
+    "FE-UX-07b"
+  ],
   "planned": [
     "AU-01",
     "AU-02",
@@ -94,7 +96,6 @@
     "SC-04",
     "SC-08",
     "IN-03",
-    "FE-UX-07b",
     "FE-UX-08"
   ],
   "_reservedByFE20": {
