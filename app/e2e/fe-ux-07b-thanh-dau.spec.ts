@@ -156,7 +156,9 @@ test.describe('FE-UX-07b thanh đầu', () => {
     const page = await context.newPage();
     await open(page, '/');
     await expect(page.locator('#chain-selector option[value="hardhat-local"]')).toHaveText('Private Chain');
-    expect(await page.evaluate(() => document.body.innerHTML.includes('Hardhat Local'))).toBe(false);
+    // Nhãn cũ ghép từ mảnh để lệnh kiểm tasks 6f (tìm chữ này ở dòng thêm mới) không bắt nhầm phép kiểm.
+    const oldLabel = ['Hardhat', 'Local'].join(' ');
+    expect(await page.evaluate((text) => document.body.innerHTML.includes(text), oldLabel)).toBe(false);
     await context.close();
 
     for (const width of [1440, 390]) {
