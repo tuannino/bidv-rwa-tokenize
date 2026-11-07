@@ -38,7 +38,7 @@ bốn bề rộng (lệch 0 px), cao, đỉnh, bo, đệm, nền, bóng, chữ t
 đều làm unit đỏ (mục 1.3). Mức rủi ro: thấp (một thành phần khung, không đổi quyền, dữ liệu, action; nhãn chain chỉ là chữ).
 
 UserGuide: "Chốt tại"; Phần 3 mục 3.0 (đoạn "Thanh đầu": hai trạng thái khi cuộn, bốn trạng thái nút ví; đoạn "Đáy": câu
-"Private Chain"); dòng lịch sử 07/11/2026. task-status: FE-UX-07b `done`. `docs/tech-report.md` không đổi (không marker nào
+"Private Chain"); dòng lịch sử 07/11/2026. task-status: FE-UX-07b `inProgress` khi chạy kiểm, rồi `done`. `docs/tech-report.md` không đổi (không marker nào
 dời dòng).
 
 ### 0.2 Việc cần Owner quyết
@@ -52,12 +52,32 @@ dời dòng).
 
 ### 1.1 Lệnh và kết quả
 
-`FE-UX-07b` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres bật.
+`FE-UX-07b` ở `inProgress` của `.kiro/task-status.json` khi chạy. Chạy khi cổng e2e trống (máy chủ mới), Postgres bật, trên
+HEAD `ec392b8` (mã như `98fe661`, thêm tài liệu), 03:33:08Z đến 03:46:03Z (07/11/2026, UTC).
 
 ```text
 $ TEST_DATABASE_URL=postgresql://bidv:bidv@127.0.0.1:5432/bidv_rwa bash scripts/run-local-all.sh arch markers checkpoint app build e2e evm
-(điền sau khi chạy)
+  PASS: 20   FAIL: 0   WARN: 3          (luật kiến trúc; 3 cảnh báo có từ trước, không thuộc tệp của task)
+  => PASS: LỚP 3 - ĐIỂM CẮM (marker)
+  => PASS: LỚP 3 - KHUÔN CHECKPOINT     (FE-UX-07b, mục 0: 36/60 dòng, 14 dòng / 14 điều kiện)
+  => PASS: APP - TYPECHECK
+  => PASS: APP - LINT                   (1 cảnh báo có từ trước ở test/helpers/fake-fireblocks.ts)
+ Test Files  91 passed | 11 skipped (102)
+      Tests  1826 passed | 74 skipped (1900)
+  => PASS: APP - VITEST
+  => PASS: APP - BUILD BẢN PHÁT HÀNH
+  174 passed (8.5m)
+  => PASS: APP - E2E (PLAYWRIGHT)
+  => PASS: EVM - BUILD BẢN HARDHAT
+  => PASS: EVM - DỰNG CHUỖI MỚI
+  26 passed (42.1s)
+  => PASS: EVM - E2E PROJECT HARDHAT
+  => ĐẠT các phần đã chạy: arch markers checkpoint app build e2e evm
+EXIT=0
 ```
+
+Lượt chạy đầu (03:27Z) dừng giữa phần e2e vì container khởi động lại (mọi phần trước đó đạt); chạy lại toàn bộ như trên. Bản
+build của lượt này cho CSS dùng chung 21.239 B, như mục 4.1.
 
 Log đầy đủ (dòng khoá ký Hardhat #0 trong env máy chủ cục bộ đã che) và riêng đoạn từ "EVM - E2E PROJECT HARDHAT" tới hết gửi
 kèm, không commit.
